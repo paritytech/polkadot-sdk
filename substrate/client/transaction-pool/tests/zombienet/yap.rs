@@ -114,7 +114,7 @@ impl Network for YapNetwork {
 				let first_node = pc_nodes_iter.next();
 				let p = p
 					.with_id(self.pc_config.id)
-					.cumulus_based(true)
+					.cumulus_based(self.pc_config.cumulus_based)
 					.with_chain_spec_path(self.pc_config.chain_spec_path.as_str())
 					.with_default_command(self.pc_config.default_command.as_str())
 					.with_collator(|new_node| {

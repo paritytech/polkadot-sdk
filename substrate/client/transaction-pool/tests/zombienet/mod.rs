@@ -42,7 +42,7 @@ const DEFAULT_PC_NODE_RPC_PORT: u16 = 8844;
 /// can be stored in dedicated functions that would setup the differences
 /// accordingly, part of a single `TxPoolPlayGroundNetwork` struct.
 
-#[derive(Default, Builder, Debug)]
+#[derive(Default, Builder, Debug, Clone)]
 pub struct RelaychainConfig {
 	default_command: String,
 	chain: String,
@@ -54,12 +54,12 @@ impl RelaychainConfig {
 	}
 }
 
-#[derive(Default, Builder, Debug)]
+#[derive(Default, Builder, Debug, Clone)]
 pub struct ParachainConfig {
 	default_command: String,
 	chain_spec_path: String,
 	cumulus_based: bool,
-	pub id: ParaId,
+	id: ParaId,
 }
 
 impl ParachainConfig {
@@ -74,7 +74,7 @@ impl ParachainConfig {
 }
 
 /// Wrapper over a substrate node managed by zombienet.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Node {
 	validator: bool,
 	name: String,

@@ -50,7 +50,7 @@ chrono = { workspace = true }
 cmd_lib = { workspace = true }
 criterion = { workspace = true, default-features = true }
 cumulus-client-cli = { workspace = true, default-features = true }
-derive_builder = { workspace = true }
+derive_builder = { workspace = true, features = ["alloc"] }
 env_logger = { workspace = true }
 log = { workspace = true }
 polkadot-cli = { workspace = true, default-features = true }

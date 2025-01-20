@@ -12,7 +12,7 @@ use anyhow::anyhow;
 use derive_builder::Builder;
 use which::which;
 
-#[derive(Builder, Debug, Default)]
+#[derive(Builder, Debug, Default, Clone)]
 pub struct OldPoolNetwork {
 	rc_config: RelaychainConfig,
 	pc_config: ParachainConfig,
@@ -115,7 +115,7 @@ impl Network for OldPoolNetwork {
 				// through the following collators through folding.
 				let p = p
 					.with_id(self.pc_config.id)
-					.cumulus_based(true)
+					.cumulus_based(self.pc_config.cumulus_based)
 					.with_chain_spec_path(self.pc_config.chain_spec_path.as_str())
 					.with_default_command(self.pc_config.default_command.as_str())
 					.with_collator(|new_node| {
