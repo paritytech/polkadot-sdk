@@ -121,8 +121,7 @@ where
 	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
 
 		let inherent_data_providers = move |_, _| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			Ok(timestamp)
+			Ok(sp_timestamp::InherentDataProvider::from_system_time())
 		};
 		let registry = config.prometheus_registry();
 		let spawner = task_manager.spawn_essential_handle();
