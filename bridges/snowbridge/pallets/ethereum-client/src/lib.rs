@@ -278,7 +278,7 @@ pub mod pallet {
 			// This is used for ancestry proofs in ExecutionHeader updates. This verifies the
 			// BeaconState: the beacon state root is the tree root; the `block_roots` hash is the
 			// tree leaf.
-			let block_roots_g_index =
+			let block_roots_gindex =
 				Self::block_roots_gindex_at_slot(update.header.slot, fork_versions);
 			ensure!(
 				verify_merkle_branch(
