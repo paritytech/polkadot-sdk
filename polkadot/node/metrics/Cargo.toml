@@ -18,7 +18,7 @@ gum = { workspace = true, default-features = true }
 
 metered = { features = ["futures_channel"], workspace = true }
 # Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
-sc-cli = { workspace = true, default-features = true }
+sc-cli = { workspace = true }
 sc-service = { workspace = true, default-features = true }
 
 bs58 = { features = ["alloc"], workspace = true, default-features = true }
