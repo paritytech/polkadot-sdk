@@ -420,12 +420,12 @@ pub fn backing_state<T: initializer::Config>(
 	{
 		shared::migration::v0::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
 			now,
-			config.async_backing_params.allowed_ancestry_len,
+			config.scheduler_params.lookahead.saturating_sub(1),
 		)
 	} else {
 		shared::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
 			now,
-			config.async_backing_params.allowed_ancestry_len,
+			config.scheduler_params.lookahead.saturating_sub(1),
 		)
 	};
 

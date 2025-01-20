@@ -87,7 +87,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		state_root: Hash,
 		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
 		number: BlockNumber,
-		max_ancestry_len: u32,
+		max_ancestry_len: usize,
 	) {
 		if self.buffer.iter().any(|info| info.relay_parent == relay_parent) {
 			// Already present.
@@ -96,13 +96,10 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 
 		let claim_queue = transpose_claim_queue(claim_queue);
 
-		// + 1 for the most recent block, which is always allowed.
-		let buffer_size_limit = max_ancestry_len as usize + 1;
-
 		self.buffer.push_back(RelayParentInfo { relay_parent, state_root, claim_queue });
 
 		self.latest_number = number;
-		while self.buffer.len() > buffer_size_limit {
+		while self.buffer.len() > max_ancestry_len {
 			let _ = self.buffer.pop_front();
 		}
 
