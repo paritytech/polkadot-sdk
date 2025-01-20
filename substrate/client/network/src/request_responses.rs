@@ -843,8 +843,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								None => {
 									log::warn!(
 										target: "sub-libp2p",
-										"Received `RequestResponseEvent::Message` with unexpected request id {:?}",
+										"Received `RequestResponseEvent::Message` with unexpected request id {:?} from {:?}",
 										request_id,
+										peer
 									);
 									continue
 								},
@@ -915,8 +916,10 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								None => {
 									log::warn!(
 										target: "sub-libp2p",
-										"Received `RequestResponseEvent::Message` with unexpected request id {:?}",
+										"Received `RequestResponseEvent::OutboundFailure` with unexpected request id {:?} error {:?} from {:?}",
 										request_id,
+										error,
+										peer
 									);
 									continue
 								},
