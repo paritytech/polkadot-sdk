@@ -205,9 +205,9 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
+			Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess, NoOpPoll,
 			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-			UnfilteredDispatchable,
+			UnfilteredDispatchable, VariantCount, VariantCountOf,
 		},
 	};
 
@@ -226,7 +226,10 @@ pub mod prelude {
 	/// All crypto related things.
 	pub use super::cryptography::*;
 
-	/// All arithmetic types used for safe math.
+	/// All account related things.
+	pub use super::account::*;
+
+	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
 	/// All account related things.
@@ -330,7 +333,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, hypothetically, storage_alias,
+		assert_storage_noop, ensure, hypothetically, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
@@ -576,6 +579,16 @@ pub mod cryptography {
 pub mod account {
 	pub use frame_support::traits::{ChangeMembers, EitherOfDiverse, InitializeMembers};
 	pub use sp_runtime::traits::IdentifyAccount;
+}
+
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+	};
+	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
