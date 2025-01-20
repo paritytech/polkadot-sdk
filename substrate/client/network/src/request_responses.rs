@@ -846,7 +846,6 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										"Received `RequestResponseEvent::Message` with unexpected request id {:?}",
 										request_id,
 									);
-									// debug_assert!(false);
 									continue
 								},
 							};
@@ -919,7 +918,6 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										"Received `RequestResponseEvent::Message` with unexpected request id {:?}",
 										request_id,
 									);
-									// debug_assert!(false);
 									continue
 								},
 							};
