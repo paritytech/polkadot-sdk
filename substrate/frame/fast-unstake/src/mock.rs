@@ -105,6 +105,7 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
@@ -223,8 +224,9 @@ impl ExtBuilder {
 				.clone()
 				.into_iter()
 				.map(|(stash, _, balance)| (stash, balance * 2))
-				.chain(validators_range.clone().map(|x| (x, 7 + 100)))
-				.chain(nominators_range.clone().map(|x| (x, 7 + 100)))
+				// give stakers enough balance for stake, ed and fast unstake deposit.
+				.chain(validators_range.clone().map(|x| (x, 7 + 1 + 100)))
+				.chain(nominators_range.clone().map(|x| (x, 7 + 1 + 100)))
 				.collect::<Vec<_>>(),
 			..Default::default()
 		}
