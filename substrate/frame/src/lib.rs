@@ -535,16 +535,6 @@ pub mod traits {
 	pub use sp_runtime::traits::*;
 }
 
-/// All account management related traits.
-///
-/// This is already part of the [`prelude`].
-pub mod account {
-	pub use frame_support::traits::{
-		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
-	};
-	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
-}
-
 /// The arithmetic types used for safe math.
 ///
 /// This is already part of the [`prelude`].
@@ -588,6 +578,16 @@ pub mod transaction {
 		},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
+}
+
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+	};
+	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
