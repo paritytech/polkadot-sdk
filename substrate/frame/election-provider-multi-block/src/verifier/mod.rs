@@ -74,8 +74,6 @@ mod tests;
 // internal imports
 use crate::SupportsOf;
 use frame_election_provider_support::PageIndex;
-use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*};

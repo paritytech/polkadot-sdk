@@ -18,8 +18,8 @@
 // TODO: would love to ditch this, too big to handle here.
 
 use crate::{self as multi_block};
-use frame_support::dispatch::Weight;
-use sp_runtime::traits::Zero;
+use frame_support::weights::Weight;
+use sp_runtime::traits::{Bounded, Zero};
 
 frame_support::parameter_types! {
 	pub static MockWeightInfo: bool = false;
@@ -87,7 +87,8 @@ impl multi_block::weights::WeightInfo for DualMockWeightInfo {
 		if MockWeightInfo::get() {
 			// 10 base
 			// 5 per edge.
-			(10 as Weight).saturating_add((5 as Weight).saturating_mul(a as Weight))
+			let ref_time = 10 + 5 * a;
+			Weight::from_parts(ref_time as u64, Default::default())
 		} else {
 			<() as multi_block::weights::WeightInfo>::submit_unsigned(v, t, a, d)
 		}
@@ -96,7 +97,8 @@ impl multi_block::weights::WeightInfo for DualMockWeightInfo {
 		if MockWeightInfo::get() {
 			// 10 base
 			// 5 per edge.
-			(10 as Weight).saturating_add((5 as Weight).saturating_mul(a as Weight))
+			let ref_time = 10 + 5 * a;
+			Weight::from_parts(ref_time as u64, Default::default())
 		} else {
 			<() as multi_block::weights::WeightInfo>::feasibility_check(v, t, a, d)
 		}

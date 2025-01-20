@@ -268,7 +268,7 @@ fn remove_weakest_sorted_impl(count: usize) -> TokenStream2 {
 			let filed_value = self.#filed
 				.last()
 				.map(|(x, ..)| voter_stake(x))
-				.unwrap_or_else(|| _feps::sp_arithmetic::traits::Bounded::max_value());
+				.unwrap_or_else(|| _fepsp::sp_arithmetic::traits::Bounded::max_value());
 			if filed_value < minimum {
 				minimum = filed_value;
 				minimum_filed = #c
@@ -290,7 +290,7 @@ fn remove_weakest_sorted_impl(count: usize) -> TokenStream2 {
 		let mut minimum = self.#first_filed
 			.last()
 			.map(|(x, ..)| voter_stake(x))
-			.unwrap_or_else(|| _feps::sp_arithmetic::traits::Bounded::max_value());
+			.unwrap_or_else(|| _fepsp::sp_arithmetic::traits::Bounded::max_value());
 
 		#( #check_minimum )*
 

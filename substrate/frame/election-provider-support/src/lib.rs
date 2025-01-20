@@ -804,6 +804,26 @@ pub struct BoundedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>>(
 	pub BoundedVec<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>,
 );
 
+pub trait TryFromUnboundedPagedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {
+	fn try_from_unbounded_paged(
+		self,
+	) -> Result<Vec<BoundedSupports<AccountId, BOuter, BInner>>, crate::Error>
+	where
+		Self: Sized;
+}
+
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>>
+	TryFromUnboundedPagedSupports<AccountId, BOuter, BInner> for Vec<Supports<AccountId>>
+{
+	fn try_from_unbounded_paged(
+		self,
+	) -> Result<Vec<BoundedSupports<AccountId, BOuter, BInner>>, crate::Error> {
+		self.into_iter()
+			.map(|s| s.try_into().map_err(|_| crate::Error::BoundsExceeded))
+			.collect::<Result<Vec<_>, _>>()
+	}
+}
+
 impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> sp_npos_elections::EvaluateSupport
 	for BoundedSupports<AccountId, BOuter, BInner>
 {
@@ -877,12 +897,12 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> IntoIterator
 	}
 }
 
-impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> TryFrom<sp_npos_elections::Supports<AccountId>>
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> TryFrom<Supports<AccountId>>
 	for BoundedSupports<AccountId, BOuter, BInner>
 {
 	type Error = crate::Error;
 
-	fn try_from(supports: sp_npos_elections::Supports<AccountId>) -> Result<Self, Self::Error> {
+	fn try_from(supports: Supports<AccountId>) -> Result<Self, Self::Error> {
 		// optimization note: pre-allocate outer bounded vec.
 		let mut outer_bounded_supports = BoundedVec::<
 			(AccountId, BoundedSupport<AccountId, BInner>),

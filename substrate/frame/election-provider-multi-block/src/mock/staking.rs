@@ -17,9 +17,12 @@
 
 use super::{AccountId, MaxVotesPerVoter, Runtime};
 use crate::VoterOf;
-use frame_election_provider_support::{data_provider, ElectionDataProvider, PageIndex, VoteWeight};
-use frame_support::{bounded_vec, pallet_prelude::*, BoundedVec};
+use frame_election_provider_support::{
+	data_provider, DataProviderBounds, ElectionDataProvider, PageIndex, VoteWeight,
+};
+use frame_support::{pallet_prelude::*, BoundedVec};
 use frame_system::pallet_prelude::*;
+use sp_core::bounded_vec;
 use sp_std::prelude::*;
 
 frame_support::parameter_types! {
@@ -54,7 +57,7 @@ impl ElectionDataProvider for MockStaking {
 	type MaxVotesPerVoter = MaxVotesPerVoter;
 
 	fn electable_targets(
-		maybe_max_len: Option<usize>,
+		bounds: DataProviderBounds,
 		remaining: PageIndex,
 	) -> data_provider::Result<Vec<AccountId>> {
 		let targets = Targets::get();
@@ -62,7 +65,7 @@ impl ElectionDataProvider for MockStaking {
 		if remaining != 0 {
 			return Err("targets shall not have more than a single page")
 		}
-		if maybe_max_len.map_or(false, |max_len| targets.len() > max_len) {
+		if bounds.slice_exhausted(&targets) {
 			return Err("Targets too big")
 		}
 
@@ -70,7 +73,7 @@ impl ElectionDataProvider for MockStaking {
 	}
 
 	fn electing_voters(
-		maybe_max_len: Option<usize>,
+		bounds: DataProviderBounds,
 		remaining: PageIndex,
 	) -> data_provider::Result<
 		Vec<(AccountId, VoteWeight, BoundedVec<AccountId, Self::MaxVotesPerVoter>)>,
@@ -83,7 +86,7 @@ impl ElectionDataProvider for MockStaking {
 		}
 
 		// take as many as you can.
-		if let Some(max_len) = maybe_max_len {
+		if let Some(max_len) = bounds.count.map(|c| c.0 as usize) {
 			voters.truncate(max_len)
 		}
 
@@ -111,7 +114,7 @@ impl ElectionDataProvider for MockStaking {
 		now + EpochLength::get() - now % EpochLength::get()
 	}
 
-	#[cfg(any(feature = "runtime-benchmarks", test))]
+	#[cfg(feature = "runtime-benchmarks")]
 	fn put_snapshot(
 		voters: Vec<(AccountId, VoteWeight, BoundedVec<AccountId, MaxVotesPerVoter>)>,
 		targets: Vec<AccountId>,
@@ -121,13 +124,13 @@ impl ElectionDataProvider for MockStaking {
 		Voters::set(voters);
 	}
 
-	#[cfg(any(feature = "runtime-benchmarks", test))]
+	#[cfg(feature = "runtime-benchmarks")]
 	fn clear() {
 		Targets::set(vec![]);
 		Voters::set(vec![]);
 	}
 
-	#[cfg(any(feature = "runtime-benchmarks", test))]
+	#[cfg(feature = "runtime-benchmarks")]
 	fn add_voter(
 		voter: AccountId,
 		weight: VoteWeight,
@@ -138,7 +141,7 @@ impl ElectionDataProvider for MockStaking {
 		Voters::set(current);
 	}
 
-	#[cfg(any(feature = "runtime-benchmarks", test))]
+	#[cfg(feature = "runtime-benchmarks")]
 	fn add_target(target: AccountId) {
 		use super::ExistentialDeposit;
 
@@ -157,7 +160,7 @@ impl ElectionDataProvider for MockStaking {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::ExtBuilder;
+	use crate::mock::{bound_by_count, ExtBuilder};
 
 	#[test]
 	fn targets() {
@@ -165,29 +168,29 @@ mod tests {
 			assert_eq!(Targets::get().len(), 4);
 
 			// any non-zero page is error
-			assert!(MockStaking::electable_targets(None, 1).is_err());
-			assert!(MockStaking::electable_targets(None, 2).is_err());
+			assert!(MockStaking::electable_targets(bound_by_count(None), 1).is_err());
+			assert!(MockStaking::electable_targets(bound_by_count(None), 2).is_err());
 
 			// but 0 is fine.
-			assert_eq!(MockStaking::electable_targets(None, 0).unwrap().len(), 4);
+			assert_eq!(MockStaking::electable_targets(bound_by_count(None), 0).unwrap().len(), 4);
 
 			// fetch less targets is error.
-			assert!(MockStaking::electable_targets(Some(2), 0).is_err());
+			assert!(MockStaking::electable_targets(bound_by_count(Some(2)), 0).is_err());
 
 			// more targets is fine.
-			assert!(MockStaking::electable_targets(Some(4), 0).is_ok());
-			assert!(MockStaking::electable_targets(Some(5), 0).is_ok());
+			assert!(MockStaking::electable_targets(bound_by_count(Some(4)), 0).is_ok());
+			assert!(MockStaking::electable_targets(bound_by_count(Some(5)), 0).is_ok());
 		});
 	}
 
 	#[test]
 	fn multi_page_votes() {
 		ExtBuilder::full().build_and_execute(|| {
-			assert_eq!(MockStaking::electing_voters(None, 0).unwrap().len(), 12);
+			assert_eq!(MockStaking::electing_voters(bound_by_count(None), 0).unwrap().len(), 12);
 			assert!(LastIteratedVoterIndex::get().is_none());
 
 			assert_eq!(
-				MockStaking::electing_voters(Some(4), 0)
+				MockStaking::electing_voters(bound_by_count(Some(4)), 0)
 					.unwrap()
 					.into_iter()
 					.map(|(x, _, _)| x)
@@ -197,7 +200,7 @@ mod tests {
 			assert!(LastIteratedVoterIndex::get().is_none());
 
 			assert_eq!(
-				MockStaking::electing_voters(Some(4), 2)
+				MockStaking::electing_voters(bound_by_count(Some(4)), 2)
 					.unwrap()
 					.into_iter()
 					.map(|(x, _, _)| x)
@@ -207,7 +210,7 @@ mod tests {
 			assert_eq!(LastIteratedVoterIndex::get().unwrap(), 4);
 
 			assert_eq!(
-				MockStaking::electing_voters(Some(4), 1)
+				MockStaking::electing_voters(bound_by_count(Some(4)), 1)
 					.unwrap()
 					.into_iter()
 					.map(|(x, _, _)| x)
@@ -217,7 +220,7 @@ mod tests {
 			assert_eq!(LastIteratedVoterIndex::get().unwrap(), 8);
 
 			assert_eq!(
-				MockStaking::electing_voters(Some(4), 0)
+				MockStaking::electing_voters(bound_by_count(Some(4)), 0)
 					.unwrap()
 					.into_iter()
 					.map(|(x, _, _)| x)

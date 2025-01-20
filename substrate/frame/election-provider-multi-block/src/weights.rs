@@ -70,7 +70,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking ForceEra (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:1 w:0)
 	fn on_initialize_nothing() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: Staking CounterForValidators (r:1 w:0)
 	// Storage: Staking Validators (r:2 w:0)
@@ -86,7 +86,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ElectionProviderMultiPhase Snapshot (r:0 w:1)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:0 w:1)
 	fn on_initialize_open_signed() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: Staking CounterForValidators (r:1 w:0)
 	// Storage: Staking Validators (r:2 w:0)
@@ -102,21 +102,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ElectionProviderMultiPhase Snapshot (r:0 w:1)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:0 w:1)
 	fn on_initialize_open_unsigned_with_snapshot() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase Round (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:0 w:1)
 	fn on_initialize_open_unsigned_without_snapshot() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: System Account (r:1 w:1)
 	// Storage: ElectionProviderMultiPhase QueuedSolution (r:0 w:1)
 	fn finalize_signed_phase_accept_solution() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: System Account (r:1 w:1)
 	fn finalize_signed_phase_reject_solution() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase SignedSubmissionIndices (r:1 w:1)
 	// Storage: ElectionProviderMultiPhase SignedSubmissionNextIndex (r:1 w:1)
@@ -128,7 +128,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ElectionProviderMultiPhase Snapshot (r:0 w:1)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:0 w:1)
 	fn elect_queued(v: u32, t: u32, a: u32, d: u32, ) -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase SignedSubmissionIndices (r:1 w:1)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:1 w:0)
@@ -137,7 +137,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ElectionProviderMultiPhase SignedSubmissionNextIndex (r:1 w:1)
 	// Storage: ElectionProviderMultiPhase SignedSubmissionsMap (r:0 w:1)
 	fn submit(c: u32, ) -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase Round (r:1 w:0)
@@ -147,14 +147,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ElectionProviderMultiPhase MinimumUntrustedScore (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase Snapshot (r:1 w:0)
 	fn submit_unsigned(v: u32, t: u32, a: u32, d: u32, ) -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase Round (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase DesiredTargets (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase MinimumUntrustedScore (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase Snapshot (r:1 w:0)
 	fn feasibility_check(v: u32, t: u32, a: u32, d: u32, ) -> Weight {
-		todo!()
+		Default::default()
 	}
 }
 
@@ -169,7 +169,7 @@ impl WeightInfo for () {
 	// Storage: Staking ForceEra (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:1 w:0)
 	fn on_initialize_nothing() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: Staking CounterForValidators (r:1 w:0)
 	// Storage: Staking Validators (r:2 w:0)
@@ -185,7 +185,7 @@ impl WeightInfo for () {
 	// Storage: ElectionProviderMultiPhase Snapshot (r:0 w:1)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:0 w:1)
 	fn on_initialize_open_signed() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: Staking CounterForValidators (r:1 w:0)
 	// Storage: Staking Validators (r:2 w:0)
@@ -201,21 +201,21 @@ impl WeightInfo for () {
 	// Storage: ElectionProviderMultiPhase Snapshot (r:0 w:1)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:0 w:1)
 	fn on_initialize_open_unsigned_with_snapshot() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase Round (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:0 w:1)
 	fn on_initialize_open_unsigned_without_snapshot() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: System Account (r:1 w:1)
 	// Storage: ElectionProviderMultiPhase QueuedSolution (r:0 w:1)
 	fn finalize_signed_phase_accept_solution() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: System Account (r:1 w:1)
 	fn finalize_signed_phase_reject_solution() -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase SignedSubmissionIndices (r:1 w:1)
 	// Storage: ElectionProviderMultiPhase SignedSubmissionNextIndex (r:1 w:1)
@@ -227,7 +227,7 @@ impl WeightInfo for () {
 	// Storage: ElectionProviderMultiPhase Snapshot (r:0 w:1)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:0 w:1)
 	fn elect_queued(v: u32, t: u32, a: u32, d: u32, ) -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase SignedSubmissionIndices (r:1 w:1)
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:1 w:0)
@@ -236,7 +236,7 @@ impl WeightInfo for () {
 	// Storage: ElectionProviderMultiPhase SignedSubmissionNextIndex (r:1 w:1)
 	// Storage: ElectionProviderMultiPhase SignedSubmissionsMap (r:0 w:1)
 	fn submit(c: u32, ) -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase CurrentPhase (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase Round (r:1 w:0)
@@ -246,13 +246,13 @@ impl WeightInfo for () {
 	// Storage: ElectionProviderMultiPhase MinimumUntrustedScore (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase Snapshot (r:1 w:0)
 	fn submit_unsigned(v: u32, t: u32, a: u32, d: u32, ) -> Weight {
-		todo!()
+		Default::default()
 	}
 	// Storage: ElectionProviderMultiPhase Round (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase DesiredTargets (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase MinimumUntrustedScore (r:1 w:0)
 	// Storage: ElectionProviderMultiPhase Snapshot (r:1 w:0)
 	fn feasibility_check(v: u32, t: u32, a: u32, d: u32, ) -> Weight {
-		todo!()
+		Default::default()
 	}
 }

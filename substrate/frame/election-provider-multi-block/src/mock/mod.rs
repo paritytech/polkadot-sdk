@@ -29,7 +29,10 @@ use crate::{
 	verifier::{self as verifier_pallet, AsynchronousVerifier, Status},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_election_provider_support::NposSolution;
+use frame_election_provider_support::{
+	bounds::{ElectionBounds, ElectionBoundsBuilder},
+	NposSolution, SequentialPhragmen, TryFromUnboundedPagedSupports,
+};
 pub use frame_support::{assert_noop, assert_ok};
 use frame_support::{
 	derive_impl,
@@ -46,19 +49,18 @@ use sp_core::{
 		testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	H256,
+	ConstBool,
 };
 use sp_npos_elections::EvaluateSupport;
 use sp_runtime::{
 	bounded_vec,
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	PerU16, Perbill,
+	BuildStorage, PerU16, Perbill,
 };
 pub use staking::*;
 use std::{sync::Arc, vec};
 
-pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 pub type UncheckedExtrinsic =
 	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, (), ()>;
@@ -82,38 +84,27 @@ frame_support::construct_runtime!(
 
 frame_election_provider_support::generate_solution_type!(
 	pub struct TestNposSolution::<
-	VoterIndex = VoterIndex,
-	TargetIndex = TargetIndex,
-	Accuracy = PerU16,
-	MaxVoters = ConstU32::<2_000>
+		VoterIndex = VoterIndex,
+		TargetIndex = TargetIndex,
+		Accuracy = PerU16,
+		MaxVoters = ConstU32::<2_000>
 	>(16)
 );
 
-impl codec::MaxEncodedLen for TestNposSolution {
-	fn max_encoded_len() -> usize {
-		// TODO: https://github.com/paritytech/substrate/issues/10866
-		unimplemented!();
-	}
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SS58Prefix = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type BlockHashCount = ();
-	type DbWeight = ();
 	type BlockLength = ();
 	type BlockWeights = BlockWeights;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type MaxConsumers = ConstU32<16>;
+	type Block = frame_system::mocking::MockBlock<Self>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 parameter_types! {
+	pub const ExistentialDeposit: Balance = 1;
 	pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights
 		::with_sensible_defaults(
 			Weight::from_parts(2u64 * constants::WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
@@ -154,7 +145,7 @@ parameter_types! {
 
 	// we have 12 voters in the default setting, this should be enough to make sure they are not
 	// trimmed accidentally in any test.
-	#[derive(Encode, Decode, PartialEq, Eq, Debug, scale_info::TypeInfo, MaxEncodedLen)] // TODO: should be removed
+	#[derive(Encode, Decode, PartialEq, Eq, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 	pub static MaxBackersPerWinner: u32 = 12;
 	// we have 4 targets in total and we desire `Desired` thereof, no single page can represent more
 	// than the min of these two.
@@ -175,7 +166,7 @@ impl crate::verifier::Config for Runtime {
 pub struct MockUnsignedWeightInfo;
 impl crate::unsigned::WeightInfo for MockUnsignedWeightInfo {
 	fn submit_unsigned(_v: u32, _t: u32, a: u32, _d: u32) -> Weight {
-		a as Weight
+		Weight::from_parts(a as u64, 0)
 	}
 }
 
@@ -206,13 +197,19 @@ impl crate::Config for Runtime {
 	type Pages = Pages;
 }
 
+parameter_types! {
+	pub static OnChainElectionBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
+}
+
 impl onchain::Config for Runtime {
-	type Accuracy = sp_runtime::Perbill;
 	type DataProvider = staking::MockStaking;
-	type TargetPageSize = ();
-	type VoterPageSize = ();
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type Sort = ConstBool<true>;
+	type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16, ()>;
+	type System = Runtime;
+	type WeightInfo = ();
+	type Bounds = OnChainElectionBounds;
 }
 
 pub struct MockFallback;
@@ -227,14 +224,18 @@ impl ElectionProvider for MockFallback {
 
 	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		if OnChianFallback::get() {
-			onchain::OnChainSequentialPhragmen::<Runtime>::elect(remaining)
-				.map_err(|_| "OnChainSequentialPhragmen failed")
+			onchain::OnChainExecution::<Runtime>::elect(remaining)
+				.map_err(|_| "onchain::OnChainExecution failed")
 		} else {
 			// NOTE: this pesky little trick here is to avoid a clash of type, since `Ok` of our
 			// election provider and our fallback is not the same
 			let err = InitiateEmergencyPhase::<Runtime>::elect(remaining).unwrap_err();
 			Err(err)
 		}
+	}
+
+	fn ongoing() -> bool {
+		false
 	}
 }
 
@@ -343,7 +344,7 @@ impl ExtBuilder {
 	pub(crate) fn build_unchecked(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage =
-			frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		let _ = pallet_balances::GenesisConfig::<Runtime> {
 			balances: vec![
@@ -512,7 +513,7 @@ pub fn multi_block_events() -> Vec<crate::Event<Runtime>> {
 	System::events()
 		.into_iter()
 		.map(|r| r.event)
-		.filter_map(|e| if let Event::MultiBlock(inner) = e { Some(inner) } else { None })
+		.filter_map(|e| if let RuntimeEvent::MultiBlock(inner) = e { Some(inner) } else { None })
 		.collect::<Vec<_>>()
 }
 
@@ -521,7 +522,9 @@ pub fn verifier_events() -> Vec<crate::verifier::Event<Runtime>> {
 	System::events()
 		.into_iter()
 		.map(|r| r.event)
-		.filter_map(|e| if let Event::VerifierPallet(inner) = e { Some(inner) } else { None })
+		.filter_map(
+			|e| if let RuntimeEvent::VerifierPallet(inner) = e { Some(inner) } else { None },
+		)
 		.collect::<Vec<_>>()
 }
 
@@ -597,7 +600,7 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 				.into_iter()
 				.map(|uxt| <Extrinsic as codec::Decode>::decode(&mut &*uxt).unwrap())
 				.for_each(|xt| {
-					xt.call.dispatch(frame_system::RawOrigin::None.into()).unwrap();
+					xt.function.dispatch(frame_system::RawOrigin::None.into()).unwrap();
 				});
 			pool.try_write().unwrap().transactions.clear();
 		}
@@ -654,4 +657,9 @@ pub fn raw_paged_solution_low_score() -> PagedRawSolution<Runtime> {
 /// Get the free and reserved balance of `who`.
 pub fn balances(who: AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+/// Election bounds based on just the given count.
+pub fn bound_by_count(count: Option<u32>) -> DataProviderBounds {
+	DataProviderBounds { count: count.map(|x| x.into()), size: None }
 }

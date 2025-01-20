@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO: clean and standardize the imports
-
 use super::*;
 use crate::{helpers, SolutionOf, SupportsOf};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -27,11 +25,10 @@ use frame_support::{
 	traits::{Defensive, Get},
 };
 use frame_system::pallet_prelude::*;
+use pallet::*;
 use sp_npos_elections::{ElectionScore, EvaluateSupport};
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-
-use pallet::*;
 
 /// The status of this pallet.
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, RuntimeDebug)]
@@ -96,7 +93,7 @@ pub(crate) mod pallet {
 	use crate::{types::SupportsOf, verifier::Verifier};
 
 	use super::*;
-	use frame_support::pallet_prelude::{ValueQuery, *};
+	use frame_support::pallet_prelude::ValueQuery;
 	use sp_npos_elections::evaluate_support;
 	use sp_runtime::Perbill;
 

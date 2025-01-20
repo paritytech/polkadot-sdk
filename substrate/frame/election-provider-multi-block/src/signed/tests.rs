@@ -1,9 +1,8 @@
 use super::{Event as SignedEvent, *};
 use crate::mock::*;
+use sp_core::bounded_vec;
 
 mod calls {
-	use frame_support::bounded_vec;
-
 	use super::*;
 
 	#[test]
@@ -15,7 +14,7 @@ mod calls {
 			assert_eq!(balances(99), (100, 0));
 			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
 
-			assert_ok!(SignedPallet::register(Origin::signed(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
 			assert_eq!(balances(99), (95, 5));
 
 			assert_eq!(Submissions::<Runtime>::metadata_iter(1).count(), 0);
@@ -41,7 +40,7 @@ mod calls {
 			// second ones submits
 			assert_eq!(balances(999), (100, 0));
 			let score = ElectionScore { minimal_stake: 90, ..Default::default() };
-			assert_ok!(SignedPallet::register(Origin::signed(999), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(999), score));
 			assert_eq!(balances(999), (95, 5));
 			assert_eq!(
 				Submissions::<Runtime>::metadata_of(0, 999).unwrap(),
@@ -71,7 +70,7 @@ mod calls {
 			// submit again with a new score.
 			assert_noop!(
 				SignedPallet::register(
-					Origin::signed(999),
+					RuntimeOrigin::signed(999),
 					ElectionScore { minimal_stake: 80, ..Default::default() }
 				),
 				"Duplicate",
@@ -89,7 +88,7 @@ mod calls {
 			let assert_reserved = |x| assert_eq!(balances(x), (95, 5));
 			let assert_unreserved = |x| assert_eq!(balances(x), (100, 0));
 
-			assert_ok!(SignedPallet::register(Origin::signed(91), score_from(100)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), score_from(100)));
 			assert_eq!(*Submissions::<Runtime>::leaderboard(0), vec![(91, score_from(100))]);
 			assert_reserved(91);
 			assert!(
@@ -97,7 +96,7 @@ mod calls {
 			);
 
 			// weaker one comes while we have space.
-			assert_ok!(SignedPallet::register(Origin::signed(92), score_from(90)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), score_from(90)));
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100))]
@@ -109,7 +108,7 @@ mod calls {
 				] if x == 92));
 
 			// stronger one comes while we have have space.
-			assert_ok!(SignedPallet::register(Origin::signed(93), score_from(110)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(93), score_from(110)));
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100)), (93, score_from(110))]
@@ -122,7 +121,10 @@ mod calls {
 				] if x == 93));
 
 			// weaker one comes while we don't have space.
-			assert_noop!(SignedPallet::register(Origin::signed(94), score_from(80)), "QueueFull");
+			assert_noop!(
+				SignedPallet::register(RuntimeOrigin::signed(94), score_from(80)),
+				"QueueFull"
+			);
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100)), (93, score_from(110))]
@@ -139,7 +141,7 @@ mod calls {
 			));
 
 			// stronger one comes while we don't have space. Eject the weakest
-			assert_ok!(SignedPallet::register(Origin::signed(94), score_from(120)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(94), score_from(120)));
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(91, score_from(100)), (93, score_from(110)), (94, score_from(120))]
@@ -158,7 +160,7 @@ mod calls {
 			));
 
 			// another stronger one comes, only replace the weakest.
-			assert_ok!(SignedPallet::register(Origin::signed(95), score_from(105)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(95), score_from(105)));
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(95, score_from(105)), (93, score_from(110)), (94, score_from(120))]
@@ -187,16 +189,16 @@ mod calls {
 			assert_full_snapshot();
 
 			assert_ok!(SignedPallet::register(
-				Origin::signed(99),
+				RuntimeOrigin::signed(99),
 				ElectionScore { minimal_stake: 100, ..Default::default() }
 			));
 			assert_eq!(balances(99), (95, 5));
 
 			// not submitted, cannot bailout.
-			assert_noop!(SignedPallet::bail(Origin::signed(999)), "NoSubmission");
+			assert_noop!(SignedPallet::bail(RuntimeOrigin::signed(999)), "NoSubmission");
 
 			// can bail.
-			assert_ok!(SignedPallet::bail(Origin::signed(99)));
+			assert_ok!(SignedPallet::bail(RuntimeOrigin::signed(99)));
 			// 20% of the deposit returned, which is 1, 4 is slashed.
 			assert_eq!(balances(99), (96, 0));
 			assert_no_data_for(0, 99);
@@ -215,21 +217,21 @@ mod calls {
 			assert_full_snapshot();
 
 			assert_noop!(
-				SignedPallet::submit_page(Origin::signed(99), 0, Default::default()),
+				SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, Default::default()),
 				"NotRegistered"
 			);
 
 			assert_ok!(SignedPallet::register(
-				Origin::signed(99),
+				RuntimeOrigin::signed(99),
 				ElectionScore { minimal_stake: 100, ..Default::default() }
 			));
 
 			assert_noop!(
-				SignedPallet::submit_page(Origin::signed(99), 3, Default::default()),
+				SignedPallet::submit_page(RuntimeOrigin::signed(99), 3, Default::default()),
 				"BadPageIndex"
 			);
 			assert_noop!(
-				SignedPallet::submit_page(Origin::signed(99), 4, Default::default()),
+				SignedPallet::submit_page(RuntimeOrigin::signed(99), 4, Default::default()),
 				"BadPageIndex"
 			);
 
@@ -237,7 +239,11 @@ mod calls {
 			assert_eq!(balances(99), (95, 5));
 
 			// add the first page.
-			assert_ok!(SignedPallet::submit_page(Origin::signed(99), 0, Some(Default::default())));
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
 			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), 1);
 			assert_eq!(balances(99), (94, 6));
 			assert_eq!(
@@ -246,12 +252,20 @@ mod calls {
 			);
 
 			// replace it again, nada.
-			assert_ok!(SignedPallet::submit_page(Origin::signed(99), 0, Some(Default::default())));
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
 			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), 1);
 			assert_eq!(balances(99), (94, 6));
 
 			// add a new one.
-			assert_ok!(SignedPallet::submit_page(Origin::signed(99), 1, Some(Default::default())));
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				1,
+				Some(Default::default())
+			));
 			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), 2);
 			assert_eq!(balances(99), (93, 7));
 			assert_eq!(
@@ -260,7 +274,7 @@ mod calls {
 			);
 
 			// remove one, deposit is back.
-			assert_ok!(SignedPallet::submit_page(Origin::signed(99), 0, None));
+			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, None));
 			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), 1);
 			assert_eq!(balances(99), (94, 6));
 			assert_eq!(
@@ -283,8 +297,6 @@ mod calls {
 }
 
 mod e2e {
-	use frame_election_provider_support::Support;
-
 	use super::*;
 	#[test]
 	fn good_bad_evil() {
@@ -298,9 +310,9 @@ mod e2e {
 			{
 				let score =
 					ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
-				assert_ok!(SignedPallet::register(Origin::signed(99), score));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
 				assert_ok!(SignedPallet::submit_page(
-					Origin::signed(99),
+					RuntimeOrigin::signed(99),
 					0,
 					Some(Default::default())
 				));
@@ -320,7 +332,7 @@ mod e2e {
 			{
 				let mut score = strong_score;
 				score.minimal_stake *= 2;
-				assert_ok!(SignedPallet::register(Origin::signed(92), score));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), score));
 				assert_eq!(balances(92), (95, 5));
 				// we don't even bother to submit a page..
 			}

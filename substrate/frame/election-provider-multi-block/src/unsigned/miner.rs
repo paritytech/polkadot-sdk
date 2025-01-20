@@ -23,7 +23,7 @@ use crate::{
 };
 use codec::Encode;
 use frame_election_provider_support::{ExtendedBalance, NposSolver, Support, VoteWeight};
-use frame_support::{pallet_prelude::*, traits::Get, BoundedVec};
+use frame_support::{traits::Get, BoundedVec};
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
@@ -680,15 +680,22 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	}
 
 	fn submit_call(call: Call<T>) -> Result<(), OffchainMinerError<T>> {
+		// TODO: need to pagify the unsigned solution as well, maybe
 		sublog!(
 			debug,
 			"unsigned::ocw-miner",
 			"miner submitting a solution as an unsigned transaction"
 		);
-		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-			call.into(),
-		)
-		.map_err(|_| OffchainMinerError::PoolSubmissionFailed)
+		let xt = T::create_inherent(call.into());
+		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
+			.map(|_| {
+				sublog!(
+					debug,
+					"unsigned::ocw-miner",
+					"miner submitted a solution as an unsigned transaction",
+				);
+			})
+			.map_err(|_| OffchainMinerError::PoolSubmissionFailed)
 	}
 
 	/// Attempt to restore a solution from cache. Otherwise, compute it fresh. Either way,
@@ -858,7 +865,8 @@ impl<T: Config> OffchainWorkerMiner<T> {
 mod trim_weight_length {
 	use super::*;
 	use crate::{mock::*, verifier::Verifier};
-	use frame_election_provider_support::TryIntoBoundedSupportsVec;
+	use frame_election_provider_support::TryFromUnboundedPagedSupports;
+	use frame_support::pallet_prelude::*;
 	use sp_npos_elections::Support;
 
 	#[test]
@@ -902,46 +910,48 @@ mod trim_weight_length {
 					// all will stay
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
 				]
-				.try_into_bounded_supports_vec()
+				.try_from_unbounded_paged()
 				.unwrap()
 			);
 		});
 
 		// now we get to the real test...
-		ExtBuilder::unsigned().miner_weight(4).build_and_execute(|| {
-			// first, replace the stake of all voters with their account id.
-			let mut current_voters = Voters::get();
-			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
-			Voters::set(current_voters);
+		ExtBuilder::unsigned()
+			.miner_weight(Weight::from_parts(4, u64::MAX))
+			.build_and_execute(|| {
+				// first, replace the stake of all voters with their account id.
+				let mut current_voters = Voters::get();
+				current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+				Voters::set(current_voters);
 
-			// with 1 weight unit per voter, this can only support 4 voters, despite having 12 in
-			// the snapshot.
-			roll_to_snapshot_created();
-			ensure_voters(3, 12);
+				// with 1 weight unit per voter, this can only support 4 voters, despite having 12
+				// in the snapshot.
+				roll_to_snapshot_created();
+				ensure_voters(3, 12);
 
-			let solution = mine_full_solution().unwrap();
-			assert_eq!(
-				solution.solution_pages.iter().map(|page| page.voter_count()).sum::<usize>(),
-				4
-			);
+				let solution = mine_full_solution().unwrap();
+				assert_eq!(
+					solution.solution_pages.iter().map(|page| page.voter_count()).sum::<usize>(),
+					4
+				);
 
-			load_mock_signed_and_start(solution);
-			let supports = roll_to_full_verification();
+				load_mock_signed_and_start(solution);
+				let supports = roll_to_full_verification();
 
-			// a solution is queued.
-			assert!(VerifierPallet::queued_score().is_some());
+				// a solution is queued.
+				assert!(VerifierPallet::queued_score().is_some());
 
-			assert_eq!(
-				supports,
-				vec![
-					vec![],
-					vec![(30, Support { total: 7, voters: vec![(7, 7)] })],
-					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
-				]
-				.try_into_bounded_supports_vec()
-				.unwrap()
-			);
-		})
+				assert_eq!(
+					supports,
+					vec![
+						vec![],
+						vec![(30, Support { total: 7, voters: vec![(7, 7)] })],
+						vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
+					]
+					.try_from_unbounded_paged()
+					.unwrap()
+				);
+			})
 	}
 
 	#[test]
@@ -984,77 +994,81 @@ mod trim_weight_length {
 						(30, Support { total: 2, voters: vec![(2, 2)] })
 					]
 				]
-				.try_into_bounded_supports_vec()
+				.try_from_unbounded_paged()
 				.unwrap()
 			);
 		});
 
 		// now we get to the real test...
-		ExtBuilder::unsigned().miner_weight(4).build_and_execute(|| {
-			// first, replace the stake of all voters with their account id.
-			let mut current_voters = Voters::get();
-			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
-			Voters::set(current_voters);
+		ExtBuilder::unsigned()
+			.miner_weight(Weight::from_parts(4, u64::MAX))
+			.build_and_execute(|| {
+				// first, replace the stake of all voters with their account id.
+				let mut current_voters = Voters::get();
+				current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+				Voters::set(current_voters);
 
-			roll_to_snapshot_created();
-			ensure_voters(3, 12);
+				roll_to_snapshot_created();
+				ensure_voters(3, 12);
 
-			let solution = mine_solution(2).unwrap();
-			assert_eq!(
-				solution.solution_pages.iter().map(|page| page.voter_count()).sum::<usize>(),
-				4
-			);
+				let solution = mine_solution(2).unwrap();
+				assert_eq!(
+					solution.solution_pages.iter().map(|page| page.voter_count()).sum::<usize>(),
+					4
+				);
 
-			load_mock_signed_and_start(solution);
-			let supports = roll_to_full_verification();
+				load_mock_signed_and_start(solution);
+				let supports = roll_to_full_verification();
 
-			// a solution is queued.
-			assert!(VerifierPallet::queued_score().is_some());
+				// a solution is queued.
+				assert!(VerifierPallet::queued_score().is_some());
 
-			assert_eq!(
-				supports,
-				vec![
-					vec![],
-					vec![(10, Support { total: 8, voters: vec![(8, 8)] })],
+				assert_eq!(
+					supports,
 					vec![
-						(10, Support { total: 5, voters: vec![(1, 1), (4, 4)] }),
-						(30, Support { total: 2, voters: vec![(2, 2)] })
+						vec![],
+						vec![(10, Support { total: 8, voters: vec![(8, 8)] })],
+						vec![
+							(10, Support { total: 5, voters: vec![(1, 1), (4, 4)] }),
+							(30, Support { total: 2, voters: vec![(2, 2)] })
+						]
 					]
-				]
-				.try_into_bounded_supports_vec()
-				.unwrap()
-			);
-		})
+					.try_from_unbounded_paged()
+					.unwrap()
+				);
+			})
 	}
 
 	#[test]
 	fn trim_weight_too_much_makes_solution_invalid() {
 		// with just 1 units, we can support 1 voter. This is not enough to have 2 winner which we
 		// want.
-		ExtBuilder::unsigned().miner_weight(1).build_and_execute(|| {
-			let mut current_voters = Voters::get();
-			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
-			Voters::set(current_voters);
+		ExtBuilder::unsigned()
+			.miner_weight(Weight::from_parts(1, u64::MAX))
+			.build_and_execute(|| {
+				let mut current_voters = Voters::get();
+				current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+				Voters::set(current_voters);
 
-			roll_to_snapshot_created();
-			ensure_voters(3, 12);
+				roll_to_snapshot_created();
+				ensure_voters(3, 12);
 
-			let solution = mine_full_solution().unwrap();
-			assert_eq!(
-				solution.solution_pages.iter().map(|page| page.voter_count()).sum::<usize>(),
-				1
-			);
+				let solution = mine_full_solution().unwrap();
+				assert_eq!(
+					solution.solution_pages.iter().map(|page| page.voter_count()).sum::<usize>(),
+					1
+				);
 
-			load_mock_signed_and_start(solution);
-			let supports = roll_to_full_verification();
+				load_mock_signed_and_start(solution);
+				let supports = roll_to_full_verification();
 
-			// nothing is queued
-			assert!(VerifierPallet::queued_score().is_none());
-			assert_eq!(
-				supports,
-				vec![vec![], vec![], vec![]].try_into_bounded_supports_vec().unwrap()
-			);
-		})
+				// nothing is queued
+				assert!(VerifierPallet::queued_score().is_none());
+				assert_eq!(
+					supports,
+					vec![vec![], vec![], vec![]].try_from_unbounded_paged().unwrap()
+				);
+			})
 	}
 
 	#[test]
@@ -1098,7 +1112,7 @@ mod trim_weight_length {
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
 				]
-				.try_into_bounded_supports_vec()
+				.try_from_unbounded_paged()
 				.unwrap()
 			);
 		});
@@ -1137,7 +1151,7 @@ mod trim_weight_length {
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
 				]
-				.try_into_bounded_supports_vec()
+				.try_from_unbounded_paged()
 				.unwrap()
 			);
 		});
@@ -1148,7 +1162,7 @@ mod trim_weight_length {
 mod base_miner {
 	use super::*;
 	use crate::{mock::*, Snapshot};
-	use frame_election_provider_support::TryIntoBoundedSupportsVec;
+	use frame_election_provider_support::TryFromUnboundedPagedSupports;
 	use sp_npos_elections::Support;
 	use sp_runtime::PerU16;
 
@@ -1222,7 +1236,7 @@ mod base_miner {
 						}
 					)
 				]]
-				.try_into_bounded_supports_vec()
+				.try_from_unbounded_paged()
 				.unwrap()
 			);
 
@@ -1310,7 +1324,7 @@ mod base_miner {
 						(40, Support { total: 25, voters: vec![(2, 10), (3, 10), (4, 5)] })
 					]
 				]
-				.try_into_bounded_supports_vec()
+				.try_from_unbounded_paged()
 				.unwrap()
 			);
 
@@ -1401,7 +1415,7 @@ mod base_miner {
 						(40, Support { total: 25, voters: vec![(3, 10), (4, 10), (2, 5)] })
 					]
 				]
-				.try_into_bounded_supports_vec()
+				.try_from_unbounded_paged()
 				.unwrap()
 			);
 
@@ -1472,7 +1486,7 @@ mod base_miner {
 						(40, Support { total: 25, voters: vec![(2, 10), (3, 10), (4, 5)] })
 					]
 				]
-				.try_into_bounded_supports_vec()
+				.try_from_unbounded_paged()
 				.unwrap()
 			);
 
@@ -1571,7 +1585,7 @@ mod base_miner {
 						(40, Support { total: 25, voters: vec![(2, 10), (3, 10), (4, 5)] })
 					]
 				]
-				.try_into_bounded_supports_vec()
+				.try_from_unbounded_paged()
 				.unwrap()
 			);
 
@@ -1646,7 +1660,7 @@ mod base_miner {
 							)
 						]
 					]
-					.try_into_bounded_supports_vec()
+					.try_from_unbounded_paged()
 					.unwrap()
 				);
 			})
@@ -1787,10 +1801,12 @@ mod offchain_worker_miner {
 
 			let encoded = pool.read().transactions[0].clone();
 			let extrinsic: Extrinsic = codec::Decode::decode(&mut &*encoded).unwrap();
-			let call = extrinsic.call;
+			let call = extrinsic.function;
 			assert!(matches!(
 				call,
-				crate::mock::Call::UnsignedPallet(crate::unsigned::Call::submit_unsigned { .. })
+				crate::mock::RuntimeCall::UnsignedPallet(
+					crate::unsigned::Call::submit_unsigned { .. }
+				)
 			));
 		})
 	}

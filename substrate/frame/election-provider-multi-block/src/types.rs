@@ -368,9 +368,9 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 
 #[cfg(test)]
 mod pagify {
-	use frame_support::{bounded_vec, traits::ConstU32, BoundedVec};
-
 	use super::{PadSolutionPages, Pagify};
+	use frame_support::{traits::ConstU32, BoundedVec};
+	use sp_core::bounded_vec;
 
 	#[test]
 	fn pagify_works() {

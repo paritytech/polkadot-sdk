@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Balance, Balances, Event, Pages, Runtime, SignedPallet, System};
+use super::{Balance, Balances, Pages, Runtime, RuntimeEvent, SignedPallet, System};
 use crate::{
 	mock::{
 		balances, multi_block_events, roll_next, roll_to_signed_validation_open, verifier_events,
-		AccountId, Origin, VerifierPallet,
+		AccountId, RuntimeOrigin, VerifierPallet,
 	},
 	signed::{self as signed_pallet, Event as SignedEvent, Submissions},
 	verifier::{self, AsynchronousVerifier, SolutionDataProvider, VerificationResult, Verifier},
@@ -27,7 +27,8 @@ use crate::{
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
-	assert_ok, pallet_prelude::*, parameter_types, traits::EstimateCallFee, BoundedVec,
+	assert_ok, dispatch::PostDispatchInfo, pallet_prelude::*, parameter_types,
+	traits::EstimateCallFee, BoundedVec,
 };
 use frame_system::pallet_prelude::*;
 use sp_npos_elections::ElectionScore;
@@ -61,10 +62,7 @@ impl SolutionDataProvider for MockSignedPhase {
 
 pub struct FixedCallFee;
 impl EstimateCallFee<signed_pallet::Call<Runtime>, Balance> for FixedCallFee {
-	fn estimate_call_fee(
-		_: &signed_pallet::Call<Runtime>,
-		_: frame_support::weights::PostDispatchInfo,
-	) -> Balance {
+	fn estimate_call_fee(_: &signed_pallet::Call<Runtime>, _: PostDispatchInfo) -> Balance {
 		1
 	}
 }
@@ -79,7 +77,7 @@ parameter_types! {
 }
 
 impl crate::signed::Config for Runtime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type DepositBase = SignedDepositBase;
 	type DepositPerPage = SignedDepositPerPage;
@@ -128,7 +126,7 @@ pub fn signed_events() -> Vec<crate::signed::Event<Runtime>> {
 	System::events()
 		.into_iter()
 		.map(|r| r.event)
-		.filter_map(|e| if let Event::SignedPallet(inner) = e { Some(inner) } else { None })
+		.filter_map(|e| if let RuntimeEvent::SignedPallet(inner) = e { Some(inner) } else { None })
 		.collect::<Vec<_>>()
 }
 
@@ -137,7 +135,7 @@ pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runt
 	let initial_balance = Balances::free_balance(&who);
 	assert_eq!(balances(who), (initial_balance, 0));
 
-	assert_ok!(SignedPallet::register(Origin::signed(who), paged.score.clone()));
+	assert_ok!(SignedPallet::register(RuntimeOrigin::signed(who), paged.score.clone()));
 
 	assert_eq!(
 		balances(who),
@@ -146,7 +144,7 @@ pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runt
 
 	for (page_index, solution_page) in paged.solution_pages.pagify(Pages::get()) {
 		assert_ok!(SignedPallet::submit_page(
-			Origin::signed(who),
+			RuntimeOrigin::signed(who),
 			page_index,
 			Some(solution_page.clone())
 		));

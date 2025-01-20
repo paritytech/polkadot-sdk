@@ -232,7 +232,7 @@ mod feasibility_check {
 }
 
 mod async_verification {
-	use frame_support::{assert_storage_noop, bounded_vec};
+	use sp_core::bounded_vec;
 
 	use super::*;
 	// disambiguate event
@@ -814,7 +814,7 @@ mod async_verification {
 
 mod sync_verification {
 	use frame_election_provider_support::Support;
-	use frame_support::bounded_vec;
+	use sp_core::bounded_vec;
 	use sp_npos_elections::ElectionScore;
 	use sp_runtime::Perbill;
 

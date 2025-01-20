@@ -233,7 +233,7 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
-	onchain, BoundedSupportsOf, ElectionDataProvider, ElectionProvider, PageIndex,
+	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
 };
 use frame_support::{
 	ensure,
@@ -245,7 +245,6 @@ use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
 use sp_npos_elections::VoteWeight;
 use sp_runtime::SaturatedConversion;
-use sp_std::prelude::*;
 use verifier::Verifier;
 
 #[cfg(test)]
@@ -305,13 +304,6 @@ pub enum ElectionError<T: Config> {
 	DataProvider(&'static str),
 	/// the corresponding page in the queued supports is not available.
 	SupportPageNotAvailable,
-}
-
-#[cfg(test)]
-impl<T: Config> PartialEq for ElectionError<T> {
-	fn eq(&self, other: &Self) -> bool {
-		matches!(self, other)
-	}
 }
 
 impl<T: Config> From<onchain::Error> for ElectionError<T> {
@@ -1041,9 +1033,10 @@ impl<T: Config> Pallet<T> {
 			T::DataProvider::desired_targets().map_err(ElectionError::DataProvider)?,
 		);
 
-		let limit = Some(T::TargetSnapshotPerBlock::get().saturated_into::<usize>());
+		let count = T::TargetSnapshotPerBlock::get();
+		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
-			T::DataProvider::electable_targets(limit, 0)
+			T::DataProvider::electable_targets(bounds, 0)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
 				.map_err(ElectionError::DataProvider)?;
 
@@ -1058,9 +1051,10 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `Ok(num_created)` if operation is okay.
 	pub fn create_voters_snapshot_paged(remaining: PageIndex) -> Result<u32, ElectionError<T>> {
-		let limit = Some(T::VoterSnapshotPerBlock::get().saturated_into::<usize>());
+		let count = T::VoterSnapshotPerBlock::get();
+		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
-			T::DataProvider::electing_voters(limit, remaining)
+			T::DataProvider::electing_voters(bounds, remaining)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
 				.map_err(ElectionError::DataProvider)?;
 
@@ -1982,11 +1976,11 @@ mod election_provider {
 
 			// try submit one signed page:
 			assert_noop!(
-				SignedPallet::submit_page(Origin::signed(999), 0, Default::default()),
+				SignedPallet::submit_page(RuntimeOrigin::signed(999), 0, Default::default()),
 				"phase not signed"
 			);
 			assert_noop!(
-				SignedPallet::register(Origin::signed(999), Default::default()),
+				SignedPallet::register(RuntimeOrigin::signed(999), Default::default()),
 				"phase not signed"
 			);
 			assert_storage_noop!(assert!(<UnsignedPallet as ValidateUnsigned>::pre_dispatch(

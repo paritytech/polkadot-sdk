@@ -1452,10 +1452,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
 		let voters = Self::get_npos_voters(bounds, page);
 
-		debug_assert!(!bounds.exhausted(
-			SizeBound(voters.encoded_size() as u32).into(),
-			CountBound(voters.len() as u32).into()
-		));
+		debug_assert!(!bounds.slice_exhausted(&voters));
 
 		Ok(voters)
 	}
@@ -1475,10 +1472,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			return Err("Target snapshot too big")
 		}
 
-		debug_assert!(!bounds.exhausted(
-			SizeBound(targets.encoded_size() as u32).into(),
-			CountBound(targets.len() as u32).into()
-		));
+		debug_assert!(!bounds.slice_exhausted(&targets));
 
 		Ok(targets)
 	}
