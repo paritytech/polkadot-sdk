@@ -107,7 +107,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 				None,
 			)
 			.await?;
-		if let Some((session, _, _)) = disputes.iter().next() {
+		if let Some((session, _, _)) = disputes.first() {
 			dispute_session = *session;
 			break
 		}
@@ -133,18 +133,21 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	let concluded_dispute_metric =
 		"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}";
 
-	let concluded_disputes = wait_for_metric(&honest, concluded_dispute_metric, 0).await;
-
-	assert_eq!(concluded_disputes, 0, "with one offline honest node, dispute should not conclude");
+	let timeout_secs: u64 = 120;
+	// with one offline honest node, dispute should not conclude
+	honest
+		.wait_metric_with_timeout(concluded_dispute_metric, |d| d < 1.0, timeout_secs)
+		.await?;
 
 	// Now resume flaky validators
 	log::info!("Resuming flaky nodes - dispute should conclude");
 	flaky_0.resume().await?;
 
-	wait_for_metric(&honest, concluded_dispute_metric, 1).await;
+	honest
+		.wait_metric_with_timeout(concluded_dispute_metric, |d| d > 0.0, timeout_secs)
+		.await?;
 	log::info!("A dispute has concluded");
 
-	let timeout_secs: u64 = 360;
 	honest
 		.wait_log_line_count_with_timeout(
 			"*Successfully reported pending slash*",
@@ -159,17 +162,4 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	log::info!("Test finished successfully");
 
 	Ok(())
-}
-
-// TODO: replace with zombienet-sdk built-in
-pub async fn wait_for_metric(node: &NetworkNode, metric: &str, value: u64) -> u64 {
-	log::info!("Waiting for {metric} to reach {value}:");
-	loop {
-		let current = node.reports(metric).await.unwrap_or(0.0) as u64;
-		log::debug!("{metric} = {current}");
-		if current >= value {
-			return current;
-		}
-		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-	}
 }
