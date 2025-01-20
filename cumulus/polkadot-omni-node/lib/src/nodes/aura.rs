@@ -119,7 +119,6 @@ where
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
-
 		let inherent_data_providers = move |_, _| async move {
 			Ok(sp_timestamp::InherentDataProvider::from_system_time())
 		};
