@@ -758,7 +758,7 @@ fn find_active_validator_state(
 	let our_group = groups.by_validator_index(validator_index)?;
 
 	let group_validators = groups.get(our_group)?.to_owned();
-	let paras_assigned_to_core = assignments_per_group.get(&our_group)?;
+	let paras_assigned_to_core = assignments_per_group.get(&our_group).cloned().unwrap_or_default();
 	let seconding_limit = paras_assigned_to_core.len();
 
 	Some(LocalValidatorState {
