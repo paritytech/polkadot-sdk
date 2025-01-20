@@ -76,7 +76,7 @@ pub struct Verifier<P, Client, Block, CIDP> {
 	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
 }
 
-impl<P, Client, Block, CIDP> Verifier<P,Client, Block, CIDP>
+impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
 where
 	P: Pair,
 	P::Signature: Codec,
@@ -87,8 +87,12 @@ where
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
-	pub fn new(client: Arc<Client>, inherent_data_provider: CIDP, telemetry: Option<TelemetryHandle>) -> Self {
-		Self{
+	pub fn new(
+		client: Arc<Client>,
+		inherent_data_provider: CIDP,
+		telemetry: Option<TelemetryHandle>,
+	) -> Self {
+		Self {
 			client,
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
