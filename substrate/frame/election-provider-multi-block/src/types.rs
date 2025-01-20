@@ -303,10 +303,10 @@ pub enum Phase<Bn> {
 	/// This value should be interpreted after `on_initialize` of this pallet has already been
 	/// called.
 	Snapshot(PageIndex),
-	/// Exporting has begun.
+	/// Exporting has begun, and the given page was the last one received.
 	///
 	/// Once this is active, no more signed or solutions will be accepted.
-	Export,
+	Export(PageIndex),
 	/// The emergency phase. This is enabled upon a failing call to `T::ElectionProvider::elect`.
 	/// After that, the only way to leave this phase is through a successful
 	/// `T::ElectionProvider::elect`.
@@ -347,7 +347,7 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 
 	/// Whether the phase is export or not.
 	pub fn is_export(&self) -> bool {
-		matches!(self, Phase::Export)
+		matches!(self, Phase::Export(_))
 	}
 
 	/// Whether the phase is halted or not.

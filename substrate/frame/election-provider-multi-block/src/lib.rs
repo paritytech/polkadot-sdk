@@ -39,8 +39,8 @@
 //! ## Companion pallets
 //!
 //! This pallet is essentially hierarchical. This particular one is the top level one. It contains
-//! the shared information that all child pallets use. All child pallets can depend on on the top
-//! level pallet ONLY, but not the other way around. For those cases, traits are used.
+//! the shared information that all child pallets use. All child pallets depend on the top level
+//! pallet ONLY, but not the other way around. For those cases, traits are used.
 //!
 //! This pallet will only function in a sensible way if it is peered with its companion pallets.
 //!
@@ -54,7 +54,13 @@
 //!
 //! ### Pallet Ordering:
 //!
-//! TODO: parent, verifier, signed, unsigned
+//! The ordering of these pallets in a runtime should be:
+//! 1. parent
+//! 2. verifier
+//! 3. signed
+//! 4. unsigned
+//!
+//! This should be manually checked, there is not automated way to test it.
 //!
 //! ## Pagination
 //!
@@ -66,35 +72,27 @@
 //!
 //! ## Phases
 //!
-//! The timeline of pallet is as follows. At each block,
-//! [`frame_election_provider_support::ElectionDataProvider::next_election_prediction`] is used to
-//! estimate the time remaining to the next call to
-//! [`frame_election_provider_support::ElectionProvider::elect`]. Based on this, a phase is chosen.
-//! An example timeline is as follows:
+//! The timeline of pallet is overall as follows:
 //!
 //! ```ignore
-//!                                                                    elect()
-//!                 +   <--T::SignedPhase-->  +  <--T::UnsignedPhase-->   +
-//!   +-------------------------------------------------------------------+
-//!    Phase::Off   +       Phase::Signed     +      Phase::Unsigned      +
+//!  <  Off  >
+//! 0 ------- 12 13 14 15 ----------- 20 ---------25 ------- 30
+//! 	           |       |              |            |          |
+//! 	     Snapshot      Signed   SignedValidation  Unsigned   Elect
 //! ```
 //!
-//! The duration of both phases are configurable, and their existence is optional. Each of the
-//! phases can be disabled by essentially setting their length to zero. If both phases have length
-//! zero, then the pallet essentially runs only the fallback strategy, denoted by
-//! [`Config::Fallback`].
-//!
-//! - Note that the prediction of the election is assume to be the **first call** to elect. For
-//! example, with 3 pages, the prediction must point to the `elect(2)`.
-//! - Note that the unsigned phase starts [`pallet::Config::UnsignedPhase`] blocks before the
-//! `next_election_prediction`, but only ends when a call to [`ElectionProvider::elect`] happens. If
-//! no `elect` happens, the current phase (usually unsigned) is extended.
+//! * Duration of `Snapshot` is determined by [`Config::Pages`].
+//! * Duration of `Signed`, `SignedValidation` and `Unsigned` are determined by
+//!   [`Config::SignedPhase`], [`Config::SignedValidationPhase`] and [`Config::UnsignedPhase`]
+//!   respectively.
+//! * [`Config::Pages`] calls to elect are expected, but all in all the pallet will close a round
+//!   once `elect(0)` is called.
+//! * The pallet strives to be ready for the first call to `elect`, for example `elect(2)` if 3
+//!   pages.
+//! * This pallet can be commanded to to be ready sooner with [`Config::Lookahead`].
 //!
 //! > Given this, it is rather important for the user of this pallet to ensure it always terminates
-//! election via `elect` before requesting a new one.
-//!
-//! TODO: test case: elect(2) -> elect(1) -> elect(2)
-//! TODO: should we wipe the verifier afterwards, or just `::take()` the election result?
+//! > election via `elect` before requesting a new one.
 //!
 //! ## Feasible Solution (correct solution)
 //!
@@ -107,111 +105,24 @@
 //! 2. any assignment is checked to match with [`RoundSnapshot::voters`].
 //! 3. the claimed score is valid, based on the fixed point arithmetic accuracy.
 //!
-//! ### Signed Phase
-//!
-//! In the signed phase, solutions (of type [`RawSolution`]) are submitted and queued on chain. A
-//! deposit is reserved, based on the size of the solution, for the cost of keeping this solution
-//! on-chain for a number of blocks, and the potential weight of the solution upon being checked. A
-//! maximum of `pallet::Config::MaxSignedSubmissions` solutions are stored. The queue is always
-//! sorted based on score (worse to best).
-//!
-//! Upon arrival of a new solution:
-//!
-//! 1. If the queue is not full, it is stored in the appropriate sorted index.
-//! 2. If the queue is full but the submitted solution is better than one of the queued ones, the
-//!    worse solution is discarded, the bond of the outgoing solution is returned, and the new
-//!    solution is stored in the correct index.
-//! 3. If the queue is full and the solution is not an improvement compared to any of the queued
-//!    ones, it is instantly rejected and no additional bond is reserved.
-//!
-//! A signed solution cannot be reversed, taken back, updated, or retracted. In other words, the
-//! origin can not bail out in any way, if their solution is queued.
-//!
-//! Upon the end of the signed phase, the solutions are examined from best to worse (i.e. `pop()`ed
-//! until drained). Each solution undergoes an expensive `Pallet::feasibility_check`, which ensures
-//! the score claimed by this score was correct, and it is valid based on the election data (i.e.
-//! votes and candidates). At each step, if the current best solution passes the feasibility check,
-//! it is considered to be the best one. The sender of the origin is rewarded, and the rest of the
-//! queued solutions get their deposit back and are discarded, without being checked.
-//!
-//! The following example covers all of the cases at the end of the signed phase:
-//!
-//! ```ignore
-//! Queue
-//! +-------------------------------+
-//! |Solution(score=20, valid=false)| +-->  Slashed
-//! +-------------------------------+
-//! |Solution(score=15, valid=true )| +-->  Rewarded, Saved
-//! +-------------------------------+
-//! |Solution(score=10, valid=true )| +-->  Discarded
-//! +-------------------------------+
-//! |Solution(score=05, valid=false)| +-->  Discarded
-//! +-------------------------------+
-//! |             None              |
-//! +-------------------------------+
-//! ```
-//!
-//! Note that both of the bottom solutions end up being discarded and get their deposit back,
-//! despite one of them being *invalid*.
-//!
-//! ## Unsigned Phase
-//!
-//! The unsigned phase will always follow the signed phase, with the specified duration. In this
-//! phase, only validator nodes can submit solutions. A validator node who has offchain workers
-//! enabled will start to mine a solution in this phase and submits it back to the chain as an
-//! unsigned transaction, thus the name _unsigned_ phase. This unsigned transaction can never be
-//! valid if propagated, and it acts similar to an inherent.
-//!
-//! Validators will only submit solutions if the one that they have computed is sufficiently better
-//! than the best queued one (see [`pallet::Config::SolutionImprovementThreshold`]) and will limit
-//! the weigh of the solution to [`pallet::Config::MinerMaxWeight`].
-//!
-//! The unsigned phase can be made passive depending on how the previous signed phase went, by
-//! setting the first inner value of [`Phase`] to `false`. For now, the signed phase is always
-//! active.
-//!
 //! ### Emergency Phase and Fallback
 //!
-//! TODO:
+//! Works similar to the multi-phase pallet:
 //!
-//! ## Accuracy
+//! * [`Config::Fallback`] is used, only in page 0, in case no queued solution is present.
+//! * [`Phase::Emergency`] is entered if also the fallback fails. At this point, only
+//!   [`AdminOperation::SetSolution`] can be used to recover.
+//!
+//! TODO: test that multi-page seq-phragmen with fallback works.
+//!
+//!
+//! ### Signed Phase
 //!
 //! TODO
 //!
-//! ## Error types
+//! ## Unsigned Phase
 //!
-//! TODO:
-//!
-//! ## Future Plans
-//!
-//! **Challenge Phase**. We plan on adding a third phase to the pallet, called the challenge phase.
-//! This is a phase in which no further solutions are processed, and the current best solution might
-//! be challenged by anyone (signed or unsigned). The main plan here is to enforce the solution to
-//! be PJR. Checking PJR on-chain is quite expensive, yet proving that a solution is **not** PJR is
-//! rather cheap. If a queued solution is successfully proven bad:
-//!
-//! 1. We must surely slash whoever submitted that solution (might be a challenge for unsigned
-//!    solutions).
-//! 2. We will fallback to the emergency strategy (likely extending the current era).
-//!
-//! **Bailing out**. The functionality of bailing out of a queued solution is nice. A miner can
-//! submit a solution as soon as they _think_ it is high probability feasible, and do the checks
-//! afterwards, and remove their solution (for a small cost of probably just transaction fees, or a
-//! portion of the bond).
-//!
-//! **Conditionally open unsigned phase**: Currently, the unsigned phase is always opened. This is
-//! useful because an honest validator will run substrate OCW code, which should be good enough to
-//! trump a mediocre or malicious signed submission (assuming in the absence of honest signed bots).
-//! If there are signed submissions, they can be checked against an absolute measure (e.g. PJR),
-//! then we can only open the unsigned phase in extreme conditions (i.e. "no good signed solution
-//! received") to spare some work for the active validators.
-//!
-//! **Allow smaller solutions and build up**: For now we only allow solutions that are exactly
-//! [`DesiredTargets`], no more, no less. Over time, we can change this to a [min, max] where any
-//! solution within this range is acceptable, where bigger solutions are prioritized.
-//!
-//! **Score based on (byte) size**: We should always prioritize small solutions over bigger ones, if
-//! there is a tie. Even more harsh should be to enforce the bound of the `reduce` algorithm.
+//! TODO
 
 // Implementation notes:
 //
@@ -304,6 +215,8 @@ pub enum ElectionError<T: Config> {
 	DataProvider(&'static str),
 	/// the corresponding page in the queued supports is not available.
 	SupportPageNotAvailable,
+	/// The election is not ongoing and therefore no results may be queried.
+	NotOngoing,
 }
 
 impl<T: Config> From<onchain::Error> for ElectionError<T> {
@@ -347,7 +260,7 @@ pub enum AdminOperation<T: Config> {
 	///
 	/// This can be called in any phase and, can behave like any normal solution, but it should
 	/// probably be used only in [`Phase::Emergency`].
-	SetSolution(SolutionOf<T>, ElectionScore),
+	SetSolution(Box<SolutionOf<T>>, ElectionScore),
 	/// Trigger the (single page) fallback in `instant` mode, with the given parameters, and
 	/// queue it if correct.
 	///
@@ -505,18 +418,16 @@ pub mod pallet {
 					=>
 				{
 					let remaining_pages = Self::msp();
-					log!(info, "starting snapshot creation, remaining block: {}", remaining_pages);
 					let count = Self::create_targets_snapshot().unwrap();
 					let count = Self::create_voters_snapshot_paged(remaining_pages).unwrap();
-					CurrentPhase::<T>::put(Phase::Snapshot(remaining_pages));
+					Self::phase_transition(Phase::Snapshot(remaining_pages));
 					todo_weight
 				},
 				Phase::Snapshot(x) if x > 0 => {
 					// we don't check block numbers here, snapshot creation is mandatory.
 					let remaining_pages = x.saturating_sub(1);
-					log!(info, "continuing voter snapshot creation [{}]", remaining_pages);
-					CurrentPhase::<T>::put(Phase::Snapshot(remaining_pages));
 					Self::create_voters_snapshot_paged(remaining_pages).unwrap();
+					Self::phase_transition(Phase::Snapshot(remaining_pages));
 					todo_weight
 				},
 
@@ -529,9 +440,7 @@ pub mod pallet {
 					// TODO: even though we have the integrity test, what if we open the signed
 					// phase, and there's not enough blocks to finalize it? that can happen under
 					// any circumstance and we should deal with it.
-
-					<CurrentPhase<T>>::put(Phase::Signed);
-					Self::deposit_event(Event::SignedPhaseStarted(Self::round()));
+					Self::phase_transition(Phase::Signed);
 					todo_weight
 				},
 
@@ -541,8 +450,7 @@ pub mod pallet {
 						remaining_blocks > unsigned_deadline =>
 				{
 					// Start verification of the signed stuff.
-					<CurrentPhase<T>>::put(Phase::SignedValidation(now));
-					Self::deposit_event(Event::SignedValidationPhaseStarted(Self::round()));
+					Self::phase_transition(Phase::SignedValidation(now));
 					// we don't do anything else here. We expect the signed sub-pallet to handle
 					// whatever else needs to be done.
 					// TODO: this notification system based on block numbers is 100% based on the
@@ -554,8 +462,7 @@ pub mod pallet {
 				Phase::Signed | Phase::SignedValidation(_) | Phase::Snapshot(0)
 					if remaining_blocks <= unsigned_deadline && remaining_blocks > Zero::zero() =>
 				{
-					<CurrentPhase<T>>::put(Phase::Unsigned(now));
-					Self::deposit_event(Event::UnsignedPhaseStarted(Self::round()));
+					Self::phase_transition(Phase::Unsigned(now));
 					todo_weight
 				},
 				_ => T::WeightInfo::on_initialize_nothing(),
@@ -621,12 +528,9 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The signed phase of the given round has started.
-		SignedPhaseStarted(u32),
-		/// The unsigned validation phase of the given round has started.
-		SignedValidationPhaseStarted(u32),
-		/// The unsigned phase of the given round has started.
-		UnsignedPhaseStarted(u32),
+		/// A phase transition happened. Only checks major changes in the variants, not minor inner
+		/// values.
+		PhaseTransitioned { from: Phase<BlockNumberFor<T>>, to: Phase<BlockNumberFor<T>> },
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -871,7 +775,7 @@ pub mod pallet {
 				Phase::Emergency |
 				Phase::Signed |
 				Phase::SignedValidation(_) |
-				Phase::Export |
+				Phase::Export(_) |
 				Phase::Unsigned(_) => Self::ensure_snapshot(true, T::Pages::get()),
 				// cannot assume anything. We might halt at any point.
 				Phase::Halted => Ok(()),
@@ -968,6 +872,16 @@ impl<T: Config> Pallet<T> {
 	/// Based on the contract of `ElectionDataProvider`, this is the last page that is filled.
 	fn lsp() -> PageIndex {
 		Zero::zero()
+	}
+
+	pub(crate) fn phase_transition(to: Phase<BlockNumberFor<T>>) {
+		log!(debug, "transitioning phase from {:?} to {:?}", Self::current_phase(), to);
+		let from = Self::current_phase();
+		use sp_std::mem::discriminant;
+		if discriminant(&from) != discriminant(&to) {
+			Self::deposit_event(Event::PhaseTransitioned { from, to });
+		}
+		<CurrentPhase<T>>::put(to);
 	}
 
 	/// Perform all the basic checks that are independent of the snapshot. TO be more specific,
@@ -1075,7 +989,7 @@ impl<T: Config> Pallet<T> {
 		<Round<T>>::mutate(|r| *r += 1);
 
 		// Phase is off now.
-		<CurrentPhase<T>>::put(Phase::Off);
+		Self::phase_transition(Phase::Off);
 
 		// Kill everything in the verifier.
 		T::Verifier::kill();
@@ -1108,12 +1022,20 @@ where
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 
 	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		if !Self::ongoing() {
+			return Err(ElectionError::NotOngoing);
+		}
+
 		T::Verifier::get_queued_solution_page(remaining)
 			.ok_or(ElectionError::SupportPageNotAvailable)
 			.or_else(|err| {
 				// if this is the last page, we might use the fallback to recover something.
-				log!(error, "primary election provider failed due to: {:?}, trying fallback", err);
 				if remaining.is_zero() {
+					log!(
+						error,
+						"primary election provider failed due to: {:?}, trying fallback",
+						err
+					);
 					T::Fallback::elect(0).map_err(|fe| ElectionError::<T>::Fallback(fe))
 				} else {
 					Err(err)
@@ -1126,7 +1048,7 @@ where
 					log!(info, "receiving last call to elect(0), rotating round");
 					Self::rotate_round()
 				} else {
-					<CurrentPhase<T>>::put(Phase::Export);
+					Self::phase_transition(Phase::Export(remaining))
 				}
 				supports.into()
 			})
@@ -1136,7 +1058,7 @@ where
 				// unsigned pallet, and thus the verifier will also be almost stuck, except for the
 				// submission of emergency solutions.
 				log!(error, "fetching page {} failed. entering emergency mode.", remaining);
-				<CurrentPhase<T>>::put(Phase::Emergency);
+				Self::phase_transition(Phase::Emergency);
 				err
 			})
 	}
@@ -1148,7 +1070,7 @@ where
 			Phase::SignedValidation(_) |
 			Phase::Unsigned(_) |
 			Phase::Snapshot(_) |
-			Phase::Export => true,
+			Phase::Export(_) => true,
 		}
 	}
 }
@@ -1184,7 +1106,13 @@ mod phase_rotation {
 
 			roll_to(15);
 			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
-			assert_eq!(multi_block_events(), vec![Event::SignedPhaseStarted(0)]);
+			assert_eq!(
+				multi_block_events(),
+				vec![
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(0) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
+				]
+			);
 			assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 			assert_eq!(MultiBlock::round(), 0);
 
@@ -1197,7 +1125,14 @@ mod phase_rotation {
 			assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
 			assert_eq!(
 				multi_block_events(),
-				vec![Event::SignedPhaseStarted(0), Event::SignedValidationPhaseStarted(0)],
+				vec![
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(0) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned {
+						from: Phase::Signed,
+						to: Phase::SignedValidation(20)
+					}
+				],
 			);
 			assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 
@@ -1211,9 +1146,16 @@ mod phase_rotation {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::SignedPhaseStarted(0),
-					Event::SignedValidationPhaseStarted(0),
-					Event::UnsignedPhaseStarted(0)
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(0) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned {
+						from: Phase::Signed,
+						to: Phase::SignedValidation(20)
+					},
+					Event::PhaseTransitioned {
+						from: Phase::SignedValidation(20),
+						to: Phase::Unsigned(25)
+					}
 				],
 			);
 			assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
@@ -1279,7 +1221,13 @@ mod phase_rotation {
 
 			roll_to(15);
 			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
-			assert_eq!(multi_block_events(), vec![Event::SignedPhaseStarted(0)]);
+			assert_eq!(
+				multi_block_events(),
+				vec![
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
+				]
+			);
 			assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 			assert_eq!(MultiBlock::round(), 0);
 
@@ -1292,7 +1240,14 @@ mod phase_rotation {
 			assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
 			assert_eq!(
 				multi_block_events(),
-				vec![Event::SignedPhaseStarted(0), Event::SignedValidationPhaseStarted(0)],
+				vec![
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned {
+						from: Phase::Signed,
+						to: Phase::SignedValidation(20)
+					}
+				],
 			);
 			assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
@@ -1306,9 +1261,16 @@ mod phase_rotation {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::SignedPhaseStarted(0),
-					Event::SignedValidationPhaseStarted(0),
-					Event::UnsignedPhaseStarted(0)
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned {
+						from: Phase::Signed,
+						to: Phase::SignedValidation(20)
+					},
+					Event::PhaseTransitioned {
+						from: Phase::SignedValidation(20),
+						to: Phase::Unsigned(25)
+					}
 				],
 			);
 			assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
@@ -1385,7 +1347,13 @@ mod phase_rotation {
 
 			roll_to(15);
 			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
-			assert_eq!(multi_block_events(), vec![Event::SignedPhaseStarted(0)]);
+			assert_eq!(
+				multi_block_events(),
+				vec![
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
+				]
+			);
 			assert_eq!(MultiBlock::round(), 0);
 
 			roll_to(19);
@@ -1396,7 +1364,14 @@ mod phase_rotation {
 			assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
 			assert_eq!(
 				multi_block_events(),
-				vec![Event::SignedPhaseStarted(0), Event::SignedValidationPhaseStarted(0)],
+				vec![
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned {
+						from: Phase::Signed,
+						to: Phase::SignedValidation(20)
+					}
+				]
 			);
 
 			roll_to(24);
@@ -1408,10 +1383,17 @@ mod phase_rotation {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::SignedPhaseStarted(0),
-					Event::SignedValidationPhaseStarted(0),
-					Event::UnsignedPhaseStarted(0)
-				],
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned {
+						from: Phase::Signed,
+						to: Phase::SignedValidation(20)
+					},
+					Event::PhaseTransitioned {
+						from: Phase::SignedValidation(20),
+						to: Phase::Unsigned(25)
+					}
+				]
 			);
 
 			roll_to(29);
@@ -1491,7 +1473,13 @@ mod phase_rotation {
 
 				roll_to(13);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
-				assert_eq!(multi_block_events(), vec![Event::SignedPhaseStarted(0)]);
+				assert_eq!(
+					multi_block_events(),
+					vec![
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
+					]
+				);
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(17);
@@ -1503,7 +1491,14 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(18));
 				assert_eq!(
 					multi_block_events(),
-					vec![Event::SignedPhaseStarted(0), Event::SignedValidationPhaseStarted(0)],
+					vec![
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+						Event::PhaseTransitioned {
+							from: Phase::Signed,
+							to: Phase::SignedValidation(18)
+						}
+					]
 				);
 
 				roll_to(22);
@@ -1516,10 +1511,17 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::SignedPhaseStarted(0),
-						Event::SignedValidationPhaseStarted(0),
-						Event::UnsignedPhaseStarted(0)
-					],
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+						Event::PhaseTransitioned {
+							from: Phase::Signed,
+							to: Phase::SignedValidation(18)
+						},
+						Event::PhaseTransitioned {
+							from: Phase::SignedValidation(18),
+							to: Phase::Unsigned(23)
+						}
+					]
 				);
 
 				roll_to(27);
@@ -1599,7 +1601,14 @@ mod phase_rotation {
 
 				assert_eq!(
 					multi_block_events(),
-					vec![Event::SignedPhaseStarted(0), Event::SignedValidationPhaseStarted(0)],
+					vec![
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+						Event::PhaseTransitioned {
+							from: Phase::Signed,
+							to: Phase::SignedValidation(25)
+						},
+					]
 				);
 
 				// Signed validation can now be expanded until a call to `elect` comes
@@ -1651,7 +1660,16 @@ mod phase_rotation {
 
 				roll_to(25);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
-				assert_eq!(multi_block_events(), vec![Event::UnsignedPhaseStarted(0)],);
+				assert_eq!(
+					multi_block_events(),
+					vec![
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned {
+							from: Phase::Snapshot(0),
+							to: Phase::Unsigned(25)
+						},
+					]
+				);
 
 				// Unsigned can now be expanded until a call to `elect` comes
 				roll_to(27);
@@ -1716,8 +1734,12 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					crate::Event::SignedPhaseStarted(0),
-					crate::Event::SignedValidationPhaseStarted(0)
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned {
+						from: Phase::Signed,
+						to: Phase::SignedValidation(20)
+					}
 				]
 			);
 			assert_eq!(verifier_events(), vec![]);
@@ -1950,8 +1972,6 @@ mod election_provider {
 			verifier::QueuedSolution::<Runtime>::assert_killed();
 			// the phase is off,
 			assert_eq!(MultiBlock::current_phase(), Phase::Off);
-			// the round is incremented,
-			assert_eq!(Round::<Runtime>::get(), 1);
 			// the snapshot is cleared,
 			assert_storage_noop!(Snapshot::<Runtime>::kill());
 			// and signed pallet is clean.
@@ -1992,7 +2012,48 @@ mod election_provider {
 
 	#[test]
 	fn multi_page_elect_fallback_works() {
-		todo!()
+		ExtBuilder::full().onchain_fallback(true).build_and_execute(|| {
+			roll_to_signed_open();
+
+			// but then we immediately call `elect`.
+			assert_eq!(MultiBlock::elect(2), Err(ElectionError::SupportPageNotAvailable));
+
+			// This will set us to emergency phase, because we don't know wtf to do.
+			assert_eq!(MultiBlock::current_phase(), Phase::Emergency);
+		});
+
+		ExtBuilder::full().onchain_fallback(true).build_and_execute(|| {
+			roll_to_signed_open();
+
+			// but then we immediately call `elect`, this will work
+			assert!(MultiBlock::elect(0).is_ok());
+
+			assert_eq!(
+				multi_block_events(),
+				vec![
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Off }
+				]
+			);
+
+			// This will set us to the off phase, since fallback saved us.
+			assert_eq!(MultiBlock::current_phase(), Phase::Off);
+		});
+	}
+
+	#[test]
+	fn elect_call_when_not_ongoing() {
+		ExtBuilder::full().onchain_fallback(true).build_and_execute(|| {
+			roll_to_snapshot_created();
+			assert_eq!(MultiBlock::ongoing(), true);
+			assert!(MultiBlock::elect(0).is_ok());
+		});
+		ExtBuilder::full().onchain_fallback(true).build_and_execute(|| {
+			roll_to(10);
+			assert_eq!(MultiBlock::ongoing(), false);
+			assert_eq!(MultiBlock::elect(0), Err(ElectionError::NotOngoing));
+		});
 	}
 }
 
@@ -2000,12 +2061,20 @@ mod admin_ops {
 	use super::*;
 
 	#[test]
-	fn elect_call_on_off_or_halt_phase() {
-		todo!();
+	fn set_solution_emergency() {
+		todo!()
 	}
 
 	#[test]
-	fn force_clear() {
+	fn set_minimum_solution_score() {
+		todo!()
+	}
+
+	#[test]
+	fn trigger_fallback() {}
+
+	#[test]
+	fn force_kill_all() {
 		todo!("something very similar to the scenario of elect_does_not_finish_without_call_of_page_0, where we want to forcefully clear and put everything into halt phase")
 	}
 }

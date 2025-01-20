@@ -23,7 +23,7 @@ use crate::{
 	},
 	signed::{self as signed_pallet, Event as SignedEvent, Submissions},
 	verifier::{self, AsynchronousVerifier, SolutionDataProvider, VerificationResult, Verifier},
-	PadSolutionPages, PagedRawSolution, Pagify, SolutionOf,
+	Event, PadSolutionPages, PagedRawSolution, Pagify, Phase, SolutionOf,
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
@@ -176,8 +176,9 @@ pub fn load_signed_for_verification_and_start(
 	assert_eq!(
 		multi_block_events(),
 		vec![
-			crate::Event::SignedPhaseStarted(round),
-			crate::Event::SignedValidationPhaseStarted(round)
+			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);
@@ -199,8 +200,9 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(
 		multi_block_events(),
 		vec![
-			crate::Event::SignedPhaseStarted(round),
-			crate::Event::SignedValidationPhaseStarted(round)
+			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);
