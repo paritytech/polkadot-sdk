@@ -65,8 +65,6 @@ crates:
     bump: patch
   - name: pallet-nomination-pools-test-delegate-stake
     bump: minor
-  - name: pallet-nomination-pools-test-transfer-stake
-    bump: minor
   - name: pallet-multisig
     bump: patch
   - name: pallet-lottery
@@ -112,6 +110,8 @@ crates:
   - name: pallet-asset-conversion
     bump: patch
   - name: pallet-asset-conversion-ops
+    bump: patch
+  - name: pallet-asset-rewards
     bump: patch
   - name: pallet-atomic-swap
     bump: patch
