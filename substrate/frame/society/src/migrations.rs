@@ -20,10 +20,7 @@
 use super::*;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame_support::traits::{Defensive, DefensiveOption, Instance, UncheckedOnRuntimeUpgrade};
-
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 /// The log target.
 const TARGET: &'static str = "runtime::society::migration";
@@ -96,7 +93,7 @@ impl<
 
 /// [`VersionUncheckedMigrateToV2`] wrapped in a [`frame_support::migrations::VersionedMigration`],
 /// ensuring the migration is only performed when on-chain version is 0.
-pub type MigrateToV2<T, I, PastPayouts> = frame_support::migrations::VersionedMigration<
+pub type MigrateToV2<T, I, PastPayouts> = VersionedMigration<
 	0,
 	2,
 	VersionUncheckedMigrateToV2<T, I, PastPayouts>,

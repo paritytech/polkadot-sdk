@@ -21,9 +21,8 @@ use super::*;
 use migrations::v0;
 use mock::*;
 
-use frame_support::{assert_noop, assert_ok};
-use sp_crypto_hashing::blake2_256;
-use sp_runtime::traits::BadOrigin;
+use frame::testing_prelude::*;
+use frame::deps::sp_crypto_hashing::blake2_256;
 use BidKind::*;
 use VouchingStatus::*;
 
