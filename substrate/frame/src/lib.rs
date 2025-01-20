@@ -205,9 +205,9 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, OriginTrait, RankedMembers,
-			RankedMembersSwapHandler, VariantCount, VariantCountOf
+			Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
+			NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, OriginTrait, RankedMembers,
+			RankedMembersSwapHandler, VariantCount, VariantCountOf,
 		},
 	};
 
@@ -230,9 +230,6 @@ pub mod prelude {
 	pub use super::account::*;
 
 	pub use crate::transaction::*;
-
-	/// All account related things.
-	pub use super::account::*;
 
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
@@ -538,6 +535,16 @@ pub mod traits {
 	pub use sp_runtime::traits::*;
 }
 
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+	};
+	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
+}
+
 /// The arithmetic types used for safe math.
 ///
 /// This is already part of the [`prelude`].
@@ -568,14 +575,6 @@ pub mod cryptography {
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify};
 }
 
-/// All account management related traits.
-///
-/// This is already part of the [`prelude`].
-pub mod account {
-	pub use frame_support::traits::{ChangeMembers, EitherOfDiverse, InitializeMembers};
-	pub use sp_runtime::traits::IdentifyAccount;
-}
-
 /// Systems involved in transaction fulfilment.
 ///
 /// This is already part of the [`prelude`].
@@ -589,16 +588,6 @@ pub mod transaction {
 		},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
-}
-
-/// All account management related traits.
-///
-/// This is already part of the [`prelude`].
-pub mod account {
-	pub use frame_support::traits::{
-		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
-	};
-	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
