@@ -42,7 +42,7 @@ use std::{fmt::Debug, sync::Arc};
 const LRU_WINDOW: u32 = 256;
 const EQUIVOCATION_LIMIT: usize = 16;
 
-pub struct NaiveEquivocationDefender {
+struct NaiveEquivocationDefender {
 	cache: LruMap<u64, usize>,
 }
 
