@@ -231,7 +231,6 @@ pub mod prelude {
 	/// All account related things.
 	pub use super::account::*;
 
-
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
@@ -576,6 +575,7 @@ pub mod transaction {
 		},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
+}
 
 /// All account management related traits.
 ///
