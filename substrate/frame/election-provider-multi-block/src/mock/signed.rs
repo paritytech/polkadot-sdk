@@ -19,7 +19,7 @@ use super::{Balance, Balances, Pages, Runtime, RuntimeEvent, SignedPallet, Syste
 use crate::{
 	mock::{
 		balances, multi_block_events, roll_next, roll_to_signed_validation_open, verifier_events,
-		AccountId, RuntimeOrigin, VerifierPallet,
+		AccountId, RuntimeHoldReason, RuntimeOrigin, VerifierPallet,
 	},
 	signed::{self as signed_pallet, Event as SignedEvent, Submissions},
 	verifier::{self, AsynchronousVerifier, SolutionDataProvider, VerificationResult, Verifier},
@@ -27,10 +27,8 @@ use crate::{
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
-	assert_ok, dispatch::PostDispatchInfo, pallet_prelude::*, parameter_types,
-	traits::EstimateCallFee, BoundedVec,
+	assert_ok, dispatch::PostDispatchInfo, parameter_types, traits::EstimateCallFee, BoundedVec,
 };
-use frame_system::pallet_prelude::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{traits::Zero, Perbill};
 
@@ -78,6 +76,7 @@ parameter_types! {
 
 impl crate::signed::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type DepositBase = SignedDepositBase;
 	type DepositPerPage = SignedDepositPerPage;

@@ -21,7 +21,7 @@ mod weight_info;
 use super::*;
 use crate::{
 	self as multi_block,
-	signed::{self as signed_pallet},
+	signed::{self as signed_pallet, HoldReason},
 	unsigned::{
 		self as unsigned_pallet,
 		miner::{BaseMiner, MinerError},
@@ -31,14 +31,14 @@ use crate::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	NposSolution, SequentialPhragmen, TryFromUnboundedPagedSupports,
+	NposSolution, SequentialPhragmen,
 };
 pub use frame_support::{assert_noop, assert_ok};
 use frame_support::{
 	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::Hooks,
+	traits::{fungible::InspectHold, Hooks},
 	weights::{constants, Weight},
 };
 use frame_system::{pallet_prelude::*, EnsureRoot};
@@ -62,8 +62,6 @@ pub use staking::*;
 use std::{sync::Arc, vec};
 
 pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
-pub type UncheckedExtrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, (), ()>;
 
 pub type Balance = u64;
 pub type AccountId = u64;
@@ -654,9 +652,12 @@ pub fn raw_paged_solution_low_score() -> PagedRawSolution<Runtime> {
 	}
 }
 
-/// Get the free and reserved balance of `who`.
+/// Get the free and held balance of `who`.
 pub fn balances(who: AccountId) -> (Balance, Balance) {
-	(Balances::free_balance(who), Balances::reserved_balance(who))
+	(
+		Balances::free_balance(who),
+		Balances::balance_on_hold(&HoldReason::SignedSubmission.into(), &who),
+	)
 }
 
 /// Election bounds based on just the given count.

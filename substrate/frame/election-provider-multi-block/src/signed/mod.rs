@@ -20,15 +20,15 @@
 //! Signed submissions work on the basis of keeping a queue of submissions from random signed
 //! accounts, and sorting them based on the best claimed score to the worse.
 //!
-//! Once the time to evaluate the signed phase comes, the solutions are checked from best-to-worse
-//! claim, and they end up in either of the 3 buckets:
+//! Once the time to evaluate the signed phase comes (`Phase::SignedValidation`), the solutions are
+//! checked from best-to-worse claim, and they end up in either of the 3 buckets:
 //!
 //! 1. If they are the first, correct solution (and consequently the best one, since we start
 //!    evaluating from the best claim), they are rewarded.
 //! 2. Any solution after the first correct solution is refunded in an unbiased way.
 //! 3. Any invalid solution that wasted valuable blockchain time gets slashed for their deposit.
 //!
-//! # Future Plans:
+//! ## Future Plans:
 //!
 //! **Lazy deletion**:
 //! Overall, this pallet can avoid the need to delete any storage item, by:
@@ -43,12 +43,18 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::PageIndex;
 use frame_support::{
-	traits::{Currency, Defensive, ReservableCurrency},
+	traits::{
+		tokens::{
+			fungible::{Inspect, InspectHold, Mutate, MutateHold},
+			Fortitude, Precision,
+		},
+		Defensive,
+	},
 	BoundedVec, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::traits::{Saturating, Zero};
+use sp_runtime::traits::Saturating;
 use sp_std::prelude::*;
 
 /// Exports of this pallet
@@ -63,7 +69,7 @@ mod benchmarking;
 mod tests;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// All of the (meta) data around a signed submission
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound)]
@@ -79,7 +85,7 @@ pub struct SubmissionMetadata<T: Config> {
 	reward: BalanceOf<T>,
 	/// The score that this submission is claiming to achieve.
 	claimed_score: ElectionScore,
-	/// A bounded-bit-vec of pages that have been submitted so far.
+	/// A bounded-bool-vec of pages that have been submitted so far.
 	pages: BoundedVec<bool, T::Pages>,
 }
 
@@ -113,7 +119,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				{
 					// first, let's give them their reward.
 					let reward = metadata.reward.saturating_add(metadata.fee);
-					let imbalance = T::Currency::deposit_creating(&winner, reward);
+					let imbalance = T::Currency::mint_into(&winner, reward);
 					Self::deposit_event(Event::<T>::Rewarded(
 						current_round,
 						winner.clone(),
@@ -121,15 +127,25 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 					));
 
 					// then, unreserve their deposit
-					let _remaining = T::Currency::unreserve(&winner, metadata.deposit);
-					debug_assert!(_remaining.is_zero());
+					let _res = T::Currency::release(
+						&HoldReason::SignedSubmission.into(),
+						&winner,
+						metadata.deposit,
+						Precision::BestEffort,
+					);
+					debug_assert!(_res.is_ok());
 
 					// note: we could wipe this data either over time, or via transactions.
 					while let Some((discarded, metadata)) =
 						Submissions::<T>::take_leader_with_data(Self::current_round())
 					{
-						let _remaining = T::Currency::unreserve(&discarded, metadata.deposit);
-						debug_assert!(_remaining.is_zero());
+						let _res = T::Currency::release(
+							&HoldReason::SignedSubmission.into(),
+							&discarded,
+							metadata.deposit,
+							Precision::BestEffort,
+						);
+						debug_assert_eq!(_res, Ok(metadata.deposit));
 						Self::deposit_event(Event::<T>::Discarded(current_round, discarded));
 					}
 
@@ -146,8 +162,14 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				{
 					// first, let's slash their deposit.
 					let slash = metadata.deposit;
-					let (imbalance, _remainder) = T::Currency::slash_reserved(&loser, slash);
-					debug_assert!(_remainder.is_zero());
+					let _res = T::Currency::burn_held(
+						&HoldReason::SignedSubmission.into(),
+						&loser,
+						slash,
+						Precision::BestEffort,
+						Fortitude::Force,
+					);
+					debug_assert_eq!(_res, Ok(slash));
 					Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
 
 					// inform the verifier that they can now try again, if we're still in the signed
@@ -175,10 +197,11 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::{StorageDoubleMap, ValueQuery, *},
-		traits::{Defensive, DefensiveSaturating, EstimateCallFee, TryCollect},
+		traits::{tokens::Precision, Defensive, DefensiveSaturating, EstimateCallFee, TryCollect},
 		transactional, Twox64Concat,
 	};
 	use frame_system::{ensure_signed, pallet_prelude::*};
+	use sp_io::MultiRemovalResults;
 	use sp_runtime::{traits::Zero, DispatchError, Perbill};
 	use sp_std::collections::btree_set::BTreeSet;
 
@@ -193,19 +216,42 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
 
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// Handler to the currency.
+		type Currency: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
+		/// Base deposit amount for a submission.
 		type DepositBase: Get<BalanceOf<Self>>;
+
+		/// Extra deposit per-page.
 		type DepositPerPage: Get<BalanceOf<Self>>;
 
+		/// Base reward that is given to the winner.
 		type RewardBase: Get<BalanceOf<Self>>;
 
+		/// Maximum number of submissions. This, combined with `SignedValidationPhase` and `Pages`
+		/// dictates how many signed solutions we can verify.
 		type MaxSubmissions: Get<u32>;
+
+		/// The ratio of the deposit to return in case a signed account submits a solution via
+		/// [`Pallet::register`], but later calls [`Pallet::bail`].
 		type BailoutGraceRatio: Get<Perbill>;
 
+		/// Handler to estimate the fee of a call. Useful to refund the transaction fee of the
+		/// submitter for the winner.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
 
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
 		type WeightInfo: WeightInfo;
+	}
+
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		#[codec(index = 0)]
+		SignedSubmission,
 	}
 
 	/// Wrapper type for signed submissions.
@@ -305,7 +351,14 @@ pub mod pallet {
 			Self::mutate_checked(round, || {
 				SortedScores::<T>::mutate(round, |sorted| sorted.pop()).and_then(
 					|(submitter, _score)| {
-						SubmissionStorage::<T>::clear_prefix((round, &submitter), u32::MAX, None);
+						// NOTE: safe to remove unbounded, as at most `Pages` pages are stored.
+						let r: MultiRemovalResults = SubmissionStorage::<T>::clear_prefix(
+							(round, &submitter),
+							u32::MAX,
+							None,
+						);
+						debug_assert!(r.unique <= T::Pages::get());
+
 						SubmissionMetadataStorage::<T>::take(round, &submitter)
 							.map(|metadata| (submitter, metadata))
 					},
@@ -328,7 +381,10 @@ pub mod pallet {
 						sorted_scores.remove(index);
 					}
 				});
-				SubmissionStorage::<T>::clear_prefix((round, who), u32::MAX, None);
+				// Note: safe to remove unbounded, as at most `Pages` pages are stored.
+				let r = SubmissionStorage::<T>::clear_prefix((round, who), u32::MAX, None);
+				debug_assert!(r.unique <= T::Pages::get());
+
 				SubmissionMetadataStorage::<T>::take(round, who)
 			})
 		}
@@ -375,12 +431,21 @@ pub mod pallet {
 					Ok(None) => {},
 					Ok(Some((discarded, _score))) => {
 						let metadata = SubmissionMetadataStorage::<T>::take(round, &discarded);
-						SubmissionStorage::<T>::clear_prefix((round, &discarded), u32::MAX, None);
-						let _remaining = T::Currency::unreserve(
-							&discarded,
-							metadata.map(|m| m.deposit).defensive_unwrap_or_default(),
+						// Note: safe to remove unbounded, as at most `Pages` pages are stored.
+						let _r = SubmissionStorage::<T>::clear_prefix(
+							(round, &discarded),
+							u32::MAX,
+							None,
 						);
-						debug_assert!(_remaining.is_zero());
+						debug_assert!(_r.unique <= T::Pages::get());
+						let to_refund = metadata.map(|m| m.deposit).defensive_unwrap_or_default();
+						let _released = T::Currency::release(
+							&HoldReason::SignedSubmission.into(),
+							&discarded,
+							to_refund,
+							Precision::BestEffort,
+						)?;
+						debug_assert_eq!(_released, to_refund);
 						Pallet::<T>::deposit_event(Event::<T>::Discarded(round, discarded));
 					},
 					Err(_) => return Err("QueueFull".into()),
@@ -433,10 +498,16 @@ pub mod pallet {
 			let old_deposit = metadata.deposit;
 			if new_deposit > old_deposit {
 				let to_reserve = new_deposit - old_deposit;
-				T::Currency::reserve(who, to_reserve)?;
+				T::Currency::hold(&HoldReason::SignedSubmission.into(), who, to_reserve)?;
 			} else {
 				let to_unreserve = old_deposit - new_deposit;
-				let _ = T::Currency::unreserve(who, to_unreserve);
+				let _res = T::Currency::release(
+					&HoldReason::SignedSubmission.into(),
+					who,
+					to_unreserve,
+					Precision::BestEffort,
+				);
+				debug_assert_eq!(_res, Ok(to_unreserve));
 			};
 			metadata.deposit = new_deposit;
 
@@ -602,7 +673,8 @@ pub mod pallet {
 
 			let new_metadata = SubmissionMetadata { claimed_score, deposit, reward, fee, pages };
 
-			T::Currency::reserve(&who, deposit).map_err(|_| "insufficient funds")?;
+			T::Currency::hold(&HoldReason::SignedSubmission.into(), &who, deposit)
+				.map_err(|_| "insufficient funds")?;
 			let round = Self::current_round();
 			let _ = Submissions::<T>::try_register(round, &who, new_metadata)?;
 
@@ -645,10 +717,21 @@ pub mod pallet {
 			let to_slash = deposit.defensive_saturating_sub(to_refund);
 
 			// TODO: a nice defensive op for this.
-			let _remainder = T::Currency::unreserve(&who, to_refund);
-			debug_assert!(_remainder.is_zero());
-			let (imbalance, _remainder) = T::Currency::slash_reserved(&who, to_slash);
-			debug_assert!(_remainder.is_zero());
+			let _res = T::Currency::release(
+				&HoldReason::SignedSubmission.into(),
+				&who,
+				to_refund,
+				Precision::BestEffort,
+			);
+			debug_assert_eq!(_res, Ok(to_refund));
+			let _res = T::Currency::burn_held(
+				&HoldReason::SignedSubmission.into(),
+				&who,
+				to_slash,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+			debug_assert_eq!(_res, Ok(to_slash));
 
 			Self::deposit_event(Event::<T>::Bailed(round, who));
 

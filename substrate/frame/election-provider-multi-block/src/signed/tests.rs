@@ -85,12 +85,12 @@ mod calls {
 			assert_full_snapshot();
 
 			let score_from = |x| ElectionScore { minimal_stake: x, ..Default::default() };
-			let assert_reserved = |x| assert_eq!(balances(x), (95, 5));
-			let assert_unreserved = |x| assert_eq!(balances(x), (100, 0));
+			let assert_held = |x| assert_eq!(balances(x), (95, 5));
+			let assert_unheld = |x| assert_eq!(balances(x), (100, 0));
 
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), score_from(100)));
 			assert_eq!(*Submissions::<Runtime>::leaderboard(0), vec![(91, score_from(100))]);
-			assert_reserved(91);
+			assert_held(91);
 			assert!(
 				matches!(signed_events().as_slice(), &[SignedEvent::Registered(_, x, _)] if x == 91)
 			);
@@ -101,7 +101,7 @@ mod calls {
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100))]
 			);
-			assert_reserved(92);
+			assert_held(92);
 			assert!(matches!(signed_events().as_slice(), &[
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(_, x, _),
@@ -113,7 +113,7 @@ mod calls {
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100)), (93, score_from(110))]
 			);
-			assert_reserved(93);
+			assert_held(93);
 			assert!(matches!(signed_events().as_slice(), &[
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
@@ -129,7 +129,7 @@ mod calls {
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100)), (93, score_from(110))]
 			);
-			assert_unreserved(94);
+			assert_unheld(94);
 			// no event has been emitted this time.
 			assert!(matches!(
 				signed_events().as_slice(),
@@ -146,8 +146,6 @@ mod calls {
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(91, score_from(100)), (93, score_from(110)), (94, score_from(120))]
 			);
-			assert_reserved(94);
-			assert_unreserved(92);
 			assert!(matches!(
 				signed_events().as_slice(),
 				&[
@@ -158,6 +156,8 @@ mod calls {
 					SignedEvent::Registered(_, 94, _),
 				]
 			));
+			assert_held(94);
+			assert_unheld(92);
 
 			// another stronger one comes, only replace the weakest.
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(95), score_from(105)));
@@ -165,8 +165,8 @@ mod calls {
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(95, score_from(105)), (93, score_from(110)), (94, score_from(120))]
 			);
-			assert_reserved(95);
-			assert_unreserved(91);
+			assert_held(95);
+			assert_unheld(91);
 			assert!(matches!(
 				signed_events().as_slice(),
 				&[

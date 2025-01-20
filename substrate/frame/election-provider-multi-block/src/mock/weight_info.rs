@@ -19,7 +19,7 @@
 
 use crate::{self as multi_block};
 use frame_support::weights::Weight;
-use sp_runtime::traits::{Bounded, Zero};
+use sp_runtime::traits::Zero;
 
 frame_support::parameter_types! {
 	pub static MockWeightInfo: bool = false;
