@@ -106,7 +106,7 @@
 //! [dependencies]
 //! codec = { features = ["max-encoded-len"], workspace = true }
 //! scale-info = { features = ["derive"], workspace = true }
-//! frame = { workspace = true, features = ["experimental", "runtime"] }
+//! frame = { workspace = true, features = ["runtime"] }
 //!
 //! [features]
 //! default = ["std"]
@@ -150,7 +150,6 @@
 //! * `runtime::apis` should expose all common runtime APIs that all FRAME-based runtimes need.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg(feature = "experimental")]
 
 #[doc(no_inline)]
 pub use frame_support::pallet;
@@ -325,9 +324,9 @@ pub mod testing_prelude {
 		assert_storage_noop, hypothetically, storage_alias,
 	};
 
-	pub use frame_system::{self, mocking::*};
+	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
-	#[deprecated(note = "Use `frame::testing_prelude::TestExternalities` instead.")]
+	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
