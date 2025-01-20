@@ -281,7 +281,7 @@ impl CollationGenerationSubsystem {
 			.filter_map(|(core_idx, para_ids)| {
 				para_ids.iter().any(|&para_id| para_id == config.para_id).then_some(*core_idx)
 			})
-			.collect::<HashSet<_>>();
+			.collect::<Vec<_>>();
 
 		// Nothing to do if no core is assigned to us at any depth.
 		if assigned_cores.is_empty() {
@@ -419,11 +419,19 @@ impl CollationGenerationSubsystem {
 						gum::debug!(
 							target: LOG_TARGET,
 							?para_id,
-							"parachain repeatedly selected the same core index",
+							"parachain repeatedly selected the same core index: {}",
+							descriptor_core_index.0,
 						);
 						return
 					}
+
 					used_cores.insert(descriptor_core_index.0);
+					gum::trace!(
+						target: LOG_TARGET,
+						?para_id,
+						"selected core index: {}",
+						descriptor_core_index.0,
+					);
 
 					// Distribute the collation.
 					let parent_head = collation.head_data.clone();

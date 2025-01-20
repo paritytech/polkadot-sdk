@@ -80,14 +80,29 @@ fn test_collation() -> Collation {
 	}
 }
 
-struct State {
-	core_selector_index: Option<u8>,
+struct CoreSelectorData {
+	// The core selector index.
+	cs_index: u8,
+	// The increment value for the core selector index. Normally 1, but can be set to 0 or another
+	// value for testing scenarios where a parachain repeatedly selects the same core index.
+	increment_cs_index_by: u8,
+	// The claim queue offset.
 	cq_offset: u8,
 }
 
+impl CoreSelectorData {
+	fn new(cs_index: u8, increment_cs_index_by: u8, cq_offset: u8) -> Self {
+		Self { cs_index, increment_cs_index_by, cq_offset }
+	}
+}
+
+struct State {
+	core_selector_data: Option<CoreSelectorData>,
+}
+
 impl State {
-	fn new(core_selector_index: Option<u8>, cq_offset: u8) -> Self {
-		Self { core_selector_index, cq_offset }
+	fn new(core_selector_data: Option<CoreSelectorData>) -> Self {
+		Self { core_selector_data }
 	}
 }
 
@@ -96,27 +111,27 @@ struct TestCollator {
 }
 
 impl TestCollator {
-	fn new(core_selector_index: Option<u8>, cq_offset: u8) -> Self {
-		Self { state: Arc::new(Mutex::new(State::new(core_selector_index, cq_offset))) }
+	fn new(core_selector_data: Option<CoreSelectorData>) -> Self {
+		Self { state: Arc::new(Mutex::new(State::new(core_selector_data))) }
 	}
 
 	pub fn create_collation_function(&self) -> CollatorFn {
 		let state = Arc::clone(&self.state);
 
 		Box::new(move |_relay_parent: Hash, _validation_data: &PersistedValidationData| {
-			let mut state_guard = state.lock().unwrap();
 			let mut collation = test_collation();
+			let mut state_guard = state.lock().unwrap();
 
-			if let Some(index) = state_guard.core_selector_index {
+			if let Some(core_selector_data) = &mut state_guard.core_selector_data {
 				collation.upward_messages.force_push(UMP_SEPARATOR);
 				collation.upward_messages.force_push(
 					UMPSignal::SelectCore(
-						CoreSelector(index),
-						ClaimQueueOffset(state_guard.cq_offset),
+						CoreSelector(core_selector_data.cs_index),
+						ClaimQueueOffset(core_selector_data.cq_offset),
 					)
 					.encode(),
 				);
-				state_guard.core_selector_index = Some(index + 1);
+				core_selector_data.cs_index += core_selector_data.increment_cs_index_by;
 			}
 
 			async move { Some(CollationResult { collation, result_sender: None }) }.boxed()
@@ -136,10 +151,9 @@ async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
 
 fn test_config<Id: Into<ParaId>>(
 	para_id: Id,
-	core_selector_index: Option<u8>,
-	cq_offset: u8,
+	core_selector_data: Option<CoreSelectorData>,
 ) -> CollationGenerationConfig {
-	let test_collator = TestCollator::new(core_selector_index, cq_offset);
+	let test_collator = TestCollator::new(core_selector_data);
 	CollationGenerationConfig {
 		key: CollatorPair::generate().0,
 		collator: Some(test_collator.create_collation_function()),
@@ -257,7 +271,7 @@ fn distribute_collation_only_for_assigned_para_id_at_offset_0() {
 		.collect::<BTreeMap<_, _>>();
 
 	test_harness(|mut virtual_overseer| async move {
-		helpers::initialize_collator(&mut virtual_overseer, para_id, None, 0).await;
+		helpers::initialize_collator(&mut virtual_overseer, para_id, None).await;
 		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
 		helpers::handle_runtime_calls_on_new_head_activation(
 			&mut virtual_overseer,
@@ -297,7 +311,7 @@ fn distribute_collation_with_elastic_scaling(#[case] total_cores: u32) {
 		.collect::<BTreeMap<_, _>>();
 
 	test_harness(|mut virtual_overseer| async move {
-		helpers::initialize_collator(&mut virtual_overseer, para_id, None, 0).await;
+		helpers::initialize_collator(&mut virtual_overseer, para_id, None).await;
 		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
 		helpers::handle_runtime_calls_on_new_head_activation(
 			&mut virtual_overseer,
@@ -325,21 +339,25 @@ fn distribute_collation_with_elastic_scaling(#[case] total_cores: u32) {
 // remainder to select the core. UMP signals may also contain a claim queue offset, based on which
 // we need to select the assigned core indexes for the para from that offset in the claim queue.
 #[rstest]
-#[case(0, 0, 0)]
-#[case(1, 0, 0)]
-#[case(1, 5, 0)]
-#[case(2, 0, 1)]
-#[case(4, 2, 2)]
+#[case(0, 0, 0, false)]
+#[case(1, 0, 0, true)]
+#[case(1, 5, 0, false)]
+#[case(2, 0, 1, true)]
+#[case(4, 2, 2, false)]
 fn distribute_collation_with_core_selectors(
 	#[case] total_cores: u32,
 	// The core selector index that will be obtained from the first collation.
-	#[case] init_core_selector_index: u8,
+	#[case] init_cs_index: u8,
 	// Claim queue offset where the assigned cores will be stored.
 	#[case] cq_offset: u8,
+	// Enables v2 receipts feature, affecting core selector and claim queue handling.
+	#[case] v2_receipts: bool,
 ) {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
 	let other_para_id = ParaId::from(10);
+	let node_features =
+		if v2_receipts { node_features_with_v2_enabled() } else { NodeFeatures::EMPTY };
 
 	let claim_queue = (0..total_cores)
 		.into_iter()
@@ -355,8 +373,7 @@ fn distribute_collation_with_core_selectors(
 		helpers::initialize_collator(
 			&mut virtual_overseer,
 			para_id,
-			Some(init_core_selector_index),
-			cq_offset,
+			Some(CoreSelectorData::new(init_cs_index, 1, cq_offset)),
 		)
 		.await;
 		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
@@ -364,22 +381,72 @@ fn distribute_collation_with_core_selectors(
 			&mut virtual_overseer,
 			activated_hash,
 			claim_queue,
-			NodeFeatures::EMPTY,
+			node_features,
 		)
 		.await;
 
 		let mut cores_assigned = (0..total_cores).collect::<Vec<_>>();
-		if total_cores > 1 && init_core_selector_index > 0 {
+		if total_cores > 1 && init_cs_index > 0 {
 			// We need to rotate the list of cores because the first core selector index was
 			// non-zero, which should change the sequence of submissions. However, collations should
 			// still be submitted on all cores.
-			cores_assigned.rotate_left((init_core_selector_index as u32 % total_cores) as usize);
+			cores_assigned.rotate_left((init_cs_index as u32 % total_cores) as usize);
 		}
 		helpers::handle_cores_processing_for_a_leaf(
 			&mut virtual_overseer,
 			activated_hash,
 			para_id,
 			cores_assigned,
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+// Tests the behavior when a parachain repeatedly selects the same core index.
+// Ensures that the system handles this behavior correctly while maintaining expected functionality.
+#[rstest]
+#[case(3, 0, vec![0])]
+#[case(3, 1, vec![0, 1, 2])]
+#[case(3, 2, vec![0, 2, 1])]
+#[case(3, 3, vec![0])]
+#[case(3, 4, vec![0, 1, 2])]
+fn distribute_collation_with_repeated_core_selector_index(
+	#[case] total_cores: u32,
+	#[case] increment_cs_index_by: u8,
+	#[case] expected_selected_cores: Vec<u32>,
+) {
+	let activated_hash: Hash = [1; 32].into();
+	let para_id = ParaId::from(5);
+	let node_features = node_features_with_v2_enabled();
+
+	let claim_queue = (0..total_cores)
+		.into_iter()
+		.map(|idx| (CoreIndex(idx), VecDeque::from([para_id])))
+		.collect::<BTreeMap<_, _>>();
+
+	test_harness(|mut virtual_overseer| async move {
+		helpers::initialize_collator(
+			&mut virtual_overseer,
+			para_id,
+			Some(CoreSelectorData::new(0, increment_cs_index_by, 0)),
+		)
+		.await;
+		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
+		helpers::handle_runtime_calls_on_new_head_activation(
+			&mut virtual_overseer,
+			activated_hash,
+			claim_queue,
+			node_features,
+		)
+		.await;
+
+		helpers::handle_cores_processing_for_a_leaf(
+			&mut virtual_overseer,
+			activated_hash,
+			para_id,
+			expected_selected_cores,
 		)
 		.await;
 
@@ -514,15 +581,13 @@ mod helpers {
 	pub async fn initialize_collator(
 		virtual_overseer: &mut VirtualOverseer,
 		para_id: ParaId,
-		core_selector_index: Option<u8>,
-		cq_offset: u8,
+		core_selector_data: Option<CoreSelectorData>,
 	) {
 		virtual_overseer
 			.send(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::Initialize(test_config(
 					para_id,
-					core_selector_index,
-					cq_offset,
+					core_selector_data,
 				)),
 			})
 			.await;
