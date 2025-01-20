@@ -56,6 +56,11 @@ impl ViewFunctionsImplDef {
 
 				let view_fn_def = ViewFunctionDef::try_from(method.clone())?;
 				view_functions.push(view_fn_def)
+			} else {
+				return Err(syn::Error::new(
+					item.span(),
+					"Invalid pallet::view_functions_experimental, expected a function",
+				))
 			}
 		}
 		Ok(Self {
@@ -103,12 +108,12 @@ impl ViewFunctionDef {
 		)
 	}
 
-	pub fn view_function_id_suffix_bytes(&self) -> [u8; 16] {
+	pub fn view_function_id_suffix_bytes(&self) -> Result<[u8; 16], syn::Error> {
 		let mut output = [0u8; 16];
 
 		// concatenate the signature string
 		let arg_types = self
-			.args_names_types()
+			.args_names_types()?
 			.1
 			.iter()
 			.map(|ty| quote::quote!(#ty).to_string().replace(" ", ""))
@@ -124,19 +129,30 @@ impl ViewFunctionDef {
 		// hash the signature string
 		let hash = sp_crypto_hashing::twox_128(view_fn_signature.as_bytes());
 		output.copy_from_slice(&hash[..]);
-		output
+		Ok(output)
 	}
 
-	pub fn args_names_types(&self) -> (Vec<syn::Ident>, Vec<syn::Type>) {
-		self.args
+	pub fn args_names_types(&self) -> Result<(Vec<syn::Ident>, Vec<syn::Type>), syn::Error> {
+		Ok(self
+			.args
 			.iter()
-			.map(|arg| match arg {
-				syn::FnArg::Typed(pat_type) => match &*pat_type.pat {
-					syn::Pat::Ident(ident) => (ident.ident.clone(), *pat_type.ty.clone()),
-					_ => panic!("Unsupported pattern in view function argument"),
-				},
-				_ => panic!("Unsupported argument in view function"),
+			.map(|arg| {
+				let syn::FnArg::Typed(pat_type) = arg else {
+					return Err(syn::Error::new(
+						arg.span(),
+						"Unsupported argument in view function",
+					));
+				};
+				let syn::Pat::Ident(ident) = &*pat_type.pat else {
+					return Err(syn::Error::new(
+						pat_type.pat.span(),
+						"Unsupported pattern in view function argument",
+					));
+				};
+				Ok((ident.ident.clone(), *pat_type.ty.clone()))
 			})
-			.unzip()
+			.collect::<Result<Vec<(syn::Ident, syn::Type)>, syn::Error>>()?
+			.into_iter()
+			.unzip())
 	}
 }

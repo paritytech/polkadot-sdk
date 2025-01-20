@@ -88,12 +88,18 @@ fn expand_view_function(
 
 	let view_function_struct_ident = view_fn.view_function_struct_ident();
 	let view_fn_name = &view_fn.name;
-	let (arg_names, arg_types) = view_fn.args_names_types();
+	let (arg_names, arg_types) = match view_fn.args_names_types() {
+		Ok((arg_names, arg_types)) => (arg_names, arg_types),
+		Err(e) => return e.into_compile_error(),
+	};
 	let return_type = &view_fn.return_type;
 	let docs = &view_fn.docs;
 
-	let view_function_id_suffix_bytes = view_fn
-		.view_function_id_suffix_bytes()
+	let view_function_id_suffix_bytes_raw = match view_fn.view_function_id_suffix_bytes() {
+		Ok(view_function_id_suffix_bytes_raw) => view_function_id_suffix_bytes_raw,
+		Err(e) => return e.into_compile_error(),
+	};
+	let view_function_id_suffix_bytes = view_function_id_suffix_bytes_raw
 		.map(|byte| syn::LitInt::new(&format!("0x{:X}_u8", byte), Span::call_site()));
 
 	quote::quote! {
