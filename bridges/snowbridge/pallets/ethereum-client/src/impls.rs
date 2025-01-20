@@ -124,8 +124,8 @@ impl<T: Config> Pallet<T> {
 			verify_merkle_branch(
 				execution_header_root,
 				&execution_proof.execution_branch,
-				subtree_index(execution_header_g_index),
-				generalized_index_length(execution_header_g_index),
+				subtree_index(execution_header_gindex),
+				generalized_index_length(execution_header_gindex),
 				execution_proof.header.body_root
 			),
 			Error::<T>::InvalidExecutionHeaderProof

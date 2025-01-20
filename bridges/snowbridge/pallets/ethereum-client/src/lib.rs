@@ -263,8 +263,8 @@ pub mod pallet {
 				verify_merkle_branch(
 					sync_committee_root,
 					&update.current_sync_committee_branch,
-					subtree_index(sync_committee_g_index),
-					generalized_index_length(sync_committee_g_index),
+					subtree_index(sync_committee_gindex),
+					generalized_index_length(sync_committee_gindex),
 					update.header.state_root
 				),
 				Error::<T>::InvalidSyncCommitteeMerkleProof
@@ -284,8 +284,8 @@ pub mod pallet {
 				verify_merkle_branch(
 					update.block_roots_root,
 					&update.block_roots_branch,
-					subtree_index(block_roots_g_index),
-					generalized_index_length(block_roots_g_index),
+					subtree_index(block_roots_gindex),
+					generalized_index_length(block_roots_gindex),
 					update.header.state_root
 				),
 				Error::<T>::InvalidBlockRootsRootMerkleProof
@@ -364,7 +364,7 @@ pub mod pallet {
 			);
 
 			let fork_versions = T::ForkVersions::get();
-			let finalized_root_g_index = Self::finalized_root_gindex_at_slot(
+			let finalized_root_gindex = Self::finalized_root_gindex_at_slot(
 				update.attested_header.slot,
 				fork_versions.clone(),
 			);
@@ -378,8 +378,8 @@ pub mod pallet {
 				verify_merkle_branch(
 					finalized_block_root,
 					&update.finality_branch,
-					subtree_index(finalized_root_g_index),
-					generalized_index_length(finalized_root_g_index),
+					subtree_index(finalized_root_gindex),
+					generalized_index_length(finalized_root_gindex),
 					update.attested_header.state_root
 				),
 				Error::<T>::InvalidHeaderMerkleProof
@@ -396,8 +396,8 @@ pub mod pallet {
 				verify_merkle_branch(
 					update.block_roots_root,
 					&update.block_roots_branch,
-					subtree_index(block_roots_g_index),
-					generalized_index_length(block_roots_g_index),
+					subtree_index(block_roots_gindex),
+					generalized_index_length(block_roots_gindex),
 					update.finalized_header.state_root
 				),
 				Error::<T>::InvalidBlockRootsRootMerkleProof
@@ -425,8 +425,8 @@ pub mod pallet {
 					verify_merkle_branch(
 						sync_committee_root,
 						&next_sync_committee_update.next_sync_committee_branch,
-						subtree_index(next_sync_committee_g_index),
-						generalized_index_length(next_sync_committee_g_index),
+						subtree_index(next_sync_committee_gindex),
+						generalized_index_length(next_sync_committee_gindex),
 						update.attested_header.state_root
 					),
 					Error::<T>::InvalidSyncCommitteeMerkleProof
