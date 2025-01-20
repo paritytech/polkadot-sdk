@@ -47,11 +47,6 @@ const TREASURY_ACCOUNT: [u8; 32] =
 pub enum ControlCall {
 	#[codec(index = 3)]
 	CreateAgent,
-	#[codec(index = 4)]
-	CreateChannel {
-		mode: OperatingMode,
-	},
-	Pe,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -123,84 +118,6 @@ fn create_agent() {
 			BridgeHubWestend,
 			vec![
 				RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateAgent {
-					..
-				}) => {},
-			]
-		);
-	});
-}
-
-/// Create a channel for a consensus system. A channel is a bidirectional messaging channel
-/// between BridgeHub and Ethereum.
-#[test]
-#[ignore]
-fn create_channel() {
-	let origin_para: u32 = 1001;
-	// Fund AssetHub sovereign account so that it can pay execution fees.
-	BridgeHubWestend::fund_para_sovereign(origin_para.into(), INITIAL_FUND);
-
-	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
-	let destination: VersionedLocation =
-		Westend::child_location_of(BridgeHubWestend::para_id()).into();
-
-	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
-	// Construct XCM to create an agent for para 1001
-	let create_agent_xcm = VersionedXcm::from(Xcm(vec![
-		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-		DescendOrigin(Parachain(origin_para).into()),
-		Transact {
-			origin_kind: OriginKind::Xcm,
-			call: create_agent_call.encode().into(),
-			fallback_max_weight: None,
-		},
-	]));
-
-	let create_channel_call =
-		SnowbridgeControl::Control(ControlCall::CreateChannel { mode: OperatingMode::Normal });
-	// Construct XCM to create a channel for para 1001
-	let create_channel_xcm = VersionedXcm::from(Xcm(vec![
-		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-		DescendOrigin(Parachain(origin_para).into()),
-		Transact {
-			origin_kind: OriginKind::Xcm,
-			call: create_channel_call.encode().into(),
-			fallback_max_weight: None,
-		},
-	]));
-
-	// Westend Global Consensus
-	// Send XCM message from Relay Chain to Bridge Hub source Parachain
-	Westend::execute_with(|| {
-		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
-			sudo_origin.clone(),
-			bx!(destination.clone()),
-			bx!(create_agent_xcm),
-		));
-
-		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
-			sudo_origin,
-			bx!(destination),
-			bx!(create_channel_xcm),
-		));
-
-		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-
-		assert_expected_events!(
-			Westend,
-			vec![
-				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-			]
-		);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-
-		// Check that the Channel was created
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateChannel {
 					..
 				}) => {},
 			]
