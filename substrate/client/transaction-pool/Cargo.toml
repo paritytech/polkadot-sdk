@@ -49,8 +49,11 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 cmd_lib = { workspace = true }
 criterion = { workspace = true, default-features = true }
+cumulus-client-cli = { workspace = true, default-features = true }
+derive_builder = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
+polkadot-cli = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 strum = { workspace = true, features = ["derive"] }

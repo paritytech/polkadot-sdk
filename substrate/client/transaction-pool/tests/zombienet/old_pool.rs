@@ -9,11 +9,11 @@ use super::{
 	DEFAULT_RC_NODE_RPC_PORT,
 };
 use anyhow::anyhow;
+use derive_builder::Builder;
 use which::which;
 
-// A zombienet network with two relaychain 'polkadot' validators and one parachain
-// validator based on yap-westend-live-2022 chain spec.
-pub struct SmallNetworkOldPoolSmall {
+#[derive(Builder, Debug, Default)]
+pub struct OldPoolNetwork {
 	rc_config: RelaychainConfig,
 	pc_config: ParachainConfig,
 	rc_nodes: Vec<Node>,
@@ -21,8 +21,8 @@ pub struct SmallNetworkOldPoolSmall {
 	base_dir: PathBuf,
 }
 
-impl SmallNetworkOldPoolSmall {
-	/// Creates a new [`SmallNetworkOldPoolSmall`].
+impl OldPoolNetwork {
+	/// Creates a new [`SmallNetworkOldPool`].
 	pub fn new(
 		rc_config: RelaychainConfig,
 		pc_config: ParachainConfig,
@@ -32,20 +32,6 @@ impl SmallNetworkOldPoolSmall {
 		let base_dir =
 			PathBuf::from(format!("{}-{}", DEFAULT_BASE_DIR, datetime.format("%Y%m%d_%H%M%S")));
 		std::fs::create_dir(base_dir.clone()).map_err(|err| anyhow!(format!("{err}")))?;
-		//"--force-authoring",
-		//"--pool-limit 500000",
-		//"--pool-kbytes 2048000",
-		//"--rpc-max-connections 15000",
-		//"--rpc-max-response-size 150",
-		//"-lbasic-authorship=info",
-		//"-ltxpool=debug",
-		//"-lsync=trace",
-		//"-laura::cumulus=debug",
-		//"-lpeerset=trace",
-		//"-lsub-libp2p=debug",
-		//# "--pool-type=single-state",
-		//"--state-pruning=1024",
-		//"--rpc-max-subscriptions-per-connection=128000"
 		let p_args = vec![
 			"--force-authoring".into(),
 			("--pool-limit", "500000").into(),
@@ -53,15 +39,15 @@ impl SmallNetworkOldPoolSmall {
 			("--rpc-max-connections", "15000").into(),
 			("--rpc-max-response-size", "150").into(),
 			"-lbasic-authorship=info".into(),
-			"-ltxpool=debug".into(),
-			"-lsync=trace".into(),
-			"-laura::cumulus=debug".into(),
-			"-lpeerset=trace".into(),
-			"-lsub-libp2p=debug".into(),
+			"-ltxpool=info".into(),
+			"-lsync=info".into(),
+			"-laura::cumulus=info".into(),
+			"-lpeerset=info".into(),
+			"-lsub-libp2p=info".into(),
 			"--state-pruning=1024".into(),
 			"--rpc-max-subscriptions-per-connection=128000".into(),
 		];
-		Ok(SmallNetworkOldPoolSmall {
+		Ok(OldPoolNetwork {
 			rc_config,
 			pc_config,
 			rc_nodes: vec![
@@ -79,7 +65,7 @@ impl SmallNetworkOldPoolSmall {
 }
 
 #[async_trait::async_trait]
-impl Network for SmallNetworkOldPoolSmall {
+impl Network for OldPoolNetwork {
 	fn ensure_bins_on_path(&self) -> bool {
 		// We need polkadot, polkadot-parachain, polkadot-execute-worker, polkadot-prepare-worker,
 		// (and ttxt? - maybe not for the network, but for the tests, definitely)
@@ -165,7 +151,7 @@ impl Network for SmallNetworkOldPoolSmall {
 	async fn start(&self) -> Result<ZNetwork<LocalFileSystem>, anyhow::Error> {
 		let network_config = self.config()?;
 		if !self.ensure_bins_on_path() {
-			return Err(anyhow!("Error: required bins weren't found on $PATH."));
+			return Err(anyhow!("Error: required bins weren't found on $PATH: polkadot"));
 		}
 		network_config.spawn_native().await.map_err(|err| anyhow!(format!("{}", err)))
 	}

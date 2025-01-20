@@ -13,7 +13,7 @@ use which::which;
 
 // A zombienet network with two relaychain 'polkadot' validators and one parachain
 // validator based on yap-westend-live-2022 chain spec.
-pub struct SmallNetworkYap {
+pub struct OldPoolSmallNetwork {
 	rc_config: RelaychainConfig,
 	pc_config: ParachainConfig,
 	rc_nodes: Vec<Node>,
@@ -21,8 +21,8 @@ pub struct SmallNetworkYap {
 	base_dir: PathBuf,
 }
 
-impl SmallNetworkYap {
-	/// Creates a new [`SmallNetworkYap`].
+impl OldPoolSmallNetwork {
+	/// Creates a new [`SmallNetworkOldPoolSmall`].
 	pub fn new(
 		rc_config: RelaychainConfig,
 		pc_config: ParachainConfig,
@@ -32,42 +32,40 @@ impl SmallNetworkYap {
 		let base_dir =
 			PathBuf::from(format!("{}-{}", DEFAULT_BASE_DIR, datetime.format("%Y%m%d_%H%M%S")));
 		std::fs::create_dir(base_dir.clone()).map_err(|err| anyhow!(format!("{err}")))?;
-
-		Ok(SmallNetworkYap {
+		let p_args = vec![
+			"--force-authoring".into(),
+			("--pool-limit", "500000").into(),
+			("--pool-kbytes", "2048000").into(),
+			("--rpc-max-connections", "15000").into(),
+			("--rpc-max-response-size", "150").into(),
+			"-lbasic-authorship=info".into(),
+			"-ltxpool=debug".into(),
+			"-lsync=trace".into(),
+			"-laura::cumulus=debug".into(),
+			"-lpeerset=trace".into(),
+			"-lsub-libp2p=debug".into(),
+			"--state-pruning=1024".into(),
+			"--rpc-max-subscriptions-per-connection=128000".into(),
+		];
+		Ok(OldPoolSmallNetwork {
 			rc_config,
 			pc_config,
 			rc_nodes: vec![
 				Node::new("alice".to_owned(), vec![], true),
 				Node::new("bob".to_owned(), vec![], true),
 			],
-			pc_nodes: vec![Node::new(
-				"charlie".to_owned(),
-				vec![
-					("--pool-limit", "500000").into(),
-					("--pool-kbytes", "2048000").into(),
-					("--rpc-max-connections", "15000").into(),
-					("--rpc-max-response-size", "150").into(),
-					"-lbasic-authorship=info".into(),
-					"-ltxpool=debug".into(),
-					"-lsync=info".into(),
-					"-laura::cumulus=info".into(),
-					"-lpeerset=info".into(),
-					"-lsub-libp2p=info".into(),
-					"--pool-type=fork-aware".into(),
-					"--experimental-use-slot-based".into(),
-					"--state-pruning=1024".into(),
-					"--rpc-max-subscriptions-per-connection=128000".into(),
-					"--max-runtime-instances=32".into(),
-				],
-				true,
-			)],
+			pc_nodes: vec![
+				Node::new("charlie".to_owned(), p_args.clone(), false),
+				Node::new("dave".to_owned(), p_args.clone(), true),
+				Node::new("eve".to_owned(), p_args.clone(), true),
+			],
 			base_dir,
 		})
 	}
 }
 
 #[async_trait::async_trait]
-impl Network for SmallNetworkYap {
+impl Network for OldPoolSmallNetwork {
 	fn ensure_bins_on_path(&self) -> bool {
 		// We need polkadot, polkadot-parachain, polkadot-execute-worker, polkadot-prepare-worker,
 		// (and ttxt? - maybe not for the network, but for the tests, definitely)
@@ -112,6 +110,9 @@ impl Network for SmallNetworkYap {
 			.with_parachain(|p| {
 				let mut pc_nodes_iter = self.pc_nodes.iter();
 				let first_node = pc_nodes_iter.next();
+
+				// Set up the parachain and the first collator, obtaining the right type to iterate
+				// through the following collators through folding.
 				let p = p
 					.with_id(self.pc_config.id)
 					.cumulus_based(true)
@@ -130,14 +131,13 @@ impl Network for SmallNetworkYap {
 				(DEFAULT_PC_NODE_RPC_PORT as usize + 1..
 					DEFAULT_PC_NODE_RPC_PORT as usize + self.pc_nodes.len())
 					.zip(pc_nodes_iter)
-					.fold(p, move |acc, (port, node)| {
-						acc.with_collator(|new_node| {
-							new_node
-								.with_name(&node.name)
+					.fold(p, move |acc, (port, pc_node_config)| {
+						acc.with_collator(|node| {
+							node.with_name(&pc_node_config.name)
 								.with_rpc_port(u16::try_from(port).unwrap_or(0))
-								.validator(node.validator)
+								.validator(pc_node_config.validator)
 								.with_command(self.pc_config.default_command.as_str())
-								.with_args(node.args.clone())
+								.with_args(pc_node_config.args.clone())
 						})
 					})
 			});

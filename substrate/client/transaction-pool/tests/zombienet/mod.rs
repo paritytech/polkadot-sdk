@@ -20,32 +20,53 @@
 
 use std::path::PathBuf;
 
+use derive_builder::Builder;
 use zombienet_configuration::{shared::types::Arg, types::ParaId};
 use zombienet_sdk::{LocalFileSystem, Network as ZNetwork, NetworkConfig};
 
-pub mod small_network_limits_30;
-pub mod small_network_old_pool;
-pub mod small_network_old_pool_small;
-pub mod small_network_single_collator;
-pub mod small_network_yap;
+pub mod limits_30;
+pub mod old_pool;
+pub mod old_pool_small;
+pub mod single_collator;
+pub mod yap;
 
 const DEFAULT_BASE_DIR: &'static str = "/tmp/zn-spawner";
 const DEFAULT_RC_NODE_RPC_PORT: u16 = 9944;
 const DEFAULT_PC_NODE_RPC_PORT: u16 = 8844;
 
+#[derive(Default, Builder, Debug)]
 pub struct RelaychainConfig {
-	pub default_command: String,
-	pub chain: String,
+	default_command: String,
+	chain: String,
 }
 
+impl RelaychainConfig {
+	pub fn new(default_command: String, chain: String) -> Self {
+		RelaychainConfig { default_command, chain }
+	}
+}
+
+#[derive(Default, Builder, Debug)]
 pub struct ParachainConfig {
-	pub default_command: String,
-	pub chain_spec_path: String,
-	pub cumulus_based: bool,
+	default_command: String,
+	chain_spec_path: String,
+	cumulus_based: bool,
 	pub id: ParaId,
 }
 
-/// Wrapper over a substrate node managed by zombienet..
+impl ParachainConfig {
+	pub fn new(
+		default_command: String,
+		chain_spec_path: String,
+		cumulus_based: bool,
+		id: ParaId,
+	) -> Self {
+		ParachainConfig { default_command, chain_spec_path, cumulus_based, id }
+	}
+}
+
+/// Wrapper over a substrate node managed by zombienet.
+#[derive(Debug)]
 pub struct Node {
 	validator: bool,
 	name: String,

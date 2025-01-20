@@ -13,7 +13,7 @@ use which::which;
 
 // A zombienet network with two relaychain 'polkadot' validators and one parachain
 // validator based on yap-westend-live-2022 chain spec.
-pub struct SmallNetworkLimits30 {
+pub struct Limits30Network {
 	rc_config: RelaychainConfig,
 	pc_config: ParachainConfig,
 	rc_nodes: Vec<Node>,
@@ -21,7 +21,7 @@ pub struct SmallNetworkLimits30 {
 	base_dir: PathBuf,
 }
 
-impl SmallNetworkLimits30 {
+impl Limits30Network {
 	/// Creates a new [`SmallNetworkLimits30`].
 	pub fn new(
 		rc_config: RelaychainConfig,
@@ -48,7 +48,7 @@ impl SmallNetworkLimits30 {
 			"--state-pruning=1024".into(),
 			"--rpc-max-subscriptions-per-connection=128000".into(),
 		];
-		Ok(SmallNetworkLimits30 {
+		Ok(Limits30Network {
 			rc_config,
 			pc_config,
 			rc_nodes: vec![
@@ -67,7 +67,7 @@ impl SmallNetworkLimits30 {
 }
 
 #[async_trait::async_trait]
-impl Network for SmallNetworkLimits30 {
+impl Network for Limits30Network {
 	fn ensure_bins_on_path(&self) -> bool {
 		// We need polkadot, polkadot-parachain, polkadot-execute-worker, polkadot-prepare-worker,
 		// (and ttxt? - maybe not for the network, but for the tests, definitely)

@@ -13,7 +13,7 @@ use which::which;
 
 // A zombienet network with two relaychain 'polkadot' validators and one parachain
 // validator based on yap-westend-live-2022 chain spec.
-pub struct SmallNetworkSingleCollator {
+pub struct SingleCollatorNetwork {
 	rc_config: RelaychainConfig,
 	pc_config: ParachainConfig,
 	rc_nodes: Vec<Node>,
@@ -21,7 +21,7 @@ pub struct SmallNetworkSingleCollator {
 	base_dir: PathBuf,
 }
 
-impl SmallNetworkSingleCollator {
+impl SingleCollatorNetwork {
 	/// Creates a new [`SmallNetworkSingleCollator`].
 	pub fn new(
 		rc_config: RelaychainConfig,
@@ -32,7 +32,7 @@ impl SmallNetworkSingleCollator {
 		let base_dir =
 			PathBuf::from(format!("{}-{}", DEFAULT_BASE_DIR, datetime.format("%Y%m%d_%H%M%S")));
 		std::fs::create_dir(base_dir.clone()).map_err(|err| anyhow!(format!("{err}")))?;
-		Ok(SmallNetworkSingleCollator {
+		Ok(SingleCollatorNetwork {
 			rc_config,
 			pc_config,
 			rc_nodes: vec![
@@ -64,7 +64,7 @@ impl SmallNetworkSingleCollator {
 }
 
 #[async_trait::async_trait]
-impl Network for SmallNetworkSingleCollator {
+impl Network for SingleCollatorNetwork {
 	fn ensure_bins_on_path(&self) -> bool {
 		// We need polkadot, polkadot-parachain, polkadot-execute-worker, polkadot-prepare-worker,
 		// (and ttxt? - maybe not for the network, but for the tests, definitely)
