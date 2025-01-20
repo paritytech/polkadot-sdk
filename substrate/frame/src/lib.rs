@@ -203,10 +203,11 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
+		defensive, defensive_assert, ensure,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			ChangeMembers, Contains, Currency, EitherOf, EstimateNextSessionRotation, Get,
+			InitializeMembers, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
+			OneSessionHandler, RankedMembers, RankedMembersSwapHandler, ReservableCurrency,
 		},
 	};
 
@@ -230,10 +231,17 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+			ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+			Zero,
+		},
+		BuildStorage,
 	};
+
+	pub use sp_runtime::bounded_vec;
+
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
