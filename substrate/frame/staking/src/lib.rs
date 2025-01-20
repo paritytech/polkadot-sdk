@@ -869,16 +869,19 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 pub trait SessionInterface<AccountId> {
 	/// Report an offending validator.
 	fn offending_validator(validator: AccountId, severity: OffenceSeverity);
+
 	/// Disable the validator at the given index, returns `false` if the validator was already
 	/// disabled or the index is out of bounds.
-
-	//todo(ank4n): remove the next two methods.
+	// todo(ank4n): remove the next two methods.
 	fn disable_validator(validator_index: u32) -> bool;
+
 	/// Re-enable a validator that was previously disabled. Returns `false` if the validator was
 	/// already enabled or the index is out of bounds.
 	fn enable_validator(validator_index: u32) -> bool;
+
 	/// Get the validators from session.
 	fn validators() -> Vec<AccountId>;
+
 	/// Prune historical session tries up to but not including the given index.
 	fn prune_historical_up_to(up_to: SessionIndex);
 }
@@ -917,8 +920,6 @@ where
 	}
 
 	fn prune_historical_up_to(up_to: SessionIndex) {
-		// todo(ank4n): Prune historical upto (current era - bonding_duration +
-		// slash_cancel_duration). This would mean offence report gets rejected for older reports.
 		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
 	}
 }
@@ -1277,10 +1278,10 @@ impl<T: Config> EraInfo<T> {
 		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
 
 		let nominator_count = exposure.others.len();
-		// expected page count is the number of nominators divided by the page size, rounded up.
-		let expected_page_count = nominator_count
-			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
-			.saturating_div(page_size as usize);
+			// expected page count is the number of nominators divided by the page size, rounded up.
+			let expected_page_count = nominator_count
+				.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
+				.saturating_div(page_size as usize);
 
 		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
 		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");

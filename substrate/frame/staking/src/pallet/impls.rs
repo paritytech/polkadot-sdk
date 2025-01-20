@@ -559,6 +559,8 @@ impl<T: Config> Pallet<T> {
 				}
 
 				// Session prunes upto `active_era - bonding_duration + SlashCancellationDuration`.
+				// This ensures sessions that are old and have less than `SlashCancellationDuration`
+				// left to be reported are pruned, and hence cannot be reported.
 				if let Some(&(_, first_session)) =
 					bonded.get(T::SlashCancellationDuration::get() as usize)
 				{
@@ -1694,8 +1696,7 @@ where
 		let slash_defer_duration = T::SlashDeferDuration::get();
 		// Note: If slash_defer_duration is zero, then the slash will be applied at the start of the
 		// next era.
-		let slash_apply_era =
-			slash_era.saturating_add(slash_defer_duration).saturating_add(One::one());
+		let slash_apply_era = slash_era.saturating_add(slash_defer_duration);
 
 		// check if the era is too recent to allow a minimum time for slash to be reverted
 		if slash_apply_era < active_era.saturating_add(T::SlashCancellationDuration::get()) {
@@ -1767,7 +1768,7 @@ where
 			});
 		}
 
-		return consumed_weight;
+		consumed_weight
 	}
 }
 

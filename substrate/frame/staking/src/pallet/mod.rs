@@ -222,9 +222,9 @@ pub mod pallet {
 
 		/// Number of eras preceding an unapplied slash where governance could cancel the slash.
 		///
-		/// Any offence reported for an era in the last `SlashCancellationDuration` eras will be
-		/// rejected. This ensures governance always have `SlashCancellationDuration` eras to cancel
-		/// a slash.
+		/// Any offence reported for an era such that they have less than
+		/// `SlashCancellationDuration` eras until application of slash are rejected. This ensures
+		/// governance always have `SlashCancellationDuration` eras to cancel a slash.
 		///
 		/// This should strictly be less than [`Config::SlashDeferDuration`]. If set to 0, then
 		/// governance has no opportunity to cancel the slash. If set to `SlashDeferDuration`, then
@@ -237,9 +237,9 @@ pub mod pallet {
 		type ActiveValidatorCount: Get<u32>;
 
 		// todo(ank4n): add doc
-		/// this is generally 1/3rd of ActiveValidatorCount
+		/// A good number would be 1/3rd of the active validator count.
 		#[pallet::constant]
-		type MaxDisabledValidatorCount: Get<u32>;
+		type MaxDeferredSlashQueue: Get<u32>;
 
 		/// The origin which can manage less critical staking parameters that does not require root.
 		///
@@ -394,7 +394,7 @@ pub mod pallet {
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
 			type ActiveValidatorCount = ConstU32<1000>;
-			type MaxDisabledValidatorCount = ConstU32<333>;
+			type MaxDeferredSlashQueue = ConstU32<333>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitWithReEnablingDisablingStrategy;
@@ -712,7 +712,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		EraIndex,
-		BoundedVec<DeferredSlash<T::AccountId>, T::MaxDisabledValidatorCount>,
+		BoundedVec<DeferredSlash<T::AccountId>, T::MaxDeferredSlashQueue>,
 		ValueQuery,
 	>;
 
