@@ -240,10 +240,10 @@ pub(crate) mod pallet {
 		/// storage item group.
 		pub(crate) fn clear_invalid_and_backings_unchecked() {
 			match Self::invalid() {
-				ValidSolution::X => QueuedSolutionX::<T>::remove_all(None),
-				ValidSolution::Y => QueuedSolutionY::<T>::remove_all(None),
+				ValidSolution::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
+				ValidSolution::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
 			};
-			QueuedSolutionBackings::<T>::remove_all(None);
+			QueuedSolutionBackings::<T>::clear(u32::MAX, None);
 		}
 
 		/// Write a single page of a valid solution into the `invalid` variant of the storage.
@@ -285,8 +285,8 @@ pub(crate) mod pallet {
 			Self::mutate_checked(|| {
 				// clear everything about valid solutions.
 				match Self::valid() {
-					ValidSolution::X => QueuedSolutionX::<T>::remove_all(None),
-					ValidSolution::Y => QueuedSolutionY::<T>::remove_all(None),
+					ValidSolution::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
+					ValidSolution::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
 				};
 				QueuedSolutionScore::<T>::kill();
 
@@ -306,10 +306,10 @@ pub(crate) mod pallet {
 		/// Should only be called once everything is done.
 		pub(crate) fn kill() {
 			Self::mutate_checked(|| {
-				QueuedSolutionX::<T>::remove_all(None);
-				QueuedSolutionY::<T>::remove_all(None);
+				QueuedSolutionX::<T>::clear(u32::MAX, None);
+				QueuedSolutionY::<T>::clear(u32::MAX, None);
 				QueuedValidVariant::<T>::kill();
-				QueuedSolutionBackings::<T>::remove_all(None);
+				QueuedSolutionBackings::<T>::clear(u32::MAX, None);
 				QueuedSolutionScore::<T>::kill();
 			})
 		}
@@ -833,6 +833,15 @@ impl<T: Config> Verifier for Pallet<T> {
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
 		Self::feasibility_check_page_inner(partial_solution, page)
+	}
+
+	fn force_set_single_page_valid(
+		partial_supports: SupportsOf<Self>,
+		page: PageIndex,
+		score: ElectionScore,
+	) {
+		Self::deposit_event(Event::<T>::Queued(score, QueuedSolution::<T>::queued_score()));
+		QueuedSolution::<T>::force_set_single_page_valid(page, partial_supports, score);
 	}
 }
 

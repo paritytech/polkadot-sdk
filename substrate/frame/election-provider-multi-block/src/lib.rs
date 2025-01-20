@@ -245,28 +245,21 @@ impl<T: Config> From<verifier::FeasibilityError> for ElectionError<T> {
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub enum AdminOperation<T: Config> {
-	/// Clear all storage items.
-	///
-	/// This will probably end-up being quite expensive. It will clear the internals of all
-	/// pallets, setting cleaning all of them.
-	///
-	/// Hopefully, this can result in a full reset of the system.
-	KillEverything,
+	/// Forcefully go to the next round, starting from the Off Phase.
+	ForceRotateRound,
 	/// Force-set the phase to the given phase.
 	///
 	/// This can have many many combinations, use only with care and sufficient testing.
 	ForceSetPhase(Phase<BlockNumberFor<T>>),
 	/// Set the given (single page) emergency solution.
 	///
-	/// This can be called in any phase and, can behave like any normal solution, but it should
-	/// probably be used only in [`Phase::Emergency`].
-	SetSolution(Box<SolutionOf<T>>, ElectionScore),
+	/// Can only be called in emergency phase.
+	EmergencySetSolution(Box<BoundedSupportsOf<Pallet<T>>>, ElectionScore),
 	/// Trigger the (single page) fallback in `instant` mode, with the given parameters, and
 	/// queue it if correct.
 	///
-	/// This can be called in any phase and, can behave like any normal solution, but it should
-	/// probably be used only in [`Phase::Emergency`].
-	TriggerFallback,
+	/// Can only be called in emergency phase.
+	EmergencyFallback,
 	/// Set the minimum untrusted score. This is directly communicated to the verifier component to
 	/// be taken into account.
 	///
@@ -353,6 +346,8 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Self::DataProvider,
+			MaxBackersPerWinner = <Self::Verifier as verifier::Verifier>::MaxBackersPerWinner,
+			MaxWinnersPerPage = <Self::Verifier as verifier::Verifier>::MaxWinnersPerPage,
 			Pages = ConstU32<1>,
 		>;
 
@@ -374,8 +369,37 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(0)]
 		#[pallet::call_index(0)]
-		pub fn manage(_origin: OriginFor<T>, op: AdminOperation<T>) -> DispatchResultWithPostInfo {
-			todo!();
+		pub fn manage(origin: OriginFor<T>, op: AdminOperation<T>) -> DispatchResultWithPostInfo {
+			use crate::verifier::Verifier;
+			use sp_npos_elections::EvaluateSupport;
+
+			let _ = T::AdminOrigin::ensure_origin(origin);
+			match op {
+				AdminOperation::EmergencyFallback => {
+					ensure!(Self::current_phase() == Phase::Emergency, Error::<T>::UnexpectedPhase);
+					let fallback = T::Fallback::elect(0).map_err(|_| Error::<T>::Fallback)?;
+					let score = fallback.evaluate();
+					T::Verifier::force_set_single_page_valid(fallback, 0, score);
+					Ok(().into())
+				},
+				AdminOperation::EmergencySetSolution(supports, score) => {
+					ensure!(Self::current_phase() == Phase::Emergency, Error::<T>::UnexpectedPhase);
+					T::Verifier::force_set_single_page_valid(*supports, 0, score);
+					Ok(().into())
+				},
+				AdminOperation::ForceSetPhase(phase) => {
+					Self::phase_transition(phase);
+					Ok(().into())
+				},
+				AdminOperation::ForceRotateRound => {
+					Self::rotate_round();
+					Ok(().into())
+				},
+				AdminOperation::SetMinUntrustedScore(score) => {
+					T::Verifier::set_minimum_score(score);
+					Ok(().into())
+				},
+			}
 		}
 	}
 
@@ -548,6 +572,10 @@ pub mod pallet {
 		WrongWinnerCount,
 		/// The snapshot fingerprint is not a match. The solution is likely outdated.
 		WrongFingerprint,
+		/// Triggering the `Fallback` failed.
+		Fallback,
+		/// Unexpected phase
+		UnexpectedPhase,
 	}
 
 	impl<T: Config> PartialEq for Error<T> {
@@ -635,10 +663,10 @@ pub mod pallet {
 		/// Should be called only once we transition to [`Phase::Off`].
 		pub(crate) fn kill() {
 			DesiredTargets::<T>::kill();
-			PagedVoterSnapshot::<T>::remove_all(None);
-			PagedVoterSnapshotHash::<T>::remove_all(None);
-			PagedTargetSnapshot::<T>::remove_all(None);
-			PagedTargetSnapshotHash::<T>::remove_all(None);
+			PagedVoterSnapshot::<T>::clear(u32::MAX, None);
+			PagedVoterSnapshotHash::<T>::clear(u32::MAX, None);
+			PagedTargetSnapshot::<T>::clear(u32::MAX, None);
+			PagedTargetSnapshotHash::<T>::clear(u32::MAX, None);
 		}
 
 		// ----------- non-mutables
@@ -1065,11 +1093,12 @@ where
 
 	fn ongoing() -> bool {
 		match <CurrentPhase<T>>::get() {
-			Phase::Off | Phase::Emergency | Phase::Halted => false,
+			Phase::Off | Phase::Halted => false,
 			Phase::Signed |
 			Phase::SignedValidation(_) |
 			Phase::Unsigned(_) |
 			Phase::Snapshot(_) |
+			Phase::Emergency |
 			Phase::Export(_) => true,
 		}
 	}
@@ -2057,25 +2086,118 @@ mod election_provider {
 	}
 }
 
+#[cfg(test)]
 mod admin_ops {
 	use super::*;
+	use crate::mock::*;
+	use frame_support::assert_ok;
 
 	#[test]
-	fn set_solution_emergency() {
-		todo!()
+	fn set_solution_emergency_works() {
+		ExtBuilder::full().build_and_execute(|| {
+			roll_to_signed_open();
+
+			// we get a call to elect(0). this will cause emergency, since no fallback is allowed.
+			assert_eq!(
+				MultiBlock::elect(0),
+				Err(ElectionError::Fallback("Emergency phase started."))
+			);
+			assert_eq!(MultiBlock::current_phase(), Phase::Emergency);
+
+			// we can now set the solution to emergency.
+			let (emergency, score) = emergency_solution();
+			assert_ok!(MultiBlock::manage(
+				RuntimeOrigin::root(),
+				AdminOperation::EmergencySetSolution(Box::new(emergency), score)
+			));
+
+			assert_eq!(MultiBlock::current_phase(), Phase::Emergency);
+			assert_ok!(MultiBlock::elect(0));
+			assert_eq!(MultiBlock::current_phase(), Phase::Off);
+
+			assert_eq!(
+				multi_block_events(),
+				vec![
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Emergency },
+					Event::PhaseTransitioned { from: Phase::Emergency, to: Phase::Off }
+				]
+			);
+			assert_eq!(
+				verifier_events(),
+				vec![verifier::Event::Queued(
+					ElectionScore { minimal_stake: 55, sum_stake: 130, sum_stake_squared: 8650 },
+					None
+				)]
+			);
+		})
+	}
+
+	#[test]
+	fn trigger_fallback_works() {
+		ExtBuilder::full().build_and_execute(|| {
+			roll_to_signed_open();
+
+			// we get a call to elect(0). this will cause emergency, since no fallback is allowed.
+			assert_eq!(
+				MultiBlock::elect(0),
+				Err(ElectionError::Fallback("Emergency phase started."))
+			);
+			assert_eq!(MultiBlock::current_phase(), Phase::Emergency);
+
+			// we can now set the solution to emergency.
+			OnChianFallback::set(true);
+			assert_ok!(MultiBlock::manage(
+				RuntimeOrigin::root(),
+				AdminOperation::EmergencyFallback
+			));
+
+			assert_eq!(MultiBlock::current_phase(), Phase::Emergency);
+			assert_ok!(MultiBlock::elect(0));
+			assert_eq!(MultiBlock::current_phase(), Phase::Off);
+
+			assert_eq!(
+				multi_block_events(),
+				vec![
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
+					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Emergency },
+					Event::PhaseTransitioned { from: Phase::Emergency, to: Phase::Off }
+				]
+			);
+			assert_eq!(
+				verifier_events(),
+				vec![verifier::Event::Queued(
+					ElectionScore { minimal_stake: 55, sum_stake: 130, sum_stake_squared: 8650 },
+					None
+				)]
+			);
+		})
+	}
+
+	#[test]
+	fn force_rotate_round() {
+		// clears the snapshot and verifier data.
+		// leaves the signed data as is since we bump the round.
 	}
 
 	#[test]
 	fn set_minimum_solution_score() {
-		todo!()
-	}
-
-	#[test]
-	fn trigger_fallback() {}
-
-	#[test]
-	fn force_kill_all() {
-		todo!("something very similar to the scenario of elect_does_not_finish_without_call_of_page_0, where we want to forcefully clear and put everything into halt phase")
+		ExtBuilder::full().build_and_execute(|| {
+			assert_eq!(VerifierPallet::minimum_score(), None);
+			assert_ok!(MultiBlock::manage(
+				RuntimeOrigin::root(),
+				AdminOperation::SetMinUntrustedScore(ElectionScore {
+					minimal_stake: 100,
+					..Default::default()
+				})
+			));
+			assert_eq!(
+				VerifierPallet::minimum_score().unwrap(),
+				ElectionScore { minimal_stake: 100, ..Default::default() }
+			);
+		});
 	}
 }
 

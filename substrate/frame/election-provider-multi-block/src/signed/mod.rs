@@ -305,7 +305,7 @@ pub mod pallet {
 			Self::mutate_checked(round, || {
 				SortedScores::<T>::mutate(round, |sorted| sorted.pop()).and_then(
 					|(submitter, _score)| {
-						SubmissionStorage::<T>::remove_prefix((round, &submitter), None);
+						SubmissionStorage::<T>::clear_prefix((round, &submitter), u32::MAX, None);
 						SubmissionMetadataStorage::<T>::take(round, &submitter)
 							.map(|metadata| (submitter, metadata))
 					},
@@ -328,7 +328,7 @@ pub mod pallet {
 						sorted_scores.remove(index);
 					}
 				});
-				SubmissionStorage::<T>::remove_prefix((round, who), None);
+				SubmissionStorage::<T>::clear_prefix((round, who), u32::MAX, None);
 				SubmissionMetadataStorage::<T>::take(round, who)
 			})
 		}
@@ -375,7 +375,7 @@ pub mod pallet {
 					Ok(None) => {},
 					Ok(Some((discarded, _score))) => {
 						let metadata = SubmissionMetadataStorage::<T>::take(round, &discarded);
-						SubmissionStorage::<T>::remove_prefix((round, &discarded), None);
+						SubmissionStorage::<T>::clear_prefix((round, &discarded), u32::MAX, None);
 						let _remaining = T::Currency::unreserve(
 							&discarded,
 							metadata.map(|m| m.deposit).defensive_unwrap_or_default(),

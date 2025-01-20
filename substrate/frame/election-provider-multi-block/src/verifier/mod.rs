@@ -185,6 +185,12 @@ pub trait Verifier {
 		partial_solution: Self::Solution,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError>;
+
+	fn force_set_single_page_valid(
+		partial_supports: SupportsOf<Self>,
+		page: PageIndex,
+		score: ElectionScore,
+	);
 }
 
 /// Simple enum to encapsulate the result of the verification of a candidate solution.

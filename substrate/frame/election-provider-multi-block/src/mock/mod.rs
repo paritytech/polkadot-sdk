@@ -663,3 +663,9 @@ pub fn balances(who: AccountId) -> (Balance, Balance) {
 pub fn bound_by_count(count: Option<u32>) -> DataProviderBounds {
 	DataProviderBounds { count: count.map(|x| x.into()), size: None }
 }
+
+pub fn emergency_solution() -> (BoundedSupportsOf<MultiBlock>, ElectionScore) {
+	let supports = onchain::OnChainExecution::<Runtime>::elect(0).unwrap();
+	let score = supports.evaluate();
+	(supports, score)
+}
