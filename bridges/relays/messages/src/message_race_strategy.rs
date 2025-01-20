@@ -67,8 +67,7 @@ impl<
 		TargetHeaderHash,
 		SourceNoncesRange,
 		Proof,
-	>
-where
+	> where
 	SourceHeaderHash: Clone,
 	SourceHeaderNumber: Clone + Ord,
 	SourceNoncesRange: NoncesRange,
@@ -190,8 +189,7 @@ impl<
 		TargetHeaderHash,
 		SourceNoncesRange,
 		Proof,
-	>
-where
+	> where
 	SourceHeaderHash: Clone + Debug + Send + Sync,
 	SourceHeaderNumber: Clone + Ord + Debug + Send + Sync,
 	SourceNoncesRange: NoncesRange + Debug + Send + Sync,

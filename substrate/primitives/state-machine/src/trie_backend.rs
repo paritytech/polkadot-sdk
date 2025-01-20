@@ -73,10 +73,7 @@ pub trait TrieCacheProvider<H: Hasher> {
 
 #[cfg(feature = "std")]
 impl<H: Hasher> TrieCacheProvider<H> for LocalTrieCache<H> {
-	type Cache<'a>
-		= TrieCache<'a, H>
-	where
-		H: 'a;
+	type Cache<'a> = TrieCache<'a, H> where H: 'a;
 
 	fn as_trie_db_cache(&self, storage_root: H::Out) -> Self::Cache<'_> {
 		self.as_trie_db_cache(storage_root)
@@ -93,10 +90,7 @@ impl<H: Hasher> TrieCacheProvider<H> for LocalTrieCache<H> {
 
 #[cfg(feature = "std")]
 impl<H: Hasher> TrieCacheProvider<H> for &LocalTrieCache<H> {
-	type Cache<'a>
-		= TrieCache<'a, H>
-	where
-		Self: 'a;
+	type Cache<'a> = TrieCache<'a, H> where Self: 'a;
 
 	fn as_trie_db_cache(&self, storage_root: H::Out) -> Self::Cache<'_> {
 		(*self).as_trie_db_cache(storage_root)
@@ -145,10 +139,7 @@ impl<H: Hasher> trie_db::TrieCache<NodeCodec<H>> for UnimplementedCacheProvider<
 
 #[cfg(not(feature = "std"))]
 impl<H: Hasher> TrieCacheProvider<H> for UnimplementedCacheProvider<H> {
-	type Cache<'a>
-		= UnimplementedCacheProvider<H>
-	where
-		H: 'a;
+	type Cache<'a> = UnimplementedCacheProvider<H> where H: 'a;
 
 	fn as_trie_db_cache(&self, _storage_root: <H as Hasher>::Out) -> Self::Cache<'_> {
 		unimplemented!()
@@ -185,10 +176,7 @@ impl<H: Hasher> trie_db::TrieRecorder<H::Out> for UnimplementedRecorderProvider<
 
 #[cfg(not(feature = "std"))]
 impl<H: Hasher> TrieRecorderProvider<H> for UnimplementedRecorderProvider<H> {
-	type Recorder<'a>
-		= UnimplementedRecorderProvider<H>
-	where
-		H: 'a;
+	type Recorder<'a> = UnimplementedRecorderProvider<H> where H: 'a;
 
 	fn drain_storage_proof(self) -> Option<StorageProof> {
 		unimplemented!()
