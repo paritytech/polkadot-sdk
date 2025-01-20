@@ -1,9 +1,11 @@
+use std::{path::PathBuf, time::SystemTime};
+
 use zombienet_sdk::{
 	LocalFileSystem, Network as ZNetwork, NetworkConfig, NetworkConfigBuilder, NetworkConfigExt,
 };
 
 use super::{
-	Network, Node, ParachainConfig, RelaychainConfig, DEFAULT_PC_NODE_RPC_PORT,
+	Network, Node, ParachainConfig, RelaychainConfig, DEFAULT_BASE_DIR, DEFAULT_PC_NODE_RPC_PORT,
 	DEFAULT_RC_NODE_RPC_PORT,
 };
 use anyhow::anyhow;
@@ -16,37 +18,51 @@ pub struct SmallNetworkYap {
 	pc_config: ParachainConfig,
 	rc_nodes: Vec<Node>,
 	pc_nodes: Vec<Node>,
+	base_dir: PathBuf,
 }
 
 impl SmallNetworkYap {
 	/// Creates a new [`SmallNetworkYap`].
-	pub fn new(rc_config: RelaychainConfig, pc_config: ParachainConfig) -> Self {
-		SmallNetworkYap {
+	pub fn new(
+		rc_config: RelaychainConfig,
+		pc_config: ParachainConfig,
+	) -> Result<Self, anyhow::Error> {
+		// Create temporary network base dir.
+		let datetime: chrono::DateTime<chrono::Local> = SystemTime::now().into();
+		let base_dir =
+			PathBuf::from(format!("{}-{}", DEFAULT_BASE_DIR, datetime.format("%Y%m%d_%H%M%S")));
+		std::fs::create_dir(base_dir.clone()).map_err(|err| anyhow!(format!("{err}")))?;
+
+		Ok(SmallNetworkYap {
 			rc_config,
 			pc_config,
 			rc_nodes: vec![
-				Node::new("alice".to_owned(), vec![]),
-				Node::new("bob".to_owned(), vec![]),
+				Node::new("alice".to_owned(), vec![], true),
+				Node::new("bob".to_owned(), vec![], true),
 			],
 			pc_nodes: vec![Node::new(
 				"charlie".to_owned(),
 				vec![
-					"--force-authoring".into(),
 					("--pool-limit", "500000").into(),
 					("--pool-kbytes", "2048000").into(),
 					("--rpc-max-connections", "15000").into(),
 					("--rpc-max-response-size", "150").into(),
 					"-lbasic-authorship=info".into(),
-					"-ltxpool=info".into(),
+					"-ltxpool=debug".into(),
 					"-lsync=info".into(),
 					"-laura::cumulus=info".into(),
 					"-lpeerset=info".into(),
 					"-lsub-libp2p=info".into(),
+					"--pool-type=fork-aware".into(),
+					"--experimental-use-slot-based".into(),
 					"--state-pruning=1024".into(),
 					"--rpc-max-subscriptions-per-connection=128000".into(),
+					"--max-runtime-instances=32".into(),
 				],
+				true,
 			)],
-		}
+			base_dir,
+		})
 	}
 }
 
@@ -79,7 +95,7 @@ impl Network for SmallNetworkYap {
 							first_node.map(|node| node.name.as_str()).unwrap_or("rc-unamed-0"),
 						)
 						.with_rpc_port(DEFAULT_RC_NODE_RPC_PORT)
-						.validator(true)
+						.validator(first_node.map(|node| node.validator).unwrap_or(false))
 					});
 				(DEFAULT_RC_NODE_RPC_PORT as usize + 1..
 					DEFAULT_RC_NODE_RPC_PORT as usize + self.rc_nodes.len())
@@ -89,7 +105,7 @@ impl Network for SmallNetworkYap {
 							new_node
 								.with_name(&node.name)
 								.with_rpc_port(u16::try_from(port).unwrap_or(0))
-								.validator(true)
+								.validator(node.validator)
 						})
 					})
 			})
@@ -107,7 +123,7 @@ impl Network for SmallNetworkYap {
 								first_node.map(|node| node.name.as_str()).unwrap_or("pc-unamed-0"),
 							)
 							.with_rpc_port(DEFAULT_PC_NODE_RPC_PORT)
-							.validator(true)
+							.validator(first_node.map(|node| node.validator).unwrap_or(false))
 							.with_args(first_node.map(|node| node.args.clone()).unwrap_or(vec![]))
 					});
 
@@ -119,8 +135,8 @@ impl Network for SmallNetworkYap {
 							new_node
 								.with_name(&node.name)
 								.with_rpc_port(u16::try_from(port).unwrap_or(0))
-								.validator(true)
-								.with_command("polkadot-parachain")
+								.validator(node.validator)
+								.with_command(self.pc_config.default_command.as_str())
 								.with_args(node.args.clone())
 						})
 					})
@@ -138,5 +154,9 @@ impl Network for SmallNetworkYap {
 			return Err(anyhow!("Error: required bins weren't found on $PATH: polkadot"));
 		}
 		network_config.spawn_native().await.map_err(|err| anyhow!(format!("{}", err)))
+	}
+
+	fn base_dir(&self) -> &PathBuf {
+		&self.base_dir
 	}
 }

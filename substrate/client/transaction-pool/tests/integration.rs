@@ -34,6 +34,7 @@ async fn test_tryout() {
 		cumulus_based: true,
 		id: 2000,
 	};
-	let small_net = zombienet::small_network_yap::SmallNetworkYap::new(relay_chain, para_chain);
+	let small_net =
+		zombienet::small_network_yap::SmallNetworkYap::new(relay_chain, para_chain).unwrap();
 	let _network = small_net.start().await.unwrap();
 }

@@ -18,16 +18,18 @@
 
 // Integration tests for fork-aware transaction pool.
 
+use std::path::PathBuf;
+
 use zombienet_configuration::{shared::types::Arg, types::ParaId};
 use zombienet_sdk::{LocalFileSystem, Network as ZNetwork, NetworkConfig};
 
+pub mod small_network_limits_30;
+pub mod small_network_old_pool;
+pub mod small_network_old_pool_small;
+pub mod small_network_single_collator;
 pub mod small_network_yap;
 
-// TODO: Add constant for path to default log base dir,
-// where a sym link to zombienet base dir exists.
-//
-//
-
+const DEFAULT_BASE_DIR: &'static str = "/tmp/zn-spawner";
 const DEFAULT_RC_NODE_RPC_PORT: u16 = 9944;
 const DEFAULT_PC_NODE_RPC_PORT: u16 = 8844;
 
@@ -45,13 +47,14 @@ pub struct ParachainConfig {
 
 /// Wrapper over a substrate node managed by zombienet..
 pub struct Node {
+	validator: bool,
 	name: String,
 	args: Vec<Arg>,
 }
 
 impl Node {
-	pub fn new(name: String, args: Vec<Arg>) -> Self {
-		Node { name, args }
+	pub fn new(name: String, args: Vec<Arg>, validator: bool) -> Self {
+		Node { name, args, validator }
 	}
 }
 
@@ -65,4 +68,7 @@ pub trait Network {
 
 	// Start the network locally.
 	async fn start(&self) -> Result<ZNetwork<LocalFileSystem>, anyhow::Error>;
+
+	// Return filesystem base dir of the network with all relevant files (e.g. logs).
+	fn base_dir(&self) -> &PathBuf;
 }
