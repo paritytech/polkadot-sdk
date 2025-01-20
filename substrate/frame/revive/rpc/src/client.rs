@@ -310,7 +310,9 @@ impl Client {
 			};
 
 			log::debug!(target: LOG_TARGET, "Pushing block: {}", block.number());
-			callback(block).await?;
+			if let Err(err) = callback(block).await {
+				log::error!(target: LOG_TARGET, "Failed to process block: {err:?}");
+			}
 		}
 
 		log::info!(target: LOG_TARGET, "Block subscription ended");
