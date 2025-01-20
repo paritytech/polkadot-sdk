@@ -118,7 +118,7 @@ fn new_runtime() -> tokio::runtime::Runtime {
 		.thread_name("subsystem-bench")
 		.enable_all()
 		.thread_stack_size(3 * 1024 * 1024)
-		.worker_threads(4)
+		.worker_threads(8)
 		.build()
 		.unwrap()
 }
