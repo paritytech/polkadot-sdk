@@ -3,7 +3,7 @@ title: "collation-generation: resolve mismatch between descriptor and commitment
 doc:
   - audience: Node Dev
     description: |
-      This PR resolves a bug where normal collators failed to generate and submit collations,
+      This PR resolves a bug where collators failed to generate and submit collations,
       resulting in the following error:
 
       ```
@@ -12,8 +12,8 @@ doc:
       match the one in descriptor.
       ```
 
-      When core selectors are provided in the UMP signals, core indexes will be chosen using them.
-      The fix ensures that functionality remains unchanged for parachains not using UMP signals.
+      This fix ensures the descriptor core index contains the value determined by the core
+      selector UMP signal when the parachain is using RFC103.
 
 crates:
   - name: polkadot-node-collation-generation
