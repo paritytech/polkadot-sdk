@@ -37,6 +37,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
+name = "adler2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
+
+[[package]]
 name = "adler32"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -112,9 +118,9 @@ dependencies = [
 
 [[package]]
 name = "aho-corasick"
-version = "1.0.4"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6748e8def348ed4d14996fa801f4122cd763fff530258cdc03f64b25f89d3a5a"
+checksum = "8e60d3430d3a69478ad0993f19238d2df97c507009a52b3c10addcd7f6bcb916"
 dependencies = [
  "memchr",
 ]
@@ -363,23 +369,24 @@ dependencies = [
 
 [[package]]
 name = "anstream"
-version = "0.6.11"
+version = "0.6.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e2e1ebcb11de5c03c67de28a7df593d32191b44939c482e97702baaaa6ab6a5"
+checksum = "8acc5369981196006228e28809f761875c0327210a891e941f4c683b3a99529b"
 dependencies = [
  "anstyle",
  "anstyle-parse",
  "anstyle-query",
  "anstyle-wincon",
  "colorchoice",
+ "is_terminal_polyfill",
  "utf8parse",
 ]
 
 [[package]]
 name = "anstyle"
-version = "1.0.6"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8901269c6307e8d93993578286ac0edf7f195079ffff5ebdeea6a59ffb7e36bc"
+checksum = "55cc3b69f167a1ef2e161439aa98aed94e6028e5f9a59be9a6ffb47aef1651f9"
 
 [[package]]
 name = "anstyle-parse"
@@ -401,12 +408,12 @@ dependencies = [
 
 [[package]]
 name = "anstyle-wincon"
-version = "3.0.1"
+version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0699d10d2f4d628a98ee7b57b289abbc98ff3bad977cb3152709d4bf2330628"
+checksum = "2109dbce0e72be3ec00bed26e6a7479ca384ad226efdd66db8fa2e3a38c83125"
 dependencies = [
  "anstyle",
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1679,7 +1686,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "libc",
- "miniz_oxide",
+ "miniz_oxide 0.7.1",
  "object 0.32.2",
  "rustc-demangle",
 ]
@@ -3079,12 +3086,12 @@ dependencies = [
 
 [[package]]
 name = "bstr"
-version = "1.6.0"
+version = "1.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6798148dccfbff0fae41c7574d2fa8f1ef3492fba0face179de5d8d447d67b05"
+checksum = "531a9155a481e2ee699d4f98f43c0ca4ff8ee1bfd55c31e9e98fb29d2b176fe0"
 dependencies = [
  "memchr",
- "regex-automata 0.3.6",
+ "regex-automata 0.4.8",
  "serde",
 ]
 
@@ -3187,9 +3194,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-platform"
-version = "0.1.3"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cfa25e60aea747ec7e1124f238816749faa93759c6ff5b31f1ccdda137f4479"
+checksum = "e35af189006b9c0f00a064685c727031e3ed2d8020f7ba284d78cc2671bd36ea"
 dependencies = [
  "serde",
 ]
@@ -3202,7 +3209,7 @@ checksum = "eee4243f1f26fc7a42710e7439c149e2b10b05472f88090acce52632f231a73a"
 dependencies = [
  "camino",
  "cargo-platform",
- "semver 1.0.18",
+ "semver 1.0.24",
  "serde",
  "serde_json",
  "thiserror",
@@ -3487,12 +3494,12 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.13"
+version = "4.5.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fbb260a053428790f3de475e304ff84cdbc4face759ea7a3e64c1edd938a7fc"
+checksum = "a8eb5e908ef3a6efbe1ed62520fb7287959888c88485abe072543190ecc66783"
 dependencies = [
  "clap_builder",
- "clap_derive 4.5.13",
+ "clap_derive 4.5.24",
 ]
 
 [[package]]
@@ -3506,24 +3513,24 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.13"
+version = "4.5.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64b17d7ea74e9f833c7dbf2cbe4fb12ff26783eda4782a8975b72f895c9b4d99"
+checksum = "96b01801b5fc6a0a232407abc821660c9c6d25a1cafc0d4f85f29fb8d9afc121"
 dependencies = [
  "anstream",
  "anstyle",
- "clap_lex 0.7.0",
+ "clap_lex 0.7.4",
  "strsim 0.11.1",
  "terminal_size",
 ]
 
 [[package]]
 name = "clap_complete"
-version = "4.5.13"
+version = "4.5.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa3c596da3cf0983427b0df0dba359df9182c13bd5b519b585a482b0c351f4e8"
+checksum = "33a7e468e750fa4b6be660e8b5651ad47372e8fb114030b594c2d75d48c5ffd0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
 ]
 
 [[package]]
@@ -3541,9 +3548,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.13"
+version = "4.5.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "501d359d5f3dcaf6ecdeee48833ae73ec6e42723a1e52419c79abf9507eec0a0"
+checksum = "54b755194d6389280185988721fffba69495eed5ee9feeee9a599b53db80318c"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2 1.0.86",
@@ -3562,9 +3569,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.7.0"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
+checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
 name = "cmd_lib"
@@ -3750,23 +3757,23 @@ dependencies = [
 
 [[package]]
 name = "color-print"
-version = "0.3.4"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2a5e6504ed8648554968650feecea00557a3476bc040d0ffc33080e66b646d0"
+checksum = "3aa954171903797d5623e047d9ab69d91b493657917bdfb8c2c80ecaf9cdb6f4"
 dependencies = [
  "color-print-proc-macro",
 ]
 
 [[package]]
 name = "color-print-proc-macro"
-version = "0.3.4"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d51beaa537d73d2d1ff34ee70bc095f170420ab2ec5d687ecd3ec2b0d092514b"
+checksum = "692186b5ebe54007e45a59aea47ece9eb4108e141326c304cdc91699a7118a22"
 dependencies = [
  "nom",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
- "syn 1.0.109",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -4441,7 +4448,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.5.13",
+ "clap 4.5.26",
  "criterion-plot",
  "futures",
  "is-terminal",
@@ -4586,7 +4593,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.7.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -5250,7 +5257,7 @@ name = "cumulus-pov-validator"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.13",
+ "clap 4.5.26",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-parachain-primitives 6.0.0",
@@ -5690,7 +5697,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.5.13",
+ "clap 4.5.26",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -5784,9 +5791,9 @@ dependencies = [
 
 [[package]]
 name = "curl-sys"
-version = "0.4.72+curl-8.6.0"
+version = "0.4.78+curl-8.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29cbdc8314c447d11e8fd156dcdd031d9e02a7a976163e396b548c03153bc9ea"
+checksum = "8eec768341c5c7789611ae51cf6c459099f22e64a5d5d0ce4892434e33821eaf"
 dependencies = [
  "cc",
  "libc",
@@ -6938,14 +6945,14 @@ dependencies = [
 
 [[package]]
 name = "filetime"
-version = "0.2.22"
+version = "0.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4029edd3e734da6fe05b6cd7bd2960760a616bd2ddd0d59a0124746d6272af0"
+checksum = "35c0522e981e68cbfa8c3f978441a5f34b30b96e146b33cd3359176b50fe8586"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall 0.3.5",
- "windows-sys 0.48.0",
+ "libredox",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -7022,12 +7029,12 @@ checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
 
 [[package]]
 name = "flate2"
-version = "1.0.27"
+version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6c98ee8095e9d1dcbf2fcc6d95acccb90d1c81db1e44725c6a984b1dbdfb010"
+checksum = "c936bfdafb507ebbf50b8074c54fa31c5be9a1e7e5f467dd659697041407d07c"
 dependencies = [
  "crc32fast",
- "miniz_oxide",
+ "miniz_oxide 0.8.2",
 ]
 
 [[package]]
@@ -7180,7 +7187,7 @@ dependencies = [
  "Inflector",
  "array-bytes",
  "chrono",
- "clap 4.5.13",
+ "clap 4.5.26",
  "comfy-table",
  "cumulus-client-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction 0.2.0",
@@ -7346,7 +7353,7 @@ dependencies = [
 name = "frame-election-solution-type-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "frame-election-provider-solution-type 13.0.0",
  "frame-election-provider-support 28.0.0",
  "frame-support 28.0.0",
@@ -7479,7 +7486,7 @@ name = "frame-omni-bencher"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
- "clap 4.5.13",
+ "clap 4.5.26",
  "cumulus-primitives-proof-size-hostfunction 0.2.0",
  "cumulus-test-runtime",
  "frame-benchmarking-cli",
@@ -9195,6 +9202,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "is_terminal_polyfill"
+version = "1.70.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
+
+[[package]]
 name = "isahc"
 version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10286,6 +10299,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "libredox"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
+dependencies = [
+ "bitflags 2.6.0",
+ "libc",
+ "redox_syscall 0.5.8",
+]
+
+[[package]]
 name = "librocksdb-sys"
 version = "0.11.0+8.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10361,9 +10385,9 @@ dependencies = [
 
 [[package]]
 name = "libz-sys"
-version = "1.1.12"
+version = "1.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d97137b25e321a73eef1418d1d5d2eda4d77e12813f8e6dead84bc52c5870a7b"
+checksum = "df9b68e50e6e0b26f672573834882eb57759f6db9b3be2ea3c35c91188bb4eaa"
 dependencies = [
  "cc",
  "libc",
@@ -10832,7 +10856,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 name = "minimal-template-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "docify",
  "futures",
  "futures-timer",
@@ -10860,6 +10884,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7810e0be55b428ada41041c41f32c9f1a42817901b4ccf45fa3d4b6561e74c7"
 dependencies = [
  "adler",
+]
+
+[[package]]
+name = "miniz_oxide"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ffbe83022cedc1d264172192511ae958937694cd57ce297164951b8b3568394"
+dependencies = [
+ "adler2",
 ]
 
 [[package]]
@@ -11339,7 +11372,7 @@ version = "0.9.0-dev"
 dependencies = [
  "array-bytes",
  "async-trait",
- "clap 4.5.13",
+ "clap 4.5.26",
  "derive_more 0.99.17",
  "fs_extra",
  "futures",
@@ -11415,7 +11448,7 @@ dependencies = [
 name = "node-runtime-generate-bags"
 version = "3.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "generate-bags",
  "kitchensink-runtime",
 ]
@@ -11424,7 +11457,7 @@ dependencies = [
 name = "node-template-release"
 version = "3.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "flate2",
  "fs_extra",
  "glob",
@@ -14916,7 +14949,7 @@ name = "pallet-revive-eth-rpc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.13",
+ "clap 4.5.26",
  "env_logger 0.11.3",
  "ethabi",
  "futures",
@@ -16253,10 +16286,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "parachain-template"
+version = "0.0.0"
+dependencies = [
+ "docify",
+]
+
+[[package]]
 name = "parachain-template-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "color-print",
  "docify",
  "futures",
@@ -17240,7 +17280,7 @@ name = "polkadot-cli"
 version = "7.0.0"
 dependencies = [
  "cfg-if",
- "clap 4.5.13",
+ "clap 4.5.26",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -18111,7 +18151,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "async-trait",
- "clap 4.5.13",
+ "clap 4.5.26",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -19629,7 +19669,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitvec",
- "clap 4.5.13",
+ "clap 4.5.26",
  "clap-num",
  "color-eyre",
  "colored",
@@ -19731,7 +19771,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.5.13",
+ "clap 4.5.26",
  "color-eyre",
  "futures",
  "futures-timer",
@@ -19873,7 +19913,7 @@ dependencies = [
 name = "polkadot-voter-bags"
 version = "7.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "generate-bags",
  "sp-io 30.0.0",
  "westend-runtime",
@@ -21199,12 +21239,6 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fed1ceff11a1dddaee50c9dc8e4938bd106e9d89ae372f192311e7da498e3b69"
-
-[[package]]
-name = "regex-automata"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "368758f23274712b504848e9d5a6f010445cc8b87a7cdb4d7cbee666c1288da3"
@@ -21302,7 +21336,7 @@ dependencies = [
 name = "remote-ext-tests-bags-list"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "frame-system 28.0.0",
  "log",
  "pallet-bags-list-remote-tests",
@@ -21915,7 +21949,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 1.0.18",
+ "semver 1.0.24",
 ]
 
 [[package]]
@@ -22334,7 +22368,7 @@ name = "sc-chain-spec"
 version = "28.0.0"
 dependencies = [
  "array-bytes",
- "clap 4.5.13",
+ "clap 4.5.26",
  "docify",
  "log",
  "memmap2 0.9.3",
@@ -22377,7 +22411,7 @@ version = "0.36.0"
 dependencies = [
  "array-bytes",
  "chrono",
- "clap 4.5.13",
+ "clap 4.5.26",
  "fdlimit",
  "futures",
  "futures-timer",
@@ -23725,7 +23759,7 @@ dependencies = [
 name = "sc-storage-monitor"
 version = "0.16.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "fs4",
  "log",
  "sp-core 28.0.0",
@@ -24299,9 +24333,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.18"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0293b4b29daaf487284529cc2f5675b8e57c61f70167ba415a463651fd6a918"
+checksum = "3cb6eb87a131f756572d7fb904f6e7b68633f09cca868c5df1c4b8d1a694bbba"
 dependencies = [
  "serde",
 ]
@@ -25613,7 +25647,7 @@ dependencies = [
 name = "solochain-template-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension 0.1.0",
  "frame-system 28.0.0",
@@ -26996,7 +27030,7 @@ dependencies = [
 name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "honggfuzz",
  "rand",
  "sp-npos-elections 26.0.0",
@@ -28220,7 +28254,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "staging-chain-spec-builder"
 version = "1.6.1"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "cmd_lib",
  "docify",
  "log",
@@ -28237,7 +28271,7 @@ version = "3.0.0-dev"
 dependencies = [
  "array-bytes",
  "assert_cmd",
- "clap 4.5.13",
+ "clap 4.5.26",
  "clap_complete",
  "criterion",
  "futures",
@@ -28274,7 +28308,7 @@ dependencies = [
 name = "staging-node-inspect"
 version = "0.12.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-api",
@@ -28619,7 +28653,7 @@ dependencies = [
 name = "subkey"
 version = "9.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "sc-cli",
 ]
 
@@ -29045,7 +29079,7 @@ dependencies = [
  "rand",
  "reqwest 0.12.9",
  "scale-info",
- "semver 1.0.18",
+ "semver 1.0.24",
  "serde",
  "serde_json",
  "sp-version 35.0.0",
@@ -29458,9 +29492,9 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "tar"
-version = "0.4.40"
+version = "0.4.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b16afcea1f22891c49a00c751c7b63b2233284064f11a200fc624137c51e2ddb"
+checksum = "c65998313f8e17d0d553d28f91a0df93e4dbbbf770279c7bc21ca0f09ea1a1f6"
 dependencies = [
  "filetime",
  "libc",
@@ -29508,12 +29542,12 @@ dependencies = [
 
 [[package]]
 name = "terminal_size"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21bebf2b7c9e0a515f6e0f8c51dc0f8e4696391e6f1ff30379559f8365fb0df7"
+checksum = "5352447f921fda68cf61b4101566c0bdb5104eff6804d0678e5227580ab6a4e9"
 dependencies = [
  "rustix 0.38.42",
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -29560,7 +29594,7 @@ dependencies = [
 name = "test-parachain-adder-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "futures",
  "futures-timer",
  "log",
@@ -29607,7 +29641,7 @@ dependencies = [
 name = "test-parachain-undying-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.26",
  "futures",
  "futures-timer",
  "log",
@@ -31903,11 +31937,13 @@ dependencies = [
 
 [[package]]
 name = "xattr"
-version = "1.0.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4686009f71ff3e5c4dbcf1a282d0a44db3f021ba69350cd42086b3e5f1c6985"
+checksum = "e105d177a3871454f754b33bb0ee637ecaaac997446375fd3e5d43a2ed00c909"
 dependencies = [
  "libc",
+ "linux-raw-sys 0.4.14",
+ "rustix 0.38.42",
 ]
 
 [[package]]
