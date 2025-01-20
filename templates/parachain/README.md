@@ -35,11 +35,6 @@
 
 - ⏫ This template provides a starting point to build a [parachain](https://wiki.polkadot.network/docs/learn-parachains).
 
-
-- 🔧 To simplify the process of using the parachain-template with Zombienet and Omni Node, we've added a pre-configured development
-chain spec (dev_chain_spec.json) to the parachain template. The `zombienet-omni-node.toml` file of this template points to it, but 
-you can update it to an updated chain spec generated on your machine, as shown below:
-
 - ☁️ It is based on the
 [Cumulus](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html) framework.
 
@@ -143,6 +138,12 @@ Download the `polkadot` (and the accompanying `polkadot-prepare-worker` and `pol
 ```sh
 export PATH="$PATH:<path/to/binaries>"
 ```
+
+
+To simplify the process of using the parachain-template with zombienet and Omni Node, we've added a pre-configured
+development chain spec (dev_chain_spec.json) to the parachain template. The zombienet-omni-node.toml file of this
+template points to it, but you can update it to an updated chain spec generated on your machine, as shown below:
+
 
 #### Update `zombienet-omni-node.toml` with a valid chain spec path
 

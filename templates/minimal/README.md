@@ -38,10 +38,6 @@
 template for building a blockchain node.
 
 
-- 🔧 To simplify the process of starting the minimal-template with Zombienet and Omni Node, we've added a pre-configured development
-chain spec (dev_chain_spec.json) to the minimal template. The `zombienet-omni-node.toml` file of this template points to it, but you can update it to an updated chain spec generated on your machine, as shown below:
-
-
 - 🔧 Its runtime is configured with a single custom pallet as a starting point, and a handful of ready-made pallets
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
@@ -156,6 +152,11 @@ docker run --rm polkadot-sdk-minimal-template
 
 We can install `zombienet` as described [here](https://paritytech.github.io/zombienet/install.html#installation),
 and `zombienet-omni-node.toml` contains the network specification we want to start.
+
+To simplify the process of starting the minimal template with zombienet and Omni Node, we've added a pre-configured 
+development chain spec (dev_chain_spec.json) to the minimal template. The zombienet-omni-node.toml file of this template
+points to it, but you can update it to an updated path to the new chain spec generated on your machine, as shown below.
+
 
 #### Update `zombienet-omni-node.toml` with a valid chain spec path
 
