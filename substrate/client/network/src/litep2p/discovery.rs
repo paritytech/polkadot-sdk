@@ -33,8 +33,8 @@ use litep2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
 				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, ContentProvider,
-				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, QueryId, Quorum,
-				Record, RecordKey, RecordsType,
+				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, PeerRecord, QueryId,
+				Quorum, Record, RecordKey,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -129,13 +129,19 @@ pub enum DiscoveryEvent {
 		address: Multiaddr,
 	},
 
-	/// Record was found from the DHT.
+	/// `GetRecord` query succeeded.
 	GetRecordSuccess {
 		/// Query ID.
 		query_id: QueryId,
+	},
 
-		/// Records.
-		records: RecordsType,
+	/// Record was found from the DHT.
+	GetRecordPartialResult {
+		/// Query ID.
+		query_id: QueryId,
+
+		/// Record.
+		record: PeerRecord,
 	},
 
 	/// Record was successfully stored on the DHT.
@@ -254,7 +260,7 @@ impl Discovery {
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
-		let user_agent = format!("{} ({})", config.client_version, config.node_name);
+		let user_agent = format!("{} ({}) (litep2p)", config.client_version, config.node_name);
 
 		let (identify_config, identify_event_stream) =
 			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
@@ -573,13 +579,24 @@ impl Stream for Discovery {
 					peers: peers.into_iter().collect(),
 				}))
 			},
-			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, records })) => {
+			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id })) => {
 				log::trace!(
 					target: LOG_TARGET,
-					"`GET_RECORD` succeeded for {query_id:?}: {records:?}",
+					"`GET_RECORD` succeeded for {query_id:?}",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id }));
+			},
+			Poll::Ready(Some(KademliaEvent::GetRecordPartialResult { query_id, record })) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"`GET_RECORD` intermediary succeeded for {query_id:?}: {record:?}",
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordPartialResult {
+					query_id,
+					record,
+				}));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),

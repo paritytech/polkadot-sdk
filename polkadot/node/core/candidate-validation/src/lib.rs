@@ -899,15 +899,10 @@ async fn validate_candidate_exhaustive(
 					// invalid.
 					Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))
 				} else {
-					let core_index = candidate_receipt.descriptor.core_index();
-
-					match (core_index, exec_kind) {
+					match exec_kind {
 						// Core selectors are optional for V2 descriptors, but we still check the
 						// descriptor core index.
-						(
-							Some(_core_index),
-							PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_),
-						) => {
+						PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
 							let Some(claim_queue) = maybe_claim_queue else {
 								let error = "cannot fetch the claim queue from the runtime";
 								gum::warn!(
@@ -924,9 +919,9 @@ async fn validate_candidate_exhaustive(
 							{
 								gum::warn!(
 									target: LOG_TARGET,
-									?err,
 									candidate_hash = ?candidate_receipt.hash(),
-									"Candidate core index is invalid",
+									"Candidate core index is invalid: {}",
+									err
 								);
 								return Ok(ValidationResult::Invalid(
 									InvalidCandidate::InvalidCoreIndex,
@@ -934,7 +929,7 @@ async fn validate_candidate_exhaustive(
 							}
 						},
 						// No checks for approvals and disputes
-						(_, _) => {},
+						_ => {},
 					}
 
 					Ok(ValidationResult::Valid(
