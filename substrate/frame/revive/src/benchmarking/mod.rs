@@ -772,7 +772,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		ext.override_export(crate::debug::ExportedFunction::Constructor);
+		ext.override_export(crate::exec::ExportedFunction::Constructor);
 
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
 
