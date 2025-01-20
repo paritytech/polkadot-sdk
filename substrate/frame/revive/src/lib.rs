@@ -35,14 +35,17 @@ mod wasm;
 mod tests;
 
 pub mod chain_extension;
-pub mod debug;
 pub mod evm;
 pub mod test_utils;
+pub mod tracing;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, GenericTransaction},
-	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
+	evm::{
+		runtime::{gas_from_fee, GAS_PRICE},
+		GasEncoder, GenericTransaction,
+	},
+	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
@@ -68,7 +71,7 @@ use frame_support::{
 use frame_system::{
 	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
-	EventRecord, Pallet as System,
+	Pallet as System,
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
@@ -80,8 +83,7 @@ use sp_runtime::{
 
 pub use crate::{
 	address::{create1, create2, AccountId32Mapper, AddressMapper},
-	debug::Tracing,
-	exec::MomentOf,
+	exec::{MomentOf, Origin},
 	pallet::*,
 };
 pub use primitives::*;
@@ -95,9 +97,6 @@ type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
-type EventRecordOf<T> =
-	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
-type DebugBuffer = BoundedVec<u8, ConstU32<{ limits::DEBUG_BUFFER_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 
 /// Used as a sentinel value when reading and writing contract memory.
@@ -115,23 +114,9 @@ const SENTINEL: u32 = u32::MAX;
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
 
-/// This version determines which syscalls are available to contracts.
-///
-/// Needs to be bumped every time a versioned syscall is added.
-const API_VERSION: u16 = 0;
-
-#[test]
-fn api_version_up_to_date() {
-	assert!(
-		API_VERSION == crate::wasm::HIGHEST_API_VERSION,
-		"A new versioned API has been added. The `API_VERSION` needs to be bumped."
-	);
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::debug::Debugger;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
@@ -268,12 +253,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
-		/// For most production chains, it's recommended to use the `()` implementation of this
-		/// trait. This implementation offers additional logging when the log target
-		/// "runtime::revive" is set to trace.
-		#[pallet::no_default_bounds]
-		type Debug: Debugger<Self>;
-
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
 		#[pallet::no_default_bounds]
@@ -308,6 +287,11 @@ pub mod pallet {
 		/// The ratio between the decimal representation of the native token and the ETH token.
 		#[pallet::constant]
 		type NativeToEthRatio: Get<u32>;
+
+		/// Encode and decode Ethereum gas values.
+		/// Only valid value is `()`. See [`GasEncoder`].
+		#[pallet::no_default_bounds]
+		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -375,36 +359,17 @@ pub mod pallet {
 			type InstantiateOrigin = EnsureSigned<AccountId>;
 			type WeightInfo = ();
 			type WeightPrice = Self;
-			type Debug = ();
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<0>;
 			type NativeToEthRatio = ConstU32<1>;
+			type EthGasEncoder = ();
 		}
 	}
 
 	#[pallet::event]
 	pub enum Event<T: Config> {
-		/// Contract deployed by address at the specified address.
-		Instantiated { deployer: H160, contract: H160 },
-
-		/// Contract has been removed.
-		///
-		/// # Note
-		///
-		/// The only way for a contract to be removed and emitting this event is by calling
-		/// `seal_terminate`.
-		Terminated {
-			/// The contract that was terminated.
-			contract: H160,
-			/// The account that received the contracts remaining balance
-			beneficiary: H160,
-		},
-
-		/// Code with the specified hash has been stored.
-		CodeStored { code_hash: H256, deposit_held: BalanceOf<T>, uploader: H160 },
-
 		/// A custom event emitted by the contract.
 		ContractEmitted {
 			/// The contract that emitted the event.
@@ -416,54 +381,6 @@ pub mod pallet {
 			/// Number of topics is capped by [`limits::NUM_EVENT_TOPICS`].
 			topics: Vec<H256>,
 		},
-
-		/// A code with the specified hash was removed.
-		CodeRemoved { code_hash: H256, deposit_released: BalanceOf<T>, remover: H160 },
-
-		/// A contract's code was updated.
-		ContractCodeUpdated {
-			/// The contract that has been updated.
-			contract: H160,
-			/// New code hash that was set for the contract.
-			new_code_hash: H256,
-			/// Previous code hash of the contract.
-			old_code_hash: H256,
-		},
-
-		/// A contract was called either by a plain account or another contract.
-		///
-		/// # Note
-		///
-		/// Please keep in mind that like all events this is only emitted for successful
-		/// calls. This is because on failure all storage changes including events are
-		/// rolled back.
-		Called {
-			/// The caller of the `contract`.
-			caller: Origin<T>,
-			/// The contract that was called.
-			contract: H160,
-		},
-
-		/// A contract delegate called a code hash.
-		///
-		/// # Note
-		///
-		/// Please keep in mind that like all events this is only emitted for successful
-		/// calls. This is because on failure all storage changes including events are
-		/// rolled back.
-		DelegateCalled {
-			/// The contract that performed the delegate call and hence in whose context
-			/// the `code_hash` is executed.
-			contract: H160,
-			/// The code hash that was delegate called.
-			code_hash: H256,
-		},
-
-		/// Some funds have been transferred and held as storage deposit.
-		StorageDepositTransferredAndHeld { from: H160, to: H160, amount: BalanceOf<T> },
-
-		/// Some storage deposit funds have been transferred and released.
-		StorageDepositTransferredAndReleased { from: H160, to: H160, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -573,6 +490,8 @@ pub mod pallet {
 		AccountUnmapped,
 		/// Tried to map an account that is already mapped.
 		AccountAlreadyMapped,
+		/// The transaction used to dry-run a contract is invalid.
+		InvalidGenericTransaction,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -622,14 +541,6 @@ pub mod pallet {
 	/// use it with this pallet.
 	#[pallet::storage]
 	pub(crate) type AddressSuffix<T: Config> = StorageMap<_, Identity, H160, [u8; 12]>;
-
-	#[pallet::extra_constants]
-	impl<T: Config> Pallet<T> {
-		#[pallet::constant_name(ApiVersion)]
-		fn api_version() -> u16 {
-			API_VERSION
-		}
-	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -782,12 +693,7 @@ pub mod pallet {
 		#[allow(unused_variables)]
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::MAX)]
-		pub fn eth_transact(
-			origin: OriginFor<T>,
-			payload: Vec<u8>,
-			gas_limit: Weight,
-			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
-		) -> DispatchResultWithPostInfo {
+		pub fn eth_transact(origin: OriginFor<T>, payload: Vec<u8>) -> DispatchResultWithPostInfo {
 			Err(frame_system::Error::CallFiltered::<T>.into())
 		}
 
@@ -825,9 +731,8 @@ pub mod pallet {
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
 			);
+
 			if let Ok(return_value) = &output.result {
 				if return_value.did_revert() {
 					output.result = Err(<Error<T>>::ContractReverted.into());
@@ -863,8 +768,6 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -929,8 +832,6 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1008,11 +909,6 @@ pub mod pallet {
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
-				Self::deposit_event(Event::ContractCodeUpdated {
-					contract: dest,
-					new_code_hash: code_hash,
-					old_code_hash: contract.code_hash,
-				});
 				contract.code_hash = code_hash;
 				Ok(())
 			})
@@ -1100,16 +996,10 @@ where
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<ExecReturnValue, BalanceOf<T>, EventRecordOf<T>> {
+	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
-		let mut debug_message = if matches!(debug, DebugInfo::UnsafeDebug) {
-			Some(DebugBuffer::default())
-		} else {
-			None
-		};
+
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
 			let mut storage_meter = match storage_deposit_limit {
@@ -1124,7 +1014,6 @@ where
 				Self::convert_native_to_evm(value),
 				data,
 				storage_deposit_limit.is_unchecked(),
-				debug_message.as_mut(),
 			)?;
 			storage_deposit = storage_meter
 				.try_into_deposit(&origin, storage_deposit_limit.is_unchecked())
@@ -1134,18 +1023,11 @@ where
 			Ok(result)
 		};
 		let result = Self::run_guarded(try_call);
-		let events = if matches!(collect_events, CollectEvents::UnsafeCollect) {
-			Some(System::<T>::read_events_no_consensus().map(|e| *e).collect())
-		} else {
-			None
-		};
 		ContractResult {
 			result: result.map_err(|r| r.error),
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			debug_message: debug_message.unwrap_or_default().to_vec(),
-			events,
 		}
 	}
 
@@ -1153,8 +1035,7 @@ where
 	///
 	/// Identical to [`Self::instantiate`] or [`Self::instantiate_with_code`] but tailored towards
 	/// being called by other code within the runtime as opposed to from an extrinsic. It returns
-	/// more information and allows the enablement of features that are not suitable for an
-	/// extrinsic (debugging, event collection).
+	/// more information to the caller useful to estimate the cost of the operation.
 	pub fn bare_instantiate(
 		origin: OriginFor<T>,
 		value: BalanceOf<T>,
@@ -1163,14 +1044,9 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>, EventRecordOf<T>> {
+	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
-		let mut debug_message =
-			if debug == DebugInfo::UnsafeDebug { Some(DebugBuffer::default()) } else { None };
-
 		let unchecked_deposit_limit = storage_deposit_limit.is_unchecked();
 		let mut storage_deposit_limit = match storage_deposit_limit {
 			DepositLimit::Balance(limit) => limit,
@@ -1210,7 +1086,6 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
-				debug_message.as_mut(),
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1218,11 +1093,6 @@ where
 			result
 		};
 		let output = Self::run_guarded(try_instantiate);
-		let events = if matches!(collect_events, CollectEvents::UnsafeCollect) {
-			Some(System::<T>::read_events_no_consensus().map(|e| *e).collect())
-		} else {
-			None
-		};
 		ContractResult {
 			result: output
 				.map(|(addr, result)| InstantiateReturnValue { result, addr })
@@ -1230,8 +1100,6 @@ where
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			debug_message: debug_message.unwrap_or_default().to_vec(),
-			events,
 		}
 	}
 
@@ -1269,7 +1137,6 @@ where
 			DepositLimit::Unchecked
 		};
 
-		// TODO remove once we have revisited how we encode the gas limit.
 		if tx.nonce.is_none() {
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
 		}
@@ -1288,8 +1155,6 @@ where
 		};
 
 		let input = tx.input.clone().unwrap_or_default().0;
-		let debug = DebugInfo::Skip;
-		let collect_events = CollectEvents::Skip;
 
 		let extract_error = |err| {
 			if err == Error::<T>::TransferFailed.into() ||
@@ -1320,8 +1185,6 @@ where
 					gas_limit,
 					storage_deposit_limit,
 					input.clone(),
-					debug,
-					collect_events,
 				);
 
 				let data = match result.result {
@@ -1378,8 +1241,6 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
-					debug,
-					collect_events,
 				);
 
 				let returned_data = match result.result {
@@ -1427,11 +1288,8 @@ where
 				return Err(EthTransactError::Message("Invalid transaction".into()));
 			};
 
-			let eth_dispatch_call = crate::Call::<T>::eth_transact {
-				payload: unsigned_tx.dummy_signed_payload(),
-				gas_limit: result.gas_required,
-				storage_deposit_limit: result.storage_deposit,
-			};
+			let eth_dispatch_call =
+				crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
 			let encoded_len = utx_encoded_size(eth_dispatch_call);
 			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
 				encoded_len,
@@ -1439,7 +1297,9 @@ where
 				0u32.into(),
 			)
 			.into();
-			let eth_gas: U256 = (fee / GAS_PRICE.into()).into();
+			let eth_gas = gas_from_fee(fee);
+			let eth_gas =
+				T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
 
 			if eth_gas == result.eth_gas {
 				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");
@@ -1551,12 +1411,11 @@ environmental!(executing_contract: bool);
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
 	#[api_version(1)]
-	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, EventRecord> where
+	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber> where
 		AccountId: Codec,
 		Balance: Codec,
 		Nonce: Codec,
 		BlockNumber: Codec,
-		EventRecord: Codec,
 	{
 		/// Returns the free balance of the given `[H160]` address, using EVM decimals.
 		fn balance(address: H160) -> U256;
@@ -1574,7 +1433,7 @@ sp_api::decl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> ContractResult<ExecReturnValue, Balance, EventRecord>;
+		) -> ContractResult<ExecReturnValue, Balance>;
 
 		/// Instantiate a new contract.
 		///
@@ -1587,7 +1446,7 @@ sp_api::decl_runtime_apis! {
 			code: Code,
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
-		) -> ContractResult<InstantiateReturnValue, Balance, EventRecord>;
+		) -> ContractResult<InstantiateReturnValue, Balance>;
 
 
 		/// Perform an Ethereum call.

@@ -20,23 +20,15 @@
 use crate as pallet_assets_freezer;
 pub use crate::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	derive_impl,
-	traits::{AsEnsureOriginWithArg, ConstU64},
-};
+use frame::testing_prelude::*;
 use scale_info::TypeInfo;
-use sp_core::{ConstU32, H256};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
 
 pub type AccountId = u64;
 pub type Balance = u64;
 pub type AssetId = u32;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -48,7 +40,7 @@ frame_support::construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -70,7 +62,7 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -132,7 +124,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 }
 
-pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
+pub fn new_test_ext(execute: impl FnOnce()) -> TestExternalities {
 	let t = RuntimeGenesisConfig {
 		assets: pallet_assets::GenesisConfig {
 			assets: vec![(1, 0, true, 1)],
@@ -145,11 +137,12 @@ pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
 	}
 	.build_storage()
 	.unwrap();
-	let mut ext: sp_io::TestExternalities = t.into();
+	let mut ext: TestExternalities = t.into();
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		execute();
-		frame_support::assert_ok!(AssetsFreezer::do_try_state());
+		#[cfg(feature = "try-runtime")]
+		assert_ok!(AssetsFreezer::do_try_state());
 	});
 
 	ext
