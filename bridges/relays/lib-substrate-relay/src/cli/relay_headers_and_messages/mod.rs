@@ -325,7 +325,9 @@ where
 				_,
 				Self::Left,
 				MessagesLaneIdOf<Self::R2L>,
-			>(common.right.client.clone(), &common.metrics_params, &common.right.accounts, &lanes)
+			>(
+				common.right.client.clone(), &common.metrics_params, &common.right.accounts, &lanes
+			)
 			.await?;
 		}
 

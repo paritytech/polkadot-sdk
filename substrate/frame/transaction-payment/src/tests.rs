@@ -273,8 +273,10 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
 			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 			let len = 10;
 
-			assert_ok!(ChargeTransactionPayment::<Runtime>::from(10) // tipped
-				.pre_dispatch(&1, CALL, &info_from_weight(Weight::from_parts(3, 0)), len));
+			assert_ok!(
+				ChargeTransactionPayment::<Runtime>::from(10) // tipped
+					.pre_dispatch(&1, CALL, &info_from_weight(Weight::from_parts(3, 0)), len)
+			);
 			assert_eq!(
 				Balances::free_balance(1),
 				100 // original
