@@ -254,7 +254,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::SyncCommitteeHashTreeRootFailed)?;
 
 			let fork_versions = T::ForkVersions::get();
-			let sync_committee_g_index = Self::current_sync_committee_gindex_at_slot(
+			let sync_committee_gindex = Self::current_sync_committee_gindex_at_slot(
 				update.header.slot,
 				fork_versions.clone(),
 			);
