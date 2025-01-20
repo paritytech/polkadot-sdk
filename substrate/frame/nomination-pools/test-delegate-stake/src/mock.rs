@@ -19,21 +19,11 @@
 #![allow(deprecated)]
 
 use frame_election_provider_support::VoteWeight;
-use frame_support::{
-	assert_ok, derive_impl,
-	pallet_prelude::*,
-	parameter_types,
-	traits::{ConstU64, ConstU8, VariantCountOf},
-	PalletId,
-};
-use frame_system::EnsureRoot;
+use frame::testing_prelude::*;
+
 use pallet_nomination_pools::{
 	adapter::{Member, Pool, StakeStrategyType},
 	BondType,
-};
-use sp_runtime::{
-	traits::{Convert, IdentityLookup},
-	BuildStorage, FixedU128, Perbill,
 };
 
 type AccountId = u128;
@@ -284,9 +274,9 @@ impl pallet_delegated_staking::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;
 }
-type Block = frame_system::mocking::MockBlock<Runtime>;
+type Block = MockBlock<Runtime>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		Timestamp: pallet_timestamp,
@@ -298,7 +288,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	sp_tracing::try_init_simple();
 	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let _ = pallet_nomination_pools::GenesisConfig::<Runtime> {
