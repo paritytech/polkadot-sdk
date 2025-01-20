@@ -2,8 +2,46 @@ use super::{Event as SignedEvent, *};
 use crate::mock::*;
 use sp_core::bounded_vec;
 
+pub type T = Runtime;
+
 mod calls {
 	use super::*;
+	use crate::Phase;
+	use sp_runtime::{DispatchError, TokenError::FundsUnavailable};
+
+	#[test]
+	fn cannot_register_with_insufficient_balance() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			// 777 is not funded.
+			assert_noop!(
+				SignedPallet::register(RuntimeOrigin::signed(777), Default::default()),
+				DispatchError::Token(FundsUnavailable)
+			);
+		});
+
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			// 99 is funded but deposit is too high.
+			assert_eq!(balances(99), (100, 0));
+			SignedDepositBase::set(101);
+			assert_noop!(
+				SignedPallet::register(RuntimeOrigin::signed(99), Default::default()),
+				DispatchError::Token(FundsUnavailable)
+			);
+		})
+	}
+
+	#[test]
+	fn cannot_register_if_not_signed() {
+		ExtBuilder::signed().build_and_execute(|| {
+			assert!(crate::Pallet::<T>::current_phase() != Phase::Signed);
+			assert_noop!(
+				SignedPallet::register(RuntimeOrigin::signed(99), Default::default()),
+				Error::<T>::PhaseNotSigned
+			);
+		})
+	}
 
 	#[test]
 	fn register_metadata_works() {
@@ -42,6 +80,7 @@ mod calls {
 			let score = ElectionScore { minimal_stake: 90, ..Default::default() };
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(999), score));
 			assert_eq!(balances(999), (95, 5));
+
 			assert_eq!(
 				Submissions::<Runtime>::metadata_of(0, 999).unwrap(),
 				SubmissionMetadata {
@@ -73,7 +112,7 @@ mod calls {
 					RuntimeOrigin::signed(999),
 					ElectionScore { minimal_stake: 80, ..Default::default() }
 				),
-				"Duplicate",
+				Error::<T>::Duplicate,
 			);
 		})
 	}
@@ -123,7 +162,7 @@ mod calls {
 			// weaker one comes while we don't have space.
 			assert_noop!(
 				SignedPallet::register(RuntimeOrigin::signed(94), score_from(80)),
-				"QueueFull"
+				Error::<T>::QueueFull
 			);
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
@@ -188,14 +227,12 @@ mod calls {
 			roll_to_signed_open();
 			assert_full_snapshot();
 
-			assert_ok!(SignedPallet::register(
-				RuntimeOrigin::signed(99),
-				ElectionScore { minimal_stake: 100, ..Default::default() }
-			));
+			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
 			assert_eq!(balances(99), (95, 5));
 
 			// not submitted, cannot bailout.
-			assert_noop!(SignedPallet::bail(RuntimeOrigin::signed(999)), "NoSubmission");
+			assert_noop!(SignedPallet::bail(RuntimeOrigin::signed(999)), Error::<T>::NoSubmission);
 
 			// can bail.
 			assert_ok!(SignedPallet::bail(RuntimeOrigin::signed(99)));
@@ -203,10 +240,10 @@ mod calls {
 			assert_eq!(balances(99), (96, 0));
 			assert_no_data_for(0, 99);
 
-			assert!(matches!(
-				dbg!(signed_events()).as_slice(),
-				&[SignedEvent::Registered(..), SignedEvent::Bailed(..)]
-			));
+			assert_eq!(
+				signed_events(),
+				vec![Event::Registered(0, 99, score), Event::Bailed(0, 99)]
+			);
 		});
 	}
 
@@ -218,7 +255,7 @@ mod calls {
 
 			assert_noop!(
 				SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, Default::default()),
-				"NotRegistered"
+				Error::<T>::NotRegistered
 			);
 
 			assert_ok!(SignedPallet::register(
@@ -226,17 +263,14 @@ mod calls {
 				ElectionScore { minimal_stake: 100, ..Default::default() }
 			));
 
-			assert_noop!(
-				SignedPallet::submit_page(RuntimeOrigin::signed(99), 3, Default::default()),
-				"BadPageIndex"
-			);
-			assert_noop!(
-				SignedPallet::submit_page(RuntimeOrigin::signed(99), 4, Default::default()),
-				"BadPageIndex"
-			);
-
 			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), 0);
 			assert_eq!(balances(99), (95, 5));
+
+			// indices 0, 1, 2 are valid.
+			assert_noop!(
+				SignedPallet::submit_page(RuntimeOrigin::signed(99), 3, Default::default()),
+				Error::<T>::BadPageIndex
+			);
 
 			// add the first page.
 			assert_ok!(SignedPallet::submit_page(
@@ -306,7 +340,7 @@ mod e2e {
 			roll_to_signed_open();
 			assert_full_snapshot();
 
-			// a valid, but weak solution.
+			// an invalid, but weak solution.
 			{
 				let score =
 					ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
@@ -364,21 +398,41 @@ mod e2e {
 			roll_next();
 			roll_next();
 
-			assert!(matches!(
-				signed_events().as_slice(),
-				&[
-					SignedEvent::Registered(..),
-					SignedEvent::Stored(..),
-					SignedEvent::Registered(..),
-					SignedEvent::Stored(..),
-					SignedEvent::Stored(..),
-					SignedEvent::Stored(..),
-					SignedEvent::Registered(..),
-					SignedEvent::Slashed(0, 92, ..),
-					SignedEvent::Rewarded(0, 999, 4), // 3 reward + 1 tx-fee
-					SignedEvent::Discarded(0, 99),
+			assert_eq!(
+				signed_events(),
+				vec![
+					Event::Registered(
+						0,
+						99,
+						ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 }
+					),
+					Event::Stored(0, 99, 0),
+					Event::Registered(
+						0,
+						999,
+						ElectionScore {
+							minimal_stake: 55,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						}
+					),
+					Event::Stored(0, 999, 0),
+					Event::Stored(0, 999, 1),
+					Event::Stored(0, 999, 2),
+					Event::Registered(
+						0,
+						92,
+						ElectionScore {
+							minimal_stake: 110,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						}
+					),
+					Event::Slashed(0, 92, 5),
+					Event::Rewarded(0, 999, 4),
+					Event::Discarded(0, 99)
 				]
-			));
+			);
 
 			assert_eq!(balances(99), (100, 0));
 			assert_eq!(balances(999), (104, 0));

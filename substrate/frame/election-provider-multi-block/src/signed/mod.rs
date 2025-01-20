@@ -119,7 +119,8 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				{
 					// first, let's give them their reward.
 					let reward = metadata.reward.saturating_add(metadata.fee);
-					let imbalance = T::Currency::mint_into(&winner, reward);
+					let _r = T::Currency::mint_into(&winner, reward);
+					debug_assert!(_r.is_ok());
 					Self::deposit_event(Event::<T>::Rewarded(
 						current_round,
 						winner.clone(),
@@ -411,7 +412,7 @@ pub mod pallet {
 			let mut sorted_scores = SortedScores::<T>::get(round);
 
 			if let Some(_) = sorted_scores.iter().position(|(x, _)| x == who) {
-				return Err("Duplicate".into())
+				return Err(Error::<T>::Duplicate.into());
 			} else {
 				// must be new.
 				debug_assert!(!SubmissionMetadataStorage::<T>::contains_key(round, who));
@@ -448,7 +449,7 @@ pub mod pallet {
 						debug_assert_eq!(_released, to_refund);
 						Pallet::<T>::deposit_event(Event::<T>::Discarded(round, discarded));
 					},
-					Err(_) => return Err("QueueFull".into()),
+					Err(_) => return Err(Error::<T>::QueueFull.into()),
 				}
 			}
 
@@ -482,8 +483,8 @@ pub mod pallet {
 			maybe_solution: Option<T::Solution>,
 		) -> DispatchResultWithPostInfo {
 			let mut metadata =
-				SubmissionMetadataStorage::<T>::get(round, who).ok_or("NotRegistered")?;
-			ensure!(page < T::Pages::get(), "BadPageIndex");
+				SubmissionMetadataStorage::<T>::get(round, who).ok_or(Error::<T>::NotRegistered)?;
+			ensure!(page < T::Pages::get(), Error::<T>::BadPageIndex);
 
 			// defensive only: we resize `meta.pages` once to be `T::Pages` elements once, and never
 			// resize it again; `page` is checked here to be in bound; element must exist; qed.
@@ -643,12 +644,25 @@ pub mod pallet {
 		Bailed(u32, T::AccountId),
 	}
 
+	#[pallet::error]
+	pub enum Error<T> {
+		/// The phase is not signed.
+		PhaseNotSigned,
+		/// The submission is a duplicate.
+		Duplicate,
+		/// The queue is full.
+		QueueFull,
+		/// The page index is out of bounds.
+		BadPageIndex,
+		/// The account is not registered.
+		NotRegistered,
+		/// No submission found.
+		NoSubmission,
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Submit an upcoming solution for registration.
-		///
-		/// - no updating
-		/// - kept based on sorted scores.
+		/// Register oneself for an upcoming signed election.
 		#[pallet::weight(0)]
 		#[pallet::call_index(0)]
 		pub fn register(
@@ -656,7 +670,7 @@ pub mod pallet {
 			claimed_score: ElectionScore,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			ensure!(crate::Pallet::<T>::current_phase().is_signed(), "phase not signed");
+			ensure!(crate::Pallet::<T>::current_phase().is_signed(), Error::<T>::PhaseNotSigned);
 
 			// note: we could already check if this is a duplicate here, but prefer keeping the code
 			// simple for now.
@@ -673,8 +687,7 @@ pub mod pallet {
 
 			let new_metadata = SubmissionMetadata { claimed_score, deposit, reward, fee, pages };
 
-			T::Currency::hold(&HoldReason::SignedSubmission.into(), &who, deposit)
-				.map_err(|_| "insufficient funds")?;
+			T::Currency::hold(&HoldReason::SignedSubmission.into(), &who, deposit)?;
 			let round = Self::current_round();
 			let _ = Submissions::<T>::try_register(round, &who, new_metadata)?;
 
@@ -690,7 +703,7 @@ pub mod pallet {
 			maybe_solution: Option<T::Solution>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			ensure!(crate::Pallet::<T>::current_phase().is_signed(), "phase not signed");
+			ensure!(crate::Pallet::<T>::current_phase().is_signed(), Error::<T>::PhaseNotSigned);
 
 			let round = Self::current_round();
 			Submissions::<T>::try_mutate_page(round, &who, page, maybe_solution)?;
@@ -707,10 +720,10 @@ pub mod pallet {
 		#[transactional]
 		pub fn bail(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			ensure!(crate::Pallet::<T>::current_phase().is_signed(), "phase not signed");
+			ensure!(crate::Pallet::<T>::current_phase().is_signed(), Error::<T>::PhaseNotSigned);
 			let round = Self::current_round();
 			let metadata = Submissions::<T>::take_submission_with_data(round, &who)
-				.ok_or::<DispatchError>("NoSubmission".into())?;
+				.ok_or(Error::<T>::NoSubmission)?;
 
 			let deposit = metadata.deposit;
 			let to_refund = T::BailoutGraceRatio::get() * deposit;
