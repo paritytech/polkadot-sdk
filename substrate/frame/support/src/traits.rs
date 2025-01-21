@@ -60,7 +60,7 @@ pub use misc::{
 	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
 	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, DefensiveMax, DefensiveMin,
 	DefensiveSaturating, DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly,
-	EstimateCallFee, ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime,
+	EstimateCallFee, ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault,
 	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
 	OnNewAccount, PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop,
 	TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,

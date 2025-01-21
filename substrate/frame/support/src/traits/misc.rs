@@ -31,7 +31,7 @@ pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt, ConstU128, ConstU16,
 	ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect, TypedGet,
 };
-use sp_runtime::{traits::Block as BlockT, DispatchError};
+use sp_runtime::traits::Block as BlockT;
 
 #[doc(hidden)]
 pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
@@ -716,21 +716,6 @@ pub trait OnKilledAccount<AccountId> {
 	/// The account with the given id was reaped.
 	fn on_killed_account(who: &AccountId);
 }
-
-/// A simple, generic one-parameter event notifier/handler.
-pub trait HandleLifetime<T> {
-	/// An account was created.
-	fn created(_t: &T) -> Result<(), DispatchError> {
-		Ok(())
-	}
-
-	/// An account was killed.
-	fn killed(_t: &T) -> Result<(), DispatchError> {
-		Ok(())
-	}
-}
-
-impl<T> HandleLifetime<T> for () {}
 
 pub trait Time {
 	type Moment: sp_arithmetic::traits::AtLeast32Bit + Parameter + Default + Copy + MaxEncodedLen;

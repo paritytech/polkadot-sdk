@@ -136,7 +136,7 @@ use frame_support::{
 	pallet_prelude::Pays,
 	storage::{self, StorageStreamIter},
 	traits::{
-		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
+		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get,
 		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
 		StoredMap, TypedGet,
 	},
@@ -2283,43 +2283,6 @@ pub fn unique(entropy: impl Encode) -> [u8; 32] {
 	let next = (b"frame_system::unique", entropy, last).using_encoded(blake2_256);
 	sp_io::storage::set(well_known_keys::INTRABLOCK_ENTROPY, &next);
 	next
-}
-
-/// Event handler which registers a provider when created.
-pub struct Provider<T>(PhantomData<T>);
-impl<T: Config> HandleLifetime<T::AccountId> for Provider<T> {
-	fn created(t: &T::AccountId) -> Result<(), DispatchError> {
-		Pallet::<T>::inc_providers(t);
-		Ok(())
-	}
-	fn killed(t: &T::AccountId) -> Result<(), DispatchError> {
-		Pallet::<T>::dec_providers(t).map(|_| ())
-	}
-}
-
-/// Event handler which registers a self-sufficient when created.
-pub struct SelfSufficient<T>(PhantomData<T>);
-impl<T: Config> HandleLifetime<T::AccountId> for SelfSufficient<T> {
-	fn created(t: &T::AccountId) -> Result<(), DispatchError> {
-		Pallet::<T>::inc_sufficients(t);
-		Ok(())
-	}
-	fn killed(t: &T::AccountId) -> Result<(), DispatchError> {
-		Pallet::<T>::dec_sufficients(t);
-		Ok(())
-	}
-}
-
-/// Event handler which registers a consumer when created.
-pub struct Consumer<T>(PhantomData<T>);
-impl<T: Config> HandleLifetime<T::AccountId> for Consumer<T> {
-	fn created(t: &T::AccountId) -> Result<(), DispatchError> {
-		Pallet::<T>::inc_consumers(t)
-	}
-	fn killed(t: &T::AccountId) -> Result<(), DispatchError> {
-		Pallet::<T>::dec_consumers(t);
-		Ok(())
-	}
 }
 
 impl<T: Config> BlockNumberProvider for Pallet<T> {
