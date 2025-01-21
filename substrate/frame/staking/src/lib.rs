@@ -758,10 +758,10 @@ impl<
 	> PagedExposure<AccountId, Balance, MaxExposurePageSize>
 {
 	/// Create a new instance of `PagedExposure` from legacy clipped exposures (now removed).
-	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Result<Self, ()> {
-		let old_exposures = exposure.others.len();
-		let others = WeakBoundedVec::try_from(exposure.others).unwrap_or_default();
-		defensive_assert!(old_exposures == others.len(), "Too many exposures for a page");
+	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Result<Self, &'static str> {
+		let Ok(others) = WeakBoundedVec::try_from(exposure.others) else {
+			return Err("Too many exposures for a page");
+		};
 		Ok(Self {
 			exposure_metadata: PagedExposureMetadata {
 				total: exposure.total,
