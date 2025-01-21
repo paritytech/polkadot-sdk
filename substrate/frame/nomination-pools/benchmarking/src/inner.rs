@@ -18,10 +18,9 @@
 //! Benchmarks for the nomination pools coupled with the staking and bags list pallets.
 
 use alloc::{vec, vec::Vec};
-use frame::benchmarking::prelude::*;
+use frame::benchmarking::prelude::{RawOrigin as RuntimeOrigin, *};
 use frame_election_provider_support::SortedListProvider;
 
-use frame_system::RawOrigin as RuntimeOrigin;
 use pallet_nomination_pools::{
 	adapter::{Member, Pool, StakeStrategy, StakeStrategyType},
 	BalanceOf, BondExtra, BondedPoolInner, BondedPools, ClaimPermission, ClaimPermissions,

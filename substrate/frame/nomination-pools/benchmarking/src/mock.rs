@@ -17,17 +17,9 @@
 
 use crate::VoterBagsListInstance;
 use frame_election_provider_support::VoteWeight;
-use frame_support::{
-	derive_impl,
-	pallet_prelude::*,
-	parameter_types,
-	traits::{ConstU64, VariantCountOf},
-	PalletId,
-};
-use sp_runtime::{
-	traits::{Convert, IdentityLookup},
-	BuildStorage, FixedU128, Perbill,
-};
+use frame::testing_prelude::*;
+
+
 
 type AccountId = u128;
 type BlockNumber = u64;
@@ -158,9 +150,9 @@ impl pallet_delegated_staking::Config for Runtime {
 
 impl crate::Config for Runtime {}
 
-type Block = frame_system::mocking::MockBlock<Runtime>;
+type Block = MockBlock<Runtime>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		Timestamp: pallet_timestamp,
@@ -172,7 +164,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let _ = pallet_nomination_pools::GenesisConfig::<Runtime> {
 		min_join_bond: 2,
@@ -183,5 +175,5 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		global_max_commission: Some(Perbill::from_percent(50)),
 	}
 	.assimilate_storage(&mut storage);
-	sp_io::TestExternalities::from(storage)
+	TestState::from(storage)
 }
