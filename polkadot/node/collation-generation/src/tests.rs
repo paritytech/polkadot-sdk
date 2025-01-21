@@ -82,17 +82,17 @@ fn test_collation() -> Collation {
 
 struct CoreSelectorData {
 	// The core selector index.
-	cs_index: u8,
+	index: u8,
 	// The increment value for the core selector index. Normally 1, but can be set to 0 or another
 	// value for testing scenarios where a parachain repeatedly selects the same core index.
-	increment_cs_index_by: u8,
+	increment_index_by: u8,
 	// The claim queue offset.
 	cq_offset: u8,
 }
 
 impl CoreSelectorData {
-	fn new(cs_index: u8, increment_cs_index_by: u8, cq_offset: u8) -> Self {
-		Self { cs_index, increment_cs_index_by, cq_offset }
+	fn new(index: u8, increment_index_by: u8, cq_offset: u8) -> Self {
+		Self { index, increment_index_by, cq_offset }
 	}
 }
 
@@ -126,12 +126,12 @@ impl TestCollator {
 				collation.upward_messages.force_push(UMP_SEPARATOR);
 				collation.upward_messages.force_push(
 					UMPSignal::SelectCore(
-						CoreSelector(core_selector_data.cs_index),
+						CoreSelector(core_selector_data.index),
 						ClaimQueueOffset(core_selector_data.cq_offset),
 					)
 					.encode(),
 				);
-				core_selector_data.cs_index += core_selector_data.increment_cs_index_by;
+				core_selector_data.index += core_selector_data.increment_index_by;
 			}
 
 			async move { Some(CollationResult { collation, result_sender: None }) }.boxed()
