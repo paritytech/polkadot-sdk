@@ -22,7 +22,7 @@ use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_core::PersistedValidationData;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::Id as ParaId;
+use polkadot_primitives::{Block as RelayBlock, Id as ParaId};
 
 use futures::prelude::*;
 use sc_consensus::BlockImport;

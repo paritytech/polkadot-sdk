@@ -19,7 +19,15 @@
 
 use super::*;
 use crate::{mock::*, types::*, Event};
-use frame_support::{pallet_prelude::*, testing_prelude::*, traits::Currency};
+use frame_support::{
+	pallet_prelude::*,
+	testing_prelude::*,
+	traits::{
+		fungible::Inspect,
+		tokens::{Fortitude::Polite, Preservation::Expendable},
+		Currency,
+	},
+};
 use pallet_staking::{CurrentEra, RewardDestination};
 
 use sp_runtime::traits::BadOrigin;
@@ -146,7 +154,7 @@ fn deregister_works() {
 
 		// Controller then changes mind and deregisters.
 		assert_ok!(FastUnstake::deregister(RuntimeOrigin::signed(1)));
-		assert_eq!(<T as Config>::Currency::reserved_balance(&1) - pre_reserved, 0);
+		assert_eq!(<T as Config>::Currency::reserved_balance(&1), pre_reserved);
 
 		// Ensure stash no longer exists in the queue.
 		assert_eq!(Queue::<T>::get(1), None);
@@ -297,7 +305,7 @@ mod on_idle {
 			);
 			assert_eq!(Queue::<T>::count(), 3);
 
-			assert_eq!(<T as Config>::Currency::reserved_balance(&1) - pre_reserved, 0);
+			assert_eq!(<T as Config>::Currency::reserved_balance(&1), pre_reserved);
 
 			assert_eq!(
 				fast_unstake_events_since_last_call(),
@@ -793,6 +801,8 @@ mod on_idle {
 				RuntimeOrigin::signed(VALIDATOR_PREFIX),
 				vec![VALIDATOR_PREFIX]
 			));
+
+			assert_eq!(Balances::reducible_balance(&VALIDATOR_PREFIX, Expendable, Polite), 7);
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(VALIDATOR_PREFIX)));
 
 			// but they indeed are exposed!
