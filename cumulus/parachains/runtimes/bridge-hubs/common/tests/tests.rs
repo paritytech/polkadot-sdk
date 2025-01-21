@@ -49,7 +49,7 @@ fn test_deny_export_message_from() {
 		);
 	};
 
-	// No `ExportMessage` should pass
+	// A message without an `ExportMessage` should pass
 	assert_deny_execution(vec![AliasOrigin(Here.into())], Source1::get(), None);
 
 	// `ExportMessage` from source1 and remote1 should pass
