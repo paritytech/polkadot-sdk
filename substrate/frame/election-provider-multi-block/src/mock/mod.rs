@@ -396,11 +396,11 @@ impl ExecuteWithSanityChecks for sp_io::TestExternalities {
 }
 
 fn all_pallets_sanity_checks() {
-	let _ = VerifierPallet::sanity_check()
-		.and(UnsignedPallet::sanity_check())
-		.and(MultiBlock::sanity_check())
-		.and(SignedPallet::sanity_check())
-		.unwrap();
+	let now = System::block_number();
+	let _ = VerifierPallet::sanity_check().unwrap();
+	let _ = UnsignedPallet::sanity_check().unwrap();
+	let _ = MultiBlock::sanity_check().unwrap();
+	let _ = SignedPallet::do_try_state(now).unwrap();
 }
 
 /// Fully verify a solution.

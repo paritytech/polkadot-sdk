@@ -40,27 +40,33 @@
 //!
 //! **Metadata update**: imagine you mis-computed your score.
 
+use crate::verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::PageIndex;
 use frame_support::{
+	dispatch::DispatchResultWithPostInfo,
+	pallet_prelude::{StorageDoubleMap, ValueQuery, *},
 	traits::{
 		tokens::{
 			fungible::{Inspect, InspectHold, Mutate, MutateHold},
 			Fortitude, Precision,
 		},
-		Defensive,
+		Defensive, DefensiveSaturating, EstimateCallFee, TryCollect,
 	},
-	BoundedVec, RuntimeDebugNoBound,
+	transactional, BoundedVec, RuntimeDebugNoBound, Twox64Concat,
 };
+use frame_system::{ensure_signed, pallet_prelude::*};
 use scale_info::TypeInfo;
+use sp_io::MultiRemovalResults;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::traits::Saturating;
-use sp_std::prelude::*;
+use sp_runtime::{
+	traits::{Saturating, Zero},
+	DispatchError, Perbill, TryRuntimeError,
+};
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// Exports of this pallet
 pub use pallet::*;
-
-use crate::verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -194,18 +200,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::verifier::AsynchronousVerifier;
-	use frame_support::{
-		dispatch::DispatchResultWithPostInfo,
-		pallet_prelude::{StorageDoubleMap, ValueQuery, *},
-		traits::{tokens::Precision, Defensive, DefensiveSaturating, EstimateCallFee, TryCollect},
-		transactional, Twox64Concat,
-	};
-	use frame_system::{ensure_signed, pallet_prelude::*};
-	use sp_io::MultiRemovalResults;
-	use sp_runtime::{traits::Zero, DispatchError, Perbill};
-	use sp_std::collections::btree_set::BTreeSet;
-
 	pub trait WeightInfo {}
 	impl WeightInfo for () {}
 
@@ -541,7 +535,7 @@ pub mod pallet {
 		}
 	}
 
-	#[cfg(any(test, debug_assertions))]
+	#[cfg(any(test, debug_assertions, feature = "try-runtime"))]
 	impl<T: Config> Submissions<T> {
 		pub fn submissions_iter(
 			round: u32,
@@ -574,7 +568,7 @@ pub mod pallet {
 
 		/// Ensure that all the storage items associated with the given round are in `killed` state,
 		/// meaning that in the expect state after an election is OVER.
-		pub(crate) fn ensure_killed(round: u32) -> Result<(), &'static str> {
+		pub(crate) fn ensure_killed(round: u32) -> DispatchResult {
 			ensure!(Self::metadata_iter(round).count() == 0, "metadata_iter not cleared.");
 			ensure!(Self::submissions_iter(round).count() == 0, "submissions_iter not cleared.");
 			ensure!(Self::sorted_submitters(round).len() == 0, "sorted_submitters not cleared.");
@@ -583,7 +577,7 @@ pub mod pallet {
 		}
 
 		/// Perform all the sanity checks of this storage item group at the given round.
-		pub(crate) fn sanity_check_round(round: u32) -> Result<(), &'static str> {
+		pub(crate) fn sanity_check_round(round: u32) -> DispatchResult {
 			let sorted_scores = SortedScores::<T>::get(round);
 			assert_eq!(
 				sorted_scores.clone().into_iter().map(|(x, _)| x).collect::<BTreeSet<_>>().len(),
@@ -695,6 +689,14 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// Submit a single page of a solution.
+		///
+		/// Must always come after [`Pallet::register`].
+		///
+		/// `maybe_solution` can be set to `None` to erase the page.
+		///
+		/// Collects deposits from the signed origin based on [`Config::DepositBase`] and
+		/// [`Config::DepositPerPage`].
 		#[pallet::weight(0)]
 		#[pallet::call_index(1)]
 		pub fn submit_page(
@@ -714,6 +716,8 @@ pub mod pallet {
 
 		/// Retract a submission.
 		///
+		/// A portion of the deposit may be returned, based on the [`Config::BailoutGraceRatio`].
+		///
 		/// This will fully remove the solution from storage.
 		#[pallet::weight(0)]
 		#[pallet::call_index(2)]
@@ -729,21 +733,23 @@ pub mod pallet {
 			let to_refund = T::BailoutGraceRatio::get() * deposit;
 			let to_slash = deposit.defensive_saturating_sub(to_refund);
 
-			// TODO: a nice defensive op for this.
 			let _res = T::Currency::release(
 				&HoldReason::SignedSubmission.into(),
 				&who,
 				to_refund,
 				Precision::BestEffort,
-			);
+			)
+			.defensive();
 			debug_assert_eq!(_res, Ok(to_refund));
+
 			let _res = T::Currency::burn_held(
 				&HoldReason::SignedSubmission.into(),
 				&who,
 				to_slash,
 				Precision::BestEffort,
 				Fortitude::Force,
-			);
+			)
+			.defensive();
 			debug_assert_eq!(_res, Ok(to_slash));
 
 			Self::deposit_event(Event::<T>::Bailed(round, who));
@@ -755,7 +761,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			// TODO: we could rely on an explicit notification system instead of this.. but anyways.
 			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(now) {
 				let maybe_leader = Submissions::<T>::leader(Self::current_round());
 				sublog!(
@@ -768,7 +773,7 @@ pub mod pallet {
 				if maybe_leader.is_some() {
 					// defensive: signed phase has just began, verifier should be in a clear state
 					// and ready to accept a solution.
-					<T::Verifier as AsynchronousVerifier>::start().defensive();
+					let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
 				}
 			}
 
@@ -781,12 +786,17 @@ pub mod pallet {
 			// TODO: weight
 			Default::default()
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state(n)
+		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
-	#[cfg(any(debug_assertions, test))]
-	pub(crate) fn sanity_check() -> Result<(), &'static str> {
+	#[cfg(any(feature = "try-runtime", test))]
+	pub(crate) fn do_try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		Submissions::<T>::sanity_check_round(Self::current_round())
 	}
 
