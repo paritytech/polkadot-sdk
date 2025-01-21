@@ -68,6 +68,7 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
+pub mod migrations;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
