@@ -1822,7 +1822,7 @@ mod benches {
 		[polkadot_runtime_parachains::initializer, Initializer]
 		[polkadot_runtime_parachains::paras_inherent, ParaInherent]
 		[polkadot_runtime_parachains::paras, Paras]
-		[polkadot_runtime_parachains::assigner_on_demand, OnDemandAssignmentProvider]
+		[polkadot_runtime_parachains::on_demand, OnDemandAssignmentProvider]
 		// Substrate
 		[pallet_balances, Balances]
 		[pallet_balances, NisCounterpartBalances]
