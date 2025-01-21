@@ -71,7 +71,7 @@ jobs:
             chain-spec-builder -c dev_chain_spec.json create \
               --relay-chain "${{ matrix.template.relay_chain }}" \
               --para-id 1000 \
-              --runtime "${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.runtime_wasm_path }}" \
+              --runtime "${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.template.runtime_wasm_path }}" \
               named-preset development
 
         - name: Prepare upload directory
