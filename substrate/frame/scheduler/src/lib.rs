@@ -297,11 +297,15 @@ pub mod pallet {
 		/// pallet.
 		type BlockNumberProvider: BlockNumberProvider;
 
-		/// The maximum number of blocks that can be scheduled.
+		/// The maximum number of blocks that can be scheduled. Should be equal to 50 if
+		/// runtime-benchmarks feature is not enabled while, it should be 200 is runtime-benchmarks
+		/// feature is enabled
 		#[pallet::constant]
 		type MaxScheduledBlocks: Get<u32>;
 
-		/// The maximum number of blocks that a task can be stale for.
+		/// The maximum number of blocks that a task can be stale for. Should be equal to 10 if
+		/// runtime-benchmarks feature is not enabled while, it should be 40 is runtime-benchmarks
+		/// feature is enabled
 		#[pallet::constant]
 		type MaxStaleTaskAge: Get<BlockNumberFor<Self>>;
 	}

@@ -21,10 +21,11 @@ use super::*;
 
 use crate as scheduler;
 use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types,
+	derive_impl, ord_parameter_types,
+	pallet_prelude::Hooks,
+	parameter_types,
 	traits::{ConstU32, ConstU64, Contains, EitherOfDiverse, EqualPrivilegeOnly},
 };
-use frame_support::pallet_prelude::Hooks;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{BuildStorage, Perbill};
 
