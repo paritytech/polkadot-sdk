@@ -23,7 +23,7 @@ use frame_support::traits::{
 	Get,
 };
 use sp_runtime::traits::TryConvert;
-use xcm::{opaque::lts::Weight, prelude::*, traits::IntoInstruction};
+use xcm::{opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
 /// Implementation of the `frame_support::traits::tokens::Pay` trait, to allow

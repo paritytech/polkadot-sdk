@@ -69,7 +69,7 @@ pub mod prelude {
 			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
 			XcmContext, XcmError, XcmHash, XcmResult, XcmWeightInfo,
 		};
-		pub use crate::v6::Instruction::{*, self};
+		pub use crate::v6::Instruction::{self, *};
 	}
 	pub use super::instructions;
 	pub use super::{InstructionsV6, Xcm};
@@ -261,8 +261,12 @@ impl<Call> From<Instruction<Call>> for InstructionsV6<Call> {
 	fn from(value: Instruction<Call>) -> Self {
 		match value {
 			Instruction::WithdrawAsset(assets) => WithdrawAsset(assets).into_instruction(),
-			Instruction::ReserveAssetDeposited(assets) => ReserveAssetDeposited(assets).into_instruction(),
-			Instruction::ReceiveTeleportedAsset(assets) => ReceiveTeleportedAsset(assets).into_instruction(),
+			Instruction::ReserveAssetDeposited(assets) => {
+				ReserveAssetDeposited(assets).into_instruction()
+			},
+			Instruction::ReceiveTeleportedAsset(assets) => {
+				ReceiveTeleportedAsset(assets).into_instruction()
+			},
 			Instruction::QueryResponse { query_id, response, max_weight, querier } => {
 				QueryResponse { query_id, response, max_weight, querier }.into_instruction()
 			},
@@ -276,7 +280,8 @@ impl<Call> From<Instruction<Call>> for InstructionsV6<Call> {
 				Transact { origin_kind, fallback_max_weight, call }.into_instruction()
 			},
 			Instruction::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } => {
-				HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity }.into_instruction()
+				HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity }
+					.into_instruction()
 			},
 			Instruction::HrmpChannelAccepted { recipient } => {
 				HrmpChannelAccepted { recipient }.into_instruction()
@@ -314,7 +319,9 @@ impl<Call> From<Instruction<Call>> for InstructionsV6<Call> {
 			Instruction::SetErrorHandler(xcm) => SetErrorHandler(xcm).into_instruction(),
 			Instruction::SetAppendix(xcm) => SetAppendix(xcm).into_instruction(),
 			Instruction::ClearError => ClearError.into_instruction(),
-			Instruction::ClaimAsset { assets, ticket } => ClaimAsset { assets, ticket }.into_instruction(),
+			Instruction::ClaimAsset { assets, ticket } => {
+				ClaimAsset { assets, ticket }.into_instruction()
+			},
 			Instruction::Trap(code) => Trap(code).into_instruction(),
 			Instruction::SubscribeVersion { query_id, max_response_weight } => {
 				SubscribeVersion { query_id, max_response_weight }.into_instruction()
@@ -336,7 +343,8 @@ impl<Call> From<Instruction<Call>> for InstructionsV6<Call> {
 				module_name,
 				crate_major,
 				min_crate_minor,
-			} => ExpectPallet { index, name, module_name, crate_major, min_crate_minor }.into_instruction(),
+			} => ExpectPallet { index, name, module_name, crate_major, min_crate_minor }
+				.into_instruction(),
 			Instruction::ReportTransactStatus(query_response_info) => {
 				ReportTransactStatus(query_response_info).into_instruction()
 			},
@@ -345,11 +353,21 @@ impl<Call> From<Instruction<Call>> for InstructionsV6<Call> {
 			Instruction::ExportMessage { network, destination, xcm } => {
 				ExportMessage { network, destination, xcm }.into_instruction()
 			},
-			Instruction::LockAsset { asset, unlocker } => LockAsset { asset, unlocker }.into_instruction(),
-			Instruction::UnlockAsset { asset, target } => UnlockAsset { asset, target }.into_instruction(),
-			Instruction::NoteUnlockable { asset, owner } => NoteUnlockable { asset, owner }.into_instruction(),
-			Instruction::RequestUnlock { asset, locker } => RequestUnlock { asset, locker }.into_instruction(),
-			Instruction::SetFeesMode { jit_withdraw } => SetFeesMode { jit_withdraw }.into_instruction(),
+			Instruction::LockAsset { asset, unlocker } => {
+				LockAsset { asset, unlocker }.into_instruction()
+			},
+			Instruction::UnlockAsset { asset, target } => {
+				UnlockAsset { asset, target }.into_instruction()
+			},
+			Instruction::NoteUnlockable { asset, owner } => {
+				NoteUnlockable { asset, owner }.into_instruction()
+			},
+			Instruction::RequestUnlock { asset, locker } => {
+				RequestUnlock { asset, locker }.into_instruction()
+			},
+			Instruction::SetFeesMode { jit_withdraw } => {
+				SetFeesMode { jit_withdraw }.into_instruction()
+			},
 			Instruction::SetTopic(topic) => SetTopic(topic).into_instruction(),
 			Instruction::ClearTopic => ClearTopic.into_instruction(),
 			Instruction::AliasOrigin(location) => AliasOrigin(location).into_instruction(),
@@ -539,11 +557,16 @@ impl<Call> Xcm<Call> {
 		Xcm::from(self)
 	}
 	pub fn from<C>(xcm: Xcm<C>) -> Self {
-		Self(xcm.0.into_iter().map(|i| {
-			let i: InstructionsV6<C> = i.into();
-			let i: InstructionsV6<Call> = i.into();
-			Instruction::<Call>::from(i)
-		}).collect())
+		Self(
+			xcm.0
+				.into_iter()
+				.map(|i| {
+					let i: InstructionsV6<C> = i.into();
+					let i: InstructionsV6<Call> = i.into();
+					Instruction::<Call>::from(i)
+				})
+				.collect(),
+		)
 	}
 }
 
@@ -711,5 +734,132 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			OldInstruction::SetHints { hints } => SetHints { hints }.into_instruction(),
 		};
 		Ok(Instruction::<Call>::from(instv6))
+	}
+}
+
+impl<Call> TryFrom<Xcm<Call>> for OldXcm<Call> {
+	type Error = ();
+	fn try_from(value: Xcm<Call>) -> result::Result<Self, ()> {
+		Ok(Self(value.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
+	}
+}
+
+impl<Call> TryFrom<Instruction<Call>> for OldInstruction<Call> {
+	type Error = ();
+	fn try_from(value: Instruction<Call>) -> result::Result<Self, ()> {
+		Ok(match value {
+			Instruction::WithdrawAsset(assets) => Self::WithdrawAsset(assets),
+			Instruction::ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets),
+			Instruction::ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets),
+			Instruction::QueryResponse { query_id, response, max_weight, querier } => {
+				Self::QueryResponse { query_id, response, max_weight, querier }
+			},
+			Instruction::TransferAsset { assets, beneficiary } => {
+				Self::TransferAsset { assets, beneficiary }
+			},
+			Instruction::TransferReserveAsset { assets, dest, xcm } => {
+				Self::TransferReserveAsset { assets, dest, xcm: xcm.try_into()? }
+			},
+			Instruction::Transact { origin_kind, fallback_max_weight, call } => {
+				Self::Transact { origin_kind, fallback_max_weight, call }
+			},
+			Instruction::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } => {
+				Self::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity }
+			},
+			Instruction::HrmpChannelAccepted { recipient } => {
+				Self::HrmpChannelAccepted { recipient }
+			},
+			Instruction::HrmpChannelClosing { initiator, sender, recipient } => {
+				Self::HrmpChannelClosing { initiator, sender, recipient }
+			},
+			Instruction::ClearOrigin => Self::ClearOrigin,
+			Instruction::DescendOrigin(junctions) => Self::DescendOrigin(junctions),
+			Instruction::ReportError(query_response_info) => Self::ReportError(query_response_info),
+			Instruction::DepositAsset { assets, beneficiary } => {
+				Self::DepositAsset { assets, beneficiary }
+			},
+			Instruction::DepositReserveAsset { assets, dest, xcm } => {
+				Self::DepositReserveAsset { assets, dest, xcm: xcm.try_into()? }
+			},
+			Instruction::ExchangeAsset { give, want, maximal } => {
+				Self::ExchangeAsset { give, want, maximal }
+			},
+			Instruction::InitiateReserveWithdraw { assets, reserve, xcm } => {
+				Self::InitiateReserveWithdraw { assets, reserve, xcm: xcm.try_into()? }
+			},
+			Instruction::InitiateTeleport { assets, dest, xcm } => {
+				Self::InitiateTeleport { assets, dest, xcm: xcm.try_into()? }
+			},
+			Instruction::ReportHolding { response_info, assets } => {
+				Self::ReportHolding { response_info, assets }
+			},
+			Instruction::BuyExecution { fees, weight_limit } => {
+				Self::BuyExecution { fees, weight_limit }
+			},
+			Instruction::RefundSurplus => Self::RefundSurplus,
+			Instruction::SetErrorHandler(xcm) => Self::SetErrorHandler(xcm.try_into()?),
+			Instruction::SetAppendix(xcm) => Self::SetAppendix(xcm.try_into()?),
+			Instruction::ClearError => Self::ClearError,
+			Instruction::ClaimAsset { assets, ticket } => Self::ClaimAsset { assets, ticket },
+			Instruction::Trap(code) => Self::Trap(code),
+			Instruction::SubscribeVersion { query_id, max_response_weight } => {
+				Self::SubscribeVersion { query_id, max_response_weight }
+			},
+			Instruction::UnsubscribeVersion => Self::UnsubscribeVersion,
+			Instruction::BurnAsset(assets) => Self::BurnAsset(assets),
+			Instruction::ExpectAsset(assets) => Self::ExpectAsset(assets),
+			Instruction::ExpectOrigin(location) => Self::ExpectOrigin(location),
+			Instruction::ExpectError(_) => Self::ExpectError(None),
+			Instruction::ExpectTransactStatus(transact_status) => {
+				Self::ExpectTransactStatus(transact_status)
+			},
+			Instruction::QueryPallet { module_name, response_info } => {
+				Self::QueryPallet { module_name, response_info }
+			},
+			Instruction::ExpectPallet {
+				index,
+				name,
+				module_name,
+				crate_major,
+				min_crate_minor,
+			} => Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
+			Instruction::ReportTransactStatus(query_response_info) => {
+				Self::ReportTransactStatus(query_response_info)
+			},
+			Instruction::ClearTransactStatus => Self::ClearTransactStatus,
+			Instruction::UniversalOrigin(junction) => Self::UniversalOrigin(junction),
+			Instruction::ExportMessage { network, destination, xcm } => {
+				Self::ExportMessage { network, destination, xcm: xcm.try_into()? }
+			},
+			Instruction::LockAsset { asset, unlocker } => Self::LockAsset { asset, unlocker },
+			Instruction::UnlockAsset { asset, target } => Self::UnlockAsset { asset, target },
+			Instruction::NoteUnlockable { asset, owner } => Self::NoteUnlockable { asset, owner },
+			Instruction::RequestUnlock { asset, locker } => Self::RequestUnlock { asset, locker },
+			Instruction::SetFeesMode { jit_withdraw } => Self::SetFeesMode { jit_withdraw },
+			Instruction::SetTopic(topic) => Self::SetTopic(topic),
+			Instruction::ClearTopic => Self::ClearTopic,
+			Instruction::AliasOrigin(location) => Self::AliasOrigin(location),
+			Instruction::UnpaidExecution { weight_limit, check_origin } => {
+				Self::UnpaidExecution { weight_limit, check_origin }
+			},
+			Instruction::PayFees { asset } => Self::PayFees { asset },
+			Instruction::InitiateTransfer {
+				destination,
+				remote_fees,
+				preserve_origin,
+				assets,
+				remote_xcm,
+			} => Self::InitiateTransfer {
+				destination,
+				remote_fees,
+				preserve_origin,
+				assets,
+				remote_xcm: remote_xcm.try_into()?,
+			},
+			Instruction::ExecuteWithOrigin { descendant_origin, xcm } => {
+				Self::ExecuteWithOrigin { descendant_origin, xcm: xcm.try_into()? }
+			},
+			Instruction::SetHints { hints } => Self::SetHints { hints },
+		})
 	}
 }

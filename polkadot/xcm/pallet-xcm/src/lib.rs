@@ -1319,7 +1319,7 @@ pub mod pallet {
 			let beneficiary: Location =
 				(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			let ticket: Location = GeneralIndex(assets_version as u128).into();
-			let mut message = Xcm(vec![
+			let mut message = Xcm::new(vec![
 				ClaimAsset { assets, ticket },
 				DepositAsset { assets: AllCounted(number_of_assets).into(), beneficiary },
 			]);
@@ -1372,7 +1372,7 @@ pub mod pallet {
 		/// the `dest` chain. This is done through the `custom_xcm_on_dest` parameter, which
 		/// contains the instructions to execute on `dest` as a final step.
 		///   This is usually as simple as:
-		///   `Xcm(vec![DepositAsset { assets: Wild(AllCounted(assets.len())), beneficiary }])`,
+		///   `Xcm::new(vec![DepositAsset { assets: Wild(AllCounted(assets.len())), beneficiary }])`,
 		///   but could be something more exotic like sending the `assets` even further.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
@@ -1484,7 +1484,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 			.map_err(|()| XcmError::LocationNotInvertible)?;
 		let query_id = Self::new_query(responder, timeout, Here);
 		let response_info = QueryResponseInfo { destination, query_id, max_weight: Weight::zero() };
-		let report_error = Xcm(vec![ReportError(response_info)]);
+		let report_error = Xcm::new(vec![ReportError(response_info)]);
 		message.0.insert(0, SetAppendix(report_error));
 		Ok(query_id)
 	}
@@ -1876,11 +1876,11 @@ impl<T: Config> Pallet<T> {
 			.reanchored(&dest, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 
-		let local_execute_xcm = Xcm(vec![
+		let local_execute_xcm = Xcm::new(vec![
 			// move `fees` to `dest`s local sovereign account
 			TransferAsset { assets: fees.into(), beneficiary: dest },
 		]);
-		let xcm_on_dest = Xcm(vec![
+		let xcm_on_dest = Xcm::new(vec![
 			// let (dest) chain know `fees` are in its SA on reserve
 			ReserveAssetDeposited(reanchored_fees.clone().into()),
 			// buy exec using `fees` in holding deposited in above instruction
@@ -1915,12 +1915,12 @@ impl<T: Config> Pallet<T> {
 			})?;
 
 		// XCM instructions to be executed on local chain
-		let mut local_execute_xcm = Xcm(vec![
+		let mut local_execute_xcm = Xcm::new(vec![
 			// locally move `assets` to `dest`s local sovereign account
 			TransferAsset { assets, beneficiary: dest.clone() },
 		]);
 		// XCM instructions to be executed on destination chain
-		let mut xcm_on_dest = Xcm(vec![
+		let mut xcm_on_dest = Xcm::new(vec![
 			// let (dest) chain know assets are in its SA on reserve
 			ReserveAssetDeposited(reanchored_assets),
 			// following instructions are not exec'ed on behalf of origin chain anymore
@@ -1934,7 +1934,7 @@ impl<T: Config> Pallet<T> {
 			Either::Right(custom_xcm) => custom_xcm,
 			Either::Left(beneficiary) => {
 				// deposit all remaining assets in holding to `beneficiary` location
-				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+				Xcm::new(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
 			},
 		};
 		xcm_on_dest.0.extend(custom_remote_xcm.into_iter());
@@ -1965,13 +1965,13 @@ impl<T: Config> Pallet<T> {
 			})?;
 		let fees: Assets = fees.into();
 
-		let local_execute_xcm = Xcm(vec![
+		let local_execute_xcm = Xcm::new(vec![
 			// withdraw reserve-based fees (derivatives)
 			WithdrawAsset(fees.clone()),
 			// burn derivatives
 			BurnAsset(fees),
 		]);
-		let xcm_on_dest = Xcm(vec![
+		let xcm_on_dest = Xcm::new(vec![
 			// withdraw `fees` from origin chain's sovereign account
 			WithdrawAsset(reanchored_fees.clone().into()),
 			// buy exec using `fees` in holding withdrawn in above instruction
@@ -2012,14 +2012,14 @@ impl<T: Config> Pallet<T> {
 			})?;
 
 		// XCM instructions to be executed on local chain
-		let mut local_execute_xcm = Xcm(vec![
+		let mut local_execute_xcm = Xcm::new(vec![
 			// withdraw reserve-based assets
 			WithdrawAsset(assets.clone()),
 			// burn reserve-based assets
 			BurnAsset(assets),
 		]);
 		// XCM instructions to be executed on destination chain
-		let mut xcm_on_dest = Xcm(vec![
+		let mut xcm_on_dest = Xcm::new(vec![
 			// withdraw `assets` from origin chain's sovereign account
 			WithdrawAsset(reanchored_assets),
 			// following instructions are not exec'ed on behalf of origin chain anymore
@@ -2033,7 +2033,7 @@ impl<T: Config> Pallet<T> {
 			Either::Right(custom_xcm) => custom_xcm,
 			Either::Left(beneficiary) => {
 				// deposit all remaining assets in holding to `beneficiary` location
-				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+				Xcm::new(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
 			},
 		};
 		xcm_on_dest.0.extend(custom_remote_xcm.into_iter());
@@ -2081,22 +2081,22 @@ impl<T: Config> Pallet<T> {
 		})?;
 		// xcm to be executed at dest
 		let mut xcm_on_dest =
-			Xcm(vec![BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() }]);
+			Xcm::new(vec![BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() }]);
 		// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
 		let custom_xcm_on_dest = match beneficiary {
 			Either::Right(custom_xcm) => custom_xcm,
 			Either::Left(beneficiary) => {
 				// deposit all remaining assets in holding to `beneficiary` location
-				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+				Xcm::new(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
 			},
 		};
 		xcm_on_dest.0.extend(custom_xcm_on_dest.into_iter());
 		// xcm to be executed on reserve
-		let xcm_on_reserve = Xcm(vec![
+		let xcm_on_reserve = Xcm::new(vec![
 			BuyExecution { fees: reserve_fees, weight_limit },
 			DepositReserveAsset { assets: Wild(AllCounted(max_assets)), dest, xcm: xcm_on_dest },
 		]);
-		Ok(Xcm(vec![
+		Ok(Xcm::new(vec![
 			WithdrawAsset(assets.into()),
 			SetFeesMode { jit_withdraw: true },
 			InitiateReserveWithdraw {
@@ -2154,13 +2154,13 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let fees: Assets = fees.into();
-		let local_execute_xcm = Xcm(vec![
+		let local_execute_xcm = Xcm::new(vec![
 			// withdraw fees
 			WithdrawAsset(fees.clone()),
 			// burn fees
 			BurnAsset(fees),
 		]);
-		let xcm_on_dest = Xcm(vec![
+		let xcm_on_dest = Xcm::new(vec![
 			// (dest) chain receive teleported assets burned on origin chain
 			ReceiveTeleportedAsset(reanchored_fees.clone().into()),
 			// buy exec using `fees` in holding received in above instruction
@@ -2229,14 +2229,14 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// XCM instructions to be executed on local chain
-		let mut local_execute_xcm = Xcm(vec![
+		let mut local_execute_xcm = Xcm::new(vec![
 			// withdraw assets to be teleported
 			WithdrawAsset(assets.clone()),
 			// burn assets on local chain
 			BurnAsset(assets),
 		]);
 		// XCM instructions to be executed on destination chain
-		let mut xcm_on_dest = Xcm(vec![
+		let mut xcm_on_dest = Xcm::new(vec![
 			// teleport `assets` in from origin chain
 			ReceiveTeleportedAsset(reanchored_assets),
 			// following instructions are not exec'ed on behalf of origin chain anymore
@@ -2250,7 +2250,7 @@ impl<T: Config> Pallet<T> {
 			Either::Right(custom_xcm) => custom_xcm,
 			Either::Left(beneficiary) => {
 				// deposit all remaining assets in holding to `beneficiary` location
-				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+				Xcm::new(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
 			},
 		};
 		xcm_on_dest.0.extend(custom_remote_xcm.into_iter());
@@ -2341,7 +2341,7 @@ impl<T: Config> Pallet<T> {
 				};
 				let response = Response::Version(xcm_version);
 				let message =
-					Xcm(vec![QueryResponse { query_id, response, max_weight, querier: None }]);
+					Xcm::new(vec![QueryResponse { query_id, response, max_weight, querier: None }]);
 				let event = match send_xcm::<T::XcmRouter>(new_key.clone(), message) {
 					Ok((message_id, cost)) => {
 						let value = (query_id, max_weight, xcm_version);
@@ -2393,7 +2393,7 @@ impl<T: Config> Pallet<T> {
 					} else {
 						// Need to notify target.
 						let response = Response::Version(xcm_version);
-						let message = Xcm(vec![QueryResponse {
+						let message = Xcm::new(vec![QueryResponse {
 							query_id,
 							response,
 							max_weight,
@@ -2444,7 +2444,7 @@ impl<T: Config> Pallet<T> {
 		});
 		// TODO #3735: Correct weight.
 		let instruction = SubscribeVersion { query_id, max_response_weight: Weight::zero() };
-		let (message_id, cost) = send_xcm::<T::XcmRouter>(dest.clone(), Xcm(vec![instruction]))?;
+		let (message_id, cost) = send_xcm::<T::XcmRouter>(dest.clone(), Xcm::new(vec![instruction]))?;
 		Self::deposit_event(Event::VersionNotifyRequested { destination: dest, cost, message_id });
 		VersionNotifiers::<T>::insert(XCM_VERSION, &versioned_dest, query_id);
 		let query_status =
@@ -2460,7 +2460,7 @@ impl<T: Config> Pallet<T> {
 		let query_id = VersionNotifiers::<T>::take(XCM_VERSION, versioned_dest)
 			.ok_or(XcmError::InvalidLocation)?;
 		let (message_id, cost) =
-			send_xcm::<T::XcmRouter>(dest.clone(), Xcm(vec![UnsubscribeVersion]))?;
+			send_xcm::<T::XcmRouter>(dest.clone(), Xcm::new(vec![UnsubscribeVersion]))?;
 		Self::deposit_event(Event::VersionNotifyUnrequested {
 			destination: dest,
 			cost,
@@ -2758,7 +2758,7 @@ impl<T: Config> Pallet<T> {
 		let max_weight = notify.get_dispatch_info().call_weight;
 		let query_id = Self::new_notify_query(responder, notify, timeout, Here);
 		let response_info = QueryResponseInfo { destination, query_id, max_weight };
-		let report_error = Xcm(vec![ReportError(response_info)]);
+		let report_error = Xcm::new(vec![ReportError(response_info)]);
 		message.0.insert(0, SetAppendix(report_error));
 		Ok(())
 	}
@@ -3126,7 +3126,7 @@ impl<T: Config> VersionChangeNotifier for Pallet<T> {
 		let xcm_version = T::AdvertisedXcmVersion::get();
 		let response = Response::Version(xcm_version);
 		let instruction = QueryResponse { query_id, response, max_weight, querier: None };
-		let (message_id, cost) = send_xcm::<T::XcmRouter>(dest.clone(), Xcm(vec![instruction]))?;
+		let (message_id, cost) = send_xcm::<T::XcmRouter>(dest.clone(), Xcm::new(vec![instruction]))?;
 		Self::deposit_event(Event::<T>::VersionNotifyStarted {
 			destination: dest.clone(),
 			cost,
