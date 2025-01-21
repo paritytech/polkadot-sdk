@@ -117,7 +117,11 @@ pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 #[derive(
 	Clone, Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEqNoBound, EqNoBound,
 )]
-pub struct TrackInfo<Balance: Debug + Eq, Moment: Debug + Eq, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
+pub struct TrackInfo<
+	Balance: Debug + Eq,
+	Moment: Debug + Eq,
+	const N: usize = DEFAULT_MAX_TRACK_NAME_LEN,
+> {
 	/// Name of this track.
 	pub name: [u8; N],
 	/// A limit for the number of referenda on this track that can be being decided at once.
@@ -145,7 +149,12 @@ pub struct TrackInfo<Balance: Debug + Eq, Moment: Debug + Eq, const N: usize = D
 #[derive(
 	Clone, Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEqNoBound, EqNoBound,
 )]
-pub struct Track<Id: Debug + Eq, Balance: Debug + Eq, Moment: Debug + Eq, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
+pub struct Track<
+	Id: Debug + Eq,
+	Balance: Debug + Eq,
+	Moment: Debug + Eq,
+	const N: usize = DEFAULT_MAX_TRACK_NAME_LEN,
+> {
 	pub id: Id,
 	pub info: TrackInfo<Balance, Moment, N>,
 }
