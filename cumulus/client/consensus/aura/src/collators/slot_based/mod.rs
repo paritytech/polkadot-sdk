@@ -171,7 +171,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		keystore: keystore.clone(),
 		para_id,
 		proposer,
-		collator_service,
+		collator_service: collator_service.clone(),
 		collator_sender: tx,
 		signaling_task_receiver: from_signaling_receiver,
 	};
@@ -187,10 +187,11 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		authoring_duration,
 		slot_drift,
 		building_task_sender: to_builder_sender,
+		collator_service,
 	};
 
 	let signaling_fut =
-		signaling_task::run_signaling_task::<Block, P, _, _, _>(signaling_task_params);
+		signaling_task::run_signaling_task::<Block, P, _, _, _, _>(signaling_task_params);
 	spawner.spawn_blocking(
 		"slot-based-block-builder",
 		Some("slot-based-collator"),

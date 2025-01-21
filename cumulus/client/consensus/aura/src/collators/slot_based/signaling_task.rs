@@ -22,6 +22,15 @@ use cumulus_relay_chain_interface::{PHeader, RelayChainInterface};
 
 use polkadot_primitives::{Block as RelayBlock, CoreIndex, Id as ParaId};
 
+use crate::{
+	collator::SlotClaim,
+	collators::slot_based::{
+		core_selector,
+		relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+	},
+	LOG_TARGET,
+};
+use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use futures::prelude::*;
 use sc_client_api::{BlockBackend, UsageProvider};
 use sp_api::ProvideRuntimeApi;
@@ -34,15 +43,6 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use sp_timestamp::Timestamp;
 use std::{sync::Arc, time::Duration};
 
-use crate::{
-	collator::SlotClaim,
-	collators::slot_based::{
-		core_selector,
-		relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
-	},
-	LOG_TARGET,
-};
-
 pub struct SignalingTaskMessage<Pub, Block: BlockT> {
 	pub slot_claim: SlotClaim<Pub>,
 	pub parent_header: Block::Header,
@@ -53,7 +53,7 @@ pub struct SignalingTaskMessage<Pub, Block: BlockT> {
 }
 
 /// Parameters for [`run_block_builder`].
-pub struct SignalingTaskParams<Block: BlockT, Client, Backend, RelayClient, Pub> {
+pub struct SignalingTaskParams<Block: BlockT, Client, Backend, RelayClient, Pub, CS> {
 	/// The underlying para client.
 	pub para_client: Arc<Client>,
 	/// The para client's backend, used to access the database.
@@ -75,6 +75,7 @@ pub struct SignalingTaskParams<Block: BlockT, Client, Backend, RelayClient, Pub>
 	pub slot_drift: Duration,
 	pub building_task_sender:
 		sc_utils::mpsc::TracingUnboundedSender<SignalingTaskMessage<Pub, Block>>,
+	pub collator_service: CS,
 }
 
 #[derive(Debug)]
@@ -136,8 +137,8 @@ where
 }
 
 /// Run block-builder.
-pub fn run_signaling_task<Block, P, Client, Backend, RelayClient>(
-	params: SignalingTaskParams<Block, Client, Backend, RelayClient, P::Public>,
+pub fn run_signaling_task<Block, P, Client, CS, Backend, RelayClient>(
+	params: SignalingTaskParams<Block, Client, Backend, RelayClient, P::Public, CS>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
@@ -152,6 +153,7 @@ where
 		AuraApi<Block, P::Public> + GetCoreSelectorApi<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
+	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
@@ -167,6 +169,7 @@ where
 			para_backend,
 			slot_drift,
 			building_task_sender,
+			collator_service,
 		} = params;
 
 		let slot_timer = SlotTimer::<_, _, P>::new_with_drift(para_client.clone(), slot_drift);
@@ -252,9 +255,7 @@ where
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
-
-			// TODO skunert Fix this
-			// collator.collator_service().check_block_status(parent_hash, &parent_header);
+			collator_service.check_block_status(parent_hash, &parent_header);
 
 			let Ok(relay_slot) =
 				sc_consensus_babe::find_pre_digest::<RelayBlock>(relay_parent_header)
