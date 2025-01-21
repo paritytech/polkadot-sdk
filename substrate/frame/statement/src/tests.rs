@@ -30,7 +30,7 @@ use sp_statement_store::{
 #[test]
 fn sign_and_validate_no_balance() {
 	new_test_ext().execute_with(|| {
-		let pair = sp_core::sr25519::Pair::from_string("//Bob", None).unwrap();
+		let pair = frame::deps::sp_core::sr25519::Pair::from_string("//Bob", None).unwrap();
 		let mut statement = Statement::new();
 		statement.sign_sr25519_private(&pair);
 		let result = Pallet::<Test>::validate_statement(StatementSource::Chain, statement);
@@ -39,7 +39,7 @@ fn sign_and_validate_no_balance() {
 			result
 		);
 
-		let pair = sp_core::ed25519::Pair::from_string("//Bob", None).unwrap();
+		let pair = frame::deps::sp_core::ed25519::Pair::from_string("//Bob", None).unwrap();
 		let mut statement = Statement::new();
 		statement.sign_ed25519_private(&pair);
 		let result = Pallet::<Test>::validate_statement(StatementSource::Chain, statement);
@@ -48,7 +48,7 @@ fn sign_and_validate_no_balance() {
 			result
 		);
 
-		let pair = sp_core::ecdsa::Pair::from_string("//Bob", None).unwrap();
+		let pair = frame::deps::sp_core::ecdsa::Pair::from_string("//Bob", None).unwrap();
 		let mut statement = Statement::new();
 		statement.sign_ecdsa_private(&pair);
 		let result = Pallet::<Test>::validate_statement(StatementSource::Chain, statement);
@@ -62,13 +62,13 @@ fn sign_and_validate_no_balance() {
 #[test]
 fn validate_with_balance() {
 	new_test_ext().execute_with(|| {
-		let pair = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+		let pair = frame::deps::sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
 		let mut statement = Statement::new();
 		statement.sign_sr25519_private(&pair);
 		let result = Pallet::<Test>::validate_statement(StatementSource::Chain, statement);
 		assert_eq!(Ok(ValidStatement { max_count: 6, max_size: 3000 }), result);
 
-		let pair = sp_core::sr25519::Pair::from_string("//Charlie", None).unwrap();
+		let pair = frame::deps::sp_core::sr25519::Pair::from_string("//Charlie", None).unwrap();
 		let mut statement = Statement::new();
 		statement.sign_sr25519_private(&pair);
 		let result = Pallet::<Test>::validate_statement(StatementSource::Chain, statement);
@@ -103,11 +103,11 @@ fn validate_bad_signature_fails() {
 #[test]
 fn validate_event() {
 	new_test_ext().execute_with(|| {
-		let parent_hash = sp_core::H256::random();
+		let parent_hash = frame::deps::sp_core::H256::random();
 		System::reset_events();
 		System::initialize(&1, &parent_hash, &Default::default());
 		let mut statement = Statement::new();
-		let pair = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+		let pair = frame::deps::sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
 		let account: AccountId32 = pair.public().into();
 		Pallet::<Test>::submit_statement(account.clone(), statement.clone());
 		statement.set_proof(Proof::OnChain {
@@ -145,7 +145,7 @@ fn validate_no_event_fails() {
 		System::reset_events();
 		System::initialize(&1, &parent_hash, &Default::default());
 		let mut statement = Statement::new();
-		let pair = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+		let pair = frame::deps::sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
 		let account: AccountId32 = pair.public().into();
 		statement.set_proof(Proof::OnChain {
 			who: account.into(),

@@ -22,7 +22,7 @@ use super::*;
 use crate as pallet_statement;
 use frame::testing_prelude::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 pub const MIN_ALLOWED_STATEMENTS: u32 = 4;
 pub const MAX_ALLOWED_STATEMENTS: u32 = 10;
