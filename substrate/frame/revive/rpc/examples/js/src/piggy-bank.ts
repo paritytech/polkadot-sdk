@@ -34,6 +34,7 @@ assert(contractAddress, 'Contract address should be set')
 	const hash = await walletClient.writeContract(request)
 	const receipt = await walletClient.waitForTransactionReceipt({ hash })
 	console.log(`Deposit receipt: ${receipt.status}`)
+	console.log(`Block: ${receipt.blockNumber} (0x${receipt.blockNumber.toString(16)})`)
 }
 
 // Withdraw 5 WST

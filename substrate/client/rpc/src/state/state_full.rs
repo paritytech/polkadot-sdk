@@ -224,7 +224,11 @@ where
 			.map_err(|err| Error::Client(Box::new(err)))?
 			.ok_or_else(|| Error::Client("Block hash not found".into()))?;
 
-		let call_data = Block::new(header, extrinsics)
+		let block = Block::new(header, extrinsics);
+		println!("===\n BLOCK \n ===\n{:#?}", &block);
+		println!("===\n ENCODED BLOCK \n ===\n{:?}", &block.encode());
+
+		let call_data = block
 			.encode()
 			.into_iter()
 			.chain(extra_call_data.0.into_iter())

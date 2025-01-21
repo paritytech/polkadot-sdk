@@ -172,7 +172,7 @@ pub struct CallTrace<Gas = U256> {
 	#[serde(rename = "gasUsed")]
 	pub gas_used: Gas,
 	/// Return data.
-	#[serde(flatten, skip_serializing_if = "Bytes::is_empty")]
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
 	pub output: Bytes,
 	/// The error message if the call failed.
 	#[serde(skip_serializing_if = "Option::is_none")]

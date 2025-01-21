@@ -1,0 +1,52 @@
+curl http://localhost:8545
+--header 'Content-Type: application/json'
+--data
+{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"debug_traceBlockByNumber",
+  "params": ["0x11", { "tracer": "callTracer" }]
+}
+
+curl http://localhost:8545
+--header 'Content-Type: application/json'
+--data
+{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"eth_getBlockByNumber",
+  "params": ["0x11", true]
+}
+
+curl http://localhost:8545
+--header 'Content-Type: application/json'
+--data
+{
+  "jsonrpc":"2.0",
+  "method":"eth_getBlockTransactionCountByNumber",
+  "id":1,
+  "params": ["0x11"]
+}
+
+
+curl http://localhost:8545
+--header 'Content-Type: application/json'
+--data
+{
+    "jsonrpc": "2.0",
+    "method": "eth_estimateGas",
+	"id": 1
+    "params": [{
+        "to": "0xDcB4651B5BbD105CDa8d3bA5740b6C4f02b9256D"
+    }],
+}
+
+curl http://localhost:8545
+-H "Content-Type: application/json"
+--data
+{
+    "jsonrpc": "2.0",
+    "method": "eth_chainId",
+	"id": 1
+    "params": [],
+}

@@ -658,11 +658,15 @@ impl Client {
 
 		let traces = Vec::<(u32, CallTrace)>::decode(&mut &bytes.0[..])?;
 
+		dbg!("1/", &traces);
+
 		let mut hashes = self
 			.receipt_provider
 			.block_transaction_hashes(&block_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
+
+		dbg!("2/", &hashes);
 
 		let traces = traces
 			.into_iter()
@@ -671,6 +675,7 @@ impl Client {
 			})
 			.collect();
 
+		dbg!("3/", &traces);
 		Ok(traces)
 	}
 
