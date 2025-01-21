@@ -404,6 +404,7 @@ impl<AccountId: Clone, Balance: HasCompact + AtLeast32BitUnsigned + Copy + MaxEn
 			> = WeakBoundedVec::default();
 			for individual in chunk.iter() {
 				page_total.saturating_accrue(individual.value);
+				// Always successful as chunks are of size `MaxExposurePageSize`.
 				let _ = others.try_push(IndividualExposure {
 					who: individual.who.clone(),
 					value: individual.value,
