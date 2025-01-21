@@ -41,7 +41,7 @@ use polkadot_node_subsystem_util::{
 	self as util,
 	runtime::{fetch_scheduling_lookahead, ClaimQueueSnapshot},
 };
-use polkadot_overseer::ActiveLeavesUpdate;
+use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
 	executor_params::{
@@ -247,7 +247,7 @@ async fn run<Context>(
 		pvf_prepare_workers_hard_max_num,
 	}: Config,
 ) -> SubsystemResult<()> {
-	let (validation_host, task) = polkadot_node_core_pvf::start(
+	let (mut validation_host, task) = polkadot_node_core_pvf::start(
 		polkadot_node_core_pvf::Config::new(
 			artifacts_cache_path,
 			node_version,
@@ -272,14 +272,13 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							let maybe_session_index = update_active_leaves(ctx.sender(), validation_host.clone(), update.clone()).await;
-
-							let maybe_new_session_index = match (prepare_state.session_index, maybe_session_index) {
-								(Some(existing_index), Some(new_index)) => (new_index > existing_index).then_some(new_index),
-								(None, Some(new_index)) => Some(new_index),
-								_ => None
-							};
-							maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state, maybe_new_session_index).await;
+							handle_active_leaves_update(
+								ctx.sender(),
+								keystore.clone(),
+								&mut validation_host,
+								update,
+								&mut prepare_state,
+							).await
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
@@ -339,17 +338,46 @@ impl Default for PrepareValidationState {
 	}
 }
 
+async fn handle_active_leaves_update<Sender>(
+	sender: &mut Sender,
+	keystore: KeystorePtr,
+	validation_host: &mut impl ValidationBackend,
+	update: ActiveLeavesUpdate,
+	prepare_state: &mut PrepareValidationState,
+) where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	let maybe_session_index = update_active_leaves(sender, validation_host, update.clone()).await;
+
+	if let Some(activated) = update.activated {
+		let maybe_new_session_index = match (prepare_state.session_index, maybe_session_index) {
+			(Some(existing_index), Some(new_index)) =>
+				(new_index > existing_index).then_some(new_index),
+			(None, Some(new_index)) => Some(new_index),
+			_ => None,
+		};
+		maybe_prepare_validation(
+			sender,
+			keystore.clone(),
+			validation_host,
+			activated,
+			prepare_state,
+			maybe_new_session_index,
+		)
+		.await;
+	}
+}
+
 async fn maybe_prepare_validation<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
-	validation_backend: impl ValidationBackend,
-	update: ActiveLeavesUpdate,
+	validation_backend: &mut impl ValidationBackend,
+	leaf: ActivatedLeaf,
 	state: &mut PrepareValidationState,
 	new_session_index: Option<SessionIndex>,
 ) where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let Some(leaf) = update.activated else { return };
 	if new_session_index.is_some() {
 		state.session_index = new_session_index;
 		state.already_prepared_code_hashes.clear();
@@ -445,7 +473,7 @@ where
 // Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.
 async fn prepare_pvfs_for_backed_candidates<Sender>(
 	sender: &mut Sender,
-	mut validation_backend: impl ValidationBackend,
+	validation_backend: &mut impl ValidationBackend,
 	relay_parent: Hash,
 	already_prepared: &HashSet<ValidationCodeHash>,
 	per_block_limit: usize,
@@ -542,7 +570,7 @@ where
 
 async fn update_active_leaves<Sender>(
 	sender: &mut Sender,
-	mut validation_backend: impl ValidationBackend,
+	validation_backend: &mut impl ValidationBackend,
 	update: ActiveLeavesUpdate,
 ) -> Option<SessionIndex>
 where
