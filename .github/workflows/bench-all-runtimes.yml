@@ -3,8 +3,8 @@ name: Bench all runtimes
 on:
   # schedule:
     # - cron: '0 1 * * 0' # weekly on Sunday night 01:00 UTC
-  # workflow_dispatch:
-  pull_request:
+  workflow_dispatch:
+  # pull_request:
 
 permissions: # allow the action to create a PR
   contents: write
@@ -36,8 +36,8 @@ jobs:
           echo "runtime=$RUNTIMES" >> $GITHUB_OUTPUT
 
   run-frame-omni-bencher:
-    runs-on: ${{ needs.preflight.outputs.RUNNER_WEIGHTS }}
     needs: [preflight, runtime-matrix]
+    runs-on: ${{ needs.preflight.outputs.RUNNER_WEIGHTS }}
     # 24 hours per runtime. 
     # Max it takes 14hr for westend to recalculate, but due to limited runners,
     # sometimes it can take longer.
@@ -64,7 +64,7 @@ jobs:
         id: required
         run: |
           # Fixes "detected dubious ownership" error in the ci
-          git config --global --add safe.directory '*'
+          git config --global --add safe.directory $GITHUB_WORKSPACE
           git remote -v
           python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
           python3 .github/scripts/cmd/cmd.py bench --runtime ${{ matrix.runtime.name }}
@@ -83,7 +83,7 @@ jobs:
 
           # Create patch that includes both modifications and new files
           git add -A
-          git diff --staged > diff-${{ matrix.runtime.name }}.patch
+          git diff --staged > diff-${{ matrix.runtime.name }}.patch -U0
           git reset
       
       - name: Upload diff
@@ -132,7 +132,7 @@ jobs:
           for file in patches/diff-*/diff-*.patch; do
             if [ -f "$file" ] && [ -s "$file" ]; then
               echo "Applying $file"
-              git apply "$file" || echo "Failed to apply $file"
+              git apply "$file" --unidiff-zero --allow-empty || echo "Failed to apply $file"
             else
               echo "Skipping empty or non-existent patch file: $file"
             fi
@@ -153,21 +153,6 @@ jobs:
             --draft \
             --label "R0-silent" \
             --body "$PR_TITLE"
-          
-          # git fetch
-
-          # Properly escape the markdown content and format the PR body
-          # SUBWEIGHT_OUTPUT=$(cat << EOF
-          # Auto-update weights for $DATE
-
-          # <details>
-          # <summary>Subweight Output</summary>
-
-          # $SUBWEIGHT_OUTPUT_RAW
-
-          # </details>
-          # EOF
-          # )
 
           subweight compare commits \
             --path-pattern "./**/weights/**/*.rs,./**/weights.rs" \
@@ -177,4 +162,4 @@ jobs:
             --change added changed \
             --ignore-errors \
             --threshold 2 \
-            origin/master refs/heads/$BRANCH)
+            origin/master $BRANCH
