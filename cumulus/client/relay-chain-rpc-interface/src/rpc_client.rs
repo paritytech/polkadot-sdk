@@ -35,8 +35,8 @@ use cumulus_primitives_core::{
 		async_backing::AsyncBackingParams,
 		slashing,
 		vstaging::{
-			async_backing::{BackingState, Constraints}, CandidateEvent,
-			CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+			async_backing::{BackingState, Constraints},
+			CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 			ScrapedOnChainVotes,
 		},
 		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,

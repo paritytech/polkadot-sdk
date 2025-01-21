@@ -18,7 +18,11 @@ use async_trait::async_trait;
 use polkadot_primitives::{
 	async_backing,
 	runtime_api::ParachainHost,
-	slashing, vstaging::{self, async_backing::Constraints, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes},
+	slashing,
+	vstaging::{
+		self, async_backing::Constraints, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
+	},
 	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
 	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
@@ -630,7 +634,11 @@ where
 		self.client.runtime_api().claim_queue(at)
 	}
 
-	async fn backing_constraints(&self, at: Hash, para_id: Id) -> Result<Option<Constraints>, ApiError> {
+	async fn backing_constraints(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Option<Constraints>, ApiError> {
 		self.client.runtime_api().backing_constraints(at, para_id)
 	}
 }
