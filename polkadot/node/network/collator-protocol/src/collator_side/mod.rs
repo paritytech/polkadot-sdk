@@ -392,12 +392,18 @@ async fn distribute_collation<Context>(
 		return Ok(())
 	};
 
-	if per_relay_parent.collations.len() >= *collations_limit {
+	let current_collations_count = per_relay_parent
+		.collations
+		.values()
+		.filter(|c| c.core_index() == &core_index)
+		.count();
+	if current_collations_count >= *collations_limit {
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_relay_parent,
-			"The limit of {} collations per relay parent is already reached",
+			"The limit of {} collations per relay parent for core {} is already reached",
 			collations_limit,
+			core_index.0,
 		);
 		return Ok(())
 	}
