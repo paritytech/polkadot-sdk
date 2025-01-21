@@ -363,9 +363,15 @@ impl TestEnvironment {
 	}
 
 	fn network_usage(&self) -> Vec<ResourceUsage> {
-		let stats = self.network().peer_stats(0);
-		let total_node_received = (stats.received() / 1024) as f64;
-		let total_node_sent = (stats.sent() / 1024) as f64;
+		let test_metrics = super::display::parse_metrics(self.registry());
+		let total_node_received = test_metrics
+			.subset_with_label_value("direction", "in")
+			.sum_by("substrate_sub_libp2p_network_bytes_total") /
+			1024.0;
+		let total_node_sent = test_metrics
+			.subset_with_label_value("direction", "out")
+			.sum_by("substrate_sub_libp2p_network_bytes_total") /
+			1024.0;
 		let num_blocks = self.config().num_blocks as f64;
 
 		vec![
