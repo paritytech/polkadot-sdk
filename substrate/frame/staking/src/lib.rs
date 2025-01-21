@@ -1108,9 +1108,6 @@ impl<T: Config> EraInfo<T> {
 		validator: &T::AccountId,
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) else { return Exposure::default(); };
-		}
-
-		let overview = overview.expect("checked above; qed");
 
 		let mut others = Vec::with_capacity(overview.nominator_count as usize);
 		for page in 0..overview.page_count {
