@@ -142,7 +142,7 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: [5, 0, 0, 0], // 0x05000000
-			epoch: 2000000,
+			epoch: 2000000, // setting to a future epoch until the Sepolia Electra epoch is announced.
 		},
 	};
 }
@@ -172,7 +172,7 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: [96,99,118,36], // 0x60637624
-			epoch: 256,
+			epoch: 2000000, // setting to a future epoch until the Sepolia Electra epoch is announced.
 		},
 	};
 }
