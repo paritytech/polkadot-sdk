@@ -114,30 +114,12 @@ mod benchmarks {
 		let block_root: H256 = update.finalized_header.hash_tree_root().unwrap();
 
 		let fork_versions = ForkVersions {
-			genesis: Fork {
-				version: [0, 0, 0, 0], // 0x00000000
-				epoch: 0,
-			},
-			altair: Fork {
-				version: [1, 0, 0, 0], // 0x01000000
-				epoch: 0,
-			},
-			bellatrix: Fork {
-				version: [2, 0, 0, 0], // 0x02000000
-				epoch: 0,
-			},
-			capella: Fork {
-				version: [3, 0, 0, 0], // 0x03000000
-				epoch: 0,
-			},
-			deneb: Fork {
-				version: [4, 0, 0, 0], // 0x04000000
-				epoch: 0,
-			},
-			electra: Fork {
-				version: [5, 0, 0, 0], // 0x05000000
-				epoch: 80000000000,
-			},
+			genesis: Fork { version: hex!("00000000"), epoch: 0 },
+			altair: Fork { version: hex!("01000000"), epoch: 0 },
+			bellatrix: Fork { version: hex!("02000000"), epoch: 0 },
+			capella: Fork { version: hex!("03000000"), epoch: 0 },
+			deneb: Fork { version: hex!("04000000"), epoch: 0 },
+			electra: Fork { version: hex!("05000000"), epoch: 80000000000 },
 		};
 		let finalized_root_gindex = EthereumBeaconClient::<T>::finalized_root_gindex_at_slot(
 			update.attested_header.slot,
