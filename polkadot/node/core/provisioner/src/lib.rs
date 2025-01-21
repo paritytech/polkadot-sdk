@@ -214,12 +214,9 @@ async fn handle_active_leaves_update(
 		if per_session.get(&session_index).is_none() {
 			let prospective_parachains_mode =
 				prospective_parachains_mode(sender, leaf.hash).await?;
-			let elastic_scaling_mvp = request_node_features(leaf.hash, session_index, sender)
-				.await?
-				.unwrap_or(NodeFeatures::EMPTY)
-				.get(FeatureIndex::ElasticScalingMVP as usize)
-				.map(|b| *b)
-				.unwrap_or(false);
+
+			// elastic scaling always on
+			let elastic_scaling_mvp = true;
 
 			per_session.insert(
 				session_index,
@@ -740,11 +737,6 @@ async fn request_backable_candidates(
 
 	for (para_id, core_count) in scheduled_cores_per_para {
 		let para_ancestors = ancestors.remove(&para_id).unwrap_or_default();
-
-		// If elastic scaling MVP is disabled, only allow one candidate per parachain.
-		if !elastic_scaling_mvp && core_count > 1 {
-			continue
-		}
 
 		let response = get_backable_candidates(
 			relay_parent,

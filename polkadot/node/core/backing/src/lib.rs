@@ -1157,10 +1157,8 @@ async fn construct_per_relay_parent_state<Context>(
 		.await?
 		.unwrap_or(NodeFeatures::EMPTY);
 
-	let inject_core_index = node_features
-		.get(FeatureIndex::ElasticScalingMVP as usize)
-		.map(|b| *b)
-		.unwrap_or(false);
+	// elastic scaling on
+	let inject_core_index = true;
 
 	let executor_params =
 		per_session_cache.executor_params(session_index, parent, ctx.sender()).await;
