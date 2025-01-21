@@ -1108,7 +1108,6 @@ impl<T: Config> EraInfo<T> {
 		validator: &T::AccountId,
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) else { return Exposure::default(); };
-			return Exposure::default()
 		}
 
 		let overview = overview.expect("checked above; qed");
