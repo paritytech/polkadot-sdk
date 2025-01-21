@@ -25,10 +25,7 @@ use crate::{
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
-	network::{
-		new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver,
-		NetworkMessage,
-	},
+	network::{new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver},
 	usage::BenchmarkUsage,
 	NODE_UNDER_TEST,
 };
@@ -44,12 +41,9 @@ use polkadot_node_network_protocol::{
 	peer_set::{peer_sets_info, IsAuthority, PeerSet, PeerSetProtocolNames},
 	request_response::{
 		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
-		IncomingRequest, OutgoingRequest, ReqProtocolNames, Requests,
+		IncomingRequest, ReqProtocolNames,
 	},
-	v3::{
-		self, BackedCandidateAcknowledgement, BackedCandidateManifest, StatementFilter,
-		ValidationProtocol,
-	},
+	v3::{self, BackedCandidateAcknowledgement, BackedCandidateManifest, StatementFilter},
 	view, Versioned, View,
 };
 use polkadot_node_subsystem::messages::{
@@ -72,13 +66,13 @@ use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
 use sc_network::{
 	config::{
-		FullNetworkConfiguration, MultiaddrWithPeerId, NetworkConfiguration, NonDefaultSetConfig,
-		NonReservedPeerMode, Params, ProtocolId, Role, SetConfig, TransportConfig,
+		FullNetworkConfiguration, MultiaddrWithPeerId, NetworkConfiguration, NonReservedPeerMode,
+		Params, ProtocolId, Role, SetConfig, TransportConfig,
 	},
 	multiaddr,
 	request_responses::ProtocolConfig,
 	service::traits::{NotificationEvent, ValidationResult},
-	IfDisconnected, Multiaddr, NetworkWorker, NotificationMetrics,
+	IfDisconnected, NetworkWorker, NotificationMetrics,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sc_network_types::PeerId;
@@ -94,7 +88,6 @@ use std::{
 	time::{Duration, Instant},
 };
 pub use test_state::TestState;
-use tokio::sync::oneshot;
 
 mod test_state;
 
@@ -159,9 +152,9 @@ impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 
 fn build_overseer(
 	state: &TestState,
-	network: NetworkEmulatorHandle,
-	network_interface: NetworkInterface,
-	network_receiver: NetworkInterfaceReceiver,
+	_network: NetworkEmulatorHandle,
+	_network_interface: NetworkInterface,
+	_network_receiver: NetworkInterfaceReceiver,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
@@ -359,6 +352,16 @@ fn build_overseer(
 		}
 	});
 
+	let ready = tokio::spawn({
+		let network_service = Arc::clone(&network_service);
+		async move {
+			while network_service.listen_addresses().is_empty() {
+				tokio::time::sleep(Duration::from_millis(10)).await;
+			}
+		}
+	});
+	let _ = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(ready));
+
 	let local_peer_id = network_service.local_peer_id();
 	let listen_addresses = network_service.listen_addresses();
 	gum::debug!(target: LOG_TARGET, ?local_peer_id, ?listen_addresses, "Peer {} ready", NODE_UNDER_TEST);
@@ -478,16 +481,13 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 	let peer_id = network_service.local_peer_id();
 	let spawn_handle = dependencies.task_manager.spawn_handle();
 	let peer_worker_name = Box::leak(format!("Peer {} worker", index).into_boxed_str());
-	spawn_handle.spawn(peer_worker_name, "test-environment", async move {
-		worker.run().await;
-		gum::error!(target: LOG_TARGET, "Peer network finished");
-	});
+	spawn_handle.spawn(peer_worker_name, "test-environment", worker.run());
 	let peer_notifications_name =
 		Box::leak(format!("Peer {} notifications", index).into_boxed_str());
 	spawn_handle.spawn(peer_notifications_name, "test-environment", {
 		let state = Arc::clone(&state);
 		let network_service = Arc::clone(&network_service);
-		let local_peer_id = peer_id;
+		let node_peer_id = state.test_authorities.peer_ids.get(NODE_UNDER_TEST as usize).unwrap().clone();
 		async move {
 			loop {
 				tokio::select! {
@@ -498,6 +498,7 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 					},
 					event = validation_notification_service.next_event() => {
 						if let Some(NotificationEvent::NotificationReceived { peer, notification }) = event {
+							assert_eq!(peer, node_peer_id, "Notifications only from the node under test are allowed");
 							let message: Bytes = notification.into();
 							let message = WireMessage::<v3::ValidationProtocol>::decode(&mut message.as_ref()).unwrap();
 							match message {
@@ -543,16 +544,14 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 									let backing_group = state.session_info.validator_groups.get(manifest.group_index).unwrap();
 									let group_size = backing_group.len();
 									let is_own_backing_group = backing_group.contains(&ValidatorIndex(NODE_UNDER_TEST));
-									let mut seconded_in_group = BitVec::from_iter((0..group_size).map(|_| !is_own_backing_group));
-									let mut validated_in_group = BitVec::from_iter((0..group_size).map(|_| false));
 
 									if is_own_backing_group {
-										let peer_id = state.test_authorities.peer_ids.get(NODE_UNDER_TEST as usize).unwrap().to_owned();
 										let req = AttestedCandidateRequest { candidate_hash: manifest.candidate_hash, mask: StatementFilter::blank(state.own_backing_group.len()) };
-										gum::debug!(target: LOG_TARGET, "Peer {} is requesting candidate {}", index, manifest.candidate_hash);
+										gum::debug!(target: LOG_TARGET, ?req, "Peer {} is requesting candidate {}", index, manifest.candidate_hash);
 										let mut tries = 0;
-										let response = loop {
-											match network_service.request(peer_id, candidate_req_name.clone(), req.encode(), None, IfDisconnected::ImmediateError).await {
+										// Could be decoded as AttestedCandidateResponse, but we don't need it
+										let _response = loop {
+											match network_service.request(peer, candidate_req_name.clone(), req.encode(), None, IfDisconnected::ImmediateError).await {
 												Ok((response, _)) => break response,
 												Err(e) => {
 													tries += 1;
@@ -564,17 +563,12 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 												}
 											}
 										};
-										let response = AttestedCandidateResponse::decode(&mut response.as_ref()).unwrap();
 										gum::debug!(target: LOG_TARGET, "Peer {} received requested candidate {}", index, manifest.candidate_hash);
-										for statement in response.statements {
-											let validator_index = statement.unchecked_validator_index();
-											let position_in_group = backing_group.iter().position(|v| *v == validator_index).unwrap();
-											match statement.unchecked_payload() {
-												CompactStatement::Seconded(_) => seconded_in_group.set(position_in_group, true),
-												CompactStatement::Valid(_) => validated_in_group.set(position_in_group, true),
-											}
-										}
 									}
+
+									let seconded_in_group = BitVec::from_iter((0..group_size).map(|_| true));
+									// TODO: Use a seconding peer id
+									let validated_in_group = BitVec::from_iter((0..group_size).map(|i| !(i == 1)));
 
 									let ack = BackedCandidateAcknowledgement { candidate_hash: manifest.candidate_hash, statement_knowledge: StatementFilter { seconded_in_group, validated_in_group } };
 									let message = WireMessage::ProtocolMessage(v3::ValidationProtocol::StatementDistribution(v3::StatementDistributionMessage::BackedCandidateKnown(ack)));
@@ -620,7 +614,6 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 					},
 				}
 			}
-			gum::error!(target: LOG_TARGET, "Peer notification finished");
 		}
 	});
 	let peer_requests_name = Box::leak(format!("Peer {} requests", index).into_boxed_str());
@@ -650,12 +643,21 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 			req.pending_response.send_response(res).unwrap();
 			gum::debug!(target: LOG_TARGET, ?peer_id, "Peer {} answered request with AttestedCandidateResponse", index);
 		}
-		gum::error!(target: LOG_TARGET, "Peer request finished");
 	});
 
 	network_service
 		.add_reserved_peer(MultiaddrWithPeerId { peer_id: node_peer_id, multiaddr: node_multiaddr })
 		.unwrap();
+
+	let ready = tokio::spawn({
+		let network_service = Arc::clone(&network_service);
+		async move {
+			while network_service.listen_addresses().is_empty() {
+				tokio::time::sleep(Duration::from_millis(10)).await;
+			}
+		}
+	});
+	let _ = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(ready));
 
 	let local_peer_id = network_service.local_peer_id();
 	let listen_addresses = network_service.listen_addresses();
@@ -962,8 +964,5 @@ pub async fn benchmark_statement_distribution(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(
-		&["statement-distribution", "network-bridge-tx", "network-bridge-rx", "networking"],
-		false,
-	)
+	env.collect_resource_usage(&["statement-distribution", "networking"], false)
 }
