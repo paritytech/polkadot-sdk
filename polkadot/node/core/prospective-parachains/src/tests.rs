@@ -392,7 +392,6 @@ async fn handle_leaf_activation(
 	// We expect two messages per parachain block.
 	for _ in 0..paras.len() * 2 {
 		let message = virtual_overseer.recv().await;
-		println!("Mesage {:?}", message);
 		let para_id = match message {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
