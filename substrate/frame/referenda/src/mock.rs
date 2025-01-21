@@ -180,6 +180,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
 			match system_origin {
 				frame_system::RawOrigin::Root => Ok(0),
+				frame_system::RawOrigin::None => Ok(1),
 				frame_system::RawOrigin::Signed(1) => Ok(2),
 				_ => Err(()),
 			}
