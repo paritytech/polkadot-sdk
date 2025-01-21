@@ -15,6 +15,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! OPF pallet.
+//!
+//! The OPF Pallet handles the Optimistic Project Funding.
+//! It allows users to nominate projects (whitelisted in OpenGov) with their DOT.
+//!
+//! ## Overview
+//!
+//! This mechanism will be funded with a constant stream of DOT taken directly from inflation
+//! and distributed to projects based on the proportion of DOT that has nominated them.
+//!
+//! ### Terminology
+//!
+//! - **MaxWhitelistedProjects:** Maximum number of Whitelisted projects that can be handled by the
+//!   pallet.
+//! - **VotingPeriod:**Period during which voting is enabled.
+//! - **TemporaryRewards:**For test purposes only ⇒ used as a substitute for the inflation portion
+//!   used for the rewards.
+//! - **PotId:** Pot containing the funds used to pay the rewards.
+//! - **ClaimingPeriod:**Period during which allocated funds can be claimed 
+//!
+//! ## Interface
+//!
+//! ### Permissionless Functions
+//!
+//! * `pot_account`: Output the pot account_id.
+//! * `spend`: Funds transfer from the Pot to a project account.
+//!
+//! ### Privileged Functions
+//!
+//! * `vote`: Allows users to [vote for/nominate] a whitelisted project using their funds.
+//! * `remove_vote`: Allows users to remove a casted vote.
+//! * `release_voter_funds`: Allows users to unlock funds related to a specific project.
+//! * `claim_reward_for`: Claim a reward for a nominated/whitelisted project.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
@@ -156,9 +190,6 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 			project_id: ProjectId<T>,
 		},
-
-		/// Not yet in the claiming period
-		NotClaimingPeriod { project_id: ProjectId<T>, claiming_period: ProvidedBlockNumberFor<T> },
 
 		/// Payment will be enacted for corresponding project
 		WillBeEnacted { project_id: ProjectId<T> },
@@ -506,7 +537,8 @@ pub mod pallet {
 				WhiteListedProjectAccounts::<T>::remove(&project_id);
 				Ok(())
 			} else {
-				Err(DispatchError::Other("Not Claiming Period"))
+				// Claimin before proposal enactment 
+				Err(Error::<T>::NotClaimingPeriod.into())
 			}
 		}
 

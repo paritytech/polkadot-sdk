@@ -479,7 +479,7 @@ fn not_enough_funds_to_vote() {
 }
 
 #[test]
-fn spends_creation_works_but_not_executed_before_claim_period() {
+fn spends_creation_works_but_not_executed_after_claim_period() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
 		let voting_period = <Test as Config>::VotingPeriod::get();
@@ -520,6 +520,9 @@ fn spends_creation_works_but_not_executed_before_claim_period() {
 
 		run_to_block(round_end);
 
+		// Claim does not work before proposal enactment 
+		assert_noop!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 102), Error::<Test>::InexistentSpend);
+		
 		next_block();
 		now = <Test as Config>::BlockNumberProvider::current_block_number();
 		let expire = now.saturating_add(<Test as Config>::ClaimingPeriod::get());
@@ -532,9 +535,19 @@ fn spends_creation_works_but_not_executed_before_claim_period() {
 			claimed: false,
 			expire,
 		};
+		// Spend correctly created
 		assert_eq!(Spends::<Test>::get(101), Some(spend101));
 
 		// Claim works
 		assert_ok!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 101));
+		run_to_block(expire);
+		assert_ok!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 102));
+
+		// Claim does not work after claiming period
+		expect_events(vec![RuntimeEvent::Opf(Event::ExpiredClaim {
+			expired_when: expire,
+			project_id: 102,
+		})]);
+
 	})
 }
