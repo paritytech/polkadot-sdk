@@ -1662,11 +1662,9 @@ pub mod pallet {
 			invulnerables: Vec<T::AccountId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(
-				invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
-				Error::<T>::BoundNotMet
-			);
-			<Invulnerables<T>>::put(BoundedVec::truncate_from(invulnerables));
+			let invulnerables = BoundedVec::try_from(invulnerables)
+				.map_err(|_| Error::<T>::BoundNotMet)?;
+			<Invulnerables<T>>::put(invulnerables);
 			Ok(())
 		}
 
