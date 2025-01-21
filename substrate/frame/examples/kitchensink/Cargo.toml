@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-std = { workspace = true }
 
 frame-support = { features = ["experimental"], workspace = true }
 frame-system = { workspace = true }
