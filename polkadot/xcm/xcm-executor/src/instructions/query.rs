@@ -19,9 +19,8 @@ use crate::{
 	config, traits::OnResponse, FeeReason, PalletInfo, QueryResponseInfo, Response, XcmExecutor,
 };
 use xcm::latest::instructions::*;
-use xcm::latest::{Error as XcmError, Xcm};
+use xcm::latest::{Error as XcmError, Xcm, Instruction};
 use frame_support::traits::PalletsInfoAccess;
-use xcm::traits::IntoInstruction;
 
 impl<Config: config::Config> ExecuteInstruction<Config> for QueryResponse {
 	fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {
@@ -59,7 +58,7 @@ impl<Config: config::Config> ExecuteInstruction<Config> for QueryPallet {
 		let QueryResponseInfo { destination, query_id, max_weight } = response_info;
 		let response = Response::PalletsInfo(pallets.try_into().map_err(|_| XcmError::Overflow)?);
 		let querier = XcmExecutor::<Config>::to_querier(executor.cloned_origin(), &destination)?;
-		let instruction = QueryResponse { query_id, response, max_weight, querier }.into_instruction();
+		let instruction = Instruction::QueryResponse { query_id, response, max_weight, querier };
 		let message = Xcm::new(vec![instruction]);
 		executor.send(destination, message, FeeReason::QueryPallet)?;
 		Ok(())

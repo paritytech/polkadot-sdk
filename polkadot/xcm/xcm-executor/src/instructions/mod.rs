@@ -17,7 +17,7 @@
 use crate::{config, XcmExecutor};
 use xcm::{
 	apply_instructions,
-	latest::{Error as XcmError, Instruction},
+	latest::{Error as XcmError, InstructionsV6},
 };
 
 mod assets;
@@ -39,7 +39,7 @@ macro_rules! impl_execute_instruction {
 	($name:ident, $( $instr:ident $( < $instr_generic:ty > )? ),*) => {
 		impl<Config: config::Config> ExecuteInstruction<Config> for $name<<Config as config::Config>::RuntimeCall> {
 			fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {
-				match self {
+				match InstructionsV6::from(self) {
 					$(
 						Self::$instr(x) => x.execute(executor),
 					)*
@@ -49,4 +49,4 @@ macro_rules! impl_execute_instruction {
 	};
 }
 
-apply_instructions!(impl_execute_instruction, Instruction);
+apply_instructions!(impl_execute_instruction, InstructionsV6);

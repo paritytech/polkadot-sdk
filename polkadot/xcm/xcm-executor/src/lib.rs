@@ -26,11 +26,8 @@ use frame_support::{
 };
 use sp_core::defer;
 use sp_weights::Weight;
+use xcm::latest::{prelude::*, AssetTransferFilter, ExecuteXcm, SendXcm};
 use xcm::traits::validate_send;
-use xcm::{
-	latest::{prelude::*, AssetTransferFilter, ExecuteXcm, SendXcm},
-	traits::IntoInstruction,
-};
 
 pub mod traits;
 use traits::{
@@ -843,6 +840,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			"Processing instruction",
 		);
 
+		let instr: InstructionsV6<_> = instr.into();
 		instr.execute(self)
 		// match instr {
 		// 	WithdrawAsset(assets) => {
@@ -1757,14 +1755,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let to_weigh_reanchored = Self::reanchored(to_weigh, &destination, None);
 		let remote_instruction = match reason {
 			FeeReason::DepositReserveAsset => {
-				ReserveAssetDeposited(to_weigh_reanchored).into_instruction()
+				Instruction::ReserveAssetDeposited(to_weigh_reanchored)
 			},
-			FeeReason::InitiateReserveWithdraw => {
-				WithdrawAsset(to_weigh_reanchored).into_instruction()
-			},
-			FeeReason::InitiateTeleport => {
-				ReceiveTeleportedAsset(to_weigh_reanchored).into_instruction()
-			},
+			FeeReason::InitiateReserveWithdraw => Instruction::WithdrawAsset(to_weigh_reanchored),
+			FeeReason::InitiateTeleport => Instruction::ReceiveTeleportedAsset(to_weigh_reanchored),
 			_ => {
 				tracing::debug!(
 					target: "xcm::take_delivery_fee_from_assets",
@@ -1775,7 +1769,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		};
 		let mut message_to_weigh = Vec::with_capacity(xcm.len() + 2);
 		message_to_weigh.push(remote_instruction);
-		message_to_weigh.push(ClearOrigin.into());
+		message_to_weigh.push(Instruction::ClearOrigin);
 		message_to_weigh.extend(xcm.0.clone().into_iter());
 		let (_, fee) =
 			validate_send::<Config::XcmSender>(destination.clone(), Xcm::new(message_to_weigh))?;

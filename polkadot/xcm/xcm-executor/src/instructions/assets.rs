@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{ContainsPair, Get},
 };
 use xcm::{
-	latest::{instructions::*, Error as XcmError, Reanchorable, Xcm},
+	latest::{Instruction, instructions::*, Error as XcmError, Reanchorable, Xcm},
 	traits::{IntoInstruction, SendXcm},
 };
 
@@ -95,8 +95,8 @@ impl<Config: config::Config> ExecuteInstruction<Config> for TransferReserveAsset
 			let reanchor_context = Config::UniversalLocation::get();
 			assets.reanchor(&dest, &reanchor_context).map_err(|()| XcmError::LocationFull)?;
 			let mut message = vec![
-				ReserveAssetDeposited(assets).into_instruction(),
-				ClearOrigin.into_instruction(),
+				Instruction::ReserveAssetDeposited(assets),
+				Instruction::ClearOrigin,
 			];
 			message.extend(xcm.0.into_iter());
 			executor.send(dest, Xcm::new(message), FeeReason::TransferReserveAsset)?;
@@ -183,7 +183,7 @@ impl<Config: config::Config> ExecuteInstruction<Config> for DepositReserveAsset 
 				Some(&executor.context),
 			)?;
 			// clear origin for subsequent custom instructions
-			message.push(ClearOrigin.into_instruction());
+			message.push(Instruction::from(ClearOrigin.into_instruction()));
 			// append custom instructions
 			message.extend(xcm.0.into_iter());
 			if let Some(delivery_fee) = maybe_delivery_fee_from_assets {
@@ -228,7 +228,7 @@ impl<Config: config::Config> ExecuteInstruction<Config> for InitiateReserveWithd
 				&mut message,
 			)?;
 			// clear origin for subsequent custom instructions
-			message.push(ClearOrigin.into_instruction());
+			message.push(Instruction::ClearOrigin);
 			// append custom instructions
 			message.extend(xcm.0.into_iter());
 			if let Some(delivery_fee) = maybe_delivery_fee_from_assets {
@@ -268,7 +268,7 @@ impl<Config: config::Config> ExecuteInstruction<Config> for InitiateTeleport {
 			let mut message = Vec::with_capacity(xcm.len() + 2);
 			XcmExecutor::<Config>::do_teleport_assets(assets, &dest, &mut message, &executor.context)?;
 			// clear origin for subsequent custom instructions
-			message.push(ClearOrigin.into_instruction());
+			message.push(Instruction::ClearOrigin);
 			// append custom instructions
 			message.extend(xcm.0.into_iter());
 			if let Some(delivery_fee) = maybe_delivery_fee_from_assets {
@@ -340,12 +340,11 @@ impl<Config: config::Config> ExecuteInstruction<Config> for InitiateTransfer {
 				let fees = reanchored_fees.into_inner().pop().ok_or(XcmError::NotHoldingFees)?;
 				// move these assets to the fees register for covering execution and paying
 				// any subsequent fees
-				message.push(PayFees { asset: fees }.into_instruction());
+				message.push(Instruction::PayFees { asset: fees });
 			} else {
 				// unpaid execution
 				message.push(
-					UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None }
-						.into_instruction(),
+					Instruction::UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
 				);
 			}
 
@@ -390,10 +389,10 @@ impl<Config: config::Config> ExecuteInstruction<Config> for InitiateTransfer {
 							.ok()
 					})
 					.ok_or(XcmError::BadOrigin)?;
-				message.push(AliasOrigin(original_origin).into_instruction());
+				message.push(Instruction::AliasOrigin(original_origin));
 			} else {
 				// clear origin for subsequent user-controlled instructions on remote chain
-				message.push(ClearOrigin.into_instruction());
+				message.push(Instruction::ClearOrigin);
 			}
 			// append custom instructions
 			message.extend(remote_xcm.0.into_iter());
@@ -442,7 +441,7 @@ impl<Config: config::Config> ExecuteInstruction<Config> for LockAsset {
 						XcmError::ReanchorFailed
 					})?;
 			let msg = Xcm::<()>::new(vec![
-				NoteUnlockable { asset: remote_asset, owner }.into_instruction()
+				Instruction::NoteUnlockable { asset: remote_asset, owner }
 			]);
 			let (ticket, price) = validate_send::<Config::XcmSender>(unlocker, msg)?;
 			executor.take_fee(price, FeeReason::LockAsset)?;
@@ -484,7 +483,7 @@ impl<Config: config::Config> ExecuteInstruction<Config> for RequestUnlock {
 		let reduce_ticket =
 			Config::AssetLocker::prepare_reduce_unlockable(locker.clone(), asset, origin.clone())?;
 		let msg = Xcm::<()>::new(vec![
-			UnlockAsset { asset: remote_asset, target: remote_target }.into_instruction()
+			Instruction::UnlockAsset { asset: remote_asset, target: remote_target }
 		]);
 		let (ticket, price) = validate_send::<Config::XcmSender>(locker, msg)?;
 		let old_holding = executor.holding.clone();
