@@ -109,20 +109,20 @@ impl<
 		let query_id = Querier::new_query(asset_location.clone(), Timeout::get(), Interior::get());
 
 		let message = Xcm::new(vec![
-			DescendOrigin(Interior::get()).into(),
-			UnpaidExecution { weight_limit: Unlimited, check_origin: None }.into(),
+			DescendOrigin(Interior::get()),
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			SetAppendix(Xcm::new(vec![
-				SetFeesMode { jit_withdraw: true }.into(),
+				SetFeesMode { jit_withdraw: true },
 				ReportError(QueryResponseInfo {
 					destination,
 					query_id,
 					max_weight: Weight::zero(),
-				}).into(),
-			])).into_instruction(),
+				}),
+			])),
 			TransferAsset {
 				beneficiary,
 				assets: vec![Asset { id: asset_id, fun: Fungibility::Fungible(amount) }].into(),
-			}.into(),
+			},
 		]);
 
 		let (ticket, _) = Router::validate(&mut Some(asset_location), &mut Some(message))?;
