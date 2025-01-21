@@ -68,6 +68,7 @@ impl NaiveEquivocationDefender {
 	}
 }
 
+/// A parachain block import verifier that checks for equivocation limits within each slot.
 pub struct Verifier<P, Client, Block, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
@@ -87,6 +88,7 @@ where
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
+	/// Creates a new Verifier instance for handling parachain block import verification in Aura consensus.
 	pub fn new(
 		client: Arc<Client>,
 		inherent_data_provider: CIDP,
