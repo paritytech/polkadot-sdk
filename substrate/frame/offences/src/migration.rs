@@ -19,6 +19,8 @@ use super::{Config, Kind, OffenceDetails, Pallet, Perbill, SessionIndex, LOG_TAR
 use alloc::vec::Vec;
 
 use frame::deps::sp_staking::offence::OnOffenceHandler;
+use frame::traits::OnRuntimeUpgrade;
+use frame::testing_prelude::*;
 
 #[cfg(feature = "try-runtime")]
 use frame::try_runtime::TryRuntimeError;
