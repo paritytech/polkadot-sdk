@@ -12,6 +12,9 @@ doc:
       match the one in descriptor.
       ```
 
+      This issue affects only legacy and test collators that still use the collation function.
+      It is not a problem for lookahead or slot-based collators.
+
       This fix ensures the descriptor core index contains the value determined by the core
       selector UMP signal when the parachain is using RFC103.
 

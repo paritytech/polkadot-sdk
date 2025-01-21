@@ -416,7 +416,7 @@ impl CollationGenerationSubsystem {
 
 					// Ensure the core index has not been used before.
 					if used_cores.contains(&descriptor_core_index.0) {
-						gum::debug!(
+						gum::warn!(
 							target: LOG_TARGET,
 							?para_id,
 							"parachain repeatedly selected the same core index: {}",
