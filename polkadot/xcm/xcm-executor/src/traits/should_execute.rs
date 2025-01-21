@@ -130,7 +130,7 @@ impl CheckSuspension for Tuple {
 
 /// Trait to determine whether the execution engine should not execute a given XCM.
 ///
-/// Can be amalgamated into a tuple to have multiple trials. If any of the tuple elements returns
+/// Can be amalgamated into a tuple to have multiple traits. If any of the tuple elements returns
 /// `Some(ProcessMessageError)`, the execution stops. Else, `None` is returned if all elements
 /// accept the message.
 pub trait DenyExecution {
