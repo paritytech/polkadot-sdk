@@ -5,7 +5,7 @@ curl http://localhost:8545
   "jsonrpc":"2.0",
   "id":1,
   "method":"debug_traceBlockByNumber",
-  "params": ["0x11", { "tracer": "callTracer" }]
+  "params": ["0x12", { "tracer": "callTracer" }]
 }
 
 curl http://localhost:8545
@@ -15,7 +15,7 @@ curl http://localhost:8545
   "jsonrpc":"2.0",
   "id":1,
   "method":"eth_getBlockByNumber",
-  "params": ["0x11", true]
+  "params": ["0x12", true]
 }
 
 curl http://localhost:8545
@@ -25,7 +25,7 @@ curl http://localhost:8545
   "jsonrpc":"2.0",
   "method":"eth_getBlockTransactionCountByNumber",
   "id":1,
-  "params": ["0x11"]
+  "params": ["0x12"]
 }
 
 
