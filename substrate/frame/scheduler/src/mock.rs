@@ -22,8 +22,9 @@ use super::*;
 use crate as scheduler;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly},
+	traits::{ConstU32, ConstU64, Contains, EitherOfDiverse, EqualPrivilegeOnly},
 };
+use frame_support::pallet_prelude::Hooks;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{BuildStorage, Perbill};
 
@@ -238,7 +239,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	t.into()
 }
-
 
 pub fn go_to_block(n: u64) {
 	System::set_block_number(n);

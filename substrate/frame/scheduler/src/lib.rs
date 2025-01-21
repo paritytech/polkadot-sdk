@@ -293,7 +293,8 @@ pub mod pallet {
 		/// The preimage provider with which we look up call hashes to get the call.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		/// Provider for the block number. Normally, for a parachain this is the `frame_system`
+		/// pallet.
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// The maximum number of blocks that can be scheduled.
