@@ -374,9 +374,11 @@ impl CollationGenerationSubsystem {
 					let mut commitments = CandidateCommitments::default();
 					commitments.upward_messages = collation.upward_messages.clone();
 
-					let (core_selector, cq_offset) = match commitments.core_selector() {
-						Ok(Some((sel, off))) => (Some(sel), off),
-						Ok(None) => (None, ClaimQueueOffset(0)),
+					let (cs_index, cq_offset) = match commitments.core_selector() {
+						// Use the CoreSelector's index if provided.
+						Ok(Some((sel, off))) => (sel.0 as usize, off),
+						// Fallback to the sequential index if no CoreSelector is provided.
+						Ok(None) => (i, ClaimQueueOffset(0)),
 						Err(err) => {
 							gum::debug!(
 								target: LOG_TARGET,
@@ -406,13 +408,8 @@ impl CollationGenerationSubsystem {
 						return
 					}
 
-					let index = match core_selector {
-						// Use the CoreSelector's index if provided.
-						Some(core_selector) => core_selector.0 as usize,
-						// Fallback to the sequential index if no CoreSelector is provided.
-						None => i,
-					};
-					let descriptor_core_index = cores_to_build_on[index % cores_to_build_on.len()];
+					let descriptor_core_index =
+						cores_to_build_on[cs_index % cores_to_build_on.len()];
 
 					// Ensure the core index has not been used before.
 					if used_cores.contains(&descriptor_core_index.0) {
