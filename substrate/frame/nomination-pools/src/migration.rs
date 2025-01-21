@@ -21,7 +21,7 @@ use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use frame::testing_prelude::*;
 
 #[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 /// Exports for versioned migration `type`s for this pallet.
 pub mod versioned {

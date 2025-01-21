@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 pallet-nomination-pools = { workspace = true }
-frame = { workspace = true, features = ["experimental", "runtime"]}
+frame = { workspace = true, features = ["runtime"]}
 
 [features]
 default = ["std"]

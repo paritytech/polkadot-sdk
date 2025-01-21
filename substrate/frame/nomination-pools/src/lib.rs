@@ -359,13 +359,12 @@ use codec::Codec;
 use core::{fmt::Debug, ops::Div};
 
 use scale_info::TypeInfo;
-use sp_core::U256;
 
 use frame::deps::sp_staking::{EraIndex, StakingInterface};
 use frame::prelude::*;
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &str = "runtime::nomination-pools";
