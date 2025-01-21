@@ -9,3 +9,4 @@ doc:
 
 crates:
   - name: pallet-referenda
+    bump: major
