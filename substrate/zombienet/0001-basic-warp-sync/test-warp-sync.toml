@@ -27,4 +27,4 @@ chain_spec_path = "chain-spec.json"
   [[relaychain.nodes]]
   name = "dave"
   validator = false
-  args = ["--sync warp"]
+  args = ["--sync warp -ldb::blockchain"]

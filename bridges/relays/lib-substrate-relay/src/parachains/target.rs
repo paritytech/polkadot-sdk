@@ -42,31 +42,42 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
+use sp_runtime::traits::Header;
 
 /// Substrate client as parachain heads source.
-pub struct ParachainsTarget<P: SubstrateParachainsPipeline> {
-	source_client: Client<P::SourceRelayChain>,
-	target_client: Client<P::TargetChain>,
+pub struct ParachainsTarget<P: SubstrateParachainsPipeline, SourceClnt, TargetClnt> {
+	source_client: SourceClnt,
+	target_client: TargetClnt,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 }
 
-impl<P: SubstrateParachainsPipeline> ParachainsTarget<P> {
+impl<
+		P: SubstrateParachainsPipeline,
+		SourceClnt: Client<P::SourceRelayChain>,
+		TargetClnt: Client<P::TargetChain>,
+	> ParachainsTarget<P, SourceClnt, TargetClnt>
+{
 	/// Creates new parachains target client.
 	pub fn new(
-		source_client: Client<P::SourceRelayChain>,
-		target_client: Client<P::TargetChain>,
+		source_client: SourceClnt,
+		target_client: TargetClnt,
 		transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	) -> Self {
 		ParachainsTarget { source_client, target_client, transaction_params }
 	}
 
 	/// Returns reference to the underlying RPC client.
-	pub fn target_client(&self) -> &Client<P::TargetChain> {
+	pub fn target_client(&self) -> &TargetClnt {
 		&self.target_client
 	}
 }
 
-impl<P: SubstrateParachainsPipeline> Clone for ParachainsTarget<P> {
+impl<
+		P: SubstrateParachainsPipeline,
+		SourceClnt: Client<P::SourceRelayChain>,
+		TargetClnt: Clone,
+	> Clone for ParachainsTarget<P, SourceClnt, TargetClnt>
+{
 	fn clone(&self) -> Self {
 		ParachainsTarget {
 			source_client: self.source_client.clone(),
@@ -77,7 +88,12 @@ impl<P: SubstrateParachainsPipeline> Clone for ParachainsTarget<P> {
 }
 
 #[async_trait]
-impl<P: SubstrateParachainsPipeline> RelayClient for ParachainsTarget<P> {
+impl<
+		P: SubstrateParachainsPipeline,
+		SourceClnt: Client<P::SourceRelayChain>,
+		TargetClnt: Client<P::TargetChain>,
+	> RelayClient for ParachainsTarget<P, SourceClnt, TargetClnt>
+{
 	type Error = SubstrateError;
 
 	async fn reconnect(&mut self) -> Result<(), SubstrateError> {
@@ -88,14 +104,17 @@ impl<P: SubstrateParachainsPipeline> RelayClient for ParachainsTarget<P> {
 }
 
 #[async_trait]
-impl<P> TargetClient<ParachainsPipelineAdapter<P>> for ParachainsTarget<P>
+impl<P, SourceClnt, TargetClnt> TargetClient<ParachainsPipelineAdapter<P>>
+	for ParachainsTarget<P, SourceClnt, TargetClnt>
 where
 	P: SubstrateParachainsPipeline,
+	SourceClnt: Client<P::SourceRelayChain>,
+	TargetClnt: Client<P::TargetChain>,
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
 	P::SourceParachain: ChainBase<Hash = ParaHash>,
 	P::SourceRelayChain: ChainBase<BlockNumber = RelayBlockNumber>,
 {
-	type TransactionTracker = TransactionTracker<P::TargetChain, Client<P::TargetChain>>;
+	type TransactionTracker = TransactionTracker<P::TargetChain, TargetClnt>;
 
 	async fn best_block(&self) -> Result<HeaderIdOf<P::TargetChain>, Self::Error> {
 		let best_header = self.target_client.best_header().await?;
@@ -109,10 +128,10 @@ where
 		at_block: &HeaderIdOf<P::TargetChain>,
 	) -> Result<HeaderIdOf<P::SourceRelayChain>, Self::Error> {
 		self.target_client
-			.typed_state_call::<_, Option<HeaderIdOf<P::SourceRelayChain>>>(
+			.state_call::<_, Option<HeaderIdOf<P::SourceRelayChain>>>(
+				at_block.hash(),
 				P::SourceRelayChain::BEST_FINALIZED_HEADER_ID_METHOD.into(),
 				(),
-				Some(at_block.1),
 			)
 			.await?
 			.map(Ok)
@@ -124,7 +143,11 @@ where
 	) -> Result<Option<BlockNumberOf<P::SourceRelayChain>>, Self::Error> {
 		Ok(self
 			.target_client
-			.typed_state_call(P::SourceRelayChain::FREE_HEADERS_INTERVAL_METHOD.into(), (), None)
+			.state_call(
+				self.target_client.best_header().await?.hash(),
+				P::SourceRelayChain::FREE_HEADERS_INTERVAL_METHOD.into(),
+				(),
+			)
 			.await
 			.unwrap_or_else(|e| {
 				log::info!(
@@ -151,7 +174,7 @@ where
 			&P::SourceParachain::PARACHAIN_ID.into(),
 		);
 		let storage_value: Option<ParaInfo> =
-			self.target_client.storage_value(storage_key, Some(at_block.hash())).await?;
+			self.target_client.storage_value(at_block.hash(), storage_key).await?;
 		let para_info = match storage_value {
 			Some(para_info) => para_info,
 			None => return Ok(None),
@@ -172,7 +195,7 @@ where
 			&para_info.best_head_hash.head_hash,
 		);
 		let storage_value: Option<ParaStoredHeaderData> =
-			self.target_client.storage_value(storage_key, Some(at_block.hash())).await?;
+			self.target_client.storage_value(at_block.hash(), storage_key).await?;
 		let para_head_number = match storage_value {
 			Some(para_head_data) =>
 				para_head_data.decode_parachain_head_data::<P::SourceParachain>()?.number,

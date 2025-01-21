@@ -139,7 +139,7 @@ your transactions that are **validated** on top of block, where it is active get
 becomes expired when the block with the number you have specified during registration is "mined". It is the
 `validTill` parameter of the `register` call (see below). After that `validTill` block, you may unregister and get
 your reserved funds back. There's also an intermediate point between those blocks - it is the `validTill - LEASE`,
-where `LEASE` is the the chain constant, controlled by the governance. Initially it is set to `300` blocks.
+where `LEASE` is the chain constant, controlled by the governance. Initially it is set to `300` blocks.
 All your transactions, **validated** between the `validTill - LEASE` and `validTill` blocks do not get the
 priority boost. Also, it is forbidden to specify `validTill` such that the `validTill - currentBlock` is less
 than the `LEASE`.
@@ -156,7 +156,7 @@ than the `LEASE`.
 | 700               | Inactive           | Your message delivery transactions are not boosted     |
 | 701               | Inactive           | Your message delivery transactions are not boosted     |
 | ...               | Inactive           | Your message delivery transactions are not boosted     |
-| 1000              | Expired            | Your may submit a tx with the `deregister` call        |
+| 1000              | Expired            | You may submit a tx with the `deregister` call         |
 
 </details>
 
@@ -230,7 +230,7 @@ your relayer account. Then:
 
 - set the `bridgedChainId` to `bhpd`;
 
-- check the both variants of the `owner` field: `ThisChain` is used to pay for message delivery transactions
+- check both variants of the `owner` field: `ThisChain` is used to pay for message delivery transactions
   and `BridgedChain` is used to pay for message confirmation transactions.
 
 If check shows that you have some rewards, you can craft the claim transaction, with similar parameters.

@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Proc macros provided by the parachain-system pallet"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -13,10 +15,10 @@ workspace = true
 proc-macro = true
 
 [dependencies]
-syn = { workspace = true }
-proc-macro2 = "1.0.64"
+proc-macro-crate = { workspace = true }
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
-proc-macro-crate = "3.0.0"
+syn = { workspace = true }
 
 [features]
 default = ["std"]

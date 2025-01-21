@@ -143,7 +143,7 @@ async fn test_once() {
 		})
 		.collect();
 
-	let peer_store = PeerStore::new(bootnodes);
+	let peer_store = PeerStore::new(bootnodes, None);
 	let peer_store_handle = peer_store.handle();
 
 	let (to_notifications, mut from_controller) =

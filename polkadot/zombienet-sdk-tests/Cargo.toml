@@ -1,0 +1,28 @@
+[package]
+name = "polkadot-zombienet-sdk-tests"
+version = "0.1.0"
+description = "Zomebienet-sdk tests."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+anyhow = { workspace = true }
+codec = { workspace = true, features = ["derive"] }
+env_logger = { workspace = true }
+log = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+subxt = { workspace = true, features = ["substrate-compat"] }
+subxt-signer = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+zombienet-sdk = { workspace = true }
+
+[features]
+zombie-metadata = []
+
+[build-dependencies]
+substrate-build-script-utils = { workspace = true, default-features = true }
+subwasmlib = { git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }

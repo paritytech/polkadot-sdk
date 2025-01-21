@@ -5,7 +5,7 @@ version = "0.4.0"
 license = "Apache-2.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository = "https://github.com/paritytech/substrate/"
 readme = "README.md"
 
@@ -16,45 +16,25 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
-frame-benchmarking = { default-features = false, optional = true, path = "../benchmarking" }
-frame-support = { default-features = false, path = "../support" }
-frame-system = { default-features = false, path = "../system" }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], workspace = true }
-sp-application-crypto = { default-features = false, path = "../../primitives/application-crypto" }
-sp-arithmetic = { default-features = false, path = "../../primitives/arithmetic" }
-sp-io = { default-features = false, path = "../../primitives/io" }
-sp-mixnet = { default-features = false, path = "../../primitives/mixnet" }
-sp-runtime = { default-features = false, path = "../../primitives/runtime" }
-sp-std = { default-features = false, path = "../../primitives/std" }
+sp-application-crypto = { workspace = true }
+sp-mixnet = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-support/std",
-	"frame-system/std",
+	"frame/std",
 	"log/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-application-crypto/std",
-	"sp-arithmetic/std",
-	"sp-io/std",
 	"sp-mixnet/std",
-	"sp-runtime/std",
-	"sp-std/std",
-]
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
+	"frame/try-runtime",
 ]

@@ -25,6 +25,7 @@
 pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
+use alloc::{vec, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
@@ -32,9 +33,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use primitives::Id as ParaId;
+use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
-use sp_std::prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -309,7 +309,7 @@ impl<T: Config> Pallet<T> {
 	// Useful when trying to clean up a parachain leases, as this would tell
 	// you all the balances you need to unreserve.
 	fn all_deposits_held(para: ParaId) -> Vec<(T::AccountId, BalanceOf<T>)> {
-		let mut tracker = sp_std::collections::btree_map::BTreeMap::new();
+		let mut tracker = alloc::collections::btree_map::BTreeMap::new();
 		Leases::<T>::get(para).into_iter().for_each(|lease| match lease {
 			Some((who, amount)) => match tracker.get(&who) {
 				Some(prev_amount) =>
@@ -329,7 +329,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
-		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| sp_std::mem::swap(x, y)))
+		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| core::mem::swap(x, y)))
 	}
 }
 
@@ -503,11 +503,11 @@ mod tests {
 	use super::*;
 
 	use crate::{mock::TestRegistrar, slots};
-	use ::test_helpers::{dummy_head_data, dummy_validation_code};
 	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	use frame_system::EnsureRoot;
 	use pallet_balances;
-	use primitives::BlockNumber;
+	use polkadot_primitives::BlockNumber;
+	use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
 	use sp_core::H256;
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
@@ -525,10 +525,6 @@ mod tests {
 		}
 	);
 
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-	}
-
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
@@ -543,7 +539,6 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type DbWeight = ();
 		type Version = ();
 		type PalletInfo = PalletInfo;
@@ -556,24 +551,9 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
-	parameter_types! {
-		pub const ExistentialDeposit: u64 = 1;
-	}
-
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
-		type WeightInfo = ();
-		type MaxLocks = ();
-		type MaxReserves = ();
-		type ReserveIdentifier = [u8; 8];
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	parameter_types! {
@@ -604,28 +584,16 @@ mod tests {
 		t.into()
 	}
 
-	fn run_to_block(n: BlockNumber) {
-		while System::block_number() < n {
-			Slots::on_finalize(System::block_number());
-			Balances::on_finalize(System::block_number());
-			System::on_finalize(System::block_number());
-			System::set_block_number(System::block_number() + 1);
-			System::on_initialize(System::block_number());
-			Balances::on_initialize(System::block_number());
-			Slots::on_initialize(System::block_number());
-		}
-	}
-
 	#[test]
 	fn basic_setup_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 			assert_eq!(Slots::lease_period_length(), (10, 0));
 			let now = System::block_number();
 			assert_eq!(Slots::lease_period_index(now).unwrap().0, 0);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			let now = System::block_number();
 			assert_eq!(Slots::lease_period_index(now).unwrap().0, 1);
 		});
@@ -634,7 +602,7 @@ mod tests {
 	#[test]
 	fn lease_lifecycle_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -647,11 +615,11 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -665,7 +633,7 @@ mod tests {
 	#[test]
 	fn lease_interrupted_lifecycle_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -677,19 +645,19 @@ mod tests {
 			assert_ok!(Slots::lease_out(1.into(), &1, 6, 1, 1));
 			assert_ok!(Slots::lease_out(1.into(), &1, 4, 3, 1));
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(39);
+			System::run_to_block::<AllPalletsWithSystem>(39);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(40);
+			System::run_to_block::<AllPalletsWithSystem>(40);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -708,7 +676,7 @@ mod tests {
 	#[test]
 	fn lease_relayed_lifecycle_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -724,25 +692,25 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(29);
+			System::run_to_block::<AllPalletsWithSystem>(29);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(30);
+			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 0);
@@ -758,7 +726,7 @@ mod tests {
 	#[test]
 	fn lease_deposit_increase_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -775,11 +743,11 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(29);
+			System::run_to_block::<AllPalletsWithSystem>(29);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(30);
+			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -793,7 +761,7 @@ mod tests {
 	#[test]
 	fn lease_deposit_decrease_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -810,19 +778,19 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(29);
+			System::run_to_block::<AllPalletsWithSystem>(29);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(30);
+			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -836,7 +804,7 @@ mod tests {
 	#[test]
 	fn clear_all_leases_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -872,7 +840,7 @@ mod tests {
 	#[test]
 	fn lease_out_current_lease_period() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -887,7 +855,7 @@ mod tests {
 				dummy_validation_code()
 			));
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			let now = System::block_number();
 			assert_eq!(Slots::lease_period_index(now).unwrap().0, 2);
 			// Can't lease from the past
@@ -904,7 +872,7 @@ mod tests {
 	#[test]
 	fn trigger_onboard_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
 				ParaId::from(1_u32),
@@ -990,7 +958,7 @@ mod benchmarking {
 	use super::*;
 	use frame_support::assert_ok;
 	use frame_system::RawOrigin;
-	use runtime_parachains::paras;
+	use polkadot_runtime_parachains::paras;
 	use sp_runtime::traits::{Bounded, One};
 
 	use frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};

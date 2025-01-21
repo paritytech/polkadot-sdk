@@ -1,18 +1,18 @@
 // Copyright Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Substrate.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Parachain runtime mock.
 
@@ -35,7 +35,6 @@ use pallet_xcm::XcmPassthrough;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::traits::{Get, IdentityLookup, MaybeEquivalence};
 
-use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
@@ -49,10 +48,6 @@ use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 pub type SovereignAccountOf =
 	(AccountId32Aliases<RelayNetwork, AccountId>, ParentIsPreset<AccountId>);
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
@@ -64,7 +59,6 @@ impl frame_system::Config for Runtime {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type Version = ();
@@ -100,6 +94,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type WeightInfo = ();
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {

@@ -20,19 +20,19 @@
 #![cfg(test)]
 
 use crate::{self as pallet_grandpa, AuthorityId, AuthorityList, Config, ConsensusLog};
-use ::grandpa as finality_grandpa;
 use codec::Encode;
+use finality_grandpa;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnFinalize, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
-use sp_core::{crypto::KeyTypeId, H256};
+use sp_core::H256;
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -72,12 +72,21 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = TestXt<RuntimeCall, ()>;
+}
+
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		TestXt::new_bare(call)
+	}
 }
 
 parameter_types! {
@@ -108,20 +117,11 @@ impl pallet_authorship::Config for Test {
 	type EventHandler = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = u128;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -159,35 +159,23 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionsBoundsOnChain;
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
-	type RewardRemainder = ();
-	type CurrencyToVote = ();
-	type RuntimeEvent = RuntimeEvent;
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
-	type Slash = ();
-	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
-	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type MaxExposurePageSize = ConstU32<64>;
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type HistoryDepth = ConstU32<84>;
-	type EventListeners = ();
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 impl pallet_offences::Config for Test {
@@ -208,7 +196,7 @@ impl Config for Test {
 	type MaxAuthorities = ConstU32<100>;
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		super::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -257,7 +245,7 @@ pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestEx
 
 	// NOTE: this will initialize the grandpa authorities
 	// through OneSessionHandler::on_genesis_session
-	pallet_session::GenesisConfig::<Test> { keys: session_keys }
+	pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
@@ -310,7 +298,7 @@ pub fn start_session(session_index: SessionIndex) {
 
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), Some(era_index));
+	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
 }
 
 pub fn initialize_block(number: u64, parent_hash: H256) {

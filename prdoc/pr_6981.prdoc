@@ -1,0 +1,7 @@
+title: '[pallet-revive] fix file case'
+doc:
+- audience: Runtime Dev
+  description: "fix https://github.com/paritytech/polkadot-sdk/issues/6970\r\n"
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

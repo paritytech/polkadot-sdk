@@ -16,7 +16,8 @@
 // limitations under the License.
 
 use crate::*;
-use sp_staking::{DelegationInterface, DelegationMigrator};
+use frame_support::traits::tokens::{Fortitude::Polite, Preservation::Expendable};
+use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator};
 
 /// Types of stake strategies.
 ///
@@ -32,6 +33,50 @@ pub enum StakeStrategyType {
 	Delegate,
 }
 
+/// A type that only belongs in context of a pool.
+///
+/// Maps directly [`Agent`] account.
+#[derive(Clone, Debug)]
+pub struct Pool<T>(T);
+impl<AccountID> Into<Agent<AccountID>> for Pool<AccountID> {
+	fn into(self) -> Agent<AccountID> {
+		Agent::from(self.0)
+	}
+}
+impl<T> From<T> for Pool<T> {
+	fn from(acc: T) -> Self {
+		Pool(acc)
+	}
+}
+
+impl<T> Pool<T> {
+	pub fn get(self) -> T {
+		self.0
+	}
+}
+
+/// A type that only belongs in context of a pool member.
+///
+/// Maps directly [`Delegator`] account.
+#[derive(Clone, Debug)]
+pub struct Member<T>(T);
+impl<AccountID> Into<Delegator<AccountID>> for Member<AccountID> {
+	fn into(self) -> Delegator<AccountID> {
+		Delegator::from(self.0)
+	}
+}
+impl<T> From<T> for Member<T> {
+	fn from(acc: T) -> Self {
+		Member(acc)
+	}
+}
+
+impl<T> Member<T> {
+	pub fn get(self) -> T {
+		self.0
+	}
+}
+
 /// An adapter trait that can support multiple staking strategies.
 ///
 /// Depending on which staking strategy we want to use, the staking logic can be slightly
@@ -39,7 +84,7 @@ pub enum StakeStrategyType {
 /// [`DelegateStake`] for more detail.
 pub trait StakeStrategy {
 	type Balance: frame_support::traits::tokens::Balance;
-	type AccountId: Clone + sp_std::fmt::Debug;
+	type AccountId: Clone + core::fmt::Debug;
 	type CoreStaking: StakingInterface<Balance = Self::Balance, AccountId = Self::AccountId>;
 
 	/// The type of staking strategy of the current adapter.
@@ -62,32 +107,34 @@ pub trait StakeStrategy {
 
 	/// Balance that can be transferred from pool account to member.
 	///
-	/// This is part of the pool balance that is not actively staked. That is, tokens that are
-	/// in unbonding period or unbonded.
-	fn transferable_balance(pool_account: &Self::AccountId) -> Self::Balance;
+	/// This is part of the pool balance that can be withdrawn.
+	fn transferable_balance(
+		pool_account: Pool<Self::AccountId>,
+		member_account: Member<Self::AccountId>,
+	) -> Self::Balance;
 
 	/// Total balance of the pool including amount that is actively staked.
-	fn total_balance(pool_account: &Self::AccountId) -> Self::Balance;
+	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<Self::Balance>;
 
 	/// Amount of tokens delegated by the member.
-	fn member_delegation_balance(member_account: &Self::AccountId) -> Self::Balance;
+	fn member_delegation_balance(member_account: Member<Self::AccountId>) -> Option<Self::Balance>;
 
 	/// See [`StakingInterface::active_stake`].
-	fn active_stake(pool_account: &Self::AccountId) -> Self::Balance {
-		Self::CoreStaking::active_stake(pool_account).unwrap_or_default()
+	fn active_stake(pool_account: Pool<Self::AccountId>) -> Self::Balance {
+		Self::CoreStaking::active_stake(&pool_account.0).unwrap_or_default()
 	}
 
 	/// See [`StakingInterface::total_stake`].
-	fn total_stake(pool_account: &Self::AccountId) -> Self::Balance {
-		Self::CoreStaking::total_stake(pool_account).unwrap_or_default()
+	fn total_stake(pool_account: Pool<Self::AccountId>) -> Self::Balance {
+		Self::CoreStaking::total_stake(&pool_account.0).unwrap_or_default()
 	}
 
 	/// Which strategy the pool account is using.
 	///
 	/// This can be different from the [`Self::strategy_type`] of the adapter if the pool has not
 	/// migrated to the new strategy yet.
-	fn pool_strategy(pool_account: &Self::AccountId) -> StakeStrategyType {
-		match Self::CoreStaking::is_virtual_staker(pool_account) {
+	fn pool_strategy(pool_account: Pool<Self::AccountId>) -> StakeStrategyType {
+		match Self::CoreStaking::is_virtual_staker(&pool_account.0) {
 			true => StakeStrategyType::Delegate,
 			false => StakeStrategyType::Transfer,
 		}
@@ -95,55 +142,58 @@ pub trait StakeStrategy {
 
 	/// See [`StakingInterface::nominate`].
 	fn nominate(
-		pool_account: &Self::AccountId,
+		pool_account: Pool<Self::AccountId>,
 		validators: Vec<Self::AccountId>,
 	) -> DispatchResult {
-		Self::CoreStaking::nominate(pool_account, validators)
+		Self::CoreStaking::nominate(&pool_account.0, validators)
 	}
 
 	/// See [`StakingInterface::chill`].
-	fn chill(pool_account: &Self::AccountId) -> DispatchResult {
-		Self::CoreStaking::chill(pool_account)
+	fn chill(pool_account: Pool<Self::AccountId>) -> DispatchResult {
+		Self::CoreStaking::chill(&pool_account.0)
 	}
 
 	/// Pledge `amount` towards `pool_account` and update the pool bond. Also see
 	/// [`StakingInterface::bond`].
 	fn pledge_bond(
-		who: &Self::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 		bond_type: BondType,
 	) -> DispatchResult;
 
 	/// See [`StakingInterface::unbond`].
-	fn unbond(pool_account: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-		Self::CoreStaking::unbond(pool_account, amount)
+	fn unbond(pool_account: Pool<Self::AccountId>, amount: Self::Balance) -> DispatchResult {
+		Self::CoreStaking::unbond(&pool_account.0, amount)
 	}
 
 	/// See [`StakingInterface::withdraw_unbonded`].
 	fn withdraw_unbonded(
-		pool_account: &Self::AccountId,
+		pool_account: Pool<Self::AccountId>,
 		num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
-		Self::CoreStaking::withdraw_unbonded(pool_account.clone(), num_slashing_spans)
+		Self::CoreStaking::withdraw_unbonded(pool_account.0, num_slashing_spans)
 	}
 
 	/// Withdraw funds from pool account to member account.
 	fn member_withdraw(
-		who: &Self::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		amount: Self::Balance,
 		num_slashing_spans: u32,
 	) -> DispatchResult;
 
+	/// Dissolve the pool account.
+	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult;
+
 	/// Check if there is any pending slash for the pool.
-	fn has_pending_slash(pool_account: &Self::AccountId) -> bool;
+	fn pending_slash(pool_account: Pool<Self::AccountId>) -> Self::Balance;
 
 	/// Slash the member account with `amount` against pending slashes for the pool.
 	fn member_slash(
-		who: &Self::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		amount: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
@@ -153,7 +203,7 @@ pub trait StakeStrategy {
 	/// This is useful for migrating a pool account from [`StakeStrategyType::Transfer`] to
 	/// [`StakeStrategyType::Delegate`].
 	fn migrate_nominator_to_agent(
-		pool_account: &Self::AccountId,
+		pool_account: Pool<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult;
 
@@ -166,15 +216,15 @@ pub trait StakeStrategy {
 	/// Internally, the member funds that are locked in the pool account are transferred back and
 	/// locked in the member account.
 	fn migrate_delegation(
-		pool: &Self::AccountId,
-		delegator: &Self::AccountId,
+		pool: Pool<Self::AccountId>,
+		delegator: Member<Self::AccountId>,
 		value: Self::Balance,
 	) -> DispatchResult;
 
 	/// List of validators nominated by the pool account.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn nominations(pool_account: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
-		Self::CoreStaking::nominations(pool_account)
+	fn nominations(pool_account: Pool<Self::AccountId>) -> Option<Vec<Self::AccountId>> {
+		Self::CoreStaking::nominations(&pool_account.0)
 	}
 
 	/// Remove the pool account as agent.
@@ -182,7 +232,7 @@ pub trait StakeStrategy {
 	/// Useful for migrating pool account from a delegated agent to a direct nominator. Only used
 	/// in tests and benchmarks.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn remove_as_agent(_pool: &Self::AccountId) {
+	fn remove_as_agent(_pool: Pool<Self::AccountId>) {
 		// noop by default
 	}
 }
@@ -196,8 +246,10 @@ pub trait StakeStrategy {
 /// strategy in an existing runtime, storage migration is required. See
 /// [`migration::unversioned::DelegationStakeMigration`]. For new runtimes, it is highly recommended
 /// to use the [`DelegateStake`] strategy.
+#[deprecated = "consider migrating to DelegateStake"]
 pub struct TransferStake<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
+#[allow(deprecated)]
 impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
 	StakeStrategy for TransferStake<T, Staking>
 {
@@ -209,22 +261,28 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		StakeStrategyType::Transfer
 	}
 
-	fn transferable_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
-		T::Currency::balance(pool_account).saturating_sub(Self::active_stake(pool_account))
+	fn transferable_balance(
+		pool_account: Pool<Self::AccountId>,
+		_: Member<Self::AccountId>,
+	) -> BalanceOf<T> {
+		// free/liquid balance of the pool account.
+		T::Currency::reducible_balance(&pool_account.get(), Expendable, Polite)
 	}
 
-	fn total_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
-		T::Currency::total_balance(pool_account)
+	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {
+		Some(T::Currency::total_balance(&pool_account.get()))
 	}
 
-	fn member_delegation_balance(_member_account: &T::AccountId) -> Staking::Balance {
-		// for transfer stake, delegation balance is always zero.
-		Zero::zero()
+	fn member_delegation_balance(
+		_member_account: Member<T::AccountId>,
+	) -> Option<Staking::Balance> {
+		// for transfer stake, no delegation exists.
+		None
 	}
 
 	fn pledge_bond(
-		who: &T::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<T::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		reward_account: &Self::AccountId,
 		amount: BalanceOf<T>,
 		bond_type: BondType,
@@ -232,36 +290,47 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		match bond_type {
 			BondType::Create => {
 				// first bond
-				T::Currency::transfer(who, pool_account, amount, Preservation::Expendable)?;
-				Staking::bond(pool_account, amount, &reward_account)
+				T::Currency::transfer(&who.0, &pool_account.0, amount, Preservation::Expendable)?;
+				Staking::bond(&pool_account.0, amount, &reward_account)
 			},
 			BondType::Extra => {
 				// additional bond
-				T::Currency::transfer(who, pool_account, amount, Preservation::Preserve)?;
-				Staking::bond_extra(pool_account, amount)
+				T::Currency::transfer(&who.0, &pool_account.0, amount, Preservation::Preserve)?;
+				Staking::bond_extra(&pool_account.0, amount)
 			},
 		}
 	}
 
 	fn member_withdraw(
-		who: &T::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		amount: BalanceOf<T>,
 		_num_slashing_spans: u32,
 	) -> DispatchResult {
-		T::Currency::transfer(pool_account, &who, amount, Preservation::Expendable)?;
+		T::Currency::transfer(&pool_account.0, &who.0, amount, Preservation::Expendable)?;
 
 		Ok(())
 	}
 
-	fn has_pending_slash(_: &Self::AccountId) -> bool {
+	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
+		defensive_assert!(
+			T::Currency::total_balance(&pool_account.clone().get()).is_zero(),
+			"dissolving pool should not have any balance"
+		);
+
+		// Defensively force set balance to zero.
+		T::Currency::set_balance(&pool_account.get(), Zero::zero());
+		Ok(())
+	}
+
+	fn pending_slash(_: Pool<Self::AccountId>) -> Self::Balance {
 		// for transfer stake strategy, slashing is greedy and never deferred.
-		false
+		Zero::zero()
 	}
 
 	fn member_slash(
-		_who: &T::AccountId,
-		_pool: &Self::AccountId,
+		_who: Member<Self::AccountId>,
+		_pool: Pool<Self::AccountId>,
 		_amount: Staking::Balance,
 		_maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
@@ -269,15 +338,15 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	}
 
 	fn migrate_nominator_to_agent(
-		_pool: &Self::AccountId,
+		_pool: Pool<Self::AccountId>,
 		_reward_account: &Self::AccountId,
 	) -> DispatchResult {
 		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
 	}
 
 	fn migrate_delegation(
-		_pool: &Self::AccountId,
-		_delegator: &Self::AccountId,
+		_pool: Pool<Self::AccountId>,
+		_delegator: Member<Self::AccountId>,
 		_value: Self::Balance,
 	) -> DispatchResult {
 		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
@@ -314,76 +383,87 @@ impl<
 		StakeStrategyType::Delegate
 	}
 
-	fn transferable_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
-		Delegation::agent_balance(pool_account).saturating_sub(Self::active_stake(pool_account))
+	fn transferable_balance(
+		pool_account: Pool<Self::AccountId>,
+		member_account: Member<Self::AccountId>,
+	) -> BalanceOf<T> {
+		Delegation::agent_transferable_balance(pool_account.clone().into())
+			// pool should always be an agent.
+			.defensive_unwrap_or_default()
+			.min(Delegation::delegator_balance(member_account.into()).unwrap_or_default())
 	}
 
-	fn total_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
-		Delegation::agent_balance(pool_account)
+	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {
+		Delegation::agent_balance(pool_account.into())
 	}
 
-	fn member_delegation_balance(member_account: &T::AccountId) -> BalanceOf<T> {
-		Delegation::delegator_balance(member_account)
+	fn member_delegation_balance(member_account: Member<T::AccountId>) -> Option<BalanceOf<T>> {
+		Delegation::delegator_balance(member_account.into())
 	}
 
 	fn pledge_bond(
-		who: &T::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<T::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		reward_account: &Self::AccountId,
 		amount: BalanceOf<T>,
 		bond_type: BondType,
 	) -> DispatchResult {
 		match bond_type {
 			BondType::Create => {
-				// first delegation
-				Delegation::delegate(who, pool_account, reward_account, amount)
+				// first delegation. Register agent first.
+				Delegation::register_agent(pool_account.clone().into(), reward_account)?;
+				Delegation::delegate(who.into(), pool_account.into(), amount)
 			},
 			BondType::Extra => {
 				// additional delegation
-				Delegation::delegate_extra(who, pool_account, amount)
+				Delegation::delegate(who.into(), pool_account.into(), amount)
 			},
 		}
 	}
 
 	fn member_withdraw(
-		who: &T::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		amount: BalanceOf<T>,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
-		Delegation::withdraw_delegation(&who, pool_account, amount, num_slashing_spans)
+		Delegation::withdraw_delegation(who.into(), pool_account.into(), amount, num_slashing_spans)
 	}
 
-	fn has_pending_slash(pool_account: &Self::AccountId) -> bool {
-		Delegation::has_pending_slash(pool_account)
+	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
+		Delegation::remove_agent(pool_account.into())
+	}
+
+	fn pending_slash(pool_account: Pool<Self::AccountId>) -> Self::Balance {
+		Delegation::pending_slash(pool_account.into()).defensive_unwrap_or_default()
 	}
 
 	fn member_slash(
-		who: &T::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		amount: BalanceOf<T>,
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
-		Delegation::delegator_slash(pool_account, who, amount, maybe_reporter)
+		Delegation::delegator_slash(pool_account.into(), who.into(), amount, maybe_reporter)
 	}
 
 	fn migrate_nominator_to_agent(
-		pool: &Self::AccountId,
+		pool: Pool<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
-		Delegation::migrate_nominator_to_agent(pool, reward_account)
+		Delegation::migrate_nominator_to_agent(pool.into(), reward_account)
 	}
 
 	fn migrate_delegation(
-		pool: &Self::AccountId,
-		delegator: &Self::AccountId,
+		pool: Pool<Self::AccountId>,
+		delegator: Member<Self::AccountId>,
 		value: Self::Balance,
 	) -> DispatchResult {
-		Delegation::migrate_delegation(pool, delegator, value)
+		Delegation::migrate_delegation(pool.into(), delegator.into(), value)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn remove_as_agent(pool: &Self::AccountId) {
-		Delegation::drop_agent(pool)
+	fn remove_as_agent(pool: Pool<Self::AccountId>) {
+		Delegation::force_kill_agent(pool.into())
 	}
 }

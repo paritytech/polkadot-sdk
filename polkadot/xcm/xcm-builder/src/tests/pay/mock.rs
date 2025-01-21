@@ -25,14 +25,23 @@ use frame_support::{
 	traits::{ConstU32, Everything},
 };
 use frame_system::{EnsureRoot, EnsureSigned};
-use polkadot_test_runtime::SignedExtra;
-use primitives::{AccountIndex, BlakeTwo256, Signature};
+use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
 use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
+pub type TxExtension = (
+	frame_system::CheckNonZeroSender<Test>,
+	frame_system::CheckSpecVersion<Test>,
+	frame_system::CheckTxVersion<Test>,
+	frame_system::CheckGenesis<Test>,
+	frame_system::CheckMortality<Test>,
+	frame_system::CheckNonce<Test>,
+	frame_system::CheckWeight<Test>,
+	frame_system::WeightReclaim<Test>,
+);
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
@@ -54,7 +63,6 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type AccountId = AccountId;
-	type BlockHashCount = ConstU32<256>;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
 }
 
@@ -78,6 +86,7 @@ impl pallet_balances::Config for Test {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -118,7 +127,6 @@ parameter_types! {
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub UniversalLocation: InteriorLocation = (ByGenesis([0; 32]), Parachain(42)).into();
 	pub UnitWeightCost: u64 = 1_000;
-	pub static AdvertisedXcmVersion: u32 = 3;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
 	pub TrustedAssets: (AssetFilter, Location) = (All.into(), Here.into());
@@ -259,7 +267,7 @@ impl pallet_xcm::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
-	type AdvertisedXcmVersion = AdvertisedXcmVersion;
+	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type TrustedLockers = ();
 	type SovereignAccountOf = SovereignAccountOf;
 	type Currency = Balances;
@@ -300,6 +308,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(1, TreasuryAccountId::get(), INITIAL_BALANCE),
 			(100, TreasuryAccountId::get(), INITIAL_BALANCE),
 		],
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -17,19 +17,17 @@
 use crate::{ParachainInherentData, INHERENT_IDENTIFIER};
 use codec::Decode;
 use cumulus_primitives_core::{
-	relay_chain, InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
+	relay_chain,
+	relay_chain::{Slot, UpgradeGoAhead},
+	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 use cumulus_primitives_parachain_inherent::MessageQueueChain;
+use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use sc_client_api::{Backend, StorageProvider};
 use sp_crypto_hashing::twox_128;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::traits::Block;
 use std::collections::BTreeMap;
-
-use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-
-/// Relay chain slot duration, in milliseconds.
-pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
 /// Inherent data provider that supplies mocked validation data.
 ///
@@ -45,13 +43,16 @@ pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 /// in addition to the messages themselves, you must provide some information about
 /// your parachain's configuration in order to mock the MQC heads properly.
 /// See [`MockXcmConfig`] for more information
+#[derive(Default)]
 pub struct MockValidationDataInherentDataProvider<R = ()> {
-	/// The current block number of the local block chain (the parachain)
+	/// The current block number of the local block chain (the parachain).
 	pub current_para_block: u32,
-	/// The current block head data of the local block chain (the parachain)
+	/// The parachain ID of the parachain for that the inherent data is created.
+	pub para_id: ParaId,
+	/// The current block head data of the local block chain (the parachain).
 	pub current_para_block_head: Option<cumulus_primitives_core::relay_chain::HeadData>,
 	/// The relay block in which this parachain appeared to start. This will be the relay block
-	/// number in para block #P1
+	/// number in para block #P1.
 	pub relay_offset: u32,
 	/// The number of relay blocks that elapses between each parablock. Probably set this to 1 or 2
 	/// to simulate optimistic or realistic relay chain behavior.
@@ -59,19 +60,23 @@ pub struct MockValidationDataInherentDataProvider<R = ()> {
 	/// Number of parachain blocks per relay chain epoch
 	/// Mock epoch is computed by dividing `current_para_block` by this value.
 	pub para_blocks_per_relay_epoch: u32,
-	/// Function to mock BABE one epoch ago randomness
+	/// Function to mock BABE one epoch ago randomness.
 	pub relay_randomness_config: R,
 	/// XCM messages and associated configuration information.
 	pub xcm_config: MockXcmConfig,
 	/// Inbound downward XCM messages to be injected into the block.
 	pub raw_downward_messages: Vec<Vec<u8>>,
-	// Inbound Horizontal messages sorted by channel
+	/// Inbound Horizontal messages sorted by channel.
 	pub raw_horizontal_messages: Vec<(ParaId, Vec<u8>)>,
-	// Additional key-value pairs that should be injected.
+	/// Additional key-value pairs that should be injected.
 	pub additional_key_values: Option<Vec<(Vec<u8>, Vec<u8>)>>,
+	/// Whether upgrade go ahead should be set.
+	pub upgrade_go_ahead: Option<UpgradeGoAhead>,
 }
 
+/// Something that can generate randomness.
 pub trait GenerateRandomness<I> {
+	/// Generate the randomness using the given `input`.
 	fn generate_randomness(&self, input: I) -> relay_chain::Hash;
 }
 
@@ -91,8 +96,6 @@ impl GenerateRandomness<u64> for () {
 /// parachain's storage, and the corresponding relay data mocked.
 #[derive(Default)]
 pub struct MockXcmConfig {
-	/// The parachain id of the parachain being mocked.
-	pub para_id: ParaId,
 	/// The starting state of the dmq_mqc_head.
 	pub starting_dmq_mqc_head: relay_chain::Hash,
 	/// The starting state of each parachain's mqc head
@@ -119,7 +122,6 @@ impl MockXcmConfig {
 	pub fn new<B: Block, BE: Backend<B>, C: StorageProvider<B, BE>>(
 		client: &C,
 		parent_block: B::Hash,
-		para_id: ParaId,
 		parachain_system_name: ParachainSystemName,
 	) -> Self {
 		let starting_dmq_mqc_head = client
@@ -152,7 +154,7 @@ impl MockXcmConfig {
 			})
 			.unwrap_or_default();
 
-		Self { para_id, starting_dmq_mqc_head, starting_hrmp_mqc_heads }
+		Self { starting_dmq_mqc_head, starting_hrmp_mqc_heads }
 	}
 }
 
@@ -166,14 +168,14 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 	) -> Result<(), sp_inherents::Error> {
 		// Use the "sproof" (spoof proof) builder to build valid mock state root and proof.
 		let mut sproof_builder =
-			RelayStateSproofBuilder { para_id: self.xcm_config.para_id, ..Default::default() };
+			RelayStateSproofBuilder { para_id: self.para_id, ..Default::default() };
 
 		// Calculate the mocked relay block based on the current para block
 		let relay_parent_number =
 			self.relay_offset + self.relay_blocks_per_para_block * self.current_para_block;
-		sproof_builder.current_slot =
-			((relay_parent_number / RELAY_CHAIN_SLOT_DURATION_MILLIS) as u64).into();
+		sproof_builder.current_slot = Slot::from(relay_parent_number as u64);
 
+		sproof_builder.upgrade_go_ahead = self.upgrade_go_ahead;
 		// Process the downward messages and set up the correct head
 		let mut downward_messages = Vec::new();
 		let mut dmq_mqc = MessageQueueChain::new(self.xcm_config.starting_dmq_mqc_head);

@@ -11,28 +11,27 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-hash-db = { version = "0.16.0", default-features = false }
-impl-trait-for-tuples = "0.2.2"
+codec = { workspace = true }
+hash-db = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
-num-traits = { version = "0.2", default-features = false }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+num-traits = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 
 # Substrate Dependencies
-
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
-trie-db = { version = "0.29.0", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-state-machine = { workspace = true }
+sp-std = { workspace = true }
+sp-trie = { workspace = true }
+trie-db = { workspace = true }
 
 [dev-dependencies]
-hex-literal = "0.4"
+hex-literal = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -53,3 +52,4 @@ std = [
 	"sp-trie/std",
 	"trie-db/std",
 ]
+test-helpers = []

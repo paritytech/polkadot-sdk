@@ -16,7 +16,7 @@
 //! [Defensive programming](https://en.wikipedia.org/wiki/Defensive_programming) is a design paradigm that enables a program to continue
 //! running despite unexpected behavior, input, or events that may arise in runtime.
 //! Usually, unforeseen circumstances may cause the program to stop or, in the Rust context,
-//! panic!. Defensive practices allow for these circumstances to be accounted for ahead of time
+//! `panic!`. Defensive practices allow for these circumstances to be accounted for ahead of time
 //! and for them to be handled gracefully, which is in line with the intended fault-tolerant and
 //! deterministic nature of blockchains.
 //!
@@ -71,7 +71,7 @@
 //! ### Defensive Traits
 //!
 //! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions, all of which
-//! provide an alternative to 'vanilla' Rust functions, e.g.,:
+//! provide an alternative to 'vanilla' Rust functions, e.g.:
 //!
 //! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or) instead of
 //!   `unwrap_or()`
@@ -127,7 +127,7 @@
 //! - [Fixed point types](sp_arithmetic::fixed_point) and their associated usage can be found here.
 //! - [PerThing](sp_arithmetic::per_things) and its associated types can be found here.
 //!
-//! Using floating point number types (i.e., f32. f64) in the runtime should be avoided, as a single non-deterministic result could cause chaos for blockchain consensus along with the issues above. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
+//! Using floating point number types (i.e. f32, f64) in the runtime should be avoided, as a single non-deterministic result could cause chaos for blockchain consensus along with the issues above. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
 //!
 //! The following methods demonstrate different ways to handle numbers natively in Rust safely,
 //! without fear of panic or unexpected behavior from wrapping.

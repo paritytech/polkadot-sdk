@@ -22,7 +22,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::traits::FindAuthor;
-use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -68,6 +67,7 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	/// Author of current block.
 	pub(super) type Author<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 }
@@ -85,9 +85,8 @@ impl<T: Config> Pallet<T> {
 
 		let digest = <frame_system::Pallet<T>>::digest();
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
-		T::FindAuthor::find_author(pre_runtime_digests).map(|a| {
+		T::FindAuthor::find_author(pre_runtime_digests).inspect(|a| {
 			<Author<T>>::put(&a);
-			a
 		})
 	}
 }

@@ -24,7 +24,6 @@ use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
-		SortedMembers,
 	},
 	weights::Weight,
 };
@@ -85,20 +84,9 @@ impl pallet_scheduler::Config for Test {
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
 }
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type MaxLocks = ConstU32<10>;
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 parameter_types! {
 	pub static AlarmInterval: u64 = 1;
@@ -111,14 +99,6 @@ ord_parameter_types! {
 	pub const Five: u64 = 5;
 	pub const Six: u64 = 6;
 }
-pub struct OneToFive;
-impl SortedMembers<u64> for OneToFive {
-	fn sorted_members() -> Vec<u64> {
-		vec![1, 2, 3, 4, 5]
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn add(_m: &u64) {}
-}
 
 pub struct TestTracksInfo;
 impl TracksInfo<u64, u64> for TestTracksInfo {
@@ -126,7 +106,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 	type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
 
 	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, u64, u64>>> {
-		static DATA: [Track<u8, u64, u64>; 2] = [
+		static DATA: [Track<u8, u64, u64>; 3] = [
 			Track {
 				id: 0u8,
 				info: TrackInfo {
@@ -171,6 +151,25 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 					},
 				},
 			},
+			Track {
+				id: 2u8,
+				info: TrackInfo {
+					name: "none",
+					decision_period: 2,
+					confirm_period: 1,
+					min_enactment_period: 0,
+					min_approval: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(95),
+						ceil: Perbill::from_percent(100),
+					},
+					min_support: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(90),
+						ceil: Perbill::from_percent(100),
+					},
+				},
+			},
 		];
 		DATA.iter().map(Cow::Borrowed)
 	}
@@ -178,7 +177,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
 			match system_origin {
 				frame_system::RawOrigin::Root => Ok(0),
-				frame_system::RawOrigin::None => Ok(1),
+				frame_system::RawOrigin::Signed(1) => Ok(2),
 				_ => Err(()),
 			}
 		} else {

@@ -1,6 +1,8 @@
+use polkadot_sdk::*;
 use std::path::PathBuf;
 
 /// Sub-commands supported by the collator.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
 	/// Build a chain specification.

@@ -21,6 +21,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_must_use)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
@@ -44,7 +47,6 @@ use sp_runtime::{
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
-use sp_std::prelude::*;
 
 pub use sp_consensus_babe::AuthorityId;
 
@@ -96,11 +98,11 @@ pub struct SameAuthoritiesForever;
 
 impl EpochChangeTrigger for SameAuthoritiesForever {
 	fn trigger<T: Config>(now: BlockNumberFor<T>) {
-		if <Pallet<T>>::should_epoch_change(now) {
-			let authorities = <Pallet<T>>::authorities();
+		if Pallet::<T>::should_epoch_change(now) {
+			let authorities = Authorities::<T>::get();
 			let next_authorities = authorities.clone();
 
-			<Pallet<T>>::enact_epoch_change(authorities, next_authorities, None);
+			Pallet::<T>::enact_epoch_change(authorities, next_authorities, None);
 		}
 	}
 }
@@ -185,12 +187,10 @@ pub mod pallet {
 
 	/// Current epoch index.
 	#[pallet::storage]
-	#[pallet::getter(fn epoch_index)]
 	pub type EpochIndex<T> = StorageValue<_, u64, ValueQuery>;
 
 	/// Current epoch authorities.
 	#[pallet::storage]
-	#[pallet::getter(fn authorities)]
 	pub type Authorities<T: Config> = StorageValue<
 		_,
 		WeakBoundedVec<(AuthorityId, BabeAuthorityWeight), T::MaxAuthorities>,
@@ -200,12 +200,10 @@ pub mod pallet {
 	/// The slot at which the first epoch actually started. This is 0
 	/// until the first block of the chain.
 	#[pallet::storage]
-	#[pallet::getter(fn genesis_slot)]
 	pub type GenesisSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
 	/// Current slot number.
 	#[pallet::storage]
-	#[pallet::getter(fn current_slot)]
 	pub type CurrentSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
 	/// The epoch randomness for the *current* epoch.
@@ -222,20 +220,19 @@ pub mod pallet {
 	// array size because the metadata API currently doesn't resolve the
 	// variable to its underlying value.
 	#[pallet::storage]
-	#[pallet::getter(fn randomness)]
 	pub type Randomness<T> = StorageValue<_, BabeRandomness, ValueQuery>;
 
 	/// Pending epoch configuration change that will be applied when the next epoch is enacted.
 	#[pallet::storage]
-	pub(super) type PendingEpochConfigChange<T> = StorageValue<_, NextConfigDescriptor>;
+	pub type PendingEpochConfigChange<T> = StorageValue<_, NextConfigDescriptor>;
 
 	/// Next epoch randomness.
 	#[pallet::storage]
-	pub(super) type NextRandomness<T> = StorageValue<_, BabeRandomness, ValueQuery>;
+	pub type NextRandomness<T> = StorageValue<_, BabeRandomness, ValueQuery>;
 
 	/// Next epoch authorities.
 	#[pallet::storage]
-	pub(super) type NextAuthorities<T: Config> = StorageValue<
+	pub type NextAuthorities<T: Config> = StorageValue<
 		_,
 		WeakBoundedVec<(AuthorityId, BabeAuthorityWeight), T::MaxAuthorities>,
 		ValueQuery,
@@ -251,11 +248,11 @@ pub mod pallet {
 	/// We reset all segments and return to `0` at the beginning of every
 	/// epoch.
 	#[pallet::storage]
-	pub(super) type SegmentIndex<T> = StorageValue<_, u32, ValueQuery>;
+	pub type SegmentIndex<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// TWOX-NOTE: `SegmentIndex` is an increasing integer, so this is okay.
 	#[pallet::storage]
-	pub(super) type UnderConstruction<T: Config> = StorageMap<
+	pub type UnderConstruction<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -266,16 +263,14 @@ pub mod pallet {
 	/// Temporary value (cleared at block finalization) which is `Some`
 	/// if per-block initialization has already been called for current block.
 	#[pallet::storage]
-	#[pallet::getter(fn initialized)]
-	pub(super) type Initialized<T> = StorageValue<_, Option<PreDigest>>;
+	pub type Initialized<T> = StorageValue<_, Option<PreDigest>>;
 
 	/// This field should always be populated during block processing unless
 	/// secondary plain slots are enabled (which don't contain a VRF output).
 	///
 	/// It is set in `on_finalize`, before it will contain the value from the last block.
 	#[pallet::storage]
-	#[pallet::getter(fn author_vrf_randomness)]
-	pub(super) type AuthorVrfRandomness<T> = StorageValue<_, Option<BabeRandomness>, ValueQuery>;
+	pub type AuthorVrfRandomness<T> = StorageValue<_, Option<BabeRandomness>, ValueQuery>;
 
 	/// The block numbers when the last and current epoch have started, respectively `N-1` and
 	/// `N`.
@@ -292,19 +287,17 @@ pub mod pallet {
 	/// on block finalization. Querying this storage entry outside of block
 	/// execution context should always yield zero.
 	#[pallet::storage]
-	#[pallet::getter(fn lateness)]
-	pub(super) type Lateness<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type Lateness<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// The configuration for the current epoch. Should never be `None` as it is initialized in
 	/// genesis.
 	#[pallet::storage]
-	#[pallet::getter(fn epoch_config)]
-	pub(super) type EpochConfig<T> = StorageValue<_, BabeEpochConfiguration>;
+	pub type EpochConfig<T> = StorageValue<_, BabeEpochConfiguration>;
 
 	/// The configuration for the next epoch, `None` if the config will not change
 	/// (you can fallback to `EpochConfig` instead in that case).
 	#[pallet::storage]
-	pub(super) type NextEpochConfig<T> = StorageValue<_, BabeEpochConfiguration>;
+	pub type NextEpochConfig<T> = StorageValue<_, BabeEpochConfiguration>;
 
 	/// A list of the last 100 skipped epochs and the corresponding session index
 	/// when the epoch was skipped.
@@ -315,8 +308,7 @@ pub mod pallet {
 	/// a validator was the owner of a given key on a given session, and what the
 	/// active epoch index was during that session.
 	#[pallet::storage]
-	#[pallet::getter(fn skipped_epochs)]
-	pub(super) type SkippedEpochs<T> =
+	pub type SkippedEpochs<T> =
 		StorageValue<_, BoundedVec<(u64, SessionIndex), ConstU32<100>>, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -325,7 +317,7 @@ pub mod pallet {
 		pub authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
 		pub epoch_config: BabeEpochConfiguration,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -368,7 +360,7 @@ pub mod pallet {
 						.and_then(|(authority, _)| {
 							let public = authority.as_inner_ref();
 							let transcript = sp_consensus_babe::make_vrf_transcript(
-								&Self::randomness(),
+								&Randomness::<T>::get(),
 								CurrentSlot::<T>::get(),
 								EpochIndex::<T>::get(),
 							);
@@ -510,7 +502,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 
 impl<T: Config> IsMember<AuthorityId> for Pallet<T> {
 	fn is_member(authority_id: &AuthorityId) -> bool {
-		<Pallet<T>>::authorities().iter().any(|id| &id.0 == authority_id)
+		Authorities::<T>::get().iter().any(|id| &id.0 == authority_id)
 	}
 }
 
@@ -526,6 +518,47 @@ impl<T: Config> pallet_session::ShouldEndSession<BlockNumberFor<T>> for Pallet<T
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to access epoch_index storage.
+	pub fn epoch_index() -> u64 {
+		EpochIndex::<T>::get()
+	}
+	/// Public function to access authorities storage.
+	pub fn authorities() -> WeakBoundedVec<(AuthorityId, BabeAuthorityWeight), T::MaxAuthorities> {
+		Authorities::<T>::get()
+	}
+	/// Public function to access genesis_slot storage.
+	pub fn genesis_slot() -> Slot {
+		GenesisSlot::<T>::get()
+	}
+	/// Public function to access current_slot storage.
+	pub fn current_slot() -> Slot {
+		CurrentSlot::<T>::get()
+	}
+	/// Public function to access randomness storage.
+	pub fn randomness() -> BabeRandomness {
+		Randomness::<T>::get()
+	}
+	/// Public function to access initialized storage.
+	pub fn initialized() -> Option<Option<PreDigest>> {
+		Initialized::<T>::get()
+	}
+	/// Public function to access author_vrf_randomness storage.
+	pub fn author_vrf_randomness() -> Option<BabeRandomness> {
+		AuthorVrfRandomness::<T>::get()
+	}
+	/// Public function to access lateness storage.
+	pub fn lateness() -> BlockNumberFor<T> {
+		Lateness::<T>::get()
+	}
+	/// Public function to access epoch_config storage.
+	pub fn epoch_config() -> Option<BabeEpochConfiguration> {
+		EpochConfig::<T>::get()
+	}
+	/// Public function to access skipped_epochs storage.
+	pub fn skipped_epochs() -> BoundedVec<(u64, SessionIndex), ConstU32<100>> {
+		SkippedEpochs::<T>::get()
+	}
+
 	/// Determine the BABE slot duration based on the Timestamp module configuration.
 	pub fn slot_duration() -> T::Moment {
 		// we double the minimum block-period so each author can always propose within
@@ -588,7 +621,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		// PRECONDITION: caller has done initialization and is guaranteed
 		// by the session module to be called before this.
-		debug_assert!(Self::initialized().is_some());
+		debug_assert!(Initialized::<T>::get().is_some());
 
 		if authorities.is_empty() {
 			log::warn!(target: LOG_TARGET, "Ignoring empty epoch change.");
@@ -655,8 +688,8 @@ impl<T: Config> Pallet<T> {
 		NextAuthorities::<T>::put(&next_authorities);
 
 		// Update the start blocks of the previous and new current epoch.
-		<EpochStart<T>>::mutate(|(previous_epoch_start_block, current_epoch_start_block)| {
-			*previous_epoch_start_block = sp_std::mem::take(current_epoch_start_block);
+		EpochStart::<T>::mutate(|(previous_epoch_start_block, current_epoch_start_block)| {
+			*previous_epoch_start_block = core::mem::take(current_epoch_start_block);
 			*current_epoch_start_block = <frame_system::Pallet<T>>::block_number();
 		});
 
@@ -701,8 +734,8 @@ impl<T: Config> Pallet<T> {
 			epoch_index: EpochIndex::<T>::get(),
 			start_slot: Self::current_epoch_start(),
 			duration: T::EpochDuration::get(),
-			authorities: Self::authorities().into_inner(),
-			randomness: Self::randomness(),
+			authorities: Authorities::<T>::get().into_inner(),
+			randomness: Randomness::<T>::get(),
 			config: EpochConfig::<T>::get()
 				.expect("EpochConfig is initialized in genesis; we never `take` or `kill` it; qed"),
 		}
@@ -779,8 +812,8 @@ impl<T: Config> Pallet<T> {
 		// we use the same values as genesis because we haven't collected any
 		// randomness yet.
 		let next = NextEpochDescriptor {
-			authorities: Self::authorities().into_inner(),
-			randomness: Self::randomness(),
+			authorities: Authorities::<T>::get().into_inner(),
+			randomness: Randomness::<T>::get(),
 		};
 
 		Self::deposit_consensus(ConsensusLog::NextEpochData(next));
@@ -789,7 +822,7 @@ impl<T: Config> Pallet<T> {
 	fn initialize(now: BlockNumberFor<T>) {
 		// since `initialize` can be called twice (e.g. if session module is present)
 		// let's ensure that we only do the initialization once per block
-		let initialized = Self::initialized().is_some();
+		let initialized = Initialized::<T>::get().is_some();
 		if initialized {
 			return
 		}
@@ -837,7 +870,7 @@ impl<T: Config> Pallet<T> {
 	/// randomness. Returns the new randomness.
 	fn randomness_change_epoch(next_epoch_index: u64) -> BabeRandomness {
 		let this_randomness = NextRandomness::<T>::get();
-		let segment_idx: u32 = SegmentIndex::<T>::mutate(|s| sp_std::mem::replace(s, 0));
+		let segment_idx: u32 = SegmentIndex::<T>::mutate(|s| core::mem::replace(s, 0));
 
 		// overestimate to the segment being full.
 		let rho_size = (segment_idx.saturating_add(1) * UNDER_CONSTRUCTION_SEGMENT_LENGTH) as usize;
@@ -940,7 +973,7 @@ impl<T: Config> frame_support::traits::EstimateNextSessionRotation<BlockNumberFo
 
 impl<T: Config> frame_support::traits::Lateness<BlockNumberFor<T>> for Pallet<T> {
 	fn lateness(&self) -> BlockNumberFor<T> {
-		Self::lateness()
+		Lateness::<T>::get()
 	}
 }
 
@@ -1024,7 +1057,7 @@ pub mod migrations {
 		fn pallet_prefix() -> &'static str;
 	}
 
-	struct __OldNextEpochConfig<T>(sp_std::marker::PhantomData<T>);
+	struct __OldNextEpochConfig<T>(core::marker::PhantomData<T>);
 	impl<T: BabePalletPrefix> frame_support::traits::StorageInstance for __OldNextEpochConfig<T> {
 		fn pallet_prefix() -> &'static str {
 			T::pallet_prefix()

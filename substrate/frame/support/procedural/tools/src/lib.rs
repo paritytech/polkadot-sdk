@@ -70,6 +70,8 @@ pub fn is_using_frame_crate(path: &syn::Path) -> bool {
 pub fn generate_access_from_frame_or_crate(def_crate: &str) -> Result<syn::Path, Error> {
 	if let Some(path) = get_frame_crate_path(def_crate) {
 		Ok(path)
+	} else if let Some(path) = get_sdk_crate_path(def_crate) {
+		Ok(path)
 	} else {
 		let ident = match crate_name(def_crate) {
 			Ok(FoundCrate::Itself) => {
@@ -89,6 +91,13 @@ pub fn generate_hidden_includes(unique_id: &str, def_crate: &str) -> TokenStream
 	let mod_name = generate_hidden_includes_mod_name(unique_id);
 
 	if let Some(path) = get_frame_crate_path(def_crate) {
+		quote::quote!(
+			#[doc(hidden)]
+			mod #mod_name {
+				pub use #path as hidden_include;
+			}
+		)
+	} else if let Some(path) = get_sdk_crate_path(def_crate) {
 		quote::quote!(
 			#[doc(hidden)]
 			mod #mod_name {
@@ -128,6 +137,15 @@ fn get_frame_crate_path(def_crate: &str) -> Option<syn::Path> {
 	}
 }
 
+fn get_sdk_crate_path(def_crate: &str) -> Option<syn::Path> {
+	if let Ok(FoundCrate::Name(name)) = crate_name(&"polkadot-sdk") {
+		let path = format!("{}::{}", name, def_crate.to_string()).replace("-", "_");
+		Some(syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed"))
+	} else {
+		None
+	}
+}
+
 // fn to remove white spaces around string types
 // (basically whitespaces around tokens)
 pub fn clean_type_string(input: &str) -> String {
@@ -157,6 +175,20 @@ pub fn get_doc_literals(attrs: &[syn::Attribute]) -> Vec<syn::Expr> {
 					.get_ident()
 					.filter(|ident| *ident == "doc")
 					.map(|_| meta.value.clone())
+			} else {
+				None
+			}
+		})
+		.collect()
+}
+
+/// Return all cfg attributes literals found.
+pub fn get_cfg_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
+	attrs
+		.iter()
+		.filter_map(|attr| {
+			if let syn::Meta::List(meta) = &attr.meta {
+				meta.path.get_ident().filter(|ident| *ident == "cfg").map(|_| attr.clone())
 			} else {
 				None
 			}

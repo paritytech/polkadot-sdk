@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
 
       - name: Get list
         id: get-list
@@ -56,7 +56,7 @@ jobs:
 
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
 
       - name: Fetch release artifacts based on release id
         env:

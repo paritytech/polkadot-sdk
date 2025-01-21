@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Interfaces, types and utils for benchmarking a FRAME runtime.
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, traits::StorageInfo};
 use scale_info::TypeInfo;
@@ -23,7 +24,6 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::TrailingZeroInput, DispatchError};
-use sp_std::vec::Vec;
 use sp_storage::TrackedStorageKey;
 
 /// An alphabet of possible parameters to use for benchmarking.
@@ -200,6 +200,8 @@ impl From<DispatchError> for BenchmarkError {
 pub struct BenchmarkConfig {
 	/// The encoded name of the pallet to benchmark.
 	pub pallet: Vec<u8>,
+	/// The encoded name of the pallet instance to benchmark.
+	pub instance: Vec<u8>,
 	/// The encoded name of the benchmark/extrinsic to run.
 	pub benchmark: Vec<u8>,
 	/// The selected component values to use when running the benchmark.
@@ -229,6 +231,7 @@ pub struct BenchmarkMetadata {
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api for benchmarking a FRAME runtime.
+	#[api_version(2)]
 	pub trait Benchmark {
 		/// Get the benchmark metadata available for this runtime.
 		///
@@ -238,7 +241,7 @@ sp_api::decl_runtime_apis! {
 		fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>);
 
 		/// Dispatch the given benchmark.
-		fn dispatch_benchmark(config: BenchmarkConfig) -> Result<Vec<BenchmarkBatch>, sp_runtime::RuntimeString>;
+		fn dispatch_benchmark(config: BenchmarkConfig) -> Result<Vec<BenchmarkBatch>, alloc::string::String>;
 	}
 }
 

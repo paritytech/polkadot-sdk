@@ -1,0 +1,17 @@
+title: "[pallet-revive] Ethereum JSON-RPC"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add a new Ethereum JSON-RPC server that can be used a substrate chain configured with pallet-revive
+crates:
+  - name: pallet-revive
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: pallet-revive-eth-rpc
+    bump: patch
+  - name: pallet-revive-fixtures
+    bump: patch
+  - name: polkadot-sdk
+    bump: patch

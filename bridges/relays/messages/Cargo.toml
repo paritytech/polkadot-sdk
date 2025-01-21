@@ -11,19 +11,21 @@ publish = false
 workspace = true
 
 [dependencies]
-async-std = { version = "1.9.0", features = ["attributes"] }
-async-trait = "0.1.79"
-env_logger = "0.11"
-futures = "0.3.30"
-hex = "0.4"
+async-std = { features = ["attributes"], workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true, default-features = true }
 log = { workspace = true }
-num-traits = "0.2"
-parking_lot = "0.12.1"
+num-traits = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
 
 # Bridge Dependencies
 
-bp-messages = { path = "../../primitives/messages" }
-finality-relay = { path = "../finality" }
-relay-utils = { path = "../utils" }
+bp-messages = { workspace = true, default-features = true }
+finality-relay = { workspace = true }
+relay-utils = { workspace = true }
 
-sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
+sp-arithmetic = { workspace = true, default-features = true }
+
+[dev-dependencies]
+sp-core = { workspace = true }

@@ -24,6 +24,7 @@ use sp_runtime::{
 	traits::{BadOrigin, Dispatchable},
 	FixedU128,
 };
+use sp_staking::{Agent, DelegationInterface};
 
 macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
@@ -127,41 +128,41 @@ mod bonded_pool {
 			};
 
 			// 1 points : 1 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			assert_eq!(bonded_pool.balance_to_point(10), 10);
 			assert_eq!(bonded_pool.balance_to_point(0), 0);
 
 			// 2 points : 1 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 50);
+			set_pool_balance(bonded_pool.bonded_account(), 50);
 			assert_eq!(bonded_pool.balance_to_point(10), 20);
 
 			// 1 points : 2 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			bonded_pool.points = 50;
 			assert_eq!(bonded_pool.balance_to_point(10), 5);
 
 			// 100 points : 0 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 0);
+			set_pool_balance(bonded_pool.bonded_account(), 0);
 			bonded_pool.points = 100;
 			assert_eq!(bonded_pool.balance_to_point(10), 100 * 10);
 
 			// 0 points : 100 balance
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			bonded_pool.points = 0;
 			assert_eq!(bonded_pool.balance_to_point(10), 10);
 
 			// 10 points : 3 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 30);
+			set_pool_balance(bonded_pool.bonded_account(), 30);
 			bonded_pool.points = 100;
 			assert_eq!(bonded_pool.balance_to_point(10), 33);
 
 			// 2 points : 3 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 300);
+			set_pool_balance(bonded_pool.bonded_account(), 300);
 			bonded_pool.points = 200;
 			assert_eq!(bonded_pool.balance_to_point(10), 6);
 
 			// 4 points : 9 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 900);
+			set_pool_balance(bonded_pool.bonded_account(), 900);
 			bonded_pool.points = 400;
 			assert_eq!(bonded_pool.balance_to_point(90), 40);
 		})
@@ -182,7 +183,7 @@ mod bonded_pool {
 				},
 			};
 
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			assert_eq!(bonded_pool.points_to_balance(10), 10);
 			assert_eq!(bonded_pool.points_to_balance(0), 0);
 
@@ -191,27 +192,27 @@ mod bonded_pool {
 			assert_eq!(bonded_pool.points_to_balance(10), 20);
 
 			// 100 balance : 0 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			bonded_pool.points = 0;
 			assert_eq!(bonded_pool.points_to_balance(10), 0);
 
 			// 0 balance : 100 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 0);
+			set_pool_balance(bonded_pool.bonded_account(), 0);
 			bonded_pool.points = 100;
 			assert_eq!(bonded_pool.points_to_balance(10), 0);
 
 			// 10 balance : 3 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			bonded_pool.points = 30;
 			assert_eq!(bonded_pool.points_to_balance(10), 33);
 
 			// 2 balance : 3 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 200);
+			set_pool_balance(bonded_pool.bonded_account(), 200);
 			bonded_pool.points = 300;
 			assert_eq!(bonded_pool.points_to_balance(10), 6);
 
 			// 4 balance : 9 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 400);
+			set_pool_balance(bonded_pool.bonded_account(), 400);
 			bonded_pool.points = 900;
 			assert_eq!(bonded_pool.points_to_balance(90), 40);
 		})
@@ -269,30 +270,21 @@ mod bonded_pool {
 				<<Runtime as Config>::MaxPointsToBalance as Get<u8>>::get().into();
 
 			// Simulate a 100% slashed pool
-			StakingMock::set_bonded_balance(pool.bonded_account(), 0);
+			set_pool_balance(pool.bonded_account(), 0);
 			assert_noop!(pool.ok_to_join(), Error::<Runtime>::OverflowRisk);
 
 			// Simulate a slashed pool at `MaxPointsToBalance` + 1 slashed pool
-			StakingMock::set_bonded_balance(
-				pool.bonded_account(),
-				max_points_to_balance.saturating_add(1),
-			);
+			set_pool_balance(pool.bonded_account(), max_points_to_balance.saturating_add(1));
 			assert_ok!(pool.ok_to_join());
 
 			// Simulate a slashed pool at `MaxPointsToBalance`
-			StakingMock::set_bonded_balance(pool.bonded_account(), max_points_to_balance);
+			set_pool_balance(pool.bonded_account(), max_points_to_balance);
 			assert_noop!(pool.ok_to_join(), Error::<Runtime>::OverflowRisk);
 
-			StakingMock::set_bonded_balance(
-				pool.bonded_account(),
-				Balance::MAX / max_points_to_balance,
-			);
+			set_pool_balance(pool.bonded_account(), Balance::MAX / max_points_to_balance);
 
 			// and a sanity check
-			StakingMock::set_bonded_balance(
-				pool.bonded_account(),
-				Balance::MAX / max_points_to_balance - 1,
-			);
+			set_pool_balance(pool.bonded_account(), Balance::MAX / max_points_to_balance - 1);
 			assert_ok!(pool.ok_to_join());
 		});
 	}
@@ -310,7 +302,7 @@ mod bonded_pool {
 					state: PoolState::Open,
 				},
 			};
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), u128::MAX);
+			set_pool_balance(bonded_pool.bonded_account(), u128::MAX);
 
 			// Max out the points and balance of the pool and make sure the conversion works as
 			// expected and does not overflow.
@@ -640,8 +632,6 @@ mod sub_pools {
 }
 
 mod join {
-	use sp_runtime::TokenError;
-
 	use super::*;
 
 	#[test]
@@ -728,7 +718,7 @@ mod join {
 			);
 
 			// Force the pools bonded balance to 0, simulating a 100% slash
-			StakingMock::set_bonded_balance(Pools::generate_bonded_account(1), 0);
+			set_pool_balance(Pools::generate_bonded_account(1), 0);
 			assert_noop!(
 				Pools::join(RuntimeOrigin::signed(11), 420, 1),
 				Error::<Runtime>::OverflowRisk
@@ -754,29 +744,13 @@ mod join {
 			let max_points_to_balance: u128 =
 				<<Runtime as Config>::MaxPointsToBalance as Get<u8>>::get().into();
 
-			StakingMock::set_bonded_balance(
-				Pools::generate_bonded_account(123),
-				max_points_to_balance,
-			);
+			set_pool_balance(Pools::generate_bonded_account(123), max_points_to_balance);
 			assert_noop!(
 				Pools::join(RuntimeOrigin::signed(11), 420, 123),
 				Error::<Runtime>::OverflowRisk
 			);
 
-			StakingMock::set_bonded_balance(
-				Pools::generate_bonded_account(123),
-				Balance::MAX / max_points_to_balance,
-			);
-			// Balance needs to be gt Balance::MAX / `MaxPointsToBalance`
-			assert_noop!(
-				Pools::join(RuntimeOrigin::signed(11), 5, 123),
-				TokenError::FundsUnavailable,
-			);
-
-			StakingMock::set_bonded_balance(
-				Pools::generate_bonded_account(1),
-				max_points_to_balance,
-			);
+			set_pool_balance(Pools::generate_bonded_account(1), max_points_to_balance);
 
 			// Cannot join a pool that isn't open
 			unsafe_set_state(123, PoolState::Blocked);
@@ -807,7 +781,7 @@ mod join {
 	#[cfg_attr(not(debug_assertions), should_panic)]
 	fn join_panics_when_reward_pool_not_found() {
 		ExtBuilder::default().build_and_execute(|| {
-			StakingMock::set_bonded_balance(Pools::generate_bonded_account(123), 100);
+			set_pool_balance(Pools::generate_bonded_account(123), 100);
 			BondedPool::<Runtime> {
 				id: 123,
 				inner: BondedPoolInner {
@@ -2321,8 +2295,8 @@ mod claim_payout {
 	fn rewards_are_rounded_down_depositor_collects_them() {
 		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
 			// initial balance of 10.
-
-			assert_eq!(Currency::free_balance(&10), 35);
+			let init_balance_10 = Currency::free_balance(&10);
+			assert_eq!(member_delegation(10), 10);
 			assert_eq!(
 				Currency::free_balance(&default_reward_account()),
 				Currency::minimum_balance()
@@ -2364,17 +2338,19 @@ mod claim_payout {
 					Event::StateChanged { pool_id: 1, new_state: PoolState::Destroying },
 					Event::Unbonded { member: 20, pool_id: 1, balance: 20, points: 20, era: 3 },
 					Event::Withdrawn { member: 20, pool_id: 1, balance: 20, points: 20 },
-					Event::MemberRemoved { pool_id: 1, member: 20 },
+					Event::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 					Event::Unbonded { member: 10, pool_id: 1, balance: 10, points: 10, era: 6 },
 					Event::Withdrawn { member: 10, pool_id: 1, balance: 10, points: 10 },
-					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 					Event::Destroyed { pool_id: 1 }
 				]
 			);
 
 			assert!(!Metadata::<T>::contains_key(1));
-			// original ed + ed put into reward account + reward + bond + dust.
-			assert_eq!(Currency::free_balance(&10), 35 + 5 + 13 + 10 + 1);
+			// original ed + ed put into reward account + reward + dust.
+			assert_eq!(Currency::free_balance(&10), init_balance_10 + 5 + 13 + 1);
+			// delegation reduced from 10 to 0.
+			assert_eq!(member_delegation(10), 0);
 		})
 	}
 
@@ -2444,9 +2420,10 @@ mod claim_payout {
 			let claimable_reward = 8 - ExistentialDeposit::get();
 			// NOTE: easier to read if we use 3, so let's use the number instead of variable.
 			assert_eq!(claimable_reward, 3, "test is correct if rewards are divisible by 3");
+			let init_balance = Currency::free_balance(&10);
 
 			// given
-			assert_eq!(Currency::free_balance(&10), 35);
+			assert_eq!(member_delegation(10), 10);
 
 			// when
 
@@ -2455,7 +2432,10 @@ mod claim_payout {
 			assert_ok!(Pools::claim_payout_other(RuntimeOrigin::signed(80), 10));
 
 			// then
-			assert_eq!(Currency::free_balance(&10), 36);
+			// delegated balance does not change.
+			assert_eq!(member_delegation(10), 10);
+			// reward of 1 is paid out to 10.
+			assert_eq!(Currency::free_balance(&10), init_balance + 1);
 			assert_eq!(Currency::free_balance(&default_reward_account()), 7);
 		})
 	}
@@ -2818,6 +2798,8 @@ mod unbond {
 		ExtBuilder::default()
 			.add_members(vec![(40, 40), (550, 550)])
 			.build_and_execute(|| {
+				let init_balance_40 = Currency::free_balance(&40);
+				let init_balance_550 = Currency::free_balance(&550);
 				let ed = Currency::minimum_balance();
 				// Given a slash from 600 -> 500
 				StakingMock::slash_by(1, 500);
@@ -2864,7 +2846,9 @@ mod unbond {
 					PoolMembers::<Runtime>::get(40).unwrap().unbonding_eras,
 					member_unbonding_eras!(3 => 6)
 				);
-				assert_eq!(Currency::free_balance(&40), 40 + 40); // We claim rewards when unbonding
+				assert_eq!(member_delegation(40), 40);
+				// We claim rewards when unbonding
+				assert_eq!(Currency::free_balance(&40), init_balance_40 + 40);
 
 				// When
 				unsafe_set_state(1, PoolState::Destroying);
@@ -2893,7 +2877,8 @@ mod unbond {
 					PoolMembers::<Runtime>::get(550).unwrap().unbonding_eras,
 					member_unbonding_eras!(3 => 92)
 				);
-				assert_eq!(Currency::free_balance(&550), 550 + 550);
+				assert_eq!(member_delegation(550), 550);
+				assert_eq!(Currency::free_balance(&550), init_balance_550 + 550);
 				assert_eq!(
 					pool_events_since_last_call(),
 					vec![
@@ -2934,14 +2919,15 @@ mod unbond {
 				);
 				assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 0);
 
-				assert_eq!(Currency::free_balance(&550), 550 + 550 + 92);
+				// 550 is removed from pool.
+				assert_eq!(member_delegation(550), 0);
 				assert_eq!(
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 40, pool_id: 1, points: 6, balance: 6 },
-						Event::MemberRemoved { pool_id: 1, member: 40 },
+						Event::MemberRemoved { pool_id: 1, member: 40, released_balance: 0 },
 						Event::Withdrawn { member: 550, pool_id: 1, points: 92, balance: 92 },
-						Event::MemberRemoved { pool_id: 1, member: 550 },
+						Event::MemberRemoved { pool_id: 1, member: 550, released_balance: 0 },
 						Event::PaidOut { member: 10, pool_id: 1, payout: 10 },
 						Event::Unbonded { member: 10, pool_id: 1, points: 2, balance: 2, era: 6 }
 					]
@@ -3532,7 +3518,7 @@ mod pool_withdraw_unbonded {
 
 			assert_eq!(StakingMock::active_stake(&default_bonded_account()), Ok(15));
 			assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(20));
-			assert_eq!(Balances::free_balance(&default_bonded_account()), 20);
+			assert_eq!(pool_balance(1), 20);
 
 			// When
 			CurrentEra::set(StakingMock::current_era() + StakingMock::bonding_duration() + 1);
@@ -3541,7 +3527,7 @@ mod pool_withdraw_unbonded {
 			// Then their unbonding balance is no longer locked
 			assert_eq!(StakingMock::active_stake(&default_bonded_account()), Ok(15));
 			assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(15));
-			assert_eq!(Balances::free_balance(&default_bonded_account()), 20);
+			assert_eq!(pool_balance(1), 20);
 		});
 	}
 	#[test]
@@ -3552,7 +3538,7 @@ mod pool_withdraw_unbonded {
 
 			assert_eq!(StakingMock::active_stake(&default_bonded_account()), Ok(15));
 			assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(20));
-			assert_eq!(Balances::free_balance(&default_bonded_account()), 20);
+			assert_eq!(pool_balance(1), 20);
 			assert_eq!(TotalValueLocked::<T>::get(), 20);
 
 			// When
@@ -3568,14 +3554,14 @@ mod pool_withdraw_unbonded {
 			// Then their unbonding balance is no longer locked
 			assert_eq!(StakingMock::active_stake(&default_bonded_account()), Ok(15));
 			assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(15));
-			assert_eq!(Currency::free_balance(&default_bonded_account()), 20);
+			assert_eq!(pool_balance(1), 20);
 
 			// The difference between TVL and member_balance is exactly the difference between
-			// `total_stake` and the `free_balance`.
-			// This relation is not guaranteed in the wild as arbitrary transfers towards
-			// `free_balance` can be made to the pool that are not accounted for.
-			let non_locked_balance = Balances::free_balance(&default_bonded_account()) -
-				StakingMock::total_stake(&default_bonded_account()).unwrap();
+			// `pool balance` (sum of all balance delegated to pool) and the `staked balance`.
+			// This is the withdrawn funds from the pool stake that has not yet been claimed by the
+			// respective members.
+			let non_locked_balance =
+				pool_balance(1) - StakingMock::total_stake(&default_bonded_account()).unwrap();
 			assert_eq!(member_balance, TotalValueLocked::<T>::get() + non_locked_balance);
 		});
 	}
@@ -3597,7 +3583,7 @@ mod withdraw_unbonded {
 				assert_eq!(StakingMock::bonding_duration(), 3);
 				assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(550), 550));
 				assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(40), 40));
-				assert_eq!(Currency::free_balance(&default_bonded_account()), 600);
+				assert_eq!(pool_balance(1), 600);
 
 				let mut current_era = 1;
 				CurrentEra::set(current_era);
@@ -3626,10 +3612,7 @@ mod withdraw_unbonded {
 						.1 /= 2;
 					UnbondingBalanceMap::set(&x);
 
-					Currency::set_balance(
-						&default_bonded_account(),
-						Currency::free_balance(&default_bonded_account()) / 2, // 300
-					);
+					set_pool_balance(1, pool_balance(1) / 2);
 					assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 10);
 					StakingMock::slash_by(1, 5);
 					assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 5);
@@ -3671,11 +3654,6 @@ mod withdraw_unbonded {
 						Event::PoolSlashed { pool_id: 1, balance: 5 }
 					]
 				);
-				assert_eq!(
-					balances_events_since_last_call(),
-					vec![BEvent::Burned { who: default_bonded_account(), amount: 300 }]
-				);
-
 				// When
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(550), 550, 0));
 
@@ -3688,13 +3666,12 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 550, pool_id: 1, balance: 275, points: 550 },
-						Event::MemberRemoved { pool_id: 1, member: 550 }
+						Event::MemberRemoved { pool_id: 1, member: 550, released_balance: 0 }
 					]
 				);
-				assert_eq!(
-					balances_events_since_last_call(),
-					vec![BEvent::Transfer { from: default_bonded_account(), to: 550, amount: 275 }]
-				);
+
+				// member has 40 tokens in delegation, but only 20 can be withdrawan.
+				assert_eq!(member_delegation(40), 40);
 
 				// When
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(40), 40, 0));
@@ -3708,18 +3685,18 @@ mod withdraw_unbonded {
 				assert_eq!(
 					pool_events_since_last_call(),
 					vec![
+						// out of 40, 20 is withdrawn.
 						Event::Withdrawn { member: 40, pool_id: 1, balance: 20, points: 40 },
-						Event::MemberRemoved { pool_id: 1, member: 40 }
+						// member is removed and the dangling delegation of 20 tokens left in their
+						// account is released.
+						Event::MemberRemoved { pool_id: 1, member: 40, released_balance: 20 }
 					]
-				);
-				assert_eq!(
-					balances_events_since_last_call(),
-					vec![BEvent::Transfer { from: default_bonded_account(), to: 40, amount: 20 }]
 				);
 
 				// now, finally, the depositor can take out its share.
 				unsafe_set_state(1, PoolState::Destroying);
 				assert_ok!(fully_unbond_permissioned(10));
+				assert_eq!(member_delegation(10), 10);
 
 				current_era += 3;
 				CurrentEra::set(current_era);
@@ -3731,7 +3708,9 @@ mod withdraw_unbonded {
 					vec![
 						Event::Unbonded { member: 10, pool_id: 1, balance: 5, points: 5, era: 9 },
 						Event::Withdrawn { member: 10, pool_id: 1, balance: 5, points: 5 },
-						Event::MemberRemoved { pool_id: 1, member: 10 },
+						// when member is removed, any leftover delegation is released.
+						Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 5 },
+						// when the last member leaves, the pool is destroyed.
 						Event::Destroyed { pool_id: 1 }
 					]
 				);
@@ -3739,7 +3718,6 @@ mod withdraw_unbonded {
 				assert_eq!(
 					balances_events_since_last_call(),
 					vec![
-						BEvent::Transfer { from: default_bonded_account(), to: 10, amount: 5 },
 						BEvent::Thawed { who: default_reward_account(), amount: 5 },
 						BEvent::Transfer { from: default_reward_account(), to: 10, amount: 5 }
 					]
@@ -3753,11 +3731,9 @@ mod withdraw_unbonded {
 			.add_members(vec![(40, 40), (550, 550)])
 			.build_and_execute(|| {
 				let _ = balances_events_since_last_call();
-
 				// Given
 				// current bond is 600, we slash it all to 300.
 				StakingMock::slash_by(1, 300);
-				Currency::set_balance(&default_bonded_account(), 300);
 				assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(300));
 
 				assert_ok!(fully_unbond_permissioned(40));
@@ -3787,10 +3763,6 @@ mod withdraw_unbonded {
 						}
 					]
 				);
-				assert_eq!(
-					balances_events_since_last_call(),
-					vec![BEvent::Burned { who: default_bonded_account(), amount: 300 },]
-				);
 
 				CurrentEra::set(StakingMock::bonding_duration());
 
@@ -3799,14 +3771,10 @@ mod withdraw_unbonded {
 
 				// Then
 				assert_eq!(
-					balances_events_since_last_call(),
-					vec![BEvent::Transfer { from: default_bonded_account(), to: 40, amount: 20 },]
-				);
-				assert_eq!(
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 40, pool_id: 1, balance: 20, points: 20 },
-						Event::MemberRemoved { pool_id: 1, member: 40 }
+						Event::MemberRemoved { pool_id: 1, member: 40, released_balance: 0 }
 					]
 				);
 
@@ -3820,14 +3788,10 @@ mod withdraw_unbonded {
 
 				// Then
 				assert_eq!(
-					balances_events_since_last_call(),
-					vec![BEvent::Transfer { from: default_bonded_account(), to: 550, amount: 275 },]
-				);
-				assert_eq!(
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 550, pool_id: 1, balance: 275, points: 275 },
-						Event::MemberRemoved { pool_id: 1, member: 550 }
+						Event::MemberRemoved { pool_id: 1, member: 550, released_balance: 0 }
 					]
 				);
 				assert!(SubPoolsStorage::<Runtime>::get(1).unwrap().with_era.is_empty());
@@ -3852,9 +3816,11 @@ mod withdraw_unbonded {
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 				// then
-				assert_eq!(Currency::free_balance(&10), 10 + 35);
-				assert_eq!(Currency::free_balance(&default_bonded_account()), 0);
-
+				assert_eq!(
+					DelegateMock::agent_balance(Agent::from(default_bonded_account())),
+					None
+				);
+				assert_eq!(StakingMock::stake(&default_bonded_account()).unwrap().total, 0);
 				// in this test 10 also gets a fair share of the slash, because the slash was
 				// applied to the bonded account.
 				assert_eq!(
@@ -3862,7 +3828,7 @@ mod withdraw_unbonded {
 					vec![
 						Event::Unbonded { member: 10, pool_id: 1, points: 5, balance: 5, era: 6 },
 						Event::Withdrawn { member: 10, pool_id: 1, points: 5, balance: 5 },
-						Event::MemberRemoved { pool_id: 1, member: 10 },
+						Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 						Event::Destroyed { pool_id: 1 }
 					]
 				);
@@ -3870,41 +3836,11 @@ mod withdraw_unbonded {
 				assert_eq!(
 					balances_events_since_last_call(),
 					vec![
-						BEvent::Transfer { from: default_bonded_account(), to: 10, amount: 5 },
 						BEvent::Thawed { who: default_reward_account(), amount: 5 },
 						BEvent::Transfer { from: default_reward_account(), to: 10, amount: 5 }
 					]
 				);
 			});
-	}
-
-	#[test]
-	fn withdraw_unbonded_handles_faulty_sub_pool_accounting() {
-		ExtBuilder::default().build_and_execute(|| {
-			// Given
-			assert_eq!(Currency::minimum_balance(), 5);
-			assert_eq!(Currency::free_balance(&10), 35);
-			assert_eq!(Currency::free_balance(&default_bonded_account()), 10);
-			unsafe_set_state(1, PoolState::Destroying);
-			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(10), 10));
-
-			// Simulate a slash that is not accounted for in the sub pools.
-			Currency::set_balance(&default_bonded_account(), 5);
-			assert_eq!(
-				SubPoolsStorage::<Runtime>::get(1).unwrap().with_era,
-				//------------------------------balance decrease is not account for
-				unbonding_pools_with_era! { 3 => UnbondPool { points: 10, balance: 10 } }
-			);
-
-			CurrentEra::set(3);
-
-			// When
-			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
-
-			// Then
-			assert_eq!(Currency::free_balance(&10), 10 + 35);
-			assert_eq!(Currency::free_balance(&default_bonded_account()), 0);
-		});
 	}
 
 	#[test]
@@ -3924,6 +3860,10 @@ mod withdraw_unbonded {
 
 			let mut member = PoolMember { pool_id: 1, points: 10, ..Default::default() };
 			PoolMembers::<Runtime>::insert(11, member.clone());
+
+			// set agent and delegator balance
+			DelegateMock::set_agent_balance(Pools::generate_bonded_account(1), 10);
+			DelegateMock::set_delegator_balance(11, 10);
 
 			// Simulate calling `unbond`
 			member.unbonding_eras = member_unbonding_eras!(3 => 10);
@@ -4018,9 +3958,9 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 100, pool_id: 1, points: 100, balance: 100 },
-						Event::MemberRemoved { pool_id: 1, member: 100 },
+						Event::MemberRemoved { pool_id: 1, member: 100, released_balance: 0 },
 						Event::Withdrawn { member: 200, pool_id: 1, points: 200, balance: 200 },
-						Event::MemberRemoved { pool_id: 1, member: 200 }
+						Event::MemberRemoved { pool_id: 1, member: 200, released_balance: 0 }
 					]
 				);
 			});
@@ -4045,7 +3985,7 @@ mod withdraw_unbonded {
 				}
 			);
 			CurrentEra::set(StakingMock::bonding_duration());
-			assert_eq!(Currency::free_balance(&100), 100);
+			assert_eq!(member_delegation(100), 100);
 
 			// Cannot permissionlessly withdraw
 			assert_noop!(
@@ -4061,6 +4001,7 @@ mod withdraw_unbonded {
 
 			assert_eq!(SubPoolsStorage::<Runtime>::get(1).unwrap(), Default::default(),);
 			assert_eq!(Currency::free_balance(&100), 100 + 100);
+			assert_eq!(member_delegation(100), 0);
 			assert!(!PoolMembers::<Runtime>::contains_key(100));
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -4070,7 +4011,7 @@ mod withdraw_unbonded {
 					Event::Bonded { member: 100, pool_id: 1, bonded: 100, joined: true },
 					Event::Unbonded { member: 100, pool_id: 1, points: 100, balance: 100, era: 3 },
 					Event::Withdrawn { member: 100, pool_id: 1, points: 100, balance: 100 },
-					Event::MemberRemoved { pool_id: 1, member: 100 }
+					Event::MemberRemoved { pool_id: 1, member: 100, released_balance: 0 }
 				]
 			);
 		});
@@ -4310,7 +4251,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 100, pool_id: 1, points: 25, balance: 25 },
-					Event::MemberRemoved { pool_id: 1, member: 100 }
+					Event::MemberRemoved { pool_id: 1, member: 100, released_balance: 0 }
 				]
 			);
 		})
@@ -4548,7 +4489,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 10, pool_id: 1, points: 13, balance: 13 },
-					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 					Event::Destroyed { pool_id: 1 },
 				]
 			);
@@ -4588,7 +4529,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 20, pool_id: 1, balance: 20, points: 20 },
-					Event::MemberRemoved { pool_id: 1, member: 20 }
+					Event::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 }
 				]
 			);
 
@@ -4626,7 +4567,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 10, pool_id: 1, points: 10, balance: 10 },
-					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 					Event::Destroyed { pool_id: 1 },
 				]
 			);
@@ -4662,17 +4603,13 @@ mod withdraw_unbonded {
 
 			// move to era when unbonded funds can be withdrawn.
 			CurrentEra::set(4);
-
-			// increment consumer by 1 reproducing the erroneous consumer bug.
-			// refer https://github.com/paritytech/polkadot-sdk/issues/4440.
-			assert_ok!(frame_system::Pallet::<T>::inc_consumers(&pool_one));
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 			assert_eq!(
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 10, pool_id: 1, points: 10, balance: 10 },
-					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 					Event::Destroyed { pool_id: 1 },
 				]
 			);
@@ -4712,7 +4649,7 @@ mod create {
 			));
 			assert_eq!(TotalValueLocked::<T>::get(), 10 + StakingMock::minimum_nominator_bond());
 
-			assert_eq!(Currency::free_balance(&11), 0);
+			assert_eq!(member_delegation(11), StakingMock::minimum_nominator_bond());
 			assert_eq!(
 				PoolMembers::<Runtime>::get(11).unwrap(),
 				PoolMember {
@@ -4851,7 +4788,7 @@ mod create {
 				789
 			));
 
-			assert_eq!(Currency::free_balance(&11), 0);
+			assert_eq!(member_delegation(11), StakingMock::minimum_nominator_bond());
 			// delete the initial pool created, then pool_Id `1` will be free
 
 			assert_noop!(
@@ -5014,12 +4951,9 @@ mod set_state {
 			// surpassed. Making this pool destroyable by anyone.
 			StakingMock::slash_by(1, 10);
 
-			// in mock we are using transfer stake which implies slash is greedy. Extrinsic to
-			// apply pending slash should fail.
-			assert_noop!(
-				Pools::apply_slash(RuntimeOrigin::signed(11), 10),
-				Error::<Runtime>::NotSupported
-			);
+			// pending slash is correct.
+			assert_eq!(Pools::api_pool_pending_slash(1), 10);
+			assert_eq!(Pools::api_member_pending_slash(10), 10);
 
 			// When
 			assert_ok!(Pools::set_state(RuntimeOrigin::signed(11), 1, PoolState::Destroying));
@@ -5171,13 +5105,13 @@ mod bond_extra {
 			// given
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 10);
-			assert_eq!(Currency::free_balance(&10), 100);
+			assert_eq!(member_delegation(10), 10);
 
 			// when
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(10)));
 
 			// then
-			assert_eq!(Currency::free_balance(&10), 90);
+			assert_eq!(member_delegation(10), 10 + 10);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 20);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 20);
 
@@ -5194,7 +5128,7 @@ mod bond_extra {
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(20)));
 
 			// then
-			assert_eq!(Currency::free_balance(&10), 70);
+			assert_eq!(member_delegation(10), 20 + 20);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 40);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 40);
 
@@ -5217,13 +5151,15 @@ mod bond_extra {
 			// given
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 10);
-			assert_eq!(Currency::free_balance(&10), 35);
+			// 10 has delegated 10 tokens to the pool.
+			assert_eq!(member_delegation(10), 10);
 
 			// when
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::Rewards));
 
 			// then
-			assert_eq!(Currency::free_balance(&10), 35);
+			// delegator balance is increased by the claimable reward.
+			assert_eq!(member_delegation(10), 10 + claimable_reward);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10 + claimable_reward);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 10 + claimable_reward);
 
@@ -5260,8 +5196,8 @@ mod bond_extra {
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30);
 
-			assert_eq!(Currency::free_balance(&10), 35);
-			assert_eq!(Currency::free_balance(&20), 20);
+			assert_eq!(member_delegation(10), 10);
+			assert_eq!(member_delegation(20), 20);
 			assert_eq!(TotalValueLocked::<T>::get(), 30);
 
 			// when
@@ -5269,7 +5205,7 @@ mod bond_extra {
 			assert_eq!(Currency::free_balance(&default_reward_account()), 7);
 
 			// then
-			assert_eq!(Currency::free_balance(&10), 35);
+			assert_eq!(member_delegation(10), 10 + 1);
 			assert_eq!(TotalValueLocked::<T>::get(), 31);
 
 			// 10's share of the reward is 1/3, since they gave 10/30 of the total shares.
@@ -5280,11 +5216,11 @@ mod bond_extra {
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(20), BondExtra::Rewards));
 
 			// then
-			assert_eq!(Currency::free_balance(&20), 20);
 			assert_eq!(TotalValueLocked::<T>::get(), 33);
 
 			// 20's share of the rewards is the other 2/3 of the rewards, since they have 20/30 of
 			// the shares
+			assert_eq!(member_delegation(20), 20 + 2);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20 + 2);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30 + 3);
 
@@ -5316,8 +5252,8 @@ mod bond_extra {
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30);
-			assert_eq!(Currency::free_balance(&10), 35);
-			assert_eq!(Currency::free_balance(&20), 20);
+			assert_eq!(member_delegation(10), 10);
+			assert_eq!(member_delegation(20), 20);
 
 			// Permissioned by default
 			assert_noop!(
@@ -5333,7 +5269,7 @@ mod bond_extra {
 			assert_eq!(Currency::free_balance(&default_reward_account()), 7);
 
 			// then
-			assert_eq!(Currency::free_balance(&10), 35);
+			assert_eq!(member_delegation(10), 10 + 1);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10 + 1);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30 + 1);
 
@@ -5351,7 +5287,7 @@ mod bond_extra {
 			));
 
 			// then
-			assert_eq!(Currency::free_balance(&20), 12);
+			assert_eq!(member_delegation(20), 20 + 10);
 			assert_eq!(Currency::free_balance(&default_reward_account()), 5);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 30);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 41);
@@ -7481,63 +7417,5 @@ mod chill {
 			// any account can chill
 			assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
 		})
-	}
-}
-
-// the test mock is using `TransferStake` and so `DelegateStake` is not tested here. Extrinsics
-// meant for `DelegateStake` should be gated.
-//
-// `DelegateStake` tests are in `pallet-nomination-pools-test-delegate-stake`. Since we support both
-// strategies currently, we keep these tests as it is but in future we may remove `TransferStake`
-// completely.
-mod delegate_stake {
-	use super::*;
-	#[test]
-	fn delegation_specific_calls_are_gated() {
-		ExtBuilder::default().with_check(0).build_and_execute(|| {
-			// Given
-			Currency::set_balance(&11, ExistentialDeposit::get() + 2);
-			assert!(!PoolMembers::<Runtime>::contains_key(11));
-
-			// When
-			assert_ok!(Pools::join(RuntimeOrigin::signed(11), 2, 1));
-
-			// Then
-			assert_eq!(
-				pool_events_since_last_call(),
-				vec![
-					Event::Created { depositor: 10, pool_id: 1 },
-					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
-					Event::Bonded { member: 11, pool_id: 1, bonded: 2, joined: true },
-				]
-			);
-
-			assert_eq!(
-				PoolMembers::<Runtime>::get(11).unwrap(),
-				PoolMember::<Runtime> { pool_id: 1, points: 2, ..Default::default() }
-			);
-
-			// ensure pool 1 cannot be migrated.
-			assert_noop!(
-				Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
-				Error::<Runtime>::NotSupported
-			);
-
-			// members cannot be migrated either.
-			assert_noop!(
-				Pools::migrate_delegation(RuntimeOrigin::signed(10), 11),
-				Error::<Runtime>::NotSupported
-			);
-
-			// Given
-			// The bonded balance is slashed in half
-			StakingMock::slash_by(1, 6);
-
-			// since slash is greedy with `TransferStake`, `apply_slash` should not work either.
-			assert_noop!(
-				Pools::apply_slash(RuntimeOrigin::signed(10), 11),
-				Error::<Runtime>::NotSupported
-			);
-		});
 	}
 }

@@ -27,6 +27,8 @@ pub mod backend;
 mod basic;
 mod error;
 mod ext;
+#[cfg(feature = "fuzzing")]
+pub mod fuzzing;
 #[cfg(feature = "std")]
 mod in_memory_backend;
 pub(crate) mod overlayed_changes;
@@ -1273,7 +1275,7 @@ mod tests {
 
 		assert_eq!(
 			overlay
-				.changes()
+				.changes_mut()
 				.map(|(k, v)| (k.clone(), v.value().cloned()))
 				.collect::<HashMap<_, _>>(),
 			map![
@@ -1299,7 +1301,7 @@ mod tests {
 
 		assert_eq!(
 			overlay
-				.changes()
+				.changes_mut()
 				.map(|(k, v)| (k.clone(), v.value().cloned()))
 				.collect::<HashMap<_, _>>(),
 			map![
@@ -1340,7 +1342,7 @@ mod tests {
 
 		assert_eq!(
 			overlay
-				.children()
+				.children_mut()
 				.flat_map(|(iter, _child_info)| iter)
 				.map(|(k, v)| (k.clone(), v.value()))
 				.collect::<BTreeMap<_, _>>(),
@@ -1440,8 +1442,75 @@ mod tests {
 		}
 		overlay.rollback_transaction().unwrap();
 		{
-			let ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None);
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![reference_data[0].clone()].encode()));
+		}
+	}
+
+	// Test that we can append twice to a key, then perform a remove operation.
+	// The test checks specifically that the append is merged with its parent transaction
+	// on commit.
+	#[test]
+	fn commit_merges_append_with_parent() {
+		#[derive(codec::Encode, codec::Decode)]
+		enum Item {
+			Item1,
+			Item2,
+		}
+
+		let key = b"events".to_vec();
+		let state = new_in_mem::<BlakeTwo256>();
+		let backend = state.as_trie_backend();
+		let mut overlay = OverlayedChanges::default();
+
+		// Append first item
+		overlay.start_transaction();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+			ext.clear_storage(key.as_slice());
+			ext.storage_append(key.clone(), Item::Item1.encode());
+		}
+
+		// Append second item
+		overlay.start_transaction();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+
+			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
+
+			ext.storage_append(key.clone(), Item::Item2.encode());
+
+			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1, Item::Item2].encode()),);
+		}
+
+		// Remove item
+		overlay.start_transaction();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+
+			ext.place_storage(key.clone(), None);
+
+			assert_eq!(ext.storage(key.as_slice()), None);
+		}
+
+		// Remove gets commited and merged into previous transaction
+		overlay.commit_transaction().unwrap();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+			assert_eq!(ext.storage(key.as_slice()), None,);
+		}
+
+		// Remove gets rolled back, we should see the initial append again.
+		overlay.rollback_transaction().unwrap();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
+		}
+
+		overlay.commit_transaction().unwrap();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
 		}
 	}
 
@@ -1499,7 +1568,7 @@ mod tests {
 
 		// Then only initialization item and second (committed) item should persist.
 		{
-			let ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None);
 			assert_eq!(
 				ext.storage(key.as_slice()),
 				Some(vec![Item::InitializationItem, Item::CommittedItem].encode()),

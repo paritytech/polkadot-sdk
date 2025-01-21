@@ -32,7 +32,7 @@ use crate::{
 	on_demand::{headers::OnDemandHeadersRelay, OnDemandRelay},
 };
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, ChainWithRuntimeVersion, ChainWithTransactions,
+	AccountIdOf, AccountKeyPairOf, ChainWithRuntimeVersion, ChainWithTransactions, Client,
 };
 use sp_core::Pair;
 
@@ -148,7 +148,7 @@ where
 		.await?;
 
 		let left_to_right_on_demand_headers =
-			OnDemandHeadersRelay::<<L2R as RelayToRelayHeadersCliBridge>::Finality>::new(
+			OnDemandHeadersRelay::<<L2R as RelayToRelayHeadersCliBridge>::Finality, _, _>::new(
 				self.common.left.client.clone(),
 				self.common.right.client.clone(),
 				self.common.right.tx_params.clone(),
@@ -156,7 +156,7 @@ where
 				None,
 			);
 		let right_to_left_on_demand_headers =
-			OnDemandHeadersRelay::<<R2L as RelayToRelayHeadersCliBridge>::Finality>::new(
+			OnDemandHeadersRelay::<<R2L as RelayToRelayHeadersCliBridge>::Finality, _, _>::new(
 				self.common.right.client.clone(),
 				self.common.left.client.clone(),
 				self.common.left.tx_params.clone(),

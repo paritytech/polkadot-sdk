@@ -28,9 +28,8 @@ use rand_chacha::{
 use sp_io::hashing::blake2_256;
 
 use frame_election_provider_support::SortedListProvider;
-use frame_support::{pallet_prelude::*, traits::Currency};
+use frame_support::pallet_prelude::*;
 use sp_runtime::{traits::StaticLookup, Perbill};
-use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 
@@ -54,8 +53,8 @@ pub fn create_funded_user<T: Config>(
 	balance_factor: u32,
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
-	let balance = T::Currency::minimum_balance() * balance_factor.into();
-	let _ = T::Currency::make_free_balance_be(&user, balance);
+	let balance = asset::existential_deposit::<T>() * balance_factor.into();
+	let _ = asset::set_stakeable_balance::<T>(&user, balance);
 	user
 }
 
@@ -66,7 +65,7 @@ pub fn create_funded_user_with_balance<T: Config>(
 	balance: BalanceOf<T>,
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
-	let _ = T::Currency::make_free_balance_be(&user, balance);
+	let _ = asset::set_stakeable_balance::<T>(&user, balance);
 	user
 }
 
@@ -78,7 +77,7 @@ pub fn create_stash_controller<T: Config>(
 ) -> Result<(T::AccountId, T::AccountId), &'static str> {
 	let staker = create_funded_user::<T>("stash", n, balance_factor);
 	let amount =
-		T::Currency::minimum_balance().max(1u64.into()) * (balance_factor / 10).max(1).into();
+		asset::existential_deposit::<T>().max(1u64.into()) * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(RawOrigin::Signed(staker.clone()).into(), amount, destination)?;
 	Ok((staker.clone(), staker))
 }
@@ -97,7 +96,7 @@ pub fn create_unique_stash_controller<T: Config>(
 	} else {
 		create_funded_user::<T>("controller", n, balance_factor)
 	};
-	let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+	let amount = asset::existential_deposit::<T>() * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(RawOrigin::Signed(stash.clone()).into(), amount, destination)?;
 
 	// update ledger to be a *different* controller to stash
@@ -130,7 +129,7 @@ pub fn create_stash_and_dead_payee<T: Config>(
 	let staker = create_funded_user::<T>("stash", n, 0);
 	// payee has no funds
 	let payee = create_funded_user::<T>("payee", n, 0);
-	let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+	let amount = asset::existential_deposit::<T>() * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(
 		RawOrigin::Signed(staker.clone()).into(),
 		amount,
@@ -237,5 +236,23 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 
 /// get the current era.
 pub fn current_era<T: Config>() -> EraIndex {
-	<Pallet<T>>::current_era().unwrap_or(0)
+	CurrentEra::<T>::get().unwrap_or(0)
+}
+
+pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
+	use frame_support::traits::LockableCurrency;
+	let staked = asset::staked::<T>(&who);
+
+	// apply locks (this also adds a consumer).
+	T::OldCurrency::set_lock(
+		STAKING_ID,
+		&who,
+		staked,
+		frame_support::traits::WithdrawReasons::all(),
+	);
+	// remove holds.
+	asset::kill_stake::<T>(&who).expect("remove hold failed");
+
+	// replicate old behaviour of explicit increment of consumer.
+	frame_system::Pallet::<T>::inc_consumers(&who).expect("increment consumer failed");
 }

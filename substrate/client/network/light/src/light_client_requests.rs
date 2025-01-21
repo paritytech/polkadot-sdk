@@ -18,7 +18,9 @@
 
 //! Helpers for outgoing and incoming light client requests.
 
-use sc_network::{config::ProtocolId, request_responses::IncomingRequest, NetworkBackend};
+use sc_network::{
+	config::ProtocolId, request_responses::IncomingRequest, NetworkBackend, MAX_RESPONSE_SIZE,
+};
 use sp_runtime::traits::Block;
 
 use std::time::Duration;
@@ -57,7 +59,7 @@ pub fn generate_protocol_config<
 		generate_protocol_name(genesis_hash, fork_id).into(),
 		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
 		1 * 1024 * 1024,
-		16 * 1024 * 1024,
+		MAX_RESPONSE_SIZE,
 		Duration::from_secs(15),
 		Some(inbound_queue),
 	)

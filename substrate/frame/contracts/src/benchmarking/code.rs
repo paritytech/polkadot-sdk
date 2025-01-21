@@ -25,9 +25,9 @@
 //! compiles it down into a `WasmModule` that can be used as a contract's code.
 
 use crate::Config;
+use alloc::{borrow::ToOwned, vec, vec::Vec};
 use frame_support::traits::Get;
 use sp_runtime::{traits::Hash, Saturating};
-use sp_std::{borrow::ToOwned, prelude::*};
 use wasm_instrument::parity_wasm::{
 	builder,
 	elements::{
@@ -114,7 +114,6 @@ pub struct ImportedFunction {
 pub struct WasmModule<T: Config> {
 	pub code: Vec<u8>,
 	pub hash: <T::Hashing as Hash>::Output,
-	pub memory: Option<ImportedMemory>,
 }
 
 impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
@@ -233,7 +232,7 @@ impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
 
 		let code = contract.build().into_bytes().unwrap();
 		let hash = T::Hashing::hash(&code);
-		Self { code: code.into(), hash, memory: def.memory }
+		Self { code: code.into(), hash }
 	}
 }
 
@@ -338,7 +337,7 @@ pub mod body {
 				.cycle()
 				.take(instructions.len() * usize::try_from(repetitions).unwrap())
 				.cloned()
-				.chain(sp_std::iter::once(Instruction::End))
+				.chain(core::iter::once(Instruction::End))
 				.collect(),
 		);
 		FuncBody::new(locals.to_vec(), instructions)

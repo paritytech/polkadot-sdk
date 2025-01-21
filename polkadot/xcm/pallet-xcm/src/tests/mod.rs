@@ -19,11 +19,15 @@
 pub(crate) mod assets_transfer;
 
 use crate::{
-	mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error,
-	ExecuteControllerWeightInfo, LatestVersionedLocation, Pallet, Queries, QueryStatus,
-	RecordedXcm, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
+	migration::data::NeedsMigration,
+	mock::*,
+	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
+	AssetTraps, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
+	LatestVersionedLocation, Pallet, Queries, QueryStatus, RecordedXcm, RemoteLockedFungibleRecord,
+	ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
 	VersionNotifyTargets, WeightInfo,
 };
+use bounded_collections::BoundedVec;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	traits::{Currency, Hooks},
@@ -478,14 +482,14 @@ fn claim_assets_works() {
 		// Even though assets are trapped, the extrinsic returns success.
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::V4(trapping_program)),
+			Box::new(VersionedXcm::from(trapping_program)),
 			BaseXcmWeight::get() * 2,
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 
 		// Expected `AssetsTrapped` event info.
 		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-		let versioned_assets = VersionedAssets::V4(Assets::from((Here, SEND_AMOUNT)));
+		let versioned_assets = VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)));
 		let hash = BlakeTwo256::hash_of(&(source.clone(), versioned_assets.clone()));
 
 		// Assets were indeed trapped.
@@ -508,10 +512,11 @@ fn claim_assets_works() {
 		// Now claim them with the extrinsic.
 		assert_ok!(XcmPallet::claim_assets(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedAssets::V4((Here, SEND_AMOUNT).into())),
-			Box::new(VersionedLocation::V4(
-				AccountId32 { network: None, id: ALICE.clone().into() }.into()
-			)),
+			Box::new(VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)))),
+			Box::new(VersionedLocation::from(Location::from(AccountId32 {
+				network: None,
+				id: ALICE.clone().into()
+			}))),
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
@@ -602,11 +607,11 @@ fn basic_subscription_works() {
 
 		let weight = BaseXcmWeight::get();
 		let mut message = Xcm::<()>(vec![
-			// Remote supports XCM v2
+			// Remote supports XCM v3
 			QueryResponse {
 				query_id: 0,
 				max_weight: Weight::zero(),
-				response: Response::Version(1),
+				response: Response::Version(3),
 				querier: None,
 			},
 		]);
@@ -764,14 +769,14 @@ fn subscription_side_upgrades_work_with_notify() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
 		AdvertisedXcmVersion::set(1);
 
-		// An entry from a previous runtime with v2 XCM.
-		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1001).into());
-		VersionNotifyTargets::<Test>::insert(1, v2_location, (70, Weight::zero(), 2));
-		let v3_location = Parachain(1003).into_versioned();
-		VersionNotifyTargets::<Test>::insert(3, v3_location, (72, Weight::zero(), 2));
+		// An entry from a previous runtime with v3 XCM.
+		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
+		VersionNotifyTargets::<Test>::insert(3, v3_location, (70, Weight::zero(), 3));
+		let v4_location = Parachain(1003).into_versioned();
+		VersionNotifyTargets::<Test>::insert(4, v4_location, (72, Weight::zero(), 3));
 
 		// New version.
-		AdvertisedXcmVersion::set(3);
+		AdvertisedXcmVersion::set(4);
 
 		// A runtime upgrade which alters the version does send notifications.
 		CurrentMigration::<Test>::put(VersionMigrationStage::default());
@@ -780,13 +785,13 @@ fn subscription_side_upgrades_work_with_notify() {
 		let instr1 = QueryResponse {
 			query_id: 70,
 			max_weight: Weight::zero(),
-			response: Response::Version(3),
+			response: Response::Version(4),
 			querier: None,
 		};
 		let instr3 = QueryResponse {
 			query_id: 72,
 			max_weight: Weight::zero(),
-			response: Response::Version(3),
+			response: Response::Version(4),
 			querier: None,
 		};
 		let mut sent = take_sent_xcm();
@@ -807,8 +812,8 @@ fn subscription_side_upgrades_work_with_notify() {
 		assert_eq!(
 			contents,
 			vec![
-				(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 3)),
-				(XCM_VERSION, Parachain(1003).into_versioned(), (72, Weight::zero(), 3)),
+				(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 4)),
+				(XCM_VERSION, Parachain(1003).into_versioned(), (72, Weight::zero(), 4)),
 			]
 		);
 	});
@@ -817,11 +822,11 @@ fn subscription_side_upgrades_work_with_notify() {
 #[test]
 fn subscription_side_upgrades_work_without_notify() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		// An entry from a previous runtime with v2 XCM.
-		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1001).into());
-		VersionNotifyTargets::<Test>::insert(1, v2_location, (70, Weight::zero(), 2));
-		let v3_location = Parachain(1003).into_versioned();
-		VersionNotifyTargets::<Test>::insert(3, v3_location, (72, Weight::zero(), 2));
+		// An entry from a previous runtime with v3 XCM.
+		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
+		VersionNotifyTargets::<Test>::insert(3, v3_location, (70, Weight::zero(), 3));
+		let v4_location = Parachain(1003).into_versioned();
+		VersionNotifyTargets::<Test>::insert(4, v4_location, (72, Weight::zero(), 3));
 
 		// A runtime upgrade which alters the version does send notifications.
 		CurrentMigration::<Test>::put(VersionMigrationStage::default());
@@ -854,11 +859,11 @@ fn subscriber_side_subscription_works() {
 
 		let weight = BaseXcmWeight::get();
 		let message = Xcm(vec![
-			// Remote supports XCM v2
+			// Remote supports XCM v3
 			QueryResponse {
 				query_id: 0,
 				max_weight: Weight::zero(),
-				response: Response::Version(1),
+				response: Response::Version(3),
 				querier: None,
 			},
 		]);
@@ -872,18 +877,21 @@ fn subscriber_side_subscription_works() {
 		);
 		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(take_sent_xcm(), vec![]);
-		assert_eq!(XcmPallet::get_version_for(&remote), Some(1));
+		assert_eq!(XcmPallet::get_version_for(&remote), Some(3));
 
-		// This message cannot be sent to a v2 remote.
-		let v2_msg = xcm::v2::Xcm::<()>(vec![xcm::v2::Instruction::Trap(0)]);
-		assert_eq!(XcmPallet::wrap_version(&remote, v2_msg.clone()), Err(()));
+		// This message will be sent as v3.
+		let v4_msg = xcm::v4::Xcm::<()>(vec![xcm::v4::Instruction::Trap(0)]);
+		assert_eq!(
+			XcmPallet::wrap_version(&remote, v4_msg.clone()),
+			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::Trap(0)])))
+		);
 
 		let message = Xcm(vec![
-			// Remote upgraded to XCM v2
+			// Remote upgraded to XCM v4
 			QueryResponse {
 				query_id: 0,
 				max_weight: Weight::zero(),
-				response: Response::Version(2),
+				response: Response::Version(4),
 				querier: None,
 			},
 		]);
@@ -897,12 +905,12 @@ fn subscriber_side_subscription_works() {
 		);
 		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(take_sent_xcm(), vec![]);
-		assert_eq!(XcmPallet::get_version_for(&remote), Some(2));
+		assert_eq!(XcmPallet::get_version_for(&remote), Some(4));
 
-		// This message can now be sent to remote as it's v2.
+		// This message is now sent as v4.
 		assert_eq!(
-			XcmPallet::wrap_version(&remote, v2_msg.clone()),
-			Ok(VersionedXcm::from(v2_msg))
+			XcmPallet::wrap_version(&remote, v4_msg.clone()),
+			Ok(VersionedXcm::from(v4_msg))
 		);
 	});
 }
@@ -911,30 +919,36 @@ fn subscriber_side_subscription_works() {
 #[test]
 fn auto_subscription_works() {
 	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
-		let remote_v2: Location = Parachain(1000).into();
+		let remote_v3: Location = Parachain(1000).into();
 		let remote_v4: Location = Parachain(1001).into();
 
-		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(2)));
+		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(3)));
 
 		// Wrapping a version for a destination we don't know elicits a subscription.
-		let msg_v2 = xcm::v2::Xcm::<()>(vec![xcm::v2::Instruction::Trap(0)]);
+		let msg_v3 = xcm::v3::Xcm::<()>(vec![xcm::v3::Instruction::Trap(0)]);
 		let msg_v4 = xcm::v4::Xcm::<()>(vec![xcm::v4::Instruction::ClearTopic]);
 		assert_eq!(
-			XcmPallet::wrap_version(&remote_v2, msg_v2.clone()),
-			Ok(VersionedXcm::from(msg_v2.clone())),
+			XcmPallet::wrap_version(&remote_v3, msg_v3.clone()),
+			Ok(VersionedXcm::from(msg_v3.clone())),
 		);
-		assert_eq!(XcmPallet::wrap_version(&remote_v2, msg_v4.clone()), Err(()));
+		assert_eq!(
+			XcmPallet::wrap_version(&remote_v3, msg_v4.clone()),
+			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::ClearTopic])))
+		);
 
-		let expected = vec![(remote_v2.clone().into(), 2)];
+		let expected = vec![(remote_v3.clone().into(), 2)];
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), expected);
 
 		assert_eq!(
-			XcmPallet::wrap_version(&remote_v4, msg_v2.clone()),
-			Ok(VersionedXcm::from(msg_v2.clone())),
+			XcmPallet::wrap_version(&remote_v4, msg_v3.clone()),
+			Ok(VersionedXcm::from(msg_v3.clone())),
 		);
-		assert_eq!(XcmPallet::wrap_version(&remote_v4, msg_v4.clone()), Err(()));
+		assert_eq!(
+			XcmPallet::wrap_version(&remote_v4, msg_v4.clone()),
+			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::ClearTopic])))
+		);
 
-		let expected = vec![(remote_v2.clone().into(), 2), (remote_v4.clone().into(), 2)];
+		let expected = vec![(remote_v3.clone().into(), 2), (remote_v4.clone().into(), 2)];
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), expected);
 
 		XcmPallet::on_initialize(1);
@@ -968,10 +982,10 @@ fn auto_subscription_works() {
 		);
 		assert_eq!(r, Outcome::Complete { used: weight });
 
-		// V2 messages can be sent to remote_v4 under XCM v4.
+		// V3 messages can be sent to remote_v4 under XCM v4.
 		assert_eq!(
-			XcmPallet::wrap_version(&remote_v4, msg_v2.clone()),
-			Ok(VersionedXcm::from(msg_v2.clone()).into_version(4).unwrap()),
+			XcmPallet::wrap_version(&remote_v4, msg_v3.clone()),
+			Ok(VersionedXcm::from(msg_v3.clone()).into_version(4).unwrap()),
 		);
 		// This message can now be sent to remote_v4 as it's v4.
 		assert_eq!(
@@ -983,26 +997,26 @@ fn auto_subscription_works() {
 		assert_eq!(
 			take_sent_xcm(),
 			vec![(
-				remote_v2.clone(),
+				remote_v3.clone(),
 				Xcm(vec![SubscribeVersion { query_id: 1, max_response_weight: Weight::zero() }]),
 			)]
 		);
 
-		// Assume remote_v2 is working ok and XCM version 2.
+		// Assume remote_v3 is working ok and XCM version 3.
 
 		let weight = BaseXcmWeight::get();
 		let message = Xcm(vec![
-			// Remote supports XCM v2
+			// Remote supports XCM v3
 			QueryResponse {
 				query_id: 1,
 				max_weight: Weight::zero(),
-				response: Response::Version(2),
+				response: Response::Version(3),
 				querier: None,
 			},
 		]);
 		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
-			remote_v2.clone(),
+			remote_v3.clone(),
 			message,
 			&mut hash,
 			weight,
@@ -1010,12 +1024,15 @@ fn auto_subscription_works() {
 		);
 		assert_eq!(r, Outcome::Complete { used: weight });
 
-		// v4 messages cannot be sent to remote_v2...
+		// v4 messages cannot be sent to remote_v3...
 		assert_eq!(
-			XcmPallet::wrap_version(&remote_v2, msg_v2.clone()),
-			Ok(VersionedXcm::V2(msg_v2))
+			XcmPallet::wrap_version(&remote_v3, msg_v3.clone()),
+			Ok(VersionedXcm::V3(msg_v3))
 		);
-		assert_eq!(XcmPallet::wrap_version(&remote_v2, msg_v4.clone()), Err(()));
+		assert_eq!(
+			XcmPallet::wrap_version(&remote_v3, msg_v4.clone()),
+			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::ClearTopic])))
+		);
 	})
 }
 
@@ -1025,15 +1042,15 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		AdvertisedXcmVersion::set(1);
 
 		// An entry from a previous runtime with v0 XCM.
-		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1001).into());
-		VersionNotifyTargets::<Test>::insert(1, v2_location, (70, Weight::zero(), 1));
-		let v2_location = VersionedLocation::V2(xcm::v2::Junction::Parachain(1002).into());
-		VersionNotifyTargets::<Test>::insert(2, v2_location, (71, Weight::zero(), 1));
-		let v3_location = Parachain(1003).into_versioned();
-		VersionNotifyTargets::<Test>::insert(3, v3_location, (72, Weight::zero(), 1));
+		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
+		VersionNotifyTargets::<Test>::insert(3, v3_location, (70, Weight::zero(), 3));
+		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1002).into());
+		VersionNotifyTargets::<Test>::insert(3, v3_location, (71, Weight::zero(), 3));
+		let v4_location = Parachain(1003).into_versioned();
+		VersionNotifyTargets::<Test>::insert(4, v4_location, (72, Weight::zero(), 3));
 
 		// New version.
-		AdvertisedXcmVersion::set(3);
+		AdvertisedXcmVersion::set(4);
 
 		// A runtime upgrade which alters the version does send notifications.
 		CurrentMigration::<Test>::put(VersionMigrationStage::default());
@@ -1049,19 +1066,19 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		let instr1 = QueryResponse {
 			query_id: 70,
 			max_weight: Weight::zero(),
-			response: Response::Version(3),
+			response: Response::Version(4),
 			querier: None,
 		};
 		let instr2 = QueryResponse {
 			query_id: 71,
 			max_weight: Weight::zero(),
-			response: Response::Version(3),
+			response: Response::Version(4),
 			querier: None,
 		};
 		let instr3 = QueryResponse {
 			query_id: 72,
 			max_weight: Weight::zero(),
-			response: Response::Version(3),
+			response: Response::Version(4),
 			querier: None,
 		};
 		let mut sent = take_sent_xcm();
@@ -1083,9 +1100,9 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		assert_eq!(
 			contents,
 			vec![
-				(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 3)),
-				(XCM_VERSION, Parachain(1002).into_versioned(), (71, Weight::zero(), 3)),
-				(XCM_VERSION, Parachain(1003).into_versioned(), (72, Weight::zero(), 3)),
+				(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 4)),
+				(XCM_VERSION, Parachain(1002).into_versioned(), (71, Weight::zero(), 4)),
+				(XCM_VERSION, Parachain(1003).into_versioned(), (72, Weight::zero(), 4)),
 			]
 		);
 	});
@@ -1243,6 +1260,168 @@ fn multistage_migration_works() {
 
 		// check `try-state`
 		assert!(Pallet::<Test>::do_try_state().is_ok());
+	})
+}
+
+#[test]
+fn migrate_data_to_xcm_version_works() {
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		// check `try-state`
+		assert!(Pallet::<Test>::do_try_state().is_ok());
+
+		let latest_version = XCM_VERSION;
+		let previous_version = XCM_VERSION - 1;
+
+		// `Queries` migration
+		{
+			let origin = VersionedLocation::from(Location::parent());
+			let query_id1 = 0;
+			let query_id2 = 2;
+			let query_as_latest =
+				QueryStatus::VersionNotifier { origin: origin.clone(), is_active: true };
+			let query_as_previous = QueryStatus::VersionNotifier {
+				origin: origin.into_version(previous_version).unwrap(),
+				is_active: true,
+			};
+			assert_ne!(query_as_latest, query_as_previous);
+			assert!(!query_as_latest.needs_migration(latest_version));
+			assert!(!query_as_latest.needs_migration(previous_version));
+			assert!(query_as_previous.needs_migration(latest_version));
+			assert!(!query_as_previous.needs_migration(previous_version));
+
+			// store two queries: migrated and not migrated
+			Queries::<Test>::insert(query_id1, query_as_latest.clone());
+			Queries::<Test>::insert(query_id2, query_as_previous);
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+
+			// trigger migration
+			Pallet::<Test>::migrate_data_to_xcm_version(&mut Weight::zero(), latest_version);
+
+			// no change for query_id1
+			assert_eq!(Queries::<Test>::get(query_id1), Some(query_as_latest.clone()));
+			// change for query_id2
+			assert_eq!(Queries::<Test>::get(query_id2), Some(query_as_latest));
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+		}
+
+		// `LockedFungibles` migration
+		{
+			let account1 = AccountId::new([13u8; 32]);
+			let account2 = AccountId::new([58u8; 32]);
+			let unlocker = VersionedLocation::from(Location::parent());
+			let lockeds_as_latest = BoundedVec::truncate_from(vec![(0, unlocker.clone())]);
+			let lockeds_as_previous = BoundedVec::truncate_from(vec![(
+				0,
+				unlocker.into_version(previous_version).unwrap(),
+			)]);
+			assert_ne!(lockeds_as_latest, lockeds_as_previous);
+			assert!(!lockeds_as_latest.needs_migration(latest_version));
+			assert!(!lockeds_as_latest.needs_migration(previous_version));
+			assert!(lockeds_as_previous.needs_migration(latest_version));
+			assert!(!lockeds_as_previous.needs_migration(previous_version));
+
+			// store two lockeds: migrated and not migrated
+			LockedFungibles::<Test>::insert(&account1, lockeds_as_latest.clone());
+			LockedFungibles::<Test>::insert(&account2, lockeds_as_previous);
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+
+			// trigger migration
+			Pallet::<Test>::migrate_data_to_xcm_version(&mut Weight::zero(), latest_version);
+
+			// no change for account1
+			assert_eq!(LockedFungibles::<Test>::get(&account1), Some(lockeds_as_latest.clone()));
+			// change for account2
+			assert_eq!(LockedFungibles::<Test>::get(&account2), Some(lockeds_as_latest));
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+		}
+
+		// `RemoteLockedFungibles` migration
+		{
+			let account1 = AccountId::new([13u8; 32]);
+			let account2 = AccountId::new([58u8; 32]);
+			let account3 = AccountId::new([97u8; 32]);
+			let asset_id = VersionedAssetId::from(AssetId(Location::parent()));
+			let owner = VersionedLocation::from(Location::parent());
+			let locker = VersionedLocation::from(Location::parent());
+			let key1_as_latest = (latest_version, account1, asset_id.clone());
+			let key2_as_latest = (latest_version, account2, asset_id.clone());
+			let key3_as_previous = (
+				previous_version,
+				account3.clone(),
+				asset_id.clone().into_version(previous_version).unwrap(),
+			);
+			let expected_key3_as_latest = (latest_version, account3, asset_id);
+			let data_as_latest = RemoteLockedFungibleRecord {
+				amount: Default::default(),
+				owner: owner.clone(),
+				locker: locker.clone(),
+				consumers: Default::default(),
+			};
+			let data_as_previous = RemoteLockedFungibleRecord {
+				amount: Default::default(),
+				owner: owner.into_version(previous_version).unwrap(),
+				locker: locker.into_version(previous_version).unwrap(),
+				consumers: Default::default(),
+			};
+			assert_ne!(data_as_latest.owner, data_as_previous.owner);
+			assert_ne!(data_as_latest.locker, data_as_previous.locker);
+			assert!(!key1_as_latest.needs_migration(latest_version));
+			assert!(!key1_as_latest.needs_migration(previous_version));
+			assert!(!key2_as_latest.needs_migration(latest_version));
+			assert!(!key2_as_latest.needs_migration(previous_version));
+			assert!(key3_as_previous.needs_migration(latest_version));
+			assert!(!key3_as_previous.needs_migration(previous_version));
+			assert!(!expected_key3_as_latest.needs_migration(latest_version));
+			assert!(!expected_key3_as_latest.needs_migration(previous_version));
+			assert!(!data_as_latest.needs_migration(latest_version));
+			assert!(!data_as_latest.needs_migration(previous_version));
+			assert!(data_as_previous.needs_migration(latest_version));
+			assert!(!data_as_previous.needs_migration(previous_version));
+
+			// store three lockeds:
+			// fully migrated
+			RemoteLockedFungibles::<Test>::insert(&key1_as_latest, data_as_latest.clone());
+			// only key migrated
+			RemoteLockedFungibles::<Test>::insert(&key2_as_latest, data_as_previous.clone());
+			// neither key nor data migrated
+			RemoteLockedFungibles::<Test>::insert(&key3_as_previous, data_as_previous);
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+
+			// trigger migration
+			Pallet::<Test>::migrate_data_to_xcm_version(&mut Weight::zero(), latest_version);
+
+			let assert_locked_eq =
+				|left: Option<RemoteLockedFungibleRecord<_, _>>,
+				 right: Option<RemoteLockedFungibleRecord<_, _>>| {
+					match (left, right) {
+						(None, Some(_)) | (Some(_), None) =>
+							assert!(false, "Received unexpected message"),
+						(None, None) => (),
+						(Some(l), Some(r)) => {
+							assert_eq!(l.owner, r.owner);
+							assert_eq!(l.locker, r.locker);
+						},
+					}
+				};
+
+			// no change
+			assert_locked_eq(
+				RemoteLockedFungibles::<Test>::get(&key1_as_latest),
+				Some(data_as_latest.clone()),
+			);
+			// change - data migrated
+			assert_locked_eq(
+				RemoteLockedFungibles::<Test>::get(&key2_as_latest),
+				Some(data_as_latest.clone()),
+			);
+			// fully migrated
+			assert_locked_eq(RemoteLockedFungibles::<Test>::get(&key3_as_previous), None);
+			assert_locked_eq(
+				RemoteLockedFungibles::<Test>::get(&expected_key3_as_latest),
+				Some(data_as_latest.clone()),
+			);
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+		}
 	})
 }
 

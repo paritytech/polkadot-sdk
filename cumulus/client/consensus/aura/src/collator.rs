@@ -156,15 +156,8 @@ where
 		Ok((paras_inherent_data, other_inherent_data))
 	}
 
-	/// Propose, seal, and import a block, packaging it into a collation.
-	///
-	/// Provide the slot to build at as well as any other necessary pre-digest logs,
-	/// the inherent data, and the proposal duration and PoV size limits.
-	///
-	/// The Aura pre-digest should not be explicitly provided and is set internally.
-	///
-	/// This does not announce the collation to the parachain network or the relay chain.
-	pub async fn collate(
+	/// Build and import a parachain block on the given parent header, using the given slot claim.
+	pub async fn build_block_and_import(
 		&mut self,
 		parent_header: &Block::Header,
 		slot_claim: &SlotClaim<P::Public>,
@@ -172,10 +165,7 @@ where
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
-	) -> Result<
-		Option<(Collation, ParachainBlockData<Block>, Block::Hash)>,
-		Box<dyn Error + Send + 'static>,
-	> {
+	) -> Result<Option<ParachainCandidate<Block>>, Box<dyn Error + Send + 'static>> {
 		let mut digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
 
@@ -205,7 +195,6 @@ where
 		)
 		.map_err(|e| e as Box<dyn Error + Send>)?;
 
-		let post_hash = sealed_importable.post_hash();
 		let block = Block::new(
 			sealed_importable.post_header(),
 			sealed_importable
@@ -220,11 +209,46 @@ where
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
 			.await?;
 
-		if let Some((collation, block_data)) = self.collator_service.build_collation(
-			parent_header,
-			post_hash,
-			ParachainCandidate { block, proof: proposal.proof },
-		) {
+		Ok(Some(ParachainCandidate { block, proof: proposal.proof }))
+	}
+
+	/// Propose, seal, import a block and packaging it into a collation.
+	///
+	/// Provide the slot to build at as well as any other necessary pre-digest logs,
+	/// the inherent data, and the proposal duration and PoV size limits.
+	///
+	/// The Aura pre-digest should not be explicitly provided and is set internally.
+	///
+	/// This does not announce the collation to the parachain network or the relay chain.
+	pub async fn collate(
+		&mut self,
+		parent_header: &Block::Header,
+		slot_claim: &SlotClaim<P::Public>,
+		additional_pre_digest: impl Into<Option<Vec<DigestItem>>>,
+		inherent_data: (ParachainInherentData, InherentData),
+		proposal_duration: Duration,
+		max_pov_size: usize,
+	) -> Result<
+		Option<(Collation, ParachainBlockData<Block>, Block::Hash)>,
+		Box<dyn Error + Send + 'static>,
+	> {
+		let maybe_candidate = self
+			.build_block_and_import(
+				parent_header,
+				slot_claim,
+				additional_pre_digest,
+				inherent_data,
+				proposal_duration,
+				max_pov_size,
+			)
+			.await?;
+
+		let Some(candidate) = maybe_candidate else { return Ok(None) };
+
+		let hash = candidate.block.header().hash();
+		if let Some((collation, block_data)) =
+			self.collator_service.build_collation(parent_header, hash, candidate)
+		{
 			tracing::info!(
 				target: crate::LOG_TARGET,
 				"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
@@ -241,7 +265,7 @@ where
 				);
 			}
 
-			Ok(Some((collation, block_data, post_hash)))
+			Ok(Some((collation, block_data, hash)))
 		} else {
 			Err(Box::<dyn Error + Send + Sync>::from("Unable to produce collation")
 				as Box<dyn Error + Send>)

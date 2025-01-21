@@ -25,10 +25,7 @@
 //! using the [`Migrations`] type.
 
 use frame_support::{
-	construct_runtime, derive_impl,
-	migrations::MultiStepMigrator,
-	pallet_prelude::Weight,
-	traits::{OnFinalize, OnInitialize},
+	construct_runtime, derive_impl, migrations::MultiStepMigrator, pallet_prelude::Weight,
 };
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -59,7 +56,7 @@ impl pallet_migrations::Config for Runtime {
 	type MaxServiceWeight = MigratorServiceWeight;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type MultiBlockMigrator = Migrator;
@@ -81,13 +78,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 #[allow(dead_code)]
 pub fn run_to_block(n: u64) {
-	assert!(System::block_number() < n);
-	while System::block_number() < n {
-		let b = System::block_number();
-		AllPalletsWithSystem::on_finalize(b);
-		// Done by Executive:
-		<Runtime as frame_system::Config>::MultiBlockMigrator::step();
-		System::set_block_number(b + 1);
-		AllPalletsWithSystem::on_initialize(b + 1);
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().after_initialize(|_| {
+			// Done by Executive:
+			<Runtime as frame_system::Config>::MultiBlockMigrator::step();
+		}),
+	);
 }

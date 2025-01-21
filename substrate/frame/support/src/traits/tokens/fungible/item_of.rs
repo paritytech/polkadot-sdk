@@ -30,6 +30,7 @@ use crate::traits::{
 		WithdrawConsequence,
 	},
 };
+use frame_support::traits::fungible::hold::DoneSlash;
 use sp_core::Get;
 use sp_runtime::{DispatchError, DispatchResult};
 
@@ -39,7 +40,7 @@ pub struct ItemOf<
 	F: fungibles::Inspect<AccountId>,
 	A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
 	AccountId,
->(sp_std::marker::PhantomData<(F, A, AccountId)>);
+>(core::marker::PhantomData<(F, A, AccountId)>);
 
 impl<
 		F: fungibles::Inspect<AccountId>,
@@ -361,7 +362,7 @@ impl<
 }
 
 pub struct ConvertImbalanceDropHandler<AccountId, Balance, AssetIdType, AssetId, Handler>(
-	sp_std::marker::PhantomData<(AccountId, Balance, AssetIdType, AssetId, Handler)>,
+	core::marker::PhantomData<(AccountId, Balance, AssetIdType, AssetId, Handler)>,
 );
 
 impl<
@@ -464,6 +465,22 @@ impl<
 		let (credit, amount) =
 			<F as fungibles::BalancedHold<AccountId>>::slash(A::get(), reason, who, amount);
 		(imbalance::from_fungibles(credit), amount)
+	}
+}
+
+impl<
+		F: fungibles::BalancedHold<AccountId>,
+		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
+		AccountId,
+	> DoneSlash<F::Reason, AccountId, F::Balance> for ItemOf<F, A, AccountId>
+{
+	fn done_slash(reason: &F::Reason, who: &AccountId, amount: F::Balance) {
+		<F as fungibles::hold::DoneSlash<F::AssetId, F::Reason, AccountId, F::Balance>>::done_slash(
+			A::get(),
+			reason,
+			who,
+			amount,
+		)
 	}
 }
 

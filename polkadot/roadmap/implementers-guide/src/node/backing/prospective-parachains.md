@@ -1,5 +1,9 @@
 # Prospective Parachains
 
+> NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699
+
 ## Overview
 
 **Purpose:** Tracks and handles prospective parachain fragments and informs

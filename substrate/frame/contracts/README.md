@@ -112,7 +112,7 @@ Contracts can emit messages to the client when called as RPC through the
 API. This is exposed in [ink!](https://use.ink) via
 [`ink_env::debug_message()`](https://paritytech.github.io/ink/ink_env/fn.debug_message.html).
 
-Those messages are gathered into an internal buffer and sent to the RPC client. It is up the the individual client if
+Those messages are gathered into an internal buffer and sent to the RPC client. It is up to the individual client if
 and how those messages are presented to the user.
 
 This buffer is also printed as a debug message. In order to see these messages on the node console the log level for the

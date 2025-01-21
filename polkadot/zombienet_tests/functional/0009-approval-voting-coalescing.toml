@@ -18,7 +18,7 @@ requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.node_groups]]
   name = "alice"
-  args = [ "-lparachain=trace,runtime=debug" ]
+  args = [ "-lparachain=debug,runtime=debug" ]
   count = 13
 
 [[parachains]]

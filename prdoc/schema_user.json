@@ -148,7 +148,8 @@
           }
         },
         "required": [
-          "name"
+          "name",
+          "bump"
         ]
       },
       "migration_db": {
@@ -218,7 +219,7 @@
       },
       "doc": {
         "type": "object",
-        "description": "You have the the option to provide different description of your PR for different audiences.",
+        "description": "You have the option to provide different description of your PR for different audiences.",
         "additionalProperties": false,
         "properties": {
           "audience": {

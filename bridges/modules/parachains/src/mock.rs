@@ -23,7 +23,7 @@ use frame_support::{
 use sp_runtime::{
 	testing::H256,
 	traits::{BlakeTwo256, Header as HeaderT},
-	MultiSignature,
+	MultiSignature, StateVersion,
 };
 
 use crate as pallet_bridge_parachains;
@@ -60,6 +60,8 @@ impl Chain for Parachain1 {
 	type Nonce = u64;
 	type Signature = MultiSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		0
 	}
@@ -86,6 +88,8 @@ impl Chain for Parachain2 {
 	type Balance = u64;
 	type Nonce = u64;
 	type Signature = MultiSignature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		0
@@ -114,6 +118,8 @@ impl Chain for Parachain3 {
 	type Nonce = u64;
 	type Signature = MultiSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		0
 	}
@@ -141,6 +147,8 @@ impl Chain for BigParachain {
 	type Balance = u64;
 	type Nonce = u64;
 	type Signature = MultiSignature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		0
@@ -222,7 +230,7 @@ impl pallet_bridge_parachains::benchmarking::Config<()> for TestRuntime {
 	fn prepare_parachain_heads_proof(
 		parachains: &[ParaId],
 		_parachain_head_size: u32,
-		_proof_size: bp_runtime::StorageProofSize,
+		_proof_params: bp_runtime::UnverifiedStorageProofParams,
 	) -> (
 		crate::RelayBlockNumber,
 		crate::RelayBlockHash,
@@ -256,6 +264,8 @@ impl Chain for TestBridgedChain {
 	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		unreachable!()
 	}
@@ -266,39 +276,6 @@ impl Chain for TestBridgedChain {
 }
 
 impl ChainWithGrandpa for TestBridgedChain {
-	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
-	const MAX_AUTHORITIES_COUNT: u32 = 16;
-	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 8;
-	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
-	const AVERAGE_HEADER_SIZE: u32 = 64;
-}
-
-#[derive(Debug)]
-pub struct OtherBridgedChain;
-
-impl Chain for OtherBridgedChain {
-	const ID: ChainId = *b"obch";
-
-	type BlockNumber = u64;
-	type Hash = crate::RelayBlockHash;
-	type Hasher = crate::RelayBlockHasher;
-	type Header = sp_runtime::generic::Header<u64, crate::RelayBlockHasher>;
-
-	type AccountId = AccountId;
-	type Balance = u32;
-	type Nonce = u32;
-	type Signature = sp_runtime::testing::TestSignature;
-
-	fn max_extrinsic_size() -> u32 {
-		unreachable!()
-	}
-
-	fn max_extrinsic_weight() -> Weight {
-		unreachable!()
-	}
-}
-
-impl ChainWithGrandpa for OtherBridgedChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
 	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 8;
