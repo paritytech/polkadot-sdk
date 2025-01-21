@@ -8,5 +8,6 @@ crates:
   bump: minor
 - name: sc-rpc-api
   bump: minor
+  validate: false
 - name: sc-rpc
   bump: minor
