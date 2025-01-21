@@ -24,7 +24,7 @@ rand = { features = ["std_rng"], workspace = true }
 
 [dev-dependencies]
 codec = { features = ["derive"], workspace = true, default-features = true }
-frame = { workspace = true, features = ["experimental", "runtime"] }
+frame = { workspace = true, features = ["runtime"] }
 frame-election-provider-support = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }

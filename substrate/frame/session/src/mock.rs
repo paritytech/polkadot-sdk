@@ -263,5 +263,5 @@ impl Config for Test {
 #[cfg(feature = "historical")]
 impl crate::historical::Config for Test {
 	type FullIdentification = u64;
-	type FullIdentificationOf = sp_runtime::traits::ConvertInto;
+	type FullIdentificationOf = ConvertInto;
 }

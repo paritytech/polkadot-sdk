@@ -132,6 +132,7 @@ pub fn keep_newest<T: Config>(n_to_keep: usize) {
 
 #[cfg(test)]
 mod tests {
+	use frame::testing_prelude::*;
 	use super::*;
 	use crate::{
 		historical::{onchain, Pallet},
@@ -139,18 +140,13 @@ mod tests {
 	};
 
 	use codec::Encode;
-	use sp_core::{
-		crypto::key_types::DUMMY,
-		offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt, StorageKind},
-	};
-	use sp_runtime::{testing::UintAuthorityId, BuildStorage};
-	use sp_state_machine::BasicExternalities;
 
-	use frame_support::traits::{KeyOwnerProofSystem, OnInitialize};
+	use frame::deps::sp_state_machine::BasicExternalities;
+
 
 	type Historical = Pallet<Test>;
 
-	pub fn new_test_ext() -> sp_io::TestExternalities {
+	pub fn new_test_ext() -> TestState {
 		let mut t = frame_system::GenesisConfig::<Test>::default()
 			.build_storage()
 			.expect("Failed to create test externalities.");
@@ -171,7 +167,7 @@ mod tests {
 			.assimilate_storage(&mut t)
 			.unwrap();
 
-		let mut ext = sp_io::TestExternalities::new(t);
+		let mut ext = TestState::new(t);
 
 		let (offchain, offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 
@@ -206,14 +202,14 @@ mod tests {
 
 		const DATA: &[u8] = &[7, 8, 9, 10, 11];
 		ext.execute_with(|| {
-			b"alphaomega"[..].using_encoded(|key| sp_io::offchain_index::set(key, DATA));
+			b"alphaomega"[..].using_encoded(|key| frame::deps::sp_io::offchain_index::set(key, DATA));
 		});
 
 		ext.persist_offchain_overlay();
 
 		ext.execute_with(|| {
 			let data = b"alphaomega"[..].using_encoded(|key| {
-				sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, key)
+				frame::deps::sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, key)
 			});
 			assert_eq!(data, Some(DATA.to_vec()));
 		});

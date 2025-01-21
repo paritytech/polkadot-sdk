@@ -29,7 +29,7 @@ type AccountId = u64;
 type Nonce = u32;
 type Balance = u64;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 construct_runtime!(
 	pub enum Test
@@ -68,9 +68,9 @@ impl pallet_session::historical::Config for Test {
 	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
 }
 
-sp_runtime::impl_opaque_keys! {
+impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub foo: sp_runtime::testing::UintAuthorityId,
+		pub foo: frame::deps::sp_runtime::testing::UintAuthorityId,
 	}
 }
 
@@ -145,7 +145,7 @@ impl pallet_staking::Config for Test {
 
 impl crate::Config for Test {}
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	sp_io::TestExternalities::new(t)
+	TestState::new(t)
 }

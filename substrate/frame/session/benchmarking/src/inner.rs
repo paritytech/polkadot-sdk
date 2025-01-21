@@ -23,8 +23,6 @@ use alloc::{vec, vec::Vec};
 use codec::Decode;
 use frame::{
 	benchmarking::prelude::*,
-	prelude::*,
-	traits::{Get, KeyOwnerProofSystem, OnInitialize},
 };
 use pallet_session::{historical::Pallet as Historical, Pallet as Session, *};
 use pallet_staking::{
@@ -142,7 +140,7 @@ mod benchmarks {
 /// proof for the first authority and returns its key and the proof.
 fn check_membership_proof_setup<T: Config>(
 	n: u32,
-) -> ((sp_runtime::KeyTypeId, &'static [u8; 32]), sp_session::MembershipProof) {
+) -> ((frame::deps::sp_runtime::KeyTypeId, &'static [u8; 32]), frame::deps::sp_session::MembershipProof) {
 	pallet_staking::ValidatorCount::<T>::put(n);
 
 	// create validators and set random session keys
