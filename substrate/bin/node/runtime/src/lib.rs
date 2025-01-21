@@ -3301,6 +3301,12 @@ impl_runtime_apis! {
 			Revive::evm_balance(&address)
 		}
 
+		fn block_gas_limit() -> U256 {
+			let weight = RuntimeBlockWeights::get().max_block;
+			let fee = TransactionPayment::weight_to_fee(weight);
+			Revive::evm_fee_to_gas(fee)
+		}
+
 		fn nonce(address: H160) -> Nonce {
 			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
 			System::account_nonce(account)

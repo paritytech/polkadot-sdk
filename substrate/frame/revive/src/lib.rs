@@ -41,10 +41,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	evm::{
-		runtime::{gas_from_fee, GAS_PRICE},
-		GasEncoder, GenericTransaction,
-	},
+	evm::{runtime::GAS_PRICE, GasEncoder, GenericTransaction},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -1297,7 +1294,7 @@ where
 				0u32.into(),
 			)
 			.into();
-			let eth_gas = gas_from_fee(fee);
+			let eth_gas = Self::evm_fee_to_gas(fee);
 			let eth_gas =
 				T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
 
@@ -1317,6 +1314,19 @@ where
 	pub fn evm_balance(address: &H160) -> U256 {
 		let account = T::AddressMapper::to_account_id(&address);
 		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
+	}
+
+	/// Convert an EVM fee into a gas value, using the fixed `GAS_PRICE`.
+	/// The gas is calculated as `balance / GAS_PRICE`, rounded up to the nearest integer.
+	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
+		let fee = Self::convert_native_to_evm(fee);
+		let gas_price = GAS_PRICE.into();
+		let remainder = fee % gas_price;
+		if remainder.is_zero() {
+			(fee / gas_price).into()
+		} else {
+			(fee.saturating_add(gas_price) / gas_price).into()
+		}
 	}
 
 	/// A generalized version of [`Self::upload_code`].
@@ -1374,7 +1384,7 @@ where
 	}
 
 	/// Convert a native balance to EVM balance.
-	fn convert_native_to_evm(value: BalanceOf<T>) -> U256 {
+	pub fn convert_native_to_evm(value: BalanceOf<T>) -> U256 {
 		value.into().saturating_mul(T::NativeToEthRatio::get().into())
 	}
 
@@ -1417,6 +1427,9 @@ sp_api::decl_runtime_apis! {
 		Nonce: Codec,
 		BlockNumber: Codec,
 	{
+		/// Returns the block gas limit.
+		fn block_gas_limit() -> U256;
+
 		/// Returns the free balance of the given `[H160]` address, using EVM decimals.
 		fn balance(address: H160) -> U256;
 

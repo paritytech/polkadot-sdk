@@ -20,7 +20,7 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, Weight, LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, Pallet, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -34,8 +34,8 @@ use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, AtLeast32BitUnsigned, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata,
-		IdentifyAccount, Member, TransactionExtension,
+		self, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, Member,
+		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic, RuntimeDebug, Saturating,
@@ -55,34 +55,6 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 ///   ref_time, proof_size, and deposit into the less significant (6 lower) digits of the gas value.
 /// - Not too low, enabling users to adjust the gas price to define a tip.
 pub const GAS_PRICE: u32 = 1_000u32;
-
-/// Convert a `Balance` into a gas value, using the fixed `GAS_PRICE`.
-/// The gas is calculated as `balance / GAS_PRICE`, rounded up to the nearest integer.
-pub fn gas_from_fee<Balance>(fee: Balance) -> U256
-where
-	u32: Into<Balance>,
-	Balance: Into<U256> + AtLeast32BitUnsigned + Copy,
-{
-	let gas_price = GAS_PRICE.into();
-	let remainder = fee % gas_price;
-	if remainder.is_zero() {
-		(fee / gas_price).into()
-	} else {
-		(fee.saturating_add(gas_price) / gas_price).into()
-	}
-}
-
-/// Convert a `Weight` into a gas value, using the fixed `GAS_PRICE`.
-/// and the `Config::WeightPrice` to compute the fee.
-/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
-pub fn gas_from_weight<T: Config>(weight: Weight) -> U256
-where
-	BalanceOf<T>: Into<U256>,
-{
-	use sp_runtime::traits::Convert;
-	let fee: BalanceOf<T> = T::WeightPrice::convert(weight);
-	gas_from_fee(fee)
-}
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
@@ -393,17 +365,17 @@ pub trait EthExtra {
 		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees calculated with the fixed `GAS_PRICE`
-		// When we dry-run the transaction, we set the gas to `Fee / GAS_PRICE`
+		// When we dry-run the transaction, we set the gas to `fee / GAS_PRICE`
 		let eth_fee_no_tip = U256::from(GAS_PRICE)
 			.saturating_mul(gas)
 			.try_into()
 			.map_err(|_| InvalidTransaction::Call)?;
 
-		// Fees with the actual gas_price from the transaction.
-		let eth_fee: BalanceOf<Self::Config> = U256::from(gas_price.unwrap_or_default())
-			.saturating_mul(gas)
-			.try_into()
-			.map_err(|_| InvalidTransaction::Call)?;
+		// Fees calculated from the gas and gas_price of the transaction.
+		let eth_fee = Pallet::<Self::Config>::convert_evm_to_native(
+			U256::from(gas_price.unwrap_or_default()).saturating_mul(gas),
+		)
+		.map_err(|_| InvalidTransaction::Call)?;
 
 		let info = call.get_dispatch_info();
 		let function: CallOf<Self::Config> = call.into();
