@@ -426,7 +426,7 @@ jobs:
             --no-color \
             --change added changed \
             --ignore-errors \
-            refs/remotes/origin/master $PR_BRANCH)
+            origin/master $PR_BRANCH)
 
           # Save the multiline result to the output
           {
