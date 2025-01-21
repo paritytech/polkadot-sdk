@@ -107,8 +107,6 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
 		);
 
 		let address = outcome.result?.addr;
@@ -559,6 +557,38 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_to_account_id() {
+		// use a mapped address for the benchmark, to ensure that we bench the worst
+		// case (and not the fallback case).
+		let address = {
+			let caller = account("seal_to_account_id", 0, 0);
+			T::Currency::set_balance(&caller, caller_funding::<T>());
+			T::AddressMapper::map(&caller).unwrap();
+			T::AddressMapper::to_address(&caller)
+		};
+
+		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
+		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_to_account_id(memory.as_mut_slice(), len as u32, 0);
+		}
+
+		assert_ok!(result);
+		assert_ne!(
+			memory.as_slice()[20..32],
+			[0xEE; 12],
+			"fallback suffix found where none should be"
+		);
+		assert_eq!(
+			T::AccountId::decode(&mut memory.as_slice()),
+			Ok(runtime.ext().to_account_id(&address))
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_code_hash() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
@@ -742,7 +772,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		ext.override_export(crate::debug::ExportedFunction::Constructor);
+		ext.override_export(crate::exec::ExportedFunction::Constructor);
 
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
 
@@ -1045,32 +1075,6 @@ mod benchmarks {
 			record.event,
 			crate::Event::ContractEmitted { contract: instance.address, data, topics }.into(),
 		);
-	}
-
-	// Benchmark debug_message call
-	// Whereas this function is used in RPC mode only, it still should be secured
-	// against an excessive use.
-	//
-	// i: size of input in bytes up to maximum allowed contract memory or maximum allowed debug
-	// buffer size, whichever is less.
-	#[benchmark]
-	fn seal_debug_message(
-		i: Linear<0, { (limits::code::BLOB_BYTES).min(limits::DEBUG_BUFFER_BYTES) }>,
-	) {
-		let mut setup = CallSetup::<T>::default();
-		setup.enable_debug_message();
-		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		// Fill memory with printable ASCII bytes.
-		let mut memory = (0..i).zip((32..127).cycle()).map(|i| i.1).collect::<Vec<_>>();
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_debug_message(memory.as_mut_slice(), 0, i);
-		}
-		assert_ok!(result);
-		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
