@@ -29,6 +29,7 @@ use pallet_staking::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
 };
 
+use frame::prelude::*;
 use pallet_delegated_staking::Event as DelegatedStakingEvent;
 use frame::prelude::*;
 

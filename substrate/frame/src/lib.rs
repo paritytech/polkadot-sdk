@@ -235,6 +235,7 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
+<<<<<<< HEAD
 	pub use sp_runtime::{
 		bounded_btree_map,
 		traits::{
@@ -244,6 +245,12 @@ pub mod prelude {
 		},
 		BuildStorage, FixedU128, Perbill,
 	};
+=======
+	pub use sp_runtime::{traits::{
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy, Zero,
+		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput, IdentityLookup,
+	}, Perbill, bounded_btree_map, BuildStorage, FixedU128};
+>>>>>>> 5bf695a872 (remove experimental feature)
 
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
@@ -592,6 +599,7 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_staking;
 
 	pub use codec;
 	pub use scale_info;

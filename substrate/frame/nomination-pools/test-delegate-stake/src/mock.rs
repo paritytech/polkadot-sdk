@@ -26,6 +26,7 @@ use pallet_nomination_pools::{
 	BondType,
 };
 
+
 type AccountId = u128;
 type Nonce = u32;
 type BlockNumber = u64;
@@ -79,7 +80,7 @@ pallet_staking_reward_curve::build! {
 }
 
 parameter_types! {
-	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
+	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 	pub static BondingDuration: u32 = 3;
 }
 
@@ -308,7 +309,7 @@ pub fn new_test_ext() -> TestState {
 	.assimilate_storage(&mut storage)
 	.unwrap();
 
-	let mut ext = sp_io::TestExternalities::from(storage);
+	let mut ext = TestState::from(storage);
 
 	ext.execute_with(|| {
 		// for events to be deposited.
