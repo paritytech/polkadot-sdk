@@ -28,7 +28,7 @@ use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes,
+		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash,
 		GenericTransaction, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
 		TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
@@ -210,10 +210,6 @@ pub async fn connect(
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
 	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
 	Ok((api, rpc_client, rpc))
-}
-
-fn to_hex(bytes: impl AsRef<[u8]>) -> String {
-	format!("0x{}", hex::encode(bytes.as_ref()))
 }
 
 impl Client {
@@ -648,15 +644,28 @@ impl Client {
 		};
 		let block_hash = block_hash.ok_or(ClientError::BlockNotFound)?;
 
-		let rpc_client = RpcClient::new(self.rpc_client.clone());
-		let params =
-			subxt::rpc_params!["ReviveApi_trace_block", block_hash, to_hex(tracer_config.encode())];
-		let bytes: Bytes =
-			rpc_client.request("state_debugBlock", params).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
+		let block = self
+			.rpc
+			.chain_get_block(Some(block_hash))
+			.await?
+			.ok_or(ClientError::BlockNotFound)?
+			.block;
+		let header = block.header;
+		let extrinsics = block.extrinsics.into_iter().map(|v| v.0).collect::<Vec<_>>();
+
+		let result = self
+			.rpc
+			.state_call(
+				"ReviveApi_trace_block",
+				Some(&(header, extrinsics, tracer_config).encode()),
+				Some(block_hash),
+			)
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
 			})?;
 
-		let traces = Vec::<(u32, CallTrace)>::decode(&mut &bytes.0[..])?;
+		let traces = Vec::<(u32, CallTrace)>::decode(&mut &result[..])?;
 
 		dbg!("1/", &traces);
 
@@ -685,8 +694,6 @@ impl Client {
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
 	) -> Result<CallTrace, ClientError> {
-		let rpc_client = RpcClient::new(self.rpc_client.clone());
-
 		let ReceiptInfo { block_hash, transaction_index, .. } = self
 			.receipt_provider
 			.receipt_by_hash(&transaction_hash)
@@ -694,17 +701,29 @@ impl Client {
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
 		log::debug!(target: LOG_TARGET, "Found eth_tx at {block_hash:?} index: {transaction_index:?}");
-		let params = subxt::rpc_params![
-			"ReviveApi_trace_tx",
-			block_hash,
-			to_hex((transaction_index.as_u32(), tracer_config).encode())
-		];
-		let bytes: Bytes =
-			rpc_client.request("state_debugBlock", params).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
+
+		let block = self
+			.rpc
+			.chain_get_block(Some(block_hash))
+			.await?
+			.ok_or(ClientError::BlockNotFound)?
+			.block;
+		let header = block.header;
+		let extrinsics = block.extrinsics.into_iter().map(|v| v.0).collect::<Vec<_>>();
+
+		let result = self
+			.rpc
+			.state_call(
+				"ReviveApi_trace_tx",
+				Some(&(header, extrinsics, transaction_index.as_u32(), tracer_config).encode()),
+				Some(block_hash),
+			)
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
 			})?;
 
-		let trace = Option::<CallTrace>::decode(&mut &bytes.0[..])?;
+		let trace = Option::<CallTrace>::decode(&mut &result[..])?;
 		Ok(trace.ok_or(ClientError::EthExtrinsicNotFound)?)
 	}
 
