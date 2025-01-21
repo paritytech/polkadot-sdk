@@ -27,8 +27,9 @@ use crate::{
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, GenericTransaction, ReceiptInfo,
-		SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
+		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash,
+		GenericTransaction, ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned, H160,
+		H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
@@ -67,6 +68,14 @@ pub type Shared<T> = Arc<RwLock<T>>;
 /// The runtime balance type.
 pub type Balance = u128;
 
+/// The subscription type used to listen to new blocks.
+pub enum SubscriptionType {
+	/// Subscribe to the best blocks.
+	BestBlocks,
+	/// Subscribe to the finalized blocks.
+	FinalizedBlocks,
+}
+
 /// Unwrap the original `jsonrpsee::core::client::Error::Call` error.
 fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 	use subxt::backend::rpc::reconnecting_rpc_client;
@@ -80,47 +89,6 @@ fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 			}
 		},
 		_ => None,
-	}
-}
-
-/// Extract the revert message from a revert("msg") solidity statement.
-fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
-	let error_selector = exec_data.get(0..4)?;
-
-	match error_selector {
-		// assert(false)
-		[0x4E, 0x48, 0x7B, 0x71] => {
-			let panic_code: u32 = U256::from_big_endian(exec_data.get(4..36)?).try_into().ok()?;
-
-			// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
-			let msg = match panic_code {
-				0x00 => "generic panic",
-				0x01 => "assert(false)",
-				0x11 => "arithmetic underflow or overflow",
-				0x12 => "division or modulo by zero",
-				0x21 => "enum overflow",
-				0x22 => "invalid encoded storage byte array accessed",
-				0x31 => "out-of-bounds array access; popping on an empty array",
-				0x32 => "out-of-bounds access of an array or bytesN",
-				0x41 => "out of memory",
-				0x51 => "uninitialized function",
-				code => return Some(format!("execution reverted: unknown panic code: {code:#x}")),
-			};
-
-			Some(format!("execution reverted: {msg}"))
-		},
-		// revert(string)
-		[0x08, 0xC3, 0x79, 0xA0] => {
-			let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
-			if let Some(ethabi::Token::String(msg)) = decoded.first() {
-				return Some(format!("execution reverted: {msg}"))
-			}
-			Some("execution reverted".to_string())
-		},
-		_ => {
-			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {error_selector:?}");
-			Some("execution reverted".to_string())
-		},
 	}
 }
 
@@ -318,19 +286,23 @@ impl Client {
 
 	/// Subscribe to new best blocks, and execute the async closure with
 	/// the extracted block and ethereum transactions
-	async fn subscribe_new_blocks<F, Fut>(&self, callback: F) -> Result<(), ClientError>
+	async fn subscribe_new_blocks<F, Fut>(
+		&self,
+		subscription_type: SubscriptionType,
+		callback: F,
+	) -> Result<(), ClientError>
 	where
 		F: Fn(SubstrateBlock) -> Fut + Send + Sync,
 		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
 	{
 		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
-		let mut block_stream = match self.api.blocks().subscribe_best().await {
-			Ok(s) => s,
-			Err(err) => {
-				log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
-				return Err(err.into());
-			},
-		};
+		let mut block_stream = match subscription_type {
+			SubscriptionType::BestBlocks => self.api.blocks().subscribe_best().await,
+			SubscriptionType::FinalizedBlocks => self.api.blocks().subscribe_finalized().await,
+		}
+		.inspect_err(|err| {
+			log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
+		})?;
 
 		while let Some(block) = block_stream.next().await {
 			let block = match block {
@@ -350,7 +322,9 @@ impl Client {
 			};
 
 			log::debug!(target: LOG_TARGET, "Pushing block: {}", block.number());
-			callback(block).await?;
+			if let Err(err) = callback(block).await {
+				log::error!(target: LOG_TARGET, "Failed to process block: {err:?}");
+			}
 		}
 
 		log::info!(target: LOG_TARGET, "Block subscription ended");
@@ -362,7 +336,7 @@ impl Client {
 		let client = self.clone();
 		spawn_handle.spawn("subscribe-blocks", None, async move {
 			let res = client
-				.subscribe_new_blocks(|block| async {
+				.subscribe_new_blocks(SubscriptionType::BestBlocks, |block| async {
 					let receipts = extract_receipts_from_block(&block).await?;
 
 					client.receipt_provider.insert(&block.hash(), &receipts).await;
@@ -385,13 +359,14 @@ impl Client {
 		&self,
 		oldest_block: Option<SubstrateBlockNumber>,
 	) -> Result<(), ClientError> {
-		let new_blocks_fut = self.subscribe_new_blocks(|block| async move {
-			let receipts = extract_receipts_from_block(&block).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to extract receipts from block: {err:?}");
-			})?;
-			self.receipt_provider.insert(&block.hash(), &receipts).await;
-			Ok(())
-		});
+		let new_blocks_fut =
+			self.subscribe_new_blocks(SubscriptionType::FinalizedBlocks, |block| async move {
+				let receipts = extract_receipts_from_block(&block).await.inspect_err(|err| {
+					log::error!(target: LOG_TARGET, "Failed to extract receipts from block: {err:?}");
+				})?;
+				self.receipt_provider.insert(&block.hash(), &receipts).await;
+				Ok(())
+			});
 
 		let Some(oldest_block) = oldest_block else { return new_blocks_fut.await };
 
