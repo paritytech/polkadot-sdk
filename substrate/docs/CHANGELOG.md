@@ -283,7 +283,7 @@ Patch release with backports to fix broken nightly builds. Namely contains backp
 * *: Update to libp2p v0.21.1 (#6559)
 * Send Status message on all newly-opened legacy substreams (#6593)
 * babe: report equivocations (#6362)
-* Support synching of blocks that are not `new_best` (#6508)
+* Support syncing of blocks that are not `new_best` (#6508)
 * Remove the service, replacing it with a struct of individual chain components (#6352)
 * Fix tx-pool returning the same transaction multiple times (#6535)
 
