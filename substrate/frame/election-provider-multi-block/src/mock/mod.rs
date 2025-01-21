@@ -145,6 +145,7 @@ parameter_types! {
 	// trimmed accidentally in any test.
 	#[derive(Encode, Decode, PartialEq, Eq, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 	pub static MaxBackersPerWinner: u32 = 12;
+	pub static MaxBackersPerWinnerFinal: u32 = 12;
 	// we have 4 targets in total and we desire `Desired` thereof, no single page can represent more
 	// than the min of these two.
 	#[derive(Encode, Decode, PartialEq, Eq, Debug, scale_info::TypeInfo, MaxEncodedLen)]
@@ -154,7 +155,7 @@ parameter_types! {
 impl crate::verifier::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = signed::DualSignedPhase;
@@ -282,8 +283,12 @@ impl ExtBuilder {
 }
 
 impl ExtBuilder {
-	pub(crate) fn max_backing_per_target(self, c: u32) -> Self {
+	pub(crate) fn max_backers_per_winner(self, c: u32) -> Self {
 		MaxBackersPerWinner::set(c);
+		self
+	}
+	pub(crate) fn max_backers_per_winner_final(self, c: u32) -> Self {
+		MaxBackersPerWinnerFinal::set(c);
 		self
 	}
 	pub(crate) fn miner_tx_priority(self, p: u64) -> Self {
@@ -396,6 +401,7 @@ impl ExecuteWithSanityChecks for sp_io::TestExternalities {
 }
 
 fn all_pallets_sanity_checks() {
+	// TODO: refactor all to use try-runtime instead
 	let now = System::block_number();
 	let _ = VerifierPallet::sanity_check().unwrap();
 	let _ = UnsignedPallet::sanity_check().unwrap();

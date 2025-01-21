@@ -1,5 +1,5 @@
 use super::{Event as SignedEvent, *};
-use crate::mock::*;
+use crate::{mock::*, verifier::FeasibilityError};
 use sp_core::bounded_vec;
 
 pub type T = Runtime;
@@ -431,6 +431,27 @@ mod e2e {
 					Event::Slashed(0, 92, 5),
 					Event::Rewarded(0, 999, 4),
 					Event::Discarded(0, 99)
+				]
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					crate::verifier::Event::Verified(2, 0),
+					crate::verifier::Event::Verified(1, 0),
+					crate::verifier::Event::Verified(0, 0),
+					crate::verifier::Event::VerificationFailed(0, FeasibilityError::InvalidScore),
+					crate::verifier::Event::Verified(2, 2),
+					crate::verifier::Event::Verified(1, 2),
+					crate::verifier::Event::Verified(0, 2),
+					crate::verifier::Event::Queued(
+						ElectionScore {
+							minimal_stake: 55,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						},
+						None
+					)
 				]
 			);
 

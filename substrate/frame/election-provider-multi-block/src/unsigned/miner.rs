@@ -1618,7 +1618,7 @@ mod base_miner {
 	#[test]
 	fn trim_backings_works() {
 		ExtBuilder::unsigned()
-			.max_backing_per_target(5)
+			.max_backers_per_winner(5)
 			.voter_per_page(8)
 			.build_and_execute(|| {
 				// 10 and 40 are the default winners, we add a lot more votes to them.

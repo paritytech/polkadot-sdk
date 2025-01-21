@@ -188,7 +188,7 @@ mod feasibility_check {
 
 	#[test]
 	fn heuristic_max_backers_per_winner_per_page() {
-		ExtBuilder::verifier().max_backing_per_target(2).build_and_execute(|| {
+		ExtBuilder::verifier().max_backers_per_winner(2).build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			// these votes are all valid, but some dude has 3 supports in a single page.
@@ -200,7 +200,7 @@ mod feasibility_check {
 
 			assert_noop!(
 				VerifierPallet::feasibility_check_page_inner(solution, 2),
-				FeasibilityError::TooManyBackings,
+				FeasibilityError::FailedToBoundSupport,
 			);
 		})
 	}
@@ -708,15 +708,65 @@ mod async_verification {
 	}
 
 	#[test]
-	fn invalid_solution_bad_bounds() {
+	fn invalid_solution_bad_bounds_per_page() {
 		ExtBuilder::verifier()
 			.desired_targets(1)
-			.max_backing_per_target(2)
+			.max_backers_per_winner(1) // in each page we allow 1 baker to be presented.
+			.max_backers_per_winner_final(12)
+			.build_and_execute(|| {
+				roll_to_snapshot_created();
+
+				// This is a sneaky custom solution where it will fail in the second page.
+				let page0 = solution_from_supports(
+					vec![(10, Support { total: 10, voters: vec![(1, 10)] })],
+					2,
+				);
+				let page1 = solution_from_supports(
+					vec![(10, Support { total: 20, voters: vec![(5, 10), (8, 10)] })],
+					1,
+				);
+				let page2 = solution_from_supports(
+					vec![(10, Support { total: 10, voters: vec![(10, 10)] })],
+					0,
+				);
+				let paged = PagedRawSolution {
+					solution_pages: bounded_vec![page0, page1, page2],
+					score: Default::default(), // score is never checked, so nada
+					..Default::default()
+				};
+
+				load_mock_signed_and_start(paged);
+				roll_to_full_verification();
+
+				// we detect the bound issue in page 2.
+				assert_eq!(
+					verifier_events(),
+					vec![
+						Event::Verified(2, 1),
+						Event::VerificationFailed(1, FeasibilityError::FailedToBoundSupport)
+					]
+				);
+
+				// our state is fully cleaned.
+				QueuedSolution::<Runtime>::assert_killed();
+				assert_eq!(StatusStorage::<Runtime>::get(), Status::Nothing);
+				// nothing is verified..
+				assert!(<VerifierPallet as Verifier>::queued_score().is_none());
+				// result is reported back.
+				assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
+			})
+	}
+
+	#[test]
+	fn invalid_solution_bad_bounds_final() {
+		ExtBuilder::verifier()
+			.desired_targets(1)
+			.max_backers_per_winner_final(2)
 			.build_and_execute(|| {
 				roll_to_snapshot_created();
 
 				// This is a sneaky custom solution where in each page 10 has 1 backers, so only in
-				// the last page we can catch the son of the fidge.
+				// the last page we can catch the mfer.
 				let page0 = solution_from_supports(
 					vec![(10, Support { total: 10, voters: vec![(1, 10)] })],
 					2,
@@ -749,9 +799,13 @@ mod async_verification {
 						Event::Verified(2, 1),
 						Event::Verified(1, 1),
 						Event::Verified(0, 1),
-						Event::VerificationFailed(0, FeasibilityError::TooManyBackings)
+						Event::VerificationFailed(0, FeasibilityError::FailedToBoundSupport)
 					]
 				);
+
+				// our state is fully cleaned.
+				QueuedSolution::<Runtime>::assert_killed();
+				assert_eq!(StatusStorage::<Runtime>::get(), Status::Nothing);
 
 				// nothing is verified..
 				assert!(<VerifierPallet as Verifier>::queued_score().is_none());
@@ -990,12 +1044,15 @@ mod sync_verification {
 					MultiBlock::msp(),
 				)
 				.unwrap_err(),
-				FeasibilityError::TooManyBackings
+				FeasibilityError::FailedToBoundSupport
 			);
 
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::VerificationFailed(2, FeasibilityError::TooManyBackings)]
+				vec![Event::<Runtime>::VerificationFailed(
+					2,
+					FeasibilityError::FailedToBoundSupport
+				)]
 			);
 		});
 

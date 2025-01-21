@@ -31,7 +31,8 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 
-/// The supports that's returned from a given [`Verifier`]. TODO: rename this
+/// The supports that's returned from a given [`Verifier`].
+/// TODO: rename this
 pub type SupportsOf<V> = BoundedSupports<
 	<V as Verifier>::AccountId,
 	<V as Verifier>::MaxWinnersPerPage,

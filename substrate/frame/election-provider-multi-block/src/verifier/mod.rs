@@ -27,15 +27,16 @@
 //!
 //! After checking all of the edges, a handful of other checks are performed:
 //!
-//! 1. Check that the total number of winners is sufficient.
+//! 1. Check that the total number of winners is sufficient (`DesiredTargets`).
 //! 2. Check that the claimed score ([`sp_npos_elections::ElectionScore`]) is correct,
 //!   3. and more than the minimum score that can be specified via [`Verifier::set_minimum_score`].
 //! 4. Check that all of the bounds of the solution are respected, namely
-//!    [`Verifier::MaxBackersPerWinner`].
+//!    [`Verifier::MaxBackersPerWinner`], [`Verifier::MaxWinnersPerPage`] and
+//!    [`Config::MaxBackersPerWinnerFinal`].
 //!
 //! Note that the common factor of all of these checks is that they can ONLY be checked after all
-//! pages are already verified. So, In the case of a multi-page verification, these checks are only
-//! performed after all pages have already been verified.
+//! pages are already verified. So, In the case of a multi-page verification, these checks are
+//! performed at the last page.
 //!
 //! The errors that can arise while performing the feasibility check are encapsulated in
 //! [`FeasibilityError`].
@@ -45,7 +46,8 @@
 //! The verifier pallet provide two modes of functionality:
 //!
 //! 1. Single-page, synchronous verification. This is useful in the context of single-page,
-//!    emergency, or unsigned solutions that need to be verified on the fly.
+//!    emergency, or unsigned solutions that need to be verified on the fly. This is similar to how
+//!    the old school `multi-phase` pallet works.
 //! 2. Multi-page, asynchronous verification. This is useful in the context of multi-page, signed
 //!    solutions.
 //!
@@ -74,11 +76,11 @@ mod tests;
 // internal imports
 use crate::SupportsOf;
 use frame_election_provider_support::PageIndex;
+pub use impls::{pallet::*, Status};
+use sp_core::Get;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*};
-
-pub use impls::{pallet::*, Status};
 
 /// Errors that can happen in the feasibility check.
 #[derive(Debug, Eq, PartialEq, codec::Encode, codec::Decode, scale_info::TypeInfo, Clone)]
@@ -102,8 +104,11 @@ pub enum FeasibilityError {
 	InvalidRound,
 	/// Solution does not have a good enough score.
 	ScoreTooLow,
-	/// A single target has too many backings
-	TooManyBackings,
+	/// The support type failed to be bounded.
+	///
+	/// Relates to [`Config::MaxWinnersPerPage`], [`Config::MaxBackersPerWinner`] or
+	/// `MaxBackersPerWinnerFinal`
+	FailedToBoundSupport,
 	/// Internal error from the election crate.
 	#[codec(skip)]
 	NposElection(sp_npos_elections::Error),
@@ -131,13 +136,13 @@ pub trait Verifier {
 	///
 	/// In multi-block verification, this can only be checked after all pages are known to be valid
 	/// and are already checked.
-	type MaxBackersPerWinner: frame_support::traits::Get<u32>;
+	type MaxBackersPerWinner: Get<u32>;
 
 	/// Maximum number of winners that can be represented in each page.
 	///
 	/// A reasonable value for this should be the maximum number of winners that the election user
 	/// (e.g. the staking pallet) could ever desire.
-	type MaxWinnersPerPage: frame_support::traits::Get<u32>;
+	type MaxWinnersPerPage: Get<u32>;
 
 	/// Set the minimum score that is acceptable for any solution.
 	///

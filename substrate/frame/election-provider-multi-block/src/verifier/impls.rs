@@ -16,17 +16,17 @@
 // limitations under the License.
 
 use super::*;
-use crate::{helpers, SolutionOf, SupportsOf};
+use crate::{helpers, types::SupportsOf, verifier::Verifier, SolutionOf};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{ExtendedBalance, NposSolution, PageIndex};
 use frame_support::{
 	ensure,
-	pallet_prelude::*,
+	pallet_prelude::{ValueQuery, *},
 	traits::{Defensive, Get},
 };
 use frame_system::pallet_prelude::*;
 use pallet::*;
-use sp_npos_elections::{ElectionScore, EvaluateSupport};
+use sp_npos_elections::{evaluate_support, ElectionScore, EvaluateSupport};
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
@@ -90,13 +90,7 @@ impl sp_npos_elections::Backings for PartialBackings {
 
 #[frame_support::pallet]
 pub(crate) mod pallet {
-	use crate::{types::SupportsOf, verifier::Verifier};
-
 	use super::*;
-	use frame_support::pallet_prelude::ValueQuery;
-	use sp_npos_elections::evaluate_support;
-	use sp_runtime::Perbill;
-
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: crate::Config {
@@ -105,21 +99,17 @@ pub(crate) mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
 
-		/// Origin that can control this pallet. Note that any action taken by this origin (such)
-		/// as providing an emergency solution is not checked. Thus, it must be a trusted origin.
-		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// The minimum amount of improvement to the solution score that defines a solution as
 		/// "better".
 		#[pallet::constant]
-		type SolutionImprovementThreshold: Get<sp_runtime::Perbill>;
+		type SolutionImprovementThreshold: Get<Perbill>;
 
-		/// Maximum number of voters that can support a single target, among ALL pages of a
-		/// verifying solution. It can only ever be checked on the last page of any given
-		/// verification.
+		/// Maximum number of backers, per winner, among all pages of an election.
 		///
-		/// This must be set such that the memory limits in the rest of the system are well
-		/// respected.
+		/// This can only be checked at the very final step of verification.
+		type MaxBackersPerWinnerFinal: Get<u32>;
+
+		/// Maximum number of backers, per winner, per page.
 		type MaxBackersPerWinner: Get<u32>;
 
 		/// Maximum number of supports (aka. winners/validators/targets) that can be represented in
@@ -239,11 +229,14 @@ pub(crate) mod pallet {
 		/// Same as [`clear_invalid_and_backings`], but without any checks for the integrity of the
 		/// storage item group.
 		pub(crate) fn clear_invalid_and_backings_unchecked() {
+			// clear is safe as we delete at most `Pages` entries, and `Pages` is bounded.
+			// TODO: safe wrapper around this that clears exactly pages keys, and ensures none is
+			// left.
 			match Self::invalid() {
 				ValidSolution::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
 				ValidSolution::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
 			};
-			QueuedSolutionBackings::<T>::clear(u32::MAX, None);
+			let _ = QueuedSolutionBackings::<T>::clear(u32::MAX, None);
 		}
 
 		/// Write a single page of a valid solution into the `invalid` variant of the storage.
@@ -337,12 +330,12 @@ pub(crate) mod pallet {
 			for (who, PartialBackings { backers, total }) in
 				QueuedSolutionBackings::<T>::iter().map(|(_, pb)| pb).flatten()
 			{
-				let mut entry = total_supports.entry(who).or_default();
+				let entry = total_supports.entry(who).or_default();
 				entry.total = entry.total.saturating_add(total);
 				entry.backers = entry.backers.saturating_add(backers);
 
-				if entry.backers > T::MaxBackersPerWinner::get() {
-					return Err(FeasibilityError::TooManyBackings)
+				if entry.backers > T::MaxBackersPerWinnerFinal::get() {
+					return Err(FeasibilityError::FailedToBoundSupport)
 				}
 			}
 
@@ -425,7 +418,7 @@ pub(crate) mod pallet {
 				let mut backing_map: BTreeMap<T::AccountId, PartialBackings> = BTreeMap::new();
 				Self::valid_iter().map(|(_, supports)| supports).flatten().for_each(
 					|(who, support)| {
-						let mut entry = backing_map.entry(who).or_default();
+						let entry = backing_map.entry(who).or_default();
 						entry.total = entry.total.saturating_add(support.total);
 					},
 				);
@@ -448,6 +441,8 @@ pub(crate) mod pallet {
 		}
 	}
 
+	// -- private storage items, managed by `QueuedSolution`.
+
 	/// The `X` variant of the current queued solution. Might be the valid one or not.
 	///
 	/// The two variants of this storage item is to avoid the need of copying. Recall that once a
@@ -467,7 +462,7 @@ pub(crate) mod pallet {
 	/// The `(amount, count)` of backings, divided per page.
 	///
 	/// This is stored because in the last block of verification we need them to compute the score,
-	/// and check `MaxBackersPerWinner`.
+	/// and check `MaxBackersPerWinnerFinal`.
 	///
 	/// This can only ever live for the invalid variant of the solution. Once it is valid, we don't
 	/// need this information anymore; the score is already computed once in
@@ -484,6 +479,7 @@ pub(crate) mod pallet {
 	/// This only ever lives for the `valid` variant.
 	#[pallet::storage]
 	type QueuedSolutionScore<T: Config> = StorageValue<_, ElectionScore>;
+	// -- ^^ private storage items, managed by `QueuedSolution`.
 
 	/// The minimum score that each solution must attain in order to be considered feasible.
 	#[pallet::storage]
@@ -505,12 +501,13 @@ pub(crate) mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			// ensure that we have funneled some of our type parameters EXACTLY as-is to the
-			// verifier pallet.
+			// verifier trait interface we implement.
 			assert_eq!(T::MaxWinnersPerPage::get(), <Self as Verifier>::MaxWinnersPerPage::get());
 			assert_eq!(
 				T::MaxBackersPerWinner::get(),
 				<Self as Verifier>::MaxBackersPerWinner::get()
 			);
+			assert!(T::MaxBackersPerWinner::get() <= T::MaxBackersPerWinnerFinal::get());
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
@@ -530,7 +527,7 @@ impl<T: Config> Pallet<T> {
 				sublog!(
 					error,
 					"verifier",
-					"T::SolutionDataProvider failed to deliver page {}. This is an expected error and should not happen.",
+					"T::SolutionDataProvider failed to deliver page {}. This is an unexpected error.",
 					current_page,
 				);
 
@@ -611,7 +608,7 @@ impl<T: Config> Pallet<T> {
 		let _ = Self::ensure_score_quality(claimed_score)?;
 
 		// then actually check feasibility...
-		// NOTE: `MaxBackersPerWinner` is also already checked here.
+		// NOTE: `MaxBackersPerWinnerFinal` is also already checked here.
 		let supports = Self::feasibility_check_page_inner(partial_solution, page)?;
 
 		// then check that the number of winners was exactly enough..
@@ -649,7 +646,8 @@ impl<T: Config> Pallet<T> {
 						// NOTE: must be before the call to `finalize_correct`.
 						Self::deposit_event(Event::<T>::Queued(
 							final_score,
-							QueuedSolution::<T>::queued_score(),
+							QueuedSolution::<T>::queued_score(), /* the previous score, now
+							                                      * ejected. */
 						));
 						QueuedSolution::<T>::finalize_correct(final_score);
 						Ok(())
@@ -750,16 +748,6 @@ impl<T: Config> Pallet<T> {
 
 		let supports = sp_npos_elections::to_supports(&staked_assignments);
 
-		// Check the maximum number of backers per winner. If this is a single-page solution, this
-		// is enough to check `MaxBackersPerWinner`. Else, this is just a heuristic, and needs to be
-		// checked again at the end (via `QueuedSolutionBackings`).
-		ensure!(
-			supports
-				.iter()
-				.all(|(_, s)| (s.voters.len() as u32) <= T::MaxBackersPerWinner::get()),
-			FeasibilityError::TooManyBackings
-		);
-
 		// Ensure some heuristics. These conditions must hold in the **entire** support, this is
 		// just a single page. But, they must hold in a single page as well.
 		let desired_targets =
@@ -770,7 +758,7 @@ impl<T: Config> Pallet<T> {
 		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
 		// is ALSO checked, so this conversion can almost never fail.
 		let bounded_supports =
-			supports.try_into().map_err(|_| FeasibilityError::WrongWinnerCount)?;
+			supports.try_into().map_err(|_| FeasibilityError::FailedToBoundSupport)?;
 		Ok(bounded_supports)
 	}
 
@@ -853,6 +841,7 @@ impl<T: Config> AsynchronousVerifier for Pallet<T> {
 	}
 
 	fn start() -> Result<(), &'static str> {
+		sublog!(info, "verifier", "start signal received.");
 		if let Status::Nothing = Self::status() {
 			let claimed_score = Self::SolutionDataProvider::get_score().unwrap_or_default();
 			if Self::ensure_score_quality(claimed_score).is_err() {
@@ -865,6 +854,7 @@ impl<T: Config> AsynchronousVerifier for Pallet<T> {
 				// Despite being an instant-reject, this was a successful `start` operation.
 				Ok(())
 			} else {
+				// This solution is good enough to win, we start verifying it in the next block.
 				StatusStorage::<T>::put(Status::Ongoing(crate::Pallet::<T>::msp()));
 				Ok(())
 			}
