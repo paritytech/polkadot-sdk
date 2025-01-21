@@ -619,7 +619,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 	fn poll(&mut self, cx: &mut Context) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		'poll_all: loop {
 			// Poll the periodic request check.
-			if let Poll::Ready(_) = self.periodic_request_check.poll_tick(cx) {
+			if self.periodic_request_check.poll_tick(cx).is_ready() {
 				// First pass is needed to collect timed out requests and
 				// submit `OutboundFailure::Timeout` on the moved oneshot sender.
 				let timedout_requests: Vec<_> = self
