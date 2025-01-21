@@ -1107,9 +1107,7 @@ impl<T: Config> EraInfo<T> {
 		era: EraIndex,
 		validator: &T::AccountId,
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
-		let overview = <ErasStakersOverview<T>>::get(&era, validator);
-
-		if overview.is_none() {
+		let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) else { return Exposure::default(); };
 			return Exposure::default()
 		}
 
