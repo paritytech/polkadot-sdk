@@ -2,31 +2,7 @@ title: Add `offchain_localStorageClear` RPC method
 doc:
 - audience: Node Operator
   description: |-
-    # Description
-
-    Closes https://github.com/paritytech/polkadot-sdk/issues/7265.
-
-    ## Integration
-
-    Requires changes in `https://github.com/polkadot-js/api/packages/{rpc-augment,types-support,types}` to be visible in Polkadot\Substrate Portal and in other libraries where we should explicitly state RPC methods.
-
-    Accompany PR to `polkadot-js/api`: https://github.com/polkadot-js/api/pull/6070.
-
-    ## Review Notes
-
-    Please put the right label on my PR.
-
-    # Checklist
-
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [ ] My PR follows the [labeling requirements](
-    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
-    ) of this project (at minimum one label for `T` required)
-        * External contributors: ask maintainers to put the right label on your PR.
-    * [x] (not applicable?) I have made corresponding changes to the documentation (if applicable)
-    * [x] I have added tests that prove my fix is effective or that my feature works (if applicable)
-
-    You can remove the "Checklist" section once all have been checked. Thank you for your contribution!
+    Adds RPC method `offchain_localStorageClear` to clear the offchain local storage.
 crates:
 - name: sc-offchain
   bump: minor
