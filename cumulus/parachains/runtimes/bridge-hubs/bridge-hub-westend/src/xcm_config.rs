@@ -21,7 +21,10 @@ use super::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{
+		tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, EverythingBut,
+		Nothing,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
@@ -35,10 +38,11 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+use snowbridge_router_primitives::outbound::barriers::DenyFirstExportMessageFrom;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
-use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use testnet_parachains_constants::westend::snowbridge::{AssetHubLocation, EthereumNetwork};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -129,32 +133,38 @@ impl Contains<Location> for ParentOrParentsPlurality {
 
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
-		DenyReserveTransferToRelayChain,
-		(
-			// Allow local users to buy weight credit.
-			TakeWeightCredit,
-			// Expected responses are OK.
-			AllowKnownQueryResponses<PolkadotXcm>,
-			WithComputedOrigin<
-				(
-					// If the message is one that immediately attempts to pay for execution, then
-					// allow it.
-					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies) and relay treasury pallet
-					// get free execution.
-					AllowExplicitUnpaidExecutionFrom<(
-						ParentOrParentsPlurality,
-						Equals<RelayTreasuryLocation>,
-					)>,
-					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
-					// HRMP notifications from the relay chain are OK.
-					AllowHrmpNotificationsFromRelayChain,
-				),
-				UniversalLocation,
-				ConstU32<8>,
-			>,
-		),
+		DenyFirstExportMessageFrom<
+			EverythingBut<Equals<AssetHubLocation>>,
+			Equals<EthereumNetwork>,
+		>,
+		DenyThenTry<
+			DenyReserveTransferToRelayChain,
+			(
+				// Allow local users to buy weight credit.
+				TakeWeightCredit,
+				// Expected responses are OK.
+				AllowKnownQueryResponses<PolkadotXcm>,
+				WithComputedOrigin<
+					(
+						// If the message is one that immediately attempts to pay for execution,
+						// then allow it.
+						AllowTopLevelPaidExecutionFrom<Everything>,
+						// Parent, its pluralities (i.e. governance bodies) and relay treasury
+						// pallet get free execution.
+						AllowExplicitUnpaidExecutionFrom<(
+							ParentOrParentsPlurality,
+							Equals<RelayTreasuryLocation>,
+						)>,
+						// Subscriptions for version tracking are OK.
+						AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
+						// HRMP notifications from the relay chain are OK.
+						AllowHrmpNotificationsFromRelayChain,
+					),
+					UniversalLocation,
+					ConstU32<8>,
+				>,
+			),
+		>,
 	>,
 >;
 

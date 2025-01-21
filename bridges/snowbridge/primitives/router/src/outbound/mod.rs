@@ -20,6 +20,8 @@ use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
+pub mod barriers;
+
 pub struct EthereumBlobExporter<
 	UniversalLocation,
 	EthereumNetwork,

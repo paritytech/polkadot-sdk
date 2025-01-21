@@ -20,13 +20,15 @@ use bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID;
 use bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID;
 use bp_polkadot_core::Signature;
 use bridge_hub_westend_runtime::{
-	bridge_to_rococo_config, xcm_config::XcmConfig, AllPalletsWithoutSystem,
-	BridgeRejectObsoleteHeadersAndMessages, Executive, MessageQueueServiceWeight, Runtime,
-	RuntimeCall, RuntimeEvent, SessionKeys, TxExtension, UncheckedExtrinsic,
+	bridge_to_rococo_config,
+	xcm_config::{Barrier, XcmConfig},
+	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive,
+	MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys, TxExtension,
+	UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
-use frame_support::parameter_types;
+use frame_support::{assert_err, parameter_types, traits::ProcessMessageError};
 use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_pallet_ethereum_client::WeightInfo;
 use sp_core::H160;
@@ -35,9 +37,15 @@ use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
 };
+use xcm::prelude::{
+	All, AssetFilter, DepositReserveAsset, Here, Instruction, Location, Parachain, Weight, Wild,
+	XcmError,
+};
+use xcm_executor::traits::{Properties, ShouldExecute};
 
 parameter_types! {
 		pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
+		pub AssetHubLocation: Location = Location::new(1, Parachain(ASSET_HUB_WESTEND_PARACHAIN_ID));
 }
 
 fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime> {
@@ -199,4 +207,37 @@ fn construct_and_apply_extrinsic(
 	let xt = construct_extrinsic(origin, call);
 	let r = Executive::apply_extrinsic(xt);
 	r.unwrap()
+}
+
+#[test]
+pub fn transfer_token_to_ethereum_from_source_other_than_asset_hub_failure() {
+	snowbridge_runtime_test_common::send_transfer_token_message_from_source_other_than_asset_hub_failure::<Runtime, XcmConfig>(
+		11155111,
+		collator_session_keys(),
+		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		ASSET_HUB_WESTEND_PARACHAIN_ID,
+		2000,
+		DefaultBridgeHubEthereumBaseFee::get(),
+		H160::random(),
+		H160::random(),
+		DefaultBridgeHubEthereumBaseFee::get(),
+		XcmError::Barrier,
+	)
+}
+
+#[test]
+fn deny_reserve_transfer_to_relay_chain() {
+	let mut xcm: Vec<Instruction<()>> = vec![DepositReserveAsset {
+		assets: AssetFilter::try_from(Wild(All)).unwrap(),
+		dest: Location { parents: 1, interior: Here },
+		xcm: Default::default(),
+	}];
+
+	let result = Barrier::should_execute(
+		&AssetHubLocation::get(),
+		&mut xcm,
+		Weight::zero(),
+		&mut Properties { weight_credit: Weight::zero(), message_id: None },
+	);
+	assert_err!(result, ProcessMessageError::Unsupported);
 }
