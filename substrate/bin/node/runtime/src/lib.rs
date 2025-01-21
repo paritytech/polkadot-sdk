@@ -1021,40 +1021,14 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 	fn tracks(
 	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
 	{
-		static DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 1] =
-			[pallet_referenda::Track {
-				id: 0u16,
-				info: pallet_referenda::TrackInfo {
-					name: s("root"),
-					max_deciding: 1,
-					decision_deposit: 10,
-					prepare_period: 4,
-					decision_period: 4,
-					confirm_period: 2,
-					min_enactment_period: 4,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
-						floor: Perbill::from_percent(50),
-						ceil: Perbill::from_percent(100),
-					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
-						floor: Perbill::from_percent(0),
-						ceil: Perbill::from_percent(100),
-					},
-				},
-			}];
-		DATA.iter().map(Cow::Borrowed)
+		dynamic_params::referenda::Tracks::get().into_iter().map(Cow::Owned)
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
-		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
-			match system_origin {
-				frame_system::RawOrigin::Root => Ok(0),
-				_ => Err(()),
-			}
-		} else {
-			Err(())
-		}
+		dynamic_params::referenda::Origins::get()
+			.iter()
+			.find(|(o, _)| id == o)
+			.map(|(_, track_id)| *track_id)
+			.ok_or(())
 	}
 }
 pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);
@@ -2409,6 +2383,46 @@ pub mod dynamic_params {
 		#[codec(index = 1)]
 		pub static ByteDeposit: Balance = 1 * CENTS;
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod referenda {
+		/// The configuration for the tracks
+		#[codec(index = 0)]
+		pub static Tracks: BoundedVec<
+			pallet_referenda::Track<u16, Balance, BlockNumber>,
+			ConstU32<100>,
+		> = BoundedVec::truncate_from(vec![pallet_referenda::Track {
+			id: 0u16,
+			info: pallet_referenda::TrackInfo {
+				name: s("root"),
+				max_deciding: 1,
+				decision_deposit: 10,
+				prepare_period: 4,
+				decision_period: 4,
+				confirm_period: 2,
+				min_enactment_period: 4,
+				min_approval: pallet_referenda::Curve::LinearDecreasing {
+					length: Perbill::from_percent(100),
+					floor: Perbill::from_percent(50),
+					ceil: Perbill::from_percent(100),
+				},
+				min_support: pallet_referenda::Curve::LinearDecreasing {
+					length: Perbill::from_percent(100),
+					floor: Perbill::from_percent(0),
+					ceil: Perbill::from_percent(100),
+				},
+			},
+		}]);
+
+		/// A list mapping every origin with a track Id
+		#[codec(index = 1)]
+		pub static Origins: BoundedVec<(OriginCaller, u16), ConstU32<100>> =
+			BoundedVec::truncate_from(vec![(
+				OriginCaller::system(frame_system::RawOrigin::Root),
+				0,
+			)]);
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -2431,6 +2445,10 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 	) -> Result<Self::Success, RuntimeOrigin> {
 		match key {
 			RuntimeParametersKey::Storage(_) => {
+				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
+				return Ok(())
+			},
+			RuntimeParametersKey::Referenda(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
 				return Ok(())
 			},
