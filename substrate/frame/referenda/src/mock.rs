@@ -154,7 +154,10 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 			Track {
 				id: 2u8,
 				info: TrackInfo {
-					name: "none",
+					name: s("none"),
+					max_deciding: 3,
+					decision_deposit: 1,
+					prepare_period: 2,
 					decision_period: 2,
 					confirm_period: 1,
 					min_enactment_period: 0,
