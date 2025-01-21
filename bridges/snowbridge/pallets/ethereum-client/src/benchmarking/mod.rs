@@ -6,15 +6,13 @@ mod util;
 use crate::Pallet as EthereumBeaconClient;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-
-use snowbridge_beacon_primitives::Fork;
-use snowbridge_pallet_ethereum_client_fixtures::*;
-
+use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	fast_aggregate_verify,
 	merkle_proof::{generalized_index_length, subtree_index},
-	prepare_aggregate_pubkey, prepare_aggregate_signature, verify_merkle_branch,
+	prepare_aggregate_pubkey, prepare_aggregate_signature, verify_merkle_branch, Fork,
 };
+use snowbridge_pallet_ethereum_client_fixtures::*;
 use util::*;
 
 #[benchmarks]
@@ -130,8 +128,8 @@ mod benchmarks {
 			verify_merkle_branch(
 				block_root,
 				&update.finality_branch,
-				subtree_index(finalized_root_g_index),
-				generalized_index_length(finalized_root_g_index),
+				subtree_index(finalized_root_gindex),
+				generalized_index_length(finalized_root_gindex),
 				update.attested_header.state_root,
 			);
 		}
