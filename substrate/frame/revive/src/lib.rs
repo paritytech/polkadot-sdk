@@ -1317,7 +1317,7 @@ where
 	}
 
 	/// Convert an EVM fee into a gas value, using the fixed `GAS_PRICE`.
-	/// The gas is calculated as `balance / GAS_PRICE`, rounded up to the nearest integer.
+	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
 		let fee = Self::convert_native_to_evm(fee);
 		let gas_price = GAS_PRICE.into();
@@ -1384,7 +1384,7 @@ where
 	}
 
 	/// Convert a native balance to EVM balance.
-	pub fn convert_native_to_evm(value: BalanceOf<T>) -> U256 {
+	fn convert_native_to_evm(value: BalanceOf<T>) -> U256 {
 		value.into().saturating_mul(T::NativeToEthRatio::get().into())
 	}
 
