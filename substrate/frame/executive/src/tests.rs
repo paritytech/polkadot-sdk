@@ -335,6 +335,9 @@ impl frame_system::ExtensionsWeightInfo for MockExtensionsWeights {
 	fn check_weight() -> Weight {
 		Weight::from_parts(10, 0)
 	}
+	fn weight_reclaim() -> Weight {
+		Weight::zero()
+	}
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -452,6 +455,7 @@ type TxExtension = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 type UncheckedXt = sp_runtime::generic::UncheckedExtrinsic<
 	u64,
@@ -560,6 +564,7 @@ fn tx_ext(nonce: u64, fee: Balance) -> TxExtension {
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::from(fee),
+		frame_system::WeightReclaim::new(),
 	)
 		.into()
 }
