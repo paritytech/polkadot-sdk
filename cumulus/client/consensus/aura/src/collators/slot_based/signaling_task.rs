@@ -20,7 +20,7 @@ use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::GetCoreSelectorApi;
 use cumulus_relay_chain_interface::{PHeader, RelayChainInterface};
 
-use polkadot_primitives::{CoreIndex, Id as ParaId};
+use polkadot_primitives::{Block as RelayBlock, CoreIndex, Id as ParaId};
 
 use futures::prelude::*;
 use sc_client_api::{BlockBackend, UsageProvider};
@@ -256,8 +256,17 @@ where
 			// TODO skunert Fix this
 			// collator.collator_service().check_block_status(parent_hash, &parent_header);
 
+			let Ok(relay_slot) =
+				sc_consensus_babe::find_pre_digest::<RelayBlock>(relay_parent_header)
+					.map(|babe_pre_digest| babe_pre_digest.slot())
+			else {
+				tracing::error!(target: crate::LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
+				continue;
+			};
+
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
+				relay_slot,
 				para_slot.timestamp,
 				parent_hash,
 				included_block,
