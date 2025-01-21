@@ -35,6 +35,9 @@ fn test_deny_export_message_from() {
 		pub Remote2: NetworkId = ByGenesis([2;32]);
 	}
 
+	// Deny ExportMessage when both of the conditions met:
+	// 1: source != Source1
+	// 2: network == Remote1
 	pub type Denied = DenyExportMessageFrom<EverythingBut<Equals<Source1>>, Equals<Remote1>>;
 
 	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
