@@ -59,15 +59,6 @@ where
 		call_data: Bytes,
 	) -> Result<Bytes, Error>;
 
-	/// Call the runtime method at the block's parent state.
-	/// and pass the block to be replayed, followed by the call data.
-	fn debug_block(
-		&self,
-		method: String,
-		block: Block::Hash,
-		extra_call_data: Bytes,
-	) -> Result<Bytes, Error>;
-
 	/// Returns the keys with prefix, leave empty to get all the keys.
 	fn storage_keys(
 		&self,
@@ -216,17 +207,6 @@ where
 		block: Option<Block::Hash>,
 	) -> Result<Bytes, Error> {
 		self.backend.call(block, method, data).map_err(Into::into)
-	}
-
-	fn debug_block(
-		&self,
-		ext: &Extensions,
-		method: String,
-		block: Block::Hash,
-		data: Bytes,
-	) -> Result<Bytes, Error> {
-		check_if_safe(ext)?;
-		self.backend.debug_block(method, block, data).map_err(Into::into)
 	}
 
 	fn storage_keys(

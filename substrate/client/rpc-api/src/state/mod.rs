@@ -38,56 +38,6 @@ pub trait StateApi<Hash> {
 	#[method(name = "state_call", aliases = ["state_callAt"], blocking)]
 	fn call(&self, name: String, bytes: Bytes, hash: Option<Hash>) -> Result<Bytes, Error>;
 
-	/// Retrieve the block using the specified hash and invoke a runtime API method from the parent
-	/// state of this block. This allows the method to replay the extrinsics from the parent state
-	/// of the block.
-	///
-	/// This is typically used to replay transactions with tracing enabled. For example,
-	/// `pallet_revive` uses this to capture smart-contract call traces.
-	///
-	/// # Parameters
-	/// - `name`: The name of the runtime API method to call.
-	/// - `block`: The hash of the block to replay.
-	/// - `bytes`: Additional, encoded data to pass to the runtime API method, after the block data.
-	///
-	/// # Note
-	///
-	/// - This API is designed to be executed on dedicated nodes, such as tracing nodes, whose sole
-	///   purpose is to run a node to index data.
-	/// - These nodes may need to adjust `--rpc-max-response-limit` to a higher value if large
-	///   responses are anticipated.
-	///
-	/// # `curl` example
-	///
-	/// - Call `pallet_revive` [`trace_block`](https://paritytech.github.io/polkadot-sdk/master/pallet_revive/trait.ReviveApi.html#method.trace_block)
-	///   to replay a block and capture call traces.
-	///
-	/// ```text
-	/// curl  http://localhost:9944 \
-	/// 	-H 'Content-Type: application/json' \
-	/// 	-d '{
-	/// 	      "id":1, "jsonrpc":"2.0", "method":"state_debugBlock", \
-	/// 	      "params": ["ReviveApi_trace_block", "0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264"]
-	///         }'
-	/// }'
-	/// ```
-	///
-	/// - Call `pallet_revive` [`trace_tx`](https://paritytech.github.io/polkadot-sdk/master/pallet_revive/trait.ReviveApi.html#method.trace_block)
-	///   to replay a block and capture the call trace of the transaction at the given index.
-	///
-	/// ```text
-	/// curl  http://localhost:9944 \
-	/// 	-H 'Content-Type: application/json' \
-	/// 	-d '{
-	/// 	      "id":1, "jsonrpc":"2.0", "method":"state_debugBlock", \
-	/// 	      "params": ["ReviveApi_trace_tx",
-	/// "0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264", "0x2a000000"]
-	///         }'
-	/// }'
-	/// ```
-	#[method(name = "state_debugBlock", blocking, with_extensions)]
-	fn debug_block(&self, name: String, block: Hash, bytes: Bytes) -> Result<Bytes, Error>;
-
 	/// Returns the keys with prefix, leave empty to get all the keys.
 	#[method(name = "state_getKeys", blocking)]
 	#[deprecated(since = "2.0.0", note = "Please use `getKeysPaged` with proper paging support")]

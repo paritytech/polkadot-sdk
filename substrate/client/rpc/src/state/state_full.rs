@@ -204,43 +204,6 @@ where
 			.map_err(client_err)
 	}
 
-	fn debug_block(
-		&self,
-		method: String,
-		block: Block::Hash,
-		extra_call_data: Bytes,
-	) -> std::result::Result<Bytes, Error> {
-		use sp_runtime::traits::Header;
-		let header = self
-			.client
-			.header(block)
-			.map_err(|err| Error::Client(Box::new(err)))?
-			.ok_or_else(|| Error::Client("Block hash not found".into()))?;
-
-		let parent_hash = header.parent_hash().clone();
-		let extrinsics = self
-			.client
-			.block_body(block)
-			.map_err(|err| Error::Client(Box::new(err)))?
-			.ok_or_else(|| Error::Client("Block hash not found".into()))?;
-
-		let block = Block::new(header, extrinsics);
-		println!("===\n BLOCK \n ===\n{:#?}", &block);
-		println!("===\n ENCODED BLOCK \n ===\n{:?}", &block.encode());
-
-		let call_data = block
-			.encode()
-			.into_iter()
-			.chain(extra_call_data.0.into_iter())
-			.collect::<Vec<u8>>();
-
-		self.client
-			.executor()
-			.call(parent_hash, &method, &call_data, CallContext::Offchain)
-			.map(Into::into)
-			.map_err(client_err)
-	}
-
 	// TODO: This is horribly broken; either remove it, or make it streaming.
 	fn storage_keys(
 		&self,
