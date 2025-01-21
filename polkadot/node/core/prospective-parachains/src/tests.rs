@@ -416,7 +416,7 @@ async fn handle_leaf_activation(
 			},
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
-				RuntimeApiRequest::Constraints(p_id, tx),
+				RuntimeApiRequest::BackingConstraints(p_id, tx),
 			)) if parent == *hash &&
 				test_state.runtime_api_version >=
 					RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
@@ -435,7 +435,7 @@ async fn handle_leaf_activation(
 			},
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
-				RuntimeApiRequest::Constraints(_p_id, tx),
+				RuntimeApiRequest::BackingConstraints(_p_id, tx),
 			)) if parent == *hash &&
 				test_state.runtime_api_version <
 					RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
