@@ -14,6 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 //! Generated JSON-RPC methods.
 #![allow(missing_docs)]
 
@@ -140,6 +141,10 @@ pub trait EthRpc {
 		&self,
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>>;
+
+	/// Returns the current maxPriorityFeePerGas per gas in wei.
+	#[method(name = "eth_maxPriorityFeePerGas")]
+	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
 
 	/// Submits a raw transaction. For EIP-4844 transactions, the raw form must be the network form.
 	/// This means it includes the blobs, KZG commitments, and KZG proofs.
