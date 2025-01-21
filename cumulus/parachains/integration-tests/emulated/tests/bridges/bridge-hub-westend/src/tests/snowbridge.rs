@@ -23,7 +23,7 @@ use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
 use snowbridge_core::{
-	inbound::InboundQueueFixture, outbound::OperatingMode, AssetMetadata, TokenIdOf,
+	inbound::InboundQueueFixture, AssetMetadata, TokenIdOf,
 };
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
 use snowbridge_router_primitives::inbound::{
