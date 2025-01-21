@@ -23,6 +23,10 @@ doc:
     - Remove `MaxValidatorsCount` optional storage item to add `MaxValidatorsCount` mandatory config parameter
         -  Using it to to bound `EraRewardPoints.individual` BTreeMap -> `BoundedBTreeMap`;
         -  Set to dynamic parameter in runtime westend so that changing it should not require migrations for it
+    
+    Notice that non paged exposure logic has been removed. 
+    The migration from non paged exposure to paged exposure was implemented as a slow migration spanning on multiple eras. 
+    Any runtime using the pallet staking must ensure that the migration from non paged to paged exposure is handled correctly before using this new version.
 
 crates:
 - name: pallet-staking
