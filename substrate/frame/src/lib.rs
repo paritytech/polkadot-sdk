@@ -208,6 +208,7 @@ pub mod prelude {
 			Contains, Defensive, Get, EitherOf, EstimateNextSessionRotation, Hooks, IsSubType, MapSuccess, NoOpPoll,
 			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
 		},
+	};
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
@@ -234,9 +235,9 @@ pub mod prelude {
 	pub use sp_runtime::{traits::{
 		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy, One, Zero,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
-	testing::{Digest, DigestItem, Header},
-	BuildStorage,
-};
+
+}, 	testing::{Digest, DigestItem, Header},
+BuildStorage,};
     /// Bounded storage related types.
 	pub use sp_runtime::{WeakBoundedVec, BoundedVec};
 

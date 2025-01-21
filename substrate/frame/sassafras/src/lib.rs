@@ -52,14 +52,11 @@ extern crate alloc;
 use codec::{Decode, Encode, MaxEncodedLen};
 use log::{debug, error, trace, warn};
 use scale_info::TypeInfo;
-use frame::runtime::prelude::*;
+use frame::prelude::*;
 
 use alloc::vec::Vec;
 
-use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction},
-	pallet_prelude::BlockNumberFor,
-};
+
 use sp_consensus_sassafras::{
 	digests::{ConsensusLog, NextEpochDescriptor, SlotClaim},
 	vrf, AuthorityId, Epoch, EpochConfiguration, Randomness, Slot, TicketBody, TicketEnvelope,
@@ -507,7 +504,7 @@ pub mod pallet {
 
 			// This should be set such that it is discarded after the first epoch half
 			let tickets_longevity = epoch_length / 2 - current_slot_idx;
-			let tickets_tag = tickets.using_encoded(|bytes| frame::hashing::blake2_256(bytes));
+			let tickets_tag = tickets.using_encoded(|bytes| blake2_256(bytes));
 
 			ValidTransaction::with_tag_prefix("Sassafras")
 				.priority(TransactionPriority::max_value())
