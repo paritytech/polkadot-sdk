@@ -58,26 +58,26 @@ jobs:
         - name: Build runtime and generate chain spec
           run: |
             # Prepare directories
-            sudo mkdir -p ${{ matrix.runtime_path }}/target
-            sudo chmod -R 777 ${{ matrix.runtime_path }}/target
+            sudo mkdir -p ${{ matrix.template.runtime_path }}/target
+            sudo chmod -R 777 ${{ matrix.template.runtime_path }}/target
             
             # Build runtime
-            srtool build --package ${{ matrix.package_name }} --runtime-dir ${{ matrix.runtime_path }} --root
+            srtool build --package ${{ matrix.template.package_name }} --runtime-dir ${{ matrix.template.runtime_path }} --root
             
             # Generate chain spec
             # Note that para-id is set to 1000 for both minimal/parachain templates. 
             # `parachain-runtime` is hardcoded to use this parachain id. 
             # `minimal` template isn't using it, but when started with Omni Node, this para id is required (any number can do it, so setting it to 1000 for convenience).
             chain-spec-builder -c dev_chain_spec.json create \
-              --relay-chain "${{ matrix.relay_chain }}" \
+              --relay-chain "${{ matrix.template.relay_chain }}" \
               --para-id 1000 \
-              --runtime "${{ matrix.runtime_path }}/target/srtool/release/wbuild/${{ matrix.runtime_wasm_path }}" \
+              --runtime "${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.runtime_wasm_path }}" \
               named-preset development
 
         - name: Prepare upload directory
           run: |
             mkdir -p artifacts-${{ matrix.template }}
-            cp dev_chain_spec.json artifacts-${{ matrix.package_name }}/dev_chain_spec.json
+            cp dev_chain_spec.json artifacts-${{ matrix.template }}/dev_chain_spec.json
 
         - name: Upload template directory
           uses: actions/upload-artifact@v4
