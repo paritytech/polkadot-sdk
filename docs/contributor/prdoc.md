@@ -29,7 +29,7 @@ Options:
   about the meta-protocol, not the protocol itself.
   - `node_operator`: People who run the node. Think of validators, exchanges, indexer services, CI
     actions. Anything that modifies how the binary behaves (its arguments, default arguments, error
-    messags, etc) must be marked with this.
+    messages, etc) must be marked with this.
 - `bump:`: The default bump level for all crates. The PrDoc will likely need to be edited to reflect
   the actual changes after generation. More details in the section below.
   - `none`: There is no observable change. So to say: if someone were handed the old and the new
