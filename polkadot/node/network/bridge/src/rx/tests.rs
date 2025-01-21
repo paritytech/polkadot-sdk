@@ -1467,7 +1467,7 @@ fn network_protocol_versioning_view_update() {
 	});
 }
 
-// Test rx brige sends the newest gossip topology to all subsystems and old ones only to approval
+// Test rx bridge sends the newest gossip topology to all subsystems and old ones only to approval
 // distribution.
 #[test]
 fn network_new_topology_update() {
