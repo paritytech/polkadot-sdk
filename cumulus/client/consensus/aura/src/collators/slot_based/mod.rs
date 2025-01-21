@@ -36,7 +36,7 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, GetCoreSelectorApi};
-use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_relay_chain_interface::{PHeader, RelayChainInterface};
 use futures::FutureExt;
 use polkadot_primitives::{
 	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId,
@@ -55,6 +55,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member, NumberFor, One};
 use std::{sync::Arc, time::Duration};
 
+use crate::collator::SlotClaim;
 pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 
 mod block_builder_task;
@@ -62,7 +63,18 @@ mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
 
-mod signaling_task;
+mod signaling_elastic_scaling_task;
+mod signaling_lookahead;
+
+pub struct SignalingTaskMessage<Pub, Block: BlockT> {
+	pub slot_claim: SlotClaim<Pub>,
+	pub parent_header: Block::Header,
+	pub authoring_duration: Duration,
+	pub core_index: CoreIndex,
+	pub relay_parent_header: PHeader,
+	pub max_pov_size: u32,
+}
+
 /// Parameters for [`run`].
 pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
@@ -178,7 +190,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 
 	let block_builder_fut = run_block_builder::<Block, P, _, _, _, _, _, _>(block_builder_params);
 
-	let signaling_task_params = signaling_task::SignalingTaskParams {
+	let signaling_task_params = signaling_elastic_scaling_task::SignalingTaskParams {
 		para_client,
 		para_backend,
 		relay_client,
@@ -190,8 +202,9 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service,
 	};
 
-	let signaling_fut =
-		signaling_task::run_signaling_task::<Block, P, _, _, _, _>(signaling_task_params);
+	let signaling_fut = signaling_elastic_scaling_task::run_signaling_task::<Block, P, _, _, _, _>(
+		signaling_task_params,
+	);
 	spawner.spawn_blocking(
 		"slot-based-block-builder",
 		Some("slot-based-collator"),

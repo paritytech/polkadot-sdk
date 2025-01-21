@@ -18,15 +18,15 @@ use codec::Codec;
 
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::GetCoreSelectorApi;
-use cumulus_relay_chain_interface::{PHeader, RelayChainInterface};
+use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::{Block as RelayBlock, CoreIndex, Id as ParaId};
+use polkadot_primitives::{Block as RelayBlock, Id as ParaId};
 
 use crate::{
-	collator::SlotClaim,
 	collators::slot_based::{
 		core_selector,
 		relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+		SignalingTaskMessage,
 	},
 	LOG_TARGET,
 };
@@ -42,15 +42,6 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use sp_timestamp::Timestamp;
 use std::{sync::Arc, time::Duration};
-
-pub struct SignalingTaskMessage<Pub, Block: BlockT> {
-	pub slot_claim: SlotClaim<Pub>,
-	pub parent_header: Block::Header,
-	pub authoring_duration: Duration,
-	pub core_index: CoreIndex,
-	pub relay_parent_header: PHeader,
-	pub max_pov_size: u32,
-}
 
 /// Parameters for [`run_block_builder`].
 pub struct SignalingTaskParams<Block: BlockT, Client, Backend, RelayClient, Pub, CS> {

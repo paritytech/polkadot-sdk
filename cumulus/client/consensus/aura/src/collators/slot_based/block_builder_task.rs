@@ -35,7 +35,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use super::CollatorMessage;
 use crate::{
 	collator as collator_util,
-	collators::{check_validation_code_or_log, slot_based::signaling_task::SignalingTaskMessage},
+	collators::{check_validation_code_or_log, slot_based::SignalingTaskMessage},
 };
 
 /// Parameters for [`run_block_builder`].
