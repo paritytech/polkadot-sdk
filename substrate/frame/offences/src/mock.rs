@@ -22,11 +22,7 @@
 use crate as offences;
 use crate::Config;
 use codec::Encode;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::ConstU32,
-	weights::{constants::RocksDbWeight, Weight},
-};
+use frame::testing_prelude::*;
 use frame::deps::sp_staking::{
 	offence::{self, Kind, OffenceDetails},
 	SessionIndex,
@@ -59,9 +55,9 @@ pub fn with_on_offence_fractions<R, F: FnOnce(&mut Vec<Perbill>) -> R>(f: F) -> 
 	OnOffencePerbill::mutate(|fractions| f(fractions))
 }
 
-type Block = frame_system::mocking::MockBlock<Runtime>;
+type Block = MockBlock<Runtime>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		Offences: offences,

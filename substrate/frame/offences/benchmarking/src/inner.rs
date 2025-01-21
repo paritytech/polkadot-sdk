@@ -21,8 +21,6 @@ use alloc::{vec, vec::Vec};
 
 use frame::testing_prelude::*;
 
-use sp_runtime::{
-};
 use frame::deps::sp_staking::offence::ReportOffence;
 
 use pallet_babe::EquivocationOffence as BabeEquivocationOffence;

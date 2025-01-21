@@ -22,7 +22,6 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame::testing_prelude::*;
-use frame_system as system;
 use pallet_session::historical as pallet_session_historical;
 
 

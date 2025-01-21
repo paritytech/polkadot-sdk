@@ -21,9 +21,7 @@ use alloc::vec::Vec;
 use fame::deps::sp_staking::offence::OnOffenceHandler;
 
 #[cfg(feature = "try-runtime")]
-use frame_support::ensure;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 mod v0 {
 	use super::*;
@@ -112,8 +110,7 @@ mod test {
 	use super::*;
 	use crate::mock::{new_test_ext, with_on_offence_fractions, Runtime as T, KIND};
 	use codec::Encode;
-	use sp_runtime::Perbill;
-	use sp_staking::offence::OffenceDetails;
+	use frame::testing_prelude::*;
 
 	#[test]
 	fn migration_to_v1_works() {
