@@ -520,9 +520,12 @@ fn spends_creation_works_but_not_executed_after_claim_period() {
 
 		run_to_block(round_end);
 
-		// Claim does not work before proposal enactment 
-		assert_noop!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 102), Error::<Test>::InexistentSpend);
-		
+		// Claim does not work before proposal enactment
+		assert_noop!(
+			Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 102),
+			Error::<Test>::InexistentSpend
+		);
+
 		next_block();
 		now = <Test as Config>::BlockNumberProvider::current_block_number();
 		let expire = now.saturating_add(<Test as Config>::ClaimingPeriod::get());
@@ -548,6 +551,5 @@ fn spends_creation_works_but_not_executed_after_claim_period() {
 			expired_when: expire,
 			project_id: 102,
 		})]);
-
 	})
 }

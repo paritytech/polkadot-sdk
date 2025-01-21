@@ -33,7 +33,7 @@
 //! - **TemporaryRewards:**For test purposes only ⇒ used as a substitute for the inflation portion
 //!   used for the rewards.
 //! - **PotId:** Pot containing the funds used to pay the rewards.
-//! - **ClaimingPeriod:**Period during which allocated funds can be claimed 
+//! - **ClaimingPeriod:**Period during which allocated funds can be claimed
 //!
 //! ## Interface
 //!
@@ -56,6 +56,9 @@ mod functions;
 mod types;
 pub use pallet_democracy as Democracy;
 pub use types::*;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 #[cfg(test)]
 mod mock;
@@ -537,7 +540,7 @@ pub mod pallet {
 				WhiteListedProjectAccounts::<T>::remove(&project_id);
 				Ok(())
 			} else {
-				// Claimin before proposal enactment 
+				// Claimin before proposal enactment
 				Err(Error::<T>::NotClaimingPeriod.into())
 			}
 		}
