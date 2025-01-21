@@ -18,7 +18,7 @@
 use super::{Config, Kind, OffenceDetails, Pallet, Perbill, SessionIndex, LOG_TARGET};
 use alloc::vec::Vec;
 
-use fame::deps::sp_staking::offence::OnOffenceHandler;
+use frame::deps::sp_staking::offence::OnOffenceHandler;
 
 #[cfg(feature = "try-runtime")]
 use frame::try_runtime::TryRuntimeError;
