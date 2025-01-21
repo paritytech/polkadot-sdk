@@ -156,6 +156,7 @@ use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
 use sp_npos_elections::VoteWeight;
 use sp_runtime::SaturatedConversion;
+use sp_std::boxed::Box;
 use verifier::Verifier;
 
 #[cfg(test)]
@@ -304,7 +305,6 @@ pub mod pallet {
 		type SignedValidationPhase: Get<BlockNumberFor<Self>>;
 
 		/// The number of snapshot voters to fetch per block.
-		#[pallet::constant]
 		type VoterSnapshotPerBlock: Get<u32>;
 
 		/// The number of snapshot targets to fetch per block.

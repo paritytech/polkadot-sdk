@@ -855,7 +855,8 @@ impl pallet_staking::Config for Runtime {
 	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxActiveValidators;
-	type ElectionProvider = ElectionProviderMultiPhase;
+	type ElectionProvider = MultiBlock;
+	// type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
@@ -879,6 +880,83 @@ impl pallet_fast_unstake::Config for Runtime {
 	type Staking = Staking;
 	type MaxErasToCheckPerBlock = ConstU32<1>;
 	type WeightInfo = ();
+}
+
+pub(crate) mod multi_block_impls {
+	use super::*;
+	use pallet_election_provider_multi_block as multi_block;
+	use pallet_election_provider_multi_phase as multi_phase;
+
+	parameter_types! {
+		pub Pages: u32 = 8;
+		pub VoterSnapshotPerBlock: u32 = 22500 / 8;
+		pub TargetSnapshotPerBlock: u32 = 1000;
+	}
+	impl multi_block::Config for Runtime {
+		type AdminOrigin = EnsureRoot<AccountId>;
+		type DataProvider = Staking;
+		type Fallback = <Runtime as multi_phase::Config>::Fallback;
+		// prepare for election 5 blocks ahead of time
+		type Lookahead = ConstU32<5>;
+		// split election into 8 pages.
+		type Pages = Pages;
+		// allow 2 signed solutions to be verified.
+		type SignedValidationPhase = ConstU32<16>;
+		type RuntimeEvent = RuntimeEvent;
+		// TODO: sanity check that the length of all phases is within reason.
+		type SignedPhase = <Runtime as multi_phase::Config>::SignedPhase;
+		type UnsignedPhase = <Runtime as multi_phase::Config>::UnsignedPhase;
+		type WeightInfo = ();
+		type Solution = NposSolution16;
+		type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+		type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
+		type Verifier = MultiBlockVerifier;
+	}
+
+	impl multi_block::verifier::Config for Runtime {
+		type MaxBackersPerWinner = <Runtime as multi_phase::Config>::MaxBackersPerWinner;
+		type MaxWinnersPerPage = <Runtime as multi_phase::Config>::MaxWinners;
+		type MaxBackersPerWinnerFinal = ConstU32<{ u32::MAX }>;
+		type RuntimeEvent = RuntimeEvent;
+		type SolutionDataProvider = MultiBlockSigned;
+		type SolutionImprovementThreshold = <Runtime as multi_phase::Config>::BetterSignedThreshold;
+		type WeightInfo = ();
+	}
+
+	parameter_types! {
+		pub const BailoutGraceRatio: Perbill = Perbill::from_percent(50);
+	}
+
+	impl multi_block::signed::Config for Runtime {
+		type BailoutGraceRatio = BailoutGraceRatio;
+		// TODO: we need an increase factor for this pallet as well.
+		type DepositBase = SignedFixedDeposit;
+		type DepositPerPage = SignedDepositByte;
+		type MaxSubmissions = ConstU32<8>;
+		type RewardBase = SignedRewardBase;
+
+		type EstimateCallFee = TransactionPayment;
+		type Currency = Balances;
+
+		type RuntimeEvent = RuntimeEvent;
+		type RuntimeHoldReason = RuntimeHoldReason;
+		type WeightInfo = ();
+	}
+
+	impl multi_block::unsigned::Config for Runtime {
+		// TODO: split into MinerConfig so the staker miner can easily configure these.
+		// miner configs.
+		type MinerMaxLength = MinerMaxLength;
+		type MinerMaxWeight = MinerMaxWeight;
+		type OffchainSolver = <Runtime as multi_phase::Config>::Solver;
+
+		// offchain usage of miner configs
+		type MinerTxPriority = <Runtime as multi_phase::Config>::MinerTxPriority;
+		// TODO: this needs to be an educated number: "estimate mining time per page * pages"
+		type OffchainRepeat = ConstU32<5>;
+
+		type WeightInfo = ();
+	}
 }
 
 parameter_types! {
@@ -2844,6 +2922,16 @@ mod runtime {
 
 	#[runtime::pallet_index(84)]
 	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
+
+	// Order is important!
+	#[runtime::pallet_index(85)]
+	pub type MultiBlock = pallet_election_provider_multi_block::Pallet<Runtime>;
+	#[runtime::pallet_index(86)]
+	pub type MultiBlockVerifier = pallet_election_provider_multi_block::verifier::Pallet<Runtime>;
+	#[runtime::pallet_index(87)]
+	pub type MultiBlockUnsigned = pallet_election_provider_multi_block::unsigned::Pallet<Runtime>;
+	#[runtime::pallet_index(88)]
+	pub type MultiBlockSigned = pallet_election_provider_multi_block::signed::Pallet<Runtime>;
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
@@ -3058,6 +3146,10 @@ mod benches {
 		[pallet_asset_conversion_tx_payment, AssetConversionTxPayment]
 		[pallet_transaction_payment, TransactionPayment]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
+		[palllet_election_provider_multi_block, MultiBlock]
+		[palllet_election_provider_multi_block::verifier, MultiBlockVerifier]
+		[palllet_election_provider_multi_block::unsigned, MultiBlockUnsigned]
+		[palllet_election_provider_multi_block::signed, MultiBlockSigned]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_elections_phragmen, Elections]
 		[pallet_fast_unstake, FastUnstake]

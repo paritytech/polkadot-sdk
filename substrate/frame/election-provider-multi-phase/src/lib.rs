@@ -599,7 +599,7 @@ pub mod pallet {
 	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + nherent<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateInherent<Call<Self>> {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
@@ -768,6 +768,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			// TODO: a hack for now to prevent this pallet from doing anything.
+			return Default::default();
 			let next_election = T::DataProvider::next_election_prediction(now).max(now);
 
 			let signed_deadline = T::SignedPhase::get() + T::UnsignedPhase::get();

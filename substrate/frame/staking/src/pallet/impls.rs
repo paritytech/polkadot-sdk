@@ -18,9 +18,8 @@
 //! Implementations for the Staking FRAME Pallet.
 
 use frame_election_provider_support::{
-	bounds::{CountBound, SizeBound},
-	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
+	bounds::CountBound, data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider,
+	ElectionProvider, PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
 };
 use frame_support::{
 	defensive,
@@ -1030,7 +1029,10 @@ impl<T: Config> Pallet<T> {
 	/// `TargetList` not to change while the pages are being processed.
 	///
 	/// This function is self-weighing as [`DispatchClass::Mandatory`].
-	pub fn get_npos_voters(bounds: DataProviderBounds, page: PageIndex) -> Vec<VoterOf<Self>> {
+	pub(crate) fn get_npos_voters(
+		bounds: DataProviderBounds,
+		page: PageIndex,
+	) -> Vec<VoterOf<Self>> {
 		let mut voters_size_tracker: StaticTracker<Self> = StaticTracker::default();
 
 		let page_len_prediction = {
@@ -1166,7 +1168,10 @@ impl<T: Config> Pallet<T> {
 
 		log!(
 			info,
-			"generated {} npos voters, {} from validators and {} nominators",
+			"[page {}, status {:?}, bounds {:?}] generated {} npos voters, {} from validators and {} nominators",
+			page,
+			VoterSnapshotStatus::<T>::get(),
+			bounds,
 			all_voters.len(),
 			validators_taken,
 			nominators_taken
@@ -1177,7 +1182,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Get all the targets associated are eligible for the npos election.
 	///
-	/// The target snaphot is *always* single paged.
+	/// The target snapshot is *always* single paged.
 	///
 	/// This function is self-weighing as [`DispatchClass::Mandatory`].
 	pub fn get_npos_targets(bounds: DataProviderBounds) -> Vec<T::AccountId> {
@@ -1205,6 +1210,7 @@ impl<T: Config> Pallet<T> {
 
 			if targets_size_tracker.try_register_target(target.clone(), &bounds).is_err() {
 				// no more space left for the election snapshot, stop iterating.
+				log!(warn, "npos targets size exceeded, stopping iteration.");
 				Self::deposit_event(Event::<T>::SnapshotTargetsSizeExceeded {
 					size: targets_size_tracker.size as u32,
 				});
@@ -1217,7 +1223,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
-		log!(info, "generated {} npos targets", all_targets.len());
+		log!(info, "[bounds {:?}] generated {} npos targets", bounds, all_targets.len());
 
 		all_targets
 	}

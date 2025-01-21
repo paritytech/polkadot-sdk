@@ -335,7 +335,6 @@ pub trait ElectionDataProvider {
 	///
 	/// Note that if a notion of self-vote exists, it should be represented here.
 	///
-	/// TODO(gpestana): remove self-weighing and return the weight.
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
 	fn electing_voters(
@@ -345,7 +344,6 @@ pub trait ElectionDataProvider {
 
 	/// The number of targets to elect.
 	///
-	/// TODO(gpestana): remove self-weighting ??
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
 	///

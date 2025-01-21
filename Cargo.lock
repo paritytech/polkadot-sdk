@@ -18775,6 +18775,7 @@ dependencies = [
  "pallet-delegated-staking 1.0.0",
  "pallet-democracy 28.0.0",
  "pallet-dev-mode 10.0.0",
+ "pallet-election-provider-multi-block",
  "pallet-election-provider-multi-phase 27.0.0",
  "pallet-election-provider-support-benchmarking 27.0.0",
  "pallet-elections-phragmen 29.0.0",

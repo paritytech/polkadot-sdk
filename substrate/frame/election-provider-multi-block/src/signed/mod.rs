@@ -59,11 +59,8 @@ use frame_system::{ensure_signed, pallet_prelude::*};
 use scale_info::TypeInfo;
 use sp_io::MultiRemovalResults;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	DispatchError, Perbill, TryRuntimeError,
-};
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
+use sp_runtime::{traits::Saturating, Perbill};
+use sp_std::prelude::*;
 
 /// Exports of this pallet
 pub use pallet::*;
@@ -322,14 +319,14 @@ pub mod pallet {
 		///
 		/// All mutating functions must be fulled through this bad boy. The round at which the
 		/// mutation happens must be provided
-		fn mutate_checked<R, F: FnOnce() -> R>(round: u32, mutate: F) -> R {
+		fn mutate_checked<R, F: FnOnce() -> R>(_round: u32, mutate: F) -> R {
 			let result = mutate();
 
 			#[cfg(debug_assertions)]
 			{
-				assert!(Self::sanity_check_round(round).is_ok());
-				assert!(Self::sanity_check_round(round + 1).is_ok());
-				assert!(Self::sanity_check_round(round.saturating_sub(1)).is_ok());
+				assert!(Self::sanity_check_round(_round).is_ok());
+				assert!(Self::sanity_check_round(_round + 1).is_ok());
+				assert!(Self::sanity_check_round(_round.saturating_sub(1)).is_ok());
 			}
 
 			result
@@ -578,6 +575,7 @@ pub mod pallet {
 
 		/// Perform all the sanity checks of this storage item group at the given round.
 		pub(crate) fn sanity_check_round(round: u32) -> DispatchResult {
+			use sp_std::collections::btree_set::BTreeSet;
 			let sorted_scores = SortedScores::<T>::get(round);
 			assert_eq!(
 				sorted_scores.clone().into_iter().map(|(x, _)| x).collect::<BTreeSet<_>>().len(),
@@ -788,7 +786,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state(n)
 		}
 	}
@@ -796,7 +794,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "try-runtime", test))]
-	pub(crate) fn do_try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+	pub(crate) fn do_try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 		Submissions::<T>::sanity_check_round(Self::current_round())
 	}
 
