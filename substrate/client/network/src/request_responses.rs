@@ -254,8 +254,14 @@ pub struct OutgoingResponse {
 
 /// Information stored about a pending request.
 struct PendingRequest {
+	/// The time when the request was sent to the libp2p request-response protocol.
 	started_at: Instant,
-	response_tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+	/// The channel to send the response back to the caller.
+	///
+	/// This is wrapped in an `Option` to allow for the channel to be taken out
+	/// on force-detected timeouts.
+	response_tx: Option<oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>>,
+	/// Fallback request to send if the primary request fails.
 	fallback_request: Option<(Vec<u8>, ProtocolName)>,
 }
 
@@ -496,7 +502,7 @@ impl RequestResponsesBehaviour {
 				(protocol_name.to_string().into(), request_id).into(),
 				PendingRequest {
 					started_at: Instant::now(),
-					response_tx: pending_response,
+					response_tx: Some(pending_response),
 					fallback_request,
 				},
 			);
@@ -620,55 +626,47 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 		'poll_all: loop {
 			// Poll the periodic request check.
 			if self.periodic_request_check.poll_tick(cx).is_ready() {
-				// First pass is needed to collect timed out requests and
-				// submit `OutboundFailure::Timeout` on the moved oneshot sender.
-				let timedout_requests: Vec<_> = self
-					.pending_requests
-					.iter()
-					.filter_map(|(id, req)| {
-						let Some(ProtocolDetails { request_timeout, .. }) =
-							self.protocols.get(&id.protocol)
-						else {
-							log::warn!(
-								target: "sub-libp2p",
-								"Request {id:?} has no protocol registered.",
-							);
-							return Some((id.clone(), None))
-						};
+				self.pending_requests.retain(|id, req| {
+					let Some(ProtocolDetails { request_timeout, .. }) =
+						self.protocols.get(&id.protocol)
+					else {
+						log::warn!(
+							target: "sub-libp2p",
+							"Request {id:?} has no protocol registered.",
+						);
 
-						let elapsed = req.started_at.elapsed();
-						if elapsed > *request_timeout {
-							Some((id.clone(), Some(elapsed)))
-						} else {
-							None
+						if let Some(response_tx) = req.response_tx.take() {
+							if response_tx.send(Err(RequestFailure::UnknownProtocol)).is_err() {
+								log::debug!(
+									target: "sub-libp2p",
+									"Request {id:?} has no protocol registered. At the same time local node is no longer interested in the result.",
+								);
+							}
 						}
-					})
-					.collect();
-
-				if !timedout_requests.is_empty() {
-					log::warn!(
-						target: "sub-libp2p",
-						"Requests {timedout_requests:?} force detected as timeout.",
-					);
-				}
-
-				for (id, _) in timedout_requests {
-					let Some(req) = self.pending_requests.remove(&id) else {
-						continue;
+						return false
 					};
 
-					if req
-						.response_tx
-						.send(Err(RequestFailure::Network(OutboundFailure::Timeout)))
-						.is_err()
-					{
-						log::debug!(
+					let elapsed = req.started_at.elapsed();
+					if elapsed > *request_timeout {
+						log::warn!(
 							target: "sub-libp2p",
-							"Request {id:?} force detected as timeout. At the same time local \
-							 node is no longer interested in the result.",
+							"Request {id:?} force detected as timeout.",
 						);
+
+						if let Some(response_tx) = req.response_tx.take() {
+							if response_tx.send(Err(RequestFailure::Network(OutboundFailure::Timeout))).is_err() {
+								log::debug!(
+									target: "sub-libp2p",
+									"Request {id:?} force detected as timeout. At the same time local node is no longer interested in the result.",
+								);
+							}
+						}
+
+						false
+					} else {
+						true
 					}
-				}
+				});
 			}
 
 			// Poll to see if any response is ready to be sent back.
@@ -824,7 +822,11 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								.pending_requests
 								.remove(&(protocol.clone(), request_id).into())
 							{
-								Some(PendingRequest { started_at, response_tx, .. }) => {
+								Some(PendingRequest {
+									started_at,
+									response_tx: Some(response_tx),
+									..
+								}) => {
 									log::trace!(
 										target: "sub-libp2p",
 										"received response from {peer} ({protocol:?}), {} bytes",
@@ -840,12 +842,12 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										.map_err(|_| RequestFailure::Obsolete);
 									(started_at, delivered)
 								},
-								None => {
+								_ => {
 									log::warn!(
 										target: "sub-libp2p",
 										"Received `RequestResponseEvent::Message` with unexpected request id {:?} from {:?}",
 										request_id,
-										peer
+										peer,
 									);
 									continue
 								},
@@ -875,7 +877,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							{
 								Some(PendingRequest {
 									started_at,
-									response_tx,
+									response_tx: Some(response_tx),
 									fallback_request,
 								}) => {
 									// Try using the fallback request if the protocol was not
@@ -913,7 +915,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									}
 									started_at
 								},
-								None => {
+								_ => {
 									log::warn!(
 										target: "sub-libp2p",
 										"Received `RequestResponseEvent::OutboundFailure` with unexpected request id {:?} error {:?} from {:?}",
