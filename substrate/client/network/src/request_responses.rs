@@ -1428,8 +1428,6 @@ mod tests {
 				match swarm.select_next_some().await {
 					SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
 						assert!(result.is_ok());
-					},
-					SwarmEvent::ConnectionClosed { .. } => {
 						break;
 					},
 					_ => {},
