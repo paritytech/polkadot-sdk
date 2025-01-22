@@ -40,7 +40,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Hash as HashT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, MultiSignature, MultiSigner,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -57,9 +57,7 @@ pub use frame_support::{
 		Everything, HandleMessage, IsInVec, Nothing, QueueFootprint, Randomness, TransformOrigin,
 	},
 	weights::{
-		constants::{
-			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
-		},
+		constants::{BlockExecutionWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
 		ConstantMultiplier, IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 		WeightToFeePolynomial,
 	},
@@ -154,7 +152,7 @@ parameter_types! {
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
-			weights.base_extrinsic = ExtrinsicBaseWeight::get();
+			weights.base_extrinsic = <pallet_verify_signature::weights::SubstrateWeight::<Runtime> as pallet_verify_signature::WeightInfo>::verify_signature();
 		})
 		.for_class(DispatchClass::Normal, |weights| {
 			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
@@ -343,7 +341,10 @@ impl WeightToFeePolynomial for WeightToFee {
 		// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLI_UNIT:
 		// in our template, we map to 1/10 of that, or 1/10 MILLI_UNIT
 		let p = YAP / 10;
-		let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
+		let q = 100 *
+			Balance::from(
+				frame_support::weights::constants::ExtrinsicBaseWeight::get().ref_time(),
+			);
 		vec![WeightToFeeCoefficient {
 			degree: 1,
 			negative: false,
@@ -388,6 +389,30 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = ();
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct VerifySignatureBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_verify_signature::BenchmarkHelper<MultiSignature, AccountId>
+	for VerifySignatureBenchmarkHelper
+{
+	fn create_signature(_entropy: &[u8], msg: &[u8]) -> (MultiSignature, AccountId) {
+		use sp_io::crypto::{sr25519_generate, sr25519_sign};
+		use sp_runtime::traits::IdentifyAccount;
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountId = MultiSigner::Sr25519(public).into_account().into();
+		let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &public, msg).unwrap());
+		(signature, who_account)
+	}
+}
+
+impl pallet_verify_signature::Config for Runtime {
+	type Signature = MultiSignature;
+	type AccountIdentifier = MultiSigner;
+	type WeightInfo = pallet_verify_signature::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = VerifySignatureBenchmarkHelper;
+}
+
 construct_runtime! {
 	pub enum Runtime
 	{
@@ -406,6 +431,7 @@ construct_runtime! {
 		AuraExt: cumulus_pallet_aura_ext = 32,
 
 		Utility: pallet_utility = 40,
+		VerifySignature: pallet_verify_signature = 41,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 51,
@@ -433,10 +459,12 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The SignedExtension to the basic transaction logic.
+/// The TransactionExtension to the basic transaction logic.
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
+		// Uncomment this to enable running signed transactions using v5 extrinsics.
+		// pallet_verify_signature::VerifySignature<Runtime>,
 		frame_system::CheckNonZeroSender<Runtime>,
 		frame_system::CheckSpecVersion<Runtime>,
 		frame_system::CheckTxVersion<Runtime>,
