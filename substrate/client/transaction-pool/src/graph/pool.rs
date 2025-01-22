@@ -37,7 +37,7 @@ use std::{
 use super::{
 	base_pool as base,
 	validated_pool::{IsValidator, ValidatedPool, ValidatedTransaction},
-	watcher::Watcher,
+	ValidatedPoolSubmitOutcome,
 };
 
 /// Modification notification event stream type;
@@ -158,10 +158,17 @@ impl Default for Options {
 	}
 }
 
+impl Options {
+	/// Total (ready+future) maximal number of transactions in the pool.
+	pub fn total_count(&self) -> usize {
+		self.ready.count + self.future.count
+	}
+}
+
 /// Should we check that the transaction is banned
 /// in the pool, before we verify it?
 #[derive(Copy, Clone)]
-enum CheckBannedBeforeVerify {
+pub(crate) enum CheckBannedBeforeVerify {
 	Yes,
 	No,
 }
@@ -172,6 +179,21 @@ pub struct Pool<B: ChainApi> {
 }
 
 impl<B: ChainApi> Pool<B> {
+	/// Create a new transaction pool with statically sized rotator.
+	pub fn new_with_staticly_sized_rotator(
+		options: Options,
+		is_validator: IsValidator,
+		api: Arc<B>,
+	) -> Self {
+		Self {
+			validated_pool: Arc::new(ValidatedPool::new_with_staticly_sized_rotator(
+				options,
+				is_validator,
+				api,
+			)),
+		}
+	}
+
 	/// Create a new transaction pool.
 	pub fn new(options: Options, is_validator: IsValidator, api: Arc<B>) -> Self {
 		Self { validated_pool: Arc::new(ValidatedPool::new(options, is_validator, api)) }
@@ -182,7 +204,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		xts: impl IntoIterator<Item = (base::TimedTransactionSource, ExtrinsicFor<B>)>,
-	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
+	) -> Vec<Result<ValidatedPoolSubmitOutcome<B>, B::Error>> {
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::Yes).await;
 		self.validated_pool.submit(validated_transactions.into_values())
 	}
@@ -194,7 +216,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		xts: impl IntoIterator<Item = (base::TimedTransactionSource, ExtrinsicFor<B>)>,
-	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
+	) -> Vec<Result<ValidatedPoolSubmitOutcome<B>, B::Error>> {
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::No).await;
 		self.validated_pool.submit(validated_transactions.into_values())
 	}
@@ -205,7 +227,7 @@ impl<B: ChainApi> Pool<B> {
 		at: &HashAndNumber<B::Block>,
 		source: base::TimedTransactionSource,
 		xt: ExtrinsicFor<B>,
-	) -> Result<ExtrinsicHash<B>, B::Error> {
+	) -> Result<ValidatedPoolSubmitOutcome<B>, B::Error> {
 		let res = self.submit_at(at, std::iter::once((source, xt))).await.pop();
 		res.expect("One extrinsic passed; one result returned; qed")
 	}
@@ -216,7 +238,7 @@ impl<B: ChainApi> Pool<B> {
 		at: &HashAndNumber<B::Block>,
 		source: base::TimedTransactionSource,
 		xt: ExtrinsicFor<B>,
-	) -> Result<Watcher<ExtrinsicHash<B>, ExtrinsicHash<B>>, B::Error> {
+	) -> Result<ValidatedPoolSubmitOutcome<B>, B::Error> {
 		let (_, tx) = self
 			.verify_one(at.hash, at.number, source, xt, CheckBannedBeforeVerify::Yes)
 			.await;
@@ -284,6 +306,7 @@ impl<B: ChainApi> Pool<B> {
 		let mut validated_counter: usize = 0;
 
 		let mut future_tags = Vec::new();
+		let now = Instant::now();
 		for (extrinsic, in_pool_tags) in all {
 			match in_pool_tags {
 				// reuse the tags for extrinsics that were found in the pool
@@ -319,7 +342,7 @@ impl<B: ChainApi> Pool<B> {
 			}
 		}
 
-		log::trace!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}");
+		log::debug!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}, took:{:?}", now.elapsed());
 
 		self.prune_tags(at, future_tags, in_pool_hashes).await
 	}
@@ -351,6 +374,7 @@ impl<B: ChainApi> Pool<B> {
 		tags: impl IntoIterator<Item = Tag>,
 		known_imported_hashes: impl IntoIterator<Item = ExtrinsicHash<B>> + Clone,
 	) {
+		let now = Instant::now();
 		log::trace!(target: LOG_TARGET, "Pruning at {:?}", at);
 		// Prune all transactions that provide given tags
 		let prune_status = self.validated_pool.prune_tags(tags);
@@ -369,9 +393,8 @@ impl<B: ChainApi> Pool<B> {
 		let reverified_transactions =
 			self.verify(at, pruned_transactions, CheckBannedBeforeVerify::Yes).await;
 
-		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect();
-
-		log::trace!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}", &at, reverified_transactions.len());
+		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect::<Vec<_>>();
+		log::debug!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}, reverification took: {:?}", &at, reverified_transactions.len(), now.elapsed());
 		log_xt_trace!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}] Resubmitting transaction: {:?}");
 
 		// And finally - submit reverified transactions back to the pool
@@ -409,7 +432,7 @@ impl<B: ChainApi> Pool<B> {
 	}
 
 	/// Returns future that validates single transaction at given block.
-	async fn verify_one(
+	pub(crate) async fn verify_one(
 		&self,
 		block_hash: <B::Block as BlockT>::Hash,
 		block_number: NumberFor<B>,
@@ -492,7 +515,7 @@ mod tests {
 	use sp_runtime::transaction_validity::TransactionSource;
 	use std::{collections::HashMap, time::Instant};
 	use substrate_test_runtime::{AccountId, ExtrinsicBuilder, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
+	use substrate_test_runtime_client::Sr25519Keyring::{Alice, Bob};
 
 	const SOURCE: TimedTransactionSource =
 		TimedTransactionSource { source: TransactionSource::External, timestamp: None };
@@ -516,6 +539,7 @@ mod tests {
 				.into(),
 			),
 		)
+		.map(|outcome| outcome.hash())
 		.unwrap();
 
 		// then
@@ -544,7 +568,10 @@ mod tests {
 
 		// when
 		let txs = txs.into_iter().map(|x| (SOURCE, Arc::from(x))).collect::<Vec<_>>();
-		let hashes = block_on(pool.submit_at(&api.expect_hash_and_number(0), txs));
+		let hashes = block_on(pool.submit_at(&api.expect_hash_and_number(0), txs))
+			.into_iter()
+			.map(|r| r.map(|o| o.hash()))
+			.collect::<Vec<_>>();
 		log::debug!("--> {hashes:#?}");
 
 		// then
@@ -568,7 +595,8 @@ mod tests {
 
 		// when
 		pool.validated_pool.ban(&Instant::now(), vec![pool.hash_of(&uxt)]);
-		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()));
+		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
+			.map(|o| o.hash());
 		assert_eq!(pool.validated_pool().status().ready, 0);
 		assert_eq!(pool.validated_pool().status().future, 0);
 
@@ -580,7 +608,7 @@ mod tests {
 	fn should_reject_unactionable_transactions() {
 		// given
 		let api = Arc::new(TestApi::default());
-		let pool = Pool::new(
+		let pool = Pool::new_with_staticly_sized_rotator(
 			Default::default(),
 			// the node does not author blocks
 			false.into(),
@@ -591,7 +619,8 @@ mod tests {
 		let uxt = ExtrinsicBuilder::new_include_data(vec![42]).build();
 
 		// when
-		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()));
+		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
+			.map(|o| o.hash());
 
 		// then
 		assert_matches!(res.unwrap_err(), error::Error::Unactionable);
@@ -619,7 +648,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.hash();
 			let hash1 = block_on(
 				pool.submit_one(
 					&han_of_block0,
@@ -633,7 +663,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.hash();
 			// future doesn't count
 			let _hash = block_on(
 				pool.submit_one(
@@ -648,7 +679,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.hash();
 
 			assert_eq!(pool.validated_pool().status().ready, 2);
 			assert_eq!(pool.validated_pool().status().future, 1);
@@ -681,7 +713,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 		let hash2 = block_on(
 			pool.submit_one(
 				&han_of_block0,
@@ -695,7 +728,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 		let hash3 = block_on(
 			pool.submit_one(
 				&han_of_block0,
@@ -709,7 +743,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 
 		// when
 		pool.validated_pool.clear_stale(&api.expect_hash_and_number(5));
@@ -741,7 +776,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 
 		// when
 		block_on(pool.prune_tags(&api.expect_hash_and_number(1), vec![vec![0]], vec![hash1]));
@@ -767,10 +803,11 @@ mod tests {
 		let options = Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 		let api = Arc::new(TestApi::default());
-		let pool = Pool::new(options, true.into(), api.clone());
+		let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
-		let hash1 =
-			block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.into())).unwrap();
+		let hash1 = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.into()))
+			.unwrap()
+			.hash();
 		assert_eq!(pool.validated_pool().status().future, 1);
 
 		// when
@@ -787,7 +824,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 
 		// then
 		assert_eq!(pool.validated_pool().status().future, 1);
@@ -803,7 +841,7 @@ mod tests {
 		let options = Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 		let api = Arc::new(TestApi::default());
-		let pool = Pool::new(options, true.into(), api.clone());
+		let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 		// when
 		block_on(
@@ -819,6 +857,7 @@ mod tests {
 				.into(),
 			),
 		)
+		.map(|o| o.hash())
 		.unwrap_err();
 
 		// then
@@ -845,6 +884,7 @@ mod tests {
 				.into(),
 			),
 		)
+		.map(|o| o.hash())
 		.unwrap_err();
 
 		// then
@@ -873,7 +913,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 			assert_eq!(pool.validated_pool().status().future, 0);
 
@@ -910,7 +951,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 			assert_eq!(pool.validated_pool().status().future, 0);
 
@@ -949,7 +991,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 0);
 			assert_eq!(pool.validated_pool().status().future, 1);
 
@@ -988,7 +1031,8 @@ mod tests {
 			});
 			let watcher =
 				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
-					.unwrap();
+					.unwrap()
+					.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
 			// when
@@ -1013,7 +1057,8 @@ mod tests {
 			});
 			let watcher =
 				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
-					.unwrap();
+					.unwrap()
+					.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
 			// when
@@ -1036,7 +1081,7 @@ mod tests {
 				Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 			let api = Arc::new(TestApi::default());
-			let pool = Pool::new(options, true.into(), api.clone());
+			let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 			let xt = uxt(Transfer {
 				from: Alice.into(),
@@ -1046,7 +1091,8 @@ mod tests {
 			});
 			let watcher =
 				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, xt.into()))
-					.unwrap();
+					.unwrap()
+					.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
 			// when
@@ -1074,7 +1120,7 @@ mod tests {
 					Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 				let api = Arc::new(TestApi::default());
-				let pool = Pool::new(options, true.into(), api.clone());
+				let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 				// after validation `IncludeData` will have priority set to 9001
 				// (validate_transaction mock)
@@ -1106,14 +1152,16 @@ mod tests {
 					Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 				let api = Arc::new(TestApi::default());
-				let pool = Pool::new(options, true.into(), api.clone());
+				let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 				let han_of_block0 = api.expect_hash_and_number(0);
 
 				// after validation `IncludeData` will have priority set to 9001
 				// (validate_transaction mock)
 				let xt = ExtrinsicBuilder::new_include_data(Vec::new()).build();
-				block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into())).unwrap();
+				block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into()))
+					.unwrap()
+					.expect_watcher();
 				assert_eq!(pool.validated_pool().status().ready, 1);
 
 				// after validation `Transfer` will have priority set to 4 (validate_transaction
@@ -1124,8 +1172,9 @@ mod tests {
 					amount: 5,
 					nonce: 0,
 				});
-				let watcher =
-					block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into())).unwrap();
+				let watcher = block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into()))
+					.unwrap()
+					.expect_watcher();
 				assert_eq!(pool.validated_pool().status().ready, 2);
 
 				// when
@@ -1151,7 +1200,11 @@ mod tests {
 			let mut api = TestApi::default();
 			api.delay = Arc::new(Mutex::new(rx.into()));
 			let api = Arc::new(api);
-			let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+			let pool = Arc::new(Pool::new_with_staticly_sized_rotator(
+				Default::default(),
+				true.into(),
+				api.clone(),
+			));
 
 			let han_of_block0 = api.expect_hash_and_number(0);
 

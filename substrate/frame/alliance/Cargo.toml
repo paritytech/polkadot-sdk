@@ -31,14 +31,14 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 
-pallet-identity = { workspace = true }
 pallet-collective = { optional = true, workspace = true }
+pallet-identity = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-collective = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true }
 
 [features]
 default = ["std"]

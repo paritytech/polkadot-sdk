@@ -143,7 +143,6 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
 	)
 		.into();
 
@@ -152,7 +151,7 @@ pub fn generate_extrinsic_with_pair(
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 
@@ -167,7 +166,7 @@ pub fn generate_extrinsic_with_pair(
 /// Generate an extrinsic from the provided function call, origin and [`Client`].
 pub fn generate_extrinsic(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
 	function: impl Into<RuntimeCall>,
 ) -> UncheckedExtrinsic {
 	generate_extrinsic_with_pair(client, origin.into(), function, None)
@@ -176,8 +175,8 @@ pub fn generate_extrinsic(
 /// Transfer some token from one account to another using a provided test [`Client`].
 pub fn transfer(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
-	dest: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
+	dest: sp_keyring::Sr25519Keyring,
 	value: Balance,
 ) -> UncheckedExtrinsic {
 	let function = RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {

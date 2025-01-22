@@ -13,8 +13,8 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 alloy-sol-types = { workspace = true }
 
 frame-support = { workspace = true }
@@ -59,4 +59,5 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
