@@ -45,7 +45,7 @@ where
 			|inst| match inst {
 				ExportMessage { network, .. } =>
 					if ToGlobalConsensus::contains(network) && FromOrigin::contains(origin) {
-						return Err(ProcessMessageError::Unsupported)
+						Err(ProcessMessageError::Unsupported)
 					} else {
 						Ok(ControlFlow::Continue(()))
 					},
