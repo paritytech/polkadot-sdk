@@ -25,7 +25,6 @@ use crate::mock::{
 	RuntimeEvent, System, KIND,
 };
 use frame::testing_prelude::*;
-use frame::deps::sp_core::H256;
 
 #[test]
 fn should_get_reports_with_storagemap_getter_and_function_getter() {
