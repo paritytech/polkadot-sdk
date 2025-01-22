@@ -41,6 +41,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, StorageFlags};
 use sp_runtime::traits::{Bounded, Hash};
+use sp_runtime::generic::{Digest, DigestItem};
 
 /// How many runs we do per API benchmark.
 ///
@@ -889,6 +890,12 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_block_author() {
 		build_runtime!(runtime, memory: [[123u8; 20], ]);
+
+		let mut digest = Digest::default();
+		digest.push(DigestItem::PreRuntime([1, 2, 3, 4], 123.encode()));
+		digest.push(DigestItem::Seal([1, 2, 4, 4], 123.encode()));
+		frame_system::Pallet::<T>::initialize(&Default::default(), &Default::default(), &digest);
+
 		let result;
 		#[block]
 		{
