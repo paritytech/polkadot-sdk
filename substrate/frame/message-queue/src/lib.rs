@@ -209,15 +209,9 @@ use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
 
-use frame::{
-	deps::{
-		sp_arithmetic::traits::{BaseArithmetic, Unsigned},
-	},
-	prelude::*,
-};
+use frame::{prelude::*, runtime::prelude::WeightMeter};
 pub use pallet::*;
 use scale_info::TypeInfo;
-use frame::runtime::prelude::WeightMeter;
 
 pub use weights::WeightInfo;
 
