@@ -20,7 +20,8 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, Pallet, LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf, Pallet,
+	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -318,11 +319,14 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(value.unwrap_or_default())
-			.map_err(|err| {
-				log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
-				InvalidTransaction::Call
-			})?;
+		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(
+			value.unwrap_or_default(),
+			ConversionPrecision::Exact,
+		)
+		.map_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
+			InvalidTransaction::Call
+		})?;
 
 		let data = input.unwrap_or_default().0;
 
@@ -374,8 +378,12 @@ pub trait EthExtra {
 		// Fees calculated from the gas and gas_price of the transaction.
 		let eth_fee = Pallet::<Self::Config>::convert_evm_to_native(
 			U256::from(gas_price.unwrap_or_default()).saturating_mul(gas),
+			ConversionPrecision::RoundUp,
 		)
-		.map_err(|_| InvalidTransaction::Call)?;
+		.map_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to compute eth_fee: {err:?}");
+			InvalidTransaction::Call
+		})?;
 
 		let info = call.get_dispatch_info();
 		let function: CallOf<Self::Config> = call.into();
