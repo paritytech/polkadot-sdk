@@ -188,7 +188,7 @@ impl core::fmt::LowerHex for ExecutorParamsPrepHash {
 // they show up, they must be clearly documented as mandatory ones.
 //
 // !!! Any new parameter that does not affect the prepared artifact must be added to the exclusion
-// !!! list in `prep_hash()` to avoid unneccessary artifact rebuilds.
+// !!! list in `prep_hash()` to avoid unnecessary artifact rebuilds.
 #[derive(
 	Clone, Debug, Default, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize,
 )]

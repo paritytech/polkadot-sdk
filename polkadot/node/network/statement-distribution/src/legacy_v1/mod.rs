@@ -74,7 +74,7 @@ mod tests;
 
 const COST_UNEXPECTED_STATEMENT: Rep = Rep::CostMinor("Unexpected Statement");
 const COST_UNEXPECTED_STATEMENT_MISSING_KNOWLEDGE: Rep =
-	Rep::CostMinor("Unexpected Statement, missing knowlege for relay parent");
+	Rep::CostMinor("Unexpected Statement, missing knowledge for relay parent");
 const COST_UNEXPECTED_STATEMENT_UNKNOWN_CANDIDATE: Rep =
 	Rep::CostMinor("Unexpected Statement, unknown candidate");
 const COST_UNEXPECTED_STATEMENT_REMOTE: Rep =

@@ -250,7 +250,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	log::info!("Initiating teleport from RC's account of Alice to PC's one");
 
 	// Teleport some Alice's tokens to the Coretime chain. Although her account is pre-funded on
-	// the PC, that is still neccessary to bootstrap RC's `CheckedAccount`.
+	// the PC, that is still necessary to bootstrap RC's `CheckedAccount`.
 	relay_client
 		.tx()
 		.sign_and_submit_default(
@@ -284,7 +284,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	)
 	.await;
 
-	// RC's total issuance doen't change, but PC's one increases after the teleport.
+	// RC's total issuance doesn't change, but PC's one increases after the teleport.
 
 	total_issuance.1 += 1_500_000_000;
 	assert_total_issuance(relay_client.clone(), para_client.clone(), total_issuance).await;
