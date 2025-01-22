@@ -23,6 +23,7 @@ mod call_builder;
 mod code;
 use self::{call_builder::CallSetup, code::WasmModule};
 use crate::{
+	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf},
 	limits,
 	storage::WriteOutcome,
@@ -106,8 +107,6 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
 		);
 
 		let address = outcome.result?.addr;
@@ -362,10 +361,10 @@ mod benchmarks {
 
 	// We just call a dummy contract to measure the overhead of the call extrinsic.
 	// The size of the data has no influence on the costs of this extrinsic as long as the contract
-	// won't call `seal_input` in its constructor to copy the data to contract memory.
+	// won't call `seal_call_data_copy` in its constructor to copy the data to contract memory.
 	// The dummy contract used here does not do this. The costs for the data copy is billed as
-	// part of `seal_input`. The costs for invoking a contract of a specific size are not part
-	// of this benchmark because we cannot know the size of the contract when issuing a call
+	// part of `seal_call_data_copy`. The costs for invoking a contract of a specific size are not
+	// part of this benchmark because we cannot know the size of the contract when issuing a call
 	// transaction. See `call_with_code_per_byte` for this.
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
@@ -558,6 +557,38 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_to_account_id() {
+		// use a mapped address for the benchmark, to ensure that we bench the worst
+		// case (and not the fallback case).
+		let address = {
+			let caller = account("seal_to_account_id", 0, 0);
+			T::Currency::set_balance(&caller, caller_funding::<T>());
+			T::AddressMapper::map(&caller).unwrap();
+			T::AddressMapper::to_address(&caller)
+		};
+
+		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
+		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_to_account_id(memory.as_mut_slice(), len as u32, 0);
+		}
+
+		assert_ok!(result);
+		assert_ne!(
+			memory.as_slice()[20..32],
+			[0xEE; 12],
+			"fallback suffix found where none should be"
+		);
+		assert_eq!(
+			T::AccountId::decode(&mut memory.as_slice()),
+			Ok(runtime.ext().to_account_id(&address))
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_code_hash() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
@@ -596,19 +627,15 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_size() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
-		build_runtime!(runtime, memory: [contract.address.encode(), vec![0u8; 32], ]);
+		build_runtime!(runtime, memory: [contract.address.encode(),]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_code_size(memory.as_mut_slice(), 0, 20);
+			result = runtime.bench_code_size(memory.as_mut_slice(), 0);
 		}
 
-		assert_ok!(result);
-		assert_eq!(
-			U256::from_little_endian(&memory[20..]),
-			U256::from(WasmModule::dummy().code.len())
-		);
+		assert_eq!(result.unwrap(), WasmModule::dummy().code.len() as u64);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -669,6 +696,18 @@ mod benchmarks {
 			<Weight as Decode>::decode(&mut &memory[4..]).unwrap(),
 			runtime.ext().gas_meter().gas_left()
 		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_ref_time_left() {
+		build_runtime!(runtime, memory: [vec![], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_ref_time_left(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), runtime.ext().gas_meter().gas_left().ref_time());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -733,7 +772,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		ext.override_export(crate::debug::ExportedFunction::Constructor);
+		ext.override_export(crate::exec::ExportedFunction::Constructor);
 
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
 
@@ -772,18 +811,67 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_return_data_size() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut memory = memory!(vec![],);
+		*runtime.ext().last_frame_output_mut() =
+			ExecReturnValue { data: vec![42; 256], ..Default::default() };
+		let result;
+		#[block]
+		{
+			result = runtime.bench_return_data_size(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), 256);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_call_data_size() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
-		let mut memory = memory!(vec![0u8; 32 as usize],);
+		let mut memory = memory!(vec![0u8; 4],);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call_data_size(memory.as_mut_slice(), 0);
+			result = runtime.bench_call_data_size(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), 128);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_gas_limit() {
+		build_runtime!(runtime, memory: []);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_gas_limit(&mut memory);
+		}
+		assert_eq!(result.unwrap(), T::BlockWeights::get().max_block.ref_time());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_gas_price() {
+		build_runtime!(runtime, memory: []);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_gas_price(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), u64::from(GAS_PRICE));
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_base_fee() {
+		build_runtime!(runtime, memory: [[1u8;32], ]);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_base_fee(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), U256::from(128));
+		assert_eq!(U256::from_little_endian(&memory[..]), U256::zero());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -854,6 +942,29 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_copy_to_contract(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut memory = memory!(n.encode(), vec![0u8; n as usize],);
+		let result;
+		#[block]
+		{
+			result = runtime.write_sandbox_output(
+				memory.as_mut_slice(),
+				4,
+				0,
+				&vec![42u8; n as usize],
+				false,
+				|_| None,
+			);
+		}
+		assert_ok!(result);
+		assert_eq!(&memory[..4], &n.encode());
+		assert_eq!(&memory[4..], &vec![42u8; n as usize]);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_call_data_load() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
@@ -869,18 +980,18 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_input(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
+	fn seal_call_data_copy(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; n as usize]);
-		let mut memory = memory!(n.to_le_bytes(), vec![0u8; n as usize],);
+		let mut memory = memory!(vec![0u8; n as usize],);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_input(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_call_data_copy(memory.as_mut_slice(), 0, n, 0);
 		}
 		assert_ok!(result);
-		assert_eq!(&memory[4..], &vec![42u8; n as usize]);
+		assert_eq!(&memory[..], &vec![42u8; n as usize]);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -964,32 +1075,6 @@ mod benchmarks {
 			record.event,
 			crate::Event::ContractEmitted { contract: instance.address, data, topics }.into(),
 		);
-	}
-
-	// Benchmark debug_message call
-	// Whereas this function is used in RPC mode only, it still should be secured
-	// against an excessive use.
-	//
-	// i: size of input in bytes up to maximum allowed contract memory or maximum allowed debug
-	// buffer size, whichever is less.
-	#[benchmark]
-	fn seal_debug_message(
-		i: Linear<0, { (limits::code::BLOB_BYTES).min(limits::DEBUG_BUFFER_BYTES) }>,
-	) {
-		let mut setup = CallSetup::<T>::default();
-		setup.enable_debug_message();
-		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		// Fill memory with printable ASCII bytes.
-		let mut memory = (0..i).zip((32..127).cycle()).map(|i| i.1).collect::<Vec<_>>();
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_debug_message(memory.as_mut_slice(), 0, i);
-		}
-		assert_ok!(result);
-		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
@@ -1567,8 +1652,8 @@ mod benchmarks {
 				memory.as_mut_slice(),
 				CallFlags::CLONE_INPUT.bits(), // flags
 				0,                             // callee_ptr
-				0,                             // ref_time_limit
-				0,                             // proof_size_limit
+				u64::MAX,                      // ref_time_limit
+				u64::MAX,                      // proof_size_limit
 				callee_len,                    // deposit_ptr
 				callee_len + deposit_len,      // value_ptr
 				0,                             // input_data_ptr
@@ -1607,8 +1692,8 @@ mod benchmarks {
 				memory.as_mut_slice(),
 				0,           // flags
 				0,           // address_ptr
-				0,           // ref_time_limit
-				0,           // proof_size_limit
+				u64::MAX,    // ref_time_limit
+				u64::MAX,    // proof_size_limit
 				address_len, // deposit_ptr
 				0,           // input_data_ptr
 				0,           // input_data_len
@@ -1634,7 +1719,7 @@ mod benchmarks {
 		let value_bytes = Into::<U256>::into(value).encode();
 		let value_len = value_bytes.len() as u32;
 
-		let deposit: BalanceOf<T> = 0u32.into();
+		let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
 		let deposit_bytes = Into::<U256>::into(deposit).encode();
 		let deposit_len = deposit_bytes.len() as u32;
 
@@ -1669,8 +1754,8 @@ mod benchmarks {
 			result = runtime.bench_instantiate(
 				memory.as_mut_slice(),
 				0,                   // code_hash_ptr
-				0,                   // ref_time_limit
-				0,                   // proof_size_limit
+				u64::MAX,            // ref_time_limit
+				u64::MAX,            // proof_size_limit
 				offset(hash_len),    // deposit_ptr
 				offset(deposit_len), // value_ptr
 				offset(value_len),   // input_data_ptr
