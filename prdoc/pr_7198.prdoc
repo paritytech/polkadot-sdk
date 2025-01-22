@@ -5,7 +5,7 @@ doc:
     it such that it corresponds to the `coinbase` EVM opcode.
 crates:
 - name: pallet-revive
-  bump: minor
+  bump: major
 - name: pallet-revive-fixtures
   bump: minor
 - name: pallet-revive-uapi
