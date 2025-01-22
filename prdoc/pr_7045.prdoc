@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: [pallet-broker] add extrinsic to force region transfer
+
+doc:
+  - audience: Runtime Devs
+    description: |
+      This PR adds to permissionlessles transfer a Bulk Coretime Region to a new owner
+      enabled by OpenGov.
+
+
+crates:
+  - name: pallet-broker
+    bump: major

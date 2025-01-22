@@ -945,7 +945,13 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Transfer a Bulk Coretime Region to a new owner.
+		///
+		/// - `origin`: Admin origin(AKA OpenGov).
+		/// - `region_id`: The Region whose ownership should change.
+		/// - `new_owner`: The new owner for the Region.
 		#[pallet::call_index(25)]
+		#[pallet::weight(T::WeightInfo::force_transfer())]
 		pub fn force_transfer(
 			origin: OriginFor<T>,
 			region_id: RegionId,
