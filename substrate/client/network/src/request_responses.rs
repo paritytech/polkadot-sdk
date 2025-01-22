@@ -1759,17 +1759,17 @@ mod tests {
 	/// For testing purposes, the communication happens on the `/test/req-resp/1` protocol.
 	///
 	/// This is achieved by:
-	/// - Two swarms are connected, the first one is slow to respond and has the timeout set to 60
-	///   seconds. The second swarm is configured with a timeout of 60 seconds in libp2p, however in
-	///   substrate this is set to 5 seconds.
+	/// - Two swarms are connected, the first one is slow to respond and has the timeout set to 10
+	///   seconds. The second swarm is configured with a timeout of 10 seconds in libp2p, however in
+	///   substrate this is set to 1 second.
 	///
-	/// - The first swarm introduces a delay of 10 seconds before responding to the request.
+	/// - The first swarm introduces a delay of 2 seconds before responding to the request.
 	///
-	/// - The second swarm must enforce the 5 seconds timeout.
+	/// - The second swarm must enforce the 1 second timeout.
 	#[tokio::test]
 	async fn enforce_outbound_timeouts() {
-		const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
-		const REQUEST_TIMEOUT_SHORT: Duration = Duration::from_secs(5);
+		const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+		const REQUEST_TIMEOUT_SHORT: Duration = Duration::from_secs(1);
 
 		// These swarms only speaks protocol_name.
 		let protocol_name = ProtocolName::from("/test/req-resp/1");
@@ -1802,6 +1802,7 @@ mod tests {
 						reputation_changes: Vec::new(),
 						sent_feedback: None,
 					});
+					return;
 				}
 			});
 
@@ -1849,6 +1850,7 @@ mod tests {
 				match event {
 					SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
 						assert!(result.is_ok());
+						break;
 					},
 					SwarmEvent::ConnectionClosed { .. } => {
 						break;
