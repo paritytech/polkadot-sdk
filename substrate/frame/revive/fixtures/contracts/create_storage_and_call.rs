@@ -43,10 +43,10 @@ pub extern "C" fn call() {
 	let ret = api::call(
 		uapi::CallFlags::empty(),
 		callee,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
-		Some(deposit_limit),
-		&[0u8; 32], // Value transferred to the contract.
+		u64::MAX,      // How much ref_time weight to devote for the execution. u64::MAX = use all resources.
+		u64::MAX,      // How much proof_size weight to devote for the execution. u64::MAX = use all resources.
+		deposit_limit,
+		&[0u8; 32],    // Value transferred to the contract.
 		input,
 		None,
 	);
