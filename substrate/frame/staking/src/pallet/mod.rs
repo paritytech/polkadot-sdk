@@ -645,15 +645,67 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CanceledSlashPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-	/// All unapplied slashes that are queued for later.
+	/// Stores reported offences in a queue until they are processed in subsequent blocks.
+	///
+	/// Each offence is recorded under the corresponding era index and the offending validator's
+	/// account. If an offence spans multiple pages, only one page is processed at a time. Offences
+	/// are handled sequentially, with their associated slashes computed and stored in
+	/// `UnappliedSlashes`. These slashes are then applied in a future era as determined by
+	/// `SlashDeferDuration`.
+	///
+	/// Any offences tied to an era older than `BondingDuration` are automatically dropped.
+	/// Processing always prioritizes the oldest era first.
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type UnappliedSlashes<T: Config> = StorageMap<
+	pub type OffenceQueue<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
-		Vec<UnappliedSlash<T::AccountId, BalanceOf<T>>>,
-		ValueQuery,
+		Twox64Concat,
+		T::AccountId,
+		slashing::OffenceRecord<T::AccountId>,
+	>;
+
+	/// Tracks the eras that contain offences in `OffenceQueue`, sorted from **earliest to latest**.
+	///
+	/// - This ensures efficient retrieval of the oldest offence without iterating through
+	/// `OffenceQueue`.
+	/// - When a new offence is added to `OffenceQueue`, its era is **inserted in sorted order**
+	/// if not already present.
+	/// - When all offences for an era are processed, it is **removed** from this list.
+	/// - The maximum length of this vector is bounded by `BondingDuration`.
+	///
+	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
+	/// to process.
+	#[pallet::storage]
+	pub type OffenceQueueEras<T: Config> = StorageValue<_, BoundedVec<u32, T::BondingDuration>>;
+
+	/// Tracks the currently processed offence record from the `OffenceQueue`.
+	///
+	/// - When processing offences, an offence record is **popped** from the oldest era in
+	///   `OffenceQueue` and stored here.
+	/// - The function `process_offence` reads from this storage, processing one page of exposure at
+	///   a time.
+	/// - After processing a page, the `exposure_page` count is **decremented** until it reaches
+	///   zero.
+	/// - Once fully processed, the offence record is removed from this storage.
+	///
+	/// This ensures that offences are processed incrementally, preventing excessive computation
+	/// in a single block while maintaining correct slashing behavior.
+	#[pallet::storage]
+	pub type ProcessingOffence<T: Config> =
+		StorageValue<_, (EraIndex, T::AccountId, slashing::OffenceRecord<T::AccountId>)>;
+
+	/// All unapplied slashes that are queued for later.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type UnappliedSlashes<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		(T::AccountId, Perbill, u32), // Second key: (Validator, slash_fraction, Page Index)
+		UnappliedSlash<T>,
+		OptionQuery,
 	>;
 
 	/// A mapping from still-bonded eras to the first session index of that era.
@@ -1034,6 +1086,13 @@ pub mod pallet {
 			page: PageIndex,
 			result: Result<u32, u32>,
 		},
+		/// An offence has been processed and the corresponding slash has been computed.
+		SlashComputed {
+			offence_era: EraIndex,
+			slash_era: EraIndex,
+			offender: T::AccountId,
+			page: u32,
+		},
 	}
 
 	#[pallet::error]
@@ -1117,6 +1176,13 @@ pub mod pallet {
 		/// that the `ElectableStashes` has been populated with all validators from all pages at
 		/// the time of the election.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			// todo(ank4n): add the weight of `process_offences` here.
+			slashing::process_offence::<T>();
+
+			if let Some(active_era) = ActiveEra::<T>::get() {
+				Self::apply_unapplied_slashes(active_era.index);
+			}
+
 			let pages = Self::election_pages();
 
 			// election ongoing, fetch the next page.
@@ -1924,7 +1990,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
 		pub fn cancel_deferred_slash(
 			origin: OriginFor<T>,
-			era: EraIndex,
+			_era: EraIndex,
 			slash_indices: Vec<u32>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
@@ -1932,16 +1998,17 @@ pub mod pallet {
 			ensure!(!slash_indices.is_empty(), Error::<T>::EmptyTargets);
 			ensure!(is_sorted_and_unique(&slash_indices), Error::<T>::NotSortedAndUnique);
 
-			let mut unapplied = UnappliedSlashes::<T>::get(&era);
-			let last_item = slash_indices[slash_indices.len() - 1];
-			ensure!((last_item as usize) < unapplied.len(), Error::<T>::InvalidSlashIndex);
-
-			for (removed, index) in slash_indices.into_iter().enumerate() {
-				let index = (index as usize) - removed;
-				unapplied.remove(index);
-			}
-
-			UnappliedSlashes::<T>::insert(&era, &unapplied);
+			// todo(ank4n): Refactor this to take vec of (stash, page), and kill `UnappliedSlashes`.
+			// let mut unapplied = UnappliedSlashes::<T>::get(&era);
+			// let last_item = slash_indices[slash_indices.len() - 1];
+			// ensure!((last_item as usize) < unapplied.len(), Error::<T>::InvalidSlashIndex);
+			//
+			// for (removed, index) in slash_indices.into_iter().enumerate() {
+			// 	let index = (index as usize) - removed;
+			// 	unapplied.remove(index);
+			// }
+			//
+			// UnappliedSlashes::<T>::insert(&era, &unapplied);
 			Ok(())
 		}
 

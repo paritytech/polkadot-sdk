@@ -845,31 +845,19 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
+#[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct UnappliedSlash<T: Config> {
 	/// The stash ID of the offending validator.
-	validator: AccountId,
+	validator: T::AccountId,
 	/// The validator's own slash.
-	own: Balance,
+	own: BalanceOf<T>,
 	/// All other slashed stakers and amounts.
-	others: Vec<(AccountId, Balance)>,
+	others: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporters: Vec<AccountId>,
+	reporter: Option<T::AccountId>,
 	/// The amount of payout.
-	payout: Balance,
-}
-
-impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
-	/// Initializes the default object using the given `validator`.
-	pub fn default_from(validator: AccountId) -> Self {
-		Self {
-			validator,
-			own: Zero::zero(),
-			others: vec![],
-			reporters: vec![],
-			payout: Zero::zero(),
-		}
-	}
+	payout: BalanceOf<T>,
 }
 
 /// Something that defines the maximum number of nominations per nominator based on a curve.
@@ -922,8 +910,8 @@ impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
 	T: pallet_session::historical::Config<
-		FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		FullIdentificationOf = ExposureOf<T>,
+		FullIdentification = <T as frame_system::Config>::AccountId,
+		FullIdentificationOf = IdentityOf<T>,
 	>,
 	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
@@ -1068,6 +1056,20 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
 		ActiveEra::<T>::get()
 			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
+	}
+}
+
+pub struct IdentityOf<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for IdentityOf<T> {
+	fn convert(validator: T::AccountId) -> Option<T::AccountId> {
+		ActiveEra::<T>::get().and_then(|active_era| {
+			if ErasStakersOverview::<T>::contains_key(&active_era.index, &validator) {
+				Some(validator)
+			} else {
+				None
+			}
+		})
 	}
 }
 
