@@ -40,15 +40,15 @@ where
 		_max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Option<ProcessMessageError> {
+		// This barrier only cares about messages with `origin` matching `FromOrigin`.
+		if !FromOrigin::contains(origin) {
+			return None;
+		}
 		match message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
-				ExportMessage { network, .. } =>
-					if ToGlobalConsensus::contains(network) && FromOrigin::contains(origin) {
-						Err(ProcessMessageError::Unsupported)
-					} else {
-						Ok(ControlFlow::Continue(()))
-					},
+				ExportMessage { network, .. } if ToGlobalConsensus::contains(network) =>
+					return Err(ProcessMessageError::Unsupported),
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		) {

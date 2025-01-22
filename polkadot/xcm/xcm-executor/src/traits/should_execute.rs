@@ -150,7 +150,7 @@ pub trait DenyExecution {
 	) -> Option<ProcessMessageError>;
 }
 
-#[impl_trait_for_tuples::impl_for_tuples(30)]
+#[impl_trait_for_tuples::impl_for_tuples(10)]
 impl DenyExecution for Tuple {
 	fn deny_execution<RuntimeCall>(
 		origin: &Location,
@@ -163,7 +163,7 @@ impl DenyExecution for Tuple {
             match Tuple::deny_execution(origin, instructions, max_weight, properties) {
                 Some(error) => {
                     tracing::error!(
-                        target: "xcm::should_execute",
+                        target: "xcm::deny_execution",
                         ?origin,
                         ?instructions,
                         ?max_weight,
@@ -176,7 +176,7 @@ impl DenyExecution for Tuple {
                 },
 				 None => {
                     tracing::trace!(
-                        target: "xcm::should_execute",
+                        target: "xcm::deny_execution",
                         ?origin,
                         ?instructions,
                         ?max_weight,
