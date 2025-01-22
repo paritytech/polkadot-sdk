@@ -584,6 +584,10 @@ pub trait BuildGenesisConfig: sp_runtime::traits::MaybeSerializeDeserialize {
 	fn build(&self);
 }
 
+impl BuildGenesisConfig for () {
+	fn build(&self) {}
+}
+
 /// A trait to define the build function of a genesis config, T and I are placeholder for pallet
 /// trait and pallet instance.
 #[deprecated(

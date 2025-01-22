@@ -19,8 +19,8 @@ use crate::{
 	defensive,
 	storage::{storage_prefix, transactional::with_transaction_opaque_err},
 	traits::{
-		Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, SafeMode,
-		StorageVersion,
+		BuildGenesisConfig, Defensive, GetStorageVersion, NoStorageVersionSet, OnGenesis,
+		PalletInfoAccess, SafeMode, StorageVersion,
 	},
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
@@ -31,7 +31,7 @@ use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
-use sp_runtime::traits::Zero;
+use sp_runtime::{traits::Zero, SaturatedConversion};
 
 /// Handles storage migration pallet versioning.
 ///
@@ -258,6 +258,57 @@ pub fn migrate_from_pallet_version_to_storage_version<
 	db_weight: &RuntimeDbWeight,
 ) -> Weight {
 	Pallets::migrate(db_weight)
+}
+
+pub struct ResetPallet<P, W, B = (), G = (), const REINIT: bool = false>(PhantomData<(P, W, B, G)>);
+
+impl<P, W, B, G, const REINIT: bool> SteppedMigration for ResetPallet<P, W, B, G, REINIT>
+where
+	P: PalletInfoAccess + OnGenesis,
+	W: Get<RuntimeDbWeight>,
+	B: BuildGenesisConfig,
+	G: Get<B>,
+{
+	type Cursor = ();
+	type Identifier = [u8; 16];
+
+	fn id() -> Self::Identifier {
+		("RemovePallet::", P::name()).using_encoded(twox_128)
+	}
+
+	fn step(
+		_cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		let weight_per_key = W::get().writes(1);
+		let key_budget = meter
+			.remaining()
+			.checked_div_per_component(&weight_per_key)
+			.expect("costs not zero")
+			.saturated_into();
+
+		if key_budget == 0 {
+			return Err(SteppedMigrationError::InsufficientWeight { required: weight_per_key })
+		}
+
+		let hashed_prefix = twox_128(P::name().as_bytes());
+		let (keys_removed, cursor) = match clear_prefix(&hashed_prefix, Some(key_budget)) {
+			KillStorageResult::AllRemoved(value) => (value.into(), None),
+			KillStorageResult::SomeRemaining(value) => (value.into(), Some(())),
+		};
+
+		meter.consume(W::get().writes(keys_removed));
+
+		if REINIT && cursor.is_none() {
+			// sets pallet version to current in-code version
+			P::on_genesis();
+
+			// write the genesis state to storage
+			G::get().build();
+		}
+
+		Ok(cursor)
+	}
 }
 
 /// `RemovePallet` is a utility struct used to remove all storage items associated with a specific

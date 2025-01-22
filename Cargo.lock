@@ -1126,6 +1126,7 @@ dependencies = [
  "pallet-balances 28.0.0",
  "pallet-collator-selection 9.0.0",
  "pallet-message-queue 31.0.0",
+ "pallet-migrations 1.0.0",
  "pallet-multisig 28.0.0",
  "pallet-nft-fractionalization 10.0.0",
  "pallet-nfts 22.0.0",
