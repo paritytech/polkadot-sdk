@@ -52,7 +52,7 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 	fn on_initialize_noop() -> Weight {
 	    Default::default()
 	}
-	fn do_elect_paged(_v: u32,) -> Weight {
+	fn do_elect_paged_inner(_v: u32,) -> Weight {
 	    Default::default()
 	}
 	fn clear_election_metadata() -> Weight {
