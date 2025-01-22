@@ -343,10 +343,8 @@ fn build_overseer(
 		let mut notification_service = notification_service.clone().unwrap();
 		async move {
 			while let Some(event) = notification_service.next_event().await {
-				match event {
-					NotificationEvent::ValidateInboundSubstream { result_tx, .. } =>
-						result_tx.send(ValidationResult::Accept).unwrap(),
-					_ => {},
+				if let NotificationEvent::ValidateInboundSubstream { result_tx, .. } = event {
+					result_tx.send(ValidationResult::Accept).unwrap()
 				}
 			}
 		}
@@ -487,7 +485,7 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 	spawn_handle.spawn(peer_notifications_name, "test-environment", {
 		let state = Arc::clone(&state);
 		let network_service = Arc::clone(&network_service);
-		let node_peer_id = state.test_authorities.peer_ids.get(NODE_UNDER_TEST as usize).unwrap().clone();
+		let node_peer_id = *state.test_authorities.peer_ids.get(NODE_UNDER_TEST as usize).unwrap();
 		async move {
 			loop {
 				tokio::select! {
@@ -568,7 +566,7 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 
 									let seconded_in_group = BitVec::from_iter((0..group_size).map(|_| true));
 									// TODO: Use a seconding peer id
-									let validated_in_group = BitVec::from_iter((0..group_size).map(|i| !(i == 1)));
+									let validated_in_group = BitVec::from_iter((0..group_size).map(|i| i != 1));
 
 									let ack = BackedCandidateAcknowledgement { candidate_hash: manifest.candidate_hash, statement_knowledge: StatementFilter { seconded_in_group, validated_in_group } };
 									let message = WireMessage::ProtocolMessage(v3::ValidationProtocol::StatementDistribution(v3::StatementDistributionMessage::BackedCandidateKnown(ack)));
@@ -619,7 +617,7 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 	let peer_requests_name = Box::leak(format!("Peer {} requests", index).into_boxed_str());
 	spawn_handle.spawn(peer_requests_name, "test-environment", async move {
 		loop {
-			let req = candidate_req_receiver.recv(|| vec![]).await.unwrap();
+			let req = candidate_req_receiver.recv(Vec::new).await.unwrap();
 			let payload = req.payload;
 			gum::debug!(target: LOG_TARGET, ?peer_id, "Peer {} received AttestedCandidateRequest", index);
 			let candidate_receipt = state
