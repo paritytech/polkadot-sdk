@@ -408,8 +408,9 @@ pub mod pallet {
 		#[pallet::weight({
 			let s = other_signatories.len() as u32;
 
-			T::WeightInfo::approve_as_multi_create(s)
-				.max(T::WeightInfo::approve_as_multi_approve(s))
+			// 0 to make it compile
+			T::WeightInfo::approve_as_multi_create(s, 0)
+				.max(T::WeightInfo::approve_as_multi_approve(s, 0))
 				.saturating_add(*max_weight)
 		})]
 		pub fn approve_as_multi(
@@ -453,7 +454,7 @@ pub mod pallet {
 		/// - I/O: 1 read `O(S)`, one remove.
 		/// - Storage: removes one item.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::cancel_as_multi(other_signatories.len() as u32))]
+		#[pallet::weight(T::WeightInfo::cancel_as_multi(other_signatories.len() as u32, 0))]
 		pub fn cancel_as_multi(
 			origin: OriginFor<T>,
 			threshold: u16,
