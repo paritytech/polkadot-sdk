@@ -47,12 +47,9 @@ where
 		match message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
-				ExportMessage { network, .. } =>
-					if ToGlobalConsensus::contains(network) && FromOrigin::contains(origin) {
-						return Err(ProcessMessageError::Unsupported)
-					} else {
-						Ok(ControlFlow::Continue(()))
-					},
+				ExportMessage { network, .. } if ToGlobalConsensus::contains(network) => {
+					return Err(ProcessMessageError::Unsupported)
+				},
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		) {
