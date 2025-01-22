@@ -32,7 +32,7 @@
 //! The best chain contains all the candidates pending availability and a subsequent chain
 //! of candidates that have reached the backing quorum and are better than any other backable forks
 //! according to the fork selection rule (more on this rule later). It has a length of size at most
-//! `max_candidate_depth + 1`.
+//! `num_of_pending_candidates + num_of_assigned_cores_for_para`.
 //!
 //! The unconnected storage keeps a record of seconded/backable candidates that may be
 //! added to the best chain in the future.
@@ -100,13 +100,10 @@
 //! bounded. This means that higher-level code needs to be selective about limiting the amount of
 //! candidates that are considered.
 //!
-//! Practically speaking, the collator-protocol will not allow more than `max_candidate_depth + 1`
-//! collations to be fetched at a relay parent and statement-distribution will not allow more than
-//! `max_candidate_depth + 1` seconded candidates at a relay parent per each validator in the
-//! backing group. Considering the `allowed_ancestry_len` configuration value, the number of
-//! candidates in a `FragmentChain` (including its unconnected storage) should not exceed:
-//!
-//! `allowed_ancestry_len * (max_candidate_depth + 1) * backing_group_size`.
+//! Practically speaking, the collator-protocol will limit the number of fetched collations per
+//! core, to the number of claim queue assignments for the paraid on that core.
+//! Statement-distribution will not allow more than `scheduler_params.lookahead` seconded candidates
+//! at a relay parent per each validator in the backing group.
 //!
 //! The code in this module is not designed for speed or efficiency, but conceptual simplicity.
 //! Our assumption is that the amount of candidates and parachains we consider will be reasonably
@@ -514,6 +511,8 @@ impl Scope {
 				}
 			}
 		}
+
+		println!("ALIN: {max_backable_len}");
 
 		Ok(Scope {
 			relay_parent,
@@ -1182,7 +1181,7 @@ impl FragmentChain {
 		let Some(mut earliest_rp) = self.earliest_relay_parent() else { return };
 
 		loop {
-			if self.best_chain.chain.len() > self.scope.max_backable_len {
+			if self.best_chain.chain.len() >= self.scope.max_backable_len {
 				break;
 			}
 
