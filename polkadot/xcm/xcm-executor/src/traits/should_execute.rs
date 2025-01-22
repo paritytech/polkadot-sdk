@@ -150,7 +150,7 @@ pub trait DenyExecution {
 	) -> Option<ProcessMessageError>;
 }
 
-#[impl_trait_for_tuples::impl_for_tuples(30)]
+#[impl_trait_for_tuples::impl_for_tuples(10)]
 impl DenyExecution for Tuple {
 	fn deny_execution<RuntimeCall>(
 		origin: &Location,
