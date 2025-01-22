@@ -18,7 +18,7 @@ scale-info = { features = ["derive"], workspace = true }
 # Bridge Dependencies
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
-bp-xcm-bridge-hub = { workspace = true }
+bp-xcm-bridge = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 
 # Substrate Dependencies
@@ -50,7 +50,7 @@ std = [
 	"bp-messages/std",
 	"bp-runtime/std",
 	"bp-xcm-bridge-hub-router/std",
-	"bp-xcm-bridge-hub/std",
+	"bp-xcm-bridge/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",

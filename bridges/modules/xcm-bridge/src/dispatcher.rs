@@ -25,7 +25,7 @@ use crate::{Config, DispatchChannelStatusProvider, Pallet, LOG_TARGET};
 
 use bp_messages::target_chain::{DispatchMessage, MessageDispatch};
 use bp_runtime::messages::MessageDispatchResult;
-use bp_xcm_bridge_hub::XcmAsPlainPayload;
+use bp_xcm_bridge::XcmAsPlainPayload;
 use codec::{Decode, Encode};
 use frame_support::{weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, WeightInfoExt};
@@ -124,7 +124,7 @@ mod tests {
 	use crate::{mock::*, Bridges, LaneToBridge, LanesManagerOf};
 
 	use bp_messages::{target_chain::DispatchMessageData, LaneIdType, MessageKey};
-	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
+	use bp_xcm_bridge::{Bridge, BridgeLocations, BridgeState};
 	use frame_support::assert_ok;
 	use pallet_bridge_messages::InboundLaneStorage;
 

@@ -32,7 +32,7 @@ use bp_messages::{
 	LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData,
 };
 use bp_runtime::BasicOperatingMode;
-use bp_xcm_bridge_hub::{Bridge, BridgeState, XcmAsPlainPayload};
+use bp_xcm_bridge::{Bridge, BridgeState, XcmAsPlainPayload};
 use codec::Encode;
 use frame_support::{
 	assert_ok,
@@ -692,7 +692,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 				XcmOverBridgePalletInstance,
 			>>::BridgeDeposit::get();
 
-			Some(bp_xcm_bridge_hub::Deposit::new(bridge_owner_account, deposit))
+			Some(bp_xcm_bridge::Deposit::new(bridge_owner_account, deposit))
 		};
 
 		// check bridge/lane DOES not exist

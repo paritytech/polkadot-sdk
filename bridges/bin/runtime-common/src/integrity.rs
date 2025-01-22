@@ -30,7 +30,7 @@ use pallet_bridge_messages::{ThisChainOf, WeightInfoExt as _};
 // Re-export to avoid include all dependencies everywhere.
 #[doc(hidden)]
 pub mod __private {
-	pub use bp_xcm_bridge_hub;
+	pub use bp_xcm_bridge;
 	pub use static_assertions;
 }
 
@@ -68,7 +68,7 @@ macro_rules! assert_bridge_messages_pallet_types(
 		bridged_chain: $bridged:path,
 	) => {
 		{
-			use $crate::integrity::__private::bp_xcm_bridge_hub::XcmAsPlainPayload;
+			use $crate::integrity::__private::bp_xcm_bridge::XcmAsPlainPayload;
 			use $crate::integrity::__private::static_assertions::assert_type_eq_all;
 			use bp_messages::ChainWithMessages;
 			use bp_runtime::Chain;

@@ -35,7 +35,7 @@
 //! There are two methods for storing congestion status:
 //! 1. A dedicated extrinsic `update_bridge_status`, which relies on `T::UpdateBridgeStatusOrigin`. This
 //!    allows the message exporter to send, for example, an XCM `Transact`.
-//! 2. An implementation of `bp_xcm_bridge_hub::LocalXcmChannelManager`.
+//! 2. An implementation of `bp_xcm_bridge::LocalXcmChannelManager`.
 //!
 //! ## Usage
 //!
@@ -661,7 +661,7 @@ mod tests {
 			let dest =
 				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
 			let bridge_id =
-				bp_xcm_bridge_hub::BridgeId::new(&UniversalLocation::get(), dest.interior());
+				bp_xcm_bridge::BridgeId::new(&UniversalLocation::get(), dest.interior());
 			let update_bridge_status = |bridge_id, is_congested| {
 				let call = RuntimeCall::XcmBridgeHubRouter(Call::update_bridge_status {
 					bridge_id,
@@ -698,7 +698,7 @@ mod tests {
 		run_test(|| {
 			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
 			let bridge_id =
-				bp_xcm_bridge_hub::BridgeId::new(&UniversalLocation::get(), dest.interior());
+				bp_xcm_bridge::BridgeId::new(&UniversalLocation::get(), dest.interior());
 			assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
 
 			// update as is_congested=false when `None`

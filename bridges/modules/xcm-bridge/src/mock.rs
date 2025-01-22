@@ -22,7 +22,7 @@ use bp_messages::{
 	ChainWithMessages, HashedLaneId, MessageNonce,
 };
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
-use bp_xcm_bridge_hub::{BridgeId, BridgeLocations, LocalXcmChannelManager};
+use bp_xcm_bridge::{BridgeId, BridgeLocations, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,

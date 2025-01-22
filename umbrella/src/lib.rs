@@ -56,8 +56,8 @@ pub use bp_runtime;
 pub use bp_test_utils;
 
 /// Primitives of the xcm-bridge-hub pallet.
-#[cfg(feature = "bp-xcm-bridge-hub")]
-pub use bp_xcm_bridge_hub;
+#[cfg(feature = "bp-xcm-bridge")]
+pub use bp_xcm_bridge;
 
 /// Primitives of the xcm-bridge-hub fee pallet.
 #[cfg(feature = "bp-xcm-bridge-hub-router")]

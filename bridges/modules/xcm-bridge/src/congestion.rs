@@ -17,7 +17,7 @@
 //! The module contains utilities for handling congestion between the bridge hub and routers.
 
 use crate::{Bridges, Config, DispatchChannelStatusProvider, LOG_TARGET};
-use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager, Receiver};
+use bp_xcm_bridge::{BridgeId, LocalXcmChannelManager, Receiver};
 use codec::{Decode, Encode};
 use sp_runtime::traits::Convert;
 use sp_std::{marker::PhantomData, vec::Vec};

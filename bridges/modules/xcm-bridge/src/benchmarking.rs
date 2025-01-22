@@ -20,7 +20,7 @@
 
 use crate::{Call, Receiver, ThisChainOf};
 use bp_runtime::BalanceOf;
-use bp_xcm_bridge_hub::BridgeLocations;
+use bp_xcm_bridge::BridgeLocations;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,

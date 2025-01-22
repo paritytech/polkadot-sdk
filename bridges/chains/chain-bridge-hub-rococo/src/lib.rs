@@ -121,5 +121,5 @@ frame_support::parameter_types! {
 pub enum RuntimeCall {
 	/// Points to the `pallet_xcm_bridge_hub` pallet instance for `BridgeHubWestend`.
 	#[codec(index = 52)]
-	XcmOverBridgeHubWestend(bp_xcm_bridge_hub::XcmBridgeHubCall),
+	XcmOverBridgeHubWestend(bp_xcm_bridge::XcmBridgeHubCall),
 }

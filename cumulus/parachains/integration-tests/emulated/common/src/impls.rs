@@ -63,7 +63,7 @@ use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	MessageKey, OutboundLaneData,
 };
-pub use bp_xcm_bridge_hub::{Receiver, XcmBridgeHubCall};
+pub use bp_xcm_bridge::{Receiver, XcmBridgeHubCall};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LaneIdOf, OutboundLanes, Pallet};
 pub use pallet_bridge_messages::{
 	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,

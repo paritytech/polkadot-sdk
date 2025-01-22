@@ -166,7 +166,7 @@ pub mod v0 {
 	use crate::{LaneIdOf, ThisChainOf};
 	use bp_messages::LaneIdType;
 	use bp_runtime::{AccountIdOf, BalanceOf, Chain};
-	use bp_xcm_bridge_hub::BridgeState;
+	use bp_xcm_bridge::BridgeState;
 	use codec::{Decode, Encode, MaxEncodedLen};
 	use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 	use scale_info::TypeInfo;

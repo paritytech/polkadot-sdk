@@ -37,7 +37,7 @@ members = [
 	"bridges/primitives/relayers",
 	"bridges/primitives/runtime",
 	"bridges/primitives/test-utils",
-	"bridges/primitives/xcm-bridge-hub",
+	"bridges/primitives/xcm-bridge",
 	"bridges/primitives/xcm-bridge-hub-router",
 	"bridges/relays/client-substrate",
 	"bridges/relays/equivocation",
@@ -661,7 +661,7 @@ bp-rococo = { path = "bridges/chains/chain-rococo", default-features = false }
 bp-runtime = { path = "bridges/primitives/runtime", default-features = false }
 bp-test-utils = { path = "bridges/primitives/test-utils", default-features = false }
 bp-westend = { path = "bridges/chains/chain-westend", default-features = false }
-bp-xcm-bridge-hub = { path = "bridges/primitives/xcm-bridge-hub", default-features = false }
+bp-xcm-bridge = { path = "bridges/primitives/xcm-bridge", default-features = false }
 bp-xcm-bridge-hub-router = { path = "bridges/primitives/xcm-bridge-hub-router", default-features = false }
 bridge-hub-common = { path = "cumulus/parachains/runtimes/bridge-hubs/common", default-features = false }
 bridge-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo" }

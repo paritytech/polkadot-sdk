@@ -49,7 +49,7 @@ bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
 bp-runtime = { workspace = true }
 bp-test-utils = { workspace = true }
-bp-xcm-bridge-hub = { workspace = true }
+bp-xcm-bridge = { workspace = true }
 bridge-runtime-common = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-messages = { features = ["test-helpers"], workspace = true }
@@ -68,7 +68,7 @@ std = [
 	"bp-relayers/std",
 	"bp-runtime/std",
 	"bp-test-utils/std",
-	"bp-xcm-bridge-hub/std",
+	"bp-xcm-bridge/std",
 	"bridge-runtime-common/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",

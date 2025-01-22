@@ -23,7 +23,7 @@ use bp_messages::MessageNonce;
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_relayers::RewardsAccountParams;
 use bp_runtime::Chain;
-use bp_xcm_bridge_hub::BridgeLocations;
+use bp_xcm_bridge::BridgeLocations;
 use codec::Decode;
 use core::marker::PhantomData;
 use frame_support::{

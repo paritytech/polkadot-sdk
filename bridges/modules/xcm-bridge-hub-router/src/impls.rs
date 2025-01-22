@@ -23,10 +23,10 @@ use frame_support::{ensure, pallet_prelude::PhantomData, traits::Get};
 use xcm::prelude::*;
 use xcm_builder::{ensure_is_remote, ExporterFor};
 
-/// Implementation of [`bp_xcm_bridge_hub::LocalXcmChannelManager`] which tracks and updates
+/// Implementation of [`bp_xcm_bridge::LocalXcmChannelManager`] which tracks and updates
 /// `is_congested` for a given `BridgeId`. This implementation is useful for managing congestion and
 /// dynamic fees with the local `ExportXcm` implementation.
-impl<T: Config<I>, I: 'static> bp_xcm_bridge_hub::LocalXcmChannelManager<BridgeIdOf<T, I>>
+impl<T: Config<I>, I: 'static> bp_xcm_bridge::LocalXcmChannelManager<BridgeIdOf<T, I>>
 	for Pallet<T, I>
 {
 	type Error = ();
@@ -235,13 +235,13 @@ impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter
 	}
 }
 
-/// Implementation of [`ResolveBridgeId`] returning [`bp_xcm_bridge_hub::BridgeId`] based on the
+/// Implementation of [`ResolveBridgeId`] returning [`bp_xcm_bridge::BridgeId`] based on the
 /// configured `UniversalLocation` and remote universal location.
 pub struct EnsureIsRemoteBridgeIdResolver<UniversalLocation>(PhantomData<UniversalLocation>);
 impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId
 	for EnsureIsRemoteBridgeIdResolver<UniversalLocation>
 {
-	type BridgeId = bp_xcm_bridge_hub::BridgeId;
+	type BridgeId = bp_xcm_bridge::BridgeId;
 
 	fn resolve_for_dest(dest: &Location) -> Option<Self::BridgeId> {
 		let Ok((remote_network, remote_dest)) =

@@ -16,7 +16,7 @@ log = { workspace = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 
 # Bridge dependencies
-bp-xcm-bridge-hub = { workspace = true }
+bp-xcm-bridge = { workspace = true }
 bp-xcm-bridge-hub-router = { workspace = true }
 
 # Substrate Dependencies
@@ -39,7 +39,7 @@ sp-std = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"bp-xcm-bridge-hub-router/std",
-	"bp-xcm-bridge-hub/std",
+	"bp-xcm-bridge/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",

@@ -103,7 +103,7 @@ snowbridge-router-primitives = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
-bp-xcm-bridge-hub = { workspace = true }
+bp-xcm-bridge = { workspace = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
 [build-dependencies]
@@ -195,7 +195,7 @@ std = [
 	"bp-asset-hub-westend/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
-	"bp-xcm-bridge-hub/std",
+	"bp-xcm-bridge/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",

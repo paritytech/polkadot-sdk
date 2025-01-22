@@ -965,7 +965,7 @@ dependencies = [
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
@@ -1104,7 +1104,7 @@ dependencies = [
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
@@ -2158,7 +2158,7 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages 0.7.0",
  "bp-runtime 0.7.0",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "frame-support 28.0.0",
  "parity-scale-codec",
  "sp-api 26.0.0",
@@ -2173,7 +2173,7 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages 0.7.0",
  "bp-runtime 0.7.0",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "frame-support 28.0.0",
  "parity-scale-codec",
  "sp-api 26.0.0",
@@ -2527,7 +2527,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bp-xcm-bridge-hub"
+name = "bp-xcm-bridge"
 version = "0.2.0"
 dependencies = [
  "bp-messages 0.7.0",
@@ -2783,7 +2783,7 @@ dependencies = [
  "bp-relayers 0.7.0",
  "bp-runtime 0.7.0",
  "bp-test-utils 0.7.0",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "bridge-runtime-common 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
@@ -2827,7 +2827,7 @@ dependencies = [
  "bp-relayers 0.18.0",
  "bp-runtime 0.18.0",
  "bp-test-utils 0.18.0",
- "bp-xcm-bridge-hub 0.4.0",
+ "bp-xcm-bridge-hub",
  "bridge-runtime-common 0.18.0",
  "cumulus-pallet-parachain-system 0.17.1",
  "cumulus-pallet-xcmp-queue 0.17.0",
@@ -3021,7 +3021,7 @@ dependencies = [
  "bp-relayers 0.7.0",
  "bp-runtime 0.7.0",
  "bp-test-utils 0.7.0",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "log",
@@ -3057,7 +3057,7 @@ dependencies = [
  "bp-polkadot-core 0.18.0",
  "bp-relayers 0.18.0",
  "bp-runtime 0.18.0",
- "bp-xcm-bridge-hub 0.4.0",
+ "bp-xcm-bridge-hub",
  "frame-support 38.0.0",
  "frame-system 38.0.0",
  "log",
@@ -5178,7 +5178,7 @@ name = "cumulus-pallet-xcmp-queue"
 version = "0.7.0"
 dependencies = [
  "bounded-collections",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "frame-benchmarking 28.0.0",
@@ -6438,7 +6438,7 @@ version = "3.0.0"
 dependencies = [
  "asset-test-utils 7.0.0",
  "bp-messages 0.7.0",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "bridge-runtime-common 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
@@ -16194,7 +16194,7 @@ dependencies = [
  "bp-header-chain 0.7.0",
  "bp-messages 0.7.0",
  "bp-runtime 0.7.0",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "bp-xcm-bridge-hub-router 0.6.0",
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
@@ -16223,7 +16223,7 @@ checksum = "d5f9670065b7cba92771060a4a3925b6650ff67611443ccfccd5aa356f7d5aac"
 dependencies = [
  "bp-messages 0.18.0",
  "bp-runtime 0.18.0",
- "bp-xcm-bridge-hub 0.4.0",
+ "bp-xcm-bridge-hub",
  "frame-support 38.0.0",
  "frame-system 38.0.0",
  "log",
@@ -16242,7 +16242,7 @@ dependencies = [
 name = "pallet-xcm-bridge-hub-router"
 version = "0.5.0"
 dependencies = [
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "bp-xcm-bridge-hub-router 0.6.0",
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
@@ -18703,7 +18703,7 @@ dependencies = [
  "bp-relayers 0.7.0",
  "bp-runtime 0.7.0",
  "bp-test-utils 0.7.0",
- "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge",
  "bp-xcm-bridge-hub-router 0.6.0",
  "bridge-hub-common 0.1.0",
  "bridge-hub-test-utils 0.7.0",
@@ -19089,7 +19089,7 @@ dependencies = [
  "bp-relayers 0.18.0",
  "bp-runtime 0.18.0",
  "bp-test-utils 0.18.0",
- "bp-xcm-bridge-hub 0.4.0",
+ "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router 0.14.1",
  "bridge-hub-common 0.10.0",
  "bridge-hub-test-utils 0.18.0",

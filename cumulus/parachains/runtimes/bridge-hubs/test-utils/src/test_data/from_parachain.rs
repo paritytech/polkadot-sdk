@@ -28,7 +28,7 @@ use bp_runtime::{
 	AccountIdOf, BlockNumberOf, Chain, HeaderOf, Parachain, UnverifiedStorageProofParams,
 };
 use bp_test_utils::prepare_parachain_heads_proof;
-use bp_xcm_bridge_hub::XcmAsPlainPayload;
+use bp_xcm_bridge::XcmAsPlainPayload;
 use codec::Encode;
 use pallet_bridge_grandpa::BridgedHeader;
 use sp_runtime::traits::Header as HeaderT;

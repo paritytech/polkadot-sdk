@@ -145,8 +145,8 @@
 
 use bp_messages::{LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
-pub use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState, Receiver};
-use bp_xcm_bridge_hub::{
+pub use bp_xcm_bridge::{Bridge, BridgeId, BridgeState, Receiver};
+use bp_xcm_bridge::{
 	BridgeLocations, BridgeLocationsError, ChannelStatusProvider as DispatchChannelStatusProvider,
 	Deposit, DepositOf, LocalXcmChannelManager,
 };
@@ -158,7 +158,7 @@ use xcm::prelude::*;
 use xcm_builder::DispatchBlob;
 use xcm_executor::traits::ConvertLocation;
 
-pub use bp_xcm_bridge_hub::XcmAsPlainPayload;
+pub use bp_xcm_bridge::XcmAsPlainPayload;
 pub use dispatcher::XcmBlobMessageDispatchResult;
 pub use exporter::PalletAsHaulBlobExporter;
 pub use pallet::*;
@@ -1857,7 +1857,7 @@ mod tests {
 		let receiver = Receiver::new(13, 15);
 
 		assert_eq!(
-			bp_xcm_bridge_hub::XcmBridgeHubCall::open_bridge {
+			bp_xcm_bridge::XcmBridgeHubCall::open_bridge {
 				bridge_destination_universal_location: Box::new(
 					bridge_destination_universal_location.clone().into()
 				),
@@ -1873,7 +1873,7 @@ mod tests {
 			.encode()
 		);
 		assert_eq!(
-			bp_xcm_bridge_hub::XcmBridgeHubCall::close_bridge {
+			bp_xcm_bridge::XcmBridgeHubCall::close_bridge {
 				bridge_destination_universal_location: Box::new(
 					bridge_destination_universal_location.clone().into()
 				),

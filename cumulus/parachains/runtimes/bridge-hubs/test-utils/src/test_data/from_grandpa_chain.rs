@@ -25,7 +25,7 @@ use bp_messages::{
 };
 use bp_runtime::{AccountIdOf, BlockNumberOf, Chain, HeaderOf, UnverifiedStorageProofParams};
 use bp_test_utils::make_default_justification;
-use bp_xcm_bridge_hub::XcmAsPlainPayload;
+use bp_xcm_bridge::XcmAsPlainPayload;
 use codec::Encode;
 use pallet_bridge_grandpa::{BridgedChain, BridgedHeader};
 use sp_runtime::traits::Header as HeaderT;

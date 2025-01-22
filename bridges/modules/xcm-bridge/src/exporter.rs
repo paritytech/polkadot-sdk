@@ -28,7 +28,7 @@ use bp_messages::{
 	source_chain::{MessagesBridge, OnMessagesDelivered},
 	MessageNonce,
 };
-use bp_xcm_bridge_hub::{BridgeId, BridgeState, LocalXcmChannelManager, XcmAsPlainPayload};
+use bp_xcm_bridge::{BridgeId, BridgeState, LocalXcmChannelManager, XcmAsPlainPayload};
 use frame_support::{ensure, traits::Get};
 use pallet_bridge_messages::{
 	Config as BridgeMessagesConfig, Error, Pallet as BridgeMessagesPallet,
@@ -401,7 +401,7 @@ mod tests {
 	use crate::{mock::*, Bridges, LanesManagerOf};
 
 	use bp_runtime::RangeInclusiveExt;
-	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState, Receiver};
+	use bp_xcm_bridge::{Bridge, BridgeLocations, BridgeState, Receiver};
 	use frame_support::{
 		assert_err, assert_ok,
 		traits::{Contains, EnsureOrigin},

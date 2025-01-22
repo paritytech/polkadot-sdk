@@ -1265,7 +1265,7 @@ fn update_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 
 #[test]
 fn test_report_bridge_status_call_compatibility() {
-	let bridge_id = bp_xcm_bridge_hub::BridgeId::new(
+	let bridge_id = bp_xcm_bridge::BridgeId::new(
 		&InteriorLocation::from([GlobalConsensus(ByGenesis([0; 32]))]),
 		&InteriorLocation::from([GlobalConsensus(ByGenesis([1; 32]))]),
 	);
