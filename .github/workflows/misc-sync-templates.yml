@@ -96,18 +96,6 @@ jobs:
     env:
       template-path: "polkadot-sdk-${{ matrix.template }}-template"
     steps:
-      # 0. download dev chain spec
-      - uses: actions/checkout@v4
-        with:
-          path: polkadot-sdk
-          ref: "${{ github.event.inputs.stable_release_branch }}"
-
-      - name: Download template artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: artifacts-${{ matrix.template }}
-          path: templates/${{ matrix.template }}/
-        if: matrix.template != 'solochain'
 
       # 1. Prerequisites.
 
@@ -119,6 +107,12 @@ jobs:
         with:
           path: polkadot-sdk
           ref: "${{ github.event.inputs.stable_release_branch }}"
+      - name: Download template artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts-${{ matrix.template }}
+          path: templates/${{ matrix.template }}/
+        if: matrix.template != 'solochain'
       - name: Generate a token for the template repository
         id: app_token
         uses: actions/create-github-app-token@v1.9.3
