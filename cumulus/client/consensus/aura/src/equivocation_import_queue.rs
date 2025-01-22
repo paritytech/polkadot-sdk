@@ -88,7 +88,8 @@ where
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
-	/// Creates a new Verifier instance for handling parachain block import verification in Aura consensus.
+	/// Creates a new Verifier instance for handling parachain block import verification in Aura
+	/// consensus.
 	pub fn new(
 		client: Arc<Client>,
 		inherent_data_provider: CIDP,
