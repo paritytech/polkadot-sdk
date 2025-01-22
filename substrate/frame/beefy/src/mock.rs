@@ -99,6 +99,7 @@ pub struct MockAncestryProofContext {
 
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct MockAncestryProof {
+	pub is_optimal: bool,
 	pub is_non_canonical: bool,
 }
 
@@ -128,6 +129,10 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 		unimplemented!()
 	}
 
+	fn is_proof_optimal(proof: &Self::Proof) -> bool {
+		proof.is_optimal
+	}
+
 	fn extract_validation_context(_header: Header) -> Option<Self::ValidationContext> {
 		AncestryProofContext::get()
 	}
@@ -142,6 +147,10 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 }
 
 impl<Header: HeaderT> AncestryHelperWeightInfo<Header> for MockAncestryHelper {
+	fn is_proof_optimal(_proof: &<Self as AncestryHelper<HeaderFor<Test>>>::Proof) -> Weight {
+		unimplemented!()
+	}
+
 	fn extract_validation_context() -> Weight {
 		unimplemented!()
 	}
