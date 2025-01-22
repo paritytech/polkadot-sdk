@@ -21,13 +21,14 @@ impl<T: Config> Pallet<T> {
 	pub fn get_formatted_call(call: Call<T>) -> <T as Config>::RuntimeCall {
 		call.into()
 	}
-	pub fn conviction_amount(amount: BalanceOf<T>, conviction:Democracy::Conviction) -> Option<BalanceOf<T>>{
-		
+	pub fn conviction_amount(
+		amount: BalanceOf<T>,
+		conviction: Democracy::Conviction,
+	) -> Option<BalanceOf<T>> {
 		let conviction_amount: BalanceOf<T> = match conviction {
-			Democracy::Conviction::None => {
-				Percent::from_percent(10) * amount
-			}
-			_ => amount.saturating_mul(<u8 as From<Democracy::Conviction>>::from(conviction).into())
+			Democracy::Conviction::None => Percent::from_percent(10) * amount,
+			_ =>
+				amount.saturating_mul(<u8 as From<Democracy::Conviction>>::from(conviction).into()),
 		};
 		Some(conviction_amount)
 	}
@@ -82,7 +83,8 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::NoProjectAvailable)?;
 		let ref_index = infos.index;
 
-		let conviction_fund = Self::conviction_amount(amount, conviction).ok_or("Invalid conviction")?;
+		let conviction_fund =
+			Self::conviction_amount(amount, conviction).ok_or("Invalid conviction")?;
 
 		// Create vote infos and store/adjust them
 		let round_number = NextVotingRoundNumber::<T>::get().saturating_sub(1);
@@ -113,7 +115,8 @@ impl<T: Config> Pallet<T> {
 			let old_vote = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let old_amount = old_vote.amount;
 			let old_conviction = old_vote.conviction;
-			let old_conviction_amount = Self::conviction_amount(old_amount, old_conviction).ok_or("Invalid conviction")?;
+			let old_conviction_amount =
+				Self::conviction_amount(old_amount, old_conviction).ok_or("Invalid conviction")?;
 			ProjectFunds::<T>::mutate(&project, |val| {
 				let mut val0 = val.clone().into_inner();
 				if is_fund {
@@ -215,7 +218,8 @@ impl<T: Config> Pallet<T> {
 			let conviction = infos.conviction;
 			let is_fund = infos.is_fund;
 
-			let conviction_fund = Self::conviction_amount(amount, conviction).ok_or("Invalid conviction")?;
+			let conviction_fund =
+				Self::conviction_amount(amount, conviction).ok_or("Invalid conviction")?;
 
 			// Update Round infos
 			let round_number = NextVotingRoundNumber::<T>::get().saturating_sub(1);
@@ -268,8 +272,7 @@ impl<T: Config> Pallet<T> {
 		if projects.clone().len() > 0 as usize {
 			let total_positive_votes_amount = round.total_positive_votes_amount;
 			let when = T::BlockNumberProvider::current_block_number();
-			let total_votes_amount =
-				total_positive_votes_amount;
+			let total_votes_amount = total_positive_votes_amount;
 
 			// for each project, calculate the percentage of votes, the amount to be distributed,
 			// and then populate the storage Projects

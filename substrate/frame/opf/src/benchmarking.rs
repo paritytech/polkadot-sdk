@@ -92,9 +92,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn remove_vote(
-		r: Linear<1, 1000>,
-	) -> Result<(), BenchmarkError> {
+	fn remove_vote(r: Linear<1, 1000>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
@@ -125,7 +123,7 @@ mod benchmarks {
 
 		Ok(())
 	}
-/*
+	/*
 	#[benchmark]
 	fn unlock_funds(
 		r: Linear<1, { T::MaxWhitelistedProjects::get() }>,

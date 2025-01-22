@@ -484,9 +484,9 @@ fn spends_creation_works_but_not_executed_after_claim_period() {
 		let batch = project_list();
 		let voting_period = <Test as Config>::VotingPeriod::get();
 		let mut now = <Test as Config>::BlockNumberProvider::current_block_number();
-		let amount1 = 400 ;
-		let amount2 = 320 ;
-		let amount3 = 280 ;
+		let amount1 = 400;
+		let amount2 = 320;
+		let amount3 = 280;
 		//round_end_block
 		let round_end = now.saturating_add(voting_period);
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
