@@ -17265,6 +17265,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-ckb-merkle-mountain-range"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "221c71b432b38e494a0fdedb5f720e4cb974edf03a0af09e5b2238dbac7e6947"
+dependencies = [
+ "cfg-if",
+ "itertools 0.10.5",
+]
+
+[[package]]
 name = "polkadot-cli"
 version = "7.0.0"
 dependencies = [
@@ -26959,7 +26969,7 @@ dependencies = [
  "array-bytes",
  "log",
  "parity-scale-codec",
- "polkadot-ckb-merkle-mountain-range",
+ "polkadot-ckb-merkle-mountain-range 0.8.1",
  "scale-info",
  "serde",
  "sp-api 26.0.0",
@@ -26977,7 +26987,7 @@ checksum = "9a12dd76e368f1e48144a84b4735218b712f84b3f976970e2f25a29b30440e10"
 dependencies = [
  "log",
  "parity-scale-codec",
- "polkadot-ckb-merkle-mountain-range",
+ "polkadot-ckb-merkle-mountain-range 0.7.0",
  "scale-info",
  "serde",
  "sp-api 34.0.0",
