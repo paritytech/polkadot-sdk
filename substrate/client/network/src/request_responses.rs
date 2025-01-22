@@ -1788,7 +1788,7 @@ mod tests {
 			let (tx, mut rx) = async_channel::bounded::<IncomingRequest>(64);
 
 			tokio::spawn(async move {
-				while let Some(rq) = rx.next().await {
+				if let Some(rq) = rx.next().await {
 					assert_eq!(rq.payload, b"this is a request");
 
 					// Sleep for more than `REQUEST_TIMEOUT_SHORT` and less than
@@ -1802,7 +1802,6 @@ mod tests {
 						reputation_changes: Vec::new(),
 						sent_feedback: None,
 					});
-					return;
 				}
 			});
 
