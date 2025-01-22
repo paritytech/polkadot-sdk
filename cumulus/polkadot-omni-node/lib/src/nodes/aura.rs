@@ -39,7 +39,7 @@ use cumulus_client_consensus_aura::collators::slot_based::{
 };
 use cumulus_client_consensus_aura::collators::{
 	lookahead::{self as aura, Params as AuraParams},
-	slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
+	slot_based::{Flavor, SlotBasedBlockImport, SlotBasedBlockImportHandle},
 };
 use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
@@ -376,6 +376,7 @@ where
 			slot_drift: Duration::from_secs(1),
 			block_import_handle,
 			spawner: task_manager.spawn_handle(),
+			flavor: Flavor::TimeBased,
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of

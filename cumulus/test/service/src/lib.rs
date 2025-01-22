@@ -101,6 +101,7 @@ use substrate_test_client::{
 };
 
 pub use chain_spec::*;
+use cumulus_client_consensus_aura::collators::slot_based::Flavor;
 pub use cumulus_test_runtime as runtime;
 pub use sp_keyring::Sr25519Keyring as Keyring;
 
@@ -482,7 +483,6 @@ where
 
 			let client_for_aura = client.clone();
 
-			if use_slot_based_collator {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
 				let params = SlotBasedParams {
 					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
@@ -506,37 +506,10 @@ where
 					slot_drift: Duration::from_secs(1),
 					block_import_handle: slot_based_handle,
 					spawner: task_manager.spawn_handle(),
+					flavor: use_slot_based_collator.then(|| Flavor::TimeBased).unwrap_or(Flavor::Lookahead)
 				};
 
 				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
-			} else {
-				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
-				let params = AuraParams {
-					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-					block_import,
-					para_client: client.clone(),
-					para_backend: backend.clone(),
-					relay_client: relay_chain_interface,
-					code_hash_provider: move |block_hash| {
-						client_for_aura
-							.code_at(block_hash)
-							.ok()
-							.map(|c| ValidationCode::from(c).hash())
-					},
-					keystore,
-					collator_key,
-					para_id,
-					overseer_handle,
-					relay_chain_slot_duration,
-					proposer,
-					collator_service,
-					authoring_duration: Duration::from_millis(2000),
-					reinitialize: false,
-				};
-
-				let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
-				task_manager.spawn_essential_handle().spawn("aura", None, fut);
-			}
 		}
 	}
 

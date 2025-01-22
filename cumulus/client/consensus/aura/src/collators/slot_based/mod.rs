@@ -75,6 +75,11 @@ pub struct SignalingTaskMessage<Pub, Block: BlockT> {
 	pub max_pov_size: u32,
 }
 
+pub enum Flavor {
+	TimeBased,
+	Lookahead
+}
+
 /// Parameters for [`run`].
 pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
@@ -112,6 +117,7 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
 	/// Spawner for spawning futures.
 	pub spawner: Spawner,
+	pub flavor: Flavor,
 }
 
 /// Run aura-based block building and collation task.
@@ -133,6 +139,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		slot_drift,
 		block_import_handle,
 		spawner,
+		flavor,
 	}: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) where
 	Block: BlockT,
@@ -190,21 +197,41 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 
 	let block_builder_fut = run_block_builder::<Block, P, _, _, _, _, _, _>(block_builder_params);
 
-	let signaling_task_params = signaling_elastic_scaling_task::SignalingTaskParams {
-		para_client,
-		para_backend,
-		relay_client,
-		keystore,
-		para_id,
-		authoring_duration,
-		slot_drift,
-		building_task_sender: to_builder_sender,
-		collator_service,
-	};
+	let signaling_fut = match flavor {
+		Flavor::TimeBased => {
+			let signaling_task_params = signaling_elastic_scaling_task::SignalingTaskParams {
+				para_client,
+				para_backend,
+				relay_client,
+				keystore,
+				para_id,
+				authoring_duration,
+				slot_drift,
+				building_task_sender: to_builder_sender,
+				collator_service,
+			};
 
-	let signaling_fut = signaling_elastic_scaling_task::run_signaling_task::<Block, P, _, _, _, _>(
-		signaling_task_params,
-	);
+			signaling_elastic_scaling_task::run_signaling_task::<Block, P, _, _, _, _>(
+				signaling_task_params,
+			).boxed()
+		}
+		Flavor::Lookahead => {
+			let signaling_task_params = signaling_lookahead::SignalingTaskParams {
+				para_client,
+				para_backend,
+				relay_client,
+				keystore,
+				para_id,
+				authoring_duration,
+				building_task_sender: to_builder_sender,
+				collator_service,
+			};
+
+			signaling_lookahead::run_signaling_task::<Block, P, _, _, _, _>(
+				signaling_task_params,
+			).boxed()
+		}
+	};
 	spawner.spawn_blocking(
 		"slot-based-block-builder",
 		Some("slot-based-collator"),
@@ -218,7 +245,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	spawner.spawn_blocking(
 		"slot-based-signaling",
 		Some("slot-based-collator"),
-		signaling_fut.boxed(),
+		signaling_fut,
 	);
 }
 

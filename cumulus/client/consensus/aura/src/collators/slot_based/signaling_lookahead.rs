@@ -33,8 +33,7 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
-use sp_timestamp::Timestamp;
+use sp_runtime::traits::{Block as BlockT, Member};
 use std::{sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
@@ -51,74 +50,9 @@ pub struct SignalingTaskParams<Block: BlockT, Client, Backend, RelayClient, Pub,
 	pub para_id: ParaId,
 	/// The amount of time to spend authoring each block.
 	pub authoring_duration: Duration,
-	/// Drift every slot by this duration.
-	/// This is a time quantity that is subtracted from the actual timestamp when computing
-	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the
-	/// intent to keep our "clock" slightly behind the relay chain one and thus reducing the
-	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
-	/// wait for relay chain notifications because we woke up too early).
-	pub slot_drift: Duration,
 	pub building_task_sender:
 		sc_utils::mpsc::TracingUnboundedSender<SignalingTaskMessage<Pub, Block>>,
 	pub collator_service: CS,
-}
-
-#[derive(Debug)]
-struct SlotInfo {
-	pub timestamp: Timestamp,
-	pub slot: Slot,
-}
-
-#[derive(Debug)]
-struct SlotTimer<Block, Client, P> {
-	client: Arc<Client>,
-	drift: Duration,
-	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
-}
-
-/// Returns current duration since Unix epoch.
-fn duration_now() -> Duration {
-	use std::time::SystemTime;
-	let now = SystemTime::now();
-	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
-		panic!("Current time {:?} is before Unix epoch. Something is wrong: {:?}", now, e)
-	})
-}
-
-/// Returns the duration until the next slot from now.
-fn time_until_next_slot(slot_duration: Duration, drift: Duration) -> Duration {
-	let now = duration_now().as_millis() - drift.as_millis();
-
-	let next_slot = (now + slot_duration.as_millis()) / slot_duration.as_millis();
-	let remaining_millis = next_slot * slot_duration.as_millis() - now;
-	Duration::from_millis(remaining_millis as u64)
-}
-
-impl<Block, Client, P> SlotTimer<Block, Client, P>
-where
-	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static + UsageProvider<Block>,
-	Client::Api: AuraApi<Block, P::Public>,
-	P: Pair,
-	P::Public: AppPublic + Member + Codec,
-	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
-{
-	pub fn new_with_drift(client: Arc<Client>, drift: Duration) -> Self {
-		Self { client, drift, _marker: Default::default() }
-	}
-
-	/// Returns a future that resolves when the next slot arrives.
-	pub async fn wait_until_next_slot(&self) -> Result<SlotInfo, ()> {
-		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
-			tracing::error!(target: crate::LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return Err(())
-		};
-
-		let time_until_next_slot = time_until_next_slot(slot_duration.as_duration(), self.drift);
-		tokio::time::sleep(time_until_next_slot).await;
-		let timestamp = sp_timestamp::Timestamp::current();
-		Ok(SlotInfo { slot: Slot::from_timestamp(timestamp, slot_duration), timestamp })
-	}
 }
 
 /// Run block-builder.
@@ -152,9 +86,9 @@ where
 			para_id,
 			authoring_duration,
 			para_backend,
-			slot_drift,
 			building_task_sender,
 			collator_service,
+			..
 		} = params;
 
 		let mut import_notifications = match relay_client.import_notification_stream().await {
@@ -174,13 +108,6 @@ where
 			tracing::warn!(target: crate::LOG_TARGET, "New round in signaling task.");
 			let Ok(relay_parent) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
-				continue
-			};
-
-			let Some((included_block, parent)) =
-				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
-					.await
-			else {
 				continue
 			};
 
@@ -217,7 +144,7 @@ where
 				},
 			};
 
-			let (included_block, initial_parent) = match crate::collators::find_parent(
+			let (included_block, parent) = match crate::collators::find_parent(
 				relay_parent,
 				para_id,
 				&*para_backend,
@@ -243,8 +170,8 @@ where
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
-			let parent_hash = initial_parent.hash;
-			let parent_header = initial_parent.header;
+			let parent_hash = parent.hash;
+			let parent_header = parent.header;
 
 			let slot_duration =
 				match sc_consensus_aura::standalone::slot_duration_at(&*para_client, parent_hash) {
@@ -258,14 +185,16 @@ where
 			let slot_now = Slot::from_timestamp(timestamp, slot_duration);
 			tracing::debug!(
 				target: crate::LOG_TARGET,
-				?relay_slot,
-				para_slot = ?slot_now,
+				?core_index,
+				slot_info = ?slot_now,
 				?timestamp,
-				?slot_duration,
-				// TODO fix this
-				// relay_chain_slot_duration = ?relay_chain_slot_duration,
-				"Adjusted relay-chain slot to parachain slot"
+				unincluded_segment_len = parent.depth,
+				relay_parent = %relay_parent,
+				included = %included_block,
+				parent = %parent_hash,
+				"Building block."
 			);
+
 			let Some(slot_claim) = crate::collators::can_build_upon::<_, _, P>(
 				slot_now,
 				relay_slot,
