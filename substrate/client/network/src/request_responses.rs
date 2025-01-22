@@ -571,17 +571,6 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 		addr: &Multiaddr,
 		role_override: Endpoint,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-<<<<<<< HEAD
-		let iter = self.protocols.iter_mut().filter_map(|(p, (r, _))| {
-			if let Ok(handler) =
-				r.handle_established_outbound_connection(connection_id, peer, addr, role_override)
-			{
-				Some((p.to_string(), handler))
-			} else {
-				None
-			}
-		});
-=======
 		let iter =
 			self.protocols.iter_mut().filter_map(|(p, ProtocolDetails { behaviour, .. })| {
 				if let Ok(handler) = behaviour.handle_established_outbound_connection(
@@ -589,14 +578,12 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 					peer,
 					addr,
 					role_override,
-					port_use,
 				) {
 					Some((p.to_string(), handler))
 				} else {
 					None
 				}
 			});
->>>>>>> fd64a1e7 (net/libp2p: Enforce outbound request-response timeout limits (#7222))
 
 		Ok(MultiHandler::try_from_iter(iter).expect(
 			"Protocols are in a HashMap and there can be at most one handler per protocol name, \
@@ -604,12 +591,14 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 		))
 	}
 
-<<<<<<< HEAD
 	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
 		match event {
 			FromSwarm::ConnectionEstablished(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::ConnectionEstablished(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(
+						behaviour,
+						FromSwarm::ConnectionEstablished(e),
+					);
 				},
 			FromSwarm::ConnectionClosed(ConnectionClosed {
 				peer_id,
@@ -619,8 +608,10 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 				remaining_established,
 			}) =>
 				for (p_name, p_handler) in handler.into_iter() {
-					if let Some((proto, _)) = self.protocols.get_mut(p_name.as_str()) {
-						proto.on_swarm_event(FromSwarm::ConnectionClosed(ConnectionClosed {
+					if let Some(ProtocolDetails { behaviour, .. }) =
+						self.protocols.get_mut(p_name.as_str())
+					{
+						behaviour.on_swarm_event(FromSwarm::ConnectionClosed(ConnectionClosed {
 							peer_id,
 							connection_id,
 							endpoint,
@@ -636,54 +627,55 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 					}
 				},
 			FromSwarm::DialFailure(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::DialFailure(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(behaviour, FromSwarm::DialFailure(e));
 				},
 			FromSwarm::ListenerClosed(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::ListenerClosed(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(behaviour, FromSwarm::ListenerClosed(e));
 				},
 			FromSwarm::ListenFailure(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::ListenFailure(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(behaviour, FromSwarm::ListenFailure(e));
 				},
 			FromSwarm::ListenerError(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::ListenerError(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(behaviour, FromSwarm::ListenerError(e));
 				},
 			FromSwarm::ExternalAddrExpired(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExternalAddrExpired(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(behaviour, FromSwarm::ExternalAddrExpired(e));
 				},
 			FromSwarm::NewListener(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::NewListener(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(behaviour, FromSwarm::NewListener(e));
 				},
 			FromSwarm::ExpiredListenAddr(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExpiredListenAddr(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(behaviour, FromSwarm::ExpiredListenAddr(e));
 				},
 			FromSwarm::NewExternalAddrCandidate(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::NewExternalAddrCandidate(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(
+						behaviour,
+						FromSwarm::NewExternalAddrCandidate(e),
+					);
 				},
 			FromSwarm::ExternalAddrConfirmed(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExternalAddrConfirmed(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(
+						behaviour,
+						FromSwarm::ExternalAddrConfirmed(e),
+					);
 				},
 			FromSwarm::AddressChange(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::AddressChange(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(behaviour, FromSwarm::AddressChange(e));
 				},
 			FromSwarm::NewListenAddr(e) =>
-				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::NewListenAddr(e));
+				for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(behaviour, FromSwarm::NewListenAddr(e));
 				},
-=======
-	fn on_swarm_event(&mut self, event: FromSwarm) {
-		for ProtocolDetails { behaviour, .. } in self.protocols.values_mut() {
-			behaviour.on_swarm_event(event);
->>>>>>> fd64a1e7 (net/libp2p: Enforce outbound request-response timeout limits (#7222))
 		}
 	}
 
@@ -805,14 +797,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 			let mut fallback_requests = vec![];
 
 			// Poll request-responses protocols.
-<<<<<<< HEAD
-			for (protocol, (ref mut behaviour, ref mut resp_builder)) in &mut self.protocols {
-				'poll_protocol: while let Poll::Ready(ev) = behaviour.poll(cx, params) {
-=======
 			for (protocol, ProtocolDetails { behaviour, inbound_queue, .. }) in &mut self.protocols
 			{
-				'poll_protocol: while let Poll::Ready(ev) = behaviour.poll(cx) {
->>>>>>> fd64a1e7 (net/libp2p: Enforce outbound request-response timeout limits (#7222))
+				'poll_protocol: while let Poll::Ready(ev) = behaviour.poll(cx, params) {
 					let ev = match ev {
 						// Main events we are interested in.
 						ToSwarm::GenerateEvent(ev) => ev,
@@ -1292,14 +1279,10 @@ mod tests {
 			transport,
 			behaviour,
 			keypair.public().to_peer_id(),
-<<<<<<< HEAD
-			SwarmConfig::with_executor(TokioExecutor(runtime)),
-=======
 			SwarmConfig::with_executor(TokioExecutor {})
 				// This is taken care of by notification protocols in non-test environment
 				// It is very slow in test environment for some reason, hence larger timeout
 				.with_idle_connection_timeout(Duration::from_secs(10)),
->>>>>>> fd64a1e7 (net/libp2p: Enforce outbound request-response timeout limits (#7222))
 		);
 
 		let listen_addr: Multiaddr = format!("/memory/{}", rand::random::<u64>()).parse().unwrap();
@@ -1440,33 +1423,7 @@ mod tests {
 		// Running `swarm[0]` in the background until a `InboundRequest` event happens,
 		// which is a hint about the test having ended.
 		let (mut swarm, _) = swarms.remove(0);
-<<<<<<< HEAD
-		pool.spawner()
-			.spawn_obj({
-				async move {
-					loop {
-						match swarm.select_next_some().await {
-							SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
-								assert!(result.is_ok());
-								break
-							},
-							_ => {},
-						}
-					}
-				}
-				.boxed()
-				.into()
-			})
-			.unwrap();
-
-		// Remove and run the remaining swarm.
-		let (mut swarm, _) = swarms.remove(0);
-		pool.run_until(async move {
-			let mut response_receiver = None;
-
-=======
 		tokio::spawn(async move {
->>>>>>> fd64a1e7 (net/libp2p: Enforce outbound request-response timeout limits (#7222))
 			loop {
 				match swarm.select_next_some().await {
 					SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
@@ -1478,14 +1435,6 @@ mod tests {
 					_ => {},
 				}
 			}
-<<<<<<< HEAD
-
-			match response_receiver.unwrap().await.unwrap().unwrap_err() {
-				RequestFailure::Network(OutboundFailure::ConnectionClosed) => {},
-				_ => panic!(),
-			}
-=======
->>>>>>> fd64a1e7 (net/libp2p: Enforce outbound request-response timeout limits (#7222))
 		});
 
 		// Remove and run the remaining swarm.
