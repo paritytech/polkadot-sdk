@@ -176,7 +176,7 @@ impl DenyExecution for Tuple {
                 },
 				 None => {
                     tracing::trace!(
-                        target: "xcm::should_execute",
+                        target: "xcm::deny_execution",
                         ?origin,
                         ?instructions,
                         ?max_weight,
