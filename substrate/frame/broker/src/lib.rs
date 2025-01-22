@@ -970,8 +970,8 @@ pub mod pallet {
 			Self::do_force_reserve(workload, core)?;
 			Ok(Pays::No.into())
 		}
-    
-    /// Transfer a Bulk Coretime Region to a new owner.
+
+		/// Transfer a Bulk Coretime Region to a new owner.
 		///
 		/// - `origin`: Admin origin(AKA OpenGov).
 		/// - `region_id`: The Region whose ownership should change.
@@ -987,6 +987,7 @@ pub mod pallet {
 			let new_owner = T::Lookup::lookup(new_owner)?;
 			Self::do_transfer(region_id, None, new_owner)?;
 			Ok(())
+		}
 
 		#[pallet::call_index(99)]
 		#[pallet::weight(T::WeightInfo::swap_leases())]
