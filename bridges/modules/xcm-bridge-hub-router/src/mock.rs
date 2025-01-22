@@ -111,7 +111,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	>;
 
 	type BridgeIdResolver = EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
-	type BridgeHubOrigin = EnsureRoot<u64>;
+	type UpdateBridgeStatusOrigin = EnsureRoot<u64>;
 
 	type ByteFee = ConstU128<BYTE_FEE>;
 	type FeeAsset = BridgeFeeAsset;

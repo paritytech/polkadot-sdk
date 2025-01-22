@@ -30,7 +30,7 @@ pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 pub trait Config<I: 'static>: crate::Config<I> {
 	/// Returns destination which is valid for this router instance.
 	fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError>;
-	/// Returns valid origin for `update_bridge_status` (if `T::BridgeHubOrigin` is supported).
+	/// Returns valid origin for `update_bridge_status` (if `T::UpdateBridgeStatusOrigin` is supported).
 	fn update_bridge_status_origin() -> Option<Self::RuntimeOrigin>;
 }
 
@@ -45,7 +45,7 @@ mod benchmarks {
 				.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let origin = T::update_bridge_status_origin()
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		let _ = T::BridgeHubOrigin::try_origin(origin.clone(), &bridge_id)
+		let _ = T::UpdateBridgeStatusOrigin::try_origin(origin.clone(), &bridge_id)
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let is_congested = true;
 

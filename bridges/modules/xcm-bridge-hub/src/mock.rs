@@ -275,7 +275,7 @@ impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageR
 		ExportMessageOriginUniversalLocation,
 	>;
 	// We convert to root here `BridgeHubLocationXcmOriginAsRoot`
-	type BridgeHubOrigin = EnsureRoot<AccountId>;
+	type UpdateBridgeStatusOrigin = EnsureRoot<AccountId>;
 }
 
 /// A router instance simulates a scenario where the router is deployed on the same chain as the
@@ -294,7 +294,7 @@ impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeByExportXcmRouterInstance
 	type BridgeIdResolver =
 		pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
 	// We don't need to support here `update_bridge_status`.
-	type BridgeHubOrigin = EnsureNever<()>;
+	type UpdateBridgeStatusOrigin = EnsureNever<()>;
 }
 
 /// A dynamic way to set different universal location for the origin which sends `ExportMessage`.

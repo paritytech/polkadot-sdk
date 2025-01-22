@@ -1058,7 +1058,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 		xcm_config::UniversalLocation,
 	>;
 	// For congestion - allow only calls from BH.
-	type BridgeHubOrigin =
+	type UpdateBridgeStatusOrigin =
 		AsEnsureOriginWithArg<EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>>;
 
 	// For adding message size fees

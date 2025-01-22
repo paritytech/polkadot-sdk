@@ -33,7 +33,7 @@
 //! queues are congested, it will eventually lead to increased queuing on this chain.
 //!
 //! There are two methods for storing congestion status:
-//! 1. A dedicated extrinsic `update_bridge_status`, which relies on `T::BridgeHubOrigin`. This
+//! 1. A dedicated extrinsic `update_bridge_status`, which relies on `T::UpdateBridgeStatusOrigin`. This
 //!    allows the message exporter to send, for example, an XCM `Transact`.
 //! 2. An implementation of `bp_xcm_bridge_hub::LocalXcmChannelManager`.
 //!
@@ -156,9 +156,10 @@ pub mod pallet {
 		#[pallet::no_default]
 		type BridgeIdResolver: ResolveBridgeId;
 
-		/// Origin of the sibling bridge hub that is allowed to update bridge status.
+		/// Origin that is allowed to update bridge status,
+		/// e.g. the sibling bridge hub or governance as root.
 		#[pallet::no_default]
-		type BridgeHubOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, BridgeIdOf<Self, I>>;
+		type UpdateBridgeStatusOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, BridgeIdOf<Self, I>>;
 
 		/// Additional fee that is paid for every byte of the outbound message.
 		/// See `calculate_message_size_fee` for more details.
@@ -185,7 +186,7 @@ pub mod pallet {
 			bridge_id: BridgeIdOf<T, I>,
 			is_congested: bool,
 		) -> DispatchResult {
-			let _ = T::BridgeHubOrigin::ensure_origin(origin, &bridge_id)?;
+			let _ = T::UpdateBridgeStatusOrigin::ensure_origin(origin, &bridge_id)?;
 
 			log::info!(
 				target: LOG_TARGET,
