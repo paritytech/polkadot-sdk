@@ -212,7 +212,8 @@ pub mod prelude {
 			OneSessionHandler, Randomness, RankedMembers, RankedMembersSwapHandler,
 			ReservableCurrency, StorageVersion, UncheckedOnRuntimeUpgrade,
 		},
-		PalletId,
+		PalletId, migrations::VersionedMigration,
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
