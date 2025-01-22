@@ -78,6 +78,7 @@ pub trait WeightInfo {
 	fn notify_revenue() -> Weight;
 	fn do_tick_base() -> Weight;
 	fn force_reserve() -> Weight;
+	fn reset_base_price() -> Weight;
 	fn swap_leases() -> Weight;
 	fn enable_auto_renew() -> Weight;
 	fn disable_auto_renew() -> Weight;
@@ -505,6 +506,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	/// Storage: `Broker::BasePrice` (r:1 w:1)
+/// Proof: `Broker::BasePrice` (`max_values`: Some(1), `max_size`: Some(32), added: 552, mode: `MaxEncodedLen`)
+/// Storage: `Broker::MinPrice` (r:1 w:1)
+/// Proof: `Broker::MinPrice` (`max_values`: Some(1), `max_size`: Some(32), added: 552, mode: `MaxEncodedLen`)
+fn reset_base_price() -> Weight {
+    // Proof Size summary in bytes:
+    // Measured: `1104`
+    // Estimated: `1304`
+    // Minimum execution time: 21_000_000 picoseconds.
+    Weight::from_parts(23_000_000, 0)
+        .saturating_add(Weight::from_parts(0, 1304))
+        .saturating_add(T::DbWeight::get().reads(2)) // Two reads: BasePrice and MinPrice
+        .saturating_add(T::DbWeight::get().writes(2)) // Two writes: BasePrice and MinPrice
+}
+
 	/// Storage: `Broker::Leases` (r:1 w:1)
 	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
 	fn swap_leases() -> Weight {
@@ -962,6 +978,14 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+
+	/// Storage: `Broker::BasePrice` (r:0 w:1)
+/// Proof: `Broker::BasePrice` (`max_values`: Some(1), `max_size`: Some(16), added: 256, mode: `MaxEncodedLen`)
+fn reset_base_price() -> Weight {
+    Weight::from_parts(10_000_000, 0) // Adjust weight based on benchmarking
+        .saturating_add(RocksDbWeight::get().writes(1))
+}
+
 	/// Storage: `Broker::SaleInfo` (r:1 w:0)
 	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Reservations` (r:1 w:1)

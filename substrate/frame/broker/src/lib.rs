@@ -125,6 +125,11 @@ pub mod pallet {
 		type MaxAutoRenewals: Get<u32>;
 	}
 
+	/// The base or minimum price for workloads in the network.
+	#[pallet::storage]
+	#[pallet::getter(fn base_price)]
+	pub type BasePrice<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
 	/// The current configuration of this pallet.
 	#[pallet::storage]
 	pub type Configuration<T> = StorageValue<_, ConfigRecordOf<T>, OptionQuery>;
@@ -544,6 +549,7 @@ pub mod pallet {
 		SovereignAccountNotFound,
 		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
 		AutoRenewalNotEnabled,
+		InvalidPrice,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -966,6 +972,25 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_force_reserve(workload, core)?;
+			Ok(Pays::No.into())
+		}
+
+		/// Reset the base or minimum price for workloads.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `price`: The new base or minimum price to set.
+		///
+		/// This updates the `BasePrice` storage to the provided value.
+		#[pallet::call_index(24)]
+		pub fn reset_base_price(
+			origin: OriginFor<T>,
+			price: BalanceOf<T>,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+
+			// Call the implementation function.
+			Self::do_reset_base_price(price)?;
+
 			Ok(Pays::No.into())
 		}
 

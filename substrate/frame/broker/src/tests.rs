@@ -26,6 +26,9 @@ use frame_support::{
 use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
 use sp_runtime::{traits::Get, Perbill, TokenError};
+use frame_system::Origin;
+use sp_runtime::DispatchError::BadOrigin; // For handling `BadOrigin`
+
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -1908,6 +1911,29 @@ fn reserve_works() {
 		// And it's in the workplan for the next period.
 		assert_eq!(Workplan::<Test>::get((10, 0)), Some(system_workload.clone()));
 	});
+}
+
+#[test]
+fn reset_base_price_works() {
+    new_test_ext().execute_with(|| {
+        let price: Balance = 100u32.into();
+
+        assert_ok!(Broker::reset_base_price(Origin::root(), price));
+
+        assert_eq!(Broker::base_price(), price);
+    });
+}
+
+#[test]
+fn reset_base_price_fails_for_non_admin() {
+    new_test_ext().execute_with(|| {
+        let price: Balance = 100u32.into();
+
+        assert_noop!(
+            Broker::reset_base_price(Origin::signed(1), price),
+            BadOrigin
+        );
+    });
 }
 
 // We can use a hack to accelerate this by injecting it into the workplan.

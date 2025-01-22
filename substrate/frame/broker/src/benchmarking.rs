@@ -1058,6 +1058,21 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn reset_base_price() -> Result<(), BenchmarkError> {
+		let price: BalanceOf<T> = 100u32.into();
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin, price);
+
+		assert_eq!(BasePrice::<T>::get(), price);
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn swap_leases() -> Result<(), BenchmarkError> {
 		let admin_origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
