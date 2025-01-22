@@ -201,7 +201,6 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
 		defensive, defensive_assert, ensure, print,
 		storage::{generator::StorageValue, migration, KeyPrefixIterator, StoragePrefixedMap},
