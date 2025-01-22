@@ -648,7 +648,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 
 					let elapsed = req.started_at.elapsed();
 					if elapsed > *request_timeout {
-						log::warn!(
+						log::debug!(
 							target: "sub-libp2p",
 							"Request {id:?} force detected as timeout.",
 						);
@@ -843,7 +843,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									(started_at, delivered)
 								},
 								_ => {
-									log::warn!(
+									log::debug!(
 										target: "sub-libp2p",
 										"Received `RequestResponseEvent::Message` with unexpected request id {:?} from {:?}",
 										request_id,
@@ -916,7 +916,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									started_at
 								},
 								_ => {
-									log::warn!(
+									log::debug!(
 										target: "sub-libp2p",
 										"Received `RequestResponseEvent::OutboundFailure` with unexpected request id {:?} error {:?} from {:?}",
 										request_id,
