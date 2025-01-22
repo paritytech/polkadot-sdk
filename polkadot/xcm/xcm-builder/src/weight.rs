@@ -154,6 +154,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		payment: AssetsInHolding,
 		context: &XcmContext,
 	) -> Result<AssetsInHolding, XcmError> {
+		let (id, units_per_second, units_per_mb) = T::get();
 		tracing::trace!(
 			target: "xcm::weight",
 			?weight, ?payment, ?context,
