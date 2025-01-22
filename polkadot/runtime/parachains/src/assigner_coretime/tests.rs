@@ -292,6 +292,160 @@ fn assign_core_enforces_higher_or_equal_block_number() {
 }
 
 #[test]
+fn assign_core_inserts_into_empty_queue() {
+    let core_idx = CoreIndex(0);
+
+    new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+        run_to_block(1, |_| None);
+
+        // Insert into an empty queue
+        assert_ok!(CoretimeAssigner::assign_core(
+            core_idx,
+            BlockNumberFor::<Test>::from(10u32),
+            vec![(CoreAssignment::Idle, PartsOf57600(28800))],
+            None,
+        ));
+
+        // Verify the assignment
+        assert_eq!(
+            CoreSchedules::<Test>::get((BlockNumberFor::<Test>::from(10u32), core_idx)),
+            Some(Schedule {
+                assignments: vec![(CoreAssignment::Idle, PartsOf57600(28800))],
+                end_hint: None,
+                next_schedule: None
+            })
+        );
+
+        // Verify the queue descriptor
+        assert_eq!(
+            CoreDescriptors::<Test>::get(core_idx).queue,
+            Some(QueueDescriptor {
+                first: BlockNumberFor::<Test>::from(10u32),
+                last: BlockNumberFor::<Test>::from(10u32),
+            })
+        );
+    });
+}
+
+#[test]
+fn assign_core_appends_to_existing_queue() {
+    let core_idx = CoreIndex(0);
+
+    new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+        run_to_block(1, |_| None);
+
+        // Insert the first assignment
+        assert_ok!(CoretimeAssigner::assign_core(
+            core_idx,
+            BlockNumberFor::<Test>::from(10u32),
+            vec![(CoreAssignment::Idle, PartsOf57600(28800))],
+            None,
+        ));
+
+        // Append a new assignment at a later block number
+        assert_ok!(CoretimeAssigner::assign_core(
+            core_idx,
+            BlockNumberFor::<Test>::from(15u32),
+            vec![(CoreAssignment::Pool, PartsOf57600(28800))],
+            None,
+        ));
+
+        // Verify the new assignment
+        assert_eq!(
+            CoreSchedules::<Test>::get((BlockNumberFor::<Test>::from(15u32), core_idx)),
+            Some(Schedule {
+                assignments: vec![(CoreAssignment::Pool, PartsOf57600(28800))],
+                end_hint: None,
+                next_schedule: None
+            })
+        );
+
+        // Verify the queue descriptor was updated
+        assert_eq!(
+            CoreDescriptors::<Test>::get(core_idx).queue,
+            Some(QueueDescriptor {
+                first: BlockNumberFor::<Test>::from(10u32),
+                last: BlockNumberFor::<Test>::from(15u32),
+            })
+        );
+    });
+}
+
+#[test]
+fn assign_core_with_end_hint() {
+    let core_idx = CoreIndex(0);
+
+    new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+        run_to_block(1, |_| None);
+
+        // Insert with an end_hint value
+        assert_ok!(CoretimeAssigner::assign_core(
+            core_idx,
+            BlockNumberFor::<Test>::from(10u32),
+            vec![(CoreAssignment::Idle, PartsOf57600(28800))],
+            Some(BlockNumberFor::<Test>::from(20u32)),
+        ));
+
+        // Verify the assignment
+        assert_eq!(
+            CoreSchedules::<Test>::get((BlockNumberFor::<Test>::from(10u32), core_idx)),
+            Some(Schedule {
+                assignments: vec![(CoreAssignment::Idle, PartsOf57600(28800))],
+                end_hint: Some(BlockNumberFor::<Test>::from(20u32)),
+                next_schedule: None
+            })
+        );
+    });
+}
+
+#[test]
+fn assign_core_invalid_block_numbers() {
+    let core_idx = CoreIndex(0);
+
+    new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+        run_to_block(1, |_| None);
+
+        // Insert the first assignment
+        assert_ok!(CoretimeAssigner::assign_core(
+            core_idx,
+            BlockNumberFor::<Test>::from(10u32),
+            vec![(CoreAssignment::Idle, PartsOf57600(28800))],
+            None,
+        ));
+
+        // Attempt to insert before the first assignment
+        assert_noop!(
+            CoretimeAssigner::assign_core(
+                core_idx,
+                BlockNumberFor::<Test>::from(9u32),
+                vec![(CoreAssignment::Pool, PartsOf57600(28800))],
+                None,
+            ),
+            Error::<Test>::DisallowedInsert
+        );
+
+        // Attempt to insert between existing assignments
+        assert_ok!(CoretimeAssigner::assign_core(
+            core_idx,
+            BlockNumberFor::<Test>::from(15u32),
+            vec![(CoreAssignment::Idle, PartsOf57600(28800))],
+            None,
+        ));
+
+        assert_noop!(
+            CoretimeAssigner::assign_core(
+                core_idx,
+                BlockNumberFor::<Test>::from(12u32),
+                vec![(CoreAssignment::Pool, PartsOf57600(28800))],
+                None,
+            ),
+            Error::<Test>::DisallowedInsert
+        );
+    });
+}
+
+
+#[test]
 fn assign_core_enforces_well_formed_schedule() {
 	let core_idx = CoreIndex(0);
 
