@@ -22,7 +22,7 @@ use super::*;
 use crate as scheduler;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize},
+	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly},
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{BuildStorage, Perbill};
@@ -234,14 +234,6 @@ pub type LoggerCall = logger::Call<Test>;
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	t.into()
-}
-
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		Scheduler::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		Scheduler::on_initialize(System::block_number());
-	}
 }
 
 pub fn root() -> OriginCaller {
