@@ -1,0 +1,16 @@
+{
+  "name": "xcm-sc-tests",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@polkadot-api/descriptors": "file:.papi/descriptors",
+    "polkadot-api": "^1.8.2",
+    "viem": "^2.22.11"
+  }
+}
