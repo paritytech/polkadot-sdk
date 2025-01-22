@@ -25373,8 +25373,7 @@ dependencies = [
 name = "snowbridge-pallet-inbound-queue-v2"
 version = "0.2.0"
 dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
+ "alloy-core",
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -25497,7 +25496,7 @@ dependencies = [
 name = "snowbridge-router-primitives"
 version = "0.9.0"
 dependencies = [
- "alloy-sol-types",
+ "alloy-core",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "hex-literal",

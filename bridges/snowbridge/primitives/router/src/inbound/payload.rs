@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+
+extern crate alloc;
+
 use crate::inbound::v2::{
 	Asset::{ForeignTokenERC20, NativeTokenERC20},
 	Message,
 };
-use alloy_sol_types::{sol, SolType};
+use alloy_core::{sol, sol_types::SolType};
 use sp_core::{RuntimeDebug, H160, H256};
 
 sol! {
@@ -49,7 +52,7 @@ impl TryFrom<&[u8]> for Message {
 		let decoded_payload =
 			Payload::abi_decode(&encoded_payload, true).map_err(|_| PayloadDecodeError)?;
 
-		let mut substrate_assets = vec![];
+		let mut substrate_assets = alloc::vec![];
 
 		for asset in decoded_payload.assets {
 			match asset.kind {
@@ -75,13 +78,13 @@ impl TryFrom<&[u8]> for Message {
 
 		let mut claimer = None;
 		if decoded_payload.claimer.len() > 0 {
-			claimer = Some(decoded_payload.claimer);
+			claimer = Some(decoded_payload.claimer.to_vec());
 		}
 
 		Ok(Self {
 			origin: H160::from(decoded_payload.origin.as_ref()),
 			assets: substrate_assets,
-			xcm: decoded_payload.xcm,
+			xcm: decoded_payload.xcm.to_vec(),
 			claimer,
 			value: decoded_payload.value,
 			execution_fee: decoded_payload.executionFee,

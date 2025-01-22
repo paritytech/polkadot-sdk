@@ -165,7 +165,7 @@ where
 			if let Ok(claimer) = Junction::decode(&mut claimer.as_ref()) {
 				let claimer_location: Location = Location::new(0, [claimer.into()]);
 				refund_surplus_to = claimer_location.clone();
-				instructions.push(SetAssetClaimer { location: claimer_location });
+				instructions.push(SetHints { hints: vec![AssetClaimer  {location: claimer_location }].try_into().unwrap() }); // TODO
 			}
 		}
 

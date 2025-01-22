@@ -5,8 +5,7 @@ use snowbridge_core::inbound::Log;
 use sp_core::{RuntimeDebug, H160};
 use sp_std::prelude::*;
 
-use alloy_primitives::B256;
-use alloy_sol_types::{sol, SolEvent};
+use alloy_core::{primitives::B256, sol, sol_types::SolEvent};
 
 sol! {
 	event OutboundMessageAccepted(uint64 indexed nonce, uint128 fee, bytes payload);
@@ -34,14 +33,14 @@ impl TryFrom<&Log> for Envelope {
 	fn try_from(log: &Log) -> Result<Self, Self::Error> {
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
-		let event = OutboundMessageAccepted::decode_log(topics, &log.data, true)
+		let event = OutboundMessageAccepted::decode_raw_log(topics, &log.data, true)
 			.map_err(|_| EnvelopeDecodeError)?;
 
 		Ok(Self {
 			gateway: log.address,
 			nonce: event.nonce,
 			fee: event.fee,
-			payload: event.payload,
+			payload: event.payload.into(),
 		})
 	}
 }
