@@ -1466,7 +1466,7 @@ mod tests {
 		}
 
 		match response_receiver.unwrap().await.unwrap().unwrap_err() {
-			RequestFailure::Network(OutboundFailure::Io(_)) => {},
+			RequestFailure::Network(OutboundFailure::ConnectionClosed) => {},
 			request_failure => panic!("Unexpected failure: {request_failure:?}"),
 		}
 	}
