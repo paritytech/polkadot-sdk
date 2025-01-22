@@ -63,7 +63,7 @@ pub(crate) mod bridges_prelude {
 	pub use pallet_bridge_parachains::{
 		Call as BridgeParachainsCall, Config as BridgeParachainsConfig,
 	};
-	pub use pallet_xcm_bridge_hub::{
+	pub use pallet_xcm_bridge::{
 		Call as BridgeXcmOverBridgeCall, Config as BridgeXcmOverBridgeConfig, LanesManagerOf,
 		XcmBlobMessageDispatchResult,
 	};
@@ -662,15 +662,15 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,
 	<Runtime as frame_system::Config>::RuntimeCall: GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
-	<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
+	<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
 	<Runtime as pallet_balances::Config>::Balance: From<u128>,
-	<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::AccountId: From<<Runtime as frame_system::Config>::AccountId>,
+	<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::AccountId: From<<Runtime as frame_system::Config>::AccountId>,
 	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 	TokenLocation: Get<Location>,
 {
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
 		// construct expected bridge configuration
-		let locations = pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
+		let locations = pallet_xcm_bridge::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
 			expected_source.clone().into(),
 			destination.clone().into(),
 		).expect("valid bridge locations");
@@ -678,7 +678,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 			locations.calculate_lane_id(xcm::latest::VERSION).expect("valid laneId");
 		let lanes_manager = LanesManagerOf::<Runtime, XcmOverBridgePalletInstance>::new();
 
-		let expected_deposit = if <Runtime as pallet_xcm_bridge_hub::Config<
+		let expected_deposit = if <Runtime as pallet_xcm_bridge::Config<
 			XcmOverBridgePalletInstance,
 		>>::AllowWithoutBridgeDeposit::contains(
 			locations.bridge_origin_relative_location()
@@ -688,7 +688,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 			let bridge_owner_account = LocationToAccountId::convert_location(&expected_source)
 				.expect("valid location")
 				.into();
-			let deposit = <Runtime as pallet_xcm_bridge_hub::Config<
+			let deposit = <Runtime as pallet_xcm_bridge::Config<
 				XcmOverBridgePalletInstance,
 			>>::BridgeDeposit::get();
 
@@ -697,7 +697,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 
 		// check bridge/lane DOES not exist
 		assert_eq!(
-			pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+			pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 				locations.bridge_id()
 			),
 			None
@@ -738,7 +738,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 
 		// check bridge/lane DOES exist
 		assert_eq!(
-			pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+			pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 				locations.bridge_id()
 			),
 			Some(Bridge {
@@ -774,7 +774,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 
 		// check bridge/lane DOES not exist
 		assert_eq!(
-			pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+			pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 				locations.bridge_id()
 			),
 			None

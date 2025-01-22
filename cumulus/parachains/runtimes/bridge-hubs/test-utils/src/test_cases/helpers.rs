@@ -395,32 +395,32 @@ pub fn ensure_opened_bridge<
 	XcmOverBridgePalletInstance,
 	LocationToAccountId,
 	TokenLocation>
-(source: Location, destination: InteriorLocation, is_paid_xcm_execution: bool, bridge_opener: impl Fn(BridgeLocations, Option<Asset>)) -> (BridgeLocations, pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>)
+(source: Location, destination: InteriorLocation, is_paid_xcm_execution: bool, bridge_opener: impl Fn(BridgeLocations, Option<Asset>)) -> (BridgeLocations, pallet_xcm_bridge::LaneIdOf<Runtime, XcmOverBridgePalletInstance>)
 where
 	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,
 	<Runtime as frame_system::Config>::RuntimeCall: GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
-	<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
+	<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
 	<Runtime as pallet_balances::Config>::Balance: From<u128>,
 	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 TokenLocation: Get<Location>{
 	// construct expected bridge configuration
 	let locations =
-		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
+		pallet_xcm_bridge::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
 			source.clone().into(),
 			destination.clone().into(),
 		)
 		.expect("valid bridge locations");
-	assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+	assert!(pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 		locations.bridge_id()
 	)
 	.is_none());
 
 	// SA of source location needs to have some required balance
-	if !<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::AllowWithoutBridgeDeposit::contains(&source) {
+	if !<Runtime as pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>>::AllowWithoutBridgeDeposit::contains(&source) {
 		// required balance: ED + fee + BridgeDeposit
 		let bridge_deposit =
-			<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeDeposit::get(
+			<Runtime as pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>>::BridgeDeposit::get(
 			);
 		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() + bridge_deposit.into();
 
@@ -449,14 +449,14 @@ TokenLocation: Get<Location>{
 	bridge_opener(*locations.clone(), maybe_paid_execution);
 
 	// check opened bridge
-	let bridge = pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+	let bridge = pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 		locations.bridge_id(),
 	)
 	.expect("opened bridge");
 
 	// check state
 	assert_ok!(
-		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_try_state()
+		pallet_xcm_bridge::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_try_state()
 	);
 
 	// return locations
@@ -470,7 +470,7 @@ pub fn open_bridge_with_extrinsic<Runtime, XcmOverBridgePalletInstance>(
 	maybe_paid_execution: Option<Asset>,
 ) where
 	Runtime: frame_system::Config
-		+ pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>
+		+ pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>
 		+ cumulus_pallet_parachain_system::Config
 		+ pallet_xcm::Config,
 	XcmOverBridgePalletInstance: 'static,
@@ -501,15 +501,15 @@ pub fn open_bridge_with_extrinsic<Runtime, XcmOverBridgePalletInstance>(
 /// purposes).
 pub fn open_bridge_with_storage<Runtime, XcmOverBridgePalletInstance>(
 	locations: BridgeLocations,
-	lane_id: pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>,
-	maybe_notify: Option<pallet_xcm_bridge_hub::Receiver>,
+	lane_id: pallet_xcm_bridge::LaneIdOf<Runtime, XcmOverBridgePalletInstance>,
+	maybe_notify: Option<pallet_xcm_bridge::Receiver>,
 ) where
-	Runtime: pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>,
+	Runtime: pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,
 {
 	// insert bridge data directly to the storage
 	assert_ok!(
-		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_open_bridge(
+		pallet_xcm_bridge::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_open_bridge(
 			Box::new(locations),
 			lane_id,
 			true,
@@ -528,18 +528,18 @@ pub fn close_bridge<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, T
 	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,
 	<Runtime as frame_system::Config>::RuntimeCall: GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
-	<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
+	<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
 	<Runtime as pallet_balances::Config>::Balance: From<u128>,
 	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 TokenLocation: Get<Location>{
 	// construct expected bridge configuration
 	let locations =
-		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
+		pallet_xcm_bridge::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
 			expected_source.clone().into(),
 			bridge_destination_universal_location.clone().into(),
 		)
 		.expect("valid bridge locations");
-	assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+	assert!(pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 		locations.bridge_id()
 	)
 	.is_some());
@@ -581,13 +581,13 @@ TokenLocation: Get<Location>{
 	.ensure_complete());
 
 	// bridge is closed
-	assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+	assert!(pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 		locations.bridge_id()
 	)
 	.is_none());
 
 	// check state
 	assert_ok!(
-		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_try_state()
+		pallet_xcm_bridge::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_try_state()
 	);
 }

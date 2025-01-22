@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The code that allows to use the pallet (`pallet-xcm-bridge-hub`) as XCM message
+//! The code that allows to use the pallet (`pallet-xcm-bridge`) as XCM message
 //! exporter at the sending bridge hub. Internally, it just enqueues outbound blob
 //! in the messages pallet queue.
 //!

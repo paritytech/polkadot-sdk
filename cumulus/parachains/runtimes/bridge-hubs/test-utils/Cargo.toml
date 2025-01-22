@@ -55,7 +55,7 @@ pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-messages = { features = ["test-helpers"], workspace = true }
 pallet-bridge-parachains = { workspace = true }
 pallet-bridge-relayers = { workspace = true }
-pallet-xcm-bridge-hub = { workspace = true }
+pallet-xcm-bridge = { workspace = true }
 
 [features]
 default = ["std"]
@@ -83,7 +83,7 @@ std = [
 	"pallet-bridge-relayers/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
-	"pallet-xcm-bridge-hub/std",
+	"pallet-xcm-bridge/std",
 	"pallet-xcm/std",
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",

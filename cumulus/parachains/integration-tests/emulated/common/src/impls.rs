@@ -69,7 +69,7 @@ pub use pallet_bridge_messages::{
 	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
 	Instance3 as BridgeMessagesInstance3,
 };
-use pallet_xcm_bridge_hub::XcmBlobMessageDispatchResult;
+use pallet_xcm_bridge::XcmBlobMessageDispatchResult;
 
 pub struct BridgeHubMessageHandler<S, SI, T, TI> {
 	_marker: std::marker::PhantomData<(S, SI, T, TI)>,

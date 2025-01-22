@@ -47,7 +47,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `pallet_xcm_bridge_hub`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> pallet_xcm_bridge_hub::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> pallet_xcm_bridge::WeightInfo for WeightInfo<T> {
 	/// Storage: `Benchmark::Override` (r:0 w:0)
 	/// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn open_bridge() -> Weight {

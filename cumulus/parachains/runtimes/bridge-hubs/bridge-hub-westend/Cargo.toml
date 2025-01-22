@@ -104,7 +104,7 @@ pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 pallet-bridge-parachains = { workspace = true }
 pallet-bridge-relayers = { workspace = true }
-pallet-xcm-bridge-hub = { workspace = true }
+pallet-xcm-bridge = { workspace = true }
 
 # Ethereum Bridge (Snowbridge)
 snowbridge-beacon-primitives = { workspace = true }
@@ -179,7 +179,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"pallet-xcm-benchmarks?/std",
-	"pallet-xcm-bridge-hub/std",
+	"pallet-xcm-bridge/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
@@ -247,7 +247,7 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
-	"pallet-xcm-bridge-hub/runtime-benchmarks",
+	"pallet-xcm-bridge/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -291,7 +291,7 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-xcm-bridge-hub/try-runtime",
+	"pallet-xcm-bridge/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",

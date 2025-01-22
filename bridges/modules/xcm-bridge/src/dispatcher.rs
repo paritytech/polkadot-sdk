@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The code that allows to use the pallet (`pallet-xcm-bridge-hub`) as inbound
+//! The code that allows to use the pallet (`pallet-xcm-bridge`) as inbound
 //! bridge messages dispatcher. Internally, it just forwards inbound blob to the
 //! XCM-level blob dispatcher, which pushes message to some other queue (e.g.
 //! to HRMP queue with the sibling target chain).

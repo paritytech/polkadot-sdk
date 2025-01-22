@@ -734,8 +734,8 @@ pub use pallet_xcm;
 pub use pallet_xcm_benchmarks;
 
 /// Module that adds dynamic bridges/lanes support to XCM infrastructure at the bridge hub.
-#[cfg(feature = "pallet-xcm-bridge-hub")]
-pub use pallet_xcm_bridge_hub;
+#[cfg(feature = "pallet-xcm-bridge")]
+pub use pallet_xcm_bridge;
 
 /// Bridge hub interface for sibling/parent chains with dynamic fees support.
 #[cfg(feature = "pallet-xcm-bridge-hub-router")]

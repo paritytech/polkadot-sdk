@@ -39,7 +39,7 @@ use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
-use pallet_xcm_bridge_hub::{congestion::BlobDispatcherWithChannelStatus, XcmAsPlainPayload};
+use pallet_xcm_bridge::{congestion::BlobDispatcherWithChannelStatus, XcmAsPlainPayload};
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::rococo::currency::UNITS as ROC;
 use xcm::{
@@ -123,10 +123,10 @@ impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runt
 }
 
 /// Add support for the export and dispatch of XCM programs.
-pub type XcmOverPolkadotBulletinInstance = pallet_xcm_bridge_hub::Instance2;
-impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime {
+pub type XcmOverPolkadotBulletinInstance = pallet_xcm_bridge::Instance2;
+impl pallet_xcm_bridge::Config<XcmOverPolkadotBulletinInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_xcm_bridge_hub_over_bulletin::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_xcm_bridge_over_bulletin::WeightInfo<Runtime>;
 
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = RococoBulletinGlobalConsensusNetworkLocation;
@@ -242,7 +242,7 @@ pub mod migration {
 
 	parameter_types! {
 		pub BulletinRococoLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
-		pub RococoPeopleToRococoBulletinMessagesLane: bp_messages::HashedLaneId = pallet_xcm_bridge_hub::Pallet::< Runtime, XcmOverPolkadotBulletinInstance >::bridge_locations(
+		pub RococoPeopleToRococoBulletinMessagesLane: bp_messages::HashedLaneId = pallet_xcm_bridge::Pallet::< Runtime, XcmOverPolkadotBulletinInstance >::bridge_locations(
 				PeopleRococoLocation::get(),
 				BulletinRococoLocation::get()
 			)
@@ -251,7 +251,7 @@ pub mod migration {
 	}
 
 	/// Ensure that the existing lanes for the People<>Bulletin bridge are correctly configured.
-	pub type StaticToDynamicLanes = pallet_xcm_bridge_hub::migration::OpenBridgeForLane<
+	pub type StaticToDynamicLanes = pallet_xcm_bridge::migration::OpenBridgeForLane<
 		Runtime,
 		XcmOverPolkadotBulletinInstance,
 		RococoPeopleToRococoBulletinMessagesLane,

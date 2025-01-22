@@ -72,7 +72,7 @@
 //! # How to Open a Bridge?
 //!
 //! The `pallet_xcm_bridge_hub` pallet has the extrinsic `fn open_bridge` and an important
-//! configuration `pallet_xcm_bridge_hub::Config::OpenBridgeOrigin`, which translates the call's
+//! configuration `pallet_xcm_bridge::Config::OpenBridgeOrigin`, which translates the call's
 //! origin to the XCM `Location` and converts it to the `bridge_origin_universal_location`. With the
 //! current setup, this origin/location is expected to be either the relay chain or a sibling
 //! parachain as one side of the bridge. Another parameter is

@@ -32,7 +32,7 @@ use bp_messages::{
 	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
 };
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
-use pallet_xcm_bridge_hub::XcmAsPlainPayload;
+use pallet_xcm_bridge::XcmAsPlainPayload;
 
 use frame_support::{parameter_types, traits::PalletInfoAccess};
 use frame_system::{EnsureNever, EnsureRoot};
@@ -40,7 +40,7 @@ use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
-use pallet_xcm_bridge_hub::congestion::{
+use pallet_xcm_bridge::congestion::{
 	BlobDispatcherWithChannelStatus, UpdateBridgeStatusXcmChannelManager,
 };
 use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
@@ -150,10 +150,10 @@ impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 
 /// Add support for the export and dispatch of XCM programs withing
 /// `WithBridgeHubWestendMessagesInstance`.
-pub type XcmOverBridgeHubWestendInstance = pallet_xcm_bridge_hub::Instance1;
-impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime {
+pub type XcmOverBridgeHubWestendInstance = pallet_xcm_bridge::Instance1;
+impl pallet_xcm_bridge::Config<XcmOverBridgeHubWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_xcm_bridge_hub_over_westend::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_xcm_bridge_over_westend::WeightInfo<Runtime>;
 
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = WestendGlobalConsensusNetworkLocation;
@@ -304,7 +304,7 @@ pub mod migration {
 	}
 
 	/// Ensure that the existing lanes for the AHR<>AHW bridge are correctly configured.
-	pub type StaticToDynamicLanes = pallet_xcm_bridge_hub::migration::OpenBridgeForLane<
+	pub type StaticToDynamicLanes = pallet_xcm_bridge::migration::OpenBridgeForLane<
 		Runtime,
 		XcmOverBridgeHubWestendInstance,
 		AssetHubRococoToAssetHubWestendMessagesLane,

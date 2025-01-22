@@ -37,7 +37,7 @@ fn bridge_hub_westend_genesis(
 		Location,
 		InteriorLocation,
 		Option<bp_messages::LegacyLaneId>,
-		Option<pallet_xcm_bridge_hub::Receiver>,
+		Option<pallet_xcm_bridge::Receiver>,
 	)>,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {

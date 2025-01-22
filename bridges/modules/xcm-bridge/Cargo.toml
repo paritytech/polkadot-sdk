@@ -1,5 +1,5 @@
 [package]
-name = "pallet-xcm-bridge-hub"
+name = "pallet-xcm-bridge"
 description = "Module that adds dynamic bridges/lanes support to XCM infrastructure at the bridge hub."
 version = "0.2.0"
 authors.workspace = true

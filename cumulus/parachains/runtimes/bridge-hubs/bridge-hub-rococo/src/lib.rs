@@ -182,7 +182,7 @@ pub type Migrations = (
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
-	pallet_xcm_bridge_hub::migration::v1::MigrationToV1<
+	pallet_xcm_bridge::migration::v1::MigrationToV1<
 		Runtime,
 		bridge_to_westend_config::XcmOverBridgeHubWestendInstance,
 	>,
@@ -598,7 +598,7 @@ construct_runtime!(
 		// With-Westend messaging bridge module.
 		BridgeWestendMessages: pallet_bridge_messages::<Instance3> = 51,
 		// With-Westend bridge hub pallet.
-		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1> = 52,
+		XcmOverBridgeHubWestend: pallet_xcm_bridge::<Instance1> = 52,
 
 		// With-Rococo Bulletin GRANDPA bridge module.
 		//
@@ -613,7 +613,7 @@ construct_runtime!(
 		// storage keys, used by this runtime and the relayer process.
 		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4> = 61,
 		// With-Rococo Bulletin bridge hub pallet.
-		XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::<Instance2> = 62,
+		XcmOverPolkadotBulletin: pallet_xcm_bridge::<Instance2> = 62,
 
 		// Bridge relayers pallet, used by several bridges here (another instance).
 		BridgeRelayersForPermissionlessLanes: pallet_bridge_relayers::<Instance2> = 63,
@@ -692,8 +692,8 @@ mod benches {
 		[pallet_bridge_messages, RococoToRococoBulletin]
 		[pallet_bridge_relayers, Legacy]
 		[pallet_bridge_relayers, PermissionlessLanes]
-		[pallet_xcm_bridge_hub, OverWestend]
-		[pallet_xcm_bridge_hub, OverBulletin]
+		[pallet_xcm_bridge, OverWestend]
+		[pallet_xcm_bridge, OverBulletin]
 		// Ethereum Bridge
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
@@ -1079,8 +1079,8 @@ impl_runtime_apis! {
 			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
 			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
-			type OverWestend = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverBridgeHubWestendInstance>;
-			type OverBulletin = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance>;
+			type OverWestend = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverBridgeHubWestendInstance>;
+			type OverBulletin = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1319,8 +1319,8 @@ impl_runtime_apis! {
 			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
 			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
-			type OverWestend = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverBridgeHubWestendInstance>;
-			type OverBulletin = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance>;
+			type OverWestend = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverBridgeHubWestendInstance>;
+			type OverBulletin = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_grandpa_chain,
@@ -1335,13 +1335,13 @@ impl_runtime_apis! {
 				MessageProofParams,
 			};
 
-			impl pallet_xcm_bridge_hub::benchmarking::Config<bridge_to_westend_config::XcmOverBridgeHubWestendInstance> for Runtime {
+			impl pallet_xcm_bridge::benchmarking::Config<bridge_to_westend_config::XcmOverBridgeHubWestendInstance> for Runtime {
 				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
 					None
 				}
 			}
 
-			impl pallet_xcm_bridge_hub::benchmarking::Config<bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance> for Runtime {
+			impl pallet_xcm_bridge::benchmarking::Config<bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance> for Runtime {
 				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
 					None
 				}

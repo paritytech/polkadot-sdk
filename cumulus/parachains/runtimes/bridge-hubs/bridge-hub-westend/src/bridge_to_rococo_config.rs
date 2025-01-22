@@ -30,7 +30,7 @@ use bp_messages::{
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
-use pallet_xcm_bridge_hub::XcmAsPlainPayload;
+use pallet_xcm_bridge::XcmAsPlainPayload;
 
 use frame_support::{
 	parameter_types,
@@ -41,7 +41,7 @@ use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
-use pallet_xcm_bridge_hub::congestion::{
+use pallet_xcm_bridge::congestion::{
 	BlobDispatcherWithChannelStatus, UpdateBridgeStatusXcmChannelManager,
 };
 use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
@@ -180,10 +180,10 @@ impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 }
 
 /// Add support for the export and dispatch of XCM programs.
-pub type XcmOverBridgeHubRococoInstance = pallet_xcm_bridge_hub::Instance1;
-impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
+pub type XcmOverBridgeHubRococoInstance = pallet_xcm_bridge::Instance1;
+impl pallet_xcm_bridge::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_xcm_bridge_hub::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_xcm_bridge::WeightInfo<Runtime>;
 
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = RococoGlobalConsensusNetworkLocation;

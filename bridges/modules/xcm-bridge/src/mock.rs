@@ -16,7 +16,7 @@
 
 #![cfg(test)]
 
-use crate as pallet_xcm_bridge_hub;
+use crate as pallet_xcm_bridge;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
 	ChainWithMessages, HashedLaneId, MessageNonce,
@@ -30,7 +30,7 @@ use frame_support::{
 	weights::RuntimeDbWeight,
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess};
-use pallet_xcm_bridge_hub::congestion::{
+use pallet_xcm_bridge::congestion::{
 	BlobDispatcherWithChannelStatus, CongestionLimits, HereOrLocalConsensusXcmChannelManager,
 	UpdateBridgeStatusXcmChannelManager,
 };
@@ -69,7 +69,7 @@ frame_support::construct_runtime! {
 		System: frame_system,
 		Balances: pallet_balances,
 		Messages: pallet_bridge_messages,
-		XcmOverBridge: pallet_xcm_bridge_hub,
+		XcmOverBridge: pallet_xcm_bridge,
 		XcmOverBridgeWrappedWithExportMessageRouter: pallet_xcm_bridge_hub_router = 57,
 		XcmOverBridgeByExportXcmRouter: pallet_xcm_bridge_hub_router::<Instance2> = 69,
 	}
@@ -209,7 +209,7 @@ pub(crate) type TestLocalXcmChannelManager = TestingLocalXcmChannelManager<
 	>,
 >;
 
-impl pallet_xcm_bridge_hub::Config for TestRuntime {
+impl pallet_xcm_bridge::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 
@@ -496,7 +496,7 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 }
 
 pub(crate) type OpenBridgeOriginOf<T, I> =
-	<T as pallet_xcm_bridge_hub::Config<I>>::OpenBridgeOrigin;
+	<T as pallet_xcm_bridge::Config<I>>::OpenBridgeOrigin;
 
 pub(crate) fn fund_origin_sovereign_account(
 	locations: &BridgeLocations,
@@ -605,7 +605,7 @@ impl TestBlobDispatcher {
 	}
 }
 
-impl pallet_xcm_bridge_hub::DispatchChannelStatusProvider for TestBlobDispatcher {
+impl pallet_xcm_bridge::DispatchChannelStatusProvider for TestBlobDispatcher {
 	fn is_congested(with: &Location) -> bool {
 		frame_support::storage::unhashed::get_or_default(&Self::congestion_key(with))
 	}

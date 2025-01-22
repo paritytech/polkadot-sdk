@@ -163,7 +163,7 @@ pub type Migrations = (
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
-	pallet_xcm_bridge_hub::migration::v1::MigrationToV1<
+	pallet_xcm_bridge::migration::v1::MigrationToV1<
 		Runtime,
 		bridge_to_rococo_config::XcmOverBridgeHubRococoInstance,
 	>,
@@ -570,7 +570,7 @@ construct_runtime!(
 		BridgeRococoGrandpa: pallet_bridge_grandpa::<Instance1> = 42,
 		BridgeRococoParachains: pallet_bridge_parachains::<Instance1> = 43,
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1> = 44,
-		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::<Instance1> = 45,
+		XcmOverBridgeHubRococo: pallet_xcm_bridge::<Instance1> = 45,
 
 		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
@@ -629,7 +629,7 @@ mod benches {
 		[pallet_bridge_grandpa, RococoFinality]
 		[pallet_bridge_parachains, WithinRococo]
 		[pallet_bridge_messages, WestendToRococo]
-		[pallet_xcm_bridge_hub, OverRococo]
+		[pallet_xcm_bridge, OverRococo]
 		// Ethereum Bridge
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
@@ -964,7 +964,7 @@ impl_runtime_apis! {
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::BridgeParachainRococoInstance>;
 			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>;
-			type OverRococo = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverBridgeHubRococoInstance>;
+			type OverRococo = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverBridgeHubRococoInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1200,7 +1200,7 @@ impl_runtime_apis! {
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::BridgeParachainRococoInstance>;
 			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>;
-			type OverRococo = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverBridgeHubRococoInstance>;
+			type OverRococo = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverBridgeHubRococoInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_parachain,
@@ -1213,7 +1213,7 @@ impl_runtime_apis! {
 				MessageProofParams,
 			};
 
-			impl pallet_xcm_bridge_hub::benchmarking::Config<bridge_to_rococo_config::XcmOverBridgeHubRococoInstance> for Runtime {
+			impl pallet_xcm_bridge::benchmarking::Config<bridge_to_rococo_config::XcmOverBridgeHubRococoInstance> for Runtime {
 				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
 					None
 				}

@@ -61,9 +61,9 @@ impl Default for CongestionLimits {
 /// - `HereXcmChannelManager` is applied when the origin is `Here`.
 /// - Otherwise, `LocalConsensusXcmChannelManager` is used.
 ///
-/// This is useful when the `pallet-xcm-bridge-hub` needs to support both:
-/// - A local router deployed on the same chain as the `pallet-xcm-bridge-hub`.
-/// - A remote router deployed on a different chain than the `pallet-xcm-bridge-hub`.
+/// This is useful when the `pallet-xcm-bridge` needs to support both:
+/// - A local router deployed on the same chain as the `pallet-xcm-bridge`.
+/// - A remote router deployed on a different chain than the `pallet-xcm-bridge`.
 pub struct HereOrLocalConsensusXcmChannelManager<
 	Bridge,
 	HereXcmChannelManager,

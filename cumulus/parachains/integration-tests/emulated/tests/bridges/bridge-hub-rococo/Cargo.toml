@@ -32,7 +32,7 @@ xcm-runtime-apis = { workspace = true }
 
 # Bridges
 pallet-bridge-messages = { workspace = true }
-pallet-xcm-bridge-hub = { workspace = true }
+pallet-xcm-bridge = { workspace = true }
 
 # Cumulus
 cumulus-pallet-xcmp-queue = { workspace = true }
