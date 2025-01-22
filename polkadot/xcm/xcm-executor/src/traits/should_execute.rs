@@ -163,7 +163,7 @@ impl DenyExecution for Tuple {
             match Tuple::deny_execution(origin, instructions, max_weight, properties) {
                 Some(error) => {
                     tracing::error!(
-                        target: "xcm::should_execute",
+                        target: "xcm::deny_execution",
                         ?origin,
                         ?instructions,
                         ?max_weight,
