@@ -22,7 +22,7 @@ use super::*;
 
 use crate::{Democracy::Conviction, Pallet as Opf};
 //use pallet_distribution as Distribution;
-use frame_benchmarking::{
+pub use frame_benchmarking::{
 	v1::{account, BenchmarkError},
 	v2::*,
 };
@@ -68,10 +68,10 @@ mod benchmarks {
 	#[benchmark]
 	fn vote(r: Linear<1, 1000>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let account: T::AccountId = account("project", r, SEED);
+		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
 		ensure!(
-			WhiteListedProjectAccounts::<T>::contains_key(account.clone()) == true,
+			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()) == true,
 			"Project_id not set up correctly."
 		);
 
@@ -86,45 +86,46 @@ mod benchmarks {
 
 		let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 10u32.into() * (r).into();
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account, value, true, Conviction::Locked1x);
+		_(RawOrigin::Signed(caller.clone()), account0, value, true, Conviction::Locked1x);
 
 		Ok(())
 	}
 
-	/*#[benchmark]
+	#[benchmark]
 	fn remove_vote(
-		r: Linear<1, { T::MaxWhitelistedProjects::get() }>,
+		r: Linear<1, 1000>,
 	) -> Result<(), BenchmarkError> {
-		add_whitelisted_project::<T>(r)?;
+		let caller: T::AccountId = whitelisted_caller();
+		let account0: T::AccountId = account("project", r, SEED);
+		add_whitelisted_project::<T>(r, caller.clone())?;
 		ensure!(
-			WhiteListedProjectAccounts::<T>::get().len() as u32 == r,
+			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()) == true,
 			"Project_id not set up correctly."
 		);
 
 		on_idle_full_block::<T>();
-		let when = T::BlockNumberProvider::current_block_number() + One::one();
+		let when = frame_system::Pallet::<T>::block_number() + One::one();
 		run_to_block::<T>(when);
 
 		ensure!(VotingRounds::<T>::get(0).is_some(), "Round not created!");
-		let caller_balance = T::NativeBalance::minimum_balance() * 10000u32.into();
+		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
 		let caller: T::AccountId = whitelisted_caller();
 		let _ = T::NativeBalance::mint_into(&caller, caller_balance);
-		let account = WhiteListedProjectAccounts::<T>::get()[(r - 1) as usize].clone();
 		let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 100u32.into() * (r).into();
 		Opf::<T>::vote(
 			RawOrigin::Signed(caller.clone()).into(),
-			account.clone(),
+			account0.clone(),
 			value,
 			true,
 			Conviction::Locked1x,
 		)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account);
+		_(RawOrigin::Signed(caller.clone()), account0);
 
 		Ok(())
 	}
-
+/*
 	#[benchmark]
 	fn unlock_funds(
 		r: Linear<1, { T::MaxWhitelistedProjects::get() }>,

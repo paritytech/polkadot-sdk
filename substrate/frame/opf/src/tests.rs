@@ -184,7 +184,7 @@ fn rewards_calculation_works() {
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 
 		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to
-		// 3000*BSX locked
+		// 2000*BSX locked
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(BOB).into(),
 			101,
@@ -194,7 +194,7 @@ fn rewards_calculation_works() {
 		));
 
 		// Alice nominate project_101 with an amount of 5000*BSX with conviction 1x => equivalent to
-		// 10000*BSX locked
+		// 5000*BSX locked
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(ALICE).into(),
 			101,
@@ -204,7 +204,7 @@ fn rewards_calculation_works() {
 		));
 
 		// DAVE vote against project_102 with an amount of 3000*BSX with conviction 1x => equivalent
-		// to 6000*BSX locked
+		// to 3000*BSX locked
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(DAVE).into(),
 			102,
@@ -213,7 +213,7 @@ fn rewards_calculation_works() {
 			pallet_democracy::Conviction::Locked1x
 		));
 		// Eve nominate project_102 with an amount of 5000*BSX with conviction 1x => equivalent to
-		// 10000*BSX locked
+		// 5000*BSX locked
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(EVE).into(),
 			102,
@@ -235,15 +235,15 @@ fn rewards_calculation_works() {
 			RuntimeEvent::Democracy(pallet_democracy::Event::Passed { ref_index: 0 }),
 		]);
 
-		// The total equivalent amount voted is 17000 = 23000 - 6000
-		// Project 101: 13000 -> ~76.5%; Project 102: 4000 -> ~23.5%
-		// Distributed to project 101 -> 76%*100_000; Distributed to project 102 -> 23%*100_000
+		// The total equivalent positive amount voted is 12000
+		// Project 101: 7000 -> ~58.3%; Project 102: 2000 -> ~16.6%
+		// Distributed to project 101 -> 56%*100_000; Distributed to project 102 -> 16%*100_000
 		//Opf::calculate_rewards(<Test as Config>::TemporaryRewards::get());
 
 		let reward_101 = WhiteListedProjectAccounts::<Test>::get(101).unwrap().amount;
 		let reward_102 = WhiteListedProjectAccounts::<Test>::get(102).unwrap().amount;
-		assert_eq!(reward_101, 76000);
-		assert_eq!(reward_102, 23000);
+		assert_eq!(reward_101, 58000);
+		assert_eq!(reward_102, 16000);
 
 		// Proposal Enactment did not happened yet
 		assert_eq!(Spends::<Test>::contains_key(101), false);
@@ -272,7 +272,7 @@ fn vote_removal_works() {
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 
 		// Bob nominate project_102 with an amount of 1000 & conviction of 1 equivalent to
-		// 2000
+		// 1000
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(BOB).into(),
 			101,
@@ -282,7 +282,7 @@ fn vote_removal_works() {
 		));
 
 		// Eve nominate project_101 with an amount of 5000 & conviction 1x => equivalent to
-		// 10000
+		// 5000
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(EVE).into(),
 			101,
@@ -293,7 +293,7 @@ fn vote_removal_works() {
 
 		// ProjectFund is correctly updated
 		let project_fund_before = ProjectFunds::<Test>::get(101);
-		assert_eq!(project_fund_before[0], 12000);
+		assert_eq!(project_fund_before[0], 6000);
 
 		// Voter's funds are locked
 		let locked_balance0 =
@@ -320,7 +320,7 @@ fn vote_removal_works() {
 
 		// ProjectFund is correctly updated
 		let project_fund_after = ProjectFunds::<Test>::get(101);
-		assert_eq!(project_fund_after[0], 10000);
+		assert_eq!(project_fund_after[0], 5000);
 	})
 }
 
@@ -330,7 +330,7 @@ fn vote_overwrite_works() {
 		let batch = project_list();
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
-		// Bob nominate project_101 with an amount of 1000 with a conviction of 2 => amount+amount*2
+		// Bob nominate project_101 with an amount of 1000 with a conviction of 2 => amount*2
 		// is the amount allocated to the project
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(BOB).into(),
@@ -346,11 +346,11 @@ fn vote_overwrite_works() {
 			project_id: 101,
 		})]);
 
-		// 3000 is allocated to project 101
+		// 2000 is allocated to project 101
 		let mut funds = ProjectFunds::<Test>::get(101);
-		assert_eq!(funds[0], 3000);
+		assert_eq!(funds[0], 2000);
 
-		// Bob nominate project_103 with an amount of 5000 with a conviction of 1 => amount+amount*1
+		// Bob nominate project_103 with an amount of 5000 with a conviction of 1 => amount
 		// is the amount allocated to the project
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(BOB).into(),
@@ -362,7 +362,7 @@ fn vote_overwrite_works() {
 
 		// 10000 is allocated to project 103
 		funds = ProjectFunds::<Test>::get(103);
-		assert_eq!(funds[0], 10000);
+		assert_eq!(funds[0], 5000);
 
 		// Voter's funds are locked
 		let mut locked_balance0 = <<Test as Config>::NativeBalance as fungible::hold::Inspect<
@@ -371,7 +371,7 @@ fn vote_overwrite_works() {
 		assert!(locked_balance0 > 0);
 		assert_eq!(locked_balance0, 6000);
 
-		// Bob changes amount in project_103 to 4500
+		// Bob changes amount in project_103 to 4500 with conviction 2=> 9000
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(BOB).into(),
 			103,
@@ -382,7 +382,7 @@ fn vote_overwrite_works() {
 
 		// Allocated amount to project 103 is now 13500
 		funds = ProjectFunds::<Test>::get(103);
-		assert_eq!(funds[0], 13500);
+		assert_eq!(funds[0], 9000);
 
 		// Storage was correctly updated
 		let vote_info = Votes::<Test>::get(103, BOB).unwrap();
@@ -484,9 +484,9 @@ fn spends_creation_works_but_not_executed_after_claim_period() {
 		let batch = project_list();
 		let voting_period = <Test as Config>::VotingPeriod::get();
 		let mut now = <Test as Config>::BlockNumberProvider::current_block_number();
-		let amount1 = 400 * BSX;
-		let amount2 = 320 * BSX;
-		let amount3 = 280 * BSX;
+		let amount1 = 400 ;
+		let amount2 = 320 ;
+		let amount3 = 280 ;
 		//round_end_block
 		let round_end = now.saturating_add(voting_period);
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
