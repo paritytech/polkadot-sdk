@@ -795,11 +795,11 @@ impl_runtime_apis! {
 					Ok(WeightToFee::weight_to_fee(&weight))
 				},
 				Ok(asset_id) => {
-					tracing::trace!(target: "xcm::xcm_runtime_apis", ?asset_id, "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
+					tracing::trace!(target: "xcm::xcm_runtime_apis", ?asset_id, "query_weight_to_asset_fee - unhandled asset_id!");
 					Err(XcmPaymentApiError::AssetNotFound)
 				},
 				Err(_) => {
-					tracing::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
+					tracing::trace!(target: "xcm::xcm_runtime_apis", ?asset, "query_weight_to_asset_fee - failed to convert asset!");
 					Err(XcmPaymentApiError::VersionedConversionFailed)
 				}
 			}
@@ -1146,7 +1146,7 @@ impl_runtime_apis! {
 					).map_err(|e| {
 						let origin = RuntimeOrigin::root();
 						let bridge = bridge_to_rococo_config::BridgeHubRococoLocation::get();
-						tracing::debug!(
+						tracing::error!(
 							target: "xcm::export_message_origin_and_destination",
 							?origin,
 							?bridge,

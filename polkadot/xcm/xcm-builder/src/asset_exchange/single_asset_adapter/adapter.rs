@@ -63,7 +63,7 @@ where
 		let give_asset = give_iter.next().ok_or_else(|| {
 			tracing::trace!(
 				target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
-				"No fungible asset was in `give`.",
+				?give, "No fungible asset was in `give`.",
 			);
 			give.clone()
 		})?;

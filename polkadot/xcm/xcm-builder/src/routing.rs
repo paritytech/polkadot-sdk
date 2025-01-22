@@ -110,7 +110,7 @@ impl<Inner: SendXcm, TopicSource: SourceTopic> SendXcm for WithTopicSource<Inner
 			unique_id
 		};
 		let (ticket, assets) = Inner::validate(destination, &mut Some(message)).map_err(|e| {
-			tracing::debug!(target: "xcm::validate", error = ?e, "Failed to validate");
+			tracing::debug!(target: "xcm::validate::WithTopicSource", ?destination, ?message, error = ?e, "Failed to validate");
 			SendError::NotApplicable
 		})?;
 		Ok(((ticket, unique_id), assets))

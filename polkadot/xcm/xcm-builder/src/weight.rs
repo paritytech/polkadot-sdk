@@ -167,7 +167,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 			return Ok(payment)
 		}
 		let unused = payment.checked_sub((id, amount).into()).map_err(|error| {
-			tracing::error!(target: "xcm::weight", ?error, "Failed to substract from payment");
+			tracing::error!(target: "xcm::weight", ?amount, ?error, "FixedRateOfFungible::buy_weight Failed to substract from payment");
 			XcmError::TooExpensive
 		})?;
 		self.0 = self.0.saturating_add(weight);
@@ -176,8 +176,8 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 	}
 
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
-		tracing::trace!(target: "xcm::weight", ?weight, ?context, "FixedRateOfFungible::refund_weight");
 		let (id, units_per_second, units_per_mb) = T::get();
+		tracing::trace!(target: "xcm::weight", ?id, ?weight, ?context, "FixedRateOfFungible::refund_weight");
 		let weight = weight.min(self.0);
 		let amount = (units_per_second * (weight.ref_time() as u128) /
 			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
