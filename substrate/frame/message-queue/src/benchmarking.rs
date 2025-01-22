@@ -23,7 +23,6 @@
 use super::{mock_helpers::*, Pallet as MessageQueue, *};
 
 use frame::benchmarking::prelude::*;
-use frame::deps::sp_io::hashing::blake2_256;
 
 #[benchmarks(
 	where

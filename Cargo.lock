@@ -14024,7 +14024,6 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-tracing 16.0.0",
- "sp-weights 27.0.0",
 ]
 
 [[package]]

@@ -209,13 +209,16 @@ use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
 
-use frame_system::pallet_prelude::*;
+use frame::{
+	deps::{
+		sp_arithmetic::traits::{BaseArithmetic, Unsigned},
+	},
+	prelude::*,
+};
 pub use pallet::*;
 use scale_info::TypeInfo;
-use frame::deps::sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-use frame::deps::sp_core::{defer, H256};
+use frame::runtime::prelude::WeightMeter;
 
-use frame::deps::sp_weights::WeightMeter;
 pub use weights::WeightInfo;
 
 /// Type for identifying a page.
@@ -450,7 +453,7 @@ impl<Id> OnQueueChanged<Id> for () {
 	fn on_queue_changed(_: Id, _: QueueFootprint) {}
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -1336,7 +1339,7 @@ impl<T: Config> Pallet<T> {
 	/// * `first` <= `last`
 	/// * Every page can be decoded into peek_* functions
 	#[cfg(any(test, feature = "try-runtime", feature = "std"))]
-	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+	pub fn do_try_state() -> Result<(), frame::try_runtime::TryRuntimeError> {
 		// Checking memory corruption for BookStateFor
 		ensure!(
 			BookStateFor::<T>::iter_keys().count() == BookStateFor::<T>::iter_values().count(),
@@ -1488,7 +1491,7 @@ impl<T: Config> Pallet<T> {
 		meter: &mut WeightMeter,
 		overweight_limit: Weight,
 	) -> MessageExecutionStatus {
-		let mut id = sp_io::hashing::blake2_256(message);
+		let mut id = blake2_256(message);
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 

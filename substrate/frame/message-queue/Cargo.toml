@@ -13,13 +13,12 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-frame = { workspace = true, features = ["experimental", "runtime"]}
+frame = { workspace = true, features = ["runtime"]}
 environmental = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 
-sp-weights = { workspace = true }
 
 
 [dev-dependencies]
@@ -36,9 +35,9 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"sp-tracing/std",
-	"sp-weights/std",
 ]
 runtime-benchmarks = [
+	"frame/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",

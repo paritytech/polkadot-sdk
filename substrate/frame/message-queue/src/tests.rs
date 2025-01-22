@@ -22,7 +22,8 @@
 use crate::{mock::*, *};
 
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use frame::deps::sp_crypto_hashing::blake2_256;
+use frame::testing_prelude::*;
+use frame::deps::sp_io;
 
 #[test]
 fn mocked_weight_works() {

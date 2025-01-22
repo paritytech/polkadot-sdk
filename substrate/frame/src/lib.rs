@@ -213,6 +213,8 @@ pub mod prelude {
 		},
 	};
 
+	pub use frame_support::storage::TransactionOutcome;
+
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
@@ -236,13 +238,10 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::{
-		traits::{
-			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, One, ReduceBy,
-			ReplaceWithDefault, SaturatedConversion, SaturatedConversion, Saturating, Saturating,
-			StaticLookup, TrailingZeroInput, TransactionOutcome, Zero,
-		},
-		SaturatedConversion, Saturating, TransactionOutcome,
+	pub use sp_runtime::traits::{
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, One, ReduceBy,
+		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput, Zero,
 	};
 
 	/// Bounded storage related types.
@@ -394,7 +393,7 @@ pub mod runtime {
 		};
 
 		/// Used for simple fee calculation.
-		pub use frame_support::weights::{self, FixedFee, NoFee};
+		pub use frame_support::weights::{self, FixedFee, NoFee, WeightMeter};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
