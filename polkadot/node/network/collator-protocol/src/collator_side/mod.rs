@@ -31,7 +31,7 @@ use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
 		incoming::{self, OutgoingResponse},
-		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver,
+		v2 as request_v2, IncomingRequestReceiver,
 	},
 	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
 	Versioned, View,
@@ -194,8 +194,6 @@ impl ValidatorGroup {
 struct PeerData {
 	/// Peer's view.
 	view: View,
-	/// Network protocol version.
-	version: CollationVersion,
 	/// Unknown heads in the view.
 	///
 	/// This can happen when the validator is faster at importing a block and sending out its
@@ -496,30 +494,32 @@ async fn distribute_collation<Context>(
 		),
 	);
 
-	// If prospective parachains are disabled, a leaf should be known to peer.
-	// Otherwise, it should be present in allowed ancestry of some leaf.
+	// The leaf should be present in the allowed ancestry of some leaf.
 	//
 	// It's collation-producer responsibility to verify that there exists
 	// a hypothetical membership in a fragment chain for the candidate.
-	let interested = state.peer_data.iter().filter(|(_, PeerData { view: v, .. })| {
-		v.iter().any(|block_hash| {
-			state.implicit_view.as_ref().map(|implicit_view| {
-				implicit_view
-					.known_allowed_relay_parents_under(block_hash, Some(id))
-					.unwrap_or_default()
-					.contains(&candidate_relay_parent)
-			}) == Some(true)
+	let interested = state
+		.peer_data
+		.iter()
+		.filter(|(_, PeerData { view: v, .. })| {
+			v.iter().any(|block_hash| {
+				state.implicit_view.as_ref().map(|implicit_view| {
+					implicit_view
+						.known_allowed_relay_parents_under(block_hash, Some(id))
+						.unwrap_or_default()
+						.contains(&candidate_relay_parent)
+				}) == Some(true)
+			})
 		})
-	});
+		.map(|(id, _)| id);
 
 	// Make sure already connected peers get collations:
-	for (peer_id, peer_data) in interested {
+	for peer_id in interested {
 		advertise_collation(
 			ctx,
 			candidate_relay_parent,
 			per_relay_parent,
 			peer_id,
-			peer_data.version,
 			&state.peer_ids,
 			&mut state.advertisement_timeouts,
 			&state.metrics,
@@ -578,46 +578,24 @@ async fn determine_our_validators<Context>(
 	Ok(current_validators)
 }
 
-/// Construct the declare message to be sent to validator depending on its
-/// network protocol version.
+/// Construct the declare message to be sent to validator.
 fn declare_message(
 	state: &mut State,
-	version: CollationVersion,
 ) -> Option<Versioned<protocol_v1::CollationProtocol, protocol_v2::CollationProtocol>> {
 	let para_id = state.collating_on?;
-	Some(match version {
-		CollationVersion::V1 => {
-			let declare_signature_payload =
-				protocol_v1::declare_signature_payload(&state.local_peer_id);
-			let wire_message = protocol_v1::CollatorProtocolMessage::Declare(
-				state.collator_pair.public(),
-				para_id,
-				state.collator_pair.sign(&declare_signature_payload),
-			);
-			Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(wire_message))
-		},
-		CollationVersion::V2 => {
-			let declare_signature_payload =
-				protocol_v2::declare_signature_payload(&state.local_peer_id);
-			let wire_message = protocol_v2::CollatorProtocolMessage::Declare(
-				state.collator_pair.public(),
-				para_id,
-				state.collator_pair.sign(&declare_signature_payload),
-			);
-			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
-		},
-	})
+	let declare_signature_payload = protocol_v2::declare_signature_payload(&state.local_peer_id);
+	let wire_message = protocol_v2::CollatorProtocolMessage::Declare(
+		state.collator_pair.public(),
+		para_id,
+		state.collator_pair.sign(&declare_signature_payload),
+	);
+	Some(Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message)))
 }
 
 /// Issue versioned `Declare` collation message to the given `peer`.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn declare<Context>(
-	ctx: &mut Context,
-	state: &mut State,
-	peer: &PeerId,
-	version: CollationVersion,
-) {
-	if let Some(wire_message) = declare_message(state, version) {
+async fn declare<Context>(ctx: &mut Context, state: &mut State, peer: &PeerId) {
+	if let Some(wire_message) = declare_message(state) {
 		ctx.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![*peer], wire_message))
 			.await;
 	}
@@ -656,7 +634,6 @@ async fn advertise_collation<Context>(
 	relay_parent: Hash,
 	per_relay_parent: &mut PerRelayParent,
 	peer: &PeerId,
-	protocol_version: CollationVersion,
 	peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	advertisement_timeouts: &mut FuturesUnordered<ResetInterestTimeout>,
 	metrics: &Metrics,
@@ -664,17 +641,6 @@ async fn advertise_collation<Context>(
 	for (candidate_hash, collation_and_core) in per_relay_parent.collations.iter_mut() {
 		let core_index = *collation_and_core.core_index();
 		let collation = collation_and_core.collation_mut();
-
-		// Check that peer will be able to request the collation.
-		if let CollationVersion::V1 = protocol_version {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				peer_id = %peer,
-				"Skipping advertising to validator, incorrect network protocol version",
-			);
-			return
-		}
 
 		let Some(validator_group) = per_relay_parent.validator_group.get_mut(&core_index) else {
 			gum::debug!(
@@ -712,25 +678,15 @@ async fn advertise_collation<Context>(
 
 		collation.status.advance_to_advertised();
 
-		let collation_message = match protocol_version {
-			CollationVersion::V2 => {
-				let wire_message = protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
+		ctx.send_message(NetworkBridgeTxMessage::SendCollationMessage(
+			vec![*peer],
+			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+				protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: *candidate_hash,
 					parent_head_data_hash: collation.parent_head_data.hash(),
-				};
-				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
-			},
-			CollationVersion::V1 => {
-				let wire_message =
-					protocol_v1::CollatorProtocolMessage::AdvertiseCollation(relay_parent);
-				Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(wire_message))
-			},
-		};
-
-		ctx.send_message(NetworkBridgeTxMessage::SendCollationMessage(
-			vec![*peer],
-			collation_message,
+				},
+			)),
 		))
 		.await;
 
@@ -852,7 +808,7 @@ async fn send_collation(
 				parent_head_data: head_data,
 			}),
 		ParentHeadData::OnlyHash(_) =>
-			Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
+			Ok(request_v2::CollationFetchingResponse::Collation(receipt, pov)),
 	};
 
 	let response =
@@ -917,7 +873,16 @@ async fn handle_incoming_peer_message<Context>(
 			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
 				.await;
 		},
-		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
+		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) => {
+			// Impossible, we no longer accept connections on v1.
+			gum::warn!(
+				target: LOG_TARGET,
+				?statement,
+				?origin,
+				?relay_parent,
+				"Collation seconded message received on unsupported protocol version 1",
+			);
+		},
 		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) |
 		Versioned::V3(V2::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
@@ -1015,16 +980,6 @@ async fn handle_incoming_request<Context>(
 			let collation_with_core = match &req {
 				VersionedCollationRequest::V2(req) =>
 					per_relay_parent.collations.get_mut(&req.payload.candidate_hash),
-				_ => {
-					gum::warn!(
-						target: LOG_TARGET,
-						relay_parent = %relay_parent,
-						?peer_id,
-						"Collation request version is invalid",
-					);
-
-					return Ok(())
-				},
 			};
 			let (receipt, pov, parent_head_data) =
 				if let Some(collation_with_core) = collation_with_core {
@@ -1102,9 +1057,7 @@ async fn handle_peer_view_change<Context>(
 	peer_id: PeerId,
 	view: View,
 ) {
-	let Some(PeerData { view: current, version, unknown_heads }) =
-		state.peer_data.get_mut(&peer_id)
-	else {
+	let Some(PeerData { view: current, unknown_heads }) = state.peer_data.get_mut(&peer_id) else {
 		return
 	};
 
@@ -1145,7 +1098,6 @@ async fn handle_peer_view_change<Context>(
 				*block_hash,
 				per_relay_parent,
 				&peer_id,
-				*version,
 				&state.peer_ids,
 				&mut state.advertisement_timeouts,
 				&state.metrics,
@@ -1171,7 +1123,7 @@ async fn handle_network_msg<Context>(
 			// it should be handled here.
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?observed_role, ?maybe_authority, "Peer connected");
 
-			let version = match protocol_version.try_into() {
+			let version: CollationVersion = match protocol_version.try_into() {
 				Ok(version) => version,
 				Err(err) => {
 					// Network bridge is expected to handle this.
@@ -1185,9 +1137,25 @@ async fn handle_network_msg<Context>(
 					return Ok(())
 				},
 			};
+			if version == CollationVersion::V1 {
+				gum::warn!(
+					target: LOG_TARGET,
+					?peer_id,
+					?observed_role,
+					"Unsupported protocol version v1"
+				);
+
+				// V1 no longer supported, we should disconnect.
+				ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(
+					peer_id,
+					PeerSet::Collation,
+				))
+				.await;
+				return Ok(())
+			}
+
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
 				view: View::default(),
-				version,
 				// Unlikely that the collator is falling 10 blocks behind and if so, it probably is
 				// not able to keep up any way.
 				unknown_heads: LruMap::new(ByLength::new(10)),
@@ -1202,7 +1170,7 @@ async fn handle_network_msg<Context>(
 				);
 				state.peer_ids.insert(peer_id, authority_ids);
 
-				declare(ctx, state, &peer_id, version).await;
+				declare(ctx, state, &peer_id).await;
 			}
 		},
 		PeerViewChange(peer_id, view) => {
@@ -1223,9 +1191,9 @@ async fn handle_network_msg<Context>(
 		},
 		UpdatedAuthorityIds(peer_id, authority_ids) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
-			if let Some(version) = state.peer_data.get(&peer_id).map(|d| d.version) {
+			if state.peer_data.contains_key(&peer_id) {
 				if state.peer_ids.insert(peer_id, authority_ids).is_none() {
-					declare(ctx, state, &peer_id, version).await;
+					declare(ctx, state, &peer_id).await;
 				}
 			}
 		},
@@ -1269,7 +1237,7 @@ async fn handle_our_view_change<Context>(
 		let peers = state
 			.peer_data
 			.iter_mut()
-			.filter_map(|(id, data)| data.unknown_heads.remove(leaf).map(|_| (id, data.version)))
+			.filter_map(|(id, data)| data.unknown_heads.remove(leaf).map(|_| id))
 			.collect::<Vec<_>>();
 
 		for block_hash in allowed_ancestry {
@@ -1280,13 +1248,12 @@ async fn handle_our_view_change<Context>(
 				.or_insert_with(|| PerRelayParent::new(para_id, claim_queue));
 
 			// Announce relevant collations to these peers.
-			for (peer_id, peer_version) in &peers {
+			for peer_id in &peers {
 				advertise_collation(
 					ctx,
 					*block_hash,
 					per_relay_parent,
 					&peer_id,
-					*peer_version,
 					&state.peer_ids,
 					&mut state.advertisement_timeouts,
 					&state.metrics,
@@ -1350,7 +1317,6 @@ pub(crate) async fn run<Context>(
 	ctx: Context,
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
-	req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 	req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	metrics: Metrics,
 ) -> std::result::Result<(), FatalError> {
@@ -1358,7 +1324,6 @@ pub(crate) async fn run<Context>(
 		ctx,
 		local_peer_id,
 		collator_pair,
-		req_v1_receiver,
 		req_v2_receiver,
 		metrics,
 		ReputationAggregator::default(),
@@ -1372,7 +1337,6 @@ async fn run_inner<Context>(
 	mut ctx: Context,
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
-	mut req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 	mut req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	metrics: Metrics,
 	reputation: ReputationAggregator,
@@ -1388,9 +1352,7 @@ async fn run_inner<Context>(
 
 	loop {
 		let reputation_changes = || vec![COST_INVALID_REQUEST];
-		let recv_req_v1 = req_v1_receiver.recv(reputation_changes).fuse();
 		let recv_req_v2 = req_v2_receiver.recv(reputation_changes).fuse();
-		pin_mut!(recv_req_v1);
 		pin_mut!(recv_req_v2);
 
 		let mut reconnect_timeout = &mut state.reconnect_timeout;
@@ -1454,12 +1416,7 @@ async fn run_inner<Context>(
 						None => continue,
 					};
 
-					if let VersionedCollationRequest::V2(req) = &next {
-						per_relay_parent.collations.get(&req.payload.candidate_hash)
-					} else {
-						// Request version is checked in `handle_incoming_request`.
-						continue
-					}
+					per_relay_parent.collations.get(&next.candidate_hash())
 				};
 
 				if let Some(collation_with_core) = next_collation_with_core {
@@ -1491,14 +1448,6 @@ async fn run_inner<Context>(
 					"Peer-set updated due to a timeout"
 				);
 			},
-			in_req = recv_req_v1 => {
-				let request = in_req.map(VersionedCollationRequest::from);
-
-				log_error(
-					handle_incoming_request(&mut ctx, &mut state, request).await,
-					"Handling incoming collation fetch request V1"
-				)?;
-			}
 			in_req = recv_req_v2 => {
 				let request = in_req.map(VersionedCollationRequest::from);
 
