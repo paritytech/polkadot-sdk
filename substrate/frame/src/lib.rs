@@ -235,7 +235,6 @@ pub mod prelude {
 		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	}, BuildStorage};
-	};
 
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
