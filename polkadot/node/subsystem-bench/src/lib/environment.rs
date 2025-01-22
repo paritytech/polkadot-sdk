@@ -364,26 +364,52 @@ impl TestEnvironment {
 
 	fn network_usage(&self) -> Vec<ResourceUsage> {
 		let test_metrics = super::display::parse_metrics(self.registry());
-		let total_node_received = test_metrics
-			.subset_with_label_value("direction", "in")
-			.sum_by("substrate_sub_libp2p_network_bytes_total") /
-			1024.0;
-		let total_node_sent = test_metrics
-			.subset_with_label_value("direction", "out")
-			.sum_by("substrate_sub_libp2p_network_bytes_total") /
-			1024.0;
+		let direction_in = test_metrics.subset_with_label_value("direction", "in");
+		let direction_out = test_metrics.subset_with_label_value("direction", "out");
+		let total_node_received =
+			direction_in.sum_by("substrate_sub_libp2p_network_bytes_total") / 1024.0;
+		let total_node_sent =
+			direction_out.sum_by("substrate_sub_libp2p_network_bytes_total") / 1024.0;
+		let notifications_received =
+			direction_in.sum_by("substrate_sub_libp2p_notifications_sizes_count");
+		let notifications_sent =
+			direction_out.sum_by("substrate_sub_libp2p_notifications_sizes_count");
+		let requests_received =
+			test_metrics.sum_by("substrate_sub_libp2p_requests_in_success_total_count");
+		let requests_sent =
+			test_metrics.sum_by("substrate_sub_libp2p_requests_out_success_total_count");
 		let num_blocks = self.config().num_blocks as f64;
 
 		vec![
 			ResourceUsage {
-				resource_name: "Received from peers".to_string(),
+				resource_name: "Traffic IN, KiB".to_string(),
 				total: total_node_received,
 				per_block: total_node_received / num_blocks,
 			},
 			ResourceUsage {
-				resource_name: "Sent to peers".to_string(),
+				resource_name: "Traffic OUT, KiB".to_string(),
 				total: total_node_sent,
 				per_block: total_node_sent / num_blocks,
+			},
+			ResourceUsage {
+				resource_name: "Notifications IN".to_string(),
+				total: notifications_received,
+				per_block: notifications_received / num_blocks,
+			},
+			ResourceUsage {
+				resource_name: "Notifications OUT".to_string(),
+				total: notifications_sent,
+				per_block: notifications_sent / num_blocks,
+			},
+			ResourceUsage {
+				resource_name: "Requests IN".to_string(),
+				total: requests_received,
+				per_block: requests_received / num_blocks,
+			},
+			ResourceUsage {
+				resource_name: "Requests OUT".to_string(),
+				total: requests_sent,
+				per_block: requests_sent / num_blocks,
 			},
 		]
 	}
@@ -402,7 +428,7 @@ impl TestEnvironment {
 				test_metrics.subset_with_label_value("task_group", subsystem);
 			let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
 			usage.push(ResourceUsage {
-				resource_name: subsystem.to_string(),
+				resource_name: format!("{}, s", subsystem),
 				total: total_cpu,
 				per_block: total_cpu / num_blocks,
 			});
@@ -415,7 +441,7 @@ impl TestEnvironment {
 
 					if let Some(task_name) = metric.label_value("task_name") {
 						usage.push(ResourceUsage {
-							resource_name: format!("{}/{}", subsystem, task_name),
+							resource_name: format!("{}/{}, s", subsystem, task_name),
 							total: metric.value(),
 							per_block: metric.value() / num_blocks,
 						});
@@ -429,7 +455,7 @@ impl TestEnvironment {
 		let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
 
 		usage.push(ResourceUsage {
-			resource_name: "test-environment".to_string(),
+			resource_name: "test-environment, s".to_string(),
 			total: total_cpu,
 			per_block: total_cpu / num_blocks,
 		});
