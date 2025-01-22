@@ -153,11 +153,10 @@ and `zombienet-omni-node.toml` contains the network specification we want to sta
 
 #### Update `zombienet-omni-node.toml` with a valid chain spec path
 
-Before starting the network with ZombieNet, we must update the network specification with a valid chain spec path. 
-However, to simplify the process of starting the minimal template with ZombieNet and Omni Node, we've included a 
+To simplify the process of starting the minimal template with ZombieNet and Omni Node, we've included a 
 pre-configured development chain spec (dev_chain_spec.json) in the minimal template. The zombienet-omni-node.toml 
-file in this template points to it, but you can update it to a new path for the chain spec generated on your machine. 
-To generate a chain spec, refer to [here](#use-chain-spec-builder-to-generate-the-chain_specjson-file).
+file in this template points to it, but you can update it to a new path for the chain spec generated on your machine.
+To generate a chain spec refer to [staging-chain-spec-builder](https://crates.io/crates/staging-chain-spec-builder)
 
 Then make the changes in the network specification like so:
 

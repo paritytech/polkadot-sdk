@@ -43,8 +43,6 @@
 
 - 👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
 
-- For the most up-to-date chain specification, refer to [staging-chain-spec-builder](https://crates.io/crates/staging-chain-spec-builder)
-
 
 ## Template Structure
 
@@ -148,12 +146,14 @@ export PATH="$PATH:<path/to/binaries>"
 ```
 
 
+#### Update `zombienet-omni-node.toml` with a valid chain spec path
+
 To simplify the process of using the parachain-template with zombienet and Omni Node, we've added a pre-configured
 development chain spec (dev_chain_spec.json) to the parachain template. The zombienet-omni-node.toml file of this
-template points to it, but you can update it to an updated chain spec generated on your machine, as shown below:
+template points to it, but you can update it to an updated chain spec generated on your machine. To generate a
+chain spec refer to [staging-chain-spec-builder](https://crates.io/crates/staging-chain-spec-builder)
 
-
-#### Update `zombienet-omni-node.toml` with a valid chain spec path
+Then make the changes in the network specification like so:
 
 ```toml
 # ...
