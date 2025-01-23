@@ -59,6 +59,16 @@ pub use bp_test_utils;
 #[cfg(feature = "bp-xcm-bridge")]
 pub use bp_xcm_bridge;
 
+/// Primitives of the xcm-bridge-hub pallet.
+/// (deprecated: use bp_xcm_bridge)
+#[cfg(feature = "bp-xcm-bridge-hub")]
+pub use bp_xcm_bridge_hub;
+
+/// Primitives of the xcm-bridge-hub fee pallet.
+/// (deprecated: use bp_xcm_bridge_router)
+#[cfg(feature = "bp-xcm-bridge-hub-router")]
+pub use bp_xcm_bridge_hub_router;
+
 /// Primitives of the xcm-bridge-hub fee pallet.
 #[cfg(feature = "bp-xcm-bridge-router")]
 pub use bp_xcm_bridge_router;
@@ -736,6 +746,16 @@ pub use pallet_xcm_benchmarks;
 /// Module that adds dynamic bridges/lanes support to XCM infrastructure at the bridge hub.
 #[cfg(feature = "pallet-xcm-bridge")]
 pub use pallet_xcm_bridge;
+
+/// Module that adds dynamic bridges/lanes support to XCM infrastructure at the bridge hub.
+/// (deprecated: use pallet-xcm-bridge)
+#[cfg(feature = "pallet-xcm-bridge-hub")]
+pub use pallet_xcm_bridge_hub;
+
+/// Bridge hub interface for sibling/parent chains with dynamic fees support. ()
+/// (deprecated: use pallet-xcm-bridge-router)
+#[cfg(feature = "pallet-xcm-bridge-hub-router")]
+pub use pallet_xcm_bridge_hub_router;
 
 /// Bridge hub interface for sibling/parent chains with dynamic fees support.
 #[cfg(feature = "pallet-xcm-bridge-router")]
