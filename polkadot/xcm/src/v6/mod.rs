@@ -23,6 +23,7 @@ use codec::{self, Decode, Encode};
 use core::result;
 use educe::Educe;
 use scale_info::TypeInfo;
+use alloc::vec::Vec;
 
 use crate::{traits::IntoInstruction, DoubleEncoded};
 

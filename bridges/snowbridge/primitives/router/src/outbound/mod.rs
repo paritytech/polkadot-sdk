@@ -186,7 +186,7 @@ macro_rules! match_expression {
 	};
 }
 
-struct XcmConverter<'a, ConvertAssetId, Call> {
+struct XcmConverter<'a, ConvertAssetId, Call: 'static> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: NetworkId,
 	agent_id: AgentId,

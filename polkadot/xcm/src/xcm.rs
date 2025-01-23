@@ -20,6 +20,7 @@ use codec::{
 };
 use educe::Educe;
 use scale_info::TypeInfo;
+use alloc::vec::Vec;
 
 #[derive(Educe, Default, Encode, TypeInfo)]
 #[educe(Clone, Eq, PartialEq, Debug)]

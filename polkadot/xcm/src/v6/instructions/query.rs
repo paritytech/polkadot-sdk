@@ -18,6 +18,7 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use alloc::vec::Vec;
 
 use crate::v6::{Location, QueryResponseInfo, Response, Weight};
 

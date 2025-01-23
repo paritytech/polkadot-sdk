@@ -21,6 +21,7 @@ use crate::{
 use xcm::latest::instructions::*;
 use xcm::latest::{Error as XcmError, Xcm, Instruction};
 use frame_support::traits::PalletsInfoAccess;
+use alloc::{vec, vec::Vec};
 
 impl<Config: config::Config> ExecuteInstruction<Config> for QueryResponse {
 	fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {
