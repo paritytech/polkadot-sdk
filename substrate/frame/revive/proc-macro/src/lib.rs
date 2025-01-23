@@ -374,7 +374,7 @@ where
 		panic!("Only primitive unsigned integers are allowed as arguments to syscalls");
 	}
 
-	// one argument per register 
+	// one argument per register
 	let bindings = param_names.zip(param_types).enumerate().map(|(idx, (name, ty))| {
 		let reg = quote::format_ident!("__a{}__", idx);
 		quote! {
