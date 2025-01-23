@@ -22,82 +22,41 @@ use std::path::PathBuf;
 
 use derive_builder::Builder;
 use zombienet_configuration::{shared::types::Arg, types::ParaId};
-use zombienet_sdk::{LocalFileSystem, Network as ZNetwork, NetworkConfig};
-
-//pub mod limits_30;
-//pub mod old_pool;
-//pub mod old_pool_small;
-//pub mod single_collator;
-//pub mod yap;
+use zombienet_sdk::{LocalFileSystem, Network as ZNetwork, NetworkConfig, NetworkConfigExt};
 
 const DEFAULT_BASE_DIR: &'static str = "/tmp/zn-spawner";
-const DEFAULT_RC_NODE_RPC_PORT: u16 = 9944;
-const DEFAULT_PC_NODE_RPC_PORT: u16 = 8844;
 
-/// TODO 1: each section has also a shared part that could be passed
-/// to each node: e.g. args that repeat through parachain nodes,
-/// and can be set sooner, at test inception.
-/// TODO 2: each network is mostly the same thing, with different args
-/// for parachains, and different numbers of parachains. The difference
-/// can be stored in dedicated functions that would setup the differences
-/// accordingly, part of a single `TxPoolPlayGroundNetwork` struct.
+const YAP_HIGH_POOL_LIMIT_OLDP_SPEC_PATH: &'static str =
+	"tests/zombienet/network-specs/yap-high-pool-limit-oldp.toml";
+const YAP_HIGH_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
+	"tests/zombienet/network-specs/yap-high-pool-limit-fatp.toml";
 
-#[derive(Default, Builder, Debug, Clone)]
-pub struct RelaychainConfig {
-	default_command: String,
-	chain: String,
+#[thiserror::Error]
+enum Error {
+	#[error = "Network initialization failure: {0}"]
+	NetworkInit(anyhow::Error),
 }
 
-impl RelaychainConfig {
-	pub fn new(default_command: String, chain: String) -> Self {
-		RelaychainConfig { default_command, chain }
+type Result<T> = std::result::Result<T, Error>;
+
+struct NetworkSpawner;
+
+impl NetworkSpawner {
+	async fn init_from_yap_oldp_high_pool_limit_spec() -> Result<Network<LocalFileSystem>, Error> {
+		let net_config = NetworkConfig::load_from_toml(YAP_HIGH_POOL_LIMIT_OLDP_SPEC_PATH)
+			.map_err(Error::NetworkInit)?;
+		net_config
+			.spawn_native()
+			.await
+			.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))
 	}
-}
 
-#[derive(Default, Builder, Debug, Clone)]
-pub struct ParachainConfig {
-	default_command: String,
-	chain_spec_path: String,
-	cumulus_based: bool,
-	id: ParaId,
-}
-
-impl ParachainConfig {
-	pub fn new(
-		default_command: String,
-		chain_spec_path: String,
-		cumulus_based: bool,
-		id: ParaId,
-	) -> Self {
-		ParachainConfig { default_command, chain_spec_path, cumulus_based, id }
+	async fn init_from_yap_fatp_high_pool_limit_spec() -> Result<Network<LocalFileSystem>, Error> {
+		let net_config = NetworkConfig::load_from_toml(YAP_GHIGH_POOL_LIMIT_FATP_SPEC_PATH)
+			.map_err(Error::NetworkInit)?;
+		net_config
+			.spawn_native()
+			.await
+			.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))
 	}
-}
-
-/// Wrapper over a substrate node managed by zombienet.
-#[derive(Debug, Clone)]
-pub struct Node {
-	validator: bool,
-	name: String,
-	args: Vec<Arg>,
-}
-
-impl Node {
-	pub fn new(name: String, args: Vec<Arg>, validator: bool) -> Self {
-		Node { name, args, validator }
-	}
-}
-
-#[async_trait::async_trait]
-pub trait Network {
-	// Ensure the necesary bins are on $PATH.
-	fn ensure_bins_on_path(&self) -> bool;
-
-	// Provide zombienet network config.
-	fn config(&self) -> Result<NetworkConfig, anyhow::Error>;
-
-	// Start the network locally.
-	async fn start(&self) -> Result<ZNetwork<LocalFileSystem>, anyhow::Error>;
-
-	// Return filesystem base dir of the network with all relevant files (e.g. logs).
-	fn base_dir(&self) -> &PathBuf;
 }

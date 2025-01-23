@@ -60,11 +60,11 @@ strum = { workspace = true, features = ["derive"] }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 which = { workspace = true }
 zombienet-configuration = { workspace = true }
 zombienet-sdk = { workspace = true }
-
 
 [[bench]]
 name = "basics"
