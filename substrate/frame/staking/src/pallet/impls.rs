@@ -1521,9 +1521,12 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		// TODO: this is somewhat temp hack to fix this issue:
 		// in the new multi-block staking model, we finish the election one block before the session
 		// ends. In this very last block, we don't want to tell EP that the next election is in one
-		// blocks, but rather in a whole era from now.
-
-		if until_this_session_end == One::one() && sessions_left.is_zero() {
+		// blocks, but rather in a whole era from now. For simplification, while we are
+		// mid-election,we always point to one era later.
+		//
+		// This whole code path has to change when we move to the rc-client model.
+		if !ElectableStashes::<T>::get().is_empty() {
+			log!(debug, "we are mid-election, pointing to next era as election prediction.");
 			return now.saturating_add(
 				BlockNumberFor::<T>::from(T::SessionsPerEra::get()) * session_length,
 			)
