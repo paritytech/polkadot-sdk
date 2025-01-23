@@ -229,6 +229,8 @@ jobs:
     needs: [clean, get-pr-info]
     if: ${{ startsWith(github.event.comment.body, '/cmd') && !contains(github.event.comment.body, '--help') }}
     runs-on: ubuntu-latest
+    env: 
+      CMD: ${{ needs.get-pr-info.outputs.CMD }}
     outputs:
       IMAGE: ${{ steps.set-image.outputs.IMAGE }}
       RUNNER: ${{ steps.set-image.outputs.RUNNER }}
@@ -238,7 +240,7 @@ jobs:
 
       - id: set-image
         run: |
-          BODY=$(echo "${{ github.event.comment.body }}" | xargs)
+          BODY=$(echo "$CMD" | xargs) # remove whitespace
           IMAGE_OVERRIDE=$(echo $BODY | grep -oe 'docker.io/paritytech/ci-unified:.*\s' | xargs)
 
           cat .github/env >> $GITHUB_OUTPUT
