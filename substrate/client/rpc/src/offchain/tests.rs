@@ -42,10 +42,7 @@ fn local_storage_should_work() {
 		offchain.clear_local_storage(&ext, StorageKind::PERSISTENT, key.clone()),
 		Ok(())
 	);
-	assert_matches!(
-		offchain.get_local_storage(&ext, StorageKind::PERSISTENT, key),
-		Ok(None)
-	);
+	assert_matches!(offchain.get_local_storage(&ext, StorageKind::PERSISTENT, key), Ok(None));
 }
 
 #[test]
