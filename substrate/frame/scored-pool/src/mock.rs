@@ -103,7 +103,7 @@ pub fn new_test_ext() -> TestState {
 	balances.push((40, 500_000));
 	balances.push((99, 1));
 
-	pallet_balances::GenesisConfig::<Test> { balances }
+	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 	pallet_scored_pool::GenesisConfig::<Test> {
