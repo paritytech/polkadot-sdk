@@ -11,8 +11,8 @@ doc:
 
 crates:
   - name: cumulus-client-parachain-inherent
-    bump: minor
+    bump: patch
   - name: cumulus-client-consensus-aura
-    bump: minor
+    bump: patch
   - name: xcm-emulator
-    bump: minor
+    bump: patch
