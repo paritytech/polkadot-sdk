@@ -211,6 +211,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 			(20, 40000),
 			(pool_zero_account_id, 100_000), // Top up the default pool account id
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
