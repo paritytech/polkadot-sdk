@@ -1,0 +1,8 @@
+title: 'xcm: avoid subtracting delivery fees twice'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Avoid subtracting delivery fees twice in DepositReserveAsset call when jit mode is enabled.
+crates:
+- name: staging-xcm-executor
+  bump: patch
