@@ -35,16 +35,13 @@ mod wasm;
 mod tests;
 
 pub mod chain_extension;
-pub mod debug;
 pub mod evm;
 pub mod test_utils;
+pub mod tracing;
 pub mod weights;
 
 use crate::{
-	evm::{
-		runtime::{gas_from_fee, GAS_PRICE},
-		GasEncoder, GenericTransaction,
-	},
+	evm::{runtime::GAS_PRICE, GasEncoder, GenericTransaction},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -83,7 +80,6 @@ use sp_runtime::{
 
 pub use crate::{
 	address::{create1, create2, AccountId32Mapper, AddressMapper},
-	debug::Tracing,
 	exec::{MomentOf, Origin},
 	pallet::*,
 };
@@ -118,7 +114,6 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::debug::Debugger;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
@@ -255,12 +250,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
-		/// Debugging utilities for contracts.
-		/// For production chains, it's recommended to use the `()` implementation of this
-		/// trait.
-		#[pallet::no_default_bounds]
-		type Debug: Debugger<Self>;
-
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
 		#[pallet::no_default_bounds]
@@ -367,7 +356,6 @@ pub mod pallet {
 			type InstantiateOrigin = EnsureSigned<AccountId>;
 			type WeightInfo = ();
 			type WeightPrice = Self;
-			type Debug = ();
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -1146,20 +1134,23 @@ where
 			DepositLimit::Unchecked
 		};
 
-		// TODO remove once we have revisited how we encode the gas limit.
 		if tx.nonce.is_none() {
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
-		}
-		if tx.gas_price.is_none() {
-			tx.gas_price = Some(GAS_PRICE.into());
 		}
 		if tx.chain_id.is_none() {
 			tx.chain_id = Some(T::ChainId::get().into());
 		}
+		if tx.gas_price.is_none() {
+			tx.gas_price = Some(GAS_PRICE.into());
+		}
+		if tx.gas.is_none() {
+			tx.gas = Some(Self::evm_block_gas_limit());
+		}
 
 		// Convert the value to the native balance type.
 		let evm_value = tx.value.unwrap_or_default();
-		let native_value = match Self::convert_evm_to_native(evm_value) {
+		let native_value = match Self::convert_evm_to_native(evm_value, ConversionPrecision::Exact)
+		{
 			Ok(v) => v,
 			Err(_) => return Err(EthTransactError::Message("Failed to convert value".into())),
 		};
@@ -1216,12 +1207,16 @@ where
 					data,
 					eth_gas: Default::default(),
 				};
-				// Get the dispatch info of the call.
+
+				let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
+					result.gas_required,
+					result.storage_deposit,
+				);
 				let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
 					dest,
 					value: native_value,
-					gas_limit: result.gas_required,
-					storage_deposit_limit: result.storage_deposit,
+					gas_limit,
+					storage_deposit_limit,
 					data: input.clone(),
 				}
 				.into();
@@ -1274,11 +1269,15 @@ where
 				};
 
 				// Get the dispatch info of the call.
+				let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
+					result.gas_required,
+					result.storage_deposit,
+				);
 				let dispatch_call: <T as Config>::RuntimeCall =
 					crate::Call::<T>::instantiate_with_code {
 						value: native_value,
-						gas_limit: result.gas_required,
-						storage_deposit_limit: result.storage_deposit,
+						gas_limit,
+						storage_deposit_limit,
 						code: code.to_vec(),
 						data: data.to_vec(),
 						salt: None,
@@ -1288,38 +1287,26 @@ where
 			},
 		};
 
-		// The transaction fees depend on the extrinsic's length, which in turn is influenced by
-		// the encoded length of the gas limit specified in the transaction (tx.gas).
-		// We iteratively compute the fee by adjusting tx.gas until the fee stabilizes.
-		// with a maximum of 3 iterations to avoid an infinite loop.
-		for _ in 0..3 {
-			let Ok(unsigned_tx) = tx.clone().try_into_unsigned() else {
-				log::debug!(target: LOG_TARGET, "Failed to convert to unsigned");
-				return Err(EthTransactError::Message("Invalid transaction".into()));
-			};
+		let Ok(unsigned_tx) = tx.clone().try_into_unsigned() else {
+			return Err(EthTransactError::Message("Invalid transaction".into()));
+		};
 
-			let eth_dispatch_call =
-				crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
-			let encoded_len = utx_encoded_size(eth_dispatch_call);
-			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
-				encoded_len,
-				&dispatch_info,
-				0u32.into(),
-			)
-			.into();
-			let eth_gas = gas_from_fee(fee);
-			let eth_gas =
-				T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
+		let eth_dispatch_call =
+			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
 
-			if eth_gas == result.eth_gas {
-				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");
-				break;
-			}
-			result.eth_gas = eth_gas;
-			tx.gas = Some(eth_gas.into());
-			log::debug!(target: LOG_TARGET, "Adjusting Eth gas to: {eth_gas:?}");
-		}
+		let encoded_len = utx_encoded_size(eth_dispatch_call);
+		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
+			encoded_len,
+			&dispatch_info,
+			0u32.into(),
+		)
+		.into();
+		let eth_gas = Self::evm_fee_to_gas(fee);
+		let eth_gas =
+			T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
 
+		log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");
+		result.eth_gas = eth_gas;
 		Ok(result)
 	}
 
@@ -1327,6 +1314,29 @@ where
 	pub fn evm_balance(address: &H160) -> U256 {
 		let account = T::AddressMapper::to_account_id(&address);
 		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
+	}
+
+	/// Convert an EVM fee into a gas value, using the fixed `GAS_PRICE`.
+	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
+	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
+		let fee = Self::convert_native_to_evm(fee);
+		let gas_price = GAS_PRICE.into();
+		let (quotient, remainder) = fee.div_mod(gas_price);
+		if remainder.is_zero() {
+			quotient
+		} else {
+			quotient + U256::one()
+		}
+	}
+
+	pub fn evm_block_gas_limit() -> U256 {
+		let max_block_weight = T::BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_total
+			.unwrap_or_else(|| T::BlockWeights::get().max_block);
+
+		let fee = T::WeightPrice::convert(max_block_weight);
+		Self::evm_fee_to_gas(fee)
 	}
 
 	/// A generalized version of [`Self::upload_code`].
@@ -1389,16 +1399,22 @@ where
 	}
 
 	/// Convert an EVM balance to a native balance.
-	fn convert_evm_to_native(value: U256) -> Result<BalanceOf<T>, Error<T>> {
+	fn convert_evm_to_native(
+		value: U256,
+		precision: ConversionPrecision,
+	) -> Result<BalanceOf<T>, Error<T>> {
 		if value.is_zero() {
 			return Ok(Zero::zero())
 		}
-		let ratio = T::NativeToEthRatio::get().into();
-		let res = value.checked_div(ratio).expect("divisor is non-zero; qed");
-		if res.saturating_mul(ratio) == value {
-			res.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)
-		} else {
-			Err(Error::<T>::DecimalPrecisionLoss)
+
+		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
+		match (precision, remainder.is_zero()) {
+			(ConversionPrecision::Exact, false) => Err(Error::<T>::DecimalPrecisionLoss),
+			(_, true) => quotient.try_into().map_err(|_| Error::<T>::BalanceConversionFailed),
+			(_, false) => quotient
+				.saturating_add(U256::one())
+				.try_into()
+				.map_err(|_| Error::<T>::BalanceConversionFailed),
 		}
 	}
 }
@@ -1427,6 +1443,9 @@ sp_api::decl_runtime_apis! {
 		Nonce: Codec,
 		BlockNumber: Codec,
 	{
+		/// Returns the block gas limit.
+		fn block_gas_limit() -> U256;
+
 		/// Returns the free balance of the given `[H160]` address, using EVM decimals.
 		fn balance(address: H160) -> U256;
 
