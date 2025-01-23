@@ -1,0 +1,16 @@
+title: Bridges small nits/improvements
+doc:
+- audience: Runtime Dev
+  description: 'This PR contains small fixes identified during work on the larger
+    PR: https://github.com/paritytech/polkadot-sdk/issues/6906.'
+crates:
+- name: bridge-runtime-common
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: patch
