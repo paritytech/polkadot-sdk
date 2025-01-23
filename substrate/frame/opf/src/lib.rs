@@ -344,8 +344,10 @@ pub mod pallet {
 				let proposal = Self::create_proposal(who.clone(), call);
 
 				// Start Referendum
-				let referendum_index =
-					Self::start_dem_referendum(proposal, <T as Democracy::Config>::EnactmentPeriod::get());
+				let referendum_index = Self::start_dem_referendum(
+					proposal,
+					<T as Democracy::Config>::EnactmentPeriod::get(),
+				);
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;

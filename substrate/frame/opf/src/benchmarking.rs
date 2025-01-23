@@ -82,8 +82,7 @@ mod benchmarks {
 			"Project_id not set up correctly."
 		);
 
-		on_idle_full_block::<T>();
-		let when = T::BlockNumberProvider::current_block_number()+ One::one();
+		let when = T::BlockNumberProvider::current_block_number() + One::one();
 		T::BlockNumberProvider::set_block_number(when);
 
 		ensure!(VotingRounds::<T>::get(0).is_some(), "Round not created!");
@@ -108,7 +107,6 @@ mod benchmarks {
 			"Project_id not set up correctly."
 		);
 
-		on_idle_full_block::<T>();
 		let when = frame_system::Pallet::<T>::block_number() + One::one();
 		run_to_block::<T>(when);
 
@@ -141,7 +139,6 @@ mod benchmarks {
 			"Project_id not set up correctly."
 		);
 
-		on_idle_full_block::<T>();
 		let mut when = T::BlockNumberProvider::current_block_number().saturating_add(One::one());
 		T::BlockNumberProvider::set_block_number(when);
 
@@ -162,7 +159,6 @@ mod benchmarks {
 		when = Votes::<T>::get(account0.clone(), caller.clone()).unwrap().funds_unlock_block;
 
 		T::BlockNumberProvider::set_block_number(when);
-		on_idle_full_block::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account0);
@@ -182,11 +178,11 @@ mod benchmarks {
 			"Project_id not set up correctly."
 		);
 
-		let mut when = T::BlockNumberProvider::current_block_number()+ One::one();
+		let mut when = T::BlockNumberProvider::current_block_number() + One::one();
 		T::BlockNumberProvider::set_block_number(when);
 		ensure!(VotingRounds::<T>::get(0).is_some(), "Round not created!");
 		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
-		
+
 		let _ = T::NativeBalance::mint_into(&caller, caller_balance);
 		let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 100u32.into() * (r).into();
 		Opf::<T>::vote(
@@ -202,18 +198,15 @@ mod benchmarks {
 		T::BlockNumberProvider::set_block_number(round_end);
 		// go to claiming period
 		when = round_end.saturating_add(<T as Config>::EnactmentPeriod::get());
-		let enact1 = <T as Config>::EnactmentPeriod::get();
-		let enact2 = <T as Democracy::Config>::EnactmentPeriod::get();
 		T::BlockNumberProvider::set_block_number(when);
-		println!("round_end:{:?}\nenact2:{:?}\nnow:{:?}",round_end,enact2,when);
 		//SpendCreated?
-		let spend = Spends::<T>::get(&account0.clone()).ok_or("Problem with spend creation")?;
-		
+		let _spend = Spends::<T>::get(&account0.clone()).ok_or("Problem with spend creation")?;
+
 		#[block]
 		{
 			on_idle_full_block::<T>();
 		}
-/*
+		/*
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account0);*/
 
