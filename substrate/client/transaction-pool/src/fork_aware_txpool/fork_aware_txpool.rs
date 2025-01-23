@@ -192,7 +192,9 @@ where
 		future_limits: crate::PoolLimit,
 		mempool_max_transactions_count: usize,
 	) -> (Self, ForkAwareTxPoolTask) {
-		let listener = Arc::from(MultiViewListener::new());
+		let (listener, listener_task) = MultiViewListener::new_with_worker();
+		let listener = Arc::new(listener);
+
 		let (import_notification_sink, import_notification_sink_task) =
 			MultiViewImportNotificationSink::new_with_worker();
 
@@ -219,6 +221,7 @@ where
 
 		let combined_tasks = async move {
 			tokio::select! {
+				_ = listener_task => {},
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
 			}
@@ -312,7 +315,10 @@ where
 		finalized_hash: Block::Hash,
 	) -> Self {
 		let metrics = PrometheusMetrics::new(prometheus);
-		let listener = Arc::from(MultiViewListener::new());
+
+		let (listener, listener_task) = MultiViewListener::new_with_worker();
+		let listener = Arc::new(listener);
+
 		let (revalidation_queue, revalidation_task) =
 			revalidation_worker::RevalidationQueue::new_with_worker();
 
@@ -341,6 +347,7 @@ where
 
 		let combined_tasks = async move {
 			tokio::select! {
+				_ = listener_task => {}
 				_ = revalidation_task => {},
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
@@ -1019,6 +1026,7 @@ where
 			)
 		};
 
+		let start = Instant::now();
 		// 1. Capture all import notification from the very beginning, so first register all
 		//the listeners.
 		self.import_notification_sink.add_view(
@@ -1031,26 +1039,27 @@ where
 			view.pool.validated_pool().create_dropped_by_limits_stream().boxed(),
 		);
 
-		let start = Instant::now();
-		let watched_xts = self.register_listeners(&mut view).await;
-		let duration = start.elapsed();
+		//todo [#5495]: maybe we don't need to register listener in view? We could use
+		// multi_view_listener.transaction_in_block
+		self.view_store.listener.add_view_aggregated_stream(
+			view.at.hash,
+			view.pool.validated_pool().create_aggregated_stream().boxed(),
+		);
 		// sync the transactions statuses and referencing views in all the listeners with newly
 		// cloned view.
 		view.pool.validated_pool().retrigger_notifications();
-		log::debug!(target: LOG_TARGET, "register_listeners: at {at:?} took {duration:?}");
+		log::debug!(target: LOG_TARGET, "register listeners: at {at:?} took {:?}", start.elapsed());
 
 		// 2. Handle transactions from the tree route. Pruning transactions from the view first
 		// will make some space for mempool transactions in case we are at the view's limits.
 		let start = Instant::now();
 		self.update_view_with_fork(&view, tree_route, at.clone()).await;
-		let duration = start.elapsed();
-		log::debug!(target: LOG_TARGET, "update_view_with_fork: at {at:?} took {duration:?}");
+		log::debug!(target: LOG_TARGET, "update_view_with_fork: at {at:?} took {:?}", start.elapsed());
 
 		// 3. Finally, submit transactions from the mempool.
 		let start = Instant::now();
-		self.update_view_with_mempool(&mut view, watched_xts).await;
-		let duration = start.elapsed();
-		log::debug!(target: LOG_TARGET, "update_view_with_mempool: at {at:?} took {duration:?}");
+		self.update_view_with_mempool(&mut view).await;
+		log::debug!(target: LOG_TARGET, "update_view_with_mempool: at {at:?} took {:?}", start.elapsed());
 
 		let view = Arc::from(view);
 		self.view_store.insert_new_view(view.clone(), tree_route).await;
@@ -1096,48 +1105,6 @@ where
 		all_extrinsics
 	}
 
-	/// For every watched transaction in the mempool registers a transaction listener in the view.
-	///
-	/// The transaction listener for a given view is also added to multi-view listener. This allows
-	/// to track aggreagated progress of the transaction within the transaction pool.
-	///
-	/// Function returns a list of currently watched transactions in the mempool.
-	async fn register_listeners(
-		&self,
-		view: &View<ChainApi>,
-	) -> Vec<(ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>)> {
-		log::debug!(
-			target: LOG_TARGET,
-			"register_listeners: {:?} xts:{:?} v:{}",
-			view.at,
-			self.mempool.unwatched_and_watched_count(),
-			self.active_views_count()
-		);
-
-		//todo [#5495]: maybe we don't need to register listener in view? We could use
-		// multi_view_listener.transaction_in_block
-		let results = self
-			.mempool
-			.clone_watched()
-			.into_iter()
-			.map(|(tx_hash, tx)| {
-				let watcher = view.create_watcher(tx_hash);
-				let at = view.at.clone();
-				async move {
-					log::trace!(target: LOG_TARGET, "[{:?}] adding watcher {:?}", tx_hash, at.hash);
-					self.view_store.listener.add_view_watcher_for_tx(
-						tx_hash,
-						at.hash,
-						watcher.into_stream().boxed(),
-					);
-					(tx_hash, tx)
-				}
-			})
-			.collect::<Vec<_>>();
-
-		future::join_all(results).await
-	}
-
 	/// Updates the given view with the transactions from the internal mempol.
 	///
 	/// All transactions from the mempool (excluding those which are either already imported or
@@ -1147,15 +1114,10 @@ where
 	/// If there are no views, and mempool transaction is reported as invalid for the given view,
 	/// the transaction is reported as invalid and removed from the mempool. This does not apply to
 	/// stale and temporarily banned transactions.
-	///
-	/// As the listeners for watched transactions were registered at the very beginning of maintain
-	/// procedure (`register_listeners`), this function accepts the list of watched transactions
-	/// from the mempool for which listener was actually registered to avoid submit/maintain races.
-	async fn update_view_with_mempool(
-		&self,
-		view: &View<ChainApi>,
-		watched_xts: Vec<(ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>)>,
-	) {
+	async fn update_view_with_mempool(&self, view: &View<ChainApi>) {
+		let watched_xts: Vec<(ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>)> =
+			self.mempool.clone_watched().into_iter().collect();
+
 		log::debug!(
 			target: LOG_TARGET,
 			"update_view_with_mempool: {:?} xts:{:?} v:{}",
@@ -1203,7 +1165,7 @@ where
 		if self.view_store.is_empty() {
 			for result in watched_results {
 				if let Err(tx_hash) = result {
-					self.view_store.listener.invalidate_transactions(&[tx_hash]);
+					self.view_store.listener.transactions_invalidated(&[tx_hash]);
 					self.mempool.remove_transaction(&tx_hash);
 				}
 			}

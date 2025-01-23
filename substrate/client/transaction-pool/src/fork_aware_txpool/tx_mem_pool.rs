@@ -272,7 +272,7 @@ where
 	}
 
 	/// Creates a new `TxMemPool` instance for testing purposes.
-	#[allow(dead_code)]
+	#[cfg(test)]
 	fn new_test(
 		api: Arc<ChainApi>,
 		max_transactions_count: usize,
@@ -280,7 +280,7 @@ where
 	) -> Self {
 		Self {
 			api,
-			listener: Arc::from(MultiViewListener::new()),
+			listener: Arc::from(MultiViewListener::new_with_worker().0),
 			transactions: Default::default(),
 			metrics: Default::default(),
 			max_transactions_count,
@@ -585,7 +585,7 @@ where
 		invalid_hashes.iter().for_each(|i| {
 			transactions.remove(i);
 		});
-		self.listener.invalidate_transactions(&invalid_hashes);
+		self.listener.transactions_invalidated(&invalid_hashes);
 	}
 
 	/// Updates the priority of transaction stored in mempool using provided view_store submission

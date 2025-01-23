@@ -27,8 +27,8 @@ use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
 	common::log_xt::log_xt_trace,
 	graph::{
-		self, base_pool::TimedTransactionSource, watcher::Watcher, ExtrinsicFor, ExtrinsicHash,
-		IsValidator, ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
+		self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash, IsValidator,
+		ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
@@ -225,18 +225,6 @@ where
 	/// Status of the pool associated with the view.
 	pub(super) fn status(&self) -> PoolStatus {
 		self.pool.validated_pool().status()
-	}
-
-	/// Creates a watcher for given transaction.
-	///
-	/// Intended to be called for the transaction that already exists in the pool
-	pub(super) fn create_watcher(
-		&self,
-		tx_hash: ExtrinsicHash<ChainApi>,
-	) -> Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>> {
-		//todo(minor): some assert could be added here - to make sure that transaction actually
-		// exists in the view.
-		self.pool.validated_pool().create_watcher(tx_hash)
 	}
 
 	/// Revalidates some part of transaction from the internal pool.
