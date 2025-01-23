@@ -1499,7 +1499,7 @@ impl<T: Config> Pallet<T> {
 			recipient,
 			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
-				Xcm::new(vec![HrmpNewChannelOpenRequest {
+				Xcm(vec![HrmpNewChannelOpenRequest {
 					sender: origin.into(),
 					max_capacity: proposed_max_capacity,
 					max_message_size: proposed_max_message_size,
@@ -1553,7 +1553,7 @@ impl<T: Config> Pallet<T> {
 			sender,
 			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
-				Xcm::new(vec![HrmpChannelAccepted { recipient: origin.into() }])
+				Xcm(vec![HrmpChannelAccepted { recipient: origin.into() }])
 			}),
 		);
 
@@ -1619,7 +1619,7 @@ impl<T: Config> Pallet<T> {
 			opposite_party,
 			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
-				Xcm::new(vec![HrmpChannelClosing {
+				Xcm(vec![HrmpChannelClosing {
 					initiator: origin.into(),
 					sender: channel_id.sender.into(),
 					recipient: channel_id.recipient.into(),

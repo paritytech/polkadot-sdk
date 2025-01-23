@@ -386,7 +386,7 @@ fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Resu
 
 	message.push(mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))));
 
-	send_xcm::<T::SendXcm>(dest.clone(), Xcm(message))?;
+	send_xcm::<T::SendXcm>(dest.clone(), Xcm::new(message))?;
 
 	if raw_revenue > 0 {
 		T::AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);

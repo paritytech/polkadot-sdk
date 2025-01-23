@@ -188,10 +188,15 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocation
 		let latest = match location.clone() {
 			VersionedLocation::V3(l) => {
 				let v4_location: xcm::v4::Location = l.try_into().map_err(|_| location)?;
-				v4_location.try_into().map_err(|_| location)?
+				let v5_location: xcm::v5::Location = v4_location.try_into().map_err(|_| location)?;
+				v5_location.try_into().map_err(|_| location)?
 			},
-			VersionedLocation::V4(l) => l.try_into().map_err(|_| location)?,
-			VersionedLocation::V5(l) => l,
+			VersionedLocation::V4(l) => {
+				let v5_location: xcm::v5::Location = l.try_into().map_err(|_| location)?;
+				v5_location.try_into().map_err(|_| location)?
+			}
+			VersionedLocation::V5(l) => l.try_into().map_err(|_| location)?,
+			VersionedLocation::V6(l) => l,
 		};
 		Ok(latest)
 	}
