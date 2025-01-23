@@ -77,6 +77,7 @@ pub fn new_test_ext() -> TestState {
 				500000,
 			),
 		],
+		..Default::default()
 	};
 	balances.assimilate_storage(&mut t).unwrap();
 	t.into()
