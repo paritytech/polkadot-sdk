@@ -59,11 +59,11 @@ pub use bp_test_utils;
 #[cfg(feature = "bp-xcm-bridge")]
 pub use bp_xcm_bridge;
 
-/// Primitives of the xcm-bridge-hub pallet (deprecated: use bp_xcm_bridge).
+/// Primitives of the xcm-bridge-hub pallet (deprecated: use bp-xcm-bridge).
 #[cfg(feature = "bp-xcm-bridge-hub")]
 pub use bp_xcm_bridge_hub;
 
-/// Primitives of the xcm-bridge-hub fee pallet (deprecated: use bp_xcm_bridge_router).
+/// Primitives of the xcm-bridge-hub fee pallet (deprecated: use bp-xcm-bridge-router).
 #[cfg(feature = "bp-xcm-bridge-hub-router")]
 pub use bp_xcm_bridge_hub_router;
 
