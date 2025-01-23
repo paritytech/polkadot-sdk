@@ -82,6 +82,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 				500000,
 			),
 		],
+		..Default::default()
 	};
 	balances.assimilate_storage(&mut t).unwrap();
 	t.into()

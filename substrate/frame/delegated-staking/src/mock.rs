@@ -189,6 +189,7 @@ impl ExtBuilder {
 				(GENESIS_NOMINATOR_ONE, 1000),
 				(GENESIS_NOMINATOR_TWO, 2000),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
