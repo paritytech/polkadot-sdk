@@ -228,6 +228,7 @@ impl<T: WeightInfo> MarginalWeightInfo for T {}
 
 #[frame_support::pallet]
 pub mod pallet {
+	use std::collections::BTreeSet;
 	use super::*;
 	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, OriginFor};
@@ -341,7 +342,7 @@ pub mod pallet {
 	/// The queue of block numbers that have scheduled agendas.
 	#[pallet::storage]
 	pub(crate) type Queue<T: Config> =
-		StorageValue<_, BoundedVec<BlockNumberFor<T>, T::MaxScheduledBlocks>, ValueQuery>;
+		StorageValue<_, BTreeSet<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Events type.
 	#[pallet::event]
@@ -957,8 +958,10 @@ impl<T: Config> Pallet<T> {
 		};
 		Agenda::<T>::insert(when, agenda);
 		Queue::<T>::mutate(|q| {
-			if let Err(index) = q.binary_search_by_key(&when, |x| *x) {
-				q.try_insert(index, when).map_err(|_| (DispatchError::Exhausted, what))?;
+			if !q.contains(&when) {
+				if !q.insert(when) {
+					return Err((DispatchError::Exhausted, what)); // If insert fails, return an error
+				}
 			}
 			Ok(())
 		})?;
@@ -978,9 +981,7 @@ impl<T: Config> Pallet<T> {
 			None => {
 				Agenda::<T>::remove(when);
 				Queue::<T>::mutate(|q| {
-					if let Ok(index) = q.binary_search_by_key(&when, |x| *x) {
-						q.remove(index);
-					}
+					q.remove(&when);
 				});
 			},
 		}
@@ -1188,32 +1189,49 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let queue = Queue::<T>::get();
-		let end_index = match queue.binary_search_by_key(&now, |x| *x) {
-			Ok(end_index) => end_index.saturating_add(1),
-			Err(end_index) => {
-				if end_index == 0 {
-					return;
-				}
-				end_index
+		let end_index = match queue.iter().position(|&x| x >= now) {
+			Some(end_index) => end_index.saturating_add(1),
+			None => {
+				return;
 			},
 		};
+		if end_index == 0 {
+			return;
+		}
 
 		let mut index = 0;
-		while index < end_index {
-			let when = queue[index];
-			if when < now.saturating_sub(T::MaxStaleTaskAge::get()) {
-				Agenda::<T>::remove(when);
+		let queue_len = queue.len();
+		for when in queue.iter().skip(index) {
+			if *when < now.saturating_sub(T::MaxStaleTaskAge::get()) {
+				Agenda::<T>::remove(*when);
 			} else {
 				let mut executed = 0;
-				if !Self::service_agenda(weight, &mut executed, now, when, max) {
+				if !Self::service_agenda(weight, &mut executed, now, *when, max) {
 					break;
 				}
 			}
-			index.saturating_inc();
+			index = index.saturating_add(1);
+			if index >= queue_len {
+				break;
+			}
 		}
 
 		Queue::<T>::mutate(|queue| {
-			queue.drain(0..index);
+			let mut iter = queue.iter();
+			let mut to_remove = Vec::new(); // Collect items to remove
+
+			// Iterate and collect items to remove
+			for _ in 0..index {
+				iter.next();
+			}
+			for item in iter {
+				to_remove.push(*item);
+			}
+
+			// Now remove the collected items
+			for item in to_remove {
+				queue.remove(&item);
+			}
 		});
 	}
 
