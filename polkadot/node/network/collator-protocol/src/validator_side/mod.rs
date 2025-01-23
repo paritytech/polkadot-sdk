@@ -368,8 +368,6 @@ struct State {
 	/// All active leaves observed by us. This works as a replacement for
 	/// [`polkadot_node_network_protocol::View`] and can be dropped once the transition
 	/// to asynchronous backing is done.
-	// TODO: remove this and then we could use a simple method on implicit view to see if a leaf is
-	// active or not.
 	active_leaves: HashSet<Hash>,
 
 	/// State tracked per relay parent.
