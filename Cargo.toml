@@ -538,6 +538,7 @@ members = [
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
+	"templates/parachain",
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
