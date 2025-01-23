@@ -71,7 +71,7 @@ pub mod pallet {
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
