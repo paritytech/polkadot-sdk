@@ -8727,7 +8727,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.4.9",
  "tokio",
  "tower-service",
  "tracing",
@@ -10279,7 +10279,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "yamux 0.12.1",
- "yamux 0.13.3",
+ "yamux 0.13.4",
 ]
 
 [[package]]
@@ -10452,7 +10452,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.9.0"
-source = "git+https://github.com/paritytech/litep2p.git#2412f3dbfe55bd9f2dcd7cbd228cf196fd7082bb"
+source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/update-upstream-yamux#16ef344ba9601a85e0363161ddcd58fcd987094f"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10469,7 +10469,6 @@ dependencies = [
  "multiaddr 0.17.1",
  "multihash 0.17.0",
  "network-interface",
- "nohash-hasher",
  "parking_lot 0.12.3",
  "pin-project",
  "prost 0.12.6",
@@ -10484,7 +10483,6 @@ dependencies = [
  "smallvec",
  "snow",
  "socket2 0.5.7",
- "static_assertions",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -10496,6 +10494,7 @@ dependencies = [
  "url",
  "x25519-dalek",
  "x509-parser",
+ "yamux 0.13.4",
  "yasna",
  "zeroize",
 ]
@@ -16429,7 +16428,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand",
- "rand_core 0.6.4",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -32097,9 +32096,9 @@ dependencies = [
 
 [[package]]
 name = "yamux"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31b5e376a8b012bee9c423acdbb835fc34d45001cfa3106236a624e4b738028"
+checksum = "17610762a1207ee816c6fadc29220904753648aba0a9ed61c7b8336e80a559c4"
 dependencies = [
  "futures",
  "log",
