@@ -1,0 +1,7 @@
+title: '[pallet-revive] eth-rpc error logging'
+doc:
+- audience: Runtime Dev
+  description: Log error instead of failing with an error when block processing fails
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

@@ -86,10 +86,10 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 			if p == '/':
 				exit(1)
 			p = os.path.dirname(p)
-		
+
 		with open(os.path.join(p, "Cargo.toml")) as f:
 			manifest = toml.load(f)
-		
+
 		if not "package" in manifest:
 			continue
 		
