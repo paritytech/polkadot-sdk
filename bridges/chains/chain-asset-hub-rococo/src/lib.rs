@@ -23,7 +23,7 @@ extern crate alloc;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
+pub use bp_xcm_bridge_router::XcmBridgeHubRouterCall;
 use xcm::latest::prelude::*;
 
 /// `AssetHubRococo` Runtime `Call` enum.

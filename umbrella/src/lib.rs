@@ -60,8 +60,8 @@ pub use bp_test_utils;
 pub use bp_xcm_bridge;
 
 /// Primitives of the xcm-bridge-hub fee pallet.
-#[cfg(feature = "bp-xcm-bridge-hub-router")]
-pub use bp_xcm_bridge_hub_router;
+#[cfg(feature = "bp-xcm-bridge-router")]
+pub use bp_xcm_bridge_router;
 
 /// Bridge hub common utilities.
 #[cfg(feature = "bridge-hub-common")]

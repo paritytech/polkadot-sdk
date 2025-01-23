@@ -2074,7 +2074,7 @@ dependencies = [
 name = "bp-asset-hub-rococo"
 version = "0.4.0"
 dependencies = [
- "bp-xcm-bridge-hub-router 0.6.0",
+ "bp-xcm-bridge-router",
  "frame-support 28.0.0",
  "parity-scale-codec",
  "scale-info",
@@ -2086,7 +2086,7 @@ dependencies = [
 name = "bp-asset-hub-westend"
 version = "0.3.0"
 dependencies = [
- "bp-xcm-bridge-hub-router 0.6.0",
+ "bp-xcm-bridge-router",
  "frame-support 28.0.0",
  "parity-scale-codec",
  "scale-info",
@@ -2563,17 +2563,6 @@ dependencies = [
 
 [[package]]
 name = "bp-xcm-bridge-hub-router"
-version = "0.6.0"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
-]
-
-[[package]]
-name = "bp-xcm-bridge-hub-router"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9284820ca704f5c065563cad77d2e3d069a23cc9cb3a29db9c0de8dd3b173a87"
@@ -2583,6 +2572,17 @@ dependencies = [
  "sp-core 34.0.0",
  "sp-runtime 39.0.2",
  "staging-xcm 14.2.0",
+]
+
+[[package]]
+name = "bp-xcm-bridge-router"
+version = "0.6.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.0",
 ]
 
 [[package]]
@@ -2686,7 +2686,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime 0.7.0",
  "bp-westend",
- "bp-xcm-bridge-hub-router 0.6.0",
+ "bp-xcm-bridge-router",
  "bridge-hub-common 0.1.0",
  "bridge-hub-test-utils 0.7.0",
  "bridge-runtime-common 0.7.0",
@@ -2925,7 +2925,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime 0.7.0",
  "bp-westend",
- "bp-xcm-bridge-hub-router 0.6.0",
+ "bp-xcm-bridge-router",
  "bridge-hub-common 0.1.0",
  "bridge-hub-test-utils 0.7.0",
  "bridge-runtime-common 0.7.0",
@@ -5206,7 +5206,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f788bdac9474795ea13ba791b55798fb664b2e3da8c3a7385b480c9af4e6539"
 dependencies = [
  "bounded-collections",
- "bp-xcm-bridge-hub-router 0.14.1",
+ "bp-xcm-bridge-hub-router",
  "cumulus-primitives-core 0.16.0",
  "frame-benchmarking 38.0.0",
  "frame-support 38.0.0",
@@ -16195,7 +16195,7 @@ dependencies = [
  "bp-messages 0.7.0",
  "bp-runtime 0.7.0",
  "bp-xcm-bridge",
- "bp-xcm-bridge-hub-router 0.6.0",
+ "bp-xcm-bridge-router",
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -16244,7 +16244,7 @@ version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3b5347c826b721098ef39afb0d750e621c77538044fc1e865af1a8747824fdf"
 dependencies = [
- "bp-xcm-bridge-hub-router 0.14.1",
+ "bp-xcm-bridge-hub-router",
  "frame-benchmarking 38.0.0",
  "frame-support 38.0.0",
  "frame-system 38.0.0",
@@ -16263,7 +16263,7 @@ name = "pallet-xcm-bridge-router"
 version = "0.5.0"
 dependencies = [
  "bp-xcm-bridge",
- "bp-xcm-bridge-hub-router 0.6.0",
+ "bp-xcm-bridge-router",
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -18704,7 +18704,7 @@ dependencies = [
  "bp-runtime 0.7.0",
  "bp-test-utils 0.7.0",
  "bp-xcm-bridge",
- "bp-xcm-bridge-hub-router 0.6.0",
+ "bp-xcm-bridge-router",
  "bridge-hub-common 0.1.0",
  "bridge-hub-test-utils 0.7.0",
  "bridge-runtime-common 0.7.0",
@@ -19090,7 +19090,7 @@ dependencies = [
  "bp-runtime 0.18.0",
  "bp-test-utils 0.18.0",
  "bp-xcm-bridge-hub",
- "bp-xcm-bridge-hub-router 0.14.1",
+ "bp-xcm-bridge-hub-router",
  "bridge-hub-common 0.10.0",
  "bridge-hub-test-utils 0.18.0",
  "bridge-runtime-common 0.18.0",

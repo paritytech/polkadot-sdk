@@ -37,7 +37,7 @@ xcm-executor = { workspace = true }
 [dev-dependencies]
 bp-header-chain = { workspace = true }
 bp-runtime = { workspace = true }
-bp-xcm-bridge-hub-router = { workspace = true }
+bp-xcm-bridge-router = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-xcm-bridge-router = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
@@ -49,7 +49,7 @@ std = [
 	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-runtime/std",
-	"bp-xcm-bridge-hub-router/std",
+	"bp-xcm-bridge-router/std",
 	"bp-xcm-bridge/std",
 	"codec/std",
 	"frame-benchmarking/std",

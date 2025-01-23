@@ -17,7 +17,7 @@
 //! Various implementations supporting easier configuration of the pallet.
 
 use crate::{BridgeIdOf, Bridges, Config, Pallet, LOG_TARGET};
-use bp_xcm_bridge_hub_router::ResolveBridgeId;
+use bp_xcm_bridge_router::ResolveBridgeId;
 use codec::Encode;
 use frame_support::{ensure, pallet_prelude::PhantomData, traits::Get};
 use xcm::prelude::*;

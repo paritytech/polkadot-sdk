@@ -62,7 +62,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use bp_xcm_bridge_hub_router::{BridgeState, ResolveBridgeId};
+pub use bp_xcm_bridge_router::{BridgeState, ResolveBridgeId};
 use codec::Encode;
 use frame_support::traits::{EnsureOriginWithArg, Get};
 use sp_runtime::{FixedPointNumber, FixedU128, Saturating};

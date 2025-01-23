@@ -19,7 +19,7 @@
 use crate as pallet_xcm_bridge_router;
 
 use crate::impls::EnsureIsRemoteBridgeIdResolver;
-use bp_xcm_bridge_hub_router::{BridgeState, ResolveBridgeId};
+use bp_xcm_bridge_router::{BridgeState, ResolveBridgeId};
 use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,

@@ -98,7 +98,7 @@ bp-relayers = { workspace = true }
 bp-rococo = { workspace = true }
 bp-runtime = { workspace = true }
 bp-westend = { workspace = true }
-bp-xcm-bridge-hub-router = { workspace = true }
+bp-xcm-bridge-router = { workspace = true }
 bridge-runtime-common = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-messages = { workspace = true }
@@ -144,7 +144,7 @@ std = [
 	"bp-rococo/std",
 	"bp-runtime/std",
 	"bp-westend/std",
-	"bp-xcm-bridge-hub-router/std",
+	"bp-xcm-bridge-router/std",
 	"bridge-hub-common/std",
 	"bridge-runtime-common/std",
 	"codec/std",

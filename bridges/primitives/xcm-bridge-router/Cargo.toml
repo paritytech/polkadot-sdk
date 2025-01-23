@@ -1,5 +1,5 @@
 [package]
-name = "bp-xcm-bridge-hub-router"
+name = "bp-xcm-bridge-router"
 description = "Primitives of the xcm-bridge-hub fee pallet."
 version = "0.6.0"
 authors.workspace = true
