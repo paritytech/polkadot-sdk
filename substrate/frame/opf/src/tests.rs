@@ -479,7 +479,7 @@ fn not_enough_funds_to_vote() {
 }
 
 #[test]
-fn spends_creation_works_but_not_executed_after_claim_period() {
+fn spends_creation_works_but_claim_blocked_after_claim_period() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
 		let voting_period = <Test as Config>::VotingPeriod::get();
@@ -512,7 +512,7 @@ fn spends_creation_works_but_not_executed_after_claim_period() {
 			103,
 			amount3,
 			true,
-			pallet_democracy::Conviction::None
+			pallet_democracy::Conviction::Locked1x
 		));
 
 		// The Spends Storage should be empty
@@ -531,8 +531,13 @@ fn spends_creation_works_but_not_executed_after_claim_period() {
 		let expire = now.saturating_add(<Test as Config>::ClaimingPeriod::get());
 
 		let info101 = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
+
+		// Allocations including convictions:
+		// project_101: 40, project_102: 32, project_103: 280
+		// Rewards percentage to be distributed:
+		// project_101: 11%, project_102: 9%, project_103: 79% (of 100,000)
 		let spend101: types::SpendInfo<Test> = SpendInfo {
-			amount: 40000,
+			amount: 11000,
 			valid_from: now,
 			whitelisted_project: info101,
 			claimed: false,

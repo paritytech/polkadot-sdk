@@ -123,45 +123,45 @@ mod benchmarks {
 
 		Ok(())
 	}
-	/*
+
 	#[benchmark]
-	fn unlock_funds(
-		r: Linear<1, { T::MaxWhitelistedProjects::get() }>,
-	) -> Result<(), BenchmarkError> {
-		add_whitelisted_project::<T>(r)?;
+	fn release_voter_funds(r: Linear<1, 1000>) -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let account0: T::AccountId = account("project", r, SEED);
+		add_whitelisted_project::<T>(r, caller.clone())?;
 		ensure!(
-			WhiteListedProjectAccounts::<T>::get().len() as u32 == r,
+			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()) == true,
 			"Project_id not set up correctly."
 		);
 
 		on_idle_full_block::<T>();
-		let mut when = T::BlockNumberProvider::current_block_number() + One::one();
-		run_to_block::<T>(when);
+		let mut when = T::BlockNumberProvider::current_block_number().saturating_add(One::one());
+		T::BlockNumberProvider::set_block_number(when);
 
 		ensure!(VotingRounds::<T>::get(0).is_some(), "Round not created!");
-		let caller_balance = T::NativeBalance::minimum_balance() * 1000000u32.into();
-		let caller: T::AccountId = whitelisted_caller();
+		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
+
 		let _ = T::NativeBalance::mint_into(&caller, caller_balance);
-		let account = WhiteListedProjectAccounts::<T>::get()[(r - 1) as usize].clone();
+
 		let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 100u32.into() * (r).into();
 		Opf::<T>::vote(
 			RawOrigin::Signed(caller.clone()).into(),
-			account.clone(),
+			account0.clone(),
 			value,
 			true,
 			Conviction::Locked1x,
 		)?;
 
-		when = Votes::<T>::get(account.clone(), caller.clone()).unwrap().funds_unlock_block;
+		when = Votes::<T>::get(account0.clone(), caller.clone()).unwrap().funds_unlock_block;
 
-		run_to_block::<T>(when);
+		T::BlockNumberProvider::set_block_number(when);
 		on_idle_full_block::<T>();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account);
+		_(RawOrigin::Signed(caller.clone()), account0);
 
 		Ok(())
-	}*/
+	}
 
 	impl_benchmark_test_suite!(Opf, crate::mock::new_test_ext(), crate::mock::Test);
 }

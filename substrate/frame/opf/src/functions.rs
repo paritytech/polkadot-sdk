@@ -26,7 +26,8 @@ impl<T: Config> Pallet<T> {
 		conviction: Democracy::Conviction,
 	) -> Option<BalanceOf<T>> {
 		let conviction_amount: BalanceOf<T> = match conviction {
-			Democracy::Conviction::None => Percent::from_percent(10) * amount,
+			Democracy::Conviction::None =>
+				amount.checked_div(&10u8.into()).unwrap_or_else(Zero::zero),
 			_ =>
 				amount.saturating_mul(<u8 as From<Democracy::Conviction>>::from(conviction).into()),
 		};
