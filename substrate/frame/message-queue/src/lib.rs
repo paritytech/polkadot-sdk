@@ -215,6 +215,9 @@ use scale_info::TypeInfo;
 
 pub use weights::WeightInfo;
 
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
+
 /// Type for identifying a page.
 type PageIndex = u32;
 
@@ -1611,7 +1614,7 @@ pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
 		let hold = token::with(|t| t.take()).ok_or(()).defensive()?.ok_or(())?;
 
 		// Put the token back when we're done.
-		defer! {
+		frame::deps::sp_core::defer! {
 			token::with(|t| {
 				*t = Some(hold);
 			});

@@ -239,9 +239,9 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, One, ReduceBy,
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput, Zero,
+		TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
@@ -334,7 +334,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, ensure, hypothetically, storage_alias,
+		assert_storage_noop, ensure, hypothetically, storage_alias, StorageNoopGuard,
 	};
 
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
@@ -543,6 +543,7 @@ pub mod traits {
 /// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+	pub use sp_runtime::traits::{Zero, One};
 }
 
 /// All derive macros used in frame.
