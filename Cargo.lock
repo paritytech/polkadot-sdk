@@ -1232,7 +1232,7 @@ dependencies = [
  "pallet-session 38.0.0",
  "pallet-timestamp 37.0.0",
  "pallet-xcm 17.0.0",
- "pallet-xcm-bridge-hub-router",
+ "pallet-xcm-bridge-hub-router 0.15.1",
  "parachains-common 18.0.0",
  "parachains-runtimes-test-utils 17.0.0",
  "parity-scale-codec",
@@ -2545,6 +2545,22 @@ dependencies = [
 
 [[package]]
 name = "bp-xcm-bridge-hub"
+version = "0.2.0"
+dependencies = [
+ "bp-messages 0.7.0",
+ "bp-runtime 0.7.0",
+ "frame-support 28.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.0",
+]
+
+[[package]]
+name = "bp-xcm-bridge-hub"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6909117ca87cb93703742939d5f0c4c93e9646d9cda22262e9709d68c929999b"
@@ -2559,6 +2575,17 @@ dependencies = [
  "sp-io 38.0.0",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "staging-xcm 14.2.0",
+]
+
+[[package]]
+name = "bp-xcm-bridge-hub-router"
+version = "0.6.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.0",
 ]
 
 [[package]]
@@ -2827,7 +2854,7 @@ dependencies = [
  "bp-relayers 0.18.0",
  "bp-runtime 0.18.0",
  "bp-test-utils 0.18.0",
- "bp-xcm-bridge-hub",
+ "bp-xcm-bridge-hub 0.4.0",
  "bridge-runtime-common 0.18.0",
  "cumulus-pallet-parachain-system 0.17.1",
  "cumulus-pallet-xcmp-queue 0.17.0",
@@ -2843,7 +2870,7 @@ dependencies = [
  "pallet-timestamp 37.0.0",
  "pallet-utility 38.0.0",
  "pallet-xcm 17.0.0",
- "pallet-xcm-bridge-hub",
+ "pallet-xcm-bridge-hub 0.13.0",
  "parachains-common 18.0.0",
  "parachains-runtimes-test-utils 17.0.0",
  "parity-scale-codec",
@@ -3057,7 +3084,7 @@ dependencies = [
  "bp-polkadot-core 0.18.0",
  "bp-relayers 0.18.0",
  "bp-runtime 0.18.0",
- "bp-xcm-bridge-hub",
+ "bp-xcm-bridge-hub 0.4.0",
  "frame-support 38.0.0",
  "frame-system 38.0.0",
  "log",
@@ -5206,7 +5233,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f788bdac9474795ea13ba791b55798fb664b2e3da8c3a7385b480c9af4e6539"
 dependencies = [
  "bounded-collections",
- "bp-xcm-bridge-hub-router",
+ "bp-xcm-bridge-hub-router 0.14.1",
  "cumulus-primitives-core 0.16.0",
  "frame-benchmarking 38.0.0",
  "frame-support 38.0.0",
@@ -16213,13 +16240,40 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
+version = "0.2.0"
+dependencies = [
+ "bp-header-chain 0.7.0",
+ "bp-messages 0.7.0",
+ "bp-runtime 0.7.0",
+ "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge-hub-router 0.6.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "log",
+ "pallet-balances 28.0.0",
+ "pallet-bridge-messages 0.7.0",
+ "pallet-xcm-bridge-hub-router 0.5.0",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 6.0.0",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.0",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "pallet-xcm-bridge-hub"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5f9670065b7cba92771060a4a3925b6650ff67611443ccfccd5aa356f7d5aac"
 dependencies = [
  "bp-messages 0.18.0",
  "bp-runtime 0.18.0",
- "bp-xcm-bridge-hub",
+ "bp-xcm-bridge-hub 0.4.0",
  "frame-support 38.0.0",
  "frame-system 38.0.0",
  "log",
@@ -16236,11 +16290,30 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub-router"
+version = "0.5.0"
+dependencies = [
+ "bp-xcm-bridge-hub-router 0.6.0",
+ "frame-benchmarking 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.0",
+ "staging-xcm-builder 7.0.0",
+]
+
+[[package]]
+name = "pallet-xcm-bridge-hub-router"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3b5347c826b721098ef39afb0d750e621c77538044fc1e865af1a8747824fdf"
 dependencies = [
- "bp-xcm-bridge-hub-router",
+ "bp-xcm-bridge-hub-router 0.14.1",
  "frame-benchmarking 38.0.0",
  "frame-support 38.0.0",
  "frame-system 38.0.0",
@@ -19085,8 +19158,8 @@ dependencies = [
  "bp-relayers 0.18.0",
  "bp-runtime 0.18.0",
  "bp-test-utils 0.18.0",
- "bp-xcm-bridge-hub",
- "bp-xcm-bridge-hub-router",
+ "bp-xcm-bridge-hub 0.4.0",
+ "bp-xcm-bridge-hub-router 0.14.1",
  "bridge-hub-common 0.10.0",
  "bridge-hub-test-utils 0.18.0",
  "bridge-runtime-common 0.18.0",
@@ -19219,8 +19292,8 @@ dependencies = [
  "pallet-whitelist 37.0.0",
  "pallet-xcm 17.0.0",
  "pallet-xcm-benchmarks 17.0.0",
- "pallet-xcm-bridge-hub",
- "pallet-xcm-bridge-hub-router",
+ "pallet-xcm-bridge-hub 0.13.0",
+ "pallet-xcm-bridge-hub-router 0.15.1",
  "parachains-common 18.0.0",
  "parachains-runtimes-test-utils 17.0.0",
  "polkadot-core-primitives 15.0.0",

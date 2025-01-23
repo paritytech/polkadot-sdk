@@ -1,0 +1,65 @@
+[package]
+name = "pallet-xcm-bridge-hub-router"
+description = "Bridge hub interface for sibling/parent chains with dynamic fees support."
+version = "0.5.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true }
+log = { workspace = true }
+scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
+
+# Bridge dependencies
+bp-xcm-bridge-hub-router = { workspace = true }
+
+# Substrate Dependencies
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+# Polkadot Dependencies
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+
+[dev-dependencies]
+sp-io = { workspace = true, default-features = true }
+sp-std = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"bp-xcm-bridge-hub-router/std",
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]
