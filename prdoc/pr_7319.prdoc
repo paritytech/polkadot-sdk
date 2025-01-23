@@ -1,0 +1,16 @@
+title: '[pallet-revive] pack exceeding syscall arguments into registers'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR changes how we call runtime API methods with more than 6 arguments: They are no longer spilled to the stack but packed into registers instead. Pointers are 32 bit wide so we can pack two of them into a single 64 bit register. Since we mostly pass pointers, this technique effectively increases the number of arguments we can pass using the available registers.
+
+    To make this work for `instantiate` too we now pass the code hash and the call data in the same buffer, akin to how the `create` family opcodes work in the EVM. The code hash is fixed in size, implying the start of the constructor call data.
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-proc-macro
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
