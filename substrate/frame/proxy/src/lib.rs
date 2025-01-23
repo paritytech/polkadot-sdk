@@ -30,10 +30,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod runtime_api;
 mod tests;
 pub mod weights;
 
 extern crate alloc;
+use crate::runtime_api::ProxyApi;
 use alloc::{boxed::Box, vec};
 use frame::{
 	prelude::*,
@@ -90,6 +92,8 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 
 #[frame::pallet]
 pub mod pallet {
+	use frame::traits::InstanceFilter;
+
 	use super::*;
 
 	#[pallet::pallet]
@@ -507,6 +511,28 @@ pub mod pallet {
 			Self::do_proxy(def, real, *call);
 
 			Ok(())
+		}
+	}
+
+	impl<T: Config> ProxyApi<<T as Config>::RuntimeCall, T::ProxyType> for Pallet<T> {
+		fn check_permissions(call: <T as Config>::RuntimeCall, proxy_type: T::ProxyType) -> bool {
+			proxy_type.filter(&call)
+		}
+
+		fn is_superset(proxy_type: T::ProxyType, against: T::ProxyType) -> bool {
+			against.is_superset(&proxy_type)
+		}
+	}
+
+	sp_api::impl_runtime_apis! {
+		impl crate::runtime_api::ProxyApi<RuntimeCall, ProxyType> for Runtime {
+			fn check_permissions(call: RuntimeCall, proxy_type: ProxyType) -> bool {
+				Proxy::check_permissions(call, proxy_type)
+			}
+
+			fn is_superset(proxy_type: ProxyType, against: ProxyType) -> bool {
+				Proxy::is_superset(proxy_type, against)
+			}
 		}
 	}
 
