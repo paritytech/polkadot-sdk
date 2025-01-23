@@ -1958,7 +1958,7 @@ version = "17.0.3"
 path = "../polkadot/xcm/xcm-executor"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.substrate-bip39]
 path = "../substrate/utils/substrate-bip39"

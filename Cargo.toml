@@ -1359,7 +1359,7 @@ xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm"
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "17.0.3" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.16.0" }
-xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "17.0.0" }
+xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "17.0.1" }
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false, version = "10.1.0" }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false, version = "0.4.2" }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false, version = "17.0.0" }
