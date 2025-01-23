@@ -3392,24 +3392,23 @@ impl_runtime_apis! {
 		fn trace_block(
 			block: Block,
 			config: pallet_revive::evm::TracerConfig
-		) -> Vec<(u32, pallet_revive::evm::EthTraces)> {
+		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
+			use pallet_revive::tracing::trace;
 			log::debug!(target: "runtime::revive", "Tracing block {:?}", block.header().number);
-			let mut tracer = pallet_revive::debug::make_tracer(config);
+			let mut tracer = config.build(pallet_revive::evm::runtime::gas_from_weight::<Runtime>);
 			let mut traces = vec![];
 			let (header, extrinsics) = block.deconstruct();
 
-			pallet_revive::using_tracer(&mut *tracer, || {
-				Executive::initialize_block(&header);
-				for (index, ext) in extrinsics.into_iter().enumerate() {
+			Executive::initialize_block(&header);
+			for (index, ext) in extrinsics.into_iter().enumerate() {
+				trace(&mut tracer, || {
 					let _ = Executive::apply_extrinsic(ext);
-					pallet_revive::with_tracer(|tracer| {
-						let tx_traces = tracer.collect_traces();
-						if !tx_traces.is_empty() {
-							traces.push((index as u32, tx_traces.as_eth_traces::<Runtime>()));
-						}
-					});
+				});
+
+				if let Some(tx_trace) = tracer.collect_traces().pop() {
+					traces.push((index as u32, tx_trace));
 				}
-			});
+			}
 
 			traces
 		}
@@ -3418,14 +3417,15 @@ impl_runtime_apis! {
 			block: Block,
 			tx_index: u32,
 			config: pallet_revive::evm::TracerConfig
-		) -> pallet_revive::evm::EthTraces {
-			let mut tracer = pallet_revive::debug::make_tracer(config);
+		) -> Option<pallet_revive::evm::CallTrace> {
+			use pallet_revive::tracing::trace;
+			let mut tracer = config.build(pallet_revive::evm::runtime::gas_from_weight::<Runtime>);
 			let (header, extrinsics) = block.deconstruct();
 
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
 				if index as u32 == tx_index {
-					pallet_revive::using_tracer(&mut *tracer, || {
+					trace(&mut tracer, || {
 						let _ = Executive::apply_extrinsic(ext);
 					});
 					break;
@@ -3434,7 +3434,7 @@ impl_runtime_apis! {
 				}
 			}
 
-			tracer.collect_traces().as_eth_traces::<Runtime>()
+			tracer.collect_traces().pop()
 		}
 	}
 

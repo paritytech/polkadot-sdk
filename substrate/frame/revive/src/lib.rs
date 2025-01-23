@@ -1501,5 +1501,22 @@ sp_api::decl_runtime_apis! {
 			address: H160,
 			key: [u8; 32],
 		) -> GetStorageResult;
+
+		/// Replay the block with the given hash.
+		/// This is intended to be called through `state_debugBlock` RPC. Using [`tracing::trace`]
+		/// function to record traces.
+		fn trace_block(
+			block: Block,
+			config: TracerConfig
+		) -> Vec<(u32, CallTrace)>;
+
+		/// Replay the block with the given hash.
+		/// This is intended to be called through `state_debugBlock` RPC. Using [`tracing::trace`]
+		/// function to record trace for the specified transaction index in the block.
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+			config: TracerConfig
+		) -> Option<CallTrace>;
 	}
 }
