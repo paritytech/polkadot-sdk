@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-parachain-system"
-version = "0.19.0"
+version = "0.17.1"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains"
@@ -35,10 +35,12 @@ polkadot-runtime-parachains.workspace = true
 polkadot-runtime-common = { optional = true, workspace = true }
 xcm.workspace = true
 xcm-builder.workspace = true
-cumulus-pallet-parachain-system-proc-macro.workspace = true
-cumulus-primitives-core.workspace = true
-cumulus-primitives-parachain-inherent.workspace = true
-cumulus-primitives-proof-size-hostfunction.workspace = true
+
+# Cumulus
+cumulus-pallet-parachain-system-proc-macro = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-parachain-inherent = { workspace = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
