@@ -2051,7 +2051,6 @@ version = "0.16.2"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
- "bp-bridge-hub-polkadot",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
  "bp-header-chain",
@@ -2353,7 +2352,6 @@ dependencies = [
  "bp-relayers",
  "bp-runtime",
  "bp-test-utils",
- "bp-xcm-bridge-hub",
  "frame-support",
  "frame-system",
  "log",
@@ -5139,7 +5137,6 @@ dependencies = [
  "asset-test-utils",
  "bp-messages",
  "bp-xcm-bridge-hub",
- "bridge-runtime-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
