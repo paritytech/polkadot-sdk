@@ -295,6 +295,7 @@ mod tests {
 			with_bridged_chain_messages_instance: WithBridgeHubWestendMessagesInstance,
 			this_chain: bp_bridge_hub_rococo::BridgeHubRococo,
 			bridged_chain: bp_bridge_hub_westend::BridgeHubWestend,
+			expected_payload_type: XcmAsPlainPayload,
 		);
 
 		assert_complete_with_parachain_bridge_constants::<

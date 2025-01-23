@@ -24,8 +24,8 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, Error, Event,
-	ImmutableData, ImmutableDataOf, Pallet as Contracts,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
+	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -1246,7 +1246,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 	) -> ExecResult {
-		let value = crate::Pallet::<T>::convert_evm_to_native(value)?;
+		let value = crate::Pallet::<T>::convert_evm_to_native(value, ConversionPrecision::Exact)?;
 		if value.is_zero() {
 			return Ok(Default::default());
 		}
