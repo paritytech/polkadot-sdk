@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
-
 use crate::tests::*;
 
 #[test]
@@ -40,8 +38,6 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 	// Westend Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Westend::execute_with(|| {
-		Dmp::make_parachain_reachable(BridgeHubWestend::para_id());
-
 		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
 			sudo_origin,
 			bx!(destination),

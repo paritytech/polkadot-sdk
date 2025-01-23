@@ -48,4 +48,3 @@ json-schema = [
 	"dep:schemars",
 	"sp-weights/json-schema",
 ]
-runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]
