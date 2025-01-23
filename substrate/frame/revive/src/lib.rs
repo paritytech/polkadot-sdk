@@ -1145,7 +1145,6 @@ where
 		}
 		if tx.gas.is_none() {
 			tx.gas = Some(Self::evm_block_gas_limit());
-			log::debug!(target: LOG_TARGET, "tx.gas = {:?}", tx.gas);
 		}
 
 		// Convert the value to the native balance type.
@@ -1289,7 +1288,6 @@ where
 		};
 
 		let Ok(unsigned_tx) = tx.clone().try_into_unsigned() else {
-			log::debug!(target: LOG_TARGET, "Failed to convert to unsigned");
 			return Err(EthTransactError::Message("Invalid transaction".into()));
 		};
 
