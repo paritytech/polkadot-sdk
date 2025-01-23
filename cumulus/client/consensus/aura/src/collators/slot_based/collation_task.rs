@@ -15,6 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Encode;
+use std::path::PathBuf;
 
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -49,6 +50,8 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
 	/// The handle from the special slot based block import.
 	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
+	/// Whether to export the PoV to a file. Useful for debugging purposes.
+	pub export_pov: Option<PathBuf>,
 }
 
 /// Asynchronously executes the collation task for a parachain.
@@ -66,6 +69,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 		collator_service,
 		mut collator_receiver,
 		mut block_import_handle,
+		export_pov,
 	}: Params<Block, RClient, CS>,
 ) where
 	Block: BlockT,
@@ -92,7 +96,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 					return;
 				};
 
-				handle_collation_message(message, &collator_service, &mut overseer_handle).await;
+				handle_collation_message(message, &collator_service, &mut overseer_handle, &export_pov).await;
 			},
 			block_import_msg = block_import_handle.next().fuse() => {
 				// TODO: Implement me.
@@ -110,12 +114,13 @@ async fn handle_collation_message<Block: BlockT>(
 	message: CollatorMessage<Block>,
 	collator_service: &impl CollatorServiceInterface<Block>,
 	overseer_handle: &mut OverseerHandle,
+	export_pov: &Option<PathBuf>,
 ) {
 	let CollatorMessage {
 		parent_header,
 		parachain_candidate,
 		validation_code_hash,
-		relay_parent,
+		relay_parent_header,
 		core_index,
 	} = message;
 
@@ -138,6 +143,18 @@ async fn handle_collation_message<Block: BlockT>(
 		block_data.storage_proof().encoded_size() as f64 / 1024f64,
 	);
 
+	if let Some(ref export_pov_path) = export_pov {
+		crate::collators::lookahead::export_pov_to_path::<Block>(
+			export_pov_path.clone(),
+			collation.proof_of_validity.clone().into_compressed(),
+			hash,
+			*block_data.header().number(),
+			parent_header.clone(),
+			*relay_parent_header.state_root(),
+			*relay_parent_header.number(),
+		);
+	}
+
 	if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 		tracing::info!(
 			target: LOG_TARGET,
@@ -150,7 +167,7 @@ async fn handle_collation_message<Block: BlockT>(
 	overseer_handle
 		.send_msg(
 			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-				relay_parent,
+				relay_parent: relay_parent_header.hash(),
 				collation,
 				parent_head: parent_header.encode().into(),
 				validation_code_hash,

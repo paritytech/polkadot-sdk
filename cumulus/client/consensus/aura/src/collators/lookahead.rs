@@ -73,7 +73,7 @@ use crate::{collator as collator_util, LOG_TARGET};
 ///
 /// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
 /// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
-fn export_pov_to_path<Block: BlockT>(
+pub fn export_pov_to_path<Block: BlockT>(
 	path: PathBuf,
 	pov: PoV,
 	block_hash: Block::Hash,

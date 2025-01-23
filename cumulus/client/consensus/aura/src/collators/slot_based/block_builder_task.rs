@@ -192,7 +192,7 @@ where
 			collator.collator_service().announce_block(new_block_hash, None);
 
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
-				relay_parent,
+				relay_parent_header,
 				parent_header,
 				parachain_candidate: candidate,
 				validation_code_hash,

@@ -337,7 +337,7 @@ where
 		_overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
-		_node_extra_args: NodeExtraArgs,
+		node_extra_args: NodeExtraArgs,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -377,6 +377,7 @@ where
 			block_import_handle,
 			spawner: task_manager.spawn_handle(),
 			flavor: Flavor::TimeBased,
+			export_pov: node_extra_args.export_pov,
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of

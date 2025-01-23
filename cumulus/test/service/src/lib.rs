@@ -483,33 +483,32 @@ where
 
 			let client_for_aura = client.clone();
 
-				tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
-				let params = SlotBasedParams {
-					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-					block_import,
-					para_client: client.clone(),
-					para_backend: backend.clone(),
-					relay_client: relay_chain_interface,
-					code_hash_provider: move |block_hash| {
-						client_for_aura
-							.code_at(block_hash)
-							.ok()
-							.map(|c| ValidationCode::from(c).hash())
-					},
-					keystore,
-					collator_key,
-					para_id,
-					proposer,
-					collator_service,
-					authoring_duration: Duration::from_millis(2000),
-					reinitialize: false,
-					slot_drift: Duration::from_secs(1),
-					block_import_handle: slot_based_handle,
-					spawner: task_manager.spawn_handle(),
-					flavor: use_slot_based_collator.then(|| Flavor::TimeBased).unwrap_or(Flavor::Lookahead)
-				};
+			tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
+			let params = SlotBasedParams {
+				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				block_import,
+				para_client: client.clone(),
+				para_backend: backend.clone(),
+				relay_client: relay_chain_interface,
+				code_hash_provider: move |block_hash| {
+					client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
+				keystore,
+				collator_key,
+				para_id,
+				proposer,
+				collator_service,
+				authoring_duration: Duration::from_millis(2000),
+				reinitialize: false,
+				slot_drift: Duration::from_secs(1),
+				block_import_handle: slot_based_handle,
+				spawner: task_manager.spawn_handle(),
+				flavor: use_slot_based_collator
+					.then(|| Flavor::TimeBased)
+					.unwrap_or(Flavor::Lookahead),
+			};
 
-				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
+			slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 		}
 	}
 

@@ -29,6 +29,8 @@
 //! the collation task which compresses it and submits it to the collation-generation subsystem.
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
+use crate::collator::SlotClaim;
+pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 use codec::Codec;
 use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
@@ -39,8 +41,8 @@ use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, GetCoreSelectorApi
 use cumulus_relay_chain_interface::{PHeader, RelayChainInterface};
 use futures::FutureExt;
 use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId,
-	ValidationCodeHash,
+	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, CoreIndex, Header as RelayHeader,
+	Id as ParaId, ValidationCodeHash,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -53,10 +55,7 @@ use sp_core::{crypto::Pair, traits::SpawnNamed, U256};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member, NumberFor, One};
-use std::{sync::Arc, time::Duration};
-
-use crate::collator::SlotClaim;
-pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 mod block_builder_task;
 mod block_import;
@@ -77,7 +76,7 @@ pub struct SignalingTaskMessage<Pub, Block: BlockT> {
 
 pub enum Flavor {
 	TimeBased,
-	Lookahead
+	Lookahead,
 }
 
 /// Parameters for [`run`].
@@ -118,6 +117,7 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	/// Spawner for spawning futures.
 	pub spawner: Spawner,
 	pub flavor: Flavor,
+	pub export_pov: Option<PathBuf>,
 }
 
 /// Run aura-based block building and collation task.
@@ -140,6 +140,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		block_import_handle,
 		spawner,
 		flavor,
+		export_pov,
 	}: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) where
 	Block: BlockT,
@@ -176,6 +177,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service: collator_service.clone(),
 		collator_receiver: rx,
 		block_import_handle,
+		export_pov,
 	};
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
@@ -213,8 +215,9 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 
 			signaling_elastic_scaling_task::run_signaling_task::<Block, P, _, _, _, _>(
 				signaling_task_params,
-			).boxed()
-		}
+			)
+			.boxed()
+		},
 		Flavor::Lookahead => {
 			let signaling_task_params = signaling_lookahead::SignalingTaskParams {
 				para_client,
@@ -227,10 +230,9 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 				collator_service,
 			};
 
-			signaling_lookahead::run_signaling_task::<Block, P, _, _, _, _>(
-				signaling_task_params,
-			).boxed()
-		}
+			signaling_lookahead::run_signaling_task::<Block, P, _, _, _, _>(signaling_task_params)
+				.boxed()
+		},
 	};
 	spawner.spawn_blocking(
 		"slot-based-block-builder",
@@ -242,19 +244,15 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		Some("slot-based-collator"),
 		collation_task_fut.boxed(),
 	);
-	spawner.spawn_blocking(
-		"slot-based-signaling",
-		Some("slot-based-collator"),
-		signaling_fut,
-	);
+	spawner.spawn_blocking("slot-based-signaling", Some("slot-based-collator"), signaling_fut);
 }
 
 /// Message to be sent from the block builder to the collation task.
 ///
 /// Contains all data necessary to submit a collation to the relay chain.
 struct CollatorMessage<Block: BlockT> {
-	/// The hash of the relay chain block that provides the context for the parachain block.
-	pub relay_parent: RelayHash,
+	/// The relay chain header that provides the context for the parachain block.
+	pub relay_parent_header: RelayHeader,
 	/// The header of the parent block.
 	pub parent_header: Block::Header,
 	/// The parachain block candidate.
