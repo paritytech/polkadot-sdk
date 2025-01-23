@@ -339,6 +339,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Runtime> {
 		balances: vec![(0, INITIAL_BALANCE), (1, INITIAL_BALANCE), (2, INITIAL_BALANCE)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
