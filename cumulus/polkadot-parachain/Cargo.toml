@@ -82,7 +82,6 @@ runtime-benchmarks = [
 	"people-rococo-runtime/runtime-benchmarks",
 	"people-westend-runtime/runtime-benchmarks",
 	"rococo-parachain-runtime/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",
