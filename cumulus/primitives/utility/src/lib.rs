@@ -607,7 +607,7 @@ mod test_xcm_router {
 	#[test]
 	fn parent_as_ump_does_not_consume_dest_or_msg_on_not_applicable() {
 		// dummy message
-		let message = Xcm(vec![Trap(5)]);
+		let message = Xcm::new(vec![Trap(5)]);
 
 		// ParentAsUmp - check dest is really not applicable
 		let dest = (Parent, Parent, Parent);
@@ -635,7 +635,7 @@ mod test_xcm_router {
 	#[test]
 	fn parent_as_ump_consumes_dest_and_msg_on_ok_validate() {
 		// dummy message
-		let message = Xcm(vec![Trap(5)]);
+		let message = Xcm::new(vec![Trap(5)]);
 
 		// ParentAsUmp - check dest/msg is valid
 		let dest = (Parent, Here);
@@ -668,16 +668,16 @@ mod test_xcm_router {
 		type Router = ParentAsUmp<(), (), ()>;
 
 		// Message that is not too deeply nested:
-		let mut good = Xcm(vec![ClearOrigin]);
+		let mut good = Xcm::new(vec![ClearOrigin]);
 		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
-			good = Xcm(vec![SetAppendix(good)]);
+			good = Xcm::new(vec![SetAppendix(good)]);
 		}
 
 		// Check that the good message is validated:
 		assert_ok!(<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(good.clone())));
 
 		// Nesting the message one more time should reject it:
-		let bad = Xcm(vec![SetAppendix(good)]);
+		let bad = Xcm::new(vec![SetAppendix(good)]);
 		assert_eq!(
 			Err(SendError::ExceedsMaxMessageSize),
 			<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))

@@ -262,7 +262,7 @@ impl<T: Config> Pallet<T> {
 		let new_core_count = notification.new_config.scheduler_params.num_cores;
 		if new_core_count != old_core_count {
 			let core_count: u16 = new_core_count.saturated_into();
-			let message = Xcm(vec![
+			let message = Xcm::new(vec![
 				Instruction::UnpaidExecution {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
@@ -313,7 +313,7 @@ impl<T: Config> Pallet<T> {
 	// Handle legacy swaps in coretime. Notifies coretime chain that a lease swap has occurred via
 	// XCM message. This function is meant to be used in an implementation of `OnSwap` trait.
 	pub fn on_legacy_lease_swap(one: ParaId, other: ParaId) {
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,

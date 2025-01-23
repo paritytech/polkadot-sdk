@@ -34,7 +34,7 @@ fn basic_buy_fees_message_executes() {
 	sp_tracing::try_init_simple();
 	let client = TestClientBuilder::new().build();
 
-	let msg = Xcm(vec![
+	let msg = Xcm::new(vec![
 		WithdrawAsset((Parent, 100).into()),
 		BuyExecution { fees: (Parent, 1).into(), weight_limit: Unlimited },
 		DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Parent.into() },
@@ -76,7 +76,7 @@ fn transact_recursion_limit_works() {
 	let client = TestClientBuilder::new().build();
 
 	let base_xcm = |call: polkadot_test_runtime::RuntimeCall| {
-		Xcm(vec![
+		Xcm::new(vec![
 			WithdrawAsset((Here, 1_000).into()),
 			BuyExecution { fees: (Here, 1).into(), weight_limit: Unlimited },
 			Transact {
@@ -93,7 +93,7 @@ fn transact_recursion_limit_works() {
 		match depth {
 			// this one should fail with `XcmError::ExceedsStackLimit`
 			11 => {
-				msg = Xcm(vec![ClearOrigin]);
+				msg = Xcm::new(vec![ClearOrigin]);
 			},
 			// this one checks that the inner one (depth 11) fails as expected,
 			// itself should not fail => should have outcome == Complete
@@ -209,7 +209,7 @@ fn query_response_fires() {
 	let response = Response::ExecutionResult(None);
 	let max_weight = Weight::from_parts(1_000_000, 1024 * 1024);
 	let querier = Some(Here.into());
-	let msg = Xcm(vec![QueryResponse { query_id, response, max_weight, querier }]);
+	let msg = Xcm::new(vec![QueryResponse { query_id, response, max_weight, querier }]);
 	let msg = Box::new(VersionedXcm::from(msg));
 
 	let execute = construct_extrinsic(
@@ -291,7 +291,7 @@ fn query_response_elicits_handler() {
 	let response = Response::ExecutionResult(None);
 	let max_weight = Weight::from_parts(1_000_000, 1024 * 1024);
 	let querier = Some(Here.into());
-	let msg = Xcm(vec![QueryResponse { query_id, response, max_weight, querier }]);
+	let msg = Xcm::new(vec![QueryResponse { query_id, response, max_weight, querier }]);
 
 	let execute = construct_extrinsic(
 		&client,
@@ -361,12 +361,12 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 	// identifies `dest` as seen by `reserve`
 	let dest = dest.reanchored(&reserve, &reserve_context).unwrap();
 	// xcm to be executed at dest
-	let xcm_on_dest = Xcm(vec![
+	let xcm_on_dest = Xcm::new(vec![
 		BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() },
 		DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
 	]);
 	// xcm to be executed at reserve
-	let msg = Xcm(vec![
+	let msg = Xcm::new(vec![
 		WithdrawAsset(assets_reanchored),
 		ClearOrigin,
 		BuyExecution { fees: reserve_fees, weight_limit },

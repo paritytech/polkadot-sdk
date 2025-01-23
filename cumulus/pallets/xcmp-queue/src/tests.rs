@@ -362,7 +362,7 @@ impl SendXcm for OkFixedXcmHashWithAssertingRequiredInputsSender {
 #[test]
 fn xcmp_queue_does_not_consume_dest_or_msg_on_not_applicable() {
 	// dummy message
-	let message = Xcm(vec![Trap(5)]);
+	let message = Xcm::new(vec![Trap(5)]);
 
 	// XcmpQueue - check dest is really not applicable
 	let dest = (Parent, Parent, Parent);
@@ -390,7 +390,7 @@ fn xcmp_queue_does_not_consume_dest_or_msg_on_not_applicable() {
 #[test]
 fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 	// dummy message
-	let message = Xcm(vec![Trap(5)]);
+	let message = Xcm::new(vec![Trap(5)]);
 
 	// XcmpQueue - check dest/msg is valid
 	let dest: Location = (Parent, Parachain(5555)).into();
@@ -419,9 +419,9 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 fn xcmp_queue_validate_nested_xcm_works() {
 	let dest = (Parent, Parachain(5555));
 	// Message that is not too deeply nested:
-	let mut good = Xcm(vec![ClearOrigin]);
+	let mut good = Xcm::new(vec![ClearOrigin]);
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
-		good = Xcm(vec![SetAppendix(good)]);
+		good = Xcm::new(vec![SetAppendix(good)]);
 	}
 
 	new_test_ext().execute_with(|| {
@@ -432,7 +432,7 @@ fn xcmp_queue_validate_nested_xcm_works() {
 		));
 
 		// Nesting the message one more time should reject it:
-		let bad = Xcm(vec![SetAppendix(good)]);
+		let bad = Xcm::new(vec![SetAppendix(good)]);
 		assert_eq!(
 			Err(SendError::ExceedsMaxMessageSize),
 			<XcmpQueue as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
@@ -444,9 +444,9 @@ fn xcmp_queue_validate_nested_xcm_works() {
 fn send_xcm_nested_works() {
 	let dest = (Parent, Parachain(HRMP_PARA_ID));
 	// Message that is not too deeply nested:
-	let mut good = Xcm(vec![ClearOrigin]);
+	let mut good = Xcm::new(vec![ClearOrigin]);
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
-		good = Xcm(vec![SetAppendix(good)]);
+		good = Xcm::new(vec![SetAppendix(good)]);
 	}
 
 	// Check that the good message is sent:
@@ -463,7 +463,7 @@ fn send_xcm_nested_works() {
 	});
 
 	// Nesting the message one more time should not send it:
-	let bad = Xcm(vec![SetAppendix(good)]);
+	let bad = Xcm::new(vec![SetAppendix(good)]);
 	new_test_ext().execute_with(|| {
 		assert_err!(send_xcm::<XcmpQueue>(dest.into(), bad), SendError::ExceedsMaxMessageSize);
 		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
@@ -472,7 +472,7 @@ fn send_xcm_nested_works() {
 
 #[test]
 fn hrmp_signals_are_prioritized() {
-	let message = Xcm(vec![Trap(5)]);
+	let message = Xcm::new(vec![Trap(5)]);
 
 	let sibling_para_id = ParaId::from(12345);
 	let dest = (Parent, Parachain(sibling_para_id.into()));
@@ -596,7 +596,7 @@ fn take_first_concatenated_xcm_works() {
 fn take_first_concatenated_xcm_good_recursion_depth_works() {
 	let mut good = Xcm::<()>(vec![ClearOrigin]);
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
-		good = Xcm(vec![SetAppendix(good)]);
+		good = Xcm::new(vec![SetAppendix(good)]);
 	}
 	let good = VersionedXcm::from(good);
 
@@ -609,7 +609,7 @@ fn take_first_concatenated_xcm_good_recursion_depth_works() {
 fn take_first_concatenated_xcm_good_bad_depth_errors() {
 	let mut bad = Xcm::<()>(vec![ClearOrigin]);
 	for _ in 0..MAX_XCM_DECODE_DEPTH {
-		bad = Xcm(vec![SetAppendix(bad)]);
+		bad = Xcm::new(vec![SetAppendix(bad)]);
 	}
 	let bad = VersionedXcm::from(bad);
 
@@ -708,7 +708,7 @@ fn xcmp_queue_send_xcm_works() {
 	new_test_ext().execute_with(|| {
 		let sibling_para_id = ParaId::from(12345);
 		let dest: Location = (Parent, Parachain(sibling_para_id.into())).into();
-		let msg = Xcm(vec![ClearOrigin]);
+		let msg = Xcm::new(vec![ClearOrigin]);
 
 		// try to send without opened HRMP channel to the sibling_para_id
 		assert_eq!(
@@ -783,7 +783,7 @@ fn verify_fee_factor_increase_and_decrease() {
 
 	let sibling_para_id = ParaId::from(12345);
 	let destination: Location = (Parent, Parachain(sibling_para_id.into())).into();
-	let xcm = Xcm(vec![ClearOrigin; 100]);
+	let xcm = Xcm::new(vec![ClearOrigin; 100]);
 	let versioned_xcm = VersionedXcm::from(xcm.clone());
 	let mut xcmp_message = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
 	xcmp_message.extend(versioned_xcm.encode());
@@ -821,7 +821,7 @@ fn verify_fee_factor_increase_and_decrease() {
 		};
 		assert_eq!(delivery_fee_amount, 402_000_000);
 
-		let smaller_xcm = Xcm(vec![ClearOrigin; 30]);
+		let smaller_xcm = Xcm::new(vec![ClearOrigin; 30]);
 
 		// When we get to half of `max_total_size`, because `THRESHOLD_FACTOR` is 2,
 		// then the fee factor starts to increase.
@@ -861,7 +861,7 @@ fn get_messages_works() {
 		let destination: Location = (Parent, Parachain(sibling_para_id.into())).into();
 		let other_sibling_para_id = ParaId::from(2002);
 		let other_destination: Location = (Parent, Parachain(other_sibling_para_id.into())).into();
-		let message = Xcm(vec![ClearOrigin]);
+		let message = Xcm::new(vec![ClearOrigin]);
 		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), message.clone()));
 		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), message.clone()));
 		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), message.clone()));
@@ -875,16 +875,16 @@ fn get_messages_works() {
 				(
 					VersionedLocation::from(other_destination),
 					vec![
-						VersionedXcm::from(Xcm(vec![ClearOrigin])),
-						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm::new(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm::new(vec![ClearOrigin])),
 					],
 				),
 				(
 					VersionedLocation::from(destination),
 					vec![
-						VersionedXcm::from(Xcm(vec![ClearOrigin])),
-						VersionedXcm::from(Xcm(vec![ClearOrigin])),
-						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm::new(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm::new(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm::new(vec![ClearOrigin])),
 					],
 				),
 			],
@@ -901,7 +901,7 @@ fn page_not_modified_when_fragment_does_not_fit() {
 		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling);
 
 		let destination: Location = (Parent, Parachain(sibling.into())).into();
-		let message = Xcm(vec![ClearOrigin; 600]);
+		let message = Xcm::new(vec![ClearOrigin; 600]);
 
 		loop {
 			let old_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);

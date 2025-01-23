@@ -21,7 +21,7 @@ fn pallet_query_should_work() {
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
-	let message = Xcm(vec![QueryPallet {
+	let message = Xcm::new(vec![QueryPallet {
 		module_name: "Error".into(),
 		response_info: QueryResponseInfo {
 			destination: Parachain(1).into(),
@@ -54,7 +54,7 @@ fn pallet_query_with_results_should_work() {
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
-	let message = Xcm(vec![QueryPallet {
+	let message = Xcm::new(vec![QueryPallet {
 		module_name: "pallet_balances".into(),
 		response_info: QueryResponseInfo {
 			destination: Parachain(1).into(),

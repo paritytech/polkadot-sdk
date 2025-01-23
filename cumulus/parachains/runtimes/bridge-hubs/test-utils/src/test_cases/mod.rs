@@ -366,13 +366,13 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 			)
 			.expect("deposited fee");
 
-			Xcm(vec![
+			Xcm::new(vec![
 				WithdrawAsset(Assets::from(vec![fee.clone()])),
 				BuyExecution { fees: fee, weight_limit: Unlimited },
 				export_message_instruction(),
 			])
 		} else {
-			Xcm(vec![
+			Xcm::new(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				export_message_instruction(),
 			])
@@ -575,7 +575,7 @@ where
 	<WeightToFee as frame_support::weights::WeightToFee>::Balance: From<u128> + Into<u128>,
 {
 	// data here are not relevant for weighing
-	let mut xcm = Xcm(vec![
+	let mut xcm = Xcm::new(vec![
 		WithdrawAsset(Assets::from(vec![Asset {
 			id: AssetId(Location::new(1, [])),
 			fun: Fungible(34333299),
@@ -584,14 +584,14 @@ where
 			fees: Asset { id: AssetId(Location::new(1, [])), fun: Fungible(34333299) },
 			weight_limit: Unlimited,
 		},
-		SetAppendix(Xcm(vec![DepositAsset {
+		SetAppendix(Xcm::new(vec![DepositAsset {
 			assets: Wild(AllCounted(1)),
 			beneficiary: Location::new(1, [Parachain(1000)]),
 		}])),
 		ExportMessage {
 			network: Polkadot,
 			destination: [Parachain(1000)].into(),
-			xcm: Xcm(vec![
+			xcm: Xcm::new(vec![
 				ReserveAssetDeposited(Assets::from(vec![Asset {
 					id: AssetId(Location::new(2, [GlobalConsensus(Kusama)])),
 					fun: Fungible(1000000000000),

@@ -568,7 +568,7 @@ fn teleport_to_untrusted_chain_fails() {
 
 	// this should also fail
 	AssetHubRococo::execute_with(|| {
-		let xcm: Xcm<asset_hub_rococo_runtime::RuntimeCall> = Xcm(vec![
+		let xcm: Xcm<asset_hub_rococo_runtime::RuntimeCall> = Xcm::new(vec![
 			WithdrawAsset(assets.into()),
 			InitiateTeleport { assets: Wild(All), dest: destination, xcm: Xcm::<()>::new() },
 		]);

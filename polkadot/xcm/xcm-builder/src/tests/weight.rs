@@ -70,7 +70,7 @@ fn errors_should_return_unused_weight() {
 	AllowUnpaidFrom::set(vec![Here.into()]);
 	// We own 1000 of our tokens.
 	add_asset(Here, (Here, 11u128));
-	let mut message = Xcm(vec![
+	let mut message = Xcm::new(vec![
 		// First xfer results in an error on the last message only
 		TransferAsset {
 			assets: (Here, 1u128).into(),
@@ -154,24 +154,24 @@ fn errors_should_return_unused_weight() {
 #[test]
 fn weight_bounds_should_respect_instructions_limit() {
 	MaxInstructions::set(3);
-	let mut message = Xcm(vec![ClearOrigin; 4]);
+	let mut message = Xcm::new(vec![ClearOrigin; 4]);
 	// 4 instructions are too many.
 	assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(()));
 
 	let mut message =
-		Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin])), SetAppendix(Xcm(vec![ClearOrigin]))]);
+		Xcm::new(vec![SetErrorHandler(Xcm::new(vec![ClearOrigin])), SetAppendix(Xcm::new(vec![ClearOrigin]))]);
 	// 4 instructions are too many, even when hidden within 2.
 	assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(()));
 
 	let mut message =
-		Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(Xcm(
+		Xcm::new(vec![SetErrorHandler(Xcm::new(vec![SetErrorHandler(Xcm::new(vec![SetErrorHandler(Xcm(
 			vec![ClearOrigin],
 		))]))]))]);
 	// 4 instructions are too many, even when it's just one that's 3 levels deep.
 	assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(()));
 
 	let mut message =
-		Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin]))]))]);
+		Xcm::new(vec![SetErrorHandler(Xcm::new(vec![SetErrorHandler(Xcm::new(vec![ClearOrigin]))]))]);
 	// 3 instructions are OK.
 	assert_eq!(
 		<TestConfig as Config>::Weigher::weight(&mut message),

@@ -82,7 +82,7 @@ mod benchmarks {
 			),
 		};
 
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -109,7 +109,7 @@ mod benchmarks {
 			weight_limit: WeightLimit::Unlimited,
 		};
 
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -131,7 +131,7 @@ mod benchmarks {
 
 		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
 
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -150,7 +150,7 @@ mod benchmarks {
 			}]),
 		};
 
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -167,7 +167,7 @@ mod benchmarks {
 		let max_weight = Weight::MAX;
 		let querier: Option<Location> = Some(Here.into());
 		let instruction = Instruction::QueryResponse { query_id, response, max_weight, querier };
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 
 		#[block]
 		{
@@ -192,7 +192,7 @@ mod benchmarks {
 			call: double_encoded_noop_call,
 			fallback_max_weight: None,
 		};
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -208,7 +208,7 @@ mod benchmarks {
 		let holding_assets = T::worst_case_holding(1);
 		// We can already buy execution since we'll load the holding register manually
 		let asset_for_fees = T::fee_asset().unwrap();
-		let previous_xcm = Xcm(vec![BuyExecution {
+		let previous_xcm = Xcm::new(vec![BuyExecution {
 			fees: asset_for_fees,
 			weight_limit: Limited(Weight::from_parts(1337, 1337)),
 		}]);
@@ -220,7 +220,7 @@ mod benchmarks {
 			.expect("Holding has been loaded, so we can buy execution here");
 
 		let instruction = Instruction::<XcmCallOf<T>>::RefundSurplus;
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			let _result = executor.bench_process(xcm)?;
@@ -234,13 +234,13 @@ mod benchmarks {
 	#[benchmark]
 	fn set_error_handler() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
-		let instruction = Instruction::<XcmCallOf<T>>::SetErrorHandler(Xcm(vec![]));
-		let xcm = Xcm(vec![instruction]);
+		let instruction = Instruction::<XcmCallOf<T>>::SetErrorHandler(Xcm::new(vec![]));
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
 		}
-		assert_eq!(executor.error_handler(), &Xcm(vec![]));
+		assert_eq!(executor.error_handler(), &Xcm::new(vec![]));
 
 		Ok(())
 	}
@@ -248,14 +248,14 @@ mod benchmarks {
 	#[benchmark]
 	fn set_appendix() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
-		let appendix = Xcm(vec![]);
+		let appendix = Xcm::new(vec![]);
 		let instruction = Instruction::<XcmCallOf<T>>::SetAppendix(appendix);
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
 		}
-		assert_eq!(executor.appendix(), &Xcm(vec![]));
+		assert_eq!(executor.appendix(), &Xcm::new(vec![]));
 		Ok(())
 	}
 
@@ -264,7 +264,7 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_error(Some((5u32, XcmError::Overflow)));
 		let instruction = Instruction::<XcmCallOf<T>>::ClearError;
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -278,7 +278,7 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 		let who = Junctions::from([OnlyChild, OnlyChild]);
 		let instruction = Instruction::DescendOrigin(who.clone());
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -294,9 +294,9 @@ mod benchmarks {
 		let who: Junctions = Junctions::from([AccountId32 { id: [0u8; 32], network: None }]);
 		let instruction = Instruction::ExecuteWithOrigin {
 			descendant_origin: Some(who.clone()),
-			xcm: Xcm(vec![]),
+			xcm: Xcm::new(vec![]),
 		};
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -310,7 +310,7 @@ mod benchmarks {
 	fn clear_origin() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
 		let instruction = Instruction::ClearOrigin;
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -345,7 +345,7 @@ mod benchmarks {
 
 		let instruction =
 			Instruction::ReportError(QueryResponseInfo { query_id, destination, max_weight });
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -373,7 +373,7 @@ mod benchmarks {
 
 		let mut executor = new_executor::<T>(origin);
 		let instruction = Instruction::ClaimAsset { assets: assets.clone(), ticket };
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -386,7 +386,7 @@ mod benchmarks {
 	fn trap() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
 		let instruction = Instruction::Trap(10);
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		// In order to access result in the verification below, it needs to be defined here.
 		let result;
 		#[block]
@@ -406,7 +406,7 @@ mod benchmarks {
 		let max_response_weight = Default::default();
 		let mut executor = new_executor::<T>(origin.clone());
 		let instruction = Instruction::SubscribeVersion { query_id, max_response_weight };
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 
 		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
 
@@ -443,7 +443,7 @@ mod benchmarks {
 
 		let mut executor = new_executor::<T>(origin.clone());
 		let instruction = Instruction::UnsubscribeVersion;
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -463,7 +463,7 @@ mod benchmarks {
 		executor.set_holding(holding.into());
 
 		let instruction = Instruction::BurnAsset(assets.into());
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -481,7 +481,7 @@ mod benchmarks {
 		executor.set_holding(holding.into());
 
 		let instruction = Instruction::ExpectAsset(assets.into());
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -497,7 +497,7 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 
 		let instruction = Instruction::ExpectOrigin(Some(expected_origin));
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		let mut _result = Ok(());
 		#[block]
 		{
@@ -517,7 +517,7 @@ mod benchmarks {
 		executor.set_error(Some((3u32, XcmError::Overflow)));
 
 		let instruction = Instruction::ExpectError(None);
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		let mut _result = Ok(());
 		#[block]
 		{
@@ -539,7 +539,7 @@ mod benchmarks {
 		executor.set_transact_status(worst_error());
 
 		let instruction = Instruction::ExpectTransactStatus(worst_error());
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		let mut _result = Ok(());
 		#[block]
 		{
@@ -576,7 +576,7 @@ mod benchmarks {
 			module_name: valid_pallet.module_name.as_bytes().to_vec(),
 			response_info: QueryResponseInfo { destination, query_id, max_weight },
 		};
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -599,7 +599,7 @@ mod benchmarks {
 			crate_major: valid_pallet.crate_version.major.into(),
 			min_crate_minor: valid_pallet.crate_version.minor.into(),
 		};
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -637,7 +637,7 @@ mod benchmarks {
 			destination,
 			max_weight,
 		});
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -654,7 +654,7 @@ mod benchmarks {
 		executor.set_transact_status(b"MyError".to_vec().into());
 
 		let instruction = Instruction::ClearTransactStatus;
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -668,7 +668,7 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 
 		let instruction = Instruction::SetTopic([1; 32]);
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -683,7 +683,7 @@ mod benchmarks {
 		executor.set_topic(Some([2; 32]));
 
 		let instruction = Instruction::ClearTopic;
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -701,7 +701,7 @@ mod benchmarks {
 		executor.set_holding(give.into());
 		let instruction =
 			Instruction::ExchangeAsset { give: assets.into(), want: want.clone(), maximal: true };
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -717,7 +717,7 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(origin);
 
 		let instruction = Instruction::UniversalOrigin(alias);
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -739,7 +739,7 @@ mod benchmarks {
 		// to approximate weight per "unit" of encoded size; then actual weight can be estimated
 		// to be `inner_xcm.encoded_size() * benchmarked_unit`.
 		// Use `ClearOrigin` as the small encoded instruction.
-		let inner_xcm = Xcm(vec![ClearOrigin; x as usize]);
+		let inner_xcm = Xcm::new(vec![ClearOrigin; x as usize]);
 		// Get `origin`, `network` and `destination` from configured runtime.
 		let (origin, network, destination) = T::export_message_origin_and_destination()?;
 
@@ -760,7 +760,7 @@ mod benchmarks {
 			executor.set_holding(expected_assets_in_holding.into());
 		}
 		let xcm =
-			Xcm(vec![ExportMessage { network, destination: destination.clone(), xcm: inner_xcm }]);
+			Xcm::new(vec![ExportMessage { network, destination: destination.clone(), xcm: inner_xcm }]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -777,7 +777,7 @@ mod benchmarks {
 		executor.set_fees_mode(FeesMode { jit_withdraw: false });
 
 		let instruction = Instruction::SetFeesMode { jit_withdraw: true };
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -810,7 +810,7 @@ mod benchmarks {
 		}
 
 		let instruction = Instruction::LockAsset { asset, unlocker };
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -841,7 +841,7 @@ mod benchmarks {
 
 		// ... then unlock them with the UnlockAsset instruction.
 		let instruction = Instruction::UnlockAsset { asset, target: owner };
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -869,7 +869,7 @@ mod benchmarks {
 
 		// ... then note them as unlockable with the NoteUnlockable instruction.
 		let instruction = Instruction::NoteUnlockable { asset, owner };
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -911,7 +911,7 @@ mod benchmarks {
 			executor.set_holding(expected_assets_in_holding.into());
 		}
 		let instruction = Instruction::RequestUnlock { asset, locker };
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -932,7 +932,7 @@ mod benchmarks {
 			check_origin: Some(Here.into()),
 		};
 
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -947,7 +947,7 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(origin);
 
 		let instruction = Instruction::AliasOrigin(target.clone());
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm::new(vec![instruction]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;

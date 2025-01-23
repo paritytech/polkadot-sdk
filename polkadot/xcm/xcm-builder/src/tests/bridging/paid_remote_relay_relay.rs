@@ -72,7 +72,7 @@ fn sending_to_bridged_chain_works() {
 
 		let price = SendOverBridgePrice::get();
 
-		let msg = Xcm(vec![Trap(1)]);
+		let msg = Xcm::new(vec![Trap(1)]);
 		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, (Parent, price).into());
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
@@ -101,7 +101,7 @@ fn sending_to_bridged_chain_works() {
 				vec![
 					WithdrawAsset(Asset::from((Here, price)).into()),
 					BuyExecution { fees: (Here, price).into(), weight_limit: Unlimited },
-					SetAppendix(Xcm(vec![DepositAsset {
+					SetAppendix(Xcm::new(vec![DepositAsset {
 						assets: Wild(AllCounted(1)),
 						beneficiary: Parachain(100).into(),
 					}])),
@@ -123,7 +123,7 @@ fn sending_to_bridged_chain_without_funds_fails() {
 	let dest: Location = (Parent, Parent, Remote::get()).into();
 	// Routing won't work if we don't have enough funds.
 	assert_eq!(
-		send_xcm::<LocalRouter>(dest, Xcm(vec![Trap(1)])),
+		send_xcm::<LocalRouter>(dest, Xcm::new(vec![Trap(1)])),
 		Err(SendError::Transport("Error executing")),
 	);
 }
@@ -149,7 +149,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 
 		let price = SendOverBridgePrice::get();
 
-		let msg = Xcm(vec![Trap(1)]);
+		let msg = Xcm::new(vec![Trap(1)]);
 		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, (Parent, price).into());
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
@@ -178,7 +178,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 				vec![
 					WithdrawAsset(Asset::from((Here, price)).into()),
 					BuyExecution { fees: (Here, price).into(), weight_limit: Unlimited },
-					SetAppendix(Xcm(vec![DepositAsset {
+					SetAppendix(Xcm::new(vec![DepositAsset {
 						assets: Wild(AllCounted(1)),
 						beneficiary: Parachain(100).into(),
 					}])),
@@ -200,7 +200,7 @@ fn sending_to_parachain_of_bridged_chain_without_funds_fails() {
 	let dest: Location = (Parent, Parent, Remote::get(), Parachain(100)).into();
 	// Routing won't work if we don't have enough funds.
 	assert_eq!(
-		send_xcm::<LocalRouter>(dest, Xcm(vec![Trap(1)])),
+		send_xcm::<LocalRouter>(dest, Xcm::new(vec![Trap(1)])),
 		Err(SendError::Transport("Error executing")),
 	);
 }

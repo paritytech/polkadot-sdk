@@ -590,7 +590,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			let ahw_fee_amount = 100_000_000_000;
 
 			// XCM to be executed at dest (Rococo Asset Hub)
-			let xcm_on_dest = Xcm(vec![
+			let xcm_on_dest = Xcm::new(vec![
 				// since this is the last hop, we don't need to further use any assets previously
 				// reserved for fees (there are no further hops to cover delivery fees for); we
 				// RefundSurplus to get back any unspent fees
@@ -606,7 +606,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			let reanchored_pens = pens.clone().reanchored(&local_asset_hub, &context).unwrap();
 			let mut onward_wnds = wnds.clone().reanchored(&local_asset_hub, &context).unwrap();
 			onward_wnds.fun = Fungible(wnds_amount - ahw_fee_amount - penpal_fees_amount);
-			let xcm_on_ahw = Xcm(vec![
+			let xcm_on_ahw = Xcm::new(vec![
 				// both WNDs and PENs are local-reserve transferred to Rococo Asset Hub
 				// initially, all WNDs are reserved for fees on destination, but at the end of the
 				// program we RefundSurplus to get back any unspent and deposit them to final

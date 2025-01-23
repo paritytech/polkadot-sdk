@@ -415,7 +415,7 @@ pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 /// // A call to send via XCM. We don't really care about this.
 /// # fn main() {
 /// let call: Vec<u8> = ().encode();
-/// let message = Xcm(vec![Instruction::Transact {
+/// let message = Xcm::new(vec![Instruction::Transact {
 ///     origin_kind: OriginKind::Superuser,
 ///     call: call.into(),
 ///     fallback_max_weight: None,

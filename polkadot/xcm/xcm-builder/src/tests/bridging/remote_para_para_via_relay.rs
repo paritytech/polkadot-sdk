@@ -57,7 +57,7 @@ type LocalRouter = TestTopic<(LocalInnerRouter, LocalBridgingRouter)>;
 #[test]
 fn sending_to_bridged_chain_works() {
 	maybe_with_topic(|| {
-		let msg = Xcm(vec![Trap(1)]);
+		let msg = Xcm::new(vec![Trap(1)]);
 		assert_eq!(
 			send_xcm::<LocalRouter>((Parent, Remote::get(), Parachain(1)).into(), msg)
 				.unwrap()
@@ -105,7 +105,7 @@ fn sending_to_bridged_chain_works() {
 #[test]
 fn sending_to_sibling_of_bridged_chain_works() {
 	maybe_with_topic(|| {
-		let msg = Xcm(vec![Trap(1)]);
+		let msg = Xcm::new(vec![Trap(1)]);
 		let dest = (Parent, Remote::get(), Parachain(1000)).into();
 		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, Assets::new());
 		assert_eq!(TheBridge::service(), 1);
@@ -149,7 +149,7 @@ fn sending_to_sibling_of_bridged_chain_works() {
 #[test]
 fn sending_to_relay_of_bridged_chain_works() {
 	maybe_with_topic(|| {
-		let msg = Xcm(vec![Trap(1)]);
+		let msg = Xcm::new(vec![Trap(1)]);
 		let dest = (Parent, Remote::get()).into();
 		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, Assets::new());
 		assert_eq!(TheBridge::service(), 1);

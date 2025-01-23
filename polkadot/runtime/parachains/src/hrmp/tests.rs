@@ -1057,7 +1057,7 @@ fn hrmp_notifications_works() {
 		assert_notification_for(
 			5,
 			para_b,
-			VersionedXcm::from(Xcm(vec![HrmpNewChannelOpenRequest {
+			VersionedXcm::from(Xcm::new(vec![HrmpNewChannelOpenRequest {
 				sender: u32::from(para_a),
 				max_capacity: 2,
 				max_message_size: 8,
@@ -1069,7 +1069,7 @@ fn hrmp_notifications_works() {
 		assert_notification_for(
 			5,
 			para_a,
-			VersionedXcm::from(Xcm(vec![HrmpNewChannelOpenRequest {
+			VersionedXcm::from(Xcm::new(vec![HrmpNewChannelOpenRequest {
 				sender: u32::from(para_b),
 				max_capacity: 2,
 				max_message_size: 8,
@@ -1088,7 +1088,7 @@ fn hrmp_notifications_works() {
 		assert_notification_for(
 			5,
 			para_b,
-			VersionedXcm::from(Xcm(vec![HrmpChannelAccepted { recipient: u32::from(para_a) }]))
+			VersionedXcm::from(Xcm::new(vec![HrmpChannelAccepted { recipient: u32::from(para_a) }]))
 				.into_version(previous_version)
 				.expect("compatible")
 				.encode(),
@@ -1096,7 +1096,7 @@ fn hrmp_notifications_works() {
 		assert_notification_for(
 			5,
 			para_a,
-			VersionedXcm::from(Xcm(vec![HrmpChannelAccepted { recipient: u32::from(para_b) }]))
+			VersionedXcm::from(Xcm::new(vec![HrmpChannelAccepted { recipient: u32::from(para_b) }]))
 				.encode(),
 		);
 		let _ = Dmp::prune_dmq(para_a, 1000);
@@ -1121,7 +1121,7 @@ fn hrmp_notifications_works() {
 		assert_notification_for(
 			6,
 			para_b,
-			VersionedXcm::from(Xcm(vec![HrmpChannelClosing {
+			VersionedXcm::from(Xcm::new(vec![HrmpChannelClosing {
 				initiator: u32::from(para_a),
 				sender: u32::from(para_a),
 				recipient: u32::from(para_b),
@@ -1133,7 +1133,7 @@ fn hrmp_notifications_works() {
 		assert_notification_for(
 			6,
 			para_a,
-			VersionedXcm::from(Xcm(vec![HrmpChannelClosing {
+			VersionedXcm::from(Xcm::new(vec![HrmpChannelClosing {
 				initiator: u32::from(para_b),
 				sender: u32::from(para_b),
 				recipient: u32::from(para_a),

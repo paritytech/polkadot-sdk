@@ -146,7 +146,7 @@ fn report_successful_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let expected_msg = Xcm(vec![QueryResponse {
+	let expected_msg = Xcm::new(vec![QueryResponse {
 		response: Response::DispatchResult(MaybeErrorCode::Success),
 		query_id: 42,
 		max_weight: Weight::from_parts(5000, 5000),
@@ -182,7 +182,7 @@ fn report_failed_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let expected_msg = Xcm(vec![QueryResponse {
+	let expected_msg = Xcm::new(vec![QueryResponse {
 		response: Response::DispatchResult(vec![2].into()),
 		query_id: 42,
 		max_weight: Weight::from_parts(5000, 5000),
@@ -311,7 +311,7 @@ fn clear_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(80, 80) });
-	let expected_msg = Xcm(vec![QueryResponse {
+	let expected_msg = Xcm::new(vec![QueryResponse {
 		response: Response::DispatchResult(MaybeErrorCode::Success),
 		query_id: 42,
 		max_weight: Weight::from_parts(5000, 5000),

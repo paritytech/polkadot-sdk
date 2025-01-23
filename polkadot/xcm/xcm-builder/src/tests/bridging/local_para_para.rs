@@ -47,7 +47,7 @@ type Router = TestTopic<
 #[test]
 fn sending_to_bridged_chain_works() {
 	maybe_with_topic(|| {
-		let msg = Xcm(vec![Trap(1)]);
+		let msg = Xcm::new(vec![Trap(1)]);
 		let dest = (Parent, Parent, Remote::get(), Parachain(1)).into();
 		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, Price::get());
 		assert_eq!(TheBridge::service(), 1);
@@ -81,7 +81,7 @@ fn sending_to_bridged_chain_works() {
 #[test]
 fn sending_to_parachain_of_bridged_chain_works() {
 	maybe_with_topic(|| {
-		let msg = Xcm(vec![Trap(1)]);
+		let msg = Xcm::new(vec![Trap(1)]);
 		let dest = (Parent, Parent, Remote::get(), Parachain(1000)).into();
 		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, Price::get());
 		assert_eq!(TheBridge::service(), 1);
@@ -113,7 +113,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 #[test]
 fn sending_to_relay_chain_of_bridged_chain_works() {
 	maybe_with_topic(|| {
-		let msg = Xcm(vec![Trap(1)]);
+		let msg = Xcm::new(vec![Trap(1)]);
 		let dest = (Parent, Parent, Remote::get()).into();
 		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, Price::get());
 		assert_eq!(TheBridge::service(), 1);

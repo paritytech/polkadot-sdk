@@ -442,7 +442,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 			.map_err(|()| XcmError::LocationNotInvertible)?;
 		let query_id = Self::new_query(responder, timeout, Here);
 		let response_info = QueryResponseInfo { destination, query_id, max_weight: Weight::zero() };
-		let report_error = Xcm(vec![ReportError(response_info)]);
+		let report_error = Xcm::new(vec![ReportError(response_info)]);
 		message.0.insert(0, SetAppendix(report_error));
 		Ok(query_id)
 	}

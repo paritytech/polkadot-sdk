@@ -47,7 +47,7 @@ fn withdraw_and_deposit_works() {
 		let other_para_id = 3000;
 		let amount = REGISTER_AMOUNT;
 		let weight = BaseXcmWeight::get() * 3;
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((Here, amount).into()),
 			buy_execution(),
 			DepositAsset {
@@ -81,7 +81,7 @@ fn transfer_asset_works() {
 	kusama_like_with_balances(balances).execute_with(|| {
 		let amount = REGISTER_AMOUNT;
 		let weight = BaseXcmWeight::get();
-		let message = Xcm(vec![TransferAsset {
+		let message = Xcm::new(vec![TransferAsset {
 			assets: (Here, amount).into(),
 			beneficiary: AccountId32 { network: None, id: bob.clone().into() }.into(),
 		}]);
@@ -125,7 +125,7 @@ fn report_holding_works() {
 			query_id: 1234,
 			max_weight: Weight::from_parts(1_000_000_000, 1_000_000_000),
 		};
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((Here, amount).into()),
 			buy_execution(),
 			DepositAsset {
@@ -155,7 +155,7 @@ fn report_holding_works() {
 		assert_eq!(Balances::free_balance(para_acc.clone()), INITIAL_BALANCE - amount);
 
 		// now do a successful transfer
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((Here, amount).into()),
 			buy_execution(),
 			DepositAsset {
@@ -177,7 +177,7 @@ fn report_holding_works() {
 		let other_para_acc: AccountId = ParaId::from(other_para_id).into_account_truncating();
 		assert_eq!(Balances::free_balance(other_para_acc), amount);
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
-		let expected_msg = Xcm(vec![QueryResponse {
+		let expected_msg = Xcm::new(vec![QueryResponse {
 			query_id: response_info.query_id,
 			response: Response::Assets(vec![].into()),
 			max_weight: response_info.max_weight,
@@ -218,7 +218,7 @@ fn teleport_to_asset_hub_works() {
 		let weight = BaseXcmWeight::get() * 3;
 
 		// teleports are not allowed to other chains, in the absence of trust from their side
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((Here, amount).into()),
 			buy_execution(),
 			InitiateTeleport {
@@ -238,7 +238,7 @@ fn teleport_to_asset_hub_works() {
 		assert_eq!(r, Outcome::Incomplete { used: weight, error: UntrustedTeleportLocation });
 
 		// teleports are allowed from asset hub to kusama.
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((Here, amount).into()),
 			buy_execution(),
 			InitiateTeleport {
@@ -258,7 +258,7 @@ fn teleport_to_asset_hub_works() {
 		assert_eq!(r, Outcome::Complete { used: weight });
 		// 2 * amount because of the other teleport above
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
-		let expected_msg = Xcm(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
+		let expected_msg = Xcm::new(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
 			.into_iter()
 			.chain(teleport_effects.clone().into_iter())
 			.collect());
@@ -291,7 +291,7 @@ fn reserve_based_transfer_works() {
 				beneficiary: (Parent, Parachain(PARA_ID)).into(),
 			},
 		];
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((Here, amount).into()),
 			buy_execution(),
 			DepositReserveAsset {
@@ -311,7 +311,7 @@ fn reserve_based_transfer_works() {
 		);
 		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - amount);
-		let expected_msg = Xcm(vec![ReserveAssetDeposited((Parent, amount).into()), ClearOrigin]
+		let expected_msg = Xcm::new(vec![ReserveAssetDeposited((Parent, amount).into()), ClearOrigin]
 			.into_iter()
 			.chain(transfer_effects.into_iter())
 			.collect());

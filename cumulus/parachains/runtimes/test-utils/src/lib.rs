@@ -443,7 +443,7 @@ impl<
 {
 	pub fn execute_as_governance(call: Vec<u8>) -> Outcome {
 		// prepare xcm as governance will do
-		let xcm = Xcm(vec![
+		let xcm = Xcm::new(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
 				origin_kind: OriginKind::Superuser,

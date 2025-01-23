@@ -1416,7 +1416,7 @@ fn reserve_withdraw_from_untrusted_reserve_fails() {
 
 	// this should also fail
 	AssetHubWestend::execute_with(|| {
-		let xcm: Xcm<asset_hub_westend_runtime::RuntimeCall> = Xcm(vec![
+		let xcm: Xcm<asset_hub_westend_runtime::RuntimeCall> = Xcm::new(vec![
 			WithdrawAsset(assets.into()),
 			InitiateReserveWithdraw {
 				assets: Wild(All),

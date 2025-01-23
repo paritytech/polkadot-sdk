@@ -64,7 +64,7 @@ where
 	};
 	let assets = vec![asset.clone()];
 
-	let inner_xcm = Xcm(vec![
+	let inner_xcm = Xcm::new(vec![
 		WithdrawAsset(Assets::from(assets.clone())),
 		ClearOrigin,
 		BuyExecution { fees: asset, weight_limit: Unlimited },
@@ -82,7 +82,7 @@ where
 		Asset { id: AssetId(Location { parents: 1, interior: Here }), fun: Fungible(fee_amount) };
 
 	// prepare transfer token message
-	let xcm = Xcm(vec![
+	let xcm = Xcm::new(vec![
 		WithdrawAsset(Assets::from(vec![fee.clone()])),
 		BuyExecution { fees: fee, weight_limit: Unlimited },
 		ExportMessage {
@@ -337,7 +337,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 			};
 			let assets = vec![asset.clone()];
 
-			let inner_xcm = Xcm(vec![
+			let inner_xcm = Xcm::new(vec![
 				WithdrawAsset(Assets::from(assets.clone())),
 				ClearOrigin,
 				BuyExecution { fees: asset, weight_limit: Unlimited },
@@ -352,7 +352,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 			]);
 
 			// prepare transfer token message
-			let xcm = Xcm(vec![
+			let xcm = Xcm::new(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				ExportMessage {
 					network: Ethereum { chain_id: ethereum_chain_id },

@@ -50,7 +50,7 @@ fn sovereign_paid_remote_exporter_produces_xcm_which_does_not_trap_assets() {
 	// message type
 	let message = Exporter::validate(
 		&mut Some(Location::new(2, [GlobalConsensus(RemoteNetwork::get())])),
-		&mut Some(Xcm(vec![])),
+		&mut Some(Xcm::new(vec![])),
 	)
 	.expect("valid message");
 	let message = Xcm::<TestCall>::from(message.0 .1);

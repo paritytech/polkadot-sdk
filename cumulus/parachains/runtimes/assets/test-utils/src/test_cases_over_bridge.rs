@@ -428,7 +428,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			);
 
 			// Call received XCM execution
-			let xcm = Xcm(vec![
+			let xcm = Xcm::new(vec![
 				DescendOrigin(bridge_instance),
 				UniversalOrigin(universal_origin),
 				DescendOrigin(descend_origin),

@@ -144,7 +144,7 @@
 //! A very simple example is the following:
 //!
 //! ```ignore
-//! let message = Xcm(vec![
+//! let message = Xcm::new(vec![
 //!   TransferAsset { assets, beneficiary },
 //! ]);
 //! ```
@@ -154,7 +154,7 @@
 //! explicitly. This next example sheds more light on this:
 //!
 //! ```ignore
-//! let message = Xcm(vec![
+//! let message = Xcm::new(vec![
 //!   WithdrawAsset(assets),
 //!   BuyExecution { fees: assets, weight_limit },
 //!   DepositAsset { assets: AssetFilter(Wild(All)), beneficiary },

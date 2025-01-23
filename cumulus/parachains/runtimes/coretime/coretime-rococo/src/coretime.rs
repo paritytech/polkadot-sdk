@@ -67,7 +67,7 @@ fn burn_at_relay(stash: &AccountId, value: Balance) -> Result<(), XcmError> {
 	PolkadotXcm::send_xcm(
 		Here,
 		Location::parent(),
-		Xcm(vec![
+		Xcm::new(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
@@ -127,7 +127,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		use crate::coretime::CoretimeProviderCalls::RequestCoreCount;
 		let request_core_count_call = RelayRuntimePallets::Coretime(RequestCoreCount(count));
 
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
@@ -157,7 +157,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		let request_revenue_info_at_call =
 			RelayRuntimePallets::Coretime(RequestRevenueInfoAt(when));
 
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
@@ -186,7 +186,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		use crate::coretime::CoretimeProviderCalls::CreditAccount;
 		let credit_account_call = RelayRuntimePallets::Coretime(CreditAccount(who, amount));
 
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
@@ -251,7 +251,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		let assign_core_call =
 			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
 
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,

@@ -68,10 +68,10 @@ fn pay_over_xcm_works() {
 			AliasesIntoAccountId32<AnyNetwork, AccountId>,
 		>::pay(&recipient, asset_kind, amount));
 
-		let expected_message = Xcm(vec![
+		let expected_message = Xcm::new(vec![
 			DescendOrigin(AccountId32 { id: SenderAccount::get().into(), network: None }.into()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![
+			SetAppendix(Xcm::new(vec![
 				SetFeesMode { jit_withdraw: true },
 				ReportError(QueryResponseInfo {
 					destination: (Parent, Parachain(42)).into(),
@@ -136,10 +136,10 @@ fn pay_over_xcm_governance_body() {
 			AliasesIntoAccountId32<AnyNetwork, AccountId>,
 		>::pay(&recipient, asset_kind, amount));
 
-		let expected_message = Xcm(vec![
+		let expected_message = Xcm::new(vec![
 			DescendOrigin(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![
+			SetAppendix(Xcm::new(vec![
 				SetFeesMode { jit_withdraw: true },
 				ReportError(QueryResponseInfo {
 					destination: (Parent, Parachain(42)).into(),

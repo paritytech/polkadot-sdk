@@ -38,7 +38,7 @@ pub fn query_response_delivery_fees<S: SendXcm>(querier: Location) -> u128 {
 	// Message to calculate delivery fees, it's encoded size is what's important.
 	// This message reports that there was no error, if an error is reported, the encoded size would
 	// be different.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		SetFeesMode { jit_withdraw: true },
 		QueryResponse {
 			query_id: 0, // Dummy query id
@@ -60,10 +60,10 @@ pub fn pay_over_xcm_delivery_fees<S: SendXcm>(
 ) -> u128 {
 	// This is a dummy message.
 	// The encoded size is all that matters for delivery fees.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		DescendOrigin(interior),
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-		SetAppendix(Xcm(vec![
+		SetAppendix(Xcm::new(vec![
 			SetFeesMode { jit_withdraw: true },
 			ReportError(QueryResponseInfo {
 				destination: destination.clone(),
@@ -86,7 +86,7 @@ fn teleport_assets_dummy_message(
 	weight_limit: WeightLimit,
 	beneficiary: Location,
 ) -> Xcm<()> {
-	Xcm(vec![
+	Xcm::new(vec![
 		ReceiveTeleportedAsset(assets.clone()), // Same encoded size as `ReserveAssetDeposited`
 		ClearOrigin,
 		BuyExecution { fees: assets.get(fee_asset_item as usize).unwrap().clone(), weight_limit },
