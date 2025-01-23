@@ -21,17 +21,14 @@
 pub mod zombienet;
 
 use zombienet::{Network, ParachainConfig, RelaychainConfig};
+use zombienet_sdk::NetworkConfigExt;
 
 #[tokio::test(flavor = "multi_thread")]
 // TODO: continue this scenario
 async fn send_future_and_then_ready() {
-	let relay_chain = RelaychainConfig::new("polkadot".to_owned(), "rococo-local".to_owned());
-	let para_chain = ParachainConfig::new(
-		"polkadot-parachain".to_owned(),
-		"tests/zombienet/chain-specs/yap-westend-live-2022.json".to_owned(),
-		true,
-		2000,
-	);
-	let yap_net = zombienet::yap::YapNetwork::new(relay_chain, para_chain).unwrap();
-	let _network_handle = yap_net.start().await.unwrap();
+	let net_config = zombienet_configuration::NetworkConfig::load_from_toml(
+		"tests/zombienet/network-specs/small_network-yap.toml",
+	)
+	.unwrap();
+	let _net = net_config.spawn_native().await.unwrap();
 }

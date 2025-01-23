@@ -1,0 +1,60 @@
+[relaychain]
+# single-state
+# fork-aware
+default_image = "parity/polkadot:latest"
+default_command = "polkadot"
+chain = "rococo-local"
+
+[[relaychain.nodes]]
+name = "alice"
+ws_port = 9944
+validator = true
+
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+# chain = "asset-hub-rococo-local"
+chain = "asset-hub-rococo-local-20k.json"
+default_image = "parity/polkadot-parachain:latest"
+default_command = "polkadot-parachain"
+default_args = [
+	"--force-authoring",
+	"--pool-kbytes 2048000",
+	"--pool-limit 300",
+	"--pool-type=fork-aware",
+	"--rpc-max-connections 15000",
+	"--rpc-max-response-size 150",
+	"--rpc-max-subscriptions-per-connection=128000",
+	"--state-pruning=1024",
+	"-laura::cumulus=debug",
+	"-lbasic-authorship=info",
+	"-lpeerset=trace",
+	"-lsub-libp2p=debug",
+	"-lsync=trace",
+	"-ltxpool=debug",
+]
+
+# run charlie as parachain collator
+[[parachains.collators]]
+name = "charlie"
+validator = false
+ws_port = 9933
+
+[[parachains.collators]]
+name = "dave"
+validator = true
+ws_port = 9934
+
+[[parachains.collators]]
+name = "eve"
+validator = true
+ws_port = 9935
+
+[[parachains.collators]]
+name = "ferdie"
+validator = true
+ws_port = 9935

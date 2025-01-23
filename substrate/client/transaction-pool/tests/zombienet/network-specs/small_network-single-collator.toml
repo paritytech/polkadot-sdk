@@ -1,0 +1,43 @@
+[relaychain]
+# single-state
+# fork-aware
+default_image = "parity/polkadot:latest"
+default_command = "polkadot"
+chain = "rococo-local"
+
+[[relaychain.nodes]]
+name = "alice"
+ws_port = 9944
+validator = true
+
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+chain = "tests/zombienet/chain-specs/yap-westend-live-2022.json"
+default_image = "parity/polkadot-parachain:latest"
+
+[[parachains.collators]]
+name = "charlie"
+validator = true
+command = "polkadot-parachain"
+args = [
+	"--force-authoring",
+	"--pool-kbytes 2048000",
+	"--pool-limit 500000",
+	"--rpc-max-connections 15000",
+	"--rpc-max-response-size 150",
+	"-laura::cumulus=info",
+	"-lbasic-authorship=info",
+	"-lpeerset=info",
+	"-lsub-libp2p=info",
+	"-lsync=info",
+	"-ltxpool=info",
+	# "--pool-type=fork-aware",
+	"--rpc-max-subscriptions-per-connection=128000",
+	"--state-pruning=1024",
+]
+ws_port = 9933

@@ -24,11 +24,11 @@ use derive_builder::Builder;
 use zombienet_configuration::{shared::types::Arg, types::ParaId};
 use zombienet_sdk::{LocalFileSystem, Network as ZNetwork, NetworkConfig};
 
-pub mod limits_30;
-pub mod old_pool;
-pub mod old_pool_small;
-pub mod single_collator;
-pub mod yap;
+//pub mod limits_30;
+//pub mod old_pool;
+//pub mod old_pool_small;
+//pub mod single_collator;
+//pub mod yap;
 
 const DEFAULT_BASE_DIR: &'static str = "/tmp/zn-spawner";
 const DEFAULT_RC_NODE_RPC_PORT: u16 = 9944;
