@@ -1518,6 +1518,15 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 				.into(),
 		};
 
+		// TODO: this is somewhat temp hack to fix this issue:
+		// in the new multi-block staking model, we finish the election one block before the session
+		// ends. In this very last block, we don't want to tell EP that the next election is in one
+		// blocks, but rather in a whole era from now.
+
+		if until_this_session_end == One::one() && sessions_left.is_zero() {
+			return now.saturating_add(T::SessionsPerEra::get().into() * session_length)
+		}
+
 		now.saturating_add(
 			until_this_session_end.saturating_add(sessions_left.saturating_mul(session_length)),
 		)
