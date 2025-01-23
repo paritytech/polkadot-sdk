@@ -57,6 +57,10 @@
 //! `update_bond`, but candidates who are on top slots and try to decrease their deposits will fail
 //! in order to enforce auction mechanics and have meaningful bids.
 //!
+//! Candidates that are kicked or intentionally leave the auction will have their deposit reserved
+//! for an additional period of time, referred to as the unbonding period. The deposit can be
+//! unreserved after the unbonding period has passed.
+//!
 //! Candidates will not be allowed to get kicked or `leave_intent` if the total number of collators
 //! would fall below `MinEligibleCollators`. This is to ensure that some collators will always
 //! exist, i.e. someone is eligible to produce a block.
@@ -173,7 +177,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type KickThreshold: Get<BlockNumberFor<Self>>;
 
-		/// TODO
+		/// The additional period of time the candidate deposits are reserved for after being kicked
+		/// or leaving the candidate set.
 		type UnbondingPeriod: Get<BlockNumberFor<Self>>;
 
 		/// A stable ID for a validator.
@@ -248,7 +253,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CandidacyBond<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-	/// TODO
+	/// Information about the candidates that have started the unbonding process.
 	#[pallet::storage]
 	pub type UnbondingCandidates<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, (BalanceOf<T>, BlockNumberFor<T>)>;
@@ -313,7 +318,7 @@ pub mod pallet {
 		/// An account was unable to be added to the Invulnerables because they did not have keys
 		/// registered. Other Invulnerables may have been set.
 		InvalidInvulnerableSkipped { account_id: T::AccountId },
-		/// TODO
+		/// A deposit has been withdrawn.
 		UnbondedWithdrawn { account_id: T::AccountId, deposit: BalanceOf<T> },
 	}
 
@@ -353,11 +358,11 @@ pub mod pallet {
 		IdenticalDeposit,
 		/// Cannot lower candidacy bond while occupying a future collator slot in the list.
 		InvalidUnreserve,
-		/// TODO
+		/// There is no unbonding deposit associated with the account.
 		NotUnbonding,
-		/// TODO
+		/// The unbonding period hasn't passed for the deposit to be withdrawable.
 		EarlyWithdraw,
-		/// TODO
+		/// The candidate's deposit is still unbonding.
 		StillUnbonding,
 	}
 
@@ -581,7 +586,8 @@ pub mod pallet {
 		}
 
 		/// Deregister `origin` as a collator candidate. Note that the collator can only leave on
-		/// session change. The `CandidacyBond` will be unreserved immediately.
+		/// session change. The `CandidacyBond` will remain reserved and, after the unbonding period
+		/// passes, it can be unreserved using [`withdraw_unbonded`](Call::withdraw_unbonded).
 		///
 		/// This call will fail if the total number of candidates would drop below
 		/// `MinEligibleCollators`.
@@ -827,7 +833,10 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::take_candidate_slot(length as u32)).into())
 		}
 
-		/// TODO
+		/// The caller `origin` unreserves their deposit as a candidate.
+		///
+		/// This call will fail if the caller does not have an unbonding deposit or if the unbonding
+		/// period has not passed since unbonding the deposit.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded())]
 		pub fn withdraw_unbonded(origin: OriginFor<T>) -> DispatchResult {
@@ -836,7 +845,7 @@ pub mod pallet {
 			let (deposit, unbond_start) =
 				UnbondingCandidates::<T>::take(&who).ok_or(Error::<T>::NotUnbonding)?;
 			ensure!(
-				unbond_start.saturating_add(T::UnbondingPeriod::get()) >= now,
+				unbond_start.saturating_add(T::UnbondingPeriod::get()) <= now,
 				Error::<T>::EarlyWithdraw
 			);
 			T::Currency::unreserve(&who, deposit);
@@ -861,7 +870,8 @@ pub mod pallet {
 				.unwrap_or(u32::MAX)
 		}
 
-		/// Removes a candidate if they exist and sends them back their deposit.
+		/// Removes a candidate if they exist and sends them back their deposit if they are still
+		/// collating.
 		fn try_remove_candidate(
 			who: &T::AccountId,
 			still_collating: bool,
@@ -874,9 +884,15 @@ pub mod pallet {
 				let deposit = candidates[idx].deposit;
 
 				candidates.remove(idx);
+				// If the candiadte is still collating, this means it was promoted to invulnerable
+				// or is already an invulnerable and shouldn't be a candidate in the first place.
 				if still_collating {
+					// Unreserve their deposit immediately.
 					T::Currency::unreserve(who, deposit);
 				} else {
+					// If the candidate isn't collating anymore, then they were either kicked or
+					// they left the list on their own. In this case, we start unbonding their
+					// deposit and we remove their entry in the authored blocks map.
 					let now = frame_system::Pallet::<T>::block_number();
 					UnbondingCandidates::<T>::insert(&who, (deposit, now));
 					LastAuthoredBlock::<T>::remove(who.clone())

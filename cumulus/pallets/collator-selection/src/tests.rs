@@ -13,10 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate as collator_selection;
 use crate::{
-	mock::*, CandidacyBond, CandidateInfo, CandidateList, DesiredCandidates, Error, Invulnerables,
-	LastAuthoredBlock,
+	self as collator_selection, mock::*, CandidacyBond, CandidateInfo, CandidateList,
+	DesiredCandidates, Error, Invulnerables, LastAuthoredBlock, UnbondingCandidates,
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -593,6 +592,31 @@ fn cannot_register_as_candidate_if_poor() {
 }
 
 #[test]
+fn cannot_register_as_candidate_if_unbonding() {
+	new_test_ext().execute_with(|| {
+		let bond = CandidacyBond::<Test>::get();
+		// can add 3 as candidate
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+		// tuple of (id, deposit).
+		let addition = CandidateInfo { who: 3, deposit: 10 };
+		assert_eq!(
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
+			vec![addition]
+		);
+		assert_eq!(LastAuthoredBlock::<Test>::get(3), 10);
+		assert_eq!(Balances::free_balance(3), 90);
+		// mark the candidate as unbonding
+		UnbondingCandidates::<Test>::insert(3, (bond, 0));
+
+		// the candidate cannot register anymore
+		assert_noop!(
+			CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)),
+			Error::<Test>::StillUnbonding,
+		);
+	});
+}
+
+#[test]
 fn register_as_candidate_works() {
 	new_test_ext().execute_with(|| {
 		// given
@@ -613,6 +637,91 @@ fn register_as_candidate_works() {
 		assert_eq!(Balances::free_balance(4), 90);
 
 		assert_eq!(CandidateList::<Test>::get().iter().count(), 2);
+	});
+}
+
+#[test]
+fn reregister_after_unbonding_works() {
+	new_test_ext().execute_with(|| {
+		let bond = CandidacyBond::<Test>::get();
+		let unboding_delay = <Test as collator_selection::Config>::UnbondingPeriod::get();
+		// can add 3 as candidate
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+		// tuple of (id, deposit).
+		let addition = CandidateInfo { who: 3, deposit: 10 };
+		assert_eq!(
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
+			vec![addition]
+		);
+		assert_eq!(LastAuthoredBlock::<Test>::get(3), 10);
+		assert_eq!(Balances::free_balance(3), 90);
+
+		// candidate leaves and had their bond withheld
+		assert_ok!(CollatorSelection::leave_intent(RuntimeOrigin::signed(3)));
+		assert_eq!(Balances::free_balance(3), 100 - bond);
+		assert_eq!(UnbondingCandidates::<Test>::get(3).unwrap(), (bond, 0));
+
+		// the candidate cannot register anymore
+		assert_noop!(
+			CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)),
+			Error::<Test>::StillUnbonding,
+		);
+
+		initialize_to_block(10 + unboding_delay);
+		// withdraw the bond
+		assert_ok!(CollatorSelection::withdraw_unbonded(RuntimeOrigin::signed(3)));
+		assert_eq!(Balances::free_balance(3), 100);
+		assert!(!UnbondingCandidates::<Test>::contains_key(3));
+		// now 3 can register again
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+	});
+}
+
+#[test]
+fn withdraw_unbonding_works() {
+	new_test_ext().execute_with(|| {
+		let bond = CandidacyBond::<Test>::get();
+		let unboding_delay = <Test as collator_selection::Config>::UnbondingPeriod::get();
+
+		// can't withdraw the bond of nonexistent candidate
+		assert_noop!(
+			CollatorSelection::withdraw_unbonded(RuntimeOrigin::signed(1)),
+			Error::<Test>::NotUnbonding
+		);
+
+		// can add 3 as candidate
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+		// tuple of (id, deposit).
+		let addition = CandidateInfo { who: 3, deposit: 10 };
+		assert_eq!(
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
+			vec![addition]
+		);
+		assert_eq!(LastAuthoredBlock::<Test>::get(3), 10);
+		assert_eq!(Balances::free_balance(3), 90);
+
+		// can't withdraw the bond of a candidate that didn't leave the set
+		assert_noop!(
+			CollatorSelection::withdraw_unbonded(RuntimeOrigin::signed(3)),
+			Error::<Test>::NotUnbonding
+		);
+
+		// candidate leaves and had their bond withheld
+		assert_ok!(CollatorSelection::leave_intent(RuntimeOrigin::signed(3)));
+		assert_eq!(Balances::free_balance(3), 100 - bond);
+		assert_eq!(UnbondingCandidates::<Test>::get(3).unwrap(), (bond, 0));
+
+		// can't withdraw the bond until the full unbonding period has passed
+		assert_noop!(
+			CollatorSelection::withdraw_unbonded(RuntimeOrigin::signed(3)),
+			Error::<Test>::EarlyWithdraw
+		);
+
+		initialize_to_block(10 + unboding_delay / 2);
+		// withdraw the bond
+		assert_ok!(CollatorSelection::withdraw_unbonded(RuntimeOrigin::signed(3)));
+		assert_eq!(Balances::free_balance(3), 100);
+		assert!(!UnbondingCandidates::<Test>::contains_key(3));
 	});
 }
 
@@ -1139,13 +1248,14 @@ fn candidate_list_works() {
 #[test]
 fn leave_intent() {
 	new_test_ext().execute_with(|| {
+		let bond = CandidacyBond::<Test>::get();
 		// register a candidate.
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
-		assert_eq!(Balances::free_balance(3), 90);
+		assert_eq!(Balances::free_balance(3), 100 - bond);
 
 		// register too so can leave above min candidates
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)));
-		assert_eq!(Balances::free_balance(5), 90);
+		assert_eq!(Balances::free_balance(5), 100 - bond);
 
 		// cannot leave if not candidate.
 		assert_noop!(
@@ -1153,10 +1263,11 @@ fn leave_intent() {
 			Error::<Test>::NotCandidate
 		);
 
-		// bond is returned
+		// bond is withheld
 		assert_ok!(CollatorSelection::leave_intent(RuntimeOrigin::signed(3)));
-		assert_eq!(Balances::free_balance(3), 100);
+		assert_eq!(Balances::free_balance(3), 100 - bond);
 		assert_eq!(LastAuthoredBlock::<Test>::get(3), 0);
+		assert_eq!(UnbondingCandidates::<Test>::get(3).unwrap().0, bond);
 	});
 }
 
@@ -1471,6 +1582,7 @@ fn session_management_decrease_bid_after_auction() {
 #[test]
 fn kick_mechanism() {
 	new_test_ext().execute_with(|| {
+		let bond = CandidacyBond::<Test>::get();
 		// add a new collator
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
@@ -1483,7 +1595,7 @@ fn kick_mechanism() {
 		// 3 will be kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 3, 4]);
 		// tuple of (id, deposit).
-		let collator = CandidateInfo { who: 4, deposit: 10 };
+		let collator = CandidateInfo { who: 4, deposit: bond };
 		assert_eq!(
 			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![collator]
@@ -1492,8 +1604,9 @@ fn kick_mechanism() {
 		initialize_to_block(30);
 		// 3 gets kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 4]);
-		// kicked collator gets funds back
-		assert_eq!(Balances::free_balance(3), 100);
+		// kicked collator's deposit is withheld
+		assert_eq!(Balances::free_balance(3), 100 - bond);
+		assert_eq!(UnbondingCandidates::<Test>::get(3).unwrap().0, bond);
 	});
 }
 
@@ -1502,6 +1615,7 @@ fn should_not_kick_mechanism_too_few() {
 	new_test_ext().execute_with(|| {
 		// remove the invulnerables and add new collators 3 and 5
 
+		let bond = CandidacyBond::<Test>::get();
 		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
 		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 		assert_ok!(CollatorSelection::remove_invulnerable(
@@ -1525,7 +1639,7 @@ fn should_not_kick_mechanism_too_few() {
 		// 3 will be kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![3, 5]);
 		// tuple of (id, deposit).
-		let collator = CandidateInfo { who: 3, deposit: 10 };
+		let collator = CandidateInfo { who: 3, deposit: bond };
 		assert_eq!(
 			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![collator]
@@ -1535,8 +1649,9 @@ fn should_not_kick_mechanism_too_few() {
 		initialize_to_block(30);
 		// 3 gets kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![3]);
-		// kicked collator gets funds back
-		assert_eq!(Balances::free_balance(5), 100);
+		// kicked collator's deposit is withheld
+		assert_eq!(Balances::free_balance(5), 100 - bond);
+		assert_eq!(UnbondingCandidates::<Test>::get(5).unwrap().0, bond);
 	});
 }
 
