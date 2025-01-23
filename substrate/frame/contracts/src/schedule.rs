@@ -114,7 +114,7 @@ impl Limits {
 #[scale_info(skip_type_params(T))]
 pub struct InstructionWeights<T: Config> {
 	/// Base instruction `ref_time` Weight.
-	/// Should match to wasmi's `1` fuel (see <https://github.com/paritytech/wasmi/issues/701>).
+	/// Should match to wasmi's `1` fuel (see <https://github.com/wasmi-labs/wasmi/issues/701>).
 	pub base: u32,
 	/// The type parameter is used in the default implementation.
 	#[codec(skip)]
