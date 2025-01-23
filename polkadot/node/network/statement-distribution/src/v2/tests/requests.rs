@@ -38,7 +38,6 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors,
 	};
 
@@ -202,13 +201,14 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: Some(AsyncBackingParams {
-			// Makes `seconding_limit: 2` (easier to hit the limit).
-			max_candidate_depth: 1,
-			allowed_ancestry_len: 3,
-		}),
 		allow_v2_descriptors: false,
 	};
+
+	// Some(AsyncBackingParams {
+	// 	// Makes `seconding_limit: 2` (easier to hit the limit).
+	// 	max_candidate_depth: 1,
+	// 	allowed_ancestry_len: 3,
+	// }),
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -482,7 +482,6 @@ fn peer_reported_for_not_enough_statements() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -670,7 +669,6 @@ fn peer_reported_for_duplicate_statements() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -824,7 +822,6 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -956,7 +953,6 @@ fn peer_reported_for_invalid_v2_descriptor() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: true,
 	};
 
@@ -1234,7 +1230,6 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors,
 	};
 
@@ -1365,7 +1360,6 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1496,7 +1490,6 @@ fn disabled_validators_added_to_unwanted_mask() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1663,7 +1656,6 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1863,7 +1855,6 @@ fn local_node_sanity_checks_incoming_requests() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2065,7 +2056,6 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2265,7 +2255,6 @@ fn local_node_respects_statement_mask() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2508,7 +2497,6 @@ fn should_delay_before_retrying_dropped_requests() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
