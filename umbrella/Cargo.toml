@@ -686,15 +686,15 @@ default-features = false
 optional = true
 path = "../bridges/primitives/test-utils"
 
-[dependencies.bp-xcm-bridge-hub]
-default-features = false
-optional = true
-path = "../bridges/primitives/xcm-bridge-hub"
-
 [dependencies.bp-xcm-bridge]
 default-features = false
 optional = true
 path = "../bridges/primitives/xcm-bridge"
+
+[dependencies.bp-xcm-bridge-hub]
+default-features = false
+optional = true
+path = "../bridges/primitives/xcm-bridge-hub"
 
 [dependencies.bp-xcm-bridge-hub-router]
 default-features = false
@@ -1391,15 +1391,15 @@ default-features = false
 optional = true
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
 
-[dependencies.pallet-xcm-bridge-hub]
-default-features = false
-optional = true
-path = "../bridges/modules/xcm-bridge-hub"
-
 [dependencies.pallet-xcm-bridge]
 default-features = false
 optional = true
 path = "../bridges/modules/xcm-bridge"
+
+[dependencies.pallet-xcm-bridge-hub]
+default-features = false
+optional = true
+path = "../bridges/modules/xcm-bridge-hub"
 
 [dependencies.pallet-xcm-bridge-hub-router]
 default-features = false

@@ -42,7 +42,7 @@ members = [
 	"bridges/primitives/xcm-bridge",
 	"bridges/primitives/xcm-bridge-hub",
 	"bridges/primitives/xcm-bridge-hub-router",
-    "bridges/primitives/xcm-bridge-router",
+	"bridges/primitives/xcm-bridge-router",
 	"bridges/relays/client-substrate",
 	"bridges/relays/equivocation",
 	"bridges/relays/finality",
