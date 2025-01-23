@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-// TODO: use it
 use assert_matches::assert_matches;
 use polkadot_node_subsystem::messages::{
 	AllMessages, HypotheticalMembershipRequest, ParentHeadData, ProspectiveParachainsMessage,
@@ -32,7 +31,6 @@ use polkadot_primitives::{
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
-use rstest as _;
 use std::{
 	collections::{BTreeMap, VecDeque},
 	sync::Arc,

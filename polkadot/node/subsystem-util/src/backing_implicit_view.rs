@@ -647,7 +647,7 @@ mod tests {
 		make_subsystem_context, TestSubsystemContextHandle,
 	};
 	use polkadot_overseer::SubsystemContext;
-	use polkadot_primitives::{AsyncBackingParams, Header};
+	use polkadot_primitives::Header;
 	use sp_core::testing::TaskExecutor;
 	use std::time::Duration;
 
@@ -748,23 +748,24 @@ mod tests {
 		);
 	}
 
-	async fn assert_async_backing_params_request(
+	async fn assert_scheduling_lookahead_request(
 		virtual_overseer: &mut VirtualOverseer,
 		leaf: Hash,
-		params: AsyncBackingParams,
+		lookahead: u32,
 	) {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(
 					leaf_hash,
-					RuntimeApiRequest::AsyncBackingParams(
+					RuntimeApiRequest::SchedulingLookahead(
+						_,
 						tx
 					)
 				)
 			) => {
 				assert_eq!(leaf, leaf_hash, "received unexpected leaf hash");
-				tx.send(Ok(params)).unwrap();
+				tx.send(Ok(lookahead)).unwrap();
 			}
 		);
 	}
@@ -951,17 +952,10 @@ mod tests {
 		let overseer_fut = async {
 			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[leaf_idx..]).await;
 
-			assert_async_backing_params_request(
-				&mut ctx_handle,
-				*leaf,
-				AsyncBackingParams {
-					max_candidate_depth: 0,
-					allowed_ancestry_len: PARA_A_MIN_PARENT,
-				},
-			)
-			.await;
-
 			assert_session_index_request(&mut ctx_handle, *leaf, current_session).await;
+
+			assert_scheduling_lookahead_request(&mut ctx_handle, *leaf, PARA_A_MIN_PARENT + 1)
+				.await;
 
 			assert_ancestors_request(
 				&mut ctx_handle,
@@ -1025,17 +1019,10 @@ mod tests {
 		let overseer_fut = async {
 			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[leaf_idx..]).await;
 
-			assert_async_backing_params_request(
-				&mut ctx_handle,
-				*leaf,
-				AsyncBackingParams {
-					max_candidate_depth: 0,
-					allowed_ancestry_len: blocks.len() as u32,
-				},
-			)
-			.await;
-
 			assert_session_index_request(&mut ctx_handle, *leaf, current_session).await;
+
+			assert_scheduling_lookahead_request(&mut ctx_handle, *leaf, blocks.len() as u32 + 1)
+				.await;
 
 			assert_ancestors_request(
 				&mut ctx_handle,

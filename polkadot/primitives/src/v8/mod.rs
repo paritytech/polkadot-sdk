@@ -2135,11 +2135,13 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 #[cfg(test)]
+/// Test helpers
 pub mod tests {
 	use super::*;
 	use bitvec::bitvec;
 	use sp_core::sr25519;
 
+	/// Create a dummy committed candidate receipt
 	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
 		let zeros = Hash::zero();
 

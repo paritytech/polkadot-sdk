@@ -307,6 +307,10 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, ApiError> {
 		todo!("Not required for tests")
 	}
+
+	async fn scheduling_lookahead(&self, _: Hash) -> Result<u32, ApiError> {
+		todo!("Not required for tests")
+	}
 }
 
 #[test]

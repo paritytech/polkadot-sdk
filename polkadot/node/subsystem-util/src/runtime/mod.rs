@@ -470,7 +470,6 @@ where
 
 /// Request the min backing votes value.
 /// Prior to runtime API version 6, just return a hardcoded constant.
-/// TODO: remove special handling.
 pub async fn request_min_backing_votes(
 	parent: Hash,
 	session_index: SessionIndex,
@@ -501,7 +500,6 @@ pub async fn request_min_backing_votes(
 /// Request the node features enabled in the runtime.
 /// Pass in the session index for caching purposes, as it should only change on session boundaries.
 /// Prior to runtime API version 9, just return `None`.
-/// TODO: remove special handling.
 pub async fn request_node_features(
 	parent: Hash,
 	session_index: SessionIndex,

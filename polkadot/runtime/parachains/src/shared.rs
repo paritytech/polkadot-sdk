@@ -292,7 +292,13 @@ impl<T: Config> Pallet<T> {
 		max_ancestry_len: u32,
 	) {
 		AllowedRelayParents::<T>::mutate(|tracker| {
-			tracker.update(relay_parent, state_root, claim_queue, number, max_ancestry_len)
+			tracker.update(
+				relay_parent,
+				state_root,
+				claim_queue,
+				number,
+				max_ancestry_len as usize + 1,
+			)
 		})
 	}
 }
