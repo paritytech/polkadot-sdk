@@ -18,7 +18,7 @@ fn bls381_works_in_runtime() {
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
 
-	let public = runtime_api.test_bls381_crypto(test_client.chain_info().genesis_hash).expect("things didnt fail");
+	let public = runtime_api.test_bls381_crypto(test_client.chain_info().genesis_hash).expect("Tests `bls381` crypto.");
 
 	let supported_keys = keystore.keys(BLS381).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));

@@ -811,7 +811,7 @@ impl_runtime_apis! {
 }
 
 fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic) {
-	let public0 = ed25519::AppPublic::generate_pair(None);
+	let mut public0 = ed25519::AppPublic::generate_pair(None);
 	let public1 = ed25519::AppPublic::generate_pair(None);
 	let public2 = ed25519::AppPublic::generate_pair(None);
 
@@ -820,13 +820,16 @@ fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic) {
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
+	let pop = public0.generate_pop().expect("Cant generate Pop for ecdsa");
+	assert!(public0.verify_pop(&pop));
+
 	let signature = public0.sign(&"ed25519").expect("Generates a valid `ed25519` signature.");
 	assert!(public0.verify(&"ed25519", &signature));
 	(signature, public0)
 }
 
 fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic) {
-	let public0 = sr25519::AppPublic::generate_pair(None);
+	let mut public0 = sr25519::AppPublic::generate_pair(None);
 	let public1 = sr25519::AppPublic::generate_pair(None);
 	let public2 = sr25519::AppPublic::generate_pair(None);
 
@@ -835,13 +838,16 @@ fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic) {
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
+	let pop = public0.generate_pop().expect("Cant generate Pop for ecdsa");
+	assert!(public0.verify_pop(&pop));
+
 	let signature = public0.sign(&"sr25519").expect("Generates a valid `sr25519` signature.");
 	assert!(public0.verify(&"sr25519", &signature));
 	(signature, public0)
 }
 
 fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
-	let public0 = ecdsa::AppPublic::generate_pair(None);
+	let mut public0 = ecdsa::AppPublic::generate_pair(None);
 	let public1 = ecdsa::AppPublic::generate_pair(None);
 	let public2 = ecdsa::AppPublic::generate_pair(None);
 
@@ -849,6 +855,9 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
 	assert!(all.contains(&public0));
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
+
+	let pop = public0.generate_pop().expect("Cant generate Pop for ecdsa");
+	assert!(public0.verify_pop(&pop));
 
 	let signature = public0.sign(&"ecdsa").expect("Generates a valid `ecdsa` signature.");
 
@@ -860,7 +869,7 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
 fn test_bls381_crypto() -> Bls381Public {
 	let mut public0 = bls381::AppPublic::generate_pair(None);
 
-	let pop = public0.generate_pop().expect("Can generate Pop for bls381");
+	let pop = public0.generate_pop().expect("Cant generate Pop for bls381");
 
 	assert!(public0.verify_pop(&pop));
 	public0
@@ -870,7 +879,7 @@ fn test_bls381_crypto() -> Bls381Public {
 fn test_ecdsa_bls381_crypto() -> EcdsaBls381Public {
 	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 
-	let pop = public0.generate_pop().expect("Can Generate Pop");
+	let pop = public0.generate_pop().expect("Cant Generate Pop for ecdsa_bls381");
 
 	assert!(public0.verify_pop(&pop));
 	public0
