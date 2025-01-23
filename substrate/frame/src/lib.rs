@@ -202,12 +202,10 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::{
-		defensive, defensive_assert,
-		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		},
+	pub use frame_support::traits::{
+		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
+		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+		VariantCount, VariantCountOf,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -225,6 +223,9 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
+	/// All account related things.
+	pub use super::account::*;
+
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
@@ -234,6 +235,10 @@ pub mod prelude {
 		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
+
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec};
+
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
@@ -321,7 +326,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, hypothetically, storage_alias,
+		assert_storage_noop, ensure, hypothetically, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
@@ -549,6 +554,16 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+	};
+	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,

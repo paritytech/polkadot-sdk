@@ -131,6 +131,12 @@ jobs:
       - name: Copy over the new changes
         run: |
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
+      - name: Remove unnecessary files from parachain template
+        if: ${{ matrix.template == 'parachain' }}
+        run: |
+          rm -f "${{ env.template-path }}/README.docify.md"
+          rm -f "${{ env.template-path }}/Cargo.toml"
+          rm -f "${{ env.template-path }}/src/lib.rs"
 
       - name: Run psvm on monorepo workspace dependencies
         run: psvm -o -v ${{ github.event.inputs.stable_release_branch }} -p ./Cargo.toml
