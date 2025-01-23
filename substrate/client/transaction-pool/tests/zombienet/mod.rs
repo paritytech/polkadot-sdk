@@ -18,11 +18,8 @@
 
 // Integration tests for fork-aware transaction pool.
 
-use std::path::PathBuf;
-
-use derive_builder::Builder;
-use zombienet_configuration::{shared::types::Arg, types::ParaId};
-use zombienet_sdk::{LocalFileSystem, Network as ZNetwork, NetworkConfig, NetworkConfigExt};
+use anyhow::anyhow;
+use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig, NetworkConfigExt};
 
 const DEFAULT_BASE_DIR: &'static str = "/tmp/zn-spawner";
 
@@ -31,9 +28,9 @@ const YAP_HIGH_POOL_LIMIT_OLDP_SPEC_PATH: &'static str =
 const YAP_HIGH_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
 	"tests/zombienet/network-specs/yap-high-pool-limit-fatp.toml";
 
-#[thiserror::Error]
+#[derive(thiserror::Error, Debug)]
 enum Error {
-	#[error = "Network initialization failure: {0}"]
+	#[error("Network initialization failure: {0}")]
 	NetworkInit(anyhow::Error),
 }
 
@@ -42,7 +39,7 @@ type Result<T> = std::result::Result<T, Error>;
 struct NetworkSpawner;
 
 impl NetworkSpawner {
-	async fn init_from_yap_oldp_high_pool_limit_spec() -> Result<Network<LocalFileSystem>, Error> {
+	async fn init_from_yap_oldp_high_pool_limit_spec() -> Result<Network<LocalFileSystem>> {
 		let net_config = NetworkConfig::load_from_toml(YAP_HIGH_POOL_LIMIT_OLDP_SPEC_PATH)
 			.map_err(Error::NetworkInit)?;
 		net_config
@@ -51,7 +48,7 @@ impl NetworkSpawner {
 			.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))
 	}
 
-	async fn init_from_yap_fatp_high_pool_limit_spec() -> Result<Network<LocalFileSystem>, Error> {
+	async fn init_from_yap_fatp_high_pool_limit_spec() -> Result<Network<LocalFileSystem>> {
 		let net_config = NetworkConfig::load_from_toml(YAP_GHIGH_POOL_LIMIT_FATP_SPEC_PATH)
 			.map_err(Error::NetworkInit)?;
 		net_config

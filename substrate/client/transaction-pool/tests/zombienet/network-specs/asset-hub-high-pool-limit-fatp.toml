@@ -20,7 +20,7 @@ default_command = "polkadot-parachain"
 default_image = "parity/polkadot-parachain:latest"
 # run charlie as parachain collatorid = 2000
 cumulus_based = true
-chain = "tests/zombienet/chain-specs/asset-hub-rococo-local-20k.json"
+genesis_wasm_path = "target/release/asset-hub-rococo-runtime/asset_hub_rococo_runtime.wasm"
 default_args = [
 	"--force-authoring",
 	"--pool-kbytes 2048000",
