@@ -96,13 +96,6 @@ benchmarks! {
 		)?
 		.into();
 		let versioned_msg = VersionedXcm::from(msg);
-
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		T::DeliveryHelper::ensure_successful_delivery(
-			&Default::default(),
-			&versioned_dest.clone().try_into().unwrap(),
-			FeeReason::ChargeFees,
-		);
 	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_msg))
 
 	teleport_assets {
@@ -171,7 +164,7 @@ benchmarks! {
 		}
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		T::DeliveryHelper::ensure_successful_delivery(
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
 			&origin_location,
 			&destination,
 			FeeReason::ChargeFees,
@@ -234,13 +227,6 @@ benchmarks! {
 		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
-
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		T::DeliveryHelper::ensure_successful_delivery(
-			&Default::default(),
-			&versioned_dest.clone().try_into().unwrap(),
-			FeeReason::ChargeFees,
-		);
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0, WeightLimit::Unlimited)
 	verify {
 		// run provided verification function
@@ -273,14 +259,6 @@ benchmarks! {
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?
 		.into();
-
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		T::DeliveryHelper::ensure_successful_delivery(
-			&Default::default(),
-			&versioned_loc.clone().try_into().unwrap(),
-			FeeReason::ChargeFees,
-		);
-
 	}: _(RawOrigin::Root, Box::new(versioned_loc))
 
 	force_unsubscribe_version_notify {
@@ -288,14 +266,6 @@ benchmarks! {
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 		let versioned_loc: VersionedLocation = loc.clone().into();
-
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		T::DeliveryHelper::ensure_successful_delivery(
-			&Default::default(),
-			&versioned_loc.clone().try_into().unwrap(),
-			FeeReason::ChargeFees,
-		);
-
 		let _ = crate::Pallet::<T>::request_version_notify(loc);
 	}: _(RawOrigin::Root, Box::new(versioned_loc))
 

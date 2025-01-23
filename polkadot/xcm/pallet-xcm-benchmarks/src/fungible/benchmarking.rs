@@ -231,13 +231,6 @@ benchmarks_instance_pallet! {
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
-			&Default::default(),
-			&dest_location,
-			FeeReason::ChargeFees,
-		);
-
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
 		let instruction = Instruction::<XcmCallOf<T>>::DepositAsset {
@@ -264,13 +257,6 @@ benchmarks_instance_pallet! {
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
-			&Default::default(),
-			&dest_location,
-			FeeReason::ChargeFees,
-		);
-
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
 		let instruction = Instruction::<XcmCallOf<T>>::DepositReserveAsset {
@@ -295,20 +281,12 @@ benchmarks_instance_pallet! {
 
 		// Checked account starts at zero
 		assert!(T::CheckedAccount::get().map_or(true, |(c, _)| T::TransactAsset::balance(&c).is_zero()));
-		let dest_location =  T::valid_destination()?;
-
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
-			&Default::default(),
-			&dest_location,
-			FeeReason::ChargeFees,
-		);
 
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
 		let instruction = Instruction::<XcmCallOf<T>>::InitiateTeleport {
 			assets: asset.into(),
-			dest: dest_location,
+			dest: T::valid_destination()?,
 			xcm: Xcm::new(),
 		};
 		let xcm = Xcm(vec![instruction]);

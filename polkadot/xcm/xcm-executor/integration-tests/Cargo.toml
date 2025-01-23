@@ -13,17 +13,14 @@ workspace = true
 [dependencies]
 codec = { workspace = true, default-features = true }
 frame-support.workspace = true
-frame-system.workspace = true
 futures = { workspace = true }
 pallet-transaction-payment.workspace = true
 pallet-transaction-payment.default-features = true
-pallet-sudo.workspace = true
 pallet-xcm.workspace = true
 pallet-xcm.default-features = true
 polkadot-test-client.workspace = true
 polkadot-test-runtime.workspace = true
 polkadot-test-service.workspace = true
-polkadot-runtime-parachains.workspace = true
 sp-consensus.workspace = true
 sp-consensus.default-features = true
 sp-keyring.workspace = true
@@ -41,4 +38,4 @@ sp-core.default-features = true
 
 [features]
 default = ["std"]
-std = ["sp-runtime/std", "xcm/std"]
+std = ["frame-support/std", "sp-runtime/std", "xcm/std"]
