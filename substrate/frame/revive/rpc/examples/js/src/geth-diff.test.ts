@@ -12,6 +12,7 @@ import { ErrorsAbi } from '../abi/Errors'
 import { TracingCallerAbi } from '../abi/TracingCaller.ts'
 import { TracingCalleeAbi } from '../abi/TracingCallee.ts'
 import { Subprocess, spawn } from 'bun'
+import { fail } from 'node:assert'
 
 const procs: Subprocess[] = []
 if (process.env.START_GETH) {
@@ -19,6 +20,7 @@ if (process.env.START_GETH) {
 		// Run geth on port 8546
 		await (async () => {
 			killProcessOnPort(8546)
+			console.log('Starting geth')
 			const proc = spawn(
 				'geth --http --http.api web3,eth,debug,personal,net --http.port 8546 --dev --verbosity 0'.split(
 					' '
@@ -37,6 +39,7 @@ if (process.env.START_SUBSTRATE_NODE) {
 		//Run the substate node
 		(() => {
 			killProcessOnPort(9944)
+			console.log('Starting substrate node')
 			return spawn(
 				[
 					'./target/debug/substrate-node',
@@ -58,6 +61,7 @@ if (process.env.START_ETH_RPC) {
 	procs.push(
 		await (async () => {
 			killProcessOnPort(8545)
+			console.log('Starting eth-rpc')
 			const proc = spawn(
 				[
 					'./target/debug/eth-rpc',
@@ -100,7 +104,7 @@ for (const env of envs) {
 				}
 				const hash = await env.serverWallet.deployContract({
 					abi: ErrorsAbi,
-					bytecode: getByteCode('ErrorTester', env.evm),
+					bytecode: getByteCode('Errors', env.evm),
 				})
 				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
 				if (!deployReceipt.contractAddress)
@@ -108,16 +112,39 @@ for (const env of envs) {
 				contractAddress = deployReceipt.contractAddress
 				return contractAddress
 			}
-		})()
+
+			{
+				const hash = await env.serverWallet.deployContract({
+					abi: FlipperAbi,
+					bytecode: getByteCode('Flipper', env.evm),
+				})
+				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
+				if (!deployReceipt.contractAddress)
+					throw new Error('Contract address should be set')
+				flipperAddr = deployReceipt.contractAddress
+			}
+
+			{
+				const hash = await env.serverWallet.deployContract({
+					abi: FlipperCallerAbi,
+					args: [flipperAddr],
+					bytecode: getByteCode('FlipperCaller', env.evm),
+				})
+				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
+				if (!deployReceipt.contractAddress)
+					throw new Error('Contract address should be set')
+				flipperCallerAddr = deployReceipt.contractAddress
+			}
+		})
 
 		test('triggerAssertError', async () => {
-			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
 					abi: ErrorsAbi,
 					functionName: 'triggerAssertError',
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(3)
@@ -129,13 +156,13 @@ for (const env of envs) {
 		})
 
 		test('triggerRevertError', async () => {
-			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
 					abi: ErrorsAbi,
 					functionName: 'triggerRevertError',
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(3)
@@ -147,13 +174,13 @@ for (const env of envs) {
 		})
 
 		test('triggerDivisionByZero', async () => {
-			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
 					abi: ErrorsAbi,
 					functionName: 'triggerDivisionByZero',
 				})
+				expect.assertions(3)
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(3)
@@ -167,13 +194,13 @@ for (const env of envs) {
 		})
 
 		test('triggerOutOfBoundsError', async () => {
-			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
 					abi: ErrorsAbi,
 					functionName: 'triggerOutOfBoundsError',
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(3)
@@ -187,13 +214,13 @@ for (const env of envs) {
 		})
 
 		test('triggerCustomError', async () => {
-			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
 					abi: ErrorsAbi,
 					functionName: 'triggerCustomError',
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(3)
@@ -205,15 +232,15 @@ for (const env of envs) {
 		})
 
 		test('eth_call (not enough funds)', async () => {
-			expect.assertions(3)
 			try {
-				await env.accountWallet.simulateContract({
-					address: await getErrorTesterAddr(),
+				await env.emptyWallet.simulateContract({
+					address: errorsAddr,
 					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(-32000)
@@ -223,12 +250,15 @@ for (const env of envs) {
 		})
 
 		test('eth_call transfer (not enough funds)', async () => {
-			expect.assertions(3)
+			const value = parseEther('10')
+			const balance = await env.emptyWallet.getBalance(env.emptyWallet.account)
+			expect(balance, 'Balance should be less than 10').toBeLessThan(value)
 			try {
-				await env.accountWallet.sendTransaction({
+				await env.emptyWallet.sendTransaction({
 					to: '0x75E480dB528101a381Ce68544611C169Ad7EB342',
-					value: parseEther('10'),
+					value,
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(-32000)
@@ -238,15 +268,15 @@ for (const env of envs) {
 		})
 
 		test('eth_estimate (not enough funds)', async () => {
-			expect.assertions(3)
 			try {
-				await env.accountWallet.estimateContractGas({
-					address: await getErrorTesterAddr(),
+				await env.emptyWallet.estimateContractGas({
+					address: errorsAddr,
 					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(-32000)
@@ -256,15 +286,15 @@ for (const env of envs) {
 		})
 
 		test('eth_estimate call caller (not enough funds)', async () => {
-			expect.assertions(3)
 			try {
-				await env.accountWallet.estimateContractGas({
-					address: await getErrorTesterAddr(),
+				await env.emptyWallet.estimateContractGas({
+					address: errorsAddr,
 					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(-32000)
@@ -274,7 +304,6 @@ for (const env of envs) {
 		})
 
 		test('eth_estimate (revert)', async () => {
-			expect.assertions(3)
 			try {
 				await env.serverWallet.estimateContractGas({
 					address: await getErrorTesterAddr(),
@@ -283,6 +312,7 @@ for (const env of envs) {
 					value: parseEther('11'),
 					args: [parseEther('10')],
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(3)
@@ -303,17 +333,16 @@ for (const env of envs) {
 		})
 
 		test('eth_estimate (not enough funds to cover gas specified)', async () => {
-			expect.assertions(4)
+			let balance = await env.serverWallet.getBalance(env.emptyWallet.account)
+			expect(balance).toBe(0n)
 			try {
-				let balance = await env.serverWallet.getBalance(env.accountWallet.account)
-				expect(balance).toBe(0n)
-
-				await env.accountWallet.estimateContractGas({
-					address: await getErrorTesterAddr(),
+				await env.emptyWallet.estimateContractGas({
+					address: errorsAddr,
 					abi: ErrorsAbi,
 					functionName: 'setState',
 					args: [true],
 				})
+				fail('Expect call to fail')
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(-32000)
@@ -323,7 +352,7 @@ for (const env of envs) {
 		})
 
 		test('eth_estimate (no gas specified)', async () => {
-			let balance = await env.serverWallet.getBalance(env.accountWallet.account)
+			let balance = await env.serverWallet.getBalance(env.emptyWallet.account)
 			expect(balance).toBe(0n)
 
 			const data = encodeFunctionData({
@@ -332,19 +361,19 @@ for (const env of envs) {
 				args: [true],
 			})
 
-			await env.accountWallet.request({
+			await env.emptyWallet.request({
 				method: 'eth_estimateGas',
 				params: [
 					{
 						data,
-						from: env.accountWallet.account.address,
-						to: await getErrorTesterAddr(),
+						from: env.emptyWallet.account.address,
+						to: errorsAddr,
 					},
 				],
 			})
 		})
 
-		test.only('tracing', async () => {
+		test.skip('tracing', async () => {
 			const calleeAddress = await (async () => {
 				const hash = await env.serverWallet.deployContract({
 					abi: TracingCalleeAbi,
@@ -371,7 +400,7 @@ for (const env of envs) {
 				return receipt.contractAddress!
 			})()
 
-			console.error('Caller address:', callerAddress)
+			console.log('Caller address:', callerAddress)
 			const receipt = await (async () => {
 				const { request } = await env.serverWallet.simulateContract({
 					address: callerAddress,
@@ -393,7 +422,7 @@ for (const env of envs) {
 			console.log('Wrote /tmp/trace_block.json')
 		})
 
-		test.only('tracing_transfer', async () => {
+		test.skip('tracing_transfer', async () => {
 			let hash = await env.serverWallet.sendTransaction({
 				to: '0x75E480dB528101a381Ce68544611C169Ad7EB342',
 				value: parseEther('1.0'),
@@ -402,12 +431,12 @@ for (const env of envs) {
 			console.log('Tx hash:', receipt.transactionHash)
 
 			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
-			Bun.write('/tmp/trace_transaction.json', JSON.stringify(res, null, 2))
-			console.log('Wrote /tmp/trace_transaction.json')
+			Bun.write('/tmp/trace_transfer_transaction.json', JSON.stringify(res, null, 2))
+			console.log('Wrote /tmp/trace_transfer_transaction.json')
 
 			res = await env.debugClient.traceBlock(receipt.blockNumber)
-			Bun.write('/tmp/trace_block.json', JSON.stringify(res, null, 2))
-			console.log('Wrote /tmp/trace_block.json')
+			Bun.write('/tmp/trace_transfer_block.json', JSON.stringify(res, null, 2))
+			console.log('Wrote /tmp/trace_transfer_block.json')
 		})
 	})
 }

@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	evm::{extract_revert_message, runtime::gas_from_weight, Bytes},
-	ExecReturnValue, Weight,
-};
+use crate::evm::{Bytes, CallTracer};
 use alloc::{fmt, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -39,6 +36,15 @@ pub enum TracerConfig {
 		#[serde(rename = "withLog")]
 		with_logs: bool,
 	},
+}
+
+impl TracerConfig {
+	/// Build the tracer associated to this config.
+	pub fn build<G>(self, gas_mapper: G) -> CallTracer<U256, G> {
+		match self {
+			Self::CallTracer { with_logs } => CallTracer::new(with_logs, gas_mapper),
+		}
+	}
 }
 
 /// Custom deserializer to support the following JSON format:
@@ -143,92 +149,11 @@ pub enum CallType {
 	DelegateCall,
 }
 
-/// The traces of a transaction.
-#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-#[serde(untagged)]
-pub enum Traces<Gas = Weight, Output = ExecReturnValue>
-where
-	Output: Default + PartialEq,
-{
-	/// The call traces captured by a [`CallTracer`] during the transaction.
-	CallTraces(Vec<CallTrace<Gas, Output>>),
-}
-
-/// The output and revert reason of an Ethereum trace.
-#[derive(
-	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
-)]
-pub struct EthOutput {
-	/// The call output.
-	pub output: Bytes,
-	/// The revert reason, if the call reverted.
-	#[serde(rename = "revertReason")]
-	pub revert_reason: Option<String>,
-}
-
-impl From<ExecReturnValue> for EthOutput {
-	fn from(value: ExecReturnValue) -> Self {
-		Self {
-			revert_reason: if value.did_revert() {
-				extract_revert_message(&value.data)
-			} else {
-				None
-			},
-			output: Bytes(value.data),
-		}
-	}
-}
-
-/// The traces used in Ethereum debug RPC.
-pub type EthTraces = Traces<U256, EthOutput>;
-
-impl<Gas, Output: Default + PartialEq> Traces<Gas, Output> {
-	/// Return mapped traces with the given gas mapper.
-	pub fn map<T, V>(
-		self,
-		gas_mapper: impl Fn(Gas) -> T + Copy,
-		output_mapper: impl Fn(Output) -> V + Copy,
-	) -> Traces<T, V>
-	where
-		V: Default + PartialEq,
-	{
-		match self {
-			Traces::CallTraces(traces) => Traces::CallTraces(
-				traces.into_iter().map(|trace| trace.map(gas_mapper, output_mapper)).collect(),
-			),
-		}
-	}
-}
-
-impl Traces {
-	/// Return true if the traces are empty.
-	pub fn is_empty(&self) -> bool {
-		match self {
-			Traces::CallTraces(traces) => traces.is_empty(),
-		}
-	}
-	/// Return the traces as Ethereum traces.
-	pub fn as_eth_traces<T: crate::Config>(self) -> EthTraces
-	where
-		crate::BalanceOf<T>: Into<U256>,
-	{
-		self.map(|weight| gas_from_weight::<T>(weight), |output| output.into())
-	}
-}
-
-/// Return true if the value is the default value.
-pub fn is_default<T: Default + PartialEq>(value: &T) -> bool {
-	*value == T::default()
-}
-
 /// A smart contract execution call trace.
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
-pub struct CallTrace<Gas = Weight, Output = ExecReturnValue>
-where
-	Output: Default + PartialEq,
-{
+pub struct CallTrace<Gas = U256> {
 	/// Address of the sender.
 	pub from: H160,
 	/// Address of the receiver.
@@ -247,14 +172,17 @@ where
 	#[serde(rename = "gasUsed")]
 	pub gas_used: Gas,
 	/// Return data.
-	#[serde(flatten, skip_serializing_if = "is_default")]
-	pub output: Output,
+	#[serde(flatten, skip_serializing_if = "Bytes::is_empty")]
+	pub output: Bytes,
 	/// The error message if the call failed.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
+	/// The revert reason, if the call reverted.
+	#[serde(rename = "revertReason")]
+	pub revert_reason: Option<String>,
 	/// List of sub-calls.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
-	pub calls: Vec<CallTrace<Gas, Output>>,
+	pub calls: Vec<CallTrace<Gas>>,
 	/// List of logs emitted during the call.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	pub logs: Vec<CallLog>,
@@ -279,41 +207,13 @@ pub struct CallLog {
 	pub position: u32,
 }
 
-impl<Gas, Output> CallTrace<Gas, Output>
-where
-	Output: Default + PartialEq,
-{
-	/// Return a new call gas with a mapped gas value.
-	pub fn map<T, V>(
-		self,
-		gas_mapper: impl Fn(Gas) -> T + Copy,
-		output_mapper: impl Fn(Output) -> V + Copy,
-	) -> CallTrace<T, V>
-	where
-		V: Default + PartialEq,
-	{
-		CallTrace {
-			from: self.from,
-			to: self.to,
-			input: self.input,
-			value: self.value,
-			call_type: self.call_type,
-			error: self.error,
-			gas: gas_mapper(self.gas),
-			gas_used: gas_mapper(self.gas_used),
-			output: output_mapper(self.output),
-			calls: self.calls.into_iter().map(|call| call.map(gas_mapper, output_mapper)).collect(),
-			logs: self.logs,
-		}
-	}
-}
-
 /// A transaction trace
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TransactionTrace {
 	/// The transaction hash.
 	#[serde(rename = "txHash")]
 	pub tx_hash: H256,
-	/// The traces of the transaction.
-	pub result: EthTraces,
+	/// The trace of the transaction.
+	#[serde(rename = "result")]
+	pub trace: CallTrace,
 }

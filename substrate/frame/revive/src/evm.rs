@@ -19,6 +19,8 @@
 
 mod api;
 pub use api::*;
+mod tracing;
+pub use tracing::*;
 mod gas_encoder;
 pub use gas_encoder::*;
 pub mod runtime;
