@@ -1232,7 +1232,7 @@ async fn handle_our_view_change<Context>(
 			.known_allowed_relay_parents_under(leaf, state.collating_on)
 			.unwrap_or_default();
 
-		// Get the peers that already reported us this head, but we didn't knew it at this
+		// Get the peers that already reported us this head, but we didn't know it at this
 		// point.
 		let peers = state
 			.peer_data
@@ -1241,11 +1241,15 @@ async fn handle_our_view_change<Context>(
 			.collect::<Vec<_>>();
 
 		for block_hash in allowed_ancestry {
-			let claim_queue = fetch_claim_queue(ctx.sender(), *block_hash).await?;
-			let per_relay_parent = state
-				.per_relay_parent
-				.entry(*block_hash)
-				.or_insert_with(|| PerRelayParent::new(para_id, claim_queue));
+			if state.per_relay_parent.get(block_hash).is_none() {
+				let claim_queue = fetch_claim_queue(ctx.sender(), *block_hash).await?;
+				state
+					.per_relay_parent
+					.insert(*block_hash, PerRelayParent::new(para_id, claim_queue));
+			}
+
+			let per_relay_parent =
+				state.per_relay_parent.get_mut(block_hash).expect("Just inserted");
 
 			// Announce relevant collations to these peers.
 			for peer_id in &peers {

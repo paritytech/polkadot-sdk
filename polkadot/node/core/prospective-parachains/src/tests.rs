@@ -70,7 +70,6 @@ fn dummy_constraints(
 
 struct TestState {
 	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
-	runtime_api_version: u32,
 	validation_code_hash: ValidationCodeHash,
 }
 
@@ -91,11 +90,7 @@ impl Default for TestState {
 
 		let validation_code_hash = Hash::repeat_byte(42).into();
 
-		Self {
-			validation_code_hash,
-			claim_queue,
-			runtime_api_version: RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT,
-		}
+		Self { validation_code_hash, claim_queue }
 	}
 }
 
