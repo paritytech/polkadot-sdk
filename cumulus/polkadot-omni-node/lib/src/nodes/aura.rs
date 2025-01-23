@@ -331,7 +331,7 @@ where
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
 		keystore: KeystorePtr,
-		_relay_chain_slot_duration: Duration,
+		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
 		_overseer_handle: OverseerHandle,
@@ -378,6 +378,7 @@ where
 			spawner: task_manager.spawn_handle(),
 			flavor: Flavor::TimeBased,
 			export_pov: node_extra_args.export_pov,
+			relay_slot_duration: relay_chain_slot_duration,
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of

@@ -15,20 +15,22 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Encode;
-use std::path::PathBuf;
+use std::{fs, fs::File, path::PathBuf};
 
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_node_primitives::{MaybeCompressedPoV, SubmitCollationParams};
+use polkadot_node_primitives::{MaybeCompressedPoV, PoV, SubmitCollationParams};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId};
+use polkadot_primitives::{
+	BlockNumber as RelayBlockNumber, CollatorPair, Hash as RelayHash, Id as ParaId,
+};
 
+use cumulus_primitives_core::relay_chain::HeadData;
 use futures::prelude::*;
-
 use sc_utils::mpsc::TracingUnboundedReceiver;
-use sp_runtime::traits::{Block as BlockT, Header};
+use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
 
 use super::CollatorMessage;
 
@@ -144,8 +146,8 @@ async fn handle_collation_message<Block: BlockT>(
 	);
 
 	if let Some(ref export_pov_path) = export_pov {
-		crate::collators::lookahead::export_pov_to_path::<Block>(
-			export_pov_path.clone(),
+		export_pov_to_path::<Block>(
+			export_pov_path,
 			collation.proof_of_validity.clone().into_compressed(),
 			hash,
 			*block_data.header().number(),
@@ -177,4 +179,38 @@ async fn handle_collation_message<Block: BlockT>(
 			"SubmitCollation",
 		)
 		.await;
+}
+
+/// Export the given `pov` to the file system at `path`.
+///
+/// The file will be named `block_hash_block_number.pov`.
+///
+/// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
+/// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
+fn export_pov_to_path<Block: BlockT>(
+	path: &PathBuf,
+	pov: PoV,
+	block_hash: Block::Hash,
+	block_number: NumberFor<Block>,
+	parent_header: Block::Header,
+	relay_parent_storage_root: RelayHash,
+	relay_parent_number: RelayBlockNumber,
+) {
+	if let Err(error) = fs::create_dir_all(&path) {
+		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
+		return
+	}
+
+	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
+		Ok(f) => f,
+		Err(error) => {
+			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
+			return
+		},
+	};
+
+	pov.encode_to(&mut file);
+	HeadData(parent_header.encode()).encode_to(&mut file);
+	relay_parent_storage_root.encode_to(&mut file);
+	relay_parent_number.encode_to(&mut file);
 }

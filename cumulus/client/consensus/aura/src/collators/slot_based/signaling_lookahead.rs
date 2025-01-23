@@ -53,6 +53,8 @@ pub struct SignalingTaskParams<Block: BlockT, Client, Backend, RelayClient, Pub,
 	pub building_task_sender:
 		sc_utils::mpsc::TracingUnboundedSender<SignalingTaskMessage<Pub, Block>>,
 	pub collator_service: CS,
+	/// Relay chain slot duration.
+	pub relay_slot_duration: Duration,
 }
 
 /// Run block-builder.
@@ -88,7 +90,7 @@ where
 			para_backend,
 			building_task_sender,
 			collator_service,
-			..
+			relay_slot_duration,
 		} = params;
 
 		let mut import_notifications = match relay_client.import_notification_stream().await {
@@ -105,11 +107,11 @@ where
 		};
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
-			tracing::warn!(target: crate::LOG_TARGET, "New round in signaling task.");
 			let Ok(relay_parent) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
 				continue
 			};
+			tracing::debug!(target: crate::LOG_TARGET, ?relay_parent, "Observed new relay parent in signaling task.");
 
 			let core_index = if let Some(core_index) = crate::collators::cores_scheduled_for_para(
 				relay_parent,
@@ -161,8 +163,7 @@ where
 			let Some((relay_slot, timestamp)) =
 				cumulus_client_consensus_common::relay_slot_and_timestamp(
 					&relay_parent_header,
-					// TODO skunert fix this
-					Duration::from_secs(6),
+					relay_slot_duration,
 				)
 			else {
 				continue;
@@ -224,16 +225,6 @@ where
 				continue
 			}
 
-			tracing::debug!(
-				target: crate::LOG_TARGET,
-				?core_index,
-				slot_info = ?slot_now,
-				unincluded_segment_len = parent.depth,
-				relay_parent = %relay_parent,
-				included = %included_block,
-				parent = %parent_hash,
-				"Building block."
-			);
 			let build_signal = SignalingTaskMessage {
 				slot_claim,
 				parent_header,
@@ -242,9 +233,13 @@ where
 				relay_parent_header: relay_parent_header.clone(),
 				max_pov_size,
 			};
-			building_task_sender
-				.unbounded_send(build_signal)
-				.expect("Should be able to send.")
+			let _ = building_task_sender.unbounded_send(build_signal).inspect_err(|e| {
+				tracing::error!(
+					target: crate::LOG_TARGET,
+					%e,
+					"Unable to send message to block building task. This slot will be skipped.",
+				)
+			});
 		}
 	}
 }

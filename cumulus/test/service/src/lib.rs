@@ -504,6 +504,7 @@ where
 					.then(|| Flavor::TimeBased)
 					.unwrap_or(Flavor::Lookahead),
 				export_pov: None,
+				relay_slot_duration: relay_chain_slot_duration,
 			};
 
 			slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);

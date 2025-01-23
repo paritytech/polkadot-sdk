@@ -118,6 +118,7 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub spawner: Spawner,
 	pub flavor: Flavor,
 	pub export_pov: Option<PathBuf>,
+	pub relay_slot_duration: Duration,
 }
 
 /// Run aura-based block building and collation task.
@@ -141,6 +142,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		spawner,
 		flavor,
 		export_pov,
+		relay_slot_duration,
 	}: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) where
 	Block: BlockT,
@@ -228,6 +230,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 				authoring_duration,
 				building_task_sender: to_builder_sender,
 				collator_service,
+				relay_slot_duration,
 			};
 
 			signaling_lookahead::run_signaling_task::<Block, P, _, _, _, _>(signaling_task_params)
