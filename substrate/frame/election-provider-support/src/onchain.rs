@@ -24,7 +24,7 @@ use crate::{
 	BoundedSupportsOf, Debug, ElectionDataProvider, ElectionProvider, InstantElectionProvider,
 	NposSolver, PageIndex, VoterOf, WeightInfo,
 };
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use core::marker::PhantomData;
 use frame_support::{dispatch::DispatchClass, traits::Get};
 use frame_system::pallet_prelude::BlockNumberFor;
