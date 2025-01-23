@@ -291,6 +291,7 @@ mod tests {
 		type ValidatorIdOf = IdentityCollator;
 		type ValidatorRegistration = IsRegistered;
 		type KickThreshold = ();
+		type UnbondingPeriod = ConstU32<10>;
 		type WeightInfo = ();
 	}
 
