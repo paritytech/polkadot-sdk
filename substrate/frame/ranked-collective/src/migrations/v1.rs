@@ -20,289 +20,115 @@
 
 //imports
 use super::*;
+use crate as pallet_ranked_collective;
 use core::marker::PhantomData;
-use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use frame_support::{
     pallet_prelude::*, 
-    storage_alias, 
     traits::UncheckedOnRuntimeUpgrade,
     migrations,
-    CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use log;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::{TryRuntimeError, RuntimeDebug};
 
-// initial version of storage types
-pub mod v0 {
-    use super::*;
-
-    // old struct for `Tally`
-    #[derive(
-        CloneNoBound,
-        PartialEqNoBound,
-        EqNoBound,
-        RuntimeDebugNoBound,
-        TypeInfo,
-        Encode,
-        Decode,
-        MaxEncodedLen,
-    )]
-    #[scale_info(skip_type_params(T, I, M))]
-    #[codec(mel_bound())]
-    pub struct OldTally<T, I, M: GetMaxVoters> {
-	    bare_ayes: MemberIndex,
-	    ayes: Votes,
-	    nays: Votes,
-	    dummy: PhantomData<(T, I, M)>,
-    }
-
-    pub type OldTallyOf<T, I = ()> = OldTally<T, I, Pallet<T, I>>;
-
-    
-    pub type OldReferendumInfoOf<T, I> = T::Polls::ReferendumInfo<
-        TrackIdOf<T, I>,
-        PalletsOriginOf<T>,
-        BlockNumberFor<T>,
-        BoundedCallOf<T, I>,
-        BalanceOf<T, I>,
-        OldTallyOf<T, I>, // Alias for Tally
-        <T as frame_system::Config>::AccountId,
-        ScheduleAddressOf<T, I>,
-    >;
-
-    // Old enum for `VoteRecord`
-    #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-    pub enum OldVoteRecord {
-	    /// Vote was an aye with given vote weight.
-	    Aye(Votes),
-	    /// Vote was a nay with given vote weight.
-	    Nay(Votes),
-    }
-
-
-
-    //Storage aliase for storage item that consumes `Tally` struct (v0)
-    #[pallet::storage]
-    pub type ReferendumInfoForV0<T: Config<I>, I: 'static = ()> =
-    StorageMap<_, Blake2_128Concat, ReferendumIndex, OldReferendumInfoOf<T, I>>;
-
-
-    //Storage alias for storage item that consumes `VoteRecord` enum (v0)
-    #[pallet::storage]
-    pub type VotingV0<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        PollIndexOf<T, I>,
-        Twox64Concat,
-        T::AccountId,
-        OldVoteRecord,
-    >;
-}
-
-
-// New struct for `Tally`
-#[derive(
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(T, I, M))]
-#[codec(mel_bound())]
-pub struct NewTally<T, I, M: GetMaxVoters> {
-	bare_ayes: MemberIndex,
-	out_of_rank_ayes: MemberIndex,
-	out_of_rank_nays: MemberIndex,
-	ayes: Votes,
-	nays: Votes,
-	dummy: PhantomData<(T, I, M)>,
-
-}
-
-pub type NewTallyOf<T, I = ()> = NewTally<T, I, Pallet<T, I>>;
-
-pub type NewReferendumInfoOf<T, I> = T::Polls::ReferendumInfo<
-        TrackIdOf<T, I>,
-        PalletsOriginOf<T>,
-        BlockNumberFor<T>,
-        BoundedCallOf<T, I>,
-        BalanceOf<T, I>,
-        NewTallyOf<T, I>, // Alias for Tally
-        <T as frame_system::Config>::AccountId,
-        ScheduleAddressOf<T, I>,
-    >;
-
-
-//New enum for `VoteRecord`
+// Old enum for `VoteRecord`
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum NewVoteRecord {
-	/// Vote was an aye with given vote weight.
-	Aye(Option<Votes>),
-	/// Vote was a nay with given vote weight.
-	Nay(Option<Votes>),
+pub enum OldVoteRecord {
+    /// Vote was an aye with given vote weight.
+    Aye(Votes),
+    /// Vote was a nay with given vote weight.
+    Nay(Votes),
 }
 
-//Storage aliase for storage item that consumes `Tally` struct (v1)
-#[pallet::storage]
-pub type ReferendumInfoForV1<T: Config<I>, I: 'static = ()> =
-StorageMap<_, Blake2_128Concat, ReferendumIndex, NewReferendumInfoOf<T, I>>;
+impl OldVoteRecord {
+    fn migrate_to_v1(self) -> VoteRecord {
+        match self {
+            OldVoteRecord::Aye(vote_weight) => VoteRecord::Aye(Some(vote_weight)),
+            OldVoteRecord::Nay(vote_weight) => VoteRecord::Nay(Some(vote_weight)),
+        }
+    }
+}
 
-//Storage alias for storage item that consumes `VoteRecord` enum (v1)
-#[pallet::storage]
-pub type VotingV1<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
-    _,
-    Blake2_128Concat,
-    PollIndexOf<T, I>,
-    Twox64Concat,
-    T::AccountId,
-    NewVoteRecord,
->;
-
-
-pub struct VotingAndRefInfoForV0ToV1<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for VotingAndRefInfoForV0ToV1<T, I> {
+pub struct VotingV0ToV1<T, I = ()>(PhantomData<(T, I)>);
+impl<T: pallet_ranked_collective::Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for VotingV0ToV1<T, I> {
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
         log::info!("Running pre-upgrade checks for V0 to V1 migration...");
 
-        let old_referenda_count = v0::ReferendumInfoForV0::<T, I>::iter().count();
-        let old_votes_count = v0::VotingV0::<T, I>::iter().count();
+        ensure!(
+            Pallet::<T>::on_chain_storage_version() == 0,
+            "This migration will only execute if onchain version is zero."
+        );
+
+        let votes_count = Voting::<T, I>::iter().count();
 
         // ensure old data exists for storage items that need a migration. this prevents unecessary runtime upgrade, eg for new runtimes 
         //that haven't populated these storage items yet. 
-        // checking old refrenda count should suffice, since there can't be old votes if there're no old referenda
-        ensure!(old_referenda_count > 0, "No referenda to migrate");
+        ensure!(votes_count > 0, "No votes to migrate");
 
         log::info!(
-            "Pre-upgrade checks complete: {} referenda and {} votes found.",
-            old_referenda_count,
-            old_votes_count
+            "Pre-upgrade checks complete: {} votes found.",
+            votes_count
         );
 
         // metadata about the old state for post-upgrade validation.
-        Ok((old_referenda_count, old_votes_count).encode())
+        Ok((votes_count).encode())
 
     }
 
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        log::info!("Starting migration from V0 to V1...");
+        let in_code = Pallet::<T, I>::in_code_storage_version();
+		let onchain = Pallet::<T, I>::on_chain_storage_version();
 
-        let mut weight = 0;
-
-        // Migrate `ReferendumInfoForV0` (OldTally to NewTally).
-        v0::ReferendumInfoForV0::<T, I>::translate::<NewReferendumInfoOf<T, I>, _>(
-            |_, old_info| {
-                 // Transform `OldTally` to `NewTally`.
-                 let new_info = match old_info {
-                    v0::OldReferendumInfoOf::Ongoing(old_status) => {
-                        let new_tally = NewTally {
-                            bare_ayes: old_status.tally.bare_ayes,
-                            out_of_rank_ayes: Default::default(), 
-                            out_of_rank_nays: Default::default(),
-                            ayes: old_status.tally.ayes,
-                            nays: old_status.tally.nays,
-                            dummy: Default::default(),
-                        },
-                        let new_status = ReferendumStatus {
-                            track: old_status.track,
-                            origin: old_status.origin,
-                            proposal: old_status.proposal,
-                            enactment: old_status.enactment,
-                            submitted: old_status.submitted,
-                            submission_deposit: old_status.submission_deposit,
-                            decision_deposit: old_status.decision_deposit,
-                            deciding: old_status.deciding,
-                            tally: new_tally,
-                            in_queue: old_status.in_queue,
-                            alarm: old_status.alarm,
-                        };
-
-                        NewReferendumInfoOf::<T, I>::Ongoing(new_status)
-
-                    },
-
-                    v0::OldReferendumInfoOf::Approved(moment, deposit1, deposit2) => {
-                        NewReferendumInfoOf::Approved(moment, deposit1, deposit2)
-                    },
-
-                    v0::OldReferendumInfoOf::Rejected(moment, deposit1, deposit2) => {
-                        NewReferendumInfoOf::Rejected(moment, deposit1, deposit2)
-                    },
-
-                    v0::OldReferendumInfoOf::Cancelled(moment, deposit1, deposit2) => {
-                        NewReferendumInfoOf::Cancelled(moment, deposit1, deposit2)
-                    },
-
-                    v0::OldReferendumInfoOf::TimedOut(moment, deposit1, deposit2) => {
-                        NewReferendumInfoOf::TimedOut(moment, deposit1, deposit2)
-                    },
-
-                    v0::OldReferendumInfoOf::Killed(moment) => NewReferendumInfoOf::Killed(moment),
-                };
-                
-                // increment weight. 1 read of `old_value` from storage, and one write of `new_value` back to storage
-                weight += T::DbWeight::get().reads_writes(1, 1);
-
-                Some(new_info)
-            },
+        log::info!("Starting onchain migration from Version {:?} to Version {:?}...",
+            onchain,
+            in_code,
         );
 
-        log::info!("ReferendumInfoFor migration to V1 complete.");
+        if in_code == 1 && onchain == 0 {
+            // Migrate `VotingV0` (OldVoteRecord to NewVoteRecord).
+            let mut translated = 0u64;
+            Voting::<T, I>::translate::<OldVoteRecord, _>(|_, _, old_vote| {
+                translated.saturating_inc();
+                Some(old_vote.migrate_to_v1())
+            });
 
+            in_code.put::<Pallet<T, I>>();
+            log::info!("Voting Migration from V0 to V1 finished. {} votes migrated", translated);
 
-        // Migrate `VotingV0` (OldVoteRecord to NewVoteRecord).
-        v0::VotingV0::<T, I>::translate::<NewVoteRecord, _>(|_, _, old_vote| {
-            let new_vote = match old_vote {
-                v0::OldVoteRecord::Aye(vote_weight) => NewVoteRecord::Aye(Some(vote_weight)),
-                v0::OldVoteRecord::Nay(vote_weight) => NewVoteRecord::Nay(Some(vote_weight)),
-            };
-
-            // increment weight. 1 read of `old_vote` from storage, and one write of `new_vote` back to storage
-            weight += T::DbWeight::get().reads_writes(1, 1);
-
-            Some(new_vote)
-        });
-        log::info!("Voting migration to V1 complete.");
-
-        log::info!("Migration from V0 to V1 finished. Total weight consumed during migration: {}", weight);
-        weight
+            T::DbWeight::get()
+				.reads_writes(translated, translated.saturating_add(1))
+        } else {
+            log::info!("Unexpected versioning. Migration failed");
+            T::DbWeight::get().reads(1)
+        }
+    
     }
 
     #[cfg(feature = "try-runtime")] 
     fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
         log::info!("Running post-upgrade checks for V0 to V1 migration...");
 
-        let (old_referenda_count, old_votes_count): (usize, usize) =
+        let votes_count_before: usize =
         Decode::decode(&mut &*state).map_err(|_| TryRuntimeError::Custom("State decoding failed".into()))?;
 
-        let new_referenda_count = ReferendumInfoForV1::<T, I>::iter().count();
-        let new_votes_count = VotingV1::<T, I>::iter().count();
-
+        let votes_count_after = Voting::<T, I>::iter().count();
+        
         ensure!(
-            new_referenda_count == old_referenda_count,
-            "Mismatch in referenda count: expected {}, found {}",
-            old_referenda_count,
-            new_referenda_count
-        );
-
-        ensure!(
-            new_votes_count == old_votes_count,
+            votes_count_before == votes_count_after,
             "Mismatch in votes count: expected {}, found {}",
-            old_votes_count,
-            new_votes_count
+            votes_count_before,
+            votes_count_after
         );
 
-        assert!(v0::ReferendumInfoForV0::<T, I>::iter().count() == 0, "Old ReferendumInfoForV0 not empty");
-        assert!(v0::VotingV0::<T, I>::iter().count() == 0, "Old VotingV0 not empty");
+        ensure!(
+            Pallet::<T>::on_chain_storage_version() == 1,
+            "Post-migration onchain storage version should be 1"
+        );
 
-        log::info!("Post-upgrade checks passed.");
 
         Ok(())
 
@@ -315,7 +141,7 @@ pub type MigrateV0ToV1<T, I = ()> =
     migrations::VersionedMigration<
         0,
         1,
-        VotingAndRefInfoForV0ToV1<T, I>,
+        VotingV0ToV1<T, I>,
         Pallet<T, I>,
         <T as frame_system::Config>::DbWeight
     >;
