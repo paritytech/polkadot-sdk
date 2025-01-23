@@ -21,11 +21,11 @@
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{ChainWithMessages, InboundLaneData, MessageNonce};
-use bp_runtime::Chain;
+use bp_runtime::{AccountIdOf, Chain};
 use codec::Encode;
 use frame_support::{storage::generator::StorageValue, traits::Get, weights::Weight};
 use frame_system::limits;
-use pallet_bridge_messages::WeightInfoExt as _;
+use pallet_bridge_messages::{ThisChainOf, WeightInfoExt as _};
 
 // Re-export to avoid include all dependencies everywhere.
 #[doc(hidden)]
@@ -364,8 +364,11 @@ pub fn check_message_lane_weights<
 	);
 
 	// check that weights allow us to receive delivery confirmations
-	let max_incoming_inbound_lane_data_proof_size =
-		InboundLaneData::<()>::encoded_size_hint_u32(this_chain_max_unrewarded_relayers as _);
+	let max_incoming_inbound_lane_data_proof_size = InboundLaneData::<
+		AccountIdOf<ThisChainOf<T, MessagesPalletInstance>>,
+	>::encoded_size_hint_u32(
+		this_chain_max_unrewarded_relayers as _
+	);
 	pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights<T, MessagesPalletInstance>>(
 		C::max_extrinsic_size(),
 		C::max_extrinsic_weight(),
