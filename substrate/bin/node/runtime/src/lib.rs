@@ -1655,6 +1655,9 @@ impl pallet_opf::Config for Runtime {
 	/// Period after which all the votes are resetted.
 	type VoteValidityPeriod = VoteValidityPeriod;
 
+	/// Period after which the proposal is enacted
+	type EnactmentPeriod = EnactmentPeriod;
+
 	type BlockNumberProvider = System;
 
 	/// This should be calculated as a percentage of inflation.

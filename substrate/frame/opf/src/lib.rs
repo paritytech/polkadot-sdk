@@ -107,6 +107,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type VotingPeriod: Get<ProvidedBlockNumberFor<Self>>;
 
+		#[pallet::constant]
+		type EnactmentPeriod: Get<ProvidedBlockNumberFor<Self>>;
+
 		/// Maximum number projects that can be accepted by this pallet
 		#[pallet::constant]
 		type MaxProjects: Get<u32>;
@@ -342,7 +345,7 @@ pub mod pallet {
 
 				// Start Referendum
 				let referendum_index =
-					Self::start_dem_referendum(proposal, T::EnactmentPeriod::get());
+					Self::start_dem_referendum(proposal, <T as Democracy::Config>::EnactmentPeriod::get());
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;

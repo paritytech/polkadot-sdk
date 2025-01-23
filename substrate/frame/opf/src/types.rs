@@ -40,6 +40,7 @@ pub use frame_support::{
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use scale_info::prelude::vec::Vec;
+pub use sp_runtime::traits::UniqueSaturatedInto;
 pub use sp_runtime::{
 	traits::{
 		AccountIdConversion, BlockNumberProvider, Convert, Dispatchable, Hash, Saturating,
