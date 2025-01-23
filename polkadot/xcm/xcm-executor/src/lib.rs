@@ -963,20 +963,24 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message_to_weigh.extend(xcm.0.clone().into_iter());
 					let (_, fee) =
 						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
-					let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
-						tracing::trace!(
-							target: "xcm::DepositReserveAsset",
-							"Asset provided to pay for fees {:?}, asset required for delivery fees: {:?}",
-							self.asset_used_for_fees, asset_needed_for_fees,
-						);
-						let asset_to_pay_for_fees =
-							self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
-						// set aside fee to be charged by XcmSender
-						let delivery_fee =
-							self.holding.saturating_take(asset_to_pay_for_fees.into());
-						tracing::trace!(target: "xcm::DepositReserveAsset", ?delivery_fee);
-						delivery_fee
-					});
+					let maybe_delivery_fee = if !self.fees_mode.jit_withdraw {
+						fee.get(0).map(|asset_needed_for_fees| {
+							tracing::trace!(
+								target: "xcm::DepositReserveAsset",
+								"Asset provided to pay for fees {:?}, asset required for delivery fees: {:?}",
+								self.asset_used_for_fees, asset_needed_for_fees,
+							);
+							let asset_to_pay_for_fees = self
+								.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
+							// set aside fee to be charged by XcmSender
+							let delivery_fee =
+								self.holding.saturating_take(asset_to_pay_for_fees.into());
+							tracing::trace!(target: "xcm::DepositReserveAsset", ?delivery_fee);
+							delivery_fee
+						})
+					} else {
+						None
+					};
 					// now take assets to deposit (after having taken delivery fees)
 					let deposited = self.holding.saturating_take(assets);
 					tracing::trace!(target: "xcm::DepositReserveAsset", ?deposited, "Assets except delivery fee");
