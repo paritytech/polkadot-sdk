@@ -210,7 +210,6 @@ pub mod prelude {
 			NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
 		},
 		weights::{Weight, WeightMeter},
-		BoundedVec,
 	};
 
 	/// Pallet prelude of `frame-system`.
