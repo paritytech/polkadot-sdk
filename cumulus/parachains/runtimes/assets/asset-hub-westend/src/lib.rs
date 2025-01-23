@@ -1499,7 +1499,7 @@ impl_runtime_apis! {
 		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
-	}
+	};
 
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
@@ -1856,7 +1856,6 @@ impl_runtime_apis! {
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
-
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			impl frame_system_benchmarking::Config for Runtime {
@@ -1871,14 +1870,15 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, AssetHubWestend, AssetHubId};
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
-					WestendLocation::get(),
+					AssetHubWestend::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub const RandomParaId: ParaId = ParaId::new(43211234);
+				pub const SiblingAssetHubId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -1893,13 +1893,13 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						SiblingAssetHubId,
 						ParachainSystem,
 					>
 				);
 
 				fn reachable_dest() -> Option<Location> {
-					Some(Parent.into())
+					Some(AssetHubWestend::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1907,9 +1907,9 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(AssetHubWestend::get())
 						},
-						Parent.into(),
+						AssetHubWestend::get(),
 					))
 				}
 
@@ -1917,10 +1917,10 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(AssetHubWestend::get())
 						},
 						// AH can reserve transfer native token to some random parachain.
-						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
+						AssetHubWestend::get(),
 					))
 				}
 
@@ -1929,10 +1929,10 @@ impl_runtime_apis! {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
-					let dest = Parent.into();
+					let dest = AssetHubWestend::get();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
-					let fee_asset: Asset = (Location::parent(), fee_amount).into();
+					let fee_asset: Asset = (AssetHubWestend::get(), fee_amount).into();
 
 					let who = frame_benchmarking::whitelisted_caller();
 					// Give some multiple of the existential deposit
@@ -1975,7 +1975,7 @@ impl_runtime_apis! {
 
 				fn get_asset() -> Asset {
 					Asset {
-						id: AssetId(Location::parent()),
+						id: AssetId(AssetHubWestend::get()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
@@ -2015,19 +2015,20 @@ impl_runtime_apis! {
 				}
 			}
 
-			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 			use pallet_xcm_benchmarks::asset_instance_from;
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						SiblingAssetHubId,
+						ParachainSystem
+					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(WestendLocation::get())
+					Ok(AssetHubWestend::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -2042,7 +2043,7 @@ impl_runtime_apis! {
 							}
 						})
 						.chain(core::iter::once(Asset { id: AssetId(Here.into()), fun: Fungible(u128::MAX) }))
-						.chain(core::iter::once(Asset { id: AssetId(WestendLocation::get()), fun: Fungible(1_000_000 * UNITS) }))
+						.chain(core::iter::once(Asset { id: AssetId(AssetHubWestend::get()), fun: Fungible(1_000_000 * UNITS) }))
 						.chain((0..holding_non_fungibles).map(|i| Asset {
 							id: AssetId(GeneralIndex(i as u128).into()),
 							fun: NonFungible(asset_instance_from(i)),
@@ -2054,8 +2055,8 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					WestendLocation::get(),
-					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
+					AssetHubWestend::get(),
+					Asset { fun: Fungible(UNITS), id: AssetId(AssetHubWestend::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
@@ -2183,8 +2184,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for Runtime
-	{
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for Runtime {
 		fn balance(address: H160) -> U256 {
 			Revive::evm_balance(&address)
 		}
