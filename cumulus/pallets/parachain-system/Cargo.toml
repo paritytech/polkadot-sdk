@@ -35,12 +35,10 @@ polkadot-runtime-parachains.workspace = true
 polkadot-runtime-common = { optional = true, workspace = true }
 xcm.workspace = true
 xcm-builder.workspace = true
-
-# Cumulus
-cumulus-pallet-parachain-system-proc-macro = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-cumulus-primitives-parachain-inherent = { workspace = true }
-cumulus-primitives-proof-size-hostfunction = { workspace = true }
+cumulus-pallet-parachain-system-proc-macro.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-parachain-inherent.workspace = true
+cumulus-primitives-proof-size-hostfunction.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }

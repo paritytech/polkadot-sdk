@@ -980,7 +980,7 @@ version = "39.0.0"
 path = "../substrate/frame/bounties"
 default-features = false
 optional = true
-version = "37.0.0"
+version = "37.0.2"
 
 [dependencies.pallet-bridge-grandpa]
 path = "../bridges/modules/grandpa"
@@ -1550,7 +1550,7 @@ version = "17.0.0"
 path = "../polkadot/runtime/parachains"
 default-features = false
 optional = true
-version = "17.0.1"
+version = "17.0.2"
 
 [dependencies.polkadot-sdk-frame]
 path = "../substrate/frame"
@@ -1628,7 +1628,7 @@ version = "0.10.0"
 path = "../bridges/snowbridge/pallets/inbound-queue/fixtures"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.18.1"
 
 [dependencies.snowbridge-pallet-outbound-queue]
 path = "../bridges/snowbridge/pallets/outbound-queue"
@@ -1646,7 +1646,7 @@ version = "0.10.0"
 path = "../bridges/snowbridge/primitives/router"
 default-features = false
 optional = true
-version = "0.16.0"
+version = "0.16.1"
 
 [dependencies.snowbridge-runtime-common]
 path = "../bridges/snowbridge/runtime/runtime-common"
@@ -2018,7 +2018,7 @@ version = "0.18.0"
 path = "../cumulus/client/consensus/aura"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.18.1"
 
 [dependencies.cumulus-client-consensus-common]
 path = "../cumulus/client/consensus/common"
@@ -2234,7 +2234,7 @@ version = "18.0.0"
 path = "../polkadot/node/core/approval-voting"
 default-features = false
 optional = true
-version = "18.2.0"
+version = "18.3.0"
 
 [dependencies.polkadot-node-core-av-store]
 path = "../polkadot/node/core/av-store"
@@ -2396,7 +2396,7 @@ version = "19.0.0"
 path = "../polkadot/node/service"
 default-features = false
 optional = true
-version = "19.0.0"
+version = "19.0.1"
 
 [dependencies.polkadot-statement-distribution]
 path = "../polkadot/node/network/statement-distribution"
@@ -2576,7 +2576,7 @@ version = "0.15.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.45.3"
+version = "0.45.5"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
