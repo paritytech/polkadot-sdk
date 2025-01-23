@@ -250,9 +250,9 @@ jobs:
               echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
           fi
 
-          if [[ $BODY == "/cmd bench"* ]]; then
+          if [[ $BODY == "bench"* ]]; then
               echo "RUNNER=parity-weights" >> $GITHUB_OUTPUT
-          elif [[ $BODY == "/cmd update-ui"* ]]; then
+          elif [[ $BODY == "update-ui"* ]]; then
               echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
           else
               echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
