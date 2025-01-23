@@ -1,5 +1,5 @@
 [package]
-name = "pallet-xcm-bridge-hub-router"
+name = "pallet-xcm-bridge-router"
 description = "Bridge hub interface for sibling/parent chains with dynamic fees support."
 version = "0.5.0"
 authors.workspace = true

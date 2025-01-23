@@ -47,7 +47,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `pallet_xcm_bridge_hub_router`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> pallet_xcm_bridge_router::WeightInfo for WeightInfo<T> {
 	/// Storage: `ToWestendXcmRouter::Bridges` (r:1 w:1)
 	/// Proof: `ToWestendXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
 	fn update_bridge_status() -> Weight {

@@ -499,7 +499,7 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 	collator_session_keys: CollatorSessionKeys<Runtime>,
 	prepare_configuration: fn() -> TestBridgingConfig,
 	congestion_message: fn(
-		pallet_xcm_bridge_hub_router::BridgeIdOf<Runtime, XcmBridgeHubRouterInstance>,
+		pallet_xcm_bridge_router::BridgeIdOf<Runtime, XcmBridgeHubRouterInstance>,
 		bool,
 	) -> Xcm<XcmConfig::RuntimeCall>,
 ) where
@@ -511,7 +511,7 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>
+		+ pallet_xcm_bridge_router::Config<XcmBridgeHubRouterInstance>
 		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
@@ -540,8 +540,8 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 					local_bridge_hub_location, bridged_target_location, ..
 				} = prepare_configuration();
 
-				use pallet_xcm_bridge_hub_router::ResolveBridgeId;
-				let bridge_id = <<Runtime as pallet_xcm_bridge_hub_router::Config<
+				use pallet_xcm_bridge_router::ResolveBridgeId;
+				let bridge_id = <<Runtime as pallet_xcm_bridge_router::Config<
 					XcmBridgeHubRouterInstance,
 				>>::BridgeIdResolver>::resolve_for_dest(
 					&bridged_target_location
@@ -549,7 +549,7 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 				.expect("resolved BridgeId");
 
 				// check before
-				let bridge_state = pallet_xcm_bridge_hub_router::Bridges::<
+				let bridge_state = pallet_xcm_bridge_router::Bridges::<
 					Runtime,
 					XcmBridgeHubRouterInstance,
 				>::get(&bridge_id);
@@ -572,7 +572,7 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 				assert_ok!(outcome.ensure_complete());
 
 				// check after
-				let bridge_state = pallet_xcm_bridge_hub_router::Bridges::<
+				let bridge_state = pallet_xcm_bridge_router::Bridges::<
 					Runtime,
 					XcmBridgeHubRouterInstance,
 				>::get(&bridge_id);

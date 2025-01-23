@@ -406,7 +406,7 @@ mod tests {
 		assert_err, assert_ok,
 		traits::{Contains, EnsureOrigin},
 	};
-	use pallet_xcm_bridge_hub_router::ResolveBridgeId;
+	use pallet_xcm_bridge_router::ResolveBridgeId;
 	use xcm_builder::{NetworkExportTable, UnpaidRemoteExporter};
 	use xcm_executor::traits::export_xcm;
 
@@ -786,7 +786,7 @@ mod tests {
 			// check compatible bridge_id
 			assert_eq!(
 				bridge.bridge_id(),
-				&<TestRuntime as pallet_xcm_bridge_hub_router::Config<
+				&<TestRuntime as pallet_xcm_bridge_router::Config<
 					XcmOverBridgeWrappedWithExportMessageRouterInstance,
 				>>::BridgeIdResolver::resolve_for_dest(&dest)
 				.unwrap()
@@ -849,7 +849,7 @@ mod tests {
 			// check compatible bridge_id
 			assert_eq!(
 				bridge.bridge_id(),
-				&<TestRuntime as pallet_xcm_bridge_hub_router::Config<
+				&<TestRuntime as pallet_xcm_bridge_router::Config<
 					XcmOverBridgeByExportXcmRouterInstance,
 				>>::BridgeIdResolver::resolve_for_dest(&dest)
 				.unwrap()
@@ -1025,12 +1025,12 @@ mod tests {
 			// valid routable destination
 			let dest = Location::new(2, BridgedUniversalDestination::get());
 
-			fn router_bridge_state<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(
+			fn router_bridge_state<T: pallet_xcm_bridge_router::Config<I>, I: 'static>(
 				dest: &Location,
-			) -> Option<pallet_xcm_bridge_hub_router::BridgeState> {
+			) -> Option<pallet_xcm_bridge_router::BridgeState> {
 				let bridge_id =
 					<T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
-				pallet_xcm_bridge_hub_router::Bridges::<T, I>::get(&bridge_id)
+				pallet_xcm_bridge_router::Bridges::<T, I>::get(&bridge_id)
 			}
 
 			// open two bridges

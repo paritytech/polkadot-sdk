@@ -1266,7 +1266,7 @@ mod asset_hub_rococo_tests {
 		// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
 		assert_eq!(
 			RuntimeCall::ToWestendXcmRouter(
-				pallet_xcm_bridge_hub_router::Call::update_bridge_status {
+				pallet_xcm_bridge_router::Call::update_bridge_status {
 					bridge_id: bridge_id.clone(),
 					is_congested: true,
 				}
@@ -1284,8 +1284,8 @@ mod asset_hub_rococo_tests {
 
 	#[test]
 	fn check_sane_weight_report_bridge_status_for_westend() {
-		use pallet_xcm_bridge_hub_router::WeightInfo;
-		let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
+		use pallet_xcm_bridge_router::WeightInfo;
+		let actual = <Runtime as pallet_xcm_bridge_router::Config<
 			ToWestendXcmRouterInstance,
 		>>::WeightInfo::update_bridge_status();
 		let max_weight = bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get();

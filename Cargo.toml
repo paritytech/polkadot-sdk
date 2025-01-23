@@ -28,7 +28,7 @@ members = [
 	"bridges/modules/parachains",
 	"bridges/modules/relayers",
 	"bridges/modules/xcm-bridge",
-	"bridges/modules/xcm-bridge-hub-router",
+	"bridges/modules/xcm-bridge-router",
 	"bridges/primitives/beefy",
 	"bridges/primitives/header-chain",
 	"bridges/primitives/messages",
@@ -1016,7 +1016,7 @@ pallet-whitelist = { path = "substrate/frame/whitelist", default-features = fals
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
 pallet-xcm-bridge = { path = "bridges/modules/xcm-bridge", default-features = false }
-pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
+pallet-xcm-bridge-router = { path = "bridges/modules/xcm-bridge-router", default-features = false }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }

@@ -39,7 +39,7 @@ bp-header-chain = { workspace = true }
 bp-runtime = { workspace = true }
 bp-xcm-bridge-hub-router = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-xcm-bridge-hub-router = { workspace = true }
+pallet-xcm-bridge-router = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 sp-io = { workspace = true }
 
@@ -58,7 +58,7 @@ std = [
 	"log/std",
 	"pallet-balances/std",
 	"pallet-bridge-messages/std",
-	"pallet-xcm-bridge-hub-router/std",
+	"pallet-xcm-bridge-router/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -75,7 +75,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
-	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
+	"pallet-xcm-bridge-router/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
@@ -87,6 +87,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-bridge-messages/try-runtime",
-	"pallet-xcm-bridge-hub-router/try-runtime",
+	"pallet-xcm-bridge-router/try-runtime",
 	"sp-runtime/try-runtime",
 ]

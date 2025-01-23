@@ -986,10 +986,10 @@ impl pallet_nfts::Config for Runtime {
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Westend` global
 /// consensus with dynamic fees and back-pressure.
-pub type ToWestendXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance3;
-impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtime {
+pub type ToWestendXcmRouterInstance = pallet_xcm_bridge_router::Instance3;
+impl pallet_xcm_bridge_router::Config<ToWestendXcmRouterInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_xcm_bridge_router::WeightInfo<Runtime>;
 
 	type DestinationVersion = PolkadotXcm;
 
@@ -997,7 +997,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	// BridgeHub.
 	type MessageExporter = SovereignPaidRemoteExporter<
 		// `ExporterFor` wrapper handling dynamic fees for congestion.
-		pallet_xcm_bridge_hub_router::impls::ViaRemoteBridgeHubExporter<
+		pallet_xcm_bridge_router::impls::ViaRemoteBridgeHubExporter<
 			Runtime,
 			ToWestendXcmRouterInstance,
 			NetworkExportTable<xcm_config::bridging::to_westend::BridgeTable>,
@@ -1010,7 +1010,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 
 	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on
 	// the BH.
-	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<
+	type BridgeIdResolver = pallet_xcm_bridge_router::impls::EnsureIsRemoteBridgeIdResolver<
 		xcm_config::UniversalLocation,
 	>;
 	// For congestion - allow only calls from BH.
@@ -1107,7 +1107,7 @@ construct_runtime!(
 		Proxy: pallet_proxy = 42,
 
 		// Bridge utilities.
-		ToWestendXcmRouter: pallet_xcm_bridge_hub_router::<Instance3> = 45,
+		ToWestendXcmRouter: pallet_xcm_bridge_router::<Instance3> = 45,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
@@ -1331,7 +1331,7 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
-		[pallet_xcm_bridge_hub_router, ToWestend]
+		[pallet_xcm_bridge_router, ToWestend]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
@@ -1669,7 +1669,7 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
-			use pallet_xcm_bridge_hub_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
+			use pallet_xcm_bridge_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
@@ -1716,7 +1716,7 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
-			use pallet_xcm_bridge_hub_router::benchmarking::{
+			use pallet_xcm_bridge_router::benchmarking::{
 				Pallet as XcmBridgeHubRouterBench,
 				Config as XcmBridgeHubRouterConfig,
 			};

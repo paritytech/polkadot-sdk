@@ -16,7 +16,7 @@
 
 #![cfg(test)]
 
-use crate as pallet_xcm_bridge_hub_router;
+use crate as pallet_xcm_bridge_router;
 
 use crate::impls::EnsureIsRemoteBridgeIdResolver;
 use bp_xcm_bridge_hub_router::{BridgeState, ResolveBridgeId};
@@ -46,7 +46,7 @@ construct_runtime! {
 	pub enum TestRuntime
 	{
 		System: frame_system,
-		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router,
+		XcmBridgeHubRouter: pallet_xcm_bridge_router,
 	}
 }
 
@@ -93,13 +93,13 @@ impl ResolveBridgeId for EveryDestinationToSameBridgeIdResolver {
 /// An instance of `pallet_xcm_bridge_hub_router` configured to use a remote exporter with the
 /// `ExportMessage` instruction, which will be delivered to a sibling parachain using
 /// `SiblingBridgeHubLocation`.
-#[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
-impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
+#[derive_impl(pallet_xcm_bridge_router::config_preludes::TestDefaultConfig)]
+impl pallet_xcm_bridge_router::Config<()> for TestRuntime {
 	type DestinationVersion =
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
 	type MessageExporter = SovereignPaidRemoteExporter<
-		pallet_xcm_bridge_hub_router::impls::ViaRemoteBridgeHubExporter<
+		pallet_xcm_bridge_router::impls::ViaRemoteBridgeHubExporter<
 			TestRuntime,
 			(),
 			NetworkExportTable<BridgeTable>,
@@ -200,24 +200,24 @@ pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
 }
 
-pub(crate) fn set_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(
+pub(crate) fn set_bridge_state_for<T: pallet_xcm_bridge_router::Config<I>, I: 'static>(
 	dest: &Location,
 	bridge_state: Option<BridgeState>,
-) -> pallet_xcm_bridge_hub_router::BridgeIdOf<T, I> {
+) -> pallet_xcm_bridge_router::BridgeIdOf<T, I> {
 	let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
 	if let Some(bridge_state) = bridge_state {
-		pallet_xcm_bridge_hub_router::Bridges::<T, I>::insert(&bridge_id, bridge_state);
+		pallet_xcm_bridge_router::Bridges::<T, I>::insert(&bridge_id, bridge_state);
 	} else {
-		pallet_xcm_bridge_hub_router::Bridges::<T, I>::remove(&bridge_id);
+		pallet_xcm_bridge_router::Bridges::<T, I>::remove(&bridge_id);
 	}
 	bridge_id
 }
 
-pub(crate) fn get_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(
+pub(crate) fn get_bridge_state_for<T: pallet_xcm_bridge_router::Config<I>, I: 'static>(
 	dest: &Location,
 ) -> Option<BridgeState> {
 	let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
-	pallet_xcm_bridge_hub_router::Bridges::<T, I>::get(bridge_id)
+	pallet_xcm_bridge_router::Bridges::<T, I>::get(bridge_id)
 }
 
 #[cfg(feature = "runtime-benchmarks")]

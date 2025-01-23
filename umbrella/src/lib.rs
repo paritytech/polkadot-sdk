@@ -738,8 +738,8 @@ pub use pallet_xcm_benchmarks;
 pub use pallet_xcm_bridge;
 
 /// Bridge hub interface for sibling/parent chains with dynamic fees support.
-#[cfg(feature = "pallet-xcm-bridge-hub-router")]
-pub use pallet_xcm_bridge_hub_router;
+#[cfg(feature = "pallet-xcm-bridge-router")]
+pub use pallet_xcm_bridge_router;
 
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]
