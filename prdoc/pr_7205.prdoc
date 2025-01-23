@@ -7,4 +7,4 @@ doc:
     is full, but the included block moved to the most recent block, building was wrongly disallowed.
 crates:
 - name: cumulus-client-consensus-aura
-  bump: minor
+  bump: patch
