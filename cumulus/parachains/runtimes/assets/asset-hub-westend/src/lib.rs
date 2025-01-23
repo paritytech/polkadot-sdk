@@ -1102,13 +1102,8 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = frame_support::migrations::ResetPallet<
-		Revive,
-		<Runtime as frame_system::Config>::DbWeight,
-		(),   // BuildGenesisConfig (Revive doesn't have one)
-		(),   // Get<BuildGenesisConfig>
-		true, // re-init the pallet (storage version and genesis builder)
-	>;
+	type Migrations =
+		frame_support::migrations::ResetPallet<Revive, <Runtime as frame_system::Config>::DbWeight>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;

@@ -260,9 +260,39 @@ pub fn migrate_from_pallet_version_to_storage_version<
 	Pallets::migrate(db_weight)
 }
 
-pub struct ResetPallet<P, W, B = (), G = (), const REINIT: bool = false>(PhantomData<(P, W, B, G)>);
+/// Remove all of a pallet's state and re-initializes it to the current in-code storage version.
+///
+/// It uses the multi block migration frame. Hence it is safe to use even on
+/// pallets that contain a lot of storage.
+///
+/// # Parameters
+///
+/// - P: The pallet to resetted as defined in construct runtime
+/// - W: The weight definition for storage access.
+/// - B, G: Optional. Can be used if the pallet needs to be initialized via [`BuildGenesisConfig`].
+///
+/// # Note
+///
+/// The costs to set the optional genesis state are not accounted for. This should be fine as long
+/// as no massive amounts of data are written.
+pub struct ResetPallet<P, W, B = (), G = ()>(PhantomData<(P, W, B, G)>);
 
-impl<P, W, B, G, const REINIT: bool> SteppedMigration for ResetPallet<P, W, B, G, REINIT>
+impl<P, W, B, G> ResetPallet<P, W, B, G>
+where
+	P: PalletInfoAccess,
+{
+	fn hashed_prefix() -> [u8; 16] {
+		twox_128(P::name().as_bytes())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn num_keys() -> u64 {
+		let prefix = Self::hashed_prefix().to_vec();
+		crate::storage::KeyPrefixIterator::new(prefix.clone(), prefix, |_| Ok(())).count() as _
+	}
+}
+
+impl<P, W, B, G> SteppedMigration for ResetPallet<P, W, B, G>
 where
 	P: PalletInfoAccess + OnGenesis,
 	W: Get<RuntimeDbWeight>,
@@ -291,15 +321,14 @@ where
 			return Err(SteppedMigrationError::InsufficientWeight { required: weight_per_key })
 		}
 
-		let hashed_prefix = twox_128(P::name().as_bytes());
-		let (keys_removed, cursor) = match clear_prefix(&hashed_prefix, Some(key_budget)) {
+		let (keys_removed, cursor) = match clear_prefix(&Self::hashed_prefix(), Some(key_budget)) {
 			KillStorageResult::AllRemoved(value) => (value.into(), None),
 			KillStorageResult::SomeRemaining(value) => (value.into(), Some(())),
 		};
 
 		meter.consume(W::get().writes(keys_removed));
 
-		if REINIT && cursor.is_none() {
+		if cursor.is_none() {
 			// sets pallet version to current in-code version
 			P::on_genesis();
 
@@ -308,6 +337,27 @@ where
 		}
 
 		Ok(cursor)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		let num_keys: u64 = Self::num_keys();
+		log::info!("ResetPallet<{}>: Trying to remove {num_keys} keys.", P::name());
+		Ok(num_keys.encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		let keys_before = u64::decode(&mut state.as_ref()).expect("We encoded as u64 above; qed");
+		let keys_now = Self::num_keys();
+		log::info!("ResetPallet<{}>: Keys remaining after migration: {keys_now}", P::name());
+
+		if !(keys_before > keys_now) {
+			log::error!("ResetPallet<{}>: Removed suspiciously low number of keys.", P::name());
+			Err("ResetPallet failed")?;
+		}
+
+		Ok(())
 	}
 }
 
