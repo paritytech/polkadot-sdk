@@ -445,6 +445,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		mmr.generate_mock_ancestry_proof()
 	}
 
+	pub fn is_ancestry_proof_optimal(
+		ancestry_proof: &primitives::AncestryProof<HashOf<T, I>>,
+	) -> bool {
+		mmr::is_ancestry_proof_optimal::<HashingOf<T, I>>(ancestry_proof)
+	}
+
 	pub fn verify_ancestry_proof(
 		root: HashOf<T, I>,
 		ancestry_proof: AncestryProof<HashOf<T, I>>,
