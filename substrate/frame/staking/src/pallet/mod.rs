@@ -778,7 +778,7 @@ pub mod pallet {
 
 	/// A bounded list of the "electable" stashes that resulted from a successful election.
 	#[pallet::storage]
-	pub(crate) type ElectableStashes<T: Config> =
+	pub type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
 	#[pallet::genesis_config]
