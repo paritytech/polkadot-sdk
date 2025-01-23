@@ -1524,7 +1524,9 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		// blocks, but rather in a whole era from now.
 
 		if until_this_session_end == One::one() && sessions_left.is_zero() {
-			return now.saturating_add(T::SessionsPerEra::get().into() * session_length)
+			return now.saturating_add(
+				BlockNumberFor::<T>::from(T::SessionsPerEra::get()) * session_length,
+			)
 		}
 
 		now.saturating_add(
