@@ -1,8 +1,8 @@
 title: Bridges small nits/improvements
 doc:
 - audience: Runtime Dev
-  description: 'This PR contains small fixes identified during work on the larger
-    PR: https://github.com/paritytech/polkadot-sdk/issues/6906.'
+  description: |
+      This PR introduces a new `expected_payload_type` parameter to the Bridges `assert_complete_bridge_types` macro.
 crates:
 - name: bridge-runtime-common
   bump: patch
