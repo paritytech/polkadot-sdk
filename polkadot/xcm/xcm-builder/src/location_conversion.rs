@@ -119,6 +119,14 @@ pub type DescribeAllTerminal = (
 	DescribeBodyTerminal,
 );
 
+pub type LocationToAccount = GenericLocationToAccountConverter<
+    AccountId32,
+    GlobalConsensusConvertsFor,
+    GlobalConsensusParachainConvertsFor,
+    DescribeAllTerminal
+>;
+
+
 pub struct DescribeFamily<DescribeInterior>(PhantomData<DescribeInterior>);
 impl<Suffix: DescribeLocation> DescribeLocation for DescribeFamily<Suffix> {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
@@ -410,6 +418,36 @@ impl<UniversalLocation, AccountId> GlobalConsensusConvertsFor<UniversalLocation,
 	fn from_params(network: &NetworkId) -> [u8; 32] {
 		(b"glblcnsnss_", network).using_encoded(blake2_256)
 	}
+}
+
+pub struct GenericLocationToAccountConverter<AccountId, GlobalConsensus, GlobalConsensusParachain, Describe>(
+    PhantomData<(AccountId, GlobalConsensus, GlobalConsensusParachain, Describe)>
+);
+
+impl<AccountId, GlobalConsensus, GlobalConsensusParachain, Describe>
+    ConvertLocation<AccountId>
+    for GenericLocationToAccountConverter<AccountId, GlobalConsensus, GlobalConsensusParachain, Describe>
+where
+    AccountId: From<[u8; 32]> + Clone,
+    GlobalConsensus: ConvertLocation<AccountId>,
+    GlobalConsensusParachain: ConvertLocation<AccountId>,
+    Describe: DescribeLocation,
+{
+    fn convert_location(location: &Location) -> Option<AccountId> {
+        // Attempt conversion using GlobalConsensus
+        if let Some(account) = GlobalConsensus::convert_location(location) {
+            return Some(account);
+        }
+
+        // Attempt conversion using GlobalConsensusParachain
+        if let Some(account) = GlobalConsensusParachain::convert_location(location) {
+            return Some(account);
+        }
+
+        // Use the Describe trait to generate a unique description
+        let description = Describe::describe_location(location)?;
+        Some(blake2_256(&description).into())
+    }
 }
 
 /// Converts a location which is a top-level parachain (i.e. a parachain held on a
@@ -1010,4 +1048,14 @@ mod tests {
 			actual_description
 		);
 	}
+
+	#[test]
+    fn test_generic_location_to_account_conversion() {
+    let global_location = Location::new(0, Junctions::X1(GlobalConsensusJunction));
+    let parachain_location = Location::new(1, Junctions::X2(Parachain(2000), AccountId32 { id: [0u8; 32], network: None }));
+
+    assert!(LocationToAccount::convert_location(&global_location).is_some());
+    assert!(LocationToAccount::convert_location(&parachain_location).is_some());
+}
+
 }
