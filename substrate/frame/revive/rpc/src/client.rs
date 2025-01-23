@@ -18,7 +18,6 @@
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 use crate::{
 	extract_receipts_from_block,
-	runtime::gas_from_fee,
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
@@ -28,9 +27,9 @@ use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes,
-		GenericTransaction, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
-		TransactionSigned, TransactionTrace, H160, H256, U256,
+		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash,
+		GenericTransaction, ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned,
+		TransactionTrace, H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
@@ -68,6 +67,14 @@ pub type Shared<T> = Arc<RwLock<T>>;
 
 /// The runtime balance type.
 pub type Balance = u128;
+
+/// The subscription type used to listen to new blocks.
+pub enum SubscriptionType {
+	/// Subscribe to the best blocks.
+	BestBlocks,
+	/// Subscribe to the finalized blocks.
+	FinalizedBlocks,
+}
 
 /// Unwrap the original `jsonrpsee::core::client::Error::Call` error.
 fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
@@ -283,19 +290,23 @@ impl Client {
 
 	/// Subscribe to new best blocks, and execute the async closure with
 	/// the extracted block and ethereum transactions
-	async fn subscribe_new_blocks<F, Fut>(&self, callback: F) -> Result<(), ClientError>
+	async fn subscribe_new_blocks<F, Fut>(
+		&self,
+		subscription_type: SubscriptionType,
+		callback: F,
+	) -> Result<(), ClientError>
 	where
 		F: Fn(SubstrateBlock) -> Fut + Send + Sync,
 		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
 	{
 		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
-		let mut block_stream = match self.api.blocks().subscribe_best().await {
-			Ok(s) => s,
-			Err(err) => {
-				log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
-				return Err(err.into());
-			},
-		};
+		let mut block_stream = match subscription_type {
+			SubscriptionType::BestBlocks => self.api.blocks().subscribe_best().await,
+			SubscriptionType::FinalizedBlocks => self.api.blocks().subscribe_finalized().await,
+		}
+		.inspect_err(|err| {
+			log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
+		})?;
 
 		while let Some(block) = block_stream.next().await {
 			let block = match block {
@@ -315,7 +326,9 @@ impl Client {
 			};
 
 			log::debug!(target: LOG_TARGET, "Pushing block: {}", block.number());
-			callback(block).await?;
+			if let Err(err) = callback(block).await {
+				log::error!(target: LOG_TARGET, "Failed to process block: {err:?}");
+			}
 		}
 
 		log::info!(target: LOG_TARGET, "Block subscription ended");
@@ -327,7 +340,7 @@ impl Client {
 		let client = self.clone();
 		spawn_handle.spawn("subscribe-blocks", None, async move {
 			let res = client
-				.subscribe_new_blocks(|block| async {
+				.subscribe_new_blocks(SubscriptionType::BestBlocks, |block| async {
 					let receipts = extract_receipts_from_block(&block).await?;
 
 					client.receipt_provider.insert(&block.hash(), &receipts).await;
@@ -350,13 +363,14 @@ impl Client {
 		&self,
 		oldest_block: Option<SubstrateBlockNumber>,
 	) -> Result<(), ClientError> {
-		let new_blocks_fut = self.subscribe_new_blocks(|block| async move {
-			let receipts = extract_receipts_from_block(&block).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to extract receipts from block: {err:?}");
-			})?;
-			self.receipt_provider.insert(&block.hash(), &receipts).await;
-			Ok(())
-		});
+		let new_blocks_fut =
+			self.subscribe_new_blocks(SubscriptionType::FinalizedBlocks, |block| async move {
+				let receipts = extract_receipts_from_block(&block).await.inspect_err(|err| {
+					log::error!(target: LOG_TARGET, "Failed to extract receipts from block: {err:?}");
+				})?;
+				self.receipt_provider.insert(&block.hash(), &receipts).await;
+				Ok(())
+			});
 
 		let Some(oldest_block) = oldest_block else { return new_blocks_fut.await };
 
@@ -710,8 +724,7 @@ impl Client {
 		hydrated_transactions: bool,
 	) -> Result<Block, ClientError> {
 		let runtime_api = self.api.runtime_api().at(block.hash());
-		let max_fee = Self::weight_to_fee(&runtime_api, self.max_block_weight()).await?;
-		let gas_limit = gas_from_fee(max_fee);
+		let gas_limit = Self::block_gas_limit(&runtime_api).await?;
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(&block).await.unwrap_or_default();
@@ -756,16 +769,13 @@ impl Client {
 	}
 
 	/// Convert a weight to a fee.
-	async fn weight_to_fee(
+	async fn block_gas_limit(
 		runtime_api: &subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
-		weight: Weight,
-	) -> Result<Balance, ClientError> {
-		let payload = subxt_client::apis()
-			.transaction_payment_api()
-			.query_weight_to_fee(weight.into());
+	) -> Result<U256, ClientError> {
+		let payload = subxt_client::apis().revive_api().block_gas_limit();
 
-		let fee = runtime_api.call(payload).await?;
-		Ok(fee)
+		let gas_limit = runtime_api.call(payload).await?;
+		Ok(*gas_limit)
 	}
 
 	/// Get the chain ID.

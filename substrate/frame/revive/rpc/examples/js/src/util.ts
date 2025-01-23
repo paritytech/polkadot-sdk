@@ -94,6 +94,15 @@ export async function createEnv(name: 'geth' | 'kitchensink') {
 		chain,
 	}).extend(publicActions)
 
+	const emptyWallet = createWalletClient({
+		account: privateKeyToAccount(
+			'0x4450c571bae82da0528ecf76fcf7079e12ecc46dc873c9cacb6db8b75ed22f41',
+			{ nonceManager }
+		),
+		transport,
+		chain,
+	}).extend(publicActions)
+
 	const tracerConfig = { withLog: true }
 	const debugClient = createClient({
 		chain,
@@ -128,7 +137,7 @@ export async function createEnv(name: 'geth' | 'kitchensink') {
 		// ...
 	}))
 
-	return { debugClient, serverWallet, accountWallet, evm: name == 'geth' }
+	return { debugClient, emptyWallet, serverWallet, accountWallet, evm: name == 'geth' }
 }
 
 export type Env = Awaited<ReturnType<typeof createEnv>>
