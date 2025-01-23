@@ -221,13 +221,13 @@ pub mod pallet {
 			ensure!(!Nonce::<T>::get(envelope.nonce.into()), Error::<T>::InvalidNonce);
 
 			// Decode payload into `MessageV2`
-			let message = MessageV2::decode_all(&mut envelope.payload.as_ref())
-				.map_err(|_| Error::<T>::InvalidPayload)?;
+			//let message = MessageV2::decode_all(&mut envelope.payload.as_ref())
+			//	.map_err(|_| Error::<T>::InvalidPayload)?;
 
-			let origin_account_location = Self::account_to_location(who)?;
+			//let origin_account_location = Self::account_to_location(who)?;
 
-			let (xcm, _relayer_reward) =
-				Self::do_convert(message, origin_account_location.clone())?;
+			//let (xcm, _relayer_reward) =
+			//	Self::do_convert(message, origin_account_location.clone())?;
 
 			// Todo: Deposit fee(in Ether) to RewardLeger which should cover all of:
 			// T::RewardLeger::deposit(who, relayer_reward.into())?;
@@ -242,8 +242,8 @@ pub mod pallet {
 			// Set nonce flag to true
 			Nonce::<T>::set(envelope.nonce.into());
 
-			let message_id = Self::send_xcm(xcm, T::AssetHubParaId::get())?;
-			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
+			//let message_id = Self::send_xcm(xcm, T::AssetHubParaId::get())?;
+			//Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
 			Ok(())
 		}

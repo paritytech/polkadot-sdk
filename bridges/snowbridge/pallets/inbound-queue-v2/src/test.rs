@@ -2,12 +2,11 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
+use crate::{mock::*, Error};
 use frame_support::{assert_noop, assert_ok};
 use snowbridge_core::inbound::Proof;
-use sp_keyring::AccountKeyring as Keyring;
+use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
-
-use crate::{mock::*, Error};
 
 #[test]
 fn test_submit_with_invalid_gateway() {
