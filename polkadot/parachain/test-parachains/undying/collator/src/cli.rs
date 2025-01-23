@@ -61,6 +61,15 @@ pub struct ExportGenesisWasmCommand {
 	pub output: Option<PathBuf>,
 }
 
+/// Enum representing different types of malicious behaviors for collators.
+#[derive(Debug, Parser, Clone, PartialEq, clap::ValueEnum)]
+pub enum MalusType {
+	/// No malicious behavior.
+	None,
+	/// Submit the same collations to all assigned cores.
+	DuplicateCollations,
+}
+
 #[allow(missing_docs)]
 #[derive(Debug, Parser)]
 #[group(skip)]
@@ -82,10 +91,9 @@ pub struct RunCmd {
 	#[arg(long, default_value_t = 1)]
 	pub pvf_complexity: u32,
 
-	/// If true, the collator will behave maliciously by submitting
-	/// the same collations to all assigned backing groups.
-	#[arg(long, default_value_t = false)]
-	pub malus: bool,
+	/// Specifies the malicious behavior of the collator.
+	#[arg(long, value_enum, default_value_t = MalusType::None)]
+	pub malus_type: MalusType,
 }
 
 #[allow(missing_docs)]

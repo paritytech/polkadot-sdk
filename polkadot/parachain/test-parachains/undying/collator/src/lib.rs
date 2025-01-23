@@ -375,18 +375,13 @@ impl Collator {
 
 					// Get the list of cores assigned to the parachain.
 					let claim_queue = match client.runtime_api().claim_queue(relay_parent) {
-						Ok(claim_queue) =>
-							if claim_queue.is_empty() {
-								log::info!(target: LOG_TARGET, "Claim queue is empty.");
-								continue;
-							} else {
-								claim_queue
-							},
+						Ok(claim_queue) => claim_queue,
 						Err(error) => {
 							log::error!(
 								target: LOG_TARGET,
 								"Failed to query claim queue runtime API: {error:?}"
 							);
+							Self::wait_for_next_slot();
 							continue;
 						},
 					};
@@ -404,11 +399,20 @@ impl Collator {
 						.collect();
 
 					if scheduled_cores.is_empty() {
-						log::error!(
+						log::info!(
 							target: LOG_TARGET,
 							"Scheduled cores is empty."
 						);
+						Self::wait_for_next_slot();
 						continue;
+					}
+
+					if scheduled_cores.len() == 1 {
+						log::info!(
+							target: LOG_TARGET,
+							"Malus collator configured with duplicate collations, but only 1 core assigned. \
+							Collator will not do anything malicious."
+						);
 					}
 
 					// Fetch validation data for the collation.
@@ -419,10 +423,11 @@ impl Collator {
 					) {
 						Ok(Some(validation_data)) => validation_data,
 						Ok(None) => {
-							log::error!(
+							log::info!(
 								target: LOG_TARGET,
 								"Persisted validation data is None."
 							);
+							Self::wait_for_next_slot();
 							continue;
 						},
 						Err(error) => {
@@ -439,10 +444,11 @@ impl Collator {
 						match collation_function(relay_parent, &validation_data).await {
 							Some(collation) => collation,
 							None => {
-								log::error!(
+								log::info!(
 									target: LOG_TARGET,
 									"Collation result is None."
 								);
+								Self::wait_for_next_slot();
 								continue;
 							},
 						}
@@ -456,10 +462,11 @@ impl Collator {
 					) {
 						Ok(Some(validation_code_hash)) => validation_code_hash,
 						Ok(None) => {
-							log::error!(
+							log::info!(
 								target: LOG_TARGET,
 								"Validation code hash is None."
 							);
+							Self::wait_for_next_slot();
 							continue;
 						},
 						Err(error) => {
@@ -467,6 +474,7 @@ impl Collator {
 								target: LOG_TARGET,
 								"Failed to query validation code hash runtime API: {error:?}"
 							);
+							Self::wait_for_next_slot();
 							continue;
 						},
 					};
@@ -480,6 +488,7 @@ impl Collator {
 									target: LOG_TARGET,
 									"Failed to query session index for child runtime API: {error:?}"
 								);
+								Self::wait_for_next_slot();
 								continue;
 							},
 						};
@@ -505,6 +514,7 @@ impl Collator {
 								target: LOG_TARGET,
 								"PoV size {encoded_size} exceeded maximum size of {max_pov_size}",
 							);
+							Self::wait_for_next_slot();
 							continue;
 						}
 
@@ -518,10 +528,11 @@ impl Collator {
 						match client.runtime_api().session_info(relay_parent, session_index) {
 							Ok(Some(session_info)) => session_info,
 							Ok(None) => {
-								log::error!(
+								log::info!(
 									target: LOG_TARGET,
 									"Session info is None."
 								);
+								Self::wait_for_next_slot();
 								continue;
 							},
 							Err(error) => {
@@ -529,6 +540,7 @@ impl Collator {
 									target: LOG_TARGET,
 									"Failed to query session info runtime API: {error:?}"
 								);
+								Self::wait_for_next_slot();
 								continue;
 							},
 						};
@@ -547,6 +559,7 @@ impl Collator {
 								target: LOG_TARGET,
 								"Failed to obtain chunks v1: {error:?}"
 							);
+							Self::wait_for_next_slot();
 							continue;
 						},
 					};
@@ -580,6 +593,12 @@ impl Collator {
 
 						let candidate_receipt = ccr.to_plain();
 
+						// We cannot use SubmitCollation here because it includes an additional
+						// check for the core index by calling `check_core_index`. This check
+						// enforces that the parachain always selects the correct core by comparing
+						// the descriptor and commitments core indexes. To bypass this check, we are
+						// simulating the behavior of SubmitCollation while skipping the core index
+						// validation.
 						overseer_handle
 							.send_msg(
 								CollatorProtocolMessage::DistributeCollation {
@@ -595,10 +614,17 @@ impl Collator {
 							.await;
 					}
 
-					// Wait before repeating the process.
-					sleep(Duration::from_secs(6 as u64));
+					Self::wait_for_next_slot();
 				}
 			});
+	}
+
+	fn wait_for_next_slot() {
+		log::info!(
+			target: LOG_TARGET,
+			"Waiting for the next slot..."
+		);
+		sleep(Duration::from_secs(6 as u64));
 	}
 }
 

@@ -19,7 +19,7 @@
 use polkadot_cli::{Error, Result};
 use polkadot_node_primitives::CollationGenerationConfig;
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
-use polkadot_primitives::{self, Id as ParaId};
+use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
@@ -29,7 +29,7 @@ use std::{
 use test_parachain_undying_collator::Collator;
 
 mod cli;
-use cli::Cli;
+use cli::{Cli, MalusType};
 
 fn main() -> Result<()> {
 	let cli = Cli::from_args();
@@ -123,7 +123,7 @@ fn main() -> Result<()> {
 					key: collator.collator_key(),
 					// If the collator is malicious, disable the collation function
 					// (set to None) and manually handle collation submission later.
-					collator: if cli.run.malus {
+					collator: if cli.run.malus_type == MalusType::None {
 						None
 					} else {
 						Some(
@@ -141,9 +141,9 @@ fn main() -> Result<()> {
 					.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 					.await;
 
-				// If the collator is malicious, simulate malicious behavior
-				// by sending the same collations to all assigned cores.
-				if cli.run.malus {
+				// If the collator is configured to behave maliciously, simulate the specified
+				// malicious behavior.
+				if cli.run.malus_type == MalusType::DuplicateCollations {
 					collator.send_same_collations_to_all_assigned_cores(
 						&full_node,
 						overseer_handle,
