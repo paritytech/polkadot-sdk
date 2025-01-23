@@ -2,13 +2,19 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use snowbridge_core::inbound::Log;
 
-use sp_core::{RuntimeDebug, H160};
+use alloy_core::{
+	primitives::B256,
+	sol,
+	sol_types::{SolEvent, SolType},
+};
+use snowbridge_router_primitives::inbound::v2::{
+	Asset::{ForeignTokenERC20, NativeTokenERC20},
+	Message as MessageV2,
+};
+use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::prelude::*;
-
-use alloy_core::{primitives::B256, sol, sol_types::SolEvent};
-
-/**
-struct AsNativeTokenERC20 {
+sol! {
+	struct AsNativeTokenERC20 {
 		address token_id;
 		uint128 value;
 	}
@@ -16,8 +22,6 @@ struct AsNativeTokenERC20 {
 		bytes32 token_id;
 		uint128 value;
 	}
-**/
-sol! {
 	struct EthereumAsset {
 		uint8 kind;
 		bytes data;
@@ -42,7 +46,7 @@ pub struct Envelope {
 	/// A nonce for enforcing replay protection and ordering.
 	pub nonce: u64,
 	/// The inner payload generated from the source application.
-	pub payload: Payload,
+	pub message: MessageV2,
 }
 
 #[derive(Copy, Clone, RuntimeDebug)]
@@ -54,6 +58,8 @@ impl TryFrom<&Log> for Envelope {
 	fn try_from(log: &Log) -> Result<Self, Self::Error> {
 		// Convert to B256 for Alloy decoding
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
+
+		let mut substrate_assets = alloc::vec![];
 
 		// Decode the Solidity event from raw logs
 		let event = OutboundMessageAccepted::decode_raw_log(topics, &log.data, true).map_err(
@@ -68,9 +74,46 @@ impl TryFrom<&Log> for Envelope {
 			},
 		)?;
 
-		// event.nonce is a `u64`
-		// event.payload is already the typed `Payload` struct
-		Ok(Self { gateway: log.address, nonce: event.nonce, payload: event.payload })
+		let payload = event.payload;
+
+		for asset in payload.assets {
+			match asset.kind {
+				0 => {
+					let native_data = AsNativeTokenERC20::abi_decode(&asset.data, true)
+						.map_err(|_| EnvelopeDecodeError)?;
+					substrate_assets.push(NativeTokenERC20 {
+						token_id: H160::from(native_data.token_id.as_ref()),
+						value: native_data.value,
+					});
+				},
+				1 => {
+					let foreign_data = AsForeignTokenERC20::abi_decode(&asset.data, true)
+						.map_err(|_| EnvelopeDecodeError)?;
+					substrate_assets.push(ForeignTokenERC20 {
+						token_id: H256::from(foreign_data.token_id.as_ref()),
+						value: foreign_data.value,
+					});
+				},
+				_ => return Err(EnvelopeDecodeError),
+			}
+		}
+
+		let mut claimer = None;
+		if payload.claimer.len() > 0 {
+			claimer = Some(payload.claimer.to_vec());
+		}
+
+		let message = MessageV2 {
+			origin: H160::from(payload.origin.as_ref()),
+			assets: substrate_assets,
+			xcm: payload.xcm.to_vec(),
+			claimer,
+			value: payload.value,
+			execution_fee: payload.executionFee,
+			relayer_fee: payload.relayerFee,
+		};
+
+		Ok(Self { gateway: log.address, nonce: event.nonce, message })
 	}
 }
 
@@ -117,6 +160,9 @@ mod tests {
 		let envelope = result.unwrap();
 
 		assert_eq!(H160::from(hex!("b8ea8cb425d85536b158d661da1ef0895bb92f1d")), envelope.gateway);
-		assert_eq!(hex!("B8EA8cB425d85536b158d661da1ef0895Bb92F1D"), envelope.payload.origin);
+		assert_eq!(
+			H160::from(hex!("B8EA8cB425d85536b158d661da1ef0895Bb92F1D")),
+			envelope.message.origin
+		);
 	}
 }
