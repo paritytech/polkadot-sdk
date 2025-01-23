@@ -107,7 +107,7 @@ impl Default for TestState {
 
 		let mut claim_queue = BTreeMap::new();
 		claim_queue
-			.insert(CoreIndex(0), std::iter::repeat_n(para_id, SCHEDULING_LOOKAHEAD).collect());
+			.insert(CoreIndex(0), std::iter::repeat(para_id).take(SCHEDULING_LOOKAHEAD).collect());
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
 
 		let relay_parent = Hash::random();

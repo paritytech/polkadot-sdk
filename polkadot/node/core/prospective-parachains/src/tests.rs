@@ -81,11 +81,11 @@ impl Default for TestState {
 		let mut claim_queue = BTreeMap::new();
 		claim_queue.insert(
 			CoreIndex(0),
-			std::iter::repeat_n(chain_a, DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+			std::iter::repeat(chain_a).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
 		);
 		claim_queue.insert(
 			CoreIndex(1),
-			std::iter::repeat_n(chain_b, DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+			std::iter::repeat(chain_b).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
 		);
 
 		let validation_code_hash = Hash::repeat_byte(42).into();
@@ -766,7 +766,7 @@ fn fragment_chain_best_chain_length_is_bounded() {
 	let mut test_state = TestState::default();
 	test_state.claim_queue.insert(
 		CoreIndex(2),
-		std::iter::repeat_n(1.into(), DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+		std::iter::repeat(1.into()).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
 	);
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
@@ -1152,7 +1152,7 @@ fn unconnected_candidates_become_connected() {
 	for i in 2..=4 {
 		test_state.claim_queue.insert(
 			CoreIndex(i),
-			std::iter::repeat_n(1.into(), DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+			std::iter::repeat(1.into()).take(DEFAULT_SCEDULING_LOOKAHEAD as _).collect(),
 		);
 	}
 
@@ -1258,7 +1258,7 @@ fn check_backable_query_single_candidate() {
 	let mut test_state = TestState::default();
 	test_state.claim_queue.insert(
 		CoreIndex(2),
-		std::iter::repeat_n(1.into(), DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+		std::iter::repeat(1.into()).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
 	);
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
@@ -1404,7 +1404,7 @@ fn check_backable_query_multiple_candidates() {
 	for i in 2..=4 {
 		test_state.claim_queue.insert(
 			CoreIndex(i),
-			std::iter::repeat_n(1.into(), DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+			std::iter::repeat(1.into()).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
 		);
 	}
 
@@ -2067,7 +2067,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	for i in 0..=4 {
 		test_state.claim_queue.insert(
 			CoreIndex(i),
-			std::iter::repeat_n(para_id, DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+			std::iter::repeat(para_id).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
 		);
 	}
 
