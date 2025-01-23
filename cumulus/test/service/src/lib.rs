@@ -506,6 +506,7 @@ where
 				flavor: use_slot_based_collator
 					.then(|| Flavor::TimeBased)
 					.unwrap_or(Flavor::Lookahead),
+				export_pov: None,
 			};
 
 			slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
