@@ -10,6 +10,8 @@ doc:
       and verifies that everything functions correctly.
 
 crates:
+  - name: polkadot
+    bump: patch
   - name: test-parachain-undying
     bump: patch
   - name: test-parachain-undying-collator
