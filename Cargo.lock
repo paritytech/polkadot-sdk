@@ -2027,7 +2027,6 @@ version = "0.15.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
- "bp-bridge-hub-polkadot",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
  "bp-header-chain",
@@ -2290,6 +2289,7 @@ dependencies = [
 name = "bridge-runtime-common"
 version = "0.17.0"
 dependencies = [
+<<<<<<< HEAD
  "bp-header-chain",
  "bp-messages",
  "bp-parachains",
@@ -2301,6 +2301,17 @@ dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
+=======
+ "bp-header-chain 0.7.0",
+ "bp-messages 0.7.0",
+ "bp-parachains 0.7.0",
+ "bp-polkadot-core 0.7.0",
+ "bp-relayers 0.7.0",
+ "bp-runtime 0.7.0",
+ "bp-test-utils 0.7.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+>>>>>>> 085da47 (Bridges small nits/improvements (#7307))
  "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
@@ -5006,6 +5017,7 @@ dependencies = [
 name = "emulated-integration-tests-common"
 version = "13.2.0"
 dependencies = [
+<<<<<<< HEAD
  "asset-test-utils",
  "bp-messages",
  "bridge-runtime-common",
@@ -5019,6 +5031,22 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
+=======
+ "asset-test-utils 7.0.0",
+ "bp-messages 0.7.0",
+ "bp-xcm-bridge-hub 0.2.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "frame-support 28.0.0",
+ "pallet-assets 29.1.0",
+ "pallet-balances 28.0.0",
+ "pallet-bridge-messages 0.7.0",
+ "pallet-message-queue 31.0.0",
+ "pallet-xcm 7.0.0",
+ "pallet-xcm-bridge-hub 0.2.0",
+ "parachains-common 7.0.0",
+>>>>>>> 085da47 (Bridges small nits/improvements (#7307))
  "parity-scale-codec",
  "paste",
  "polkadot-parachain-primitives",

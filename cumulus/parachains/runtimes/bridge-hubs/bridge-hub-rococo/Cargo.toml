@@ -75,6 +75,7 @@ pallet-collator-selection.workspace = true
 parachain-info.workspace = true
 parachains-common.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
+<<<<<<< HEAD
 bp-asset-hub-rococo.workspace = true
 bp-asset-hub-westend.workspace = true
 bp-bridge-hub-polkadot.workspace = true
@@ -106,6 +107,44 @@ snowbridge-outbound-queue-runtime-api.workspace = true
 snowbridge-router-primitives.workspace = true
 snowbridge-runtime-common.workspace = true
 bridge-hub-common.workspace = true
+=======
+
+# Bridges
+bp-asset-hub-rococo = { workspace = true }
+bp-asset-hub-westend = { workspace = true }
+bp-bridge-hub-rococo = { workspace = true }
+bp-bridge-hub-westend = { workspace = true }
+bp-header-chain = { workspace = true }
+bp-messages = { workspace = true }
+bp-parachains = { workspace = true }
+bp-polkadot-bulletin = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-relayers = { workspace = true }
+bp-rococo = { workspace = true }
+bp-runtime = { workspace = true }
+bp-westend = { workspace = true }
+bp-xcm-bridge-hub-router = { workspace = true }
+bridge-runtime-common = { workspace = true }
+pallet-bridge-grandpa = { workspace = true }
+pallet-bridge-messages = { workspace = true }
+pallet-bridge-parachains = { workspace = true }
+pallet-bridge-relayers = { workspace = true }
+pallet-xcm-bridge-hub = { workspace = true }
+
+# Ethereum Bridge (Snowbridge)
+snowbridge-beacon-primitives = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-outbound-queue-runtime-api = { workspace = true }
+snowbridge-pallet-ethereum-client = { workspace = true }
+snowbridge-pallet-inbound-queue = { workspace = true }
+snowbridge-pallet-outbound-queue = { workspace = true }
+snowbridge-pallet-system = { workspace = true }
+snowbridge-router-primitives = { workspace = true }
+snowbridge-runtime-common = { workspace = true }
+snowbridge-system-runtime-api = { workspace = true }
+
+bridge-hub-common = { workspace = true }
+>>>>>>> 085da47 (Bridges small nits/improvements (#7307))
 
 [dev-dependencies]
 bridge-hub-test-utils = { default-features = true, path = "../test-utils" }
@@ -120,7 +159,6 @@ default = ["std"]
 std = [
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
-	"bp-bridge-hub-polkadot/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
 	"bp-header-chain/std",

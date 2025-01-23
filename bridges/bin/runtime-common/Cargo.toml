@@ -16,6 +16,7 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
 tuplex = { workspace = true }
+<<<<<<< HEAD
 bp-header-chain.workspace = true
 bp-messages.workspace = true
 bp-parachains.workspace = true
@@ -35,6 +36,29 @@ pallet-utility.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
+=======
+
+# Bridge dependencies
+bp-header-chain = { workspace = true }
+bp-messages = { workspace = true }
+bp-parachains = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-relayers = { workspace = true }
+bp-runtime = { workspace = true }
+pallet-bridge-grandpa = { workspace = true }
+pallet-bridge-messages = { workspace = true }
+pallet-bridge-parachains = { workspace = true }
+pallet-bridge-relayers = { workspace = true }
+
+# Substrate dependencies
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-utility = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+>>>>>>> 085da47 (Bridges small nits/improvements (#7307))
 sp-trie = { optional = true, workspace = true }
 xcm.workspace = true
 xcm-builder.workspace = true
@@ -53,8 +77,12 @@ std = [
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-runtime/std",
+<<<<<<< HEAD
 	"bp-xcm-bridge-hub-router/std",
 	"bp-xcm-bridge-hub/std",
+=======
+	"bp-test-utils/std",
+>>>>>>> 085da47 (Bridges small nits/improvements (#7307))
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
