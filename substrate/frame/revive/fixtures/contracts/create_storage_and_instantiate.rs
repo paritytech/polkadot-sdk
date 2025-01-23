@@ -30,22 +30,24 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		input: [u8; 4],
 		code_hash: &[u8; 32],
+		input: [u8; 4],
 		deposit_limit: &[u8; 32],
 	);
 
 	let value = u256_bytes(10_000u64);
 	let salt = [0u8; 32];
 	let mut address = [0u8; 20];
+	let mut deploy_input = [0; 32 + 4];
+	deploy_input[..32].copy_from_slice(code_hash);
+	deploy_input[32..].copy_from_slice(&input);
 
 	let ret = api::instantiate(
-		code_hash,
 		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		deposit_limit,
 		&value,
-		input,
+		&deploy_input,
 		Some(&mut address),
 		None,
 		Some(&salt),

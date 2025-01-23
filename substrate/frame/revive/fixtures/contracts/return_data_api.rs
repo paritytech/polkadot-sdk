@@ -88,8 +88,9 @@ fn assert_balance_transfer_does_reset() {
 		&[u8::MAX; 32],
 		&u256_bytes(128),
 		&[],
-		None
-	).unwrap();
+		None,
+	)
+	.unwrap();
 	assert_return_data_size_of(0);
 }
 
@@ -117,13 +118,16 @@ pub extern "C" fn call() {
 		input
 	};
 	let mut instantiate = |exit_flag| {
+		let input = construct_input(exit_flag);
+		let mut deploy_input = [0; 32 + INPUT_BUF_SIZE];
+		deploy_input[..32].copy_from_slice(code_hash);
+		deploy_input[32..].copy_from_slice(&input);
 		api::instantiate(
-			code_hash,
 			u64::MAX,
 			u64::MAX,
 			&[u8::MAX; 32],
 			&[0; 32],
-			&construct_input(exit_flag),
+			&deploy_input,
 			Some(&mut address_buf),
 			None,
 			None,

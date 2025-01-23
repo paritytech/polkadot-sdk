@@ -300,14 +300,14 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `code_hash`: The hash of the code to be instantiated.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
 	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
 	///   specific limit for the call, which implies storage usage up to the limit of the parent
 	///   call.
 	/// - `value`: The value to transfer into the contract.
-	/// - `input`: The input data buffer.
+	/// - `input`: The code hash and constructor input data buffer. The first 32 bytes are the code
+	///   hash of the code to be instantiated. The remaining bytes are the constructor call data.
 	/// - `address`: A reference to the address buffer to write the address of the contract. If
 	///   `None` is provided then the output buffer is not copied.
 	/// - `output`: A reference to the return value buffer to write the constructor output buffer.
@@ -327,7 +327,6 @@ pub trait HostFn: private::Sealed {
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn instantiate(
-		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit: &[u8; 32],

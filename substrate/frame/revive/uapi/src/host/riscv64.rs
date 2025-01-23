@@ -59,9 +59,30 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn call(ptr: *const u8) -> ReturnCode;
-		pub fn delegate_call(ptr: *const u8) -> ReturnCode;
-		pub fn instantiate(ptr: *const u8) -> ReturnCode;
+		pub fn call(
+			flags_and_callee: u64,
+			ref_time_limit: u64,
+			proof_size_limit: u64,
+			deposit_and_value: u64,
+			input_data: u64,
+			output_data: u64,
+		) -> ReturnCode;
+		pub fn delegate_call(
+			flags_and_callee: u64,
+			ref_time_limit: u64,
+			proof_size_limit: u64,
+			deposit_ptr: *const u32,
+			input_data: u64,
+			output_data: u64,
+		) -> ReturnCode;
+		pub fn instantiate(
+			ref_time_limit: u64,
+			proof_size_limit: u64,
+			deposit_and_value: u64,
+			input_data: u64,
+			output_data: u64,
+			address_and_salt: u64,
+		) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
 		pub fn call_data_copy(out_ptr: *mut u8, out_len: u32, offset: u32);
 		pub fn call_data_load(out_ptr: *mut u8, offset: u32);
@@ -163,9 +184,13 @@ fn ptr_or_sentinel(data: &Option<&[u8; 32]>) -> *const u8 {
 	}
 }
 
+/// Helper to pack two `u32` values into a `u64` register.
+fn pack_hi_lo(hi: u32, lo: u32) -> u64 {
+	((hi as u64) << 32) | lo as u64
+}
+
 impl HostFn for HostFnImpl {
 	fn instantiate(
-		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit_limit: &[u8; 32],
@@ -179,42 +204,28 @@ impl HostFn for HostFnImpl {
 			Some(ref mut data) => data.as_mut_ptr(),
 			None => crate::SENTINEL as _,
 		};
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let (output_ptr, mut output_len_ptr) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = deposit_limit.as_ptr();
 		let salt_ptr = ptr_or_sentinel(&salt);
-		#[repr(C)]
-		#[allow(dead_code)]
-		struct Args {
-			code_hash: u32,
-			ref_time_limit: u64,
-			proof_size_limit: u64,
-			deposit_limit: u32,
-			value: u32,
-			input: u32,
-			input_len: u32,
-			address: u32,
-			output: u32,
-			output_len: u32,
-			salt: u32,
-		}
-		let args = Args {
-			code_hash: code_hash.as_ptr() as _,
-			ref_time_limit,
-			proof_size_limit,
-			deposit_limit: deposit_limit_ptr as _,
-			value: value.as_ptr() as _,
-			input: input.as_ptr() as _,
-			input_len: input.len() as _,
-			address: address as _,
-			output: output_ptr as _,
-			output_len: &mut output_len as *mut _ as _,
-			salt: salt_ptr as _,
+
+		let deposit_and_value = pack_hi_lo(deposit_limit_ptr as _, value.as_ptr() as _);
+		let address_and_salt = pack_hi_lo(address as _, salt_ptr as _);
+		let input_data = pack_hi_lo(input.len() as _, input.as_ptr() as _);
+		let output_data = pack_hi_lo(&mut output_len_ptr as *mut _ as _, output_ptr as _);
+
+		let ret_code = unsafe {
+			sys::instantiate(
+				ref_time_limit,
+				proof_size_limit,
+				deposit_and_value,
+				input_data,
+				output_data,
+				address_and_salt,
+			)
 		};
 
-		let ret_code = { unsafe { sys::instantiate(&args as *const Args as *const _) } };
-
 		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
+			extract_from_slice(output, output_len_ptr as usize);
 		}
 
 		ret_code.into()
@@ -232,34 +243,22 @@ impl HostFn for HostFnImpl {
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = deposit_limit.as_ptr();
-		#[repr(C)]
-		#[allow(dead_code)]
-		struct Args {
-			flags: u32,
-			callee: u32,
-			ref_time_limit: u64,
-			proof_size_limit: u64,
-			deposit_limit: u32,
-			value: u32,
-			input: u32,
-			input_len: u32,
-			output: u32,
-			output_len: u32,
-		}
-		let args = Args {
-			flags: flags.bits(),
-			callee: callee.as_ptr() as _,
-			ref_time_limit,
-			proof_size_limit,
-			deposit_limit: deposit_limit_ptr as _,
-			value: value.as_ptr() as _,
-			input: input.as_ptr() as _,
-			input_len: input.len() as _,
-			output: output_ptr as _,
-			output_len: &mut output_len as *mut _ as _,
-		};
 
-		let ret_code = { unsafe { sys::call(&args as *const Args as *const _) } };
+		let flags_and_callee = pack_hi_lo(flags.bits(), callee.as_ptr() as _);
+		let deposit_and_value = pack_hi_lo(deposit_limit_ptr as _, value.as_ptr() as _);
+		let input_data = pack_hi_lo(input.len() as _, input.as_ptr() as _);
+		let output_data = pack_hi_lo(&mut output_len as *mut _ as _, output_ptr as _);
+
+		let ret_code = unsafe {
+			sys::call(
+				flags_and_callee,
+				ref_time_limit,
+				proof_size_limit,
+				deposit_and_value,
+				input_data,
+				output_data,
+			)
+		};
 
 		if let Some(ref mut output) = output {
 			extract_from_slice(output, output_len as usize);
@@ -279,32 +278,21 @@ impl HostFn for HostFnImpl {
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = deposit_limit.as_ptr();
-		#[repr(C)]
-		#[allow(dead_code)]
-		struct Args {
-			flags: u32,
-			address: u32,
-			ref_time_limit: u64,
-			proof_size_limit: u64,
-			deposit_limit: u32,
-			input: u32,
-			input_len: u32,
-			output: u32,
-			output_len: u32,
-		}
-		let args = Args {
-			flags: flags.bits(),
-			address: address.as_ptr() as _,
-			ref_time_limit,
-			proof_size_limit,
-			deposit_limit: deposit_limit_ptr as _,
-			input: input.as_ptr() as _,
-			input_len: input.len() as _,
-			output: output_ptr as _,
-			output_len: &mut output_len as *mut _ as _,
-		};
 
-		let ret_code = { unsafe { sys::delegate_call(&args as *const Args as *const _) } };
+		let flags_and_callee = pack_hi_lo(flags.bits(), address.as_ptr() as u32);
+		let input_data = pack_hi_lo(input.len() as u32, input.as_ptr() as u32);
+		let output_data = pack_hi_lo(&mut output_len as *mut _ as u32, output_ptr as u32);
+
+		let ret_code = unsafe {
+			sys::delegate_call(
+				flags_and_callee,
+				ref_time_limit,
+				proof_size_limit,
+				deposit_limit_ptr as _,
+				input_data,
+				output_data,
+			)
+		};
 
 		if let Some(ref mut output) = output {
 			extract_from_slice(output, output_len as usize);
