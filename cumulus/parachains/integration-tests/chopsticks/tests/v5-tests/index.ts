@@ -38,14 +38,13 @@ const miniSecret = entropyToMiniSecret(entropy);
 const derive = sr25519CreateDerive(miniSecret);
 
 const hdkdKeyPairAlice = derive("//Alice");
-const hdkdKeyPairBob = derive("//Bob");
-
 const aliceSigner = getPolkadotSigner(
 	hdkdKeyPairAlice.publicKey,
 	"Sr25519",
 	hdkdKeyPairAlice.sign,
 );
 
+const hdkdKeyPairBob = derive("//Bob");
 const bobSigner = getPolkadotSigner(
 	hdkdKeyPairBob.publicKey,
 	"Sr25519",
@@ -133,11 +132,11 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 	expect(bobBalanceAfter > bobBalanceBefore).toBeTruthy();
 });
 
-test("Initiate Teleport XCM v4", async () => {
+test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
 	const msg = Enum("V4", [
 		XcmV4Instruction.WithdrawAsset([{
 			id: { parents: 1, interior: XcmV3Junctions.Here() },
-			fun: XcmV3MultiassetFungibility.Fungible(7e12),
+			fun: XcmV3MultiassetFungibility.Fungible(7_000_000_000_000n),
 		}]),
 		XcmV4Instruction.SetFeesMode({
 			jit_withdraw: true,
@@ -171,16 +170,14 @@ test("Initiate Teleport XCM v4", async () => {
 	expect(r).toBeTruthy();
 })
 
-test("Initiate Teleport XCM v5", async () => {
-	const xcm_origin_msg = Enum('V5', [
-		XcmV4Instruction.WithdrawAsset([
+test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
+	const msg = Enum('V5', [
+		Enum('WithdrawAsset', [
 			{
 				id: { parents: 1, interior: XcmV3Junctions.Here() },
 				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
 			},
-
 		]),
-
 		Enum('PayFees', {
 			asset: {
 				id: {
@@ -221,83 +218,7 @@ test("Initiate Teleport XCM v5", async () => {
 						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
 					}
 				}),
-				XcmV4Instruction.DepositAsset({
-					assets: XcmV3MultiassetMultiAssetFilter.Definite([{
-						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-						id: { parents: 0, interior: XcmV3Junctions.Here() },
-					}]),
-					beneficiary: {
-						parents: 0,
-						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-							network: undefined,
-							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
-						})),
-					},
-				}),
-			],
-		}),
-	]);
-
-	const xcm_origin_weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(xcm_origin_msg);
-	const weight_to_asset_fee = await AHApi.apis.XcmPaymentApi.query_weight_to_asset_fee(
-		{ ref_time: xcm_origin_weight.value.ref_time, proof_size: xcm_origin_weight.value.proof_size },
-		Enum('V5', {
-			parents: 1,
-			interior: XcmV3Junctions.Here(),
-		}),
-	);
-
-
-
-	const msg = Enum('V5', [
-		XcmV4Instruction.WithdrawAsset([
-			{
-				id: { parents: 1, interior: XcmV3Junctions.Here() },
-				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
-			},
-
-		]),
-		Enum('PayFees', {
-			asset: {
-				id: {
-					parents: 1,
-					interior: XcmV3Junctions.Here(),
-				},
-				fun: XcmV3MultiassetFungibility.Fungible(weight_to_asset_fee.value),
-			}
-		}),
-		Enum('InitiateTransfer', {
-			destination: {
-				parents: 1,
-				interior: XcmV3Junctions.Here(),
-			},
-			// optional field. an example of usage:
-			// remote_fees: Enum('Teleport', {
-			// 	type: 'Wild',
-			// 	value: {
-			// 		type: 'All',
-			// 		value: undefined,
-			// 	},
-			// }),
-			preserve_origin: false,
-			assets: [Enum('Teleport', {
-				type: 'Wild',
-				value: {
-					type: 'All',
-					value: undefined,
-				},
-			})],
-			remote_xcm: [
-				Enum('PayFees', {
-					asset: {
-						id: {
-							parents: 0,
-							interior: XcmV3Junctions.Here(),
-						},
-						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-					}
-				}),
-				XcmV4Instruction.DepositAsset({
+				Enum('DepositAsset', {
 					assets: XcmV3MultiassetMultiAssetFilter.Definite([{
 						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
 						id: { parents: 0, interior: XcmV3Junctions.Here() },
@@ -324,9 +245,9 @@ test("Initiate Teleport XCM v5", async () => {
 	expect(r).toBeTruthy();
 })
 
-test("Initiate Teleport with remote fees", async () => {
+test("Initiate Teleport (AH -> RC) with remote fees", async () => {
 	const msg = Enum('V5', [
-		XcmV4Instruction.WithdrawAsset([
+		Enum('WithdrawAsset', [
 			{
 				id: { parents: 1, interior: XcmV3Junctions.Here() },
 				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
@@ -364,7 +285,7 @@ test("Initiate Teleport with remote fees", async () => {
 				},
 			})],
 			remote_xcm: [
-				XcmV4Instruction.DepositAsset({
+				Enum('DepositAsset', {
 					assets: XcmV3MultiassetMultiAssetFilter.Wild({
 						type: 'All',
 						value: undefined,
@@ -391,10 +312,9 @@ test("Initiate Teleport with remote fees", async () => {
 	expect(r).toBeTruthy();
 })
 
-test("Local Reserve Asset Transfer of USDT from Asset Hub to Alice on Penpal", async () => {
-
+test("Reserve Asset Transfer (local) of USDT from Asset Hub `Alice` to Penpal `Alice`", async () => {
 	const msg = Enum('V5', [
-		XcmV4Instruction.WithdrawAsset([
+		Enum('WithdrawAsset', [
 			{
 				id: {
 					parents: 1,
@@ -412,7 +332,7 @@ test("Local Reserve Asset Transfer of USDT from Asset Hub to Alice on Penpal", a
 				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
 			}
 		}),
-		XcmV4Instruction.TransferReserveAsset({
+		Enum('TransferReserveAsset', {
 			assets: [
 				{
 					id: {
@@ -447,7 +367,7 @@ test("Local Reserve Asset Transfer of USDT from Asset Hub to Alice on Penpal", a
 						fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000n),
 					}
 				}),
-				XcmV4Instruction.DepositAsset({
+				Enum('DepositAsset', {
 					// some WND might get trapped bc of extra fungibles in PayFees above ^
 					assets: XcmV3MultiassetMultiAssetFilter.Wild({
 						type: 'All',
@@ -473,6 +393,7 @@ test("Local Reserve Asset Transfer of USDT from Asset Hub to Alice on Penpal", a
 					// 	},
 					// 	fun: XcmV3MultiassetFungibility.Fungible(100_000_000n),
 					// }]),
+					// ===================== END =====================
 
 					beneficiary: {
 						parents: 0,
@@ -489,7 +410,7 @@ test("Local Reserve Asset Transfer of USDT from Asset Hub to Alice on Penpal", a
 
 	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
 			message: msg,
-			max_weight: { ref_time: 81834380000n, proof_size: 823193n },
+			max_weight: { ref_time: 100_000_000_000n, proof_size: 1_000_000n },
 		},
 	);
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
@@ -498,9 +419,9 @@ test("Local Reserve Asset Transfer of USDT from Asset Hub to Alice on Penpal", a
 
 // this test scenario works together with the previous one.
 // previous test serves as a set-up for this one.
-test("InitiateReserveWithdraw USDT from Penpal to Asset Hub Bob", async () => {
+test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", async () => {
 	const msg = Enum('V5', [
-		XcmV4Instruction.WithdrawAsset([
+		Enum('WithdrawAsset', [
 			{
 				id: {
 					parents: 1,
@@ -528,7 +449,7 @@ test("InitiateReserveWithdraw USDT from Penpal to Asset Hub Bob", async () => {
 				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
 			}
 		}),
-		XcmV4Instruction.InitiateReserveWithdraw({
+		Enum('InitiateReserveWithdraw' , {
 			assets: XcmV4AssetAssetFilter.Wild({
 				type: 'All',
 				value: undefined,
@@ -547,7 +468,7 @@ test("InitiateReserveWithdraw USDT from Penpal to Asset Hub Bob", async () => {
 						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
 					}
 				}),
-				XcmV4Instruction.DepositAsset({
+				Enum('DepositAsset', {
 					assets: XcmV3MultiassetMultiAssetFilter.Wild({
 						type: 'All',
 						value: undefined,
@@ -567,7 +488,7 @@ test("InitiateReserveWithdraw USDT from Penpal to Asset Hub Bob", async () => {
 
 	const penpalToAH = PenpalApi.tx.PolkadotXcm.execute({
 			message: msg,
-			max_weight: { ref_time: 81834380000n, proof_size: 823193n },
+			max_weight: { ref_time: 100_000_000_000n, proof_size: 1_000_000n },
 		},
 	);
 	const r = await penpalToAH.signAndSubmit(aliceSigner);
