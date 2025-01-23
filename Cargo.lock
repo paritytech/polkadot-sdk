@@ -2576,7 +2576,7 @@ dependencies = [
 
 [[package]]
 name = "bp-xcm-bridge-router"
-version = "0.6.0"
+version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -16189,7 +16189,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "bp-header-chain 0.7.0",
  "bp-messages 0.7.0",
@@ -16260,7 +16260,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-router"
-version = "0.5.0"
+version = "0.1.0"
 dependencies = [
  "bp-xcm-bridge",
  "bp-xcm-bridge-router",
