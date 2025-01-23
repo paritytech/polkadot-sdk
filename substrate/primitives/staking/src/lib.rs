@@ -713,22 +713,22 @@ mod tests {
 		};
 
 		assert_eq!(
-			metadata.clone().update_with::<ConstU32<10>>(1, 1),
+			metadata.update_with::<ConstU32<10>>(1, 1),
 			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 2 },
 		);
 
 		assert_eq!(
-			metadata.clone().update_with::<ConstU32<5>>(1, 1),
+			metadata.update_with::<ConstU32<5>>(1, 1),
 			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 3 },
 		);
 
 		assert_eq!(
-			metadata.clone().update_with::<ConstU32<4>>(1, 1),
+			metadata.update_with::<ConstU32<4>>(1, 1),
 			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 3 },
 		);
 
 		assert_eq!(
-			metadata.clone().update_with::<ConstU32<1>>(1, 1),
+			metadata.update_with::<ConstU32<1>>(1, 1),
 			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 11 },
 		);
 	}
