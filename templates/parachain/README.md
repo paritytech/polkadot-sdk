@@ -43,7 +43,6 @@
 
 - 👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
 
-
 ## Template Structure
 
 A Polkadot SDK based project such as this one consists of:
@@ -145,7 +144,6 @@ Download the `polkadot` (and the accompanying `polkadot-prepare-worker` and `pol
 export PATH="$PATH:<path/to/binaries>"
 ```
 
-
 #### Update `zombienet-omni-node.toml` with a valid chain spec path
 
 To simplify the process of using the parachain-template with zombienet and Omni Node, we've added a pre-configured
@@ -158,7 +156,7 @@ Then make the changes in the network specification like so:
 ```toml
 # ...
 [[parachains]]
-id = {{PARACHAIN_ID}}
+id = "<PARACHAIN_ID>"
 chain_spec_path = "<TO BE UPDATED WITH A VALID PATH>"
 # ...
 ```
