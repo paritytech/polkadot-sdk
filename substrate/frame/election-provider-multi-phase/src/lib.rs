@@ -246,8 +246,8 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_election_provider_support::{
-	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder, SizeBound},
-	BoundedSupports, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
+	bounds::{CountBound, ElectionBounds, SizeBound},
+	BoundedSupports, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
 	InstantElectionProvider, NposSolution, PageIndex,
 };
 use frame_support::{
@@ -768,8 +768,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			// TODO: a hack for now to prevent this pallet from doing anything.
-			return Default::default();
 			let next_election = T::DataProvider::next_election_prediction(now).max(now);
 
 			let signed_deadline = T::SignedPhase::get() + T::UnsignedPhase::get();
@@ -1114,24 +1112,17 @@ pub mod pallet {
 		/// calling [`Call::set_emergency_election_result`].
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-		pub fn governance_fallback(
-			origin: OriginFor<T>,
-			maybe_max_voters: Option<u32>,
-			maybe_max_targets: Option<u32>,
-		) -> DispatchResult {
+		pub fn governance_fallback(origin: OriginFor<T>) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
 			ensure!(CurrentPhase::<T>::get().is_emergency(), Error::<T>::CallNotAllowed);
 
-			let election_bounds = ElectionBoundsBuilder::default()
-				.voters_count(maybe_max_voters.unwrap_or(u32::MAX).into())
-				.targets_count(maybe_max_targets.unwrap_or(u32::MAX).into())
-				.build();
+			let RoundSnapshot { voters, targets } =
+				Snapshot::<T>::get().ok_or(Error::<T>::MissingSnapshotMetadata)?;
+			let desired_targets =
+				DesiredTargets::<T>::get().ok_or(Error::<T>::MissingSnapshotMetadata)?;
 
-			let supports = T::GovernanceFallback::instant_elect(
-				election_bounds.voters,
-				election_bounds.targets,
-			)
-			.map_err(|e| {
+			let supports = T::GovernanceFallback::instant_elect(voters, targets, desired_targets)
+				.map_err(|e| {
 				log!(error, "GovernanceFallback failed: {:?}", e);
 				Error::<T>::FallbackFailed
 			})?;
@@ -1656,21 +1647,26 @@ impl<T: Config> Pallet<T> {
 			.ok_or(ElectionError::<T>::NothingQueued)
 			.or_else(|_| {
 				log!(warn, "No solution queued, falling back to instant fallback.",);
-				// default data provider bounds are unbounded. calling `instant_elect` with
-				// unbounded data provider bounds means that the on-chain `T:Bounds` configs will
-				// *not* be overwritten.
-				T::Fallback::instant_elect(
-					DataProviderBounds::default(),
-					DataProviderBounds::default(),
-				)
-				.map_err(|fe| ElectionError::Fallback(fe))
-				.and_then(|supports| {
-					Ok(ReadySolution {
-						supports,
-						score: Default::default(),
-						compute: ElectionCompute::Fallback,
+				let (voters, targets, desired_targets) = if T::Fallback::bother() {
+					let RoundSnapshot { voters, targets } = Snapshot::<T>::get().ok_or(
+						ElectionError::<T>::Feasibility(FeasibilityError::SnapshotUnavailable),
+					)?;
+					let desired_targets = DesiredTargets::<T>::get().ok_or(
+						ElectionError::<T>::Feasibility(FeasibilityError::SnapshotUnavailable),
+					)?;
+					(voters, targets, desired_targets)
+				} else {
+					(Default::default(), Default::default(), Default::default())
+				};
+				T::Fallback::instant_elect(voters, targets, desired_targets)
+					.map_err(|fe| ElectionError::Fallback(fe))
+					.and_then(|supports| {
+						Ok(ReadySolution {
+							supports,
+							score: Default::default(),
+							compute: ElectionCompute::Fallback,
+						})
 					})
-				})
 			})
 			.map(|ReadySolution { compute, score, supports }| {
 				Self::deposit_event(Event::ElectionFinalized { compute, score });
@@ -2035,6 +2031,7 @@ mod tests {
 		},
 		Phase,
 	};
+	use frame_election_provider_support::bounds::ElectionBoundsBuilder;
 	use frame_support::{assert_noop, assert_ok};
 	use sp_npos_elections::{BalancingConfig, Support};
 
@@ -2245,23 +2242,20 @@ mod tests {
 			roll_to(30);
 			assert!(CurrentPhase::<Runtime>::get().is_off());
 
-			// This module is now only capable of doing on-chain backup.
-			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
+			// This module is now cannot even do onchain fallback, as no snapshot is there
+			assert_eq!(
+				MultiPhase::elect(SINGLE_PAGE),
+				Err(ElectionError::<Runtime>::Feasibility(FeasibilityError::SnapshotUnavailable))
+			);
 
-			assert!(CurrentPhase::<Runtime>::get().is_off());
+			// this puts us in emergency now.
+			assert!(CurrentPhase::<Runtime>::get().is_emergency());
 
 			assert_eq!(
 				multi_phase_events(),
 				vec![
-					Event::ElectionFinalized {
-						compute: ElectionCompute::Fallback,
-						score: ElectionScore {
-							minimal_stake: 0,
-							sum_stake: 0,
-							sum_stake_squared: 0
-						}
-					},
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Off, round: 2 },
+					Event::ElectionFailed,
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Emergency, round: 1 }
 				]
 			);
 		});
@@ -2624,12 +2618,12 @@ mod tests {
 
 			// no single account can trigger this
 			assert_noop!(
-				MultiPhase::governance_fallback(RuntimeOrigin::signed(99), None, None),
+				MultiPhase::governance_fallback(RuntimeOrigin::signed(99)),
 				DispatchError::BadOrigin
 			);
 
 			// only root can
-			assert_ok!(MultiPhase::governance_fallback(RuntimeOrigin::root(), None, None));
+			assert_ok!(MultiPhase::governance_fallback(RuntimeOrigin::root()));
 			// something is queued now
 			assert!(QueuedSolution::<Runtime>::get().is_some());
 			// next election call with fix everything.;
@@ -2684,22 +2678,17 @@ mod tests {
 			roll_to(25);
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
-			// On-chain backup works though.
-			let supports = MultiPhase::elect(SINGLE_PAGE).unwrap();
-			assert!(supports.len() > 0);
+			// On-chain backup will fail similarly.
+			assert_eq!(
+				MultiPhase::elect(SINGLE_PAGE).unwrap_err(),
+				ElectionError::<Runtime>::Feasibility(FeasibilityError::SnapshotUnavailable)
+			);
 
 			assert_eq!(
 				multi_phase_events(),
 				vec![
-					Event::ElectionFinalized {
-						compute: ElectionCompute::Fallback,
-						score: ElectionScore {
-							minimal_stake: 0,
-							sum_stake: 0,
-							sum_stake_squared: 0
-						}
-					},
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Off, round: 2 },
+					Event::ElectionFailed,
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Emergency, round: 1 },
 				]
 			);
 		});

@@ -191,6 +191,10 @@ pub trait Verifier {
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError>;
 
+	/// Force set a single page solution as the valid one.
+	///
+	/// Will erase any previous solution. Should only be used in case of emergency fallbacks and
+	/// similar.
 	fn force_set_single_page_valid(
 		partial_supports: SupportsOf<Self>,
 		page: PageIndex,

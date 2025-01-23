@@ -48,7 +48,7 @@ use frame_support::{
 	pallet_prelude::{StorageDoubleMap, ValueQuery, *},
 	traits::{
 		tokens::{
-			fungible::{Inspect, InspectHold, Mutate, MutateHold},
+			fungible::{Inspect, Mutate, MutateHold},
 			Fortitude, Precision,
 		},
 		Defensive, DefensiveSaturating, EstimateCallFee, TryCollect,

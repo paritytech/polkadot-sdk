@@ -888,29 +888,32 @@ pub(crate) mod multi_block_impls {
 	use pallet_election_provider_multi_phase as multi_phase;
 
 	parameter_types! {
-		pub Pages: u32 = 8;
-		pub VoterSnapshotPerBlock: u32 = 22500 / 8;
+		pub Pages: u32 = 4;
+		pub VoterSnapshotPerBlock: u32 = 22500 / 4;
 		pub TargetSnapshotPerBlock: u32 = 1000;
+		pub SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+		pub UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 	}
+
 	impl multi_block::Config for Runtime {
 		type AdminOrigin = EnsureRoot<AccountId>;
+		type RuntimeEvent = RuntimeEvent;
 		type DataProvider = Staking;
-		type Fallback = <Runtime as multi_phase::Config>::Fallback;
+		type Fallback = multi_block::Continue<Self>;
 		// prepare for election 5 blocks ahead of time
 		type Lookahead = ConstU32<5>;
 		// split election into 8 pages.
 		type Pages = Pages;
 		// allow 2 signed solutions to be verified.
 		type SignedValidationPhase = ConstU32<16>;
-		type RuntimeEvent = RuntimeEvent;
 		// TODO: sanity check that the length of all phases is within reason.
-		type SignedPhase = <Runtime as multi_phase::Config>::SignedPhase;
-		type UnsignedPhase = <Runtime as multi_phase::Config>::UnsignedPhase;
-		type WeightInfo = ();
+		type SignedPhase = SignedPhase;
+		type UnsignedPhase = UnsignedPhase;
 		type Solution = NposSolution16;
 		type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 		type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 		type Verifier = MultiBlockVerifier;
+		type WeightInfo = ();
 	}
 
 	impl multi_block::verifier::Config for Runtime {

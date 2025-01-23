@@ -3149,7 +3149,7 @@ fn deferred_slashes_are_deferred() {
 			staking_events_since_last_call().as_slice(),
 			&[
 				Event::SlashReported { validator: 11, slash_era: 1, .. },
-				Event::PagedElectionProceeded { page: 0, result: Ok(()) },
+				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::StakersElected,
 				..,
 				Event::Slashed { staker: 11, amount: 100 },
@@ -3486,7 +3486,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
+					Event::PagedElectionProceeded { page: 0, result: Ok(7) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3560,7 +3560,7 @@ fn non_slashable_offence_disables_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
+					Event::PagedElectionProceeded { page: 0, result: Ok(7) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3641,7 +3641,7 @@ fn slashing_independent_of_disabling_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
+					Event::PagedElectionProceeded { page: 0, result: Ok(5) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -8710,7 +8710,7 @@ fn reenable_lower_offenders_mock() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
+					Event::PagedElectionProceeded { page: 0, result: Ok(7) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -8787,7 +8787,7 @@ fn do_not_reenable_higher_offenders_mock() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
+					Event::PagedElectionProceeded { page: 0, result: Ok(7) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {

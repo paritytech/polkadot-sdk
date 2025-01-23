@@ -203,6 +203,7 @@ pub struct SolutionOrSnapshotSize {
 	pub targets: u32,
 }
 
+// TODO: we are not using this anywhere.
 /// The type of `Computation` that provided this election data.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum ElectionCompute {

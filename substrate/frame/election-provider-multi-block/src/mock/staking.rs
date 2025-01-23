@@ -20,10 +20,11 @@ use crate::VoterOf;
 use frame_election_provider_support::{
 	data_provider, DataProviderBounds, ElectionDataProvider, PageIndex, VoteWeight,
 };
-use frame_support::{pallet_prelude::*, BoundedVec};
-use frame_system::pallet_prelude::*;
+use frame_support::pallet_prelude::*;
 use sp_core::bounded_vec;
 use sp_std::prelude::*;
+
+pub type T = Runtime;
 
 frame_support::parameter_types! {
 	pub static Targets: Vec<AccountId> = vec![10, 20, 30, 40];
@@ -63,7 +64,10 @@ impl ElectionDataProvider for MockStaking {
 		let targets = Targets::get();
 
 		if remaining != 0 {
-			return Err("targets shall not have more than a single page")
+			crate::log!(
+				warn,
+				"requesting targets for non-zero page, we will return the same page in any case"
+			);
 		}
 		if bounds.slice_exhausted(&targets) {
 			return Err("Targets too big")
@@ -167,14 +171,15 @@ mod tests {
 		ExtBuilder::full().build_and_execute(|| {
 			assert_eq!(Targets::get().len(), 4);
 
-			// any non-zero page is error
-			assert!(MockStaking::electable_targets(bound_by_count(None), 1).is_err());
-			assert!(MockStaking::electable_targets(bound_by_count(None), 2).is_err());
+			// any non-zero page returns page zero.
+			assert_eq!(MockStaking::electable_targets(bound_by_count(None), 2).unwrap().len(), 4);
+			assert_eq!(MockStaking::electable_targets(bound_by_count(None), 1).unwrap().len(), 4);
 
-			// but 0 is fine.
+			// 0 is also fine.
 			assert_eq!(MockStaking::electable_targets(bound_by_count(None), 0).unwrap().len(), 4);
 
-			// fetch less targets is error.
+			// fetch less targets is error, because targets cannot be sorted (both by MockStaking,
+			// and the real staking).
 			assert!(MockStaking::electable_targets(bound_by_count(Some(2)), 0).is_err());
 
 			// more targets is fine.

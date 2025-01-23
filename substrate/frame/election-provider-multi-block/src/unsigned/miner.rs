@@ -680,7 +680,6 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	}
 
 	fn submit_call(call: Call<T>) -> Result<(), OffchainMinerError<T>> {
-		// TODO: need to pagify the unsigned solution as well, maybe
 		sublog!(
 			debug,
 			"unsigned::ocw-miner",
@@ -1539,7 +1538,7 @@ mod base_miner {
 			assert_eq!(
 				paged.solution_pages,
 				vec![
-					// this can be 'pagified" to snapshot at index 1, which contains 5, 6, 7, 8
+					// this can be "pagified" to snapshot at index 1, which contains 5, 6, 7, 8
 					// in which:
 					// 6 (index:1) votes for 40 (index:3)
 					// 8 (index:1) votes for 10 (index:0)
@@ -1960,6 +1959,42 @@ mod offchain_worker_miner {
 			let call_cache =
 				StorageValueRef::persistent(&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_CALL);
 			assert!(matches!(call_cache.get::<crate::unsigned::Call<Runtime>>(), Ok(Some(_))));
+
+			// pool is empty
+			assert_eq!(pool.read().transactions.len(), 0);
+		})
+	}
+
+	#[test]
+	fn multi_page_ocw_e2e_submits_and_queued_msp_only() {
+		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
+		ext.execute_with_sanity_checks(|| {
+			assert!(VerifierPallet::queued_score().is_none());
+
+			roll_to_with_ocw(25 + 1, Some(pool.clone()));
+
+			assert_eq!(
+				multi_block_events(),
+				vec![
+					crate::Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					crate::Event::PhaseTransitioned {
+						from: Phase::Snapshot(0),
+						to: Phase::Unsigned(25)
+					}
+				]
+			);
+			assert_eq!(
+				verifier_events(),
+				vec![
+					crate::verifier::Event::Verified(2, 2),
+					crate::verifier::Event::Queued(
+						ElectionScore { minimal_stake: 15, sum_stake: 40, sum_stake_squared: 850 },
+						None
+					)
+				]
+			);
+
+			assert!(VerifierPallet::queued_score().is_some());
 
 			// pool is empty
 			assert_eq!(pool.read().transactions.len(), 0);

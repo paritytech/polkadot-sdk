@@ -16,6 +16,45 @@
 // limitations under the License.
 
 //! The unsigned phase, and its miner.
+//!
+//! TODO: the following is the idea of how to implement multi-page unsigned, which we don't have.
+//!
+//! ## Multi-block unsigned submission
+//!
+//! The process of allowing validators to coordinate to submit a multi-page solution is new to this
+//! pallet, and non-existent in the multi-phase pallet. The process is as follows:
+//!
+//! All validators will run their miners and compute the full paginated solution. They submit all
+//! pages as individual unsigned transactions to their local tx-pool.
+//!
+//! Upon validation, if any page is now present the corresponding transaction is dropped.
+//!
+//! At each block, the first page that may be valid is included as a high priority operational
+//! transaction. This page is validated on the fly to be correct. Since this transaction is sourced
+//! from a validator, we can panic if they submit an invalid transaction.
+//!
+//! Then, once the final page is submitted, some extra checks are done, as explained in
+//! [`crate::verifier`]:
+//!
+//! 1. bounds
+//! 2. total score
+//!
+//! These checks might still fail. If they do, the solution is dropped. At this point, we don't know
+//! which validator may have submitted a slightly-faulty solution.
+//!
+//! In order to prevent this, the validation process always includes a check to ensure all of the
+//! previous pages that have been submitted match what the local validator has computed. If they
+//! match, the validator knows that they are putting skin in a game that is valid.
+//!
+//! If any bad paged are detected, the next validator can bail. This process means:
+//!
+//! * As long as all validators are honest, and run the same miner code, a correct solution is
+//!   found.
+//! * As little as one malicious validator can stall the process, but no one is accidentally
+//!   slashed, and no panic happens.
+//!
+//! A future improvement should keep track of submitters, and report a slash if it occurs. Or, if
+//! the signed process is bullet-proof, we can be okay with the status quo.
 
 /// Exports of this pallet
 pub use pallet::*;
@@ -99,6 +138,9 @@ mod pallet {
 		/// This works very much like an inherent, as only the validators are permitted to submit
 		/// anything. By default validators will compute this call in their `offchain_worker` hook
 		/// and try and submit it back.
+		///
+		/// This is different from signed page submission mainly in that the solution page is
+		/// verified on the fly.
 		#[pallet::weight((0, DispatchClass::Operational))]
 		#[pallet::call_index(0)]
 		pub fn submit_unsigned(

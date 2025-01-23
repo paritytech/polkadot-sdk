@@ -566,9 +566,9 @@ impl<T: Config> Pallet<T> {
 mod tests {
 	use super::*;
 	use crate::{
-		mock::*, CurrentPhase, ElectionBoundsBuilder, ElectionCompute, ElectionError, Error, Event,
-		Perbill, Phase, Round,
+		mock::*, CurrentPhase, ElectionCompute, ElectionError, Error, Event, Perbill, Phase, Round,
 	};
+	use frame_election_provider_support::bounds::ElectionBoundsBuilder;
 	use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 	use sp_runtime::Percent;
 

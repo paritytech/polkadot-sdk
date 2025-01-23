@@ -31,7 +31,7 @@ use crate::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	NposSolution, SequentialPhragmen,
+	InstantElectionProvider, NposSolution, SequentialPhragmen,
 };
 pub use frame_support::{assert_noop, assert_ok};
 use frame_support::{
@@ -41,7 +41,7 @@ use frame_support::{
 	traits::{fungible::InspectHold, Hooks},
 	weights::{constants, Weight},
 };
-use frame_system::{pallet_prelude::*, EnsureRoot};
+use frame_system::EnsureRoot;
 use parking_lot::RwLock;
 pub use signed::*;
 use sp_core::{
@@ -54,7 +54,6 @@ use sp_core::{
 use sp_npos_elections::EvaluateSupport;
 use sp_runtime::{
 	bounded_vec,
-	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage, PerU16, Perbill,
 };
@@ -122,13 +121,20 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 }
 
+#[derive(Clone)]
+pub enum FallbackModes {
+	Continue,
+	Emergency,
+	Onchain,
+}
+
 parameter_types! {
 	pub static Pages: PageIndex = 3;
 	pub static UnsignedPhase: BlockNumber = 5;
 	pub static SignedPhase: BlockNumber = 5;
 	pub static SignedValidationPhase: BlockNumber = 5;
 
-	pub static OnChianFallback: bool = false;
+	pub static FallbackMode: FallbackModes = FallbackModes::Emergency;
 	pub static MinerTxPriority: u64 = 100;
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
@@ -215,26 +221,47 @@ pub struct MockFallback;
 impl ElectionProvider for MockFallback {
 	type AccountId = AccountId;
 	type BlockNumber = u64;
-	type Error = &'static str;
+	type Error = String;
 	type DataProvider = staking::MockStaking;
 	type Pages = ConstU32<1>;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 
-	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		if OnChianFallback::get() {
-			onchain::OnChainExecution::<Runtime>::elect(remaining)
-				.map_err(|_| "onchain::OnChainExecution failed")
-		} else {
-			// NOTE: this pesky little trick here is to avoid a clash of type, since `Ok` of our
-			// election provider and our fallback is not the same
-			let err = InitiateEmergencyPhase::<Runtime>::elect(remaining).unwrap_err();
-			Err(err)
-		}
+	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		unreachable!()
 	}
 
 	fn ongoing() -> bool {
 		false
+	}
+}
+
+impl InstantElectionProvider for MockFallback {
+	fn instant_elect(
+		voters: Vec<VoterOf<Runtime>>,
+		targets: Vec<Self::AccountId>,
+		desired_targets: u32,
+	) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		match FallbackMode::get() {
+			FallbackModes::Continue =>
+				crate::Continue::<Runtime>::instant_elect(voters, targets, desired_targets)
+					.map_err(|x| x.to_string()),
+			FallbackModes::Emergency => crate::InitiateEmergencyPhase::<Runtime>::instant_elect(
+				voters,
+				targets,
+				desired_targets,
+			)
+			.map_err(|x| x.to_string()),
+			FallbackModes::Onchain => onchain::OnChainExecution::<Runtime>::instant_elect(
+				voters,
+				targets,
+				desired_targets,
+			)
+			.map_err(|e| format!("onchain fallback failed: {:?}", e)),
+		}
+	}
+	fn bother() -> bool {
+		matches!(FallbackMode::get(), FallbackModes::Onchain)
 	}
 }
 
@@ -340,8 +367,8 @@ impl ExtBuilder {
 		staking::VOTERS.with(|v| v.borrow_mut().push((who, stake, targets.try_into().unwrap())));
 		self
 	}
-	pub(crate) fn onchain_fallback(self, enable: bool) -> Self {
-		OnChianFallback::set(enable);
+	pub(crate) fn fallback_mode(self, mode: FallbackModes) -> Self {
+		FallbackMode::set(mode);
 		self
 	}
 	pub(crate) fn build_unchecked(self) -> sp_io::TestExternalities {

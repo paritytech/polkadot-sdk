@@ -20,9 +20,9 @@
 //! careful when using it onchain.
 
 use crate::{
-	bounds::{DataProviderBounds, ElectionBounds, ElectionBoundsBuilder},
+	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	BoundedSupportsOf, Debug, ElectionDataProvider, ElectionProvider, InstantElectionProvider,
-	NposSolver, PageIndex, WeightInfo, Zero,
+	NposSolver, PageIndex, VoterOf, WeightInfo,
 };
 use alloc::collections::btree_map::BTreeMap;
 use core::marker::PhantomData;
@@ -33,7 +33,7 @@ use sp_npos_elections::{
 };
 
 /// Errors of the on-chain election.
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub enum Error {
 	/// An internal error in the NPoS elections crate.
 	NposElections(sp_npos_elections::Error),
@@ -41,8 +41,6 @@ pub enum Error {
 	DataProvider(&'static str),
 	/// Results failed to meet the bounds.
 	FailedToBound,
-	/// Election page index not supported.
-	UnsupportedPageIndex,
 }
 
 impl From<sp_npos_elections::Error> for Error {
@@ -106,18 +104,11 @@ pub trait Config {
 }
 
 impl<T: Config> OnChainExecution<T> {
-	fn elect_with(
-		bounds: ElectionBounds,
-		page: PageIndex,
+	fn elect_with_snapshot(
+		voters: Vec<VoterOf<T::DataProvider>>,
+		targets: Vec<<T::System as frame_system::Config>::AccountId>,
+		desired_targets: u32,
 	) -> Result<BoundedSupportsOf<Self>, Error> {
-		let (voters, targets) = T::DataProvider::electing_voters(bounds.voters, page)
-			.and_then(|voters| {
-				Ok((voters, T::DataProvider::electable_targets(bounds.targets, page)?))
-			})
-			.map_err(Error::DataProvider)?;
-
-		let desired_targets = T::DataProvider::desired_targets().map_err(Error::DataProvider)?;
-
 		if (desired_targets > T::MaxWinnersPerPage::get()) && !T::Sort::get() {
 			// early exit what will fail in the last line anyways.
 			return Err(Error::FailedToBound)
@@ -158,20 +149,32 @@ impl<T: Config> OnChainExecution<T> {
 		};
 		Ok(bounded)
 	}
+
+	fn elect_with(
+		bounds: ElectionBounds,
+		page: PageIndex,
+	) -> Result<BoundedSupportsOf<Self>, Error> {
+		let (voters, targets) = T::DataProvider::electing_voters(bounds.voters, page)
+			.and_then(|voters| {
+				Ok((voters, T::DataProvider::electable_targets(bounds.targets, page)?))
+			})
+			.map_err(Error::DataProvider)?;
+		let desired_targets = T::DataProvider::desired_targets().map_err(Error::DataProvider)?;
+		Self::elect_with_snapshot(voters, targets, desired_targets)
+	}
 }
 
 impl<T: Config> InstantElectionProvider for OnChainExecution<T> {
 	fn instant_elect(
-		forced_input_voters_bounds: DataProviderBounds,
-		forced_input_targets_bounds: DataProviderBounds,
+		voters: Vec<VoterOf<T::DataProvider>>,
+		targets: Vec<<T::System as frame_system::Config>::AccountId>,
+		desired_targets: u32,
 	) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		let elections_bounds = ElectionBoundsBuilder::from(T::Bounds::get())
-			.voters_or_lower(forced_input_voters_bounds)
-			.targets_or_lower(forced_input_targets_bounds)
-			.build();
+		Self::elect_with_snapshot(voters, targets, desired_targets)
+	}
 
-		// NOTE: instant provider is *always* single page.
-		Self::elect_with(elections_bounds, Zero::zero())
+	fn bother() -> bool {
+		true
 	}
 }
 
@@ -181,16 +184,13 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 	type Error = Error;
 	type MaxWinnersPerPage = T::MaxWinnersPerPage;
 	type MaxBackersPerWinner = T::MaxBackersPerWinner;
-	type Pages = sp_core::ConstU32<1>;
+	// can support any number of pages, as this is meant to be called "instantly".
+	type Pages = sp_core::ConstU32<{ u32::MAX }>;
 	type DataProvider = T::DataProvider;
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		if page > 0 {
-			return Err(Error::UnsupportedPageIndex)
-		}
-
 		let election_bounds = ElectionBoundsBuilder::from(T::Bounds::get()).build();
-		Self::elect_with(election_bounds, Zero::zero())
+		Self::elect_with(election_bounds, page)
 	}
 
 	fn ongoing() -> bool {

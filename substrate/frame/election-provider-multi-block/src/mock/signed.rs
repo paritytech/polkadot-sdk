@@ -190,7 +190,7 @@ pub fn load_signed_for_verification_and_start(
 pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	who: AccountId,
 	paged: PagedRawSolution<Runtime>,
-	round: u32,
+	_round: u32,
 ) {
 	load_signed_for_verification(who, paged.clone());
 

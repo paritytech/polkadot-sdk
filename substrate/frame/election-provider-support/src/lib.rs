@@ -478,9 +478,15 @@ pub trait ElectionProvider {
 /// data provider at runtime via `forced_input_voters_bound` and `forced_input_target_bound`.
 pub trait InstantElectionProvider: ElectionProvider {
 	fn instant_elect(
-		forced_input_voters_bound: DataProviderBounds,
-		forced_input_target_bound: DataProviderBounds,
+		voters: Vec<VoterOf<Self::DataProvider>>,
+		targets: Vec<Self::AccountId>,
+		desired_targets: u32,
 	) -> Result<BoundedSupportsOf<Self>, Self::Error>;
+
+	// Sine many instant election provider, like [`NoElection`] are meant to do nothing, this is a
+	// hint for the caller to call before, and if `false` is returned, not bother with passing all
+	// the info to `instant_elect`.
+	fn bother() -> bool;
 }
 
 /// An election provider that does nothing whatsoever.
@@ -519,10 +525,15 @@ where
 	MaxBackersPerWinner: Get<u32>,
 {
 	fn instant_elect(
-		_: DataProviderBounds,
-		_: DataProviderBounds,
+		_: Vec<VoterOf<Self::DataProvider>>,
+		_: Vec<Self::AccountId>,
+		_: u32,
 	) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("`NoElection` cannot do anything.")
+	}
+
+	fn bother() -> bool {
+		false
 	}
 }
 
@@ -723,7 +734,7 @@ pub type VoterOf<D> =
 	Voter<<D as ElectionDataProvider>::AccountId, <D as ElectionDataProvider>::MaxVotesPerVoter>;
 
 /// A bounded vector of supports. Bounded equivalent to [`sp_npos_elections::Supports`].
-#[derive(Default, RuntimeDebug, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(Default, Debug, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
 #[codec(mel_bound(AccountId: MaxEncodedLen, Bound: Get<u32>))]
 #[scale_info(skip_type_params(Bound))]
 pub struct BoundedSupport<AccountId, Bound: Get<u32>> {

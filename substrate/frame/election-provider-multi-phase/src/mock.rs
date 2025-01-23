@@ -18,7 +18,7 @@
 use super::*;
 use crate::{self as multi_phase, signed::GeometricDepositBase, unsigned::MinerConfig};
 use frame_election_provider_support::{
-	bounds::{DataProviderBounds, ElectionBounds},
+	bounds::{DataProviderBounds, ElectionBounds, ElectionBoundsBuilder},
 	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
 };
 pub use frame_support::derive_impl;
@@ -338,18 +338,24 @@ impl ElectionProvider for MockFallback {
 
 impl InstantElectionProvider for MockFallback {
 	fn instant_elect(
-		voters_bounds: DataProviderBounds,
-		targets_bounds: DataProviderBounds,
+		voters: Vec<VoterOf<Runtime>>,
+		targets: Vec<AccountId>,
+		desired_targets: u32,
 	) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		if OnChainFallback::get() {
 			onchain::OnChainExecution::<OnChainSeqPhragmen>::instant_elect(
-				voters_bounds,
-				targets_bounds,
+				voters,
+				targets,
+				desired_targets,
 			)
 			.map_err(|_| "onchain::OnChainExecution failed.")
 		} else {
 			Err("NoFallback.")
 		}
+	}
+
+	fn bother() -> bool {
+		OnChainFallback::get()
 	}
 }
 

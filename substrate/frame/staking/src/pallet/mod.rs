@@ -154,7 +154,6 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Pallet<Self>,
-			Pages = ConstU32<1>,
 			MaxWinnersPerPage = <Self::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
 			MaxBackersPerWinner = <Self::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
 		>;
@@ -969,11 +968,15 @@ pub mod pallet {
 		/// A page from a multi-page election was fetched. A number of these are followed by
 		/// `StakersElected`.
 		///
+		/// `Ok(count)` indicates the give number of stashes were added.
+		/// `Err(index)` indicates that the stashes after index were dropped.
+		/// `Err(0)` indicates that an error happened but no stashes were dropped nor added.
+		///
 		/// The error indicates that a number of validators were dropped due to excess size, but
 		/// the overall election will continue.
 		PagedElectionProceeded {
 			page: PageIndex,
-			result: Result<(), u32>,
+			result: Result<u32, u32>,
 		},
 	}
 

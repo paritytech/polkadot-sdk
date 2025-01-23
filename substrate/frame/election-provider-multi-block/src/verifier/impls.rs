@@ -233,10 +233,10 @@ pub(crate) mod pallet {
 			// TODO: safe wrapper around this that clears exactly pages keys, and ensures none is
 			// left.
 			match Self::invalid() {
-				ValidSolution::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
-				ValidSolution::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
+				ValidSolution::X => clear_paged_map!(QueuedSolutionX::<T>),
+				ValidSolution::Y => clear_paged_map!(QueuedSolutionY::<T>),
 			};
-			let _ = QueuedSolutionBackings::<T>::clear(u32::MAX, None);
+			clear_paged_map!(QueuedSolutionBackings::<T>);
 		}
 
 		/// Write a single page of a valid solution into the `invalid` variant of the storage.
@@ -278,8 +278,8 @@ pub(crate) mod pallet {
 			Self::mutate_checked(|| {
 				// clear everything about valid solutions.
 				match Self::valid() {
-					ValidSolution::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
-					ValidSolution::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
+					ValidSolution::X => clear_paged_map!(QueuedSolutionX::<T>),
+					ValidSolution::Y => clear_paged_map!(QueuedSolutionY::<T>),
 				};
 				QueuedSolutionScore::<T>::kill();
 
@@ -299,10 +299,10 @@ pub(crate) mod pallet {
 		/// Should only be called once everything is done.
 		pub(crate) fn kill() {
 			Self::mutate_checked(|| {
-				QueuedSolutionX::<T>::clear(u32::MAX, None);
-				QueuedSolutionY::<T>::clear(u32::MAX, None);
+				clear_paged_map!(QueuedSolutionX::<T>);
+				clear_paged_map!(QueuedSolutionY::<T>);
 				QueuedValidVariant::<T>::kill();
-				QueuedSolutionBackings::<T>::clear(u32::MAX, None);
+				clear_paged_map!(QueuedSolutionBackings::<T>);
 				QueuedSolutionScore::<T>::kill();
 			})
 		}
@@ -621,7 +621,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(truth_score == claimed_score, FeasibilityError::InvalidScore);
 
 		// and finally queue the solution.
-		QueuedSolution::<T>::force_set_single_page_valid(0, supports.clone(), truth_score);
+		QueuedSolution::<T>::force_set_single_page_valid(page, supports.clone(), truth_score);
 
 		Ok(supports)
 	}
@@ -803,13 +803,25 @@ impl<T: Config> Verifier for Pallet<T> {
 		let maybe_current_score = Self::queued_score();
 		match Self::do_verify_synchronous(partial_solution, claimed_score, page) {
 			Ok(supports) => {
-				sublog!(info, "verifier", "queued a sync solution with score {:?}.", claimed_score);
+				sublog!(
+					info,
+					"verifier",
+					"queued a sync solution with score {:?} for page {}",
+					claimed_score,
+					page
+				);
 				Self::deposit_event(Event::<T>::Verified(page, supports.len() as u32));
 				Self::deposit_event(Event::<T>::Queued(claimed_score, maybe_current_score));
 				Ok(supports)
 			},
 			Err(fe) => {
-				sublog!(warn, "verifier", "sync verification failed due to {:?}.", fe);
+				sublog!(
+					warn,
+					"verifier",
+					"sync verification of page {} failed due to {:?}.",
+					page,
+					fe
+				);
 				Self::deposit_event(Event::<T>::VerificationFailed(page, fe.clone()));
 				Err(fe)
 			},

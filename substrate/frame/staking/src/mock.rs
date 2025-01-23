@@ -227,6 +227,9 @@ parameter_types! {
 	// default is single page EP.
 	pub static Pages: PageIndex = 1;
 	pub static MaxBackersPerWinner: u32 = 10_000;
+	// If set, the `SingleOrMultipageElectionProvider` will return these exact values, per page
+	// index. If not, it will behave is per the code.
+	pub static CustomElectionSupports: Option<Vec<Result<BoundedSupportsOf<<Test as Config>::ElectionProvider>, onchain::Error>>> = None;
 }
 
 // An election provider wrapper that allows testing with single and multi page modes.
@@ -250,26 +253,32 @@ impl<
 	type Error = onchain::Error;
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		if Pages::get() == 1 {
-			SP::elect(page)
+		if let Some(maybe_paged_supports) = CustomElectionSupports::get() {
+			maybe_paged_supports[page as usize].clone()
 		} else {
-			// will take first `MaxWinnersPerPage` in the validator set as winners. in this mock
-			// impl, we return an arbitratily but deterministic nominator exposure per winner/page.
-			let supports: Vec<(AccountId, Support<AccountId>)> = Validators::<Test>::iter_keys()
-				.filter(|x| Staking::status(x) == Ok(StakerStatus::Validator))
-				.take(Self::MaxWinnersPerPage::get() as usize)
-				.map(|v| {
-					(
-						v,
-						Support {
-							total: (100 + page).into(),
-							voters: vec![((page + 1) as AccountId, (100 + page).into())],
-						},
-					)
-				})
-				.collect::<Vec<_>>();
+			if Pages::get() == 1 {
+				SP::elect(page)
+			} else {
+				// will take first `MaxWinnersPerPage` in the validator set as winners. in this mock
+				// impl, we return an arbitrarily but deterministic nominator exposure per
+				// winner/page.
+				let supports: Vec<(AccountId, Support<AccountId>)> =
+					Validators::<Test>::iter_keys()
+						.filter(|x| Staking::status(x) == Ok(StakerStatus::Validator))
+						.take(Self::MaxWinnersPerPage::get() as usize)
+						.map(|v| {
+							(
+								v,
+								Support {
+									total: (100 + page).into(),
+									voters: vec![((page + 1) as AccountId, (100 + page).into())],
+								},
+							)
+						})
+						.collect::<Vec<_>>();
 
-			Ok(to_bounded_supports(supports))
+				Ok(to_bounded_supports(supports))
+			}
 		}
 	}
 	fn msp() -> PageIndex {
@@ -346,7 +355,6 @@ impl crate::pallet::pallet::Config for Test {
 	type ElectionProvider =
 		SingleOrMultipageElectionProvider<onchain::OnChainExecution<OnChainSeqPhragmen>>;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
-	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
 	type VoterList = VoterBagsList;
 	type TargetList = UseValidatorsMap<Self>;
 	type NominationsQuota = WeightedNominationsQuota<16>;

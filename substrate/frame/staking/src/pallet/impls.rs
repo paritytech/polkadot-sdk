@@ -739,33 +739,35 @@ impl<T: Config> Pallet<T> {
 	/// If any new election winner does not fit in the electable stashes storage, it truncates the
 	/// result of the election. We ensure that only the winners that are part of the electable
 	/// stashes have exposures collected for the next era.
+	///
+	/// If `T::ElectionProvider::elect(_)`, we don't raise an error just yet and continue until
+	/// `elect(0)`. IFF `elect(0)` is called, yet we have not collected enough validators (as per
+	/// `MinimumValidatorCount` storage), an error is raised in the next era rotation.
 	pub(crate) fn do_elect_paged(page: PageIndex) -> Weight {
-		let paged_result = match T::ElectionProvider::elect(page) {
-			Ok(result) => result,
+		match T::ElectionProvider::elect(page) {
+			Ok(supports) => {
+				let inner_processing_results = Self::do_elect_paged_inner(supports);
+				if let Err(not_included) = inner_processing_results {
+					defensive!(
+						"electable stashes exceeded limit, unexpected but election proceeds.\
+                {} stashes from election result discarded",
+						not_included
+					);
+				};
+
+				Self::deposit_event(Event::PagedElectionProceeded {
+					page,
+					result: inner_processing_results.map(|x| x as u32).map_err(|x| x as u32),
+				});
+				T::WeightInfo::do_elect_paged(T::MaxValidatorSet::get())
+			},
 			Err(e) => {
 				log!(warn, "election provider page failed due to {:?} (page: {})", e, page);
-				// election failed, clear election prep metadata.
-				Self::clear_election_metadata();
-				Self::deposit_event(Event::StakingElectionFailed);
-
-				return T::WeightInfo::clear_election_metadata();
+				Self::deposit_event(Event::PagedElectionProceeded { page, result: Err(0) });
+				// no-op -- no need to raise an error for now.
+				Default::default()
 			},
-		};
-
-		let inner_processing_results = Self::do_elect_paged_inner(paged_result);
-		if let Err(not_included) = inner_processing_results {
-			defensive!(
-				"electable stashes exceeded limit, unexpected but election proceeds.\
-                {} stashes from election result discarded",
-				not_included
-			);
-		};
-
-		Self::deposit_event(Event::PagedElectionProceeded {
-			page,
-			result: inner_processing_results.map_err(|x| x as u32),
-		});
-		T::WeightInfo::do_elect_paged(T::MaxValidatorSet::get())
+		}
 	}
 
 	/// Inner implementation of [`Self::do_elect_paged`].
@@ -775,16 +777,16 @@ impl<T: Config> Pallet<T> {
 	/// included.
 	pub(crate) fn do_elect_paged_inner(
 		mut supports: BoundedSupportsOf<T::ElectionProvider>,
-	) -> Result<(), usize> {
+	) -> Result<usize, usize> {
 		// preparing the next era. Note: we expect `do_elect_paged` to be called *only* during a
 		// non-genesis era, thus current era should be set by now.
 		let planning_era = CurrentEra::<T>::get().defensive_unwrap_or_default().saturating_add(1);
 
 		match Self::add_electables(supports.iter().map(|(s, _)| s.clone())) {
-			Ok(_) => {
+			Ok(added) => {
 				let exposures = Self::collect_exposures(supports);
 				let _ = Self::store_stakers_info(exposures, planning_era);
-				Ok(())
+				Ok(added)
 			},
 			Err(not_included_idx) => {
 				let not_included = supports.len().saturating_sub(not_included_idx);
@@ -902,18 +904,23 @@ impl<T: Config> Pallet<T> {
 
 	/// Adds a new set of stashes to the electable stashes.
 	///
-	/// Deduplicates stashes in place and returns an error if the bounds are exceeded. In case of
-	/// error, it returns the iter index of the element that failed to add.
+	/// Returns:
+	///
+	/// `Ok(newly_added)` if all stashes were added successfully.
+	/// `Err(first_un_included)` if some stashes cannot be added due to bounds.
 	pub(crate) fn add_electables(
 		new_stashes: impl Iterator<Item = T::AccountId>,
-	) -> Result<(), usize> {
+	) -> Result<usize, usize> {
 		ElectableStashes::<T>::mutate(|electable| {
+			let pre_size = electable.len();
+
 			for (idx, stash) in new_stashes.enumerate() {
 				if electable.try_insert(stash).is_err() {
 					return Err(idx);
 				}
 			}
-			Ok(())
+
+			Ok(electable.len() - pre_size)
 		})
 	}
 
@@ -2283,10 +2290,10 @@ impl<T: Config> Pallet<T> {
 		let next_election = Self::next_election_prediction(now);
 		let pages = Self::election_pages().saturated_into::<BlockNumberFor<T>>();
 		let election_prep_start = next_election - pages;
-
-		if now >= election_prep_start && now < next_election {
+		let is_mid_election = now >= election_prep_start && now < next_election;
+		if !is_mid_election {
 			ensure!(
-				!ElectableStashes::<T>::get().is_empty(),
+				ElectableStashes::<T>::get().is_empty(),
 				"ElectableStashes should not be empty mid election"
 			);
 		}

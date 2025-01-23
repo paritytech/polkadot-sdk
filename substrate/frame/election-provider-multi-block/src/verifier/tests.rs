@@ -37,7 +37,7 @@ mod feasibility_check {
 			let paged = mine_full_solution().unwrap();
 
 			// ..remove the only page of the target snapshot.
-			crate::Snapshot::<Runtime>::remove_target_page(0);
+			crate::Snapshot::<Runtime>::remove_target_page();
 
 			assert_noop!(
 				VerifierPallet::feasibility_check_page_inner(paged.solution_pages[0].clone(), 0),
@@ -89,7 +89,7 @@ mod feasibility_check {
 			let paged = mine_full_solution().unwrap();
 
 			// `DesiredTargets` is not checked here.
-			crate::Snapshot::<Runtime>::remove_target_page(0);
+			crate::Snapshot::<Runtime>::remove_target_page();
 
 			assert_noop!(
 				VerifierPallet::feasibility_check_page_inner(paged.solution_pages[1].clone(), 0),
@@ -1071,12 +1071,15 @@ mod sync_verification {
 					MultiBlock::msp(),
 				)
 				.unwrap_err(),
-				FeasibilityError::WrongWinnerCount
+				FeasibilityError::FailedToBoundSupport
 			);
 
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::VerificationFailed(2, FeasibilityError::WrongWinnerCount)]
+				vec![Event::<Runtime>::VerificationFailed(
+					2,
+					FeasibilityError::FailedToBoundSupport
+				)]
 			);
 		});
 	}
