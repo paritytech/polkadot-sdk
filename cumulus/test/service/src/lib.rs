@@ -25,12 +25,9 @@ pub mod chain_spec;
 
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::{
-	collators::{
-		lookahead::{self as aura, Params as AuraParams},
-		slot_based::{
-			self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
-			SlotBasedBlockImportHandle,
-		},
+	collators::slot_based::{
+		self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
+		SlotBasedBlockImportHandle,
 	},
 	ImportQueueParams,
 };
