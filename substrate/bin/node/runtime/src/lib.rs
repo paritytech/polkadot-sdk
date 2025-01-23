@@ -889,9 +889,12 @@ pub(crate) mod multi_block_impls {
 
 	parameter_types! {
 		pub Pages: u32 = 4;
+		// nominators snapshot size
 		pub VoterSnapshotPerBlock: u32 = 22500 / 4;
+		// validator snapshot size
 		pub TargetSnapshotPerBlock: u32 = 1000;
 		pub SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+		pub SignedValidation: u32 = 8;
 		pub UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 	}
 
@@ -905,7 +908,7 @@ pub(crate) mod multi_block_impls {
 		// split election into 8 pages.
 		type Pages = Pages;
 		// allow 2 signed solutions to be verified.
-		type SignedValidationPhase = ConstU32<16>;
+		type SignedValidationPhase = SignedValidation;
 		// TODO: sanity check that the length of all phases is within reason.
 		type SignedPhase = SignedPhase;
 		type UnsignedPhase = UnsignedPhase;
