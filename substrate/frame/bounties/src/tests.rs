@@ -172,8 +172,8 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+	pub fn build(self) -> TestState {
+		let mut ext: TestState = RuntimeGenesisConfig {
 			system: frame_system::GenesisConfig::default(),
 			balances: pallet_balances::GenesisConfig {
 				balances: vec![(0, 100), (1, 98), (2, 1)],

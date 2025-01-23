@@ -337,7 +337,6 @@ pub mod testing_prelude {
 
 	/// Testing includes building a runtime, so we bring in all preludes related to runtimes as
 	/// well.
-	pub use super::runtime::testing_prelude::*;
 
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{

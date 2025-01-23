@@ -16,13 +16,8 @@
 // limitations under the License.
 
 use core::str;
-use frame::{
-	deps::{
-		sp_core::hexdisplay::HexDisplay,
-		sp_io::{hashing::twox_128, storage},
-	},
-	testing_prelude::*,
-};
+use frame::testing_prelude::*;
+
 
 use crate as pallet_bounties;
 
