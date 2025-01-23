@@ -811,6 +811,7 @@ fn generating_and_verifying_ancestry_proofs_works_correctly() {
 		for prev_block_number in 1usize..=500 {
 			let proof =
 				Pallet::<Test>::generate_ancestry_proof(prev_block_number as u64, None).unwrap();
+			assert!(Pallet::<Test>::is_ancestry_proof_optimal(&proof));
 			assert_eq!(
 				Pallet::<Test>::verify_ancestry_proof(root, proof),
 				Ok(prev_roots[prev_block_number - 1])
