@@ -40,7 +40,7 @@ jobs:
           - template: parachain
             package_name: 'parachain-template-runtime'
             runtime_path: './templates/parachain/runtime'
-            runtime_wasm_path: 'parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm'
+            runtime_wasm_path: parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm
             relay_chain: 'rococo-local'
     steps:
         - uses: actions/checkout@v4
