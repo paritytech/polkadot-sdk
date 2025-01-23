@@ -64,7 +64,6 @@ impl TryFrom<&Log> for Envelope {
 		// Decode the Solidity event from raw logs
 		let event = OutboundMessageAccepted::decode_raw_log(topics, &log.data, true).map_err(
 			|decode_err| {
-				println!("error is {decode_err}");
 				log::error!(
 					target: "snowbridge-inbound-queue:v2",
 					"💫 decode error {:?}",

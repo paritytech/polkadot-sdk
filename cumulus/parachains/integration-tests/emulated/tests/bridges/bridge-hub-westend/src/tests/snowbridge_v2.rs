@@ -119,10 +119,18 @@ fn register_token_v2() {
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
 		let origin = EthereumGatewayAddress::get();
 
+		let encoded_xcm = versioned_message_xcm.encode();
+
+		let hex_string = hex::encode(encoded_xcm.clone());
+		let eth_asset_value_encoded = eth_asset_value.encode();
+		let eth_asset_value_hex = hex::encode(eth_asset_value_encoded);
+		println!("register token hex: {:x?}", hex_string);
+		println!("eth value hex: {:x?}", eth_asset_value_hex);
+
 		let message = Message {
 			origin,
 			assets: vec![],
-			xcm: versioned_message_xcm.encode(),
+			xcm: encoded_xcm,
 			claimer: Some(claimer_bytes),
 			// Used to pay the asset creation deposit.
 			value: 9_000_000_000_000u128,
