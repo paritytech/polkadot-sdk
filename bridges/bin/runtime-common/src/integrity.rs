@@ -30,7 +30,6 @@ use pallet_bridge_messages::{ThisChainOf, WeightInfoExt as _};
 // Re-export to avoid include all dependencies everywhere.
 #[doc(hidden)]
 pub mod __private {
-	pub use bp_xcm_bridge_hub;
 	pub use static_assertions;
 }
 
@@ -66,9 +65,9 @@ macro_rules! assert_bridge_messages_pallet_types(
 		with_bridged_chain_messages_instance: $i:path,
 		this_chain: $this:path,
 		bridged_chain: $bridged:path,
+		expected_payload_type: $payload:path,
 	) => {
 		{
-			use $crate::integrity::__private::bp_xcm_bridge_hub::XcmAsPlainPayload;
 			use $crate::integrity::__private::static_assertions::assert_type_eq_all;
 			use bp_messages::ChainWithMessages;
 			use bp_runtime::Chain;
@@ -81,8 +80,8 @@ macro_rules! assert_bridge_messages_pallet_types(
 			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::ThisChain, $this);
 			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::BridgedChain, $bridged);
 
-			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::OutboundPayload, XcmAsPlainPayload);
-			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::InboundPayload, XcmAsPlainPayload);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::OutboundPayload, $payload);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::InboundPayload, $payload);
 		}
 	}
 );
@@ -97,6 +96,7 @@ macro_rules! assert_complete_bridge_types(
 		with_bridged_chain_messages_instance: $mi:path,
 		this_chain: $this:path,
 		bridged_chain: $bridged:path,
+		expected_payload_type: $payload:path,
 	) => {
 		$crate::assert_chain_types!(runtime: $r, this_chain: $this);
 		$crate::assert_bridge_messages_pallet_types!(
@@ -104,6 +104,7 @@ macro_rules! assert_complete_bridge_types(
 			with_bridged_chain_messages_instance: $mi,
 			this_chain: $this,
 			bridged_chain: $bridged,
+			expected_payload_type: $payload,
 		);
 	}
 );
