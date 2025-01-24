@@ -315,10 +315,8 @@ impl PostDispatchInfo {
 					"Post dispatch weight is greater than pre dispatch weight. \
 					Pre dispatch weight may underestimating the actual weight. \
 					Greater post dispatch weight components are ignored.
-					Pre dispatch weight: {:?},
-					Post dispatch weight: {:?}",
-					actual_weight,
-					info_total_weight,
+					Pre dispatch weight: {info_total_weight:?},
+					Post dispatch weight: {actual_weight:?}",
 				);
 			}
 			actual_weight.min(info.total_weight())

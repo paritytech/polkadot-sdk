@@ -16,7 +16,9 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::Client, EthRpcServer, EthRpcServerImpl, SystemHealthRpcServer,
+	client::{connect, Client},
+	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
+	EthRpcServer, EthRpcServerImpl, ReceiptProvider, SystemHealthRpcServer,
 	SystemHealthRpcServerImpl,
 };
 use clap::Parser;
@@ -27,6 +29,7 @@ use sc_service::{
 	config::{PrometheusConfig, RpcConfiguration},
 	start_rpc_servers, TaskManager,
 };
+use std::sync::Arc;
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
@@ -41,6 +44,21 @@ pub struct CliCommand {
 	/// The node url to connect to
 	#[clap(long, default_value = "ws://127.0.0.1:9944")]
 	pub node_rpc_url: String,
+
+	/// The maximum number of blocks to cache in memory.
+	#[clap(long, default_value = "256")]
+	pub cache_size: usize,
+
+	/// The database used to store Ethereum transaction hashes.
+	/// This is only useful if the node needs to act as an archive node and respond to Ethereum RPC
+	/// queries for transactions that are not in the in memory cache.
+	#[clap(long)]
+	pub database_url: Option<String>,
+
+	/// If true, we will only read from the database and not write to it.
+	/// Only useful if `--database-url` is specified.
+	#[clap(long, default_value = "true")]
+	pub database_read_only: bool,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -78,7 +96,16 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 
 /// Start the JSON-RPC server using the given command line arguments.
 pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
-	let CliCommand { rpc_params, prometheus_params, node_rpc_url, shared_params, .. } = cmd;
+	let CliCommand {
+		rpc_params,
+		prometheus_params,
+		node_rpc_url,
+		cache_size,
+		database_url,
+		database_read_only,
+		shared_params,
+		..
+	} = cmd;
 
 	#[cfg(not(test))]
 	init_logger(&shared_params)?;
@@ -110,19 +137,42 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	let tokio_runtime = sc_cli::build_runtime()?;
 	let tokio_handle = tokio_runtime.handle();
-	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
 	let essential_spawn_handle = task_manager.spawn_essential_handle();
 
 	let gen_rpc_module = || {
 		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
-		let fut = Client::from_url(&node_rpc_url, &essential_spawn_handle).fuse();
+		let fut = async {
+			let (api, rpc_client, rpc) = connect(&node_rpc_url).await?;
+			let block_provider: Arc<dyn BlockInfoProvider> =
+				Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
+			let receipt_provider: Arc<dyn ReceiptProvider> =
+				if let Some(database_url) = database_url.as_ref() {
+					Arc::new((
+						CacheReceiptProvider::default(),
+						DBReceiptProvider::new(
+							database_url,
+							database_read_only,
+							block_provider.clone(),
+						)
+						.await?,
+					))
+				} else {
+					Arc::new(CacheReceiptProvider::default())
+				};
+
+			let client =
+				Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+			client.subscribe_and_cache_blocks(&essential_spawn_handle);
+			Ok::<_, crate::ClientError>(client)
+		}
+		.fuse();
 		pin_mut!(fut);
 
 		match tokio_handle.block_on(signals.try_until_signal(fut)) {
 			Ok(Ok(client)) => rpc_module(is_dev, client),
 			Ok(Err(err)) => {
-				log::error!("Error connecting to the node at {node_rpc_url}: {err}");
+				log::error!("Error initializing: {err:?}");
 				Err(sc_service::Error::Application(err.into()))
 			},
 			Err(_) => Err(sc_service::Error::Application("Client connection interrupted".into())),
@@ -142,6 +192,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		start_rpc_servers(&rpc_config, prometheus_registry, tokio_handle, gen_rpc_module, None)?;
 
 	task_manager.keep_alive(rpc_server_handle);
+	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	tokio_runtime.block_on(signals.run_until_signal(task_manager.future().fuse()))?;
 	Ok(())
 }
