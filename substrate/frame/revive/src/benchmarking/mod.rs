@@ -27,7 +27,7 @@ use crate::{
 	exec::{Key, MomentOf},
 	limits,
 	storage::WriteOutcome,
-	Pallet as Contracts, *,
+	ConversionPrecision, Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
@@ -772,7 +772,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		ext.override_export(crate::debug::ExportedFunction::Constructor);
+		ext.override_export(crate::exec::ExportedFunction::Constructor);
 
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
 
@@ -1771,7 +1771,9 @@ mod benchmarks {
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
 		assert_eq!(
 			T::Currency::balance(&account_id),
-			Pallet::<T>::min_balance() + Pallet::<T>::convert_evm_to_native(value.into()).unwrap()
+			Pallet::<T>::min_balance() +
+				Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
+					.unwrap()
 		);
 		Ok(())
 	}
