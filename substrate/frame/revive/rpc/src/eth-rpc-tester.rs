@@ -91,7 +91,7 @@ fn start_docker(docker_bin: &str, docker_image: &str) -> anyhow::Result<Child> {
 		"--log=sc_rpc_server:info",
 	];
 	let docker_process = Command::new(docker_bin)
-		.args(&args)
+		.args(args)
 		.stderr(std::process::Stdio::piped())
 		.kill_on_drop(true)
 		.spawn()?;
