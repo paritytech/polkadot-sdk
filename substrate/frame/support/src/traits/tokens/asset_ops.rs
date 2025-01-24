@@ -108,7 +108,7 @@ pub trait UpdateMetadata<Strategy: MetadataUpdateStrategy>: AssetDefinition {
 ///
 /// The common "create" strategies are:
 /// * [`Owned`](common_strategies::Owned)
-/// * [`Adminable`](common_strategies::Adminable)
+/// * [`WithAdmin`](common_strategies::WithAdmin)
 pub trait CreateStrategy {
 	/// This type represents a successful asset creation.
 	/// It will be in the [`Result`] type of the [`Create::create`] function.

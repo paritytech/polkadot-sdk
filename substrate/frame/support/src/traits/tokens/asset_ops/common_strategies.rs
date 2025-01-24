@@ -290,7 +290,7 @@ impl<Owner, Assignment: IdAssignment, Config, Witness> CreateStrategy
 	type Success = Assignment::ReportedId;
 }
 
-/// The `Adminable` is a [`"create" strategy`](CreateStrategy).
+/// The `WithAdmin` is a [`"create" strategy`](CreateStrategy).
 ///
 /// It accepts:
 /// * The `owner`
@@ -302,19 +302,19 @@ impl<Owner, Assignment: IdAssignment, Config, Witness> CreateStrategy
 /// The [`Success`](CreateStrategy::Success) will contain
 /// the [reported ID](IdAssignment::ReportedId) of the ID assignment approach.
 #[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-pub struct Adminable<Account, Assignment: IdAssignment, Config = (), Witness = ()> {
+pub struct WithAdmin<Account, Assignment: IdAssignment, Config = (), Witness = ()> {
 	pub owner: Account,
 	pub admin: Account,
 	pub id_assignment: Assignment,
 	pub config: Config,
 	pub witness: Witness,
 }
-impl<Account, Assignment: IdAssignment> Adminable<Account, Assignment, (), ()> {
+impl<Account, Assignment: IdAssignment> WithAdmin<Account, Assignment, (), ()> {
 	pub fn new(id_assignment: Assignment, owner: Account, admin: Account) -> Self {
 		Self { id_assignment, owner, admin, config: (), witness: () }
 	}
 }
-impl<Account, Assignment: IdAssignment, Config> Adminable<Account, Assignment, Config, ()> {
+impl<Account, Assignment: IdAssignment, Config> WithAdmin<Account, Assignment, Config, ()> {
 	pub fn new_configured(
 		owner: Account,
 		admin: Account,
@@ -325,7 +325,7 @@ impl<Account, Assignment: IdAssignment, Config> Adminable<Account, Assignment, C
 	}
 }
 impl<Account, Assignment: IdAssignment, Config, Witness> CreateStrategy
-	for Adminable<Account, Assignment, Config, Witness>
+	for WithAdmin<Account, Assignment, Config, Witness>
 {
 	type Success = Assignment::ReportedId;
 }

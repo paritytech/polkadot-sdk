@@ -6,7 +6,7 @@ use frame_support::{
 	traits::{
 		tokens::asset_ops::{
 			common_strategies::{
-				Adminable, Bytes, IfOwnedByWithWitness, Ownership, PredefinedId, WithOrigin,
+				Bytes, IfOwnedByWithWitness, Ownership, PredefinedId, WithAdmin, WithOrigin,
 				WithWitness,
 			},
 			AssetDefinition, Create, Destroy, InspectMetadata,
@@ -62,13 +62,13 @@ impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>>
 	}
 }
 
-impl<T: Config<I>, I: 'static> Create<Adminable<T::AccountId, PredefinedId<T::CollectionId>>>
+impl<T: Config<I>, I: 'static> Create<WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>>
 	for Collection<Pallet<T, I>>
 {
 	fn create(
-		strategy: Adminable<T::AccountId, PredefinedId<T::CollectionId>>,
+		strategy: WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>,
 	) -> Result<T::CollectionId, DispatchError> {
-		let Adminable { owner, admin, id_assignment, .. } = strategy;
+		let WithAdmin { owner, admin, id_assignment, .. } = strategy;
 		let collection = id_assignment.params;
 
 		<Pallet<T, I>>::do_create_collection(
@@ -85,18 +85,18 @@ impl<T: Config<I>, I: 'static> Create<Adminable<T::AccountId, PredefinedId<T::Co
 }
 
 impl<T: Config<I>, I: 'static>
-	Create<WithOrigin<T::RuntimeOrigin, Adminable<T::AccountId, PredefinedId<T::CollectionId>>>>
+	Create<WithOrigin<T::RuntimeOrigin, WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>>>
 	for Collection<Pallet<T, I>>
 {
 	fn create(
 		strategy: WithOrigin<
 			T::RuntimeOrigin,
-			Adminable<T::AccountId, PredefinedId<T::CollectionId>>,
+			WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>,
 		>,
 	) -> Result<T::CollectionId, DispatchError> {
 		let WithOrigin(origin, creation) = strategy;
 
-		let Adminable { owner, id_assignment, .. } = &creation;
+		let WithAdmin { owner, id_assignment, .. } = &creation;
 		let collection = &id_assignment.params;
 
 		let maybe_check_signer =

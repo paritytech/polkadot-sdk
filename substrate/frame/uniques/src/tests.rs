@@ -1118,7 +1118,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1141,14 +1141,14 @@ mod asset_ops_tests {
 			// Signed origin, same owner
 			assert_ok!(Collection::create(WithOrigin(
 				RuntimeOrigin::signed(alice),
-				Adminable::new(PredefinedId::from(0), alice, collection_admin,),
+				WithAdmin::new(PredefinedId::from(0), alice, collection_admin,),
 			)));
 
 			// Signed origin, different owner
 			assert_noop!(
 				Collection::create(WithOrigin(
 					RuntimeOrigin::signed(alice),
-					Adminable::new(PredefinedId::from(1), bob, collection_admin,),
+					WithAdmin::new(PredefinedId::from(1), bob, collection_admin,),
 				)),
 				Error::<Test>::NoPermission,
 			);
@@ -1156,12 +1156,12 @@ mod asset_ops_tests {
 			// Root origin, any owner
 			assert_ok!(Collection::create(WithOrigin(
 				RuntimeOrigin::root(),
-				Adminable::new(PredefinedId::from(2), alice, collection_admin,),
+				WithAdmin::new(PredefinedId::from(2), alice, collection_admin,),
 			)));
 
 			assert_ok!(Collection::create(WithOrigin(
 				RuntimeOrigin::root(),
-				Adminable::new(PredefinedId::from(3), bob, collection_admin,),
+				WithAdmin::new(PredefinedId::from(3), bob, collection_admin,),
 			)));
 		});
 	}
@@ -1177,7 +1177,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1222,7 +1222,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1291,7 +1291,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1352,7 +1352,7 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			let setup_test_collection = || {
-				assert_ok!(Collection::create(Adminable::new(
+				assert_ok!(Collection::create(WithAdmin::new(
 					PredefinedId::from(collection_id),
 					collection_owner,
 					collection_admin,
@@ -1478,7 +1478,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1501,7 +1501,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1577,7 +1577,7 @@ mod asset_ops_tests {
 				));
 			};
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1685,7 +1685,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1714,7 +1714,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1743,7 +1743,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1789,7 +1789,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1821,7 +1821,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1900,7 +1900,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1940,7 +1940,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -1971,7 +1971,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -2013,7 +2013,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -2103,7 +2103,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -2136,7 +2136,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -2211,7 +2211,7 @@ mod asset_ops_tests {
 				));
 			};
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
@@ -2324,7 +2324,7 @@ mod asset_ops_tests {
 
 			Balances::make_free_balance_be(&collection_owner, 100);
 
-			assert_ok!(Collection::create(Adminable::new(
+			assert_ok!(Collection::create(WithAdmin::new(
 				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
