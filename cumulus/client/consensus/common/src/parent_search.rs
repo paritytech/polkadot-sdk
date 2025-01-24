@@ -41,7 +41,7 @@ pub struct ParentSearchParams {
 	/// A limitation on the age of relay parents for parachain blocks that are being
 	/// considered. This is relative to the `relay_parent` number.
 	pub ancestry_lookback: usize,
-	/// How "deep" parents can be relative to the included parachain block at the relay-parent.
+	/// How "deep" parents can be relative to the pending parachain block at the relay-parent.
 	/// The included block has depth 0.
 	pub max_depth: usize,
 	/// Whether to only ignore "alternative" branches, i.e. branches of the chain
@@ -84,11 +84,11 @@ impl<B: BlockT> std::fmt::Debug for PotentialParent<B> {
 /// relay-parent according to the search parameters.
 ///
 /// A parachain block is a potential parent if it is either the last included parachain block, the
-/// pending parachain block (when `max_depth` >= 1), or all of the following hold:
+/// pending parachain block, or all of the following hold:
 ///   * its parent is a potential parent
 ///   * its relay-parent is within `ancestry_lookback` of the targeted relay-parent.
 ///   * its relay-parent is within the same session as the targeted relay-parent.
-///   * the block number is within `max_depth` blocks of the included block
+///   * the block number is within `max_depth` blocks of the parent block
 pub async fn find_potential_parents<B: BlockT>(
 	params: ParentSearchParams,
 	backend: &impl Backend<B>,
@@ -109,10 +109,6 @@ pub async fn find_potential_parents<B: BlockT>(
 		depth: 0,
 		aligned_with_pending: true,
 	}];
-
-	if params.max_depth == 0 {
-		return Ok(only_included)
-	};
 
 	// Pending header and hash.
 	let maybe_pending = {
@@ -160,7 +156,7 @@ pub async fn find_potential_parents<B: BlockT>(
 
 	// If we want to ignore alternative branches there is no reason to start
 	// the parent search at the included block. We can add the included block and
-	// the path to the pending block to the potential parents directly (limited by max_depth).
+	// the path to the pending block to the potential parents directly.
 	let (frontier, potential_parents) = match (
 		&maybe_pending,
 		params.ignore_alternative_branches,
@@ -175,10 +171,8 @@ pub async fn find_potential_parents<B: BlockT>(
 				return Ok(Default::default())
 			}
 
-			// Add all items on the path included -> pending - 1 to the potential parents, but
-			// not more than `max_depth`.
-			let num_parents_on_path =
-				route_to_pending.enacted().len().saturating_sub(1).min(params.max_depth);
+			// Add all items on the path included -> pending - 1 to the potential parents.
+			let num_parents_on_path = route_to_pending.enacted().len().saturating_sub(1);
 			for (num, block) in
 				route_to_pending.enacted().iter().take(num_parents_on_path).enumerate()
 			{
@@ -206,10 +200,6 @@ pub async fn find_potential_parents<B: BlockT>(
 		},
 		_ => (only_included, Default::default()),
 	};
-
-	if potential_parents.len() > params.max_depth {
-		return Ok(potential_parents);
-	}
 
 	// Build up the ancestry record of the relay chain to compare against.
 	let rp_ancestry =
@@ -386,7 +376,10 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 			potential_parents.push(entry);
 		}
 
-		if !is_potential || child_depth > max_depth {
+		let child_depth_from_pending =
+			pending_distance.map_or(child_depth, |pd| child_depth.saturating_sub(pd));
+
+		if !is_potential || child_depth_from_pending > max_depth {
 			continue
 		}
 
