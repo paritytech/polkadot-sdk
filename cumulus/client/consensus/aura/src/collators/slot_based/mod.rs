@@ -113,7 +113,7 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	/// timings.
 	pub slot_drift: Duration,
 	/// The handle returned by [`SlotBasedBlockImport`].
-	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
+	pub block_import_handle: Option<SlotBasedBlockImportHandle<Block>>,
 	/// Spawner for spawning futures.
 	pub spawner: Spawner,
 	pub flavor: Flavor,

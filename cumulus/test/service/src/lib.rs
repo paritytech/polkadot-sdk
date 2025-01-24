@@ -498,7 +498,8 @@ where
 				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
 				slot_drift: Duration::from_secs(1),
-				block_import_handle: slot_based_handle,
+				// TODO skunert fix this, not needed for lookahead collator
+				block_import_handle: Some(slot_based_handle),
 				spawner: task_manager.spawn_handle(),
 				flavor: use_slot_based_collator
 					.then(|| Flavor::TimeBased)

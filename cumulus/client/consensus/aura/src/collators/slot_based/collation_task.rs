@@ -51,7 +51,7 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	/// Receiver channel for communication with the block builder task.
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
 	/// The handle from the special slot based block import.
-	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
+	pub block_import_handle: Option<super::SlotBasedBlockImportHandle<Block>>,
 	/// Whether to export the PoV to a file. Useful for debugging purposes.
 	pub export_pov: Option<PathBuf>,
 }
@@ -92,20 +92,20 @@ pub async fn run_collation_task<Block, RClient, CS>(
 	.await;
 
 	loop {
-		futures::select! {
-			collator_message = collator_receiver.next() => {
-				let Some(message) = collator_message else {
-					return;
-				};
+		tokio::select! {
+				collator_message = collator_receiver.next() => {
+					let Some(message) = collator_message else {
+						return;
+					};
 
-				handle_collation_message(message, &collator_service, &mut overseer_handle, &export_pov).await;
-			},
-			block_import_msg = block_import_handle.next().fuse() => {
+					handle_collation_message(message, &collator_service, &mut overseer_handle, &export_pov).await;
+				},
+				block_import_msg = block_import_handle.as_mut().map(|h| h.next().fuse()).unwrap(), if block_import_handle.is_some() => {
+				let (_, _) = block_import_msg;
 				// TODO: Implement me.
 				// Issue: https://github.com/paritytech/polkadot-sdk/issues/6495
-				let _ = block_import_msg;
-			}
 		}
+			}
 	}
 }
 

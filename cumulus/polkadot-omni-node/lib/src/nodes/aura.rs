@@ -37,9 +37,8 @@ use cumulus_client_collator::service::{
 use cumulus_client_consensus_aura::collators::slot_based::{
 	self as slot_based, Params as SlotBasedParams,
 };
-use cumulus_client_consensus_aura::collators::{
-	lookahead::{self as aura, Params as AuraParams},
-	slot_based::{Flavor, SlotBasedBlockImport, SlotBasedBlockImportHandle},
+use cumulus_client_consensus_aura::collators::slot_based::{
+	Flavor, SlotBasedBlockImport, SlotBasedBlockImportHandle,
 };
 use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
@@ -47,10 +46,8 @@ use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use futures::prelude::*;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
-use sc_client_api::BlockchainEvents;
 use sc_client_db::DbHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
@@ -374,7 +371,7 @@ where
 			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
 			slot_drift: Duration::from_secs(1),
-			block_import_handle,
+			block_import_handle: Some(block_import_handle),
 			spawner: task_manager.spawn_handle(),
 			flavor: Flavor::TimeBased,
 			export_pov: node_extra_args.export_pov,
@@ -410,29 +407,6 @@ where
 	}
 }
 
-/// Wait for the Aura runtime API to appear on chain.
-/// This is useful for chains that started out without Aura. Components that
-/// are depending on Aura functionality will wait until Aura appears in the runtime.
-async fn wait_for_aura<Block: BlockT, RuntimeApi, AuraId>(
-	client: Arc<ParachainClient<Block, RuntimeApi>>,
-) where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync,
-{
-	let finalized_hash = client.chain_info().finalized_hash;
-	if client.runtime_api().has_aura_api(finalized_hash) {
-		return;
-	};
-
-	let mut stream = client.finality_notification_stream();
-	while let Some(notification) = stream.next().await {
-		if client.runtime_api().has_aura_api(notification.hash) {
-			return;
-		}
-	}
-}
-
 /// Start consensus using the lookahead aura collator.
 pub(crate) struct StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>(
 	PhantomData<(Block, RuntimeApi, AuraId)>,
@@ -458,7 +432,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
-		overseer_handle: OverseerHandle,
+		_overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
@@ -472,6 +446,7 @@ where
 			telemetry.clone(),
 		);
 
+		let proposer = Proposer::new(proposer_factory);
 		let collator_service = CollatorService::new(
 			client.clone(),
 			Arc::new(task_manager.spawn_handle()),
@@ -479,40 +454,35 @@ where
 			client.clone(),
 		);
 
-		let params = aura::ParamsWithExport {
-			export_pov: node_extra_args.export_pov,
-			params: AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-				block_import,
-				para_client: client.clone(),
-				para_backend: backend,
-				relay_client: relay_chain_interface,
-				code_hash_provider: {
-					let client = client.clone();
-					move |block_hash| {
-						client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-					}
-				},
-				keystore,
-				collator_key,
-				para_id,
-				overseer_handle,
-				relay_chain_slot_duration,
-				proposer: Proposer::new(proposer_factory),
-				collator_service,
-				authoring_duration: Duration::from_millis(2000),
-				reinitialize: false,
+		let client_for_aura = client.clone();
+
+		let params = SlotBasedParams {
+			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			block_import,
+			para_client: client.clone(),
+			para_backend: backend.clone(),
+			relay_client: relay_chain_interface,
+			code_hash_provider: move |block_hash| {
+				client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 			},
+			keystore,
+			collator_key,
+			para_id,
+			proposer,
+			collator_service,
+			authoring_duration: Duration::from_millis(2000),
+			reinitialize: false,
+			slot_drift: Duration::from_secs(1),
+			block_import_handle: None,
+			spawner: task_manager.spawn_handle(),
+			flavor: Flavor::Lookahead,
+			export_pov: node_extra_args.export_pov,
+			relay_slot_duration: relay_chain_slot_duration,
 		};
 
-		let fut = async move {
-			wait_for_aura(client).await;
-			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(
-				params,
-			)
-			.await;
-		};
-		task_manager.spawn_essential_handle().spawn("aura", None, fut);
+		// We have a separate function only to be able to use `docify::export` on this piece of
+		// code.
+		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params);
 
 		Ok(())
 	}
