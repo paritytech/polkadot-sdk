@@ -33,7 +33,7 @@ const DOCKER_CONTAINER_NAME: &str = "eth-rpc-test";
 #[clap(author, about, version)]
 pub struct CliCommand {
 	/// The parity docker image e.g eth-rpc:master-fb2e414f
-	#[clap(long, default_value = "eth-rpc:latest")]
+	#[clap(long, default_value = "eth-rpc:master-fb2e414f")]
 	docker_image: String,
 
 	/// The docker binary
@@ -95,8 +95,6 @@ fn start_docker(docker_bin: &str, docker_image: &str) -> anyhow::Result<Child> {
 		.stderr(std::process::Stdio::piped())
 		.kill_on_drop(true)
 		.spawn()?;
-
-	println!("docker {}", args.join(" "));
 
 	Ok(docker_process)
 }
