@@ -9,7 +9,7 @@ use frame_support::{
 			Bytes, CanTransfer, FromTo, IfOwnedBy, JustDo, Owned, Ownership, PredefinedId,
 			WithOrigin,
 		},
-		AssetDefinition, Create, Destroy, InspectMetadata, Transfer,
+		AssetDefinition, Create, InspectMetadata, Stash, Transfer,
 	},
 	BoundedSlice,
 };
@@ -159,16 +159,14 @@ impl<T: Config<I>, I: 'static> Transfer<FromTo<T::AccountId>> for Item<Pallet<T,
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<JustDo> for Item<Pallet<T, I>> {
-	fn destroy((collection, item): &Self::Id, _strategy: JustDo) -> DispatchResult {
+impl<T: Config<I>, I: 'static> Stash<JustDo> for Item<Pallet<T, I>> {
+	fn stash((collection, item): &Self::Id, _strategy: JustDo) -> DispatchResult {
 		<Pallet<T, I>>::do_burn(collection.clone(), *item, |_, _| Ok(()))
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<WithOrigin<T::RuntimeOrigin, JustDo>>
-	for Item<Pallet<T, I>>
-{
-	fn destroy(
+impl<T: Config<I>, I: 'static> Stash<WithOrigin<T::RuntimeOrigin, JustDo>> for Item<Pallet<T, I>> {
+	fn stash(
 		id @ (collection, item): &Self::Id,
 		strategy: WithOrigin<T::RuntimeOrigin, JustDo>,
 	) -> DispatchResult {
@@ -176,12 +174,12 @@ impl<T: Config<I>, I: 'static> Destroy<WithOrigin<T::RuntimeOrigin, JustDo>>
 		let details =
 			ItemStorage::<T, I>::get(collection, item).ok_or(Error::<T, I>::UnknownCollection)?;
 
-		Self::destroy(id, WithOrigin(origin, IfOwnedBy(details.owner)))
+		Self::stash(id, WithOrigin(origin, IfOwnedBy(details.owner)))
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<IfOwnedBy<T::AccountId>> for Item<Pallet<T, I>> {
-	fn destroy((collection, item): &Self::Id, strategy: IfOwnedBy<T::AccountId>) -> DispatchResult {
+impl<T: Config<I>, I: 'static> Stash<IfOwnedBy<T::AccountId>> for Item<Pallet<T, I>> {
+	fn stash((collection, item): &Self::Id, strategy: IfOwnedBy<T::AccountId>) -> DispatchResult {
 		let IfOwnedBy(who) = strategy;
 
 		<Pallet<T, I>>::do_burn(collection.clone(), *item, |_, d| {
@@ -191,10 +189,10 @@ impl<T: Config<I>, I: 'static> Destroy<IfOwnedBy<T::AccountId>> for Item<Pallet<
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<WithOrigin<T::RuntimeOrigin, IfOwnedBy<T::AccountId>>>
+impl<T: Config<I>, I: 'static> Stash<WithOrigin<T::RuntimeOrigin, IfOwnedBy<T::AccountId>>>
 	for Item<Pallet<T, I>>
 {
-	fn destroy(
+	fn stash(
 		(collection, item): &Self::Id,
 		strategy: WithOrigin<T::RuntimeOrigin, IfOwnedBy<T::AccountId>>,
 	) -> DispatchResult {

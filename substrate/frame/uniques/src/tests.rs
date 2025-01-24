@@ -1929,7 +1929,7 @@ mod asset_ops_tests {
 	}
 
 	#[test]
-	fn destroy_item_just_do() {
+	fn stash_item_just_do() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 			let item_id = 111;
@@ -1953,14 +1953,34 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
 
-			assert_ok!(Item::destroy(&(collection_id, item_id), JustDo::default(),));
+			let test_key = vec![0xF, 0x0, 0x0, 0xD];
+			let test_value = vec![0xC, 0x0, 0x0, 0x1];
+
+			assert_ok!(Uniques::set_attribute(
+				RuntimeOrigin::signed(collection_owner),
+				collection_id,
+				Some(item_id),
+				test_key.clone().try_into().unwrap(),
+				test_value.clone().try_into().unwrap(),
+			));
+
+			assert_ok!(Item::stash(&(collection_id, item_id), JustDo::default(),));
 
 			assert_eq!(items(), vec![]);
+
+			let retreived_test_value = Item::inspect_metadata(
+				&(collection_id, item_id),
+				Bytes(Attribute(test_key.as_slice())),
+			)
+			.unwrap();
+
+			// the attributes are still available
+			assert_eq!(retreived_test_value, test_value);
 		});
 	}
 
 	#[test]
-	fn destroy_item_if_owned_by() {
+	fn stash_item_if_owned_by() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 			let item_id = 111;
@@ -1984,24 +2004,44 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
 
+			let test_key = vec![0xF, 0x0, 0x0, 0xD];
+			let test_value = vec![0xC, 0x0, 0x0, 0x1];
+
+			assert_ok!(Uniques::set_attribute(
+				RuntimeOrigin::signed(collection_owner),
+				collection_id,
+				Some(item_id),
+				test_key.clone().try_into().unwrap(),
+				test_value.clone().try_into().unwrap(),
+			));
+
 			assert_noop!(
-				Item::destroy(&(collection_id, item_id), IfOwnedBy(collection_owner),),
+				Item::stash(&(collection_id, item_id), IfOwnedBy(collection_owner),),
 				Error::<Test>::NoPermission,
 			);
 
 			assert_noop!(
-				Item::destroy(&(collection_id, item_id), IfOwnedBy(collection_admin),),
+				Item::stash(&(collection_id, item_id), IfOwnedBy(collection_admin),),
 				Error::<Test>::NoPermission,
 			);
 
-			assert_ok!(Item::destroy(&(collection_id, item_id), IfOwnedBy(item_owner),));
+			assert_ok!(Item::stash(&(collection_id, item_id), IfOwnedBy(item_owner),));
 
 			assert_eq!(items(), vec![]);
+
+			let retreived_test_value = Item::inspect_metadata(
+				&(collection_id, item_id),
+				Bytes(Attribute(test_key.as_slice())),
+			)
+			.unwrap();
+
+			// the attributes are still available
+			assert_eq!(retreived_test_value, test_value);
 		});
 	}
 
 	#[test]
-	fn destroy_item_if_owned_by_with_origin() {
+	fn stash_item_if_owned_by_with_origin() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 			let item_id = 111;
@@ -2026,52 +2066,72 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
 
+			let test_key = vec![0xF, 0x0, 0x0, 0xD];
+			let test_value = vec![0xC, 0x0, 0x0, 0x1];
+
+			assert_ok!(Uniques::set_attribute(
+				RuntimeOrigin::signed(collection_owner),
+				collection_id,
+				Some(item_id),
+				test_key.clone().try_into().unwrap(),
+				test_value.clone().try_into().unwrap(),
+			));
+
 			// Bob is not the admin and not the token owner
-			// He can't destroy the token
+			// He can't stash the token
 			assert_noop!(
-				Item::destroy(
+				Item::stash(
 					&(collection_id, item_id),
 					WithOrigin(RuntimeOrigin::signed(bob), IfOwnedBy(alice),),
 				),
 				Error::<Test>::NoPermission,
 			);
 
-			// Force origin can't destroy tokens
+			// Force origin can't stash tokens
 			assert_noop!(
-				Item::destroy(
+				Item::stash(
 					&(collection_id, item_id),
 					WithOrigin(RuntimeOrigin::root(), IfOwnedBy(alice),),
 				),
 				DispatchError::BadOrigin,
 			);
 
-			// The collection admin can destroy the token
+			// The collection admin can stash the token
 			// only if the ownership check passes
 			assert_noop!(
-				Item::destroy(
+				Item::stash(
 					&(collection_id, item_id),
-					WithOrigin(RuntimeOrigin::signed(collection_admin), IfOwnedBy(bob),),
+					WithOrigin(RuntimeOrigin::signed(collection_admin), IfOwnedBy(bob)),
 				),
 				Error::<Test>::WrongOwner,
 			);
 
-			// The token owner can destroy the token
+			// The token owner can stash the token
 			// only if the ownership check passes
 			assert_noop!(
-				Item::destroy(
+				Item::stash(
 					&(collection_id, item_id),
-					WithOrigin(RuntimeOrigin::signed(alice), IfOwnedBy(bob),),
+					WithOrigin(RuntimeOrigin::signed(alice), IfOwnedBy(bob)),
 				),
 				Error::<Test>::WrongOwner,
 			);
 
-			// The collection admin can destroy tokens
-			assert_ok!(Item::destroy(
+			// The collection admin can stash tokens
+			assert_ok!(Item::stash(
 				&(collection_id, item_id),
 				WithOrigin(RuntimeOrigin::signed(collection_admin), IfOwnedBy(alice),),
 			));
 
 			assert_eq!(items(), vec![]);
+
+			let retreived_test_value = Item::inspect_metadata(
+				&(collection_id, item_id),
+				Bytes(Attribute(test_key.as_slice())),
+			)
+			.unwrap();
+
+			// the attributes are still available
+			assert_eq!(retreived_test_value, test_value);
 
 			// Recreate the token
 			assert_ok!(Item::create(Owned::new(
@@ -2081,13 +2141,22 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
 
-			// The token owner can destroy it
-			assert_ok!(Item::destroy(
+			// The token owner can stash it
+			assert_ok!(Item::stash(
 				&(collection_id, item_id),
 				WithOrigin(RuntimeOrigin::signed(alice), IfOwnedBy(alice),),
 			));
 
 			assert_eq!(items(), vec![]);
+
+			let retreived_test_value = Item::inspect_metadata(
+				&(collection_id, item_id),
+				Bytes(Attribute(test_key.as_slice())),
+			)
+			.unwrap();
+
+			// the attributes are still available
+			assert_eq!(retreived_test_value, test_value);
 		});
 	}
 
