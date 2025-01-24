@@ -492,7 +492,7 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
 					log::warn!(
-						target: "xcm::barrier",
+						target: "xcm::barriers",
 						"Unexpected ReserveAssetDeposited from the Relay Chain",
 					);
 					Ok(ControlFlow::Continue(()))

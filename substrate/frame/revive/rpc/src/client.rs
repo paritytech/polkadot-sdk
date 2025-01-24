@@ -18,7 +18,6 @@
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 use crate::{
 	extract_receipts_from_block,
-	runtime::gas_from_fee,
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
@@ -649,8 +648,7 @@ impl Client {
 		hydrated_transactions: bool,
 	) -> Result<Block, ClientError> {
 		let runtime_api = self.api.runtime_api().at(block.hash());
-		let max_fee = Self::weight_to_fee(&runtime_api, self.max_block_weight()).await?;
-		let gas_limit = gas_from_fee(max_fee);
+		let gas_limit = Self::block_gas_limit(&runtime_api).await?;
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(&block).await.unwrap_or_default();
@@ -695,16 +693,13 @@ impl Client {
 	}
 
 	/// Convert a weight to a fee.
-	async fn weight_to_fee(
+	async fn block_gas_limit(
 		runtime_api: &subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
-		weight: Weight,
-	) -> Result<Balance, ClientError> {
-		let payload = subxt_client::apis()
-			.transaction_payment_api()
-			.query_weight_to_fee(weight.into());
+	) -> Result<U256, ClientError> {
+		let payload = subxt_client::apis().revive_api().block_gas_limit();
 
-		let fee = runtime_api.call(payload).await?;
-		Ok(fee)
+		let gas_limit = runtime_api.call(payload).await?;
+		Ok(*gas_limit)
 	}
 
 	/// Get the chain ID.
