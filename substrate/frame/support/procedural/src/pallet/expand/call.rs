@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	deprecation::extract_allow_attrs,
+	deprecation::extract_or_return_allow_attrs,
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
 		parse::{call::CallWeightDef, helper::CallReturnType},
@@ -237,7 +237,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let maybe_allow_attrs = methods
 		.iter()
 		.map(|method| {
-			let attrs = extract_allow_attrs(&method.attrs);
+			let attrs = extract_or_return_allow_attrs(&method.attrs);
 			quote::quote! {
 					#(#attrs)*
 			}

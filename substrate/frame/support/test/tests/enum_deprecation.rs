@@ -67,9 +67,6 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
-	// Note that we use allow(deprecated) at the top of the file
-	// as deprecating the whole error is
-	// nonsensical when used in defining the runtime.
 	#[pallet::error]
 	#[derive(PartialEq, Eq)]
 	pub enum Error<T> {

@@ -67,7 +67,6 @@ sp_api::decl_runtime_apis! {
 	///
 	/// Documentation on multiline.
 	#[deprecated]
-	#[allow(deprecated)]
 	pub trait Api {
 		fn test(data: u64);
 		/// something_with_block.

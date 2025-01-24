@@ -142,7 +142,6 @@ pub mod pallet {
 		/// Some comment
 		#[deprecated = "test 2"]
 		#[pallet::constant]
-		#[allow(deprecated)]
 		type MyGetParam: Get<u32>;
 
 		/// Some comment
@@ -187,7 +186,6 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
-	#[allow(deprecated)]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		T::AccountId: From<SomeType2> + From<SomeType1> + SomeAssociation1,
@@ -224,7 +222,6 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		#[deprecated = "test"]
-		#[allow(deprecated)]
 		pub fn foo(
 			origin: OriginFor<T>,
 			#[pallet::compact] foo: u32,
@@ -241,7 +238,6 @@ pub mod pallet {
 		/// call foo_storage_layer doc comment put in metadata
 		#[pallet::call_index(1)]
 		#[pallet::weight({1})]
-		#[allow(deprecated)]
 		pub fn foo_storage_layer(
 			_origin: OriginFor<T>,
 			#[pallet::compact] foo: u32,
@@ -287,7 +283,6 @@ pub mod pallet {
 		/// error doc comment put in metadata
 		InsufficientProposersBalance,
 		#[deprecated = "test"]
-		#[allow(deprecated)]
 		NonExistentStorageValue,
 		Code(u8),
 		#[codec(skip)]
@@ -307,7 +302,6 @@ pub mod pallet {
 		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
 		#[deprecated = "test"]
-		#[allow(deprecated)]
 		Spending(BalanceOf<T>),
 		Something(u32),
 		SomethingElse(<T::AccountId as SomeAssociation1>::_1),

@@ -27,7 +27,6 @@ use substrate_test_runtime_client::runtime::{Block, Hash};
 pub struct Runtime {}
 
 decl_runtime_apis! {
-	#[allow(deprecated)]
 	#[deprecated]
 	pub trait Api {
 		fn test(data: u64);

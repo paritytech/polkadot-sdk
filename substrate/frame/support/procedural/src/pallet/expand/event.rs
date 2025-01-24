@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	deprecation::extract_allow_attrs,
+	deprecation::extract_or_return_allow_attrs,
 	pallet::{parse::event::PalletEventDepositAttr, Def},
 	COUNTER,
 };
@@ -137,7 +137,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
 	let maybe_allow_attrs: Vec<syn::Attribute> =
-		extract_allow_attrs(&event_item.attrs).cloned().collect();
+		extract_or_return_allow_attrs(&event_item.attrs).collect();
 
 	let deposit_event = if let Some(deposit_event) = &event.deposit_event {
 		let event_use_gen = &event.gen_kind.type_use_gen(event.attr_span);

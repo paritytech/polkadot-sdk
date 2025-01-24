@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::helper;
-use crate::deprecation::extract_allow_attrs;
+use crate::deprecation::extract_or_return_allow_attrs;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Fields};
 
@@ -102,7 +102,7 @@ impl ErrorDef {
 					return Err(syn::Error::new(span, msg))
 				}
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&variant.attrs);
-				let maybe_allow_attrs = extract_allow_attrs(&variant.attrs).cloned().collect();
+				let maybe_allow_attrs = extract_or_return_allow_attrs(&variant.attrs).collect();
 
 				Ok(VariantDef {
 					ident: variant.ident.clone(),

@@ -530,10 +530,21 @@ fn generate_runtime_info_impl(trait_: &ItemTrait, version: u32) -> TokenStream {
 		quote! { #ident }
 	});
 	let maybe_allow_attrs = trait_.attrs.iter().filter(|attr| attr.path().is_ident("allow"));
+	let maybe_allow_deprecated = trait_.attrs.iter().filter_map(|attr| {
+		if attr.path().is_ident("deprecated") {
+			let attr: syn::Attribute = syn::parse_quote! {
+				#[allow(deprecated)]
+			};
+			Some(attr)
+		} else {
+			None
+		}
+	});
 
 	quote!(
 		#crate_::std_enabled! {
 			#( #maybe_allow_attrs )*
+			#( #maybe_allow_deprecated )*
 			impl < #( #impl_generics, )* > #crate_::RuntimeApiInfo
 				for dyn #trait_name < #( #ty_generics, )* >
 			{
@@ -588,6 +599,7 @@ fn generate_client_side_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 
 		result.push(quote!(
 			#crate_::std_enabled! {
+				#[allow(deprecated)]
 				#decl
 			 }
 			#runtime_info

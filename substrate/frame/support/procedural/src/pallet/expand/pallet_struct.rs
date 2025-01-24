@@ -114,7 +114,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	let storage_maybe_allow_attrs = &def
 		.storages
 		.iter()
-		.map(|storage| crate::deprecation::extract_allow_attrs(&storage.attrs).cloned().collect())
+		.map(|storage| crate::deprecation::extract_or_return_allow_attrs(&storage.attrs).collect())
 		.collect::<Vec<Vec<_>>>();
 	// Depending on the flag `without_storage_info` and the storage attribute `unbounded`, we use
 	// partial or full storage info from storage.

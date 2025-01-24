@@ -17,7 +17,7 @@
 
 use crate::{
 	counter_prefix,
-	deprecation::extract_allow_attrs,
+	deprecation::extract_or_return_allow_attrs,
 	pallet::{
 		parse::{
 			helper::two128_str,
@@ -428,7 +428,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		};
 
 		// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-		let maybe_allow_attrs: Vec<&syn::Attribute> = extract_allow_attrs(&storage.attrs).collect();
+		let maybe_allow_attrs: Vec<syn::Attribute> =
+			extract_or_return_allow_attrs(&storage.attrs).collect();
 
 		entries_builder.push(quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
@@ -452,8 +453,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			let completed_where_clause =
 				super::merge_where_clauses(&[&storage.where_clause, &def.config.where_clause]);
 			// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-			let maybe_allow_attrs: Vec<&syn::Attribute> =
-				extract_allow_attrs(&storage.attrs).collect();
+			let maybe_allow_attrs: Vec<syn::Attribute> =
+				extract_or_return_allow_attrs(&storage.attrs).collect();
 			let ident = &storage.ident;
 			let gen = &def.type_use_generics(storage.attr_span);
 			let type_impl_gen = &def.type_impl_generics(storage.attr_span);
