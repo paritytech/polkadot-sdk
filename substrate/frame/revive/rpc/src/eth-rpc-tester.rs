@@ -136,7 +136,7 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 		wait_for_receipt(&client, hash).await?;
 
 	let contract_address = contract_address.unwrap();
-	println!("Receipt:");
+	println!("\nReceipt:");
 	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{hash:?}");
 	println!("- Block number: {block_number}");
 	println!("- Gas used: {gas_used}");
@@ -149,7 +149,7 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 	println!("Waiting for receipt...");
 
 	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;
-	println!("Receipt:");
+	println!("\nReceipt:");
 	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{hash:?}");
 	println!("- Block number: {block_number}");
 	println!("- Gas used: {gas_used}");
