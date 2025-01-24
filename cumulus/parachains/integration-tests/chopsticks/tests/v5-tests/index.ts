@@ -3,6 +3,7 @@ import {
 	wnd_ah,
 	Wnd_ahCalls,
 	wnd_penpal,
+	wnd_rc,
 	XcmV3Junctions,
 	XcmV3Junction,
 	XcmV3MultiassetFungibility,
@@ -33,6 +34,9 @@ const AHApi = ahClient.getTypedApi(wnd_ah);
 
 const penaplClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8001")));
 const PenpalApi = penaplClient.getTypedApi(wnd_penpal);
+
+const rcClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8002")));
+const rcApi = rcClient.getTypedApi(wnd_penpal);
 
 // Initialize HDKD key pairs and signers
 const entropy = mnemonicToEntropy(DEV_PHRASE);
@@ -262,6 +266,7 @@ test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
 	});
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
+	// need to await for a new block
 });
 
 test("Initiate Teleport (AH -> RC) with remote fees", async () => {
