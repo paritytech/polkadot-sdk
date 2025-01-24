@@ -182,7 +182,7 @@ const solidityContract = getContract({
 let resultSolidityCrossContractCall;
 try {
 	const resultSolidityCall = await solidityContract.read.fibonacci([n]);
-	console.log("Result Solidity:", resultRustCall);
+	console.log("Result Solidity:", resultSolidityCall);
 
 	resultSolidityCrossContractCall = await solidityContract.read.fibonacciRust([
 		n,
