@@ -230,7 +230,7 @@ impl<T: Config> CodeInfo<T> {
 	}
 
 	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
-	/// Increment the reference count of a of a stored code by one.
+	/// Increment the reference count of a stored code by one.
 	///
 	/// # Errors
 	///
