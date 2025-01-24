@@ -42,6 +42,8 @@ pub use super::v5::{
 	MAX_ITEMS_IN_ASSETS, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH,
 };
 
+pub use crate::xcm::MAX_INSTRUCTIONS_TO_DECODE;
+
 pub const VERSION: super::Version = 6;
 
 pub type Xcm<Call> = crate::XcmBase<Instruction<Call>>;

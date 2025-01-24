@@ -729,9 +729,9 @@ fn validate_xcm_nesting_works() {
 
 	// closer generates `Xcm` with nested instructions of `depth`
 	let with_instr = |depth| {
-		let mut xcm = Xcm::<()>(vec![]);
+		let mut xcm = Xcm::<()>::new(vec![]);
 		for _ in 0..depth - 1 {
-			xcm = Xcm::<()>(vec![SetAppendix(xcm)]);
+			xcm = Xcm::<()>::new(vec![SetAppendix(xcm)]);
 		}
 		xcm
 	};
