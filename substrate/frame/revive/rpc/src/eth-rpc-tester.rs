@@ -33,7 +33,7 @@ const DOCKER_CONTAINER_NAME: &str = "eth-rpc-test";
 #[clap(author, about, version)]
 pub struct CliCommand {
 	/// The parity docker image e.g eth-rpc:master-fb2e414f
-	#[clap(long, default_value = "eth-rpc:master-fb2e414f")]
+	#[clap(long, default_value = "eth-rpc:latest")]
 	docker_image: String,
 
 	/// The docker binary
@@ -75,25 +75,29 @@ async fn interrupt() {
 }
 
 fn start_docker(docker_bin: &str, docker_image: &str) -> anyhow::Result<Child> {
+	let args = [
+		"run",
+		"--name",
+		DOCKER_CONTAINER_NAME,
+		"--rm",
+		"-p",
+		"8545:8545",
+		&format!("docker.io/paritypr/{docker_image}"),
+		"--node-rpc-url",
+		"wss://westend-asset-hub-rpc.polkadot.io",
+		"--rpc-cors",
+		"all",
+		"--unsafe-rpc-external",
+		"--log=sc_rpc_server:info",
+	];
 	let docker_process = Command::new(docker_bin)
-		.args(&[
-			"run",
-			"--name",
-			DOCKER_CONTAINER_NAME,
-			"--rm",
-			"-p",
-			"8545:8545",
-			&format!("docker.io/paritypr/{docker_image}"),
-			"--node-rpc-url",
-			"wss://westend-asset-hub-rpc.polkadot.io",
-			"--rpc-cors",
-			"all",
-			"--unsafe-rpc-external",
-			"--log=sc_rpc_server:info",
-		])
+		.args(&args)
 		.stderr(std::process::Stdio::piped())
 		.kill_on_drop(true)
 		.spawn()?;
+
+	println!("docker {}", args.join(" "));
+
 	Ok(docker_process)
 }
 

@@ -78,13 +78,13 @@ subxt-signer = { workspace = true, optional = true, features = [
 ] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+pallet-revive-fixtures = { workspace = true, default-features = true, optional = true }
 
 [features]
-example = ["rlp", "subxt-signer"]
+example = ["rlp", "subxt-signer", "pallet-revive-fixtures"]
 
 [dev-dependencies]
 env_logger = { workspace = true }
-pallet-revive-fixtures = { workspace = true, default-features = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
