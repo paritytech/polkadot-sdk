@@ -63,8 +63,8 @@ use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
 	slashing,
 	vstaging::{
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes,
+		async_backing::Constraints, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
 	},
 	AccountId, AccountIndex, Balance, BlockNumber, CandidateHash, CoreIndex, DisputeState,
 	ExecutorParams, GroupRotationInfo, Hash as HashT, Id as ParaId, InboundDownwardMessage,
@@ -1095,6 +1095,10 @@ sp_api::impl_runtime_apis! {
 
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
 			runtime_impl::candidates_pending_availability::<Runtime>(para_id)
+		}
+
+		fn backing_constraints(para_id: ParaId) -> Option<Constraints> {
+			staging_runtime_impl::backing_constraints::<Runtime>(para_id)
 		}
 
 		fn scheduling_lookahead() -> u32 {
