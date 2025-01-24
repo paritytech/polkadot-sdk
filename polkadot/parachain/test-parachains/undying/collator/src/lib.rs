@@ -27,8 +27,7 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::{
 	vstaging::{
-		CandidateDescriptorV2, ClaimQueueOffset, CommittedCandidateReceiptV2,
-		DEFAULT_CLAIM_QUEUE_OFFSET,
+		CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET,
 	},
 	CandidateCommitments, CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId,
 	OccupiedCoreAssumption,
@@ -576,7 +575,7 @@ impl Collator {
 
 					// Submit the same collation for all assigned cores.
 					for core_index in &scheduled_cores {
-						let ccr = CommittedCandidateReceiptV2 {
+						let candidate_receipt = CandidateReceiptV2 {
 							descriptor: CandidateDescriptorV2::new(
 								para_id,
 								relay_parent,
@@ -588,10 +587,8 @@ impl Collator {
 								commitments.head_data.hash(),
 								validation_code_hash,
 							),
-							commitments: commitments.clone(),
+							commitments_hash: commitments.hash(),
 						};
-
-						let candidate_receipt = ccr.to_plain();
 
 						// We cannot use SubmitCollation here because it includes an additional
 						// check for the core index by calling `check_core_index`. This check

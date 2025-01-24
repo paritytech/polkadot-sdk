@@ -125,7 +125,7 @@ pub fn execute_transaction(mut block_data: BlockData) -> GraveyardState {
 		// Chain hash the seals and burn CPU.
 		block_data.state.seal = hash_state(&block_data.state);
 	}
-	block_data.state.core_selector_number += 1;
+	block_data.state.core_selector_number = block_data.state.core_selector_number.wrapping_add(1);
 
 	block_data.state
 }
