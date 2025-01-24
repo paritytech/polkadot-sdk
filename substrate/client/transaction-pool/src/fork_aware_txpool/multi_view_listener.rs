@@ -66,13 +66,18 @@ pub type ViewStatusStream<T> =
 
 /// Commands to control / drive the task of the multi view listener.
 enum ControllerCommand<ChainApi: graph::ChainApi> {
+	/// Requests transaction status updated. Sent by transaction pool implementation.
+	TransactionStatusRequest(TransactionStatusUpdate<ChainApi>),
 	/// Adds a new (aggregated) stream of transactions statuses originating in the view associated
 	/// with a specific block hash.
 	AddViewStream(BlockHash<ChainApi>, ViewStatusStream<ChainApi>),
-
 	/// Removes an existing view's stream associated with a specific block hash.
 	RemoveViewStream(BlockHash<ChainApi>),
+}
 
+/// Represents the transaction status update performed by transaction pool state machine. The
+/// corresponding statuses coming from the view would typically be ignored in the external watcher.
+enum TransactionStatusUpdate<ChainApi: graph::ChainApi> {
 	/// Marks a transaction as invalidated.
 	///
 	/// If all pre-conditions are met, an external invalid event will be sent out.
@@ -94,27 +99,94 @@ enum ControllerCommand<ChainApi: graph::ChainApi> {
 	TransactionDropped(ExtrinsicHash<ChainApi>, DroppedReason<ExtrinsicHash<ChainApi>>),
 }
 
+impl<ChainApi> TransactionStatusUpdate<ChainApi>
+where
+	ChainApi: graph::ChainApi,
+{
+	fn hash(&self) -> ExtrinsicHash<ChainApi> {
+		match self {
+			Self::TransactionInvalidated(hash) |
+			Self::TransactionFinalized(hash, _, _) |
+			Self::TransactionBroadcasted(hash, _) |
+			Self::TransactionDropped(hash, _) => *hash,
+		}
+	}
+}
+
+impl<ChainApi> std::fmt::Debug for TransactionStatusUpdate<ChainApi>
+where
+	ChainApi: graph::ChainApi,
+{
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::TransactionInvalidated(h) => {
+				write!(f, "TransactionInvalidated({h})")
+			},
+			Self::TransactionFinalized(h, b, i) => {
+				write!(f, "FinalizeTransaction({h},{b},{i})")
+			},
+			Self::TransactionBroadcasted(h, _) => {
+				write!(f, "TransactionBroadcasted({h})")
+			},
+			Self::TransactionDropped(h, r) => {
+				write!(f, "TransactionDropped({h},{r:?})")
+			},
+		}
+	}
+}
+
 impl<ChainApi> std::fmt::Debug for ControllerCommand<ChainApi>
 where
 	ChainApi: graph::ChainApi,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			ControllerCommand::AddViewStream(h, _) => write!(f, "ListenerAction::AddView({h})"),
-			ControllerCommand::RemoveViewStream(h) => write!(f, "ListenerAction::RemoveView({h})"),
-			ControllerCommand::TransactionInvalidated(h) => {
-				write!(f, "ListenerAction::TransactionInvalidated({h})")
-			},
-			ControllerCommand::TransactionFinalized(h, b, i) => {
-				write!(f, "ListenerAction::FinalizeTransaction({h},{b},{i})")
-			},
-			ControllerCommand::TransactionBroadcasted(h, _) => {
-				write!(f, "ListenerAction::TransactionBroadcasted({h})")
-			},
-			ControllerCommand::TransactionDropped(h, r) => {
-				write!(f, "ListenerAction::TransactionDropped({h},{r:?})")
+			ControllerCommand::AddViewStream(h, _) => write!(f, "AddView({h})"),
+			ControllerCommand::RemoveViewStream(h) => write!(f, "RemoveView({h})"),
+			ControllerCommand::TransactionStatusRequest(c) => {
+				write!(f, "TransactionStatusRequest({c:?})")
 			},
 		}
+	}
+}
+impl<ChainApi> ControllerCommand<ChainApi>
+where
+	ChainApi: graph::ChainApi,
+{
+	/// Creates new instance of a command requesting [`TransactionStatus::Invalid`] transaction
+	/// status.
+	fn new_transaction_invalidated(tx_hash: ExtrinsicHash<ChainApi>) -> Self {
+		ControllerCommand::TransactionStatusRequest(
+			TransactionStatusUpdate::TransactionInvalidated(tx_hash),
+		)
+	}
+	/// Creates new instance of a command requesting [`TransactionStatus::Broadcast`] transaction
+	/// status.
+	fn new_transaction_broadcasted(tx_hash: ExtrinsicHash<ChainApi>, peers: Vec<String>) -> Self {
+		ControllerCommand::TransactionStatusRequest(
+			TransactionStatusUpdate::TransactionBroadcasted(tx_hash, peers),
+		)
+	}
+	/// Creates new instance of a command requesting [`TransactionStatus::Finalized`] transaction
+	/// status.
+	fn new_transaction_finalized(
+		tx_hash: ExtrinsicHash<ChainApi>,
+		block_hash: BlockHash<ChainApi>,
+		index: TxIndex,
+	) -> Self {
+		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::TransactionFinalized(
+			tx_hash, block_hash, index,
+		))
+	}
+	/// Creates new instance of a command requesting [`TransactionStatus::Dropped`] transaction
+	/// status.
+	fn new_transaction_dropped(
+		tx_hash: ExtrinsicHash<ChainApi>,
+		reason: DroppedReason<ExtrinsicHash<ChainApi>>,
+	) -> Self {
+		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::TransactionDropped(
+			tx_hash, reason,
+		))
 	}
 }
 
@@ -170,12 +242,10 @@ struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
 /// Commands to control the single external stream living within the multi view listener. These
 /// commands are sent from listener's task to [`ExternalWatcherContext`].
 enum ExternalWatcherCommand<ChainApi: graph::ChainApi> {
-	/// Command for triggering following transaction statuses: dropped, invalid, finalized,
-	/// broadcast, which are not respected when provided by the view. (They are handled at the
-	/// transaction pool level).
-	Command(ControllerCommand<ChainApi>),
-	/// Transaction status coming from the single view.
-	TransactionStatus(
+	/// Command for triggering some of the transaction states, that are decided by the pool logic.
+	PoolTransactionStatus(TransactionStatusUpdate<ChainApi>),
+	/// Transaction status updates coming from the individual views.
+	ViewTransactionStatus(
 		BlockHash<ChainApi>,
 		TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
 	),
@@ -208,13 +278,52 @@ where
 		}
 	}
 
-	/// Handles various transaction status updates and manages internal states based on the input
-	/// value.
+	/// Handles transaction status updates from the pool and manages internal states based on the
+	/// input value.
 	///
 	/// Function may set the context termination flag, which will close the stream.
 	///
 	/// Returns `Some` with the `event` to be sent out or `None`.
-	fn handle_status(
+	fn handle_pool_transaction_status(
+		&mut self,
+		request: TransactionStatusUpdate<ChainApi>,
+	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
+		match request {
+			TransactionStatusUpdate::TransactionInvalidated(..) =>
+				if self.handle_invalidate_transaction() {
+					log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", self.tx_hash);
+					return Some(TransactionStatus::Invalid)
+				},
+			TransactionStatusUpdate::TransactionFinalized(_, block, index) => {
+				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", self.tx_hash);
+				self.terminate = true;
+				return Some(TransactionStatus::Finalized((block, index)))
+			},
+			TransactionStatusUpdate::TransactionBroadcasted(_, peers) => {
+				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", self.tx_hash);
+				return Some(TransactionStatus::Broadcast(peers))
+			},
+			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::LimitsEnforced) => {
+				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", self.tx_hash);
+				self.terminate = true;
+				return Some(TransactionStatus::Dropped)
+			},
+			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Usurped(by)) => {
+				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Usurped({:?})", self.tx_hash, by);
+				self.terminate = true;
+				return Some(TransactionStatus::Usurped(by))
+			},
+		};
+		None
+	}
+
+	/// Handles various transaction status updates from individual views and manages internal states
+	/// based on the input value.
+	///
+	/// Function may set the context termination flag, which will close the stream.
+	///
+	/// Returns `Some` with the `event` to be sent out or `None`.
+	fn handle_view_transaction_status(
 		&mut self,
 		hash: BlockHash<ChainApi>,
 		status: TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
@@ -342,7 +451,7 @@ where
 					if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
 						if let Err(e) = ctrl
 							.get_mut()
-							.unbounded_send(ExternalWatcherCommand::TransactionStatus(view_hash, status))
+							.unbounded_send(ExternalWatcherCommand::ViewTransactionStatus(view_hash, status))
 						{
 							trace!(target: LOG_TARGET, "[{:?}] send status failed: {:?}", tx_hash, e);
 							ctrl.remove();
@@ -377,14 +486,12 @@ where
 							})
 						},
 
-						Some(cmd @ ControllerCommand::TransactionInvalidated(tx_hash,..) |
-							cmd @ ControllerCommand::TransactionFinalized(tx_hash,..) |
-							cmd @ ControllerCommand::TransactionBroadcasted(tx_hash,..) |
-							cmd @ ControllerCommand::TransactionDropped(tx_hash,..)) => {
+						Some(ControllerCommand::TransactionStatusRequest(request)) => {
+							let tx_hash = request.hash();
 							if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
 								if let Err(e) = ctrl
 									.get_mut()
-									.unbounded_send(ExternalWatcherCommand::Command(cmd))
+									.unbounded_send(ExternalWatcherCommand::PoolTransactionStatus(request))
 								{
 									trace!(target: LOG_TARGET, "[{:?}] send message failed: {:?}", tx_hash, e);
 									ctrl.remove();
@@ -461,45 +568,24 @@ where
 								ctx.known_views.iter().collect::<Vec<_>>()
 							);
 							match cmd? {
-								ExternalWatcherCommand::TransactionStatus(view_hash, status) => {
-									if let Some(new_status) = ctx.handle_status(view_hash, status) {
+								ExternalWatcherCommand::ViewTransactionStatus(view_hash, status) => {
+									if let Some(new_status) = ctx.handle_view_transaction_status(view_hash, status) {
 										log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
 										return Some((new_status, ctx))
 									}
 								},
+								ExternalWatcherCommand::PoolTransactionStatus(request) => {
+									if let Some(new_status) = ctx.handle_pool_transaction_status(request) {
+										log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
+										return Some((new_status, ctx))
+									}
+								}
 								ExternalWatcherCommand::AddView(h) => {
 									ctx.add_view(h);
 								},
 								ExternalWatcherCommand::RemoveView(h) => {
 									ctx.remove_view(h);
 								},
-								ExternalWatcherCommand::Command(ControllerCommand::TransactionInvalidated(..)) => {
-									if ctx.handle_invalidate_transaction() {
-										log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", ctx.tx_hash);
-										return Some((TransactionStatus::Invalid, ctx))
-									}
-								},
-								ExternalWatcherCommand::Command(ControllerCommand::TransactionFinalized(_,block,index)) => {
-									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", ctx.tx_hash);
-									ctx.terminate = true;
-									return Some((TransactionStatus::Finalized((block, index)), ctx))
-								},
-								ExternalWatcherCommand::Command(ControllerCommand::TransactionBroadcasted(_,peers)) => {
-									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", ctx.tx_hash);
-									return Some((TransactionStatus::Broadcast(peers), ctx))
-								},
-								ExternalWatcherCommand::Command(ControllerCommand::TransactionDropped(_, DroppedReason::LimitsEnforced)) => {
-									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", ctx.tx_hash);
-									ctx.terminate = true;
-									return Some((TransactionStatus::Dropped, ctx))
-								},
-								ExternalWatcherCommand::Command(ControllerCommand::TransactionDropped(_, DroppedReason::Usurped(by))) => {
-									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Usurped({:?})", ctx.tx_hash, by);
-									ctx.terminate = true;
-									return Some((TransactionStatus::Usurped(by), ctx))
-								},
-								ExternalWatcherCommand::Command(ControllerCommand::AddViewStream(..)|ControllerCommand::RemoveViewStream(..)) => {
-								}
 							}
 						},
 					};
@@ -555,7 +641,7 @@ where
 		for tx_hash in invalid_hashes {
 			if let Err(e) = self
 				.controller
-				.unbounded_send(ControllerCommand::TransactionInvalidated(*tx_hash))
+				.unbounded_send(ControllerCommand::new_transaction_invalidated(*tx_hash))
 			{
 				log::trace!(target: LOG_TARGET, "invalidate_transaction ({:?}): send message failed: {:?}", tx_hash, e);
 			}
@@ -573,7 +659,7 @@ where
 		for (tx_hash, peers) in propagated {
 			if let Err(e) = self
 				.controller
-				.unbounded_send(ControllerCommand::TransactionBroadcasted(tx_hash, peers))
+				.unbounded_send(ControllerCommand::new_transaction_broadcasted(tx_hash, peers))
 			{
 				log::trace!(target: LOG_TARGET, "transactions_broadcasted ({:?}): send message failed: {:?}", tx_hash, e);
 			}
@@ -589,7 +675,7 @@ where
 		trace!(target: LOG_TARGET, "[{:?}] transaction_dropped {:?}", tx_hash, reason);
 		if let Err(e) = self
 			.controller
-			.unbounded_send(ControllerCommand::TransactionDropped(tx_hash, reason))
+			.unbounded_send(ControllerCommand::new_transaction_dropped(tx_hash, reason))
 		{
 			log::trace!(target: LOG_TARGET, "transactions_dropped ({:?}): send message failed: {:?}", tx_hash, e);
 		}
@@ -607,7 +693,7 @@ where
 		trace!(target: LOG_TARGET, "[{:?}] transaction_finalized", tx_hash);
 		if let Err(e) = self
 			.controller
-			.unbounded_send(ControllerCommand::TransactionFinalized(tx_hash, block, idx))
+			.unbounded_send(ControllerCommand::new_transaction_finalized(tx_hash, block, idx))
 		{
 			trace!(target: LOG_TARGET, "[{:?}] transaction_finalized: send message failed: {:?}", tx_hash, e);
 		};
