@@ -22,7 +22,7 @@ use crate::{
 		rpc_api::{
 			SubstrateAuthorClient, SubstrateBeefyClient, SubstrateChainClient,
 			SubstrateFrameSystemClient, SubstrateGrandpaClient, SubstrateStateClient,
-			SubstrateSystemClient,
+			SubstrateSystemClient, PoolStatus
 		},
 		subscription::{StreamDescription, Subscription},
 		Client,
@@ -481,6 +481,14 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 		})
 		.await
 		.map_err(|e| Error::failed_to_get_pending_extrinsics::<C>(e))
+	}
+
+	async fn pool_status(&self) -> Result<PoolStatus> {
+		self.jsonrpsee_execute(move |client| async move {
+			Ok(SubstrateAuthorClient::<C>::pool_status(&*client).await?)
+		})
+		.await
+		.map_err(|e| Error::failed_to_get_pool_status::<C>(e))
 	}
 
 	async fn submit_unsigned_extrinsic(&self, transaction: Bytes) -> Result<HashOf<C>> {
