@@ -364,7 +364,7 @@ jobs:
         if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
         run: |
           cargo install subweight --locked
-          cargo install --path substrate/utils/frame/omni-bencher --locked
+          cargo install --path substrate/utils/frame/omni-bencher --locked --profile production
 
       - name: Run cmd
         id: cmd
