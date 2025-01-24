@@ -111,7 +111,8 @@ pub const MILLISECS_PER_BLOCK: u64 = 2000;
 #[cfg(feature = "elastic-scaling-500ms")]
 pub const MILLISECS_PER_BLOCK: u64 = 500;
 
-const BLOCK_PROCESSING_VELOCITY: u32 = RELAY_CHAIN_SLOT_DURATION_MILLIS / MILLISECS_PER_BLOCK;
+const BLOCK_PROCESSING_VELOCITY: u32 =
+	RELAY_CHAIN_SLOT_DURATION_MILLIS / (MILLISECS_PER_BLOCK as u32);
 
 // The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 2 + 2;
