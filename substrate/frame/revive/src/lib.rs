@@ -488,6 +488,8 @@ pub mod pallet {
 		AccountAlreadyMapped,
 		/// The transaction used to dry-run a contract is invalid.
 		InvalidGenericTransaction,
+		/// The refcount of a code either over or underflowed.
+		RefcountOverOrUnderflow,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -904,7 +906,7 @@ pub mod pallet {
 					return Err(<Error<T>>::ContractNotFound.into());
 				};
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
-				<CodeInfo<T>>::decrement_refcount(contract.code_hash);
+				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
 				Ok(())
 			})

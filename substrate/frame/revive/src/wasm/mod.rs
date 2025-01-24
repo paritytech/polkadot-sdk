@@ -214,13 +214,9 @@ impl<T: Config> CodeInfo<T> {
 	}
 
 	/// Returns reference count of the module.
+	#[cfg(test)]
 	pub fn refcount(&self) -> u64 {
 		self.refcount
-	}
-
-	/// Return mutable reference to the refcount of the module.
-	pub fn refcount_mut(&mut self) -> &mut u64 {
-		&mut self.refcount
 	}
 
 	/// Returns the deposit of the module.
@@ -243,7 +239,10 @@ impl<T: Config> CodeInfo<T> {
 	pub fn increment_refcount(code_hash: H256) -> DispatchResult {
 		<CodeInfoOf<T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
 			if let Some(info) = existing {
-				*info.refcount_mut() = info.refcount().saturating_add(1);
+				info.refcount = info
+					.refcount
+					.checked_add(1)
+					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
 				Ok(())
 			} else {
 				Err(Error::<T>::CodeNotFound.into())
@@ -257,12 +256,18 @@ impl<T: Config> CodeInfo<T> {
 	///
 	/// A contract whose reference count dropped to zero isn't automatically removed. A
 	/// `remove_code` transaction must be submitted by the original uploader to do so.
-	pub fn decrement_refcount(code_hash: H256) {
+	pub fn decrement_refcount(code_hash: H256) -> DispatchResult {
 		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
 			if let Some(info) = existing {
-				*info.refcount_mut() = info.refcount().saturating_sub(1);
+				info.refcount = info
+					.refcount
+					.checked_sub(1)
+					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+				Ok(())
+			} else {
+				Err(Error::<T>::CodeNotFound.into())
 			}
-		});
+		})
 	}
 }
 
