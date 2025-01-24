@@ -20,8 +20,7 @@
 use super::*;
 use crate::{auctions, mock::TestRegistrar};
 use frame_support::{
-	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, OnFinalize, OnInitialize},
+	assert_ok, derive_impl, ord_parameter_types, parameter_types, traits::EitherOfDiverse,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_balances;
@@ -211,6 +210,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -243,16 +243,4 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		));
 	});
 	ext
-}
-
-pub fn run_to_block(n: BlockNumber) {
-	while System::block_number() < n {
-		Auctions::on_finalize(System::block_number());
-		Balances::on_finalize(System::block_number());
-		System::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Balances::on_initialize(System::block_number());
-		Auctions::on_initialize(System::block_number());
-	}
 }

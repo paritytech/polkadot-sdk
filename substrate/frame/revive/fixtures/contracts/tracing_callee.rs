@@ -14,12 +14,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-//! Emit a "Hello World!" debug message.
 #![no_std]
 #![no_main]
 
-extern crate common;
+use common::input;
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -29,5 +27,19 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	api::debug_message(b"Hello World!").unwrap();
+	input!(id: u32, );
+
+	match id {
+		// Revert with message "This function always fails"
+		2 => {
+			let data = hex_literal::hex!(
+		       "08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001a546869732066756e6374696f6e20616c77617973206661696c73000000000000"
+			);
+			api::return_value(uapi::ReturnFlags::REVERT, &data)
+		},
+		1 => {
+			panic!("booum");
+		},
+		_ => api::return_value(uapi::ReturnFlags::empty(), &id.to_le_bytes()),
+	};
 }
