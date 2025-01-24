@@ -692,7 +692,7 @@ pub mod pallet {
 				vfp.relay_parent_number,
 			));
 
-			frame_system::Pallet<T>::register_extra_weight_unchecked(
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
 				total_weight,
 				DispatchClass::Mandatory,
 			);
