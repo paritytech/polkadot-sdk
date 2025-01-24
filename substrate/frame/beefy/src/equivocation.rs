@@ -207,10 +207,16 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 					return Err(Error::<T>::InvalidDoubleVotingProof);
 				}
 
-				return Ok(())
+				Ok(())
 			},
 			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) => {
 				let ForkVotingProof { vote, ancestry_proof, header } = equivocation_proof;
+
+				if !<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::is_proof_optimal(
+					&ancestry_proof,
+				) {
+					return Err(Error::<T>::InvalidForkVotingProof);
+				}
 
 				let maybe_validation_context = <T::AncestryHelper as AncestryHelper<
 					HeaderFor<T>,
