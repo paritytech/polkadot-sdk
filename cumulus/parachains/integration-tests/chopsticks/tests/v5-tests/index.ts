@@ -20,6 +20,9 @@ import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
 import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy } from "@polkadot-labs/hdkd-helpers";
 import { getPolkadotSigner } from "polkadot-api/signer";
 
+import { ApiPromise } from '@polkadot/api';
+import { WsProvider } from '@polkadot/rpc-provider';
+
 const WESTEND_NETWORK = Uint8Array.from([
 	225, 67, 242, 56, 3, 172, 80, 232, 246, 248, 230, 38, 149, 209, 206, 158, 78, 29, 104, 170, 54,
 	193, 205, 44, 253, 21, 52, 2, 19, 243, 66, 62,
@@ -28,14 +31,26 @@ const WESTEND_NETWORK = Uint8Array.from([
 const BOB_KEY = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
 const ALICE_KEY = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
 
+// Addresses
+const AH_ADDRESS = 'ws://localhost:8000'
+const PENPAL_ADDRESS = 'ws://localhost:8001'
+const RC_ADDRESS = 'ws://localhost:8002'
+
+// init providers
+const ah_provider = new WsProvider(AH_ADDRESS);
+await ah_provider.isReady;
+
+const rc_provider = new WsProvider(RC_ADDRESS);
+await rc_provider.isReady;
+
 // Create and initialize clients
-const ahClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8000")));
+const ahClient = createClient(withPolkadotSdkCompat(getWsProvider(AH_ADDRESS)));
 const AHApi = ahClient.getTypedApi(wnd_ah);
 
-const penaplClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8001")));
+const penaplClient = createClient(withPolkadotSdkCompat(getWsProvider(PENPAL_ADDRESS)));
 const PenpalApi = penaplClient.getTypedApi(wnd_penpal);
 
-const rcClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8002")));
+const rcClient = createClient(withPolkadotSdkCompat(getWsProvider(RC_ADDRESS)));
 const rcApi = rcClient.getTypedApi(wnd_penpal);
 
 // Initialize HDKD key pairs and signers
@@ -191,6 +206,9 @@ test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
 });
 
 test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
+	const bob_balance_before =  await getFreeBalance(rcApi, BOB_KEY);
+	const deposit_amount = 1_000_000_000_000n;
+
 	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
 		Enum('WithdrawAsset', [
 			{
@@ -242,7 +260,7 @@ test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
 				}),
 				Enum('DepositAsset', {
 					assets: XcmV3MultiassetMultiAssetFilter.Definite([{
-						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+						fun: XcmV3MultiassetFungibility.Fungible(deposit_amount),
 						id: { parents: 0, interior: XcmV3Junctions.Here() },
 					}]),
 					beneficiary: {
@@ -264,9 +282,13 @@ test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
 		message: msg,
 		max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
 	});
+
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
+	await rc_provider.send('dev_newBlock', [{ count: 1 }])
 	expect(r).toBeTruthy();
-	// need to await for a new block
+
+	const bob_balance_after = await getFreeBalance(rcApi, BOB_KEY);
+	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
 });
 
 test("Initiate Teleport (AH -> RC) with remote fees", async () => {
