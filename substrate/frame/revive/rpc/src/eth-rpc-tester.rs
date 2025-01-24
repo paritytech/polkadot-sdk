@@ -131,7 +131,7 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 	let hash = TransactionBuilder::default().input(input).send(&client).await?;
 
 	println!("Hash: {hash:?}");
-	println!("\nWaiting for receipt...");
+	println!("Waiting for receipt...");
 	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
 		wait_for_receipt(&client, hash).await?;
 
@@ -146,7 +146,7 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 	let hash = TransactionBuilder::default().to(contract_address).send(&client).await?;
 
 	println!("Hash: {hash:?}");
-	println!("\nWaiting for receipt...");
+	println!("Waiting for receipt...");
 
 	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;
 	println!("Receipt:");
