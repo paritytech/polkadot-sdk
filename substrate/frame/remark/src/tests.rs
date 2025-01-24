@@ -20,6 +20,7 @@
 use super::{Error, Event, Pallet as Remark};
 use crate::mock::*;
 use frame::testing_prelude::*;
+use frame::benchmarking::prelude::{RawOrigin, *};
 
 #[test]
 fn generates_event() {
@@ -31,7 +32,7 @@ fn generates_event() {
 		let events = System::events();
 		// this one we create as we expect it
 		let system_event: <Test as frame_system::Config>::RuntimeEvent = Event::Stored {
-			content_hash: sp_io::hashing::blake2_256(&data).into(),
+			content_hash: frame::hashing::blake2_256(&data).into(),
 			sender: caller,
 		}
 		.into();
