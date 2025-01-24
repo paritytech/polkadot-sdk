@@ -20,32 +20,26 @@ path = "src/eth-indexer.rs"
 [[bin]]
 name = "eth-rpc-tester"
 path = "src/eth-rpc-tester.rs"
-required-features = ["example"]
 
 [[example]]
 name = "deploy"
 path = "examples/rust/deploy.rs"
-required-features = ["example"]
 
 [[example]]
 name = "transfer"
 path = "examples/rust/transfer.rs"
-required-features = ["example"]
 
 [[example]]
 name = "rpc-playground"
 path = "examples/rust/rpc-playground.rs"
-required-features = ["example"]
 
 [[example]]
 name = "extrinsic"
 path = "examples/rust/extrinsic.rs"
-required-features = ["example"]
 
 [[example]]
 name = "remark-extrinsic"
 path = "examples/rust/remark-extrinsic.rs"
-required-features = ["example"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -57,9 +51,9 @@ hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
 log = { workspace = true }
 pallet-revive = { workspace = true, default-features = true }
-pallet-revive-fixtures = { workspace = true, default-features = true, optional = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
-rlp = { workspace = true, optional = true }
+rlp = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
@@ -72,14 +66,11 @@ sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "sqlite"] }
 subxt = { workspace = true, default-features = true, features = [
 	"reconnecting-rpc-client",
 ] }
-subxt-signer = { workspace = true, optional = true, features = [
+subxt-signer = { workspace = true, features = [
 	"unstable-eth",
 ] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-
-[features]
-example = ["pallet-revive-fixtures", "rlp", "subxt-signer"]
 
 [dev-dependencies]
 env_logger = { workspace = true }
