@@ -21,16 +21,15 @@
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{ChainWithMessages, InboundLaneData, MessageNonce};
-use bp_runtime::Chain;
+use bp_runtime::{AccountIdOf, Chain};
 use codec::Encode;
 use frame_support::{storage::generator::StorageValue, traits::Get, weights::Weight};
 use frame_system::limits;
-use pallet_bridge_messages::WeightInfoExt as _;
+use pallet_bridge_messages::{ThisChainOf, WeightInfoExt as _};
 
 // Re-export to avoid include all dependencies everywhere.
 #[doc(hidden)]
 pub mod __private {
-	pub use bp_xcm_bridge_hub;
 	pub use static_assertions;
 }
 
@@ -66,9 +65,9 @@ macro_rules! assert_bridge_messages_pallet_types(
 		with_bridged_chain_messages_instance: $i:path,
 		this_chain: $this:path,
 		bridged_chain: $bridged:path,
+		expected_payload_type: $payload:path,
 	) => {
 		{
-			use $crate::integrity::__private::bp_xcm_bridge_hub::XcmAsPlainPayload;
 			use $crate::integrity::__private::static_assertions::assert_type_eq_all;
 			use bp_messages::ChainWithMessages;
 			use bp_runtime::Chain;
@@ -81,8 +80,8 @@ macro_rules! assert_bridge_messages_pallet_types(
 			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::ThisChain, $this);
 			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::BridgedChain, $bridged);
 
-			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::OutboundPayload, XcmAsPlainPayload);
-			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::InboundPayload, XcmAsPlainPayload);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::OutboundPayload, $payload);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::InboundPayload, $payload);
 		}
 	}
 );
@@ -97,6 +96,7 @@ macro_rules! assert_complete_bridge_types(
 		with_bridged_chain_messages_instance: $mi:path,
 		this_chain: $this:path,
 		bridged_chain: $bridged:path,
+		expected_payload_type: $payload:path,
 	) => {
 		$crate::assert_chain_types!(runtime: $r, this_chain: $this);
 		$crate::assert_bridge_messages_pallet_types!(
@@ -104,6 +104,7 @@ macro_rules! assert_complete_bridge_types(
 			with_bridged_chain_messages_instance: $mi,
 			this_chain: $this,
 			bridged_chain: $bridged,
+			expected_payload_type: $payload,
 		);
 	}
 );
@@ -364,8 +365,11 @@ pub fn check_message_lane_weights<
 	);
 
 	// check that weights allow us to receive delivery confirmations
-	let max_incoming_inbound_lane_data_proof_size =
-		InboundLaneData::<()>::encoded_size_hint_u32(this_chain_max_unrewarded_relayers as _);
+	let max_incoming_inbound_lane_data_proof_size = InboundLaneData::<
+		AccountIdOf<ThisChainOf<T, MessagesPalletInstance>>,
+	>::encoded_size_hint_u32(
+		this_chain_max_unrewarded_relayers as _
+	);
 	pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights<T, MessagesPalletInstance>>(
 		C::max_extrinsic_size(),
 		C::max_extrinsic_weight(),
