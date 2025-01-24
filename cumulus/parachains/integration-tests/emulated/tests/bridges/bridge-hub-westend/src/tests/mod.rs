@@ -39,9 +39,6 @@ pub(crate) fn bridged_wnd_at_ah_rococo() -> Location {
 }
 
 // ROC and wROC
-pub(crate) fn roc_at_ah_rococo() -> Location {
-	Parent.into()
-}
 pub(crate) fn bridged_roc_at_ah_westend() -> Location {
 	Location::new(2, [GlobalConsensus(Rococo)])
 }
@@ -228,6 +225,7 @@ pub(crate) fn assert_bridge_hub_rococo_message_received() {
 		);
 	})
 }
+<<<<<<< HEAD
 
 pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
 	use testnet_parachains_constants::{
@@ -260,3 +258,5 @@ pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
 		)),
 	);
 }
+=======
+>>>>>>> 77104835 (Bridges: emulated tests small nits/improvements (#7322))
