@@ -50,7 +50,6 @@ sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
-substrate-test-utils = { workspace = true }
 
 # Polkadot
 polkadot-test-client = { workspace = true }

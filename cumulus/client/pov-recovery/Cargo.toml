@@ -53,4 +53,3 @@ cumulus-test-service = { workspace = true }
 # Substrate
 sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
-substrate-test-utils = { workspace = true }

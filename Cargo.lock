@@ -4782,7 +4782,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-version 29.0.0",
- "substrate-test-utils",
  "tokio",
  "tracing",
  "url",
@@ -4839,7 +4838,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
- "substrate-test-utils",
  "tokio",
  "tracing",
 ]
@@ -13293,7 +13291,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
  "sp-tracing 16.0.0",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -13693,7 +13690,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
  "sp-tracing 16.0.0",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -17947,7 +17943,6 @@ dependencies = [
 name = "polkadot-node-metrics"
 version = "7.0.0"
 dependencies = [
- "assert_cmd",
  "bs58",
  "futures",
  "futures-timer",
@@ -17965,7 +17960,6 @@ dependencies = [
  "sc-tracing",
  "sp-keyring 31.0.0",
  "substrate-prometheus-endpoint",
- "substrate-test-utils",
  "tempfile",
  "tokio",
  "tracing-gum",
@@ -19885,7 +19879,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "substrate-test-client",
- "substrate-test-utils",
  "tempfile",
  "test-runtime-constants",
  "tokio",
@@ -29594,7 +29587,6 @@ dependencies = [
  "sc-service",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
- "substrate-test-utils",
  "test-parachain-adder",
  "tokio",
 ]
@@ -29641,7 +29633,6 @@ dependencies = [
  "sc-service",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
- "substrate-test-utils",
  "test-parachain-undying",
  "tokio",
 ]
