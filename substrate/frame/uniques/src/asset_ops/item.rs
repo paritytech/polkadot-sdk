@@ -9,7 +9,7 @@ use frame_support::{
 			Bytes, CanTransfer, FromTo, IfOwnedBy, JustDo, Owned, Ownership, PredefinedId,
 			WithOrigin,
 		},
-		AssetDefinition, Create, InspectMetadata, Stash, Transfer,
+		AssetDefinition, Create, Inspect, Stash, Transfer,
 	},
 	BoundedSlice,
 };
@@ -22,8 +22,8 @@ impl<T: Config<I>, I: 'static> AssetDefinition for Item<Pallet<T, I>> {
 	type Id = (T::CollectionId, T::ItemId);
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Ownership<T::AccountId>> for Item<Pallet<T, I>> {
-	fn inspect_metadata(
+impl<T: Config<I>, I: 'static> Inspect<Ownership<T::AccountId>> for Item<Pallet<T, I>> {
+	fn inspect(
 		(collection, item): &Self::Id,
 		_ownership: Ownership<T::AccountId>,
 	) -> Result<T::AccountId, DispatchError> {
@@ -33,19 +33,16 @@ impl<T: Config<I>, I: 'static> InspectMetadata<Ownership<T::AccountId>> for Item
 	}
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Bytes> for Item<Pallet<T, I>> {
-	fn inspect_metadata(
-		(collection, item): &Self::Id,
-		_bytes: Bytes,
-	) -> Result<Vec<u8>, DispatchError> {
+impl<T: Config<I>, I: 'static> Inspect<Bytes> for Item<Pallet<T, I>> {
+	fn inspect((collection, item): &Self::Id, _bytes: Bytes) -> Result<Vec<u8>, DispatchError> {
 		ItemMetadataOf::<T, I>::get(collection, item)
 			.map(|m| m.data.into())
 			.ok_or(Error::<T, I>::NoMetadata.into())
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>> for Item<Pallet<T, I>> {
-	fn inspect_metadata(
+impl<'a, T: Config<I>, I: 'static> Inspect<Bytes<Attribute<'a>>> for Item<Pallet<T, I>> {
+	fn inspect(
 		(collection, item): &Self::Id,
 		strategy: Bytes<Attribute>,
 	) -> Result<Vec<u8>, DispatchError> {
@@ -59,8 +56,8 @@ impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>> for Ite
 	}
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<CanTransfer> for Item<Pallet<T, I>> {
-	fn inspect_metadata(
+impl<T: Config<I>, I: 'static> Inspect<CanTransfer> for Item<Pallet<T, I>> {
+	fn inspect(
 		(collection, item): &Self::Id,
 		_can_transfer: CanTransfer,
 	) -> Result<bool, DispatchError> {

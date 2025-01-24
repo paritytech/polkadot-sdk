@@ -1485,7 +1485,7 @@ mod asset_ops_tests {
 			)));
 
 			let retrieved_collection_owner =
-				Collection::inspect_metadata(&collection_id, Ownership::default()).unwrap();
+				Collection::inspect(&collection_id, Ownership::default()).unwrap();
 
 			assert_eq!(retrieved_collection_owner, collection_owner);
 		});
@@ -1508,7 +1508,7 @@ mod asset_ops_tests {
 			)));
 
 			assert_noop!(
-				Collection::inspect_metadata(&collection_id, Bytes::default(),),
+				Collection::inspect(&collection_id, Bytes::default(),),
 				Error::<Test>::NoMetadata,
 			);
 
@@ -1521,8 +1521,7 @@ mod asset_ops_tests {
 				is_frozen,
 			));
 
-			let retreived_metadata =
-				Collection::inspect_metadata(&collection_id, Bytes::default()).unwrap();
+			let retreived_metadata = Collection::inspect(&collection_id, Bytes::default()).unwrap();
 
 			assert_eq!(retreived_metadata, metadata);
 
@@ -1532,7 +1531,7 @@ mod asset_ops_tests {
 			));
 
 			assert_noop!(
-				Collection::inspect_metadata(&collection_id, Bytes::default(),),
+				Collection::inspect(&collection_id, Bytes::default(),),
 				Error::<Test>::NoMetadata,
 			);
 		});
@@ -1584,90 +1583,64 @@ mod asset_ops_tests {
 			)));
 
 			assert_noop!(
-				Collection::inspect_metadata(
-					&collection_id,
-					Bytes(Attribute(food_attr_key.as_slice())),
-				),
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())),),
 				Error::<Test>::AttributeNotFound,
 			);
 
 			assert_noop!(
-				Collection::inspect_metadata(
-					&collection_id,
-					Bytes(Attribute(drink_attr_key.as_slice())),
-				),
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())),),
 				Error::<Test>::AttributeNotFound,
 			);
 
 			set_attribute(&food_attr_key, &food_attr_value);
 
-			let retreived_food_value = Collection::inspect_metadata(
-				&collection_id,
-				Bytes(Attribute(food_attr_key.as_slice())),
-			)
-			.unwrap();
+			let retreived_food_value =
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())))
+					.unwrap();
 
 			assert_eq!(retreived_food_value, food_attr_value);
 
 			assert_noop!(
-				Collection::inspect_metadata(
-					&collection_id,
-					Bytes(Attribute(drink_attr_key.as_slice())),
-				),
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())),),
 				Error::<Test>::AttributeNotFound,
 			);
 
 			set_attribute(&drink_attr_key, &drink_attr_value);
 
-			let retreived_food_value = Collection::inspect_metadata(
-				&collection_id,
-				Bytes(Attribute(food_attr_key.as_slice())),
-			)
-			.unwrap();
+			let retreived_food_value =
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())))
+					.unwrap();
 
 			assert_eq!(retreived_food_value, food_attr_value);
 
-			let retreived_drink_value = Collection::inspect_metadata(
-				&collection_id,
-				Bytes(Attribute(drink_attr_key.as_slice())),
-			)
-			.unwrap();
+			let retreived_drink_value =
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())))
+					.unwrap();
 
 			assert_eq!(retreived_drink_value, drink_attr_value);
 
 			clear_attribute(&food_attr_key);
 
 			assert_noop!(
-				Collection::inspect_metadata(
-					&collection_id,
-					Bytes(Attribute(food_attr_key.as_slice())),
-				),
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())),),
 				Error::<Test>::AttributeNotFound,
 			);
 
-			let retreived_drink_value = Collection::inspect_metadata(
-				&collection_id,
-				Bytes(Attribute(drink_attr_key.as_slice())),
-			)
-			.unwrap();
+			let retreived_drink_value =
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())))
+					.unwrap();
 
 			assert_eq!(retreived_drink_value, drink_attr_value);
 
 			clear_attribute(&drink_attr_key);
 
 			assert_noop!(
-				Collection::inspect_metadata(
-					&collection_id,
-					Bytes(Attribute(food_attr_key.as_slice())),
-				),
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())),),
 				Error::<Test>::AttributeNotFound,
 			);
 
 			assert_noop!(
-				Collection::inspect_metadata(
-					&collection_id,
-					Bytes(Attribute(drink_attr_key.as_slice())),
-				),
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())),),
 				Error::<Test>::AttributeNotFound,
 			);
 		});
@@ -1968,11 +1941,9 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![]);
 
-			let retreived_test_value = Item::inspect_metadata(
-				&(collection_id, item_id),
-				Bytes(Attribute(test_key.as_slice())),
-			)
-			.unwrap();
+			let retreived_test_value =
+				Item::inspect(&(collection_id, item_id), Bytes(Attribute(test_key.as_slice())))
+					.unwrap();
 
 			// the attributes are still available
 			assert_eq!(retreived_test_value, test_value);
@@ -2029,11 +2000,9 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![]);
 
-			let retreived_test_value = Item::inspect_metadata(
-				&(collection_id, item_id),
-				Bytes(Attribute(test_key.as_slice())),
-			)
-			.unwrap();
+			let retreived_test_value =
+				Item::inspect(&(collection_id, item_id), Bytes(Attribute(test_key.as_slice())))
+					.unwrap();
 
 			// the attributes are still available
 			assert_eq!(retreived_test_value, test_value);
@@ -2124,11 +2093,9 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![]);
 
-			let retreived_test_value = Item::inspect_metadata(
-				&(collection_id, item_id),
-				Bytes(Attribute(test_key.as_slice())),
-			)
-			.unwrap();
+			let retreived_test_value =
+				Item::inspect(&(collection_id, item_id), Bytes(Attribute(test_key.as_slice())))
+					.unwrap();
 
 			// the attributes are still available
 			assert_eq!(retreived_test_value, test_value);
@@ -2149,11 +2116,9 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![]);
 
-			let retreived_test_value = Item::inspect_metadata(
-				&(collection_id, item_id),
-				Bytes(Attribute(test_key.as_slice())),
-			)
-			.unwrap();
+			let retreived_test_value =
+				Item::inspect(&(collection_id, item_id), Bytes(Attribute(test_key.as_slice())))
+					.unwrap();
 
 			// the attributes are still available
 			assert_eq!(retreived_test_value, test_value);
@@ -2184,7 +2149,7 @@ mod asset_ops_tests {
 			)));
 
 			let retreived_item_owner =
-				Item::inspect_metadata(&(collection_id, item_id), Ownership::default()).unwrap();
+				Item::inspect(&(collection_id, item_id), Ownership::default()).unwrap();
 
 			assert_eq!(retreived_item_owner, item_owner);
 		});
@@ -2217,7 +2182,7 @@ mod asset_ops_tests {
 			)));
 
 			assert_noop!(
-				Item::inspect_metadata(&(collection_id, item_id), Bytes::default(),),
+				Item::inspect(&(collection_id, item_id), Bytes::default(),),
 				Error::<Test>::NoMetadata,
 			);
 
@@ -2230,14 +2195,14 @@ mod asset_ops_tests {
 			));
 
 			let retreived_metadata =
-				Item::inspect_metadata(&(collection_id, item_id), Bytes::default()).unwrap();
+				Item::inspect(&(collection_id, item_id), Bytes::default()).unwrap();
 
 			assert_eq!(retreived_metadata, metadata);
 
 			assert_ok!(Uniques::clear_metadata(RuntimeOrigin::root(), collection_id, item_id,));
 
 			assert_noop!(
-				Item::inspect_metadata(&(collection_id, item_id), Bytes::default(),),
+				Item::inspect(&(collection_id, item_id), Bytes::default(),),
 				Error::<Test>::NoMetadata,
 			);
 		});
@@ -2292,7 +2257,7 @@ mod asset_ops_tests {
 			)));
 
 			assert_noop!(
-				Item::inspect_metadata(
+				Item::inspect(
 					&(collection_id, item_id),
 					Bytes(Attribute(food_attr_key.as_slice())),
 				),
@@ -2300,7 +2265,7 @@ mod asset_ops_tests {
 			);
 
 			assert_noop!(
-				Item::inspect_metadata(
+				Item::inspect(
 					&(collection_id, item_id),
 					Bytes(Attribute(drink_attr_key.as_slice())),
 				),
@@ -2309,7 +2274,7 @@ mod asset_ops_tests {
 
 			set_attribute(&food_attr_key, &food_attr_value);
 
-			let retreived_food_value = Item::inspect_metadata(
+			let retreived_food_value = Item::inspect(
 				&(collection_id, item_id),
 				Bytes(Attribute(food_attr_key.as_slice())),
 			)
@@ -2318,7 +2283,7 @@ mod asset_ops_tests {
 			assert_eq!(retreived_food_value, food_attr_value);
 
 			assert_noop!(
-				Item::inspect_metadata(
+				Item::inspect(
 					&(collection_id, item_id),
 					Bytes(Attribute(drink_attr_key.as_slice())),
 				),
@@ -2327,7 +2292,7 @@ mod asset_ops_tests {
 
 			set_attribute(&drink_attr_key, &drink_attr_value);
 
-			let retreived_food_value = Item::inspect_metadata(
+			let retreived_food_value = Item::inspect(
 				&(collection_id, item_id),
 				Bytes(Attribute(food_attr_key.as_slice())),
 			)
@@ -2335,7 +2300,7 @@ mod asset_ops_tests {
 
 			assert_eq!(retreived_food_value, food_attr_value);
 
-			let retreived_drink_value = Item::inspect_metadata(
+			let retreived_drink_value = Item::inspect(
 				&(collection_id, item_id),
 				Bytes(Attribute(drink_attr_key.as_slice())),
 			)
@@ -2346,14 +2311,14 @@ mod asset_ops_tests {
 			clear_attribute(&food_attr_key);
 
 			assert_noop!(
-				Item::inspect_metadata(
+				Item::inspect(
 					&(collection_id, item_id),
 					Bytes(Attribute(food_attr_key.as_slice())),
 				),
 				Error::<Test>::AttributeNotFound,
 			);
 
-			let retreived_drink_value = Item::inspect_metadata(
+			let retreived_drink_value = Item::inspect(
 				&(collection_id, item_id),
 				Bytes(Attribute(drink_attr_key.as_slice())),
 			)
@@ -2364,7 +2329,7 @@ mod asset_ops_tests {
 			clear_attribute(&drink_attr_key);
 
 			assert_noop!(
-				Item::inspect_metadata(
+				Item::inspect(
 					&(collection_id, item_id),
 					Bytes(Attribute(food_attr_key.as_slice())),
 				),
@@ -2372,7 +2337,7 @@ mod asset_ops_tests {
 			);
 
 			assert_noop!(
-				Item::inspect_metadata(
+				Item::inspect(
 					&(collection_id, item_id),
 					Bytes(Attribute(drink_attr_key.as_slice())),
 				),
@@ -2405,7 +2370,7 @@ mod asset_ops_tests {
 			)));
 
 			let can_transfer =
-				Item::inspect_metadata(&(collection_id, item_id), CanTransfer::default()).unwrap();
+				Item::inspect(&(collection_id, item_id), CanTransfer::default()).unwrap();
 
 			assert!(can_transfer);
 
@@ -2416,7 +2381,7 @@ mod asset_ops_tests {
 			));
 
 			let can_transfer =
-				Item::inspect_metadata(&(collection_id, item_id), CanTransfer::default()).unwrap();
+				Item::inspect(&(collection_id, item_id), CanTransfer::default()).unwrap();
 
 			assert!(!can_transfer);
 
@@ -2427,7 +2392,7 @@ mod asset_ops_tests {
 			));
 
 			let can_transfer =
-				Item::inspect_metadata(&(collection_id, item_id), CanTransfer::default()).unwrap();
+				Item::inspect(&(collection_id, item_id), CanTransfer::default()).unwrap();
 
 			assert!(can_transfer);
 		});

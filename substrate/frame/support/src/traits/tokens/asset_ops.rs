@@ -1,8 +1,8 @@
 //! Abstract asset operations traits.
 //!
 //! The following operations are defined:
-//! * [`InspectMetadata`]
-//! * [`UpdateMetadata`]
+//! * [`Inspect`]
+//! * [`Update`]
 //! * [`Create`]
 //! * [`Transfer`]
 //! * [`Destroy`]
@@ -35,7 +35,7 @@ pub trait AssetDefinition {
 /// Get the `Id` type of the asset definition.
 pub type AssetIdOf<T> = <T as AssetDefinition>::Id;
 
-/// A strategy for use in the [`InspectMetadata`] implementations.
+/// A strategy for use in the [`Inspect`] implementations.
 ///
 /// The common inspect strategies are:
 /// * [`Bytes`](common_strategies::Bytes)
@@ -43,61 +43,58 @@ pub type AssetIdOf<T> = <T as AssetDefinition>::Id;
 /// * [`CanCreate`](common_strategies::CanCreate)
 /// * [`CanTransfer`](common_strategies::CanTransfer)
 /// * [`CanDestroy`](common_strategies::CanDestroy)
-/// * [`CanUpdateMetadata`](common_strategies::CanUpdateMetadata)
-pub trait MetadataInspectStrategy {
-	/// The type to return from the [`InspectMetadata::inspect_metadata`] function.
+/// * [`CanUpdate`](common_strategies::CanUpdate)
+pub trait InspectStrategy {
+	/// The type to return from the [`Inspect::inspect`] function.
 	type Value;
 }
 
-/// A trait representing the ability of a certain asset to **provide** its metadata
+/// A trait representing the ability of a certain asset to **provide** its state
 /// information.
 ///
 /// This trait can be implemented multiple times using different
-/// [`inspect strategies`](MetadataInspectStrategy).
+/// [`inspect strategies`](InspectStrategy).
 ///
-/// An inspect strategy defines how the asset metadata is identified/retrieved
-/// and what [`Value`](MetadataInspectStrategy::Value) type is returned.
-pub trait InspectMetadata<Strategy: MetadataInspectStrategy>: AssetDefinition {
-	/// Inspect metadata information of the asset
+/// An inspect strategy defines how the asset state is identified/retrieved
+/// and what [`Value`](InspectStrategy::Value) type is returned.
+pub trait Inspect<Strategy: InspectStrategy>: AssetDefinition {
+	/// Inspect state information of the asset
 	/// using the given `id` and the inspect `strategy`.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
-	fn inspect_metadata(
-		id: &Self::Id,
-		strategy: Strategy,
-	) -> Result<Strategy::Value, DispatchError>;
+	fn inspect(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Value, DispatchError>;
 }
 
-/// A strategy for use in the [`UpdateMetadata`] implementations.
+/// A strategy for use in the [`Update`] implementations.
 ///
 /// The common update strategies are:
 /// * [`Bytes`](common_strategies::Bytes)
 /// * [`CanCreate`](common_strategies::CanCreate)
 /// * [`CanTransfer`](common_strategies::CanTransfer)
 /// * [`CanDestroy`](common_strategies::CanDestroy)
-/// * [`CanUpdateMetadata`](common_strategies::CanUpdateMetadata)
-pub trait MetadataUpdateStrategy {
-	/// The type of metadata update to accept in the [`UpdateMetadata::update_metadata`] function.
+/// * [`CanUpdate`](common_strategies::CanUpdate)
+pub trait UpdateStrategy {
+	/// The type of state update to accept in the [`Update::update`] function.
 	type Update<'u>;
 
-	/// This type represents a successful asset metadata update.
-	/// It will be in the [`Result`] type of the [`UpdateMetadata::update_metadata`] function.
+	/// This type represents a successful asset state update.
+	/// It will be in the [`Result`] type of the [`Update::update`] function.
 	type Success;
 }
 
-/// A trait representing the ability of a certain asset to **update** its metadata information.
+/// A trait representing the ability of a certain asset to **update** its state information.
 ///
 /// This trait can be implemented multiple times using different
-/// [`update strategies`](MetadataUpdateStrategy).
+/// [`update strategies`](UpdateStrategy).
 ///
-/// An update strategy defines how the asset metadata is identified
-/// and what [`Update`](MetadataUpdateStrategy::Update) type is used.
-pub trait UpdateMetadata<Strategy: MetadataUpdateStrategy>: AssetDefinition {
-	/// Update metadata information of the asset
+/// An update strategy defines how the asset state is identified
+/// and what [`Update`](UpdateStrategy::Update) type is used.
+pub trait Update<Strategy: UpdateStrategy>: AssetDefinition {
+	/// Update state information of the asset
 	/// using the given `id`, the update `strategy`, and the `update` value.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
-	fn update_metadata(
+	fn update(
 		id: &Self::Id,
 		strategy: Strategy,
 		update: Strategy::Update<'_>,

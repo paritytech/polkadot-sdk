@@ -12,14 +12,10 @@ use sp_runtime::RuntimeDebug;
 ///
 /// The `WithOrigin` implements any strategy that the `Inner` implements.
 pub struct WithOrigin<RuntimeOrigin, Inner>(pub RuntimeOrigin, pub Inner);
-impl<RuntimeOrigin, Inner: MetadataInspectStrategy> MetadataInspectStrategy
-	for WithOrigin<RuntimeOrigin, Inner>
-{
+impl<RuntimeOrigin, Inner: InspectStrategy> InspectStrategy for WithOrigin<RuntimeOrigin, Inner> {
 	type Value = Inner::Value;
 }
-impl<RuntimeOrigin, Inner: MetadataUpdateStrategy> MetadataUpdateStrategy
-	for WithOrigin<RuntimeOrigin, Inner>
-{
+impl<RuntimeOrigin, Inner: UpdateStrategy> UpdateStrategy for WithOrigin<RuntimeOrigin, Inner> {
 	type Update<'u> = Inner::Update<'u>;
 	type Success = Inner::Success;
 }
@@ -70,9 +66,9 @@ impl<Params> RestoreStrategy for JustDo<Params> {
 	type Success = ();
 }
 
-/// The `Bytes` strategy represents raw metadata bytes.
-/// It is both an [inspect](MetadataInspectStrategy) and [update](MetadataUpdateStrategy)
-/// metadata strategy.
+/// The `Bytes` strategy represents raw state bytes.
+/// It is both an [inspect](InspectStrategy) and [update](UpdateStrategy)
+/// strategy.
 ///
 /// * As the inspect strategy, it returns `Vec<u8>`.
 /// * As the update strategy, it accepts `Option<&[u8]>`, where `None` means data removal.
@@ -89,15 +85,15 @@ impl Default for Bytes<()> {
 		Self(())
 	}
 }
-impl<Request> MetadataInspectStrategy for Bytes<Request> {
+impl<Request> InspectStrategy for Bytes<Request> {
 	type Value = Vec<u8>;
 }
-impl<Request> MetadataUpdateStrategy for Bytes<Request> {
+impl<Request> UpdateStrategy for Bytes<Request> {
 	type Update<'u> = Option<&'u [u8]>;
 	type Success = ();
 }
 
-/// The `Ownership` [inspect](MetadataInspectStrategy) metadata strategy allows getting the
+/// The `Ownership` [inspect](InspectStrategy) strategy allows getting the
 /// owner of an asset.
 pub struct Ownership<Owner>(PhantomData<Owner>);
 impl<Owner> Default for Ownership<Owner> {
@@ -105,13 +101,13 @@ impl<Owner> Default for Ownership<Owner> {
 		Self(PhantomData)
 	}
 }
-impl<Owner> MetadataInspectStrategy for Ownership<Owner> {
+impl<Owner> InspectStrategy for Ownership<Owner> {
 	type Value = Owner;
 }
 
 /// The `CanCreate` strategy represents the ability to create an asset.
-/// It is both an [inspect](MetadataInspectStrategy) and [update](MetadataUpdateStrategy)
-/// metadata strategy.
+/// It is both an [inspect](InspectStrategy) and [update](UpdateStrategy)
+/// strategy.
 ///
 /// * As the inspect strategy, it returns `bool`.
 /// * As the update strategy, it accepts `bool`.
@@ -126,17 +122,17 @@ impl Default for CanCreate<()> {
 		Self(())
 	}
 }
-impl<Condition> MetadataInspectStrategy for CanCreate<Condition> {
+impl<Condition> InspectStrategy for CanCreate<Condition> {
 	type Value = bool;
 }
-impl<Condition> MetadataUpdateStrategy for CanCreate<Condition> {
+impl<Condition> UpdateStrategy for CanCreate<Condition> {
 	type Update<'u> = bool;
 	type Success = ();
 }
 
 /// The `CanTransfer` strategy represents the ability to transfer an asset.
-/// It is both an [inspect](MetadataInspectStrategy) and [update](MetadataUpdateStrategy)
-/// metadata strategy.
+/// It is both an [inspect](InspectStrategy) and [update](UpdateStrategy)
+/// strategy.
 ///
 /// * As the inspect strategy, it returns `bool`.
 /// * As the update strategy, it accepts `bool`.
@@ -152,17 +148,17 @@ impl Default for CanTransfer<()> {
 		Self(())
 	}
 }
-impl<Condition> MetadataInspectStrategy for CanTransfer<Condition> {
+impl<Condition> InspectStrategy for CanTransfer<Condition> {
 	type Value = bool;
 }
-impl<Condition> MetadataUpdateStrategy for CanTransfer<Condition> {
+impl<Condition> UpdateStrategy for CanTransfer<Condition> {
 	type Update<'u> = bool;
 	type Success = ();
 }
 
 /// The `CanDestroy` strategy represents the ability to destroy an asset.
-/// It is both an [inspect](MetadataInspectStrategy) and [update](MetadataUpdateStrategy)
-/// metadata strategy.
+/// It is both an [inspect](InspectStrategy) and [update](UpdateStrategy)
+/// strategy.
 ///
 /// * As the inspect strategy, it returns `bool`.
 /// * As the update strategy, it accepts `bool`.
@@ -178,36 +174,36 @@ impl Default for CanDestroy<()> {
 		Self(())
 	}
 }
-impl<Condition> MetadataInspectStrategy for CanDestroy<Condition> {
+impl<Condition> InspectStrategy for CanDestroy<Condition> {
 	type Value = bool;
 }
-impl<Condition> MetadataUpdateStrategy for CanDestroy<Condition> {
+impl<Condition> UpdateStrategy for CanDestroy<Condition> {
 	type Update<'u> = bool;
 	type Success = ();
 }
 
-/// The `CanUpdateMetadata` strategy represents the ability to update the metadata of an asset.
-/// It is both an [inspect](MetadataInspectStrategy) and [update](MetadataUpdateStrategy)
-/// metadata strategy.
+/// The `CanUpdate` strategy represents the ability to update the state of an asset.
+/// It is both an [inspect](InspectStrategy) and [update](UpdateStrategy)
+/// strategy.
 ///
 /// * As the inspect strategy, it returns `bool`.
 /// * As the update strategy is accepts `bool`.
 ///
-/// By default, this strategy means the ability to update the metadata of an asset "in general".
+/// By default, this strategy means the ability to update the state of an asset "in general".
 /// However, a user can define several flavors of this strategy by supplying the `Flavor` type.
 /// The `Flavor` type can add more details to the strategy.
-/// For instance, "Can **a specific user** update the metadata of an asset **under a certain
+/// For instance, "Can **a specific user** update the state of an asset **under a certain
 /// key**?".
-pub struct CanUpdateMetadata<Flavor = ()>(pub Flavor);
-impl Default for CanUpdateMetadata<()> {
+pub struct CanUpdate<Flavor = ()>(pub Flavor);
+impl Default for CanUpdate<()> {
 	fn default() -> Self {
 		Self(())
 	}
 }
-impl<Flavor> MetadataInspectStrategy for CanUpdateMetadata<Flavor> {
+impl<Flavor> InspectStrategy for CanUpdate<Flavor> {
 	type Value = bool;
 }
-impl<Flavor> MetadataUpdateStrategy for CanUpdateMetadata<Flavor> {
+impl<Flavor> UpdateStrategy for CanUpdate<Flavor> {
 	type Update<'u> = bool;
 	type Success = ();
 }

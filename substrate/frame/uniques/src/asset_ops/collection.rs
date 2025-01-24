@@ -9,7 +9,7 @@ use frame_support::{
 				Bytes, IfOwnedByWithWitness, Ownership, PredefinedId, WithAdmin, WithOrigin,
 				WithWitness,
 			},
-			AssetDefinition, Create, Destroy, InspectMetadata,
+			AssetDefinition, Create, Destroy, Inspect,
 		},
 		EnsureOrigin, Get,
 	},
@@ -24,10 +24,8 @@ impl<T: Config<I>, I: 'static> AssetDefinition for Collection<Pallet<T, I>> {
 	type Id = T::CollectionId;
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Ownership<T::AccountId>>
-	for Collection<Pallet<T, I>>
-{
-	fn inspect_metadata(
+impl<T: Config<I>, I: 'static> Inspect<Ownership<T::AccountId>> for Collection<Pallet<T, I>> {
+	fn inspect(
 		collection: &Self::Id,
 		_ownership: Ownership<T::AccountId>,
 	) -> Result<T::AccountId, DispatchError> {
@@ -37,18 +35,16 @@ impl<T: Config<I>, I: 'static> InspectMetadata<Ownership<T::AccountId>>
 	}
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Bytes> for Collection<Pallet<T, I>> {
-	fn inspect_metadata(collection: &Self::Id, _bytes: Bytes) -> Result<Vec<u8>, DispatchError> {
+impl<T: Config<I>, I: 'static> Inspect<Bytes> for Collection<Pallet<T, I>> {
+	fn inspect(collection: &Self::Id, _bytes: Bytes) -> Result<Vec<u8>, DispatchError> {
 		CollectionMetadataOf::<T, I>::get(collection)
 			.map(|m| m.data.into())
 			.ok_or(Error::<T, I>::NoMetadata.into())
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>>
-	for Collection<Pallet<T, I>>
-{
-	fn inspect_metadata(
+impl<'a, T: Config<I>, I: 'static> Inspect<Bytes<Attribute<'a>>> for Collection<Pallet<T, I>> {
+	fn inspect(
 		collection: &Self::Id,
 		strategy: Bytes<Attribute>,
 	) -> Result<Vec<u8>, DispatchError> {
