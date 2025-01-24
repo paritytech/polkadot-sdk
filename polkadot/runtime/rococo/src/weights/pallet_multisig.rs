@@ -121,7 +121,7 @@ impl<T: frame_system::Config> pallet_multisig::WeightInfo for WeightInfo<T> {
 	/// Proof: `Multisig::Multisigs` (`max_values`: None, `max_size`: Some(3346), added: 5821, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[2, 100]`.
 	/// The range of component `z` is `[0, 10000]`.
-	fn approve_as_multi_create(s: u32, z: u32, ) -> Weight {
+	fn approve_as_multi_create(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `229 + s * (2 ±0)`
 		//  Estimated: `6811`
@@ -130,16 +130,13 @@ impl<T: frame_system::Config> pallet_multisig::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 6811))
 			// Standard Error: 1_704
 			.saturating_add(Weight::from_parts(156_235, 0).saturating_mul(s.into()))
-			// Standard Error: 16
-			.saturating_add(Weight::from_parts(71, 0).saturating_mul(z.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Multisig::Multisigs` (r:1 w:1)
 	/// Proof: `Multisig::Multisigs` (`max_values`: None, `max_size`: Some(3346), added: 5821, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[2, 100]`.
-	/// The range of component `z` is `[0, 10000]`.
-	fn approve_as_multi_approve(s: u32, z: u32, ) -> Weight {
+	fn approve_as_multi_approve(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `248`
 		//  Estimated: `6811`
@@ -148,16 +145,13 @@ impl<T: frame_system::Config> pallet_multisig::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 6811))
 			// Standard Error: 1_126
 			.saturating_add(Weight::from_parts(136_788, 0).saturating_mul(s.into()))
-			// Standard Error: 11
-			.saturating_add(Weight::from_parts(60, 0).saturating_mul(z.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Multisig::Multisigs` (r:1 w:1)
 	/// Proof: `Multisig::Multisigs` (`max_values`: None, `max_size`: Some(3346), added: 5821, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[2, 100]`.
-	/// The range of component `z` is `[0, 10000]`.
-	fn cancel_as_multi(s: u32, z: u32, ) -> Weight {
+	fn cancel_as_multi(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `420 + s * (1 ±0)`
 		//  Estimated: `6811`
@@ -166,8 +160,6 @@ impl<T: frame_system::Config> pallet_multisig::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 6811))
 			// Standard Error: 1_239
 			.saturating_add(Weight::from_parts(146_249, 0).saturating_mul(s.into()))
-			// Standard Error: 12
-			.saturating_add(Weight::from_parts(36, 0).saturating_mul(z.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
