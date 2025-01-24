@@ -139,7 +139,7 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 });
 
 test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
-	const msg = Enum("V4", [
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V4", [
 		XcmV4Instruction.WithdrawAsset([{
 			id: { parents: 1, interior: XcmV3Junctions.Here() },
 			fun: XcmV3MultiassetFungibility.Fungible(7_000_000_000_000n),
@@ -177,7 +177,7 @@ test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
 })
 
 test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
-	const msg = Enum('V5', [
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
 		Enum('WithdrawAsset', [
 			{
 				id: { parents: 1, interior: XcmV3Junctions.Here() },
@@ -252,7 +252,7 @@ test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
 })
 
 test("Initiate Teleport (AH -> RC) with remote fees", async () => {
-	const msg = Enum('V5', [
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
 		Enum('WithdrawAsset', [
 			{
 				id: { parents: 1, interior: XcmV3Junctions.Here() },
@@ -319,7 +319,7 @@ test("Initiate Teleport (AH -> RC) with remote fees", async () => {
 })
 
 test("Reserve Asset Transfer (local) of USDT from Asset Hub `Alice` to Penpal `Alice`", async () => {
-	const msg = Enum('V5', [
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
 		Enum('WithdrawAsset', [
 			{
 				id: {
@@ -426,7 +426,7 @@ test("Reserve Asset Transfer (local) of USDT from Asset Hub `Alice` to Penpal `A
 // this test scenario works together with the previous one.
 // previous test serves as a set-up for this one.
 test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", async () => {
-	const msg = Enum('V5', [
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
 		Enum('WithdrawAsset', [
 			{
 				id: {
@@ -500,5 +500,3 @@ test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", asyn
 	const r = await penpalToAH.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
 })
-
-
