@@ -26,13 +26,10 @@ use crate::mock::{
 };
 
 use codec::Decode;
-use sp_core::crypto::key_types::DUMMY;
-use sp_runtime::testing::UintAuthorityId;
+// use sp_core::crypto::key_types::DUMMY;
+use frame::testing_prelude::*;
 
-use frame_support::{
-	assert_noop, assert_ok,
-	traits::{ConstU64, OnInitialize},
-};
+
 
 fn initialize_block(block: u64) {
 	SessionChanged::mutate(|l| *l = false);
@@ -384,8 +381,6 @@ fn disable_index_returns_false_if_already_disabled() {
 
 #[test]
 fn upgrade_keys() {
-	use frame_support::storage;
-	use sp_core::crypto::key_types::DUMMY;
 
 	// This test assumes certain mocks.
 	assert_eq!(mock::NextValidators::get().clone(), vec![1, 2, 3]);
@@ -463,7 +458,6 @@ fn test_migration_v1() {
 		historical::{HistoricalSessions, StoredRange},
 		mock::Historical,
 	};
-	use frame_support::traits::{PalletInfoAccess, StorageVersion};
 
 	new_test_ext().execute_with(|| {
 		assert!(HistoricalSessions::<Test>::iter_values().count() > 0);

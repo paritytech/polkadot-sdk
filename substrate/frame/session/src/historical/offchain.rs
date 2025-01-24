@@ -24,10 +24,7 @@
 //! and the off-chain indexing API.
 
 use alloc::vec::Vec;
-use sp_runtime::{
-	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
-	KeyTypeId,
-};
+
 use sp_session::MembershipProof;
 
 use super::{shared, Config, IdentificationTuple, ProvingTrie};
@@ -143,18 +140,14 @@ mod tests {
 	};
 
 	use codec::Encode;
-	use sp_core::{
-		crypto::key_types::DUMMY,
-		offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt, StorageKind},
-	};
-	use sp_runtime::{testing::UintAuthorityId, BuildStorage};
+
 	use sp_state_machine::BasicExternalities;
 
-	use frame_support::traits::{KeyOwnerProofSystem, OnInitialize};
+	use frame::traits::{KeyOwnerProofSystem, OnInitialize};
 
 	type Historical = Pallet<Test>;
 
-	pub fn new_test_ext() -> sp_io::TestExternalities {
+	pub fn new_test_ext() -> TestState {
 		let mut t = frame_system::GenesisConfig::<Test>::default()
 			.build_storage()
 			.expect("Failed to create test externalities.");
@@ -175,7 +168,7 @@ mod tests {
 			.assimilate_storage(&mut t)
 			.unwrap();
 
-		let mut ext = sp_io::TestExternalities::new(t);
+		let mut ext = TestState::new(t);
 
 		let (offchain, offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 

@@ -19,7 +19,7 @@
 
 use alloc::vec::Vec;
 use codec::Encode;
-use sp_runtime::traits::Convert;
+use frame::testing_prelude::*;
 
 use super::{shared, Config as HistoricalConfig};
 use crate::{Config as SessionConfig, Pallet as SessionModule, SessionIndex};
@@ -46,7 +46,7 @@ pub fn store_session_validator_set_to_offchain<T: HistoricalConfig + SessionConf
 
 	encoded_validator_list.using_encoded(|encoded_validator_list| {
 		let derived_key = shared::derive_key(shared::PREFIX, session_index);
-		sp_io::offchain_index::set(derived_key.as_slice(), encoded_validator_list);
+		frame::deps::sp_io::offchain_index::set(derived_key.as_slice(), encoded_validator_list);
 	});
 }
 

@@ -23,19 +23,15 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
+use frame::testing_prelude::*;
 
 type AccountId = u64;
 type Nonce = u32;
 type Balance = u64;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -72,7 +68,7 @@ impl pallet_session::historical::Config for Test {
 	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
 }
 
-sp_runtime::impl_opaque_keys! {
+impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub foo: sp_runtime::testing::UintAuthorityId,
 	}
@@ -83,9 +79,9 @@ impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
 	// corresponds to the opaque key id above
 	const KEY_TYPE_IDS: &'static [KeyTypeId] = &[KeyTypeId([100u8, 117u8, 109u8, 121u8])];
 
-	fn on_genesis_session<Ks: sp_runtime::traits::OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
+	fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
 
-	fn on_new_session<Ks: sp_runtime::traits::OpaqueKeys>(
+	fn on_new_session<Ks: OpaqueKeys>(
 		_: bool,
 		_: &[(AccountId, Ks)],
 		_: &[(AccountId, Ks)],
@@ -117,7 +113,7 @@ pallet_staking_reward_curve::build! {
 	);
 }
 parameter_types! {
-	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
+	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
@@ -149,7 +145,7 @@ impl pallet_staking::Config for Test {
 
 impl crate::Config for Test {}
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	sp_io::TestExternalities::new(t)
+	TestState::new(t)
 }
