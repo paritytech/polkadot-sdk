@@ -98,6 +98,7 @@ where
 		// here. This is done to collect the storage proof and to prevent re-execution, we push
 		// downwards the state changes. `StateAction::ApplyChanges` is ignored, because it either
 		// means that the node produced the block itself or the block was imported via state sync.
+		tracing::info!(target: "skunert", "sender is closed: {}", self.sender.is_closed());
 		if !self.sender.is_closed() && !matches!(params.state_action, StateAction::ApplyChanges(_))
 		{
 			let mut runtime_api = self.client.runtime_api();

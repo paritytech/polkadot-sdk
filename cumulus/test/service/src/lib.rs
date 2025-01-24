@@ -352,9 +352,13 @@ where
 
 	let client = params.client.clone();
 	let backend = params.backend.clone();
+	let (block_import, slot_based_handle) = if use_slot_based_collator {
+		(params.other.0, Some(params.other.1))
+	} else {
+		let (block_import, _) = params.other;
+		(block_import, None)
+	};
 
-	let block_import = params.other.0;
-	let slot_based_handle = params.other.1;
 	let relay_chain_interface = build_relay_chain_interface(
 		relay_chain_config,
 		parachain_config.prometheus_registry(),
@@ -499,7 +503,7 @@ where
 				reinitialize: false,
 				slot_drift: Duration::from_secs(1),
 				// TODO skunert fix this, not needed for lookahead collator
-				block_import_handle: Some(slot_based_handle),
+				block_import_handle: slot_based_handle,
 				spawner: task_manager.spawn_handle(),
 				flavor: use_slot_based_collator
 					.then(|| Flavor::TimeBased)

@@ -15,10 +15,10 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Encode;
-use std::{fs, fs::File, path::PathBuf};
-
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_relay_chain_interface::RelayChainInterface;
+use futures::future::OptionFuture;
+use std::{fs, fs::File, path::PathBuf};
 
 use polkadot_node_primitives::{MaybeCompressedPoV, PoV, SubmitCollationParams};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
@@ -92,6 +92,8 @@ pub async fn run_collation_task<Block, RClient, CS>(
 	.await;
 
 	loop {
+		let option_future =
+			OptionFuture::from(block_import_handle.as_mut().map(|handle| handle.next()));
 		tokio::select! {
 				collator_message = collator_receiver.next() => {
 					let Some(message) = collator_message else {
@@ -100,10 +102,11 @@ pub async fn run_collation_task<Block, RClient, CS>(
 
 					handle_collation_message(message, &collator_service, &mut overseer_handle, &export_pov).await;
 				},
-				block_import_msg = block_import_handle.as_mut().map(|h| h.next().fuse()).unwrap(), if block_import_handle.is_some() => {
-				let (_, _) = block_import_msg;
-				// TODO: Implement me.
-				// Issue: https://github.com/paritytech/polkadot-sdk/issues/6495
+				block_import_msg = option_future => {
+				if let Some((_, _)) = block_import_msg {
+					// TODO: Implement me.
+					// Issue: https://github.com/paritytech/polkadot-sdk/issues/6495
+				};
 		}
 			}
 	}
