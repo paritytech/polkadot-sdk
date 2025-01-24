@@ -75,23 +75,22 @@ async fn interrupt() {
 }
 
 fn start_docker(docker_bin: &str, docker_image: &str) -> anyhow::Result<Child> {
-	let args = [
-		"run",
-		"--name",
-		DOCKER_CONTAINER_NAME,
-		"--rm",
-		"-p",
-		"8545:8545",
-		&format!("docker.io/paritypr/{docker_image}"),
-		"--node-rpc-url",
-		"wss://westend-asset-hub-rpc.polkadot.io",
-		"--rpc-cors",
-		"all",
-		"--unsafe-rpc-external",
-		"--log=sc_rpc_server:info",
-	];
 	let docker_process = Command::new(docker_bin)
-		.args(args)
+		.args([
+			"run",
+			"--name",
+			DOCKER_CONTAINER_NAME,
+			"--rm",
+			"-p",
+			"8545:8545",
+			&format!("docker.io/paritypr/{docker_image}"),
+			"--node-rpc-url",
+			"wss://westend-asset-hub-rpc.polkadot.io",
+			"--rpc-cors",
+			"all",
+			"--unsafe-rpc-external",
+			"--log=sc_rpc_server:info",
+		])
 		.stderr(std::process::Stdio::piped())
 		.kill_on_drop(true)
 		.spawn()?;
@@ -100,7 +99,7 @@ fn start_docker(docker_bin: &str, docker_image: &str) -> anyhow::Result<Child> {
 }
 
 async fn kill_docker() -> anyhow::Result<()> {
-	Command::new("docker").args(&["kill", DOCKER_CONTAINER_NAME]).output().await?;
+	Command::new("docker").args(["kill", DOCKER_CONTAINER_NAME]).output().await?;
 	Ok(())
 }
 
