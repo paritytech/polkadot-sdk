@@ -17,14 +17,14 @@ path = "src/main.rs"
 name = "eth-indexer"
 path = "src/eth-indexer.rs"
 
-[[example]]
-name = "deploy"
-path = "examples/rust/deploy.rs"
+[[bin]]
+name = "eth-rpc-tester"
+path = "src/eth-rpc-tester.rs"
 required-features = ["example"]
 
 [[example]]
-name = "test-deployment"
-path = "examples/rust/test-deployment.rs"
+name = "deploy"
+path = "examples/rust/deploy.rs"
 required-features = ["example"]
 
 [[example]]
