@@ -68,12 +68,41 @@ impl NaiveEquivocationDefender {
 	}
 }
 
-struct Verifier<P, Client, Block, CIDP> {
+/// A parachain block import verifier that checks for equivocation limits within each slot.
+pub struct Verifier<P, Client, Block, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender>,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
+}
+
+impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
+where
+	P: Pair,
+	P::Signature: Codec,
+	P::Public: Codec + Debug,
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
+
+	CIDP: CreateInherentDataProviders<Block, ()>,
+{
+	/// Creates a new Verifier instance for handling parachain block import verification in Aura
+	/// consensus.
+	pub fn new(
+		client: Arc<Client>,
+		inherent_data_provider: CIDP,
+		telemetry: Option<TelemetryHandle>,
+	) -> Self {
+		Self {
+			client,
+			create_inherent_data_providers: inherent_data_provider,
+			defender: Mutex::new(NaiveEquivocationDefender::default()),
+			telemetry,
+			_phantom: std::marker::PhantomData,
+		}
+	}
 }
 
 #[async_trait::async_trait]
