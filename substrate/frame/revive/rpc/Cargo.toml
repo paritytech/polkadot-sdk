@@ -57,6 +57,7 @@ hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
 log = { workspace = true }
 pallet-revive = { workspace = true, default-features = true }
+pallet-revive-fixtures = { workspace = true, default-features = true, optional = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 rlp = { workspace = true, optional = true }
 sc-cli = { workspace = true, default-features = true }
@@ -67,21 +68,18 @@ sp-arithmetic = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
-sqlx = { version = "0.8.2", features = [
-	"macros",
-	"runtime-tokio",
-	"sqlite",
+sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "sqlite"] }
+subxt = { workspace = true, default-features = true, features = [
+	"reconnecting-rpc-client",
 ] }
-subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 subxt-signer = { workspace = true, optional = true, features = [
 	"unstable-eth",
 ] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-pallet-revive-fixtures = { workspace = true, default-features = true, optional = true }
 
 [features]
-example = ["rlp", "subxt-signer", "pallet-revive-fixtures"]
+example = ["pallet-revive-fixtures", "rlp", "subxt-signer"]
 
 [dev-dependencies]
 env_logger = { workspace = true }
