@@ -23,7 +23,7 @@ pub mod hash;
 
 use error::Error;
 use jsonrpsee::proc_macros::rpc;
-use sc_transaction_pool_api::TransactionStatus;
+use sc_transaction_pool_api::{TransactionStatus, PoolStatus};
 use sp_core::Bytes;
 
 /// Substrate authoring RPC API
@@ -58,6 +58,10 @@ pub trait AuthorApi<Hash, BlockHash> {
 	/// Returns all pending extrinsics, potentially grouped by sender.
 	#[method(name = "author_pendingExtrinsics")]
 	fn pending_extrinsics(&self) -> Result<Vec<Bytes>, Error>;
+
+	/// Returns the current status of the transaction pool.
+	#[method(name = "author_poolStatus")]
+	fn pool_status(&self) -> Result<PoolStatus, Error>;
 
 	/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
 	#[method(name = "author_removeExtrinsic", with_extensions)]

@@ -33,6 +33,7 @@ use sp_runtime::{traits::Header as _, transaction_validity::TransactionValidity}
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
 use std::fmt::Debug;
+use sc_transaction_pool_api::PoolStatus;
 
 /// Relay uses the `Client` to communicate with the node, connected to Substrate
 /// chain `C`.
@@ -157,6 +158,10 @@ pub trait Client<C: Chain>: 'static + Send + Sync + Clone + Debug {
 
 	/// Returns pending extrinsics from transaction pool.
 	async fn pending_extrinsics(&self) -> Result<Vec<Bytes>>;
+
+	/// Returns current status of the transaction pool.	
+	async fn pool_status(&self) -> Result<PoolStatus>;
+
 	/// Submit unsigned extrinsic for inclusion in a block.
 	///
 	/// Note: The given transaction needs to be SCALE encoded beforehand.

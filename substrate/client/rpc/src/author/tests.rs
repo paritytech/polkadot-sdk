@@ -183,6 +183,24 @@ async fn author_should_return_pending_extrinsics() {
 }
 
 #[tokio::test]
+async fn author_should_return_pool_status() {
+	let api = TestSetup::into_rpc();
+
+	let xt_bytes: Bytes = uxt(Sr25519Keyring::Alice, 0).encode().into();
+	api.call::<_, H256>("author_submitExtrinsic", [to_hex(&xt_bytes, true)])
+		.await
+		.unwrap();
+
+	let pool_status: sc_transaction_pool_api::PoolStatus =
+		api.call("author_poolStatus", ((),)).await.unwrap();
+
+	assert_eq!(pool_status.ready, 1);
+	assert_eq!(pool_status.ready_bytes, 136);
+	assert_eq!(pool_status.future, 0);
+	assert_eq!(pool_status.future_bytes, 0);
+}
+
+#[tokio::test]
 async fn author_should_remove_extrinsics() {
 	const METHOD: &'static str = "author_removeExtrinsic";
 	let setup = TestSetup::default();

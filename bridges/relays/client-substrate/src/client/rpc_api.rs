@@ -79,6 +79,9 @@ pub(crate) trait SubstrateAuthor<C> {
 	/// Return vector of pending extrinsics from the transaction pool.
 	#[method(name = "pendingExtrinsics")]
 	async fn pending_extrinsics(&self) -> RpcResult<Vec<Bytes>>;
+	/// Return current status of the transaction pool.
+	#[method(name = "poolStatus")]
+	aysnc fn pool_status(&self) -> RpcResult<sc_rpc_api::author::PoolStatus>;
 	/// Submit and watch for extrinsic state.
 	#[subscription(name = "submitAndWatchExtrinsic", unsubscribe = "unwatchExtrinsic", item = TransactionStatusOf<C>)]
 	async fn submit_and_watch_extrinsic(&self, extrinsic: Bytes);
