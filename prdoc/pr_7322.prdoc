@@ -2,9 +2,7 @@ title: 'Bridges: emulated tests small nits/improvements'
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR includes minor fixes identified during work on the larger PR: [https://github.com/paritytech/polkadot-sdk/issues/6906](https://github.com/paritytech/polkadot-sdk/issues/6906).
-
-    Specifically, this PR removes the use of `open_bridge_between_asset_hub_rococo_and_asset_hub_westend`, which is no longer relevant for BridgeHubs, as bridges are now created with genesis settings. This function was used in the generic `test_dry_run_transfer_across_pk_bridge` macro, which could cause compilation issues when used in other contexts (e.g. fellows repo).
+    This PR removes the use of `open_bridge_between_asset_hub_rococo_and_asset_hub_westend`. This function was used in the generic `test_dry_run_transfer_across_pk_bridge` macro, which could cause compilation issues when used in other contexts (e.g. fellows repo).
 crates:
 - name: emulated-integration-tests-common
   bump: patch
