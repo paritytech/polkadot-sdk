@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test";
 import {
 	wnd_ah,
+	Wnd_ahCalls,
 	wnd_penpal,
 	XcmV3Junctions,
 	XcmV3Junction,
@@ -29,6 +30,7 @@ const ALICE_KEY = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
 // Create and initialize clients
 const ahClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8000")));
 const AHApi = ahClient.getTypedApi(wnd_ah);
+
 const penaplClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8001")));
 const PenpalApi = penaplClient.getTypedApi(wnd_penpal);
 
@@ -60,21 +62,25 @@ async function getFreeBalance(api, accountKey) {
 test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 	const bobBalanceBefore = await getFreeBalance(AHApi, BOB_KEY);
 
-	const alice_msg = Enum("V5", [
-		Enum("SetAssetClaimer", {
-			location: {
-				parents: 0,
-				interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-					network: Enum("ByGenesis", Binary.fromBytes(WESTEND_NETWORK)),
-					id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
-				}))
-			},
+	const alice_msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V5", [
+		Enum('SetHints', {
+			hints: [
+				Enum('AssetClaimer', {
+					location: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+							network: Enum("ByGenesis", Binary.fromBytes(WESTEND_NETWORK)),
+							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+						}))
+					},
+				})
+			],
 		}),
-		XcmV4Instruction.WithdrawAsset([{
+		Enum('WithdrawAsset', [{
 			id: { parents: 1, interior: XcmV3Junctions.Here() },
 			fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
 		}]),
-		XcmV4Instruction.ClearOrigin(),
+		Enum('ClearOrigin'),
 	]);
 	const alice_weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(alice_msg);
 
@@ -87,7 +93,7 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 	const trapResult = await trapTx.signAndSubmit(aliceSigner);
 	expect(trapResult.ok).toBeTruthy();
 
-	const bob_msg = Enum("V4", [
+	const bob_msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V4", [
 		XcmV4Instruction.ClaimAsset({
 			assets: [{
 				id: { parents: 1, interior: XcmV3Junctions.Here() },
@@ -494,3 +500,5 @@ test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", asyn
 	const r = await penpalToAH.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
 })
+
+
