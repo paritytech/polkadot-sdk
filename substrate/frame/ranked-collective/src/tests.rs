@@ -19,10 +19,7 @@
 
 use std::collections::BTreeMap;
 
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU16, EitherOf, MapSuccess, Polling},
-};
+
 use frame::testing_prelude::*;
 use frame::deps::sp_core::Get;
 
@@ -495,7 +492,7 @@ fn ensure_ranked_works() {
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 
-		use frame_support::traits::OriginTrait;
+		use frame::traits::OriginTrait;
 		type Rank1 = EnsureRanked<Test, (), 1>;
 		type Rank2 = EnsureRanked<Test, (), 2>;
 		type Rank3 = EnsureRanked<Test, (), 3>;
