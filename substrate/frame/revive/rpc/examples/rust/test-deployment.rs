@@ -121,22 +121,21 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 	let client = HttpClientBuilder::default().build("http://localhost:8545")?;
 
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	println!("-  nonce: {nonce:?}");
-
 	let balance = client.get_balance(account.address(), BlockTag::Latest.into()).await?;
+	println!("-  nonce: {nonce:?}");
 	println!("-  balance: {balance:?}");
 
 	println!("\n\n=== Deploying dummy contract ===\n\n");
 	let hash = TransactionBuilder::default().input(input).send(&client).await?;
 
 	println!("Hash: {hash:?}");
-	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{hash:?}");
 	println!("\nWaiting for receipt...");
 	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
 		wait_for_receipt(&client, hash).await?;
 
 	let contract_address = contract_address.unwrap();
 	println!("Receipt:");
+	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{hash:?}");
 	println!("- Block number: {block_number}");
 	println!("- Gas used: {gas_used}");
 	println!("- Address: {contract_address:?}");
@@ -145,11 +144,11 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 	let hash = TransactionBuilder::default().to(contract_address).send(&client).await?;
 
 	println!("Hash: {hash:?}");
-	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{hash:?}");
 	println!("\nWaiting for receipt...");
 
 	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;
 	println!("Receipt:");
+	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{hash:?}");
 	println!("- Block number: {block_number}");
 	println!("- Gas used: {gas_used}");
 	println!("- To: {to:?}");
