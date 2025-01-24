@@ -1759,8 +1759,8 @@ mod benchmarks {
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
 		assert_eq!(
 			T::Currency::balance(&account_id),
-			Pallet::<T>::min_balance()
-				+ Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
+			Pallet::<T>::min_balance() +
+				Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
 					.unwrap()
 		);
 		Ok(())
