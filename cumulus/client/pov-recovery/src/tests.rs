@@ -503,6 +503,10 @@ impl RelayChainInterface for Relaychain {
 	) -> RelayChainResult<Vec<u8>> {
 		unimplemented!("Not needed for test")
 	}
+
+	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCandidateReceipt> {

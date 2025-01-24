@@ -347,6 +347,10 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	) -> RelayChainResult<Vec<u8>> {
 		unimplemented!("Not needed for test")
 	}
+
+	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn make_validator_and_api() -> (

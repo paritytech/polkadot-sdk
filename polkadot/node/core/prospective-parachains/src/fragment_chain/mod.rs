@@ -512,8 +512,6 @@ impl Scope {
 			}
 		}
 
-		println!("ALIN: {max_backable_len}");
-
 		Ok(Scope {
 			relay_parent,
 			base_constraints,
