@@ -103,25 +103,18 @@ impl_opaque_keys! {
 pub const PARACHAIN_ID: u32 = 100;
 
 #[cfg(not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
-#[cfg(not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms")))]
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-#[cfg(not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms")))]
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
 
-#[cfg(all(feature = "elastic-scaling", not(feature = "elastic-scaling-500ms")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
-#[cfg(all(feature = "elastic-scaling", not(feature = "elastic-scaling-500ms")))]
-const BLOCK_PROCESSING_VELOCITY: u32 = 4;
 #[cfg(all(feature = "elastic-scaling", not(feature = "elastic-scaling-500ms")))]
 pub const MILLISECS_PER_BLOCK: u64 = 2000;
 
 #[cfg(feature = "elastic-scaling-500ms")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 30;
-#[cfg(feature = "elastic-scaling-500ms")]
-const BLOCK_PROCESSING_VELOCITY: u32 = 12;
-#[cfg(feature = "elastic-scaling-500ms")]
 pub const MILLISECS_PER_BLOCK: u64 = 500;
+
+const BLOCK_PROCESSING_VELOCITY: u32 = RELAY_CHAIN_SLOT_DURATION_MILLIS / MILLISECS_PER_BLOCK;
+
+// The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 2 + 2;
 
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 

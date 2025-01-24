@@ -68,5 +68,7 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 	// candidates.
 	assert_finalized_block_height(&para_node.wait_client().await?, 5..9).await?;
 
+	log::info!("Test finished successfully");
+
 	Ok(())
 }
