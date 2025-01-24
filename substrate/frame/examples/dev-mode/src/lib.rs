@@ -51,10 +51,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config:
-		pallet_balances::Config + frame_system::Config<RuntimeEvent: From<Event<Self>>>
-	{
-	}
+	pub trait Config: pallet_balances::Config + frame_system::Config {}
 
 	// Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
 	// method.

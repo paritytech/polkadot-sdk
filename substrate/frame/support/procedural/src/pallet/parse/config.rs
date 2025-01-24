@@ -300,7 +300,7 @@ fn check_event_type(
 /// Check that the path to `frame_system::Config` is valid, this is that the path is just
 /// `frame_system::Config` or when using the `frame` crate it is
 /// `polkadot_sdk_frame::xyz::frame_system::Config`.
-fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool {
+pub(crate) fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool {
 	// Check if `frame_system` is actually 'frame_system'.
 	if path.segments.iter().all(|s| s.ident != "frame_system") {
 		return false;
@@ -374,7 +374,7 @@ fn contains_type_info_bound(ty: &TraitItemType) -> bool {
 /// NOTE: Does not check if the supertrait path is valid system config path.
 ///
 /// ```rs
-/// pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+/// pub trait Config: frame_system::Config {
 /// ```
 fn contains_runtime_event_associated_type_bound(supertrait: &syn::Path) -> bool {
 	if let Some(args) = supertrait.segments.iter().find(|s| s.ident == "Config") {
@@ -474,6 +474,15 @@ impl ConfigDef {
 			let mut already_constant = false;
 			let mut already_no_default_bounds = false;
 			let mut already_collected_associated_type = None;
+
+			// add deprecation notice for `RuntimeEvent`, iff pallet is not `frame_system`
+			if is_event && has_frame_system_supertrait {
+				if let syn::TraitItem::Type(type_event) = trait_item {
+					type_event
+						.attrs
+						.push(syn::parse_quote!(#[deprecated(note = "`RuntimeEvent` associated type is deprecated, there is no need to define it in the pallet config.")]));
+				}
+			}
 
 			while let Ok(Some(pallet_attr)) =
 				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)
@@ -766,9 +775,7 @@ mod tests {
 
 	#[test]
 	fn contains_runtime_event_associated_type_bound_works() {
-		let supertrait = syn::parse2::<syn::Path>(quote::quote!(
-			Config<RuntimeEvent: From<Event<Self>>>
-		));
+		let supertrait = syn::parse2::<syn::Path>(quote::quote!(Config));
 		assert!(contains_runtime_event_associated_type_bound(&supertrait.unwrap()));
 	}
 	#[test]
@@ -781,9 +788,7 @@ mod tests {
 
 	#[test]
 	fn contains_runtime_event_associated_type_bound_works_full_path() {
-		let supertrait = syn::parse2::<syn::Path>(quote::quote!(
-			frame_system::Config<RuntimeEvent: From<Event<Self>>>
-		));
+		let supertrait = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config));
 		assert!(contains_runtime_event_associated_type_bound(&supertrait.unwrap()));
 	}
 

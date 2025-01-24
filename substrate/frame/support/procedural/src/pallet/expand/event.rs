@@ -145,7 +145,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		// `RuntimeEvent` can be defined either as associated type in `Config` or as a type bound in
 		// system supertrait.
-		let runtime_event_path = if def.config.has_event_bound {
+		let runtime_event_path = if def.config.has_event_bound || !def.config.has_event_type {
 			quote::quote! { <T as #frame_system::Config>::RuntimeEvent }
 		} else {
 			quote::quote! { <T as Config #trait_use_gen>::RuntimeEvent }

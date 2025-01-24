@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pallet::Def;
+use crate::pallet::{parse::config::has_expected_system_config, Def};
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::{parse_quote, Item};
+use quote::{quote, ToTokens};
+use syn::{parse_quote, Item, PathArguments, TypeParamBound};
 
 ///
 /// * Generate default rust doc
@@ -47,6 +47,39 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 			]
 		),
 	);
+
+	// insert `frame_system::Config` supertrait with `RuntimeEvent: From<Event<Self>>` if neither
+	// associated type nor type bound is defined.
+	if def.event.is_some() && !config.has_event_type && !config.has_event_bound {
+		// find the `frame_system::Config` supertrait
+		let frame_system = crate::generate_access_from_frame_or_crate("frame-system")
+			.expect("should have access to frame-system");
+
+		if let Some(TypeParamBound::Trait(trait_bound)) =
+			config_item.supertraits.iter_mut().find(|s| {
+				syn::parse2::<syn::Path>(s.to_token_stream())
+					.map_or(false, |b| has_expected_system_config(b, &frame_system))
+			}) {
+			let event_bound: syn::GenericArgument = parse_quote!(RuntimeEvent: From<Event<Self>>);
+
+			if let Some(segment) =
+				trait_bound.path.segments.iter_mut().find(|s| s.ident == "Config")
+			{
+				match &mut segment.arguments {
+					// when `Config<SomeType: Bound`
+					syn::PathArguments::AngleBracketed(args) => {
+						args.args.push(event_bound);
+					},
+					// when `Config`
+					syn::PathArguments::None => {
+						segment.arguments =
+							PathArguments::AngleBracketed(parse_quote!(<#event_bound>));
+					},
+					_ => unreachable!("Checked by has_expected_system_config"),
+				}
+			}
+		}
+	}
 
 	// we only emit `DefaultConfig` if there are trait items, so an empty `DefaultConfig` is
 	// impossible consequently.
@@ -142,4 +175,15 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 			}
 		}
 	)
+}
+
+#[test]
+fn test_parse_quote() {
+	// pub trait Config: pallet_balances::Config + frame_system::Config<RuntimeEvent:
+	// From<Event<Self>>>{
+
+	// the `RuntimeEvent: From<Event<Self>>` part
+	let event: syn::AngleBracketedGenericArguments = parse_quote!(RuntimeEvent: From<Event<Self>>);
+	let event_bound = syn::parse2::<syn::PathSegment>(event.to_token_stream()).unwrap();
+	println!("{:?}", event_bound);
 }

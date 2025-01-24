@@ -57,7 +57,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+	pub trait Config: frame_system::Config {
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
 	}

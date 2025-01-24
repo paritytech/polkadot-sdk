@@ -43,7 +43,7 @@ pub mod pallet {
 	///
 	/// It will be an identical, but won't have anything that is `#[pallet::no_default]`.
 	#[pallet::config(with_default)]
-	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+	pub trait Config: frame_system::Config {
 		/// The overarching task type.
 		#[pallet::no_default]
 		type RuntimeTask: Task;
