@@ -35,7 +35,11 @@ pub(crate) fn bridged_roc_at_ah_westend() -> Location {
 	Location::new(2, [GlobalConsensus(Rococo)])
 }
 
+<<<<<<< HEAD
 // wWND
+=======
+// WND and wWND
+>>>>>>> 7710483 (Bridges: emulated tests small nits/improvements (#7322))
 pub(crate) fn bridged_wnd_at_ah_rococo() -> Location {
 	Location::new(2, [GlobalConsensus(Westend)])
 }
