@@ -203,7 +203,6 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
 		traits::{
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
 			Everything, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
@@ -548,12 +547,6 @@ pub mod arithmetic {
 /// All token related types and traits.
 pub mod token {
 	pub use frame_support::traits::{
-		fungible::{
-			Balanced as FungibleBalanced, Inspect as FungibleInspect,
-			InspectHold as FungibleInspectHold, Mutate as FungibleMutate,
-			MutateHold as FungibleMutateHold,
-		},
-		nonfungible::{Inspect as NonFungibleInspect, Transfer as NonFungibleTransfer},
 		tokens::*,
 		OnUnbalanced,
 	};

@@ -23,6 +23,7 @@ use crate::{
 	mock::{Balance, *},
 	*,
 };
+use fungible::InspectHold;
 
 fn pot() -> Balance {
 	Balances::free_balance(&Nis::account_id())
