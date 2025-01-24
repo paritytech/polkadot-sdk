@@ -49,7 +49,7 @@ pub type Xcm<Call> = crate::XcmBase<Instruction<Call>>;
 /// A prelude for importing all types typically used when interacting with XCM messages.
 pub mod prelude {
 	mod contents {
-		pub use super::super::VERSION as XCM_VERSION;
+		pub use super::super::{VERSION as XCM_VERSION, XcmWeightInfo, instructions};
 		pub use crate::v5::prelude::{
 			Ancestor, AncestorThen, Asset,
 			AssetFilter::{self, *},
@@ -68,11 +68,10 @@ pub mod prelude {
 			WeightLimit::{self, *},
 			WildAsset::{self, *},
 			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
-			XcmContext, XcmError, XcmHash, XcmResult, XcmWeightInfo,
+			XcmContext, XcmError, XcmHash, XcmResult,
 		};
 		pub use crate::v6::Instruction::{self, *};
 	}
-	pub use super::instructions;
 	pub use super::{InstructionsV6, Xcm};
 	pub use crate::traits::{send_xcm, validate_send, ExecuteXcm, SendResult, SendXcm};
 	pub use contents::*;
@@ -86,7 +85,7 @@ pub mod prelude {
 
 apply_instructions!(impl_xcm_instruction, pub enum InstructionsV6<Call>);
 
-#[derive(Educe, Encode, Decode, TypeInfo)]
+#[derive(Educe, Encode, Decode, TypeInfo, xcm_procedural::XcmWeightInfoTrait)]
 #[educe(Clone(bound = false), Eq, PartialEq(bound = false), Debug(bound = false))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
@@ -862,5 +861,80 @@ impl<Call> TryFrom<Instruction<Call>> for OldInstruction<Call> {
 			},
 			Instruction::SetHints { hints } => Self::SetHints { hints },
 		})
+	}
+}
+
+// TODO: Automate Generation
+impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
+	fn weight(&self) -> Weight {
+		use Instruction::*;
+		match self {
+			WithdrawAsset(assets) => W::withdraw_asset(assets),
+			ReserveAssetDeposited(assets) => W::reserve_asset_deposited(assets),
+			ReceiveTeleportedAsset(assets) => W::receive_teleported_asset(assets),
+			QueryResponse { query_id, response, max_weight, querier } =>
+				W::query_response(query_id, response, max_weight, querier),
+			TransferAsset { assets, beneficiary } => W::transfer_asset(assets, beneficiary),
+			TransferReserveAsset { assets, dest, xcm } =>
+				W::transfer_reserve_asset(&assets, dest, xcm),
+			Transact { origin_kind, fallback_max_weight, call } =>
+				W::transact(origin_kind, fallback_max_weight, call),
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
+				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity),
+			HrmpChannelAccepted { recipient } => W::hrmp_channel_accepted(recipient),
+			HrmpChannelClosing { initiator, sender, recipient } =>
+				W::hrmp_channel_closing(initiator, sender, recipient),
+			ClearOrigin => W::clear_origin(),
+			DescendOrigin(who) => W::descend_origin(who),
+			ReportError(response_info) => W::report_error(&response_info),
+			DepositAsset { assets, beneficiary } => W::deposit_asset(assets, beneficiary),
+			DepositReserveAsset { assets, dest, xcm } =>
+				W::deposit_reserve_asset(assets, dest, xcm),
+			ExchangeAsset { give, want, maximal } => W::exchange_asset(give, want, maximal),
+			InitiateReserveWithdraw { assets, reserve, xcm } =>
+				W::initiate_reserve_withdraw(assets, reserve, xcm),
+			InitiateTeleport { assets, dest, xcm } => W::initiate_teleport(assets, dest, xcm),
+			ReportHolding { response_info, assets } => W::report_holding(&response_info, &assets),
+			BuyExecution { fees, weight_limit } => W::buy_execution(fees, weight_limit),
+			RefundSurplus => W::refund_surplus(),
+			SetErrorHandler(xcm) => W::set_error_handler(xcm),
+			SetAppendix(xcm) => W::set_appendix(xcm),
+			ClearError => W::clear_error(),
+			SetHints { hints } => W::set_hints(hints),
+			ClaimAsset { assets, ticket } => W::claim_asset(assets, ticket),
+			Trap(code) => W::trap(code),
+			SubscribeVersion { query_id, max_response_weight } =>
+				W::subscribe_version(query_id, max_response_weight),
+			UnsubscribeVersion => W::unsubscribe_version(),
+			BurnAsset(assets) => W::burn_asset(assets),
+			ExpectAsset(assets) => W::expect_asset(assets),
+			ExpectOrigin(origin) => W::expect_origin(origin),
+			ExpectError(error) => W::expect_error(error),
+			ExpectTransactStatus(transact_status) => W::expect_transact_status(transact_status),
+			QueryPallet { module_name, response_info } =>
+				W::query_pallet(module_name, response_info),
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } =>
+				W::expect_pallet(index, name, module_name, crate_major, min_crate_minor),
+			ReportTransactStatus(response_info) => W::report_transact_status(response_info),
+			ClearTransactStatus => W::clear_transact_status(),
+			UniversalOrigin(j) => W::universal_origin(j),
+			ExportMessage { network, destination, xcm } =>
+				W::export_message(network, destination, xcm),
+			LockAsset { asset, unlocker } => W::lock_asset(asset, unlocker),
+			UnlockAsset { asset, target } => W::unlock_asset(asset, target),
+			NoteUnlockable { asset, owner } => W::note_unlockable(asset, owner),
+			RequestUnlock { asset, locker } => W::request_unlock(asset, locker),
+			SetFeesMode { jit_withdraw } => W::set_fees_mode(jit_withdraw),
+			SetTopic(topic) => W::set_topic(topic),
+			ClearTopic => W::clear_topic(),
+			AliasOrigin(location) => W::alias_origin(location),
+			UnpaidExecution { weight_limit, check_origin } =>
+				W::unpaid_execution(weight_limit, check_origin),
+			PayFees { asset } => W::pay_fees(asset),
+			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
+				W::initiate_transfer(destination, remote_fees, preserve_origin, assets, remote_xcm),
+			ExecuteWithOrigin { descendant_origin, xcm } =>
+				W::execute_with_origin(descendant_origin, xcm),
+		}
 	}
 }
