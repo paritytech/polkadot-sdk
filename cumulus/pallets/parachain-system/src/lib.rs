@@ -692,7 +692,12 @@ pub mod pallet {
 				vfp.relay_parent_number,
 			));
 
-			Ok(PostDispatchInfo { actual_weight: Some(total_weight), pays_fee: Pays::No })
+			frame_system::Pallet<T>::register_extra_weight_unchecked(
+				total_weight,
+				DispatchClass::Mandatory,
+			);
+
+			Ok(Pays::No.into())
 		}
 
 		#[pallet::call_index(1)]
