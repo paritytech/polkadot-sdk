@@ -22,8 +22,8 @@ use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
 	async_backing, slashing, vstaging,
 	vstaging::{
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes,
+		async_backing::Constraints, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
 	},
 	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
 	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId,
@@ -309,6 +309,14 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	}
 
 	async fn scheduling_lookahead(&self, _: Hash) -> Result<u32, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn backing_constraints(
+		&self,
+		_at: Hash,
+		_para_id: ParaId,
+	) -> Result<Option<Constraints>, ApiError> {
 		todo!("Not required for tests")
 	}
 }

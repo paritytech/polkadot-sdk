@@ -18,10 +18,10 @@ use async_trait::async_trait;
 use polkadot_primitives::{
 	async_backing,
 	runtime_api::ParachainHost,
-	slashing, vstaging,
+	slashing,
 	vstaging::{
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes,
+		self, async_backing::Constraints, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
 	},
 	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
@@ -341,6 +341,15 @@ pub trait RuntimeApiSubsystemClient {
 		para_id: Id,
 	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError>;
 
+	// == v12 ==
+	/// Get the constraints on the actions that can be taken by a new parachain
+	/// block.
+	async fn backing_constraints(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Option<Constraints>, ApiError>;
+
 	// === v12 ===
 	/// Fetch the scheduling lookahead value
 	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError>;
@@ -620,6 +629,14 @@ where
 
 	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError> {
 		self.client.runtime_api().claim_queue(at)
+	}
+
+	async fn backing_constraints(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Option<Constraints>, ApiError> {
+		self.client.runtime_api().backing_constraints(at, para_id)
 	}
 
 	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError> {

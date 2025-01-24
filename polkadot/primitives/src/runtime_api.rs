@@ -116,8 +116,8 @@
 use crate::{
 	slashing,
 	vstaging::{
-		self, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes,
+		self, async_backing::Constraints, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
 	},
 	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateHash,
 	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
@@ -298,7 +298,13 @@ sp_api::decl_runtime_apis! {
 		#[api_version(11)]
 		fn candidates_pending_availability(para_id: ppp::Id) -> Vec<CommittedCandidateReceipt<Hash>>;
 
-		/***** Vstaging *****/
+		/***** Added in v12 *****/
+		/// Returns the constraints on the actions that can be taken by a new parachain
+		/// block.
+		#[api_version(12)]
+		fn backing_constraints(para_id: ppp::Id) -> Option<Constraints>;
+
+		/***** Added in v12 *****/
 		/// Retrieve the scheduling lookahead
 		#[api_version(12)]
 		fn scheduling_lookahead() -> u32;
