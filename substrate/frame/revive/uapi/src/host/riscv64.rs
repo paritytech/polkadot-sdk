@@ -16,7 +16,7 @@
 
 use crate::{
 	host::{CallFlags, HostFn, HostFnImpl, Result, StorageFlags},
-	ReturnFlags,
+	pack_hi_lo, ReturnFlags,
 };
 use pallet_revive_proc_macro::unstable_hostfn;
 
@@ -182,11 +182,6 @@ fn ptr_or_sentinel(data: &Option<&[u8; 32]>) -> *const u8 {
 		Some(ref data) => data.as_ptr(),
 		None => crate::SENTINEL as _,
 	}
-}
-
-/// Helper to pack two `u32` values into a `u64` register.
-fn pack_hi_lo(hi: u32, lo: u32) -> u64 {
-	((hi as u64) << 32) | lo as u64
 }
 
 impl HostFn for HostFnImpl {

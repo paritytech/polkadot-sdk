@@ -131,3 +131,8 @@ impl ReturnCode {
 }
 
 type Result = core::result::Result<(), ReturnErrorCode>;
+
+/// Helper to pack two `u32` values into a `u64` register.
+pub fn pack_hi_lo(hi: u32, lo: u32) -> u64 {
+	((hi as u64) << 32) | lo as u64
+}

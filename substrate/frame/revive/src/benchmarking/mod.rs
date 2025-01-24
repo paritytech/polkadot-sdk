@@ -39,7 +39,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
-use pallet_revive_uapi::{CallFlags, ReturnErrorCode, StorageFlags};
+use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
 use sp_runtime::traits::{Bounded, Hash};
 
 /// How many runs we do per API benchmark.
@@ -1650,16 +1650,12 @@ mod benchmarks {
 		{
 			result = runtime.bench_call(
 				memory.as_mut_slice(),
-				CallFlags::CLONE_INPUT.bits(), // flags
-				0,                             // callee_ptr
-				u64::MAX,                      // ref_time_limit
-				u64::MAX,                      // proof_size_limit
-				callee_len,                    // deposit_ptr
-				callee_len + deposit_len,      // value_ptr
-				0,                             // input_data_ptr
-				0,                             // input_data_len
-				SENTINEL,                      // output_ptr
-				0,                             // output_len_ptr
+				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+				u64::MAX,                                     // ref_time_limit
+				u64::MAX,                                     // proof_size_limit
+				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+				pack_hi_lo(0, 0),                             // input len + data ptr
+				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
 			);
 		}
 
@@ -1690,15 +1686,12 @@ mod benchmarks {
 		{
 			result = runtime.bench_delegate_call(
 				memory.as_mut_slice(),
-				0,           // flags
-				0,           // address_ptr
-				u64::MAX,    // ref_time_limit
-				u64::MAX,    // proof_size_limit
-				address_len, // deposit_ptr
-				0,           // input_data_ptr
-				0,           // input_data_len
-				SENTINEL,    // output_ptr
-				0,
+				pack_hi_lo(0, 0),        // flags + address ptr
+				u64::MAX,                // ref_time_limit
+				u64::MAX,                // proof_size_limit
+				address_len,             // deposit_ptr
+				pack_hi_lo(0, 0),        // input len + data ptr
+				pack_hi_lo(0, SENTINEL), // output len + ptr
 			);
 		}
 
@@ -1713,7 +1706,6 @@ mod benchmarks {
 		let code = WasmModule::dummy();
 		let hash = Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
-		let hash_len = hash_bytes.len() as u32;
 
 		let value: BalanceOf<T> = 1_000_000u32.into();
 		let value_bytes = Into::<U256>::into(value).encode();
@@ -1732,11 +1724,12 @@ mod benchmarks {
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 
 		let input = vec![42u8; i as _];
+		let input_len = hash_bytes.len() as u32 + input.len() as u32;
 		let salt = [42u8; 32];
 		let deployer = T::AddressMapper::to_address(&account_id);
 		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
-		let mut memory = memory!(hash_bytes, deposit_bytes, value_bytes, input, salt,);
+		let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
 
 		let mut offset = {
 			let mut current = 0u32;
@@ -1753,17 +1746,12 @@ mod benchmarks {
 		{
 			result = runtime.bench_instantiate(
 				memory.as_mut_slice(),
-				0,                   // code_hash_ptr
-				u64::MAX,            // ref_time_limit
-				u64::MAX,            // proof_size_limit
-				offset(hash_len),    // deposit_ptr
-				offset(deposit_len), // value_ptr
-				offset(value_len),   // input_data_ptr
-				i,                   // input_data_len
-				SENTINEL,            // address_ptr
-				SENTINEL,            // output_ptr
-				0,                   // output_len_ptr
-				offset(i),           // salt_ptr
+				u64::MAX,                                           // ref_time_limit
+				u64::MAX,                                           // proof_size_limit
+				pack_hi_lo(offset(input_len), offset(deposit_len)), // deopsit_ptr + value_ptr
+				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
+				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
+				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
 			);
 		}
 
@@ -1771,8 +1759,8 @@ mod benchmarks {
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
 		assert_eq!(
 			T::Currency::balance(&account_id),
-			Pallet::<T>::min_balance() +
-				Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
+			Pallet::<T>::min_balance()
+				+ Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
 					.unwrap()
 		);
 		Ok(())
