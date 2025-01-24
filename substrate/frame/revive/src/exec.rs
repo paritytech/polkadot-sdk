@@ -1040,7 +1040,7 @@ where
 				// the runtime could remove the account. As long as a contract exists its
 				// account must exist. With the consumer, a correct runtime cannot remove the
 				// account.
-				<System<T>>::inc_consumers(&frame.account_id)?;
+				<System<T>>::inc_consumers(account_id)?;
 
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
