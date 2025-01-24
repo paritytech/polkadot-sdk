@@ -32,22 +32,15 @@ use sp_runtime::traits::One;
 const SEED: u32 = 0;
 
 pub fn next_block<T: Config>() {
-	let when = T::BlockNumberProvider::current_block_number().saturating_add( One::one());
+	let when = T::BlockNumberProvider::current_block_number().saturating_add(One::one());
 	run_to_block::<T>(when);
-	Democracy::Pallet::<T>::on_initialize(
-		frame_system::Pallet::<T>::block_number(),
-	);
-	crate::Pallet::<T>::on_idle(
-		frame_system::Pallet::<T>::block_number(),
-		Weight::MAX,
-	);
+	Democracy::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+	crate::Pallet::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
 }
 pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
 	while T::BlockNumberProvider::current_block_number() < n {
 		if T::BlockNumberProvider::current_block_number() > One::one() {
-			Democracy::Pallet::<T>::on_finalize(
-				frame_system::Pallet::<T>::block_number(),
-			);
+			Democracy::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
 		}
 		next_block::<T>();
 	}
@@ -55,7 +48,7 @@ pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
 
 fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<(), &'static str> {
 	let mut batch: Vec<_> = Vec::new();
-	for i in 0..n+1 {
+	for i in 0..n + 1 {
 		let project_id = account("project", i, SEED);
 		batch.push(project_id);
 	}
@@ -76,14 +69,11 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn vote(r: Linear<1, 500>){
+	fn vote(r: Linear<1, 500>) {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		let _ = add_whitelisted_project::<T>(r, caller.clone());
-		assert_eq!(
-			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()),
-			true
-		);
+		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(account0.clone()), true);
 
 		let when = T::BlockNumberProvider::current_block_number() + One::one();
 		run_to_block::<T>(when);
@@ -96,8 +86,6 @@ mod benchmarks {
 		let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 10u32.into() * (r).into();
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account0, value, true, Conviction::Locked1x);
-
-		
 	}
 
 	#[benchmark]
@@ -187,7 +175,9 @@ mod benchmarks {
 		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
 
 		let _ = T::NativeBalance::mint_into(&caller, caller_balance);
-		let value: BalanceOf<T> = T::NativeBalance::minimum_balance().saturating_mul( 100u32.into()).saturating_mul(r.into());
+		let value: BalanceOf<T> = T::NativeBalance::minimum_balance()
+			.saturating_mul(100u32.into())
+			.saturating_mul(r.into());
 		Opf::<T>::vote(
 			RawOrigin::Signed(caller.clone()).into(),
 			account0.clone(),
