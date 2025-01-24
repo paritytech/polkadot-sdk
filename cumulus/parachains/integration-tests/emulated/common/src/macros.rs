@@ -644,9 +644,8 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 			let transfer_amount = 10_000_000_000_000u128;
 			let initial_balance = transfer_amount * 10;
 
-			// Bridge setup.
+			// AssetHub setup.
 			$sender_asset_hub::force_xcm_version($destination, XCM_VERSION);
-			open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
 
 			<$sender_asset_hub as TestExt>::execute_with(|| {
 				type Runtime = <$sender_asset_hub as Chain>::Runtime;
