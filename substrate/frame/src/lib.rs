@@ -546,10 +546,7 @@ pub mod arithmetic {
 
 /// All token related types and traits.
 pub mod token {
-	pub use frame_support::traits::{
-		tokens::*,
-		OnUnbalanced,
-	};
+	pub use frame_support::traits::{tokens::*, OnUnbalanced};
 }
 
 /// All derive macros used in frame.
