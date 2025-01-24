@@ -35,7 +35,7 @@ use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AssignmentPair, Block,
 	BlockNumber, GroupRotationInfo, HeadData, Header, IndexedVec, PersistedValidationData,
-	SessionIndex, SessionInfo, ValidatorPair,
+	SessionIndex, SessionInfo, ValidatorPair, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::ProtocolName;
@@ -183,23 +183,26 @@ impl TestState {
 	}
 
 	fn make_dummy_leaf(&self, relay_parent: Hash) -> TestLeaf {
-		self.make_dummy_leaf_with_multiple_cores_per_para(relay_parent, 1)
+		self.make_dummy_leaf_inner(relay_parent, 1, DEFAULT_SCHEDULING_LOOKAHEAD as usize)
 	}
 
-	fn make_dummy_leaf_with_multiple_cores_per_para(
+	fn make_dummy_leaf_inner(
 		&self,
 		relay_parent: Hash,
 		groups_for_first_para: usize,
+		scheduling_lookahead: usize,
 	) -> TestLeaf {
 		let mut cq = std::collections::BTreeMap::new();
 
 		for i in 0..self.session_info.validator_groups.len() {
 			if i < groups_for_first_para {
-				cq.entry(CoreIndex(i as u32))
-					.or_insert_with(|| vec![ParaId::from(0u32), ParaId::from(0u32)].into());
+				cq.entry(CoreIndex(i as u32)).or_insert_with(|| {
+					std::iter::repeat(ParaId::from(0u32)).take(scheduling_lookahead).collect()
+				});
 			} else {
-				cq.entry(CoreIndex(i as u32))
-					.or_insert_with(|| vec![ParaId::from(i), ParaId::from(i)].into());
+				cq.entry(CoreIndex(i as u32)).or_insert_with(|| {
+					std::iter::repeat(ParaId::from(i)).take(scheduling_lookahead).collect()
+				});
 			};
 		}
 
@@ -223,6 +226,26 @@ impl TestState {
 			minimum_backing_votes: 2,
 			claim_queue: ClaimQueueSnapshot(cq),
 		}
+	}
+
+	fn make_dummy_leaf_with_scheduling_lookahead(
+		&self,
+		relay_parent: Hash,
+		scheduling_lookahead: usize,
+	) -> TestLeaf {
+		self.make_dummy_leaf_inner(relay_parent, 1, scheduling_lookahead)
+	}
+
+	fn make_dummy_leaf_with_multiple_cores_per_para(
+		&self,
+		relay_parent: Hash,
+		groups_for_first_para: usize,
+	) -> TestLeaf {
+		self.make_dummy_leaf_inner(
+			relay_parent,
+			groups_for_first_para,
+			DEFAULT_SCHEDULING_LOOKAHEAD as usize,
+		)
 	}
 
 	fn make_dummy_leaf_with_disabled_validators(
@@ -583,8 +606,6 @@ async fn handle_leaf_activation(
 		minimum_backing_votes,
 		claim_queue,
 	} = leaf;
-
-	// TODO: see here what requests need mocking
 
 	let header = Header {
 		parent_hash: *parent_hash,

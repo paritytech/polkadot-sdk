@@ -734,8 +734,7 @@ fn cluster_accounts_for_implicit_view() {
 		// peer B never had the relay parent in its view, so this tests that
 		// the implicit view is working correctly for B.
 		//
-		// the fact that the statement isn't sent again to A also indicates that it works
-		// it's working.
+		// the fact that the statement isn't sent again to A also indicates that it's working.
 		assert_matches!(
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessages(messages)) => {
@@ -1022,17 +1021,14 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 
 #[test]
 fn ensure_seconding_limit_is_respected() {
-	// `max_candidate_depth: 1` for a `seconding_limit` of 2.
+	// use a scheduling_lookahead of two to restrict the per-core seconding limit to 2.
+	let scheduling_lookahead = 2;
 	let config = TestConfig {
 		validator_count: 20,
 		group_size: 4,
 		local_validator: LocalRole::Validator,
 		allow_v2_descriptors: false,
 	};
-	// async_backing_params: Some(AsyncBackingParams {
-	// 	max_candidate_depth: 1,
-	// 	allowed_ancestry_len: 3,
-	// }),
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 
@@ -1041,7 +1037,8 @@ fn ensure_seconding_limit_is_respected() {
 		let local_group_index = local_validator.group_index.unwrap();
 		let local_para = ParaId::from(local_group_index.0);
 
-		let test_leaf = state.make_dummy_leaf(relay_parent);
+		let test_leaf =
+			state.make_dummy_leaf_with_scheduling_lookahead(relay_parent, scheduling_lookahead);
 
 		let (candidate_1, pvd_1) = make_candidate(
 			relay_parent,
@@ -1259,7 +1256,7 @@ fn delayed_reputation_changes() {
 			reputation: ReputationAggregator::new(|_| false),
 		};
 
-		if let Err(e) = subsystem.run_inner(context, Duration::from_millis(500)).await {
+		if let Err(e) = subsystem.run_inner(context, Duration::from_millis(100)).await {
 			panic!("Fatal error: {:?}", e);
 		}
 	};
@@ -1303,13 +1300,16 @@ fn delayed_reputation_changes() {
 		)
 		.await;
 
-		// TODO: this needs fixing
+		assert_matches!(virtual_overseer.rx.next().timeout(Duration::from_millis(50)).await, None);
+		// Wait enough to fire reputation delay
+		futures_timer::Delay::new(Duration::from_millis(60)).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r))) => {
-				assert_eq!(p, peer_a);
-				assert_eq!(r, COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED.into());
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Batch(reps))) => {
+				let mut expected = HashMap::new();
+				expected.insert(peer_a, COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED.cost_or_benefit());
+				assert_eq!(expected, reps);
 			}
 		);
 

@@ -683,7 +683,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				.map_err(JfyiError::FetchClaimQueue)?,
 		);
 
-		let (groups_per_para, assignments_per_group) = determine_groups_per_para(
+		let (groups_per_para, assignments_per_group) = determine_group_assignments(
 			per_session.groups.all().len(),
 			group_rotation_info,
 			&claim_queue,
@@ -2162,14 +2162,14 @@ async fn provide_candidate_to_grid<Context>(
 	}
 }
 
-// Utility function to populate per relay parent `ParaId` to `GroupIndex` mappings.
-// TODO: rename this
-async fn determine_groups_per_para(
+// Utility function to populate:
+// - per relay parent `ParaId` to `GroupIndex` mappings.
+// - per `GroupIndex` claim queue assignments
+async fn determine_group_assignments(
 	n_cores: usize,
 	group_rotation_info: GroupRotationInfo,
 	claim_queue: &ClaimQueueSnapshot,
 ) -> (HashMap<ParaId, Vec<GroupIndex>>, HashMap<GroupIndex, Vec<ParaId>>) {
-	//
 	// Determine the core indices occupied by each para at the current relay parent. To support
 	// on-demand parachains we also consider the core indices at next blocks.
 	let schedule: HashMap<CoreIndex, Vec<ParaId>> = claim_queue
