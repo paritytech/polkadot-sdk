@@ -39,7 +39,6 @@ polkadot-primitives = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 [dev-dependencies]
-portpicker = { workspace = true }
 rstest = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 url = { workspace = true }
