@@ -985,6 +985,7 @@ dependencies = [
  "pallet-asset-conversion-ops 0.1.0",
  "pallet-asset-conversion-tx-payment 10.0.0",
  "pallet-asset-rate 7.0.0",
+ "pallet-asset-rewards",
  "pallet-assets 29.1.0",
  "pallet-assets-freezer 0.1.0",
  "pallet-aura 27.0.0",
