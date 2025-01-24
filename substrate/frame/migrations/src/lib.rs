@@ -145,6 +145,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod migrations;
 mod mock;
 pub mod mock_helpers;
 mod tests;
