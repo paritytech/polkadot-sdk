@@ -251,12 +251,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: BlockNumberOrTag,
 		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
-		log::debug!(target: LOG_TARGET, "get_block_by_number({block:?})");
 		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
-			log::debug!(target: LOG_TARGET, "block {block:?} not found");
 			return Ok(None);
 		};
-		log::debug!(target: LOG_TARGET, "Building evm block");
 		let block = self.client.evm_block(block, hydrated_transactions).await;
 		Ok(Some(block))
 	}
