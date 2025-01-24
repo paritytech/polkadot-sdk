@@ -526,7 +526,7 @@ test("Teleport and Transact from Westend's Asset Hub to Penpal", async () => {
 		)
 	);
 
-	const msg = Enum('V5', [
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
 		XcmV4Instruction.WithdrawAsset([
 			{
 				id: { parents: 1, interior: XcmV3Junctions.Here() },
@@ -581,7 +581,7 @@ test("Teleport and Transact from Westend's Asset Hub to Penpal", async () => {
 });
 
 test("Initiate Teleport XCM v5 from Westend's Asset Hub to Westend People w/ InitiateTeleport", async () => {
-	const message = Enum('V5', [
+	const message: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
 		XcmV4Instruction.WithdrawAsset([
 			{
 				id: { parents: 1, interior: XcmV3Junctions.Here() },
@@ -637,7 +637,7 @@ test("Initiate Teleport XCM v5 from Westend's Asset Hub to Westend People w/ Ini
 });
 
 test("Initiate Teleport XCM v5 from Westend's Asset Hub to Westend People w/ InitiateTransfer", async () => {
-	const msg = Enum('V5', [
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
 		XcmV4Instruction.WithdrawAsset([
 			{
 				id: { parents: 1, interior: XcmV3Junctions.Here() },
