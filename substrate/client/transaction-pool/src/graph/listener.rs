@@ -89,7 +89,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		sender.new_watcher(hash)
 	}
 
-	/// Creates a new single stream for entire pool intended to watch dropped transactions only.
+	/// Creates a new single stream intended to watch dropped transactions only.
 	///
 	/// The stream can be used to subscribe to events related to dropping of all extrinsics in the
 	/// pool.
@@ -104,6 +104,9 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	/// The stream can be used to subscribe to life-cycle events of all extrinsics in the pool. For
 	/// some implementations (e.g. fork-aware pool) this approach may be more efficient than using
 	/// individual streams for every transaction.
+	///
+	/// Note: some of the events which are currently ignored on the other side of this channel
+	/// (external watcher) are not sent.
 	pub fn create_aggregated_stream(&mut self) -> AggregatedStream<H, BlockHash<C>> {
 		let (sender, aggregated_stream) =
 			tracing_unbounded("mpsc_txpool_aggregated_stream", 100_000);
@@ -166,7 +169,6 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		self.fire(tx, |watcher| watcher.limit_enforced());
 
 		self.send_to_dropped_stream_sink(tx, TransactionStatus::Dropped);
-		self.send_to_aggregated_stram_sink(tx, TransactionStatus::Dropped);
 	}
 
 	/// Transaction was replaced with other extrinsic.
@@ -175,7 +177,6 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		self.fire(tx, |watcher| watcher.usurped(by.clone()));
 
 		self.send_to_dropped_stream_sink(tx, TransactionStatus::Usurped(by.clone()));
-		self.send_to_aggregated_stram_sink(tx, TransactionStatus::Usurped(by.clone()));
 	}
 
 	/// Transaction was dropped from the pool because of the failure during the resubmission of
@@ -190,7 +191,6 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	pub fn invalid(&mut self, tx: &H) {
 		trace!(target: LOG_TARGET, "[{:?}] Extrinsic invalid", tx);
 		self.fire(tx, |watcher| watcher.invalid());
-		self.send_to_aggregated_stram_sink(tx, TransactionStatus::Invalid);
 	}
 
 	/// Transaction was pruned from the pool.

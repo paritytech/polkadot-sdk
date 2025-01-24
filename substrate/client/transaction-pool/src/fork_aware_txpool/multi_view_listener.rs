@@ -351,7 +351,6 @@ where
 					Some(status)
 				}
 			},
-			TransactionStatus::Broadcast(_) => None,
 			TransactionStatus::InBlock((..)) => {
 				self.views_keeping_tx_valid.insert(hash);
 				if !(self.ready_seen || self.future_seen) {
@@ -361,12 +360,13 @@ where
 					Some(status)
 				}
 			},
-			TransactionStatus::Retracted(_) => None,
 			TransactionStatus::FinalityTimeout(_) => Some(status),
 			TransactionStatus::Finalized(_) => {
 				self.terminate = true;
 				Some(status)
 			},
+			TransactionStatus::Retracted(_) |
+			TransactionStatus::Broadcast(_) |
 			TransactionStatus::Usurped(_) |
 			TransactionStatus::Dropped |
 			TransactionStatus::Invalid => None,
