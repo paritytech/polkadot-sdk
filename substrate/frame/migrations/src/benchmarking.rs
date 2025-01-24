@@ -19,8 +19,11 @@
 
 use super::*;
 
+use core::array;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
+use sp_core::{twox_128, Get};
+use sp_io::{storage, KillStorageResult};
 use sp_runtime::traits::One;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
@@ -202,6 +205,32 @@ mod benches {
 			RawOrigin::Root,
 			HistoricCleanupSelector::Wildcard { limit: n.into(), previous_cursor: None },
 		);
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn reset_pallet_migration(n: Linear<0, 2048>) -> Result<(), BenchmarkError> {
+		let prefix: [u8; 16] = twox_128(b"__ResetPalletBenchmarkPrefix__");
+
+		for i in 0..n {
+			// we need to avoid allocations here
+			let mut iter = prefix.into_iter().chain(i.to_le_bytes());
+			let key: [u8; 20] = array::from_fn(|_| iter.next().unwrap());
+			storage::set(&key, &[42]);
+		}
+
+		let result;
+
+		#[block]
+		{
+			result = storage::clear_prefix(&prefix, None);
+		}
+
+		match result {
+			KillStorageResult::AllRemoved(i) if i == n => (),
+			_ => Err("Unexpected number of keys were removed")?,
+		}
+
+		Ok(())
 	}
 
 	fn cursor<T: Config>() -> CursorOf<T> {
