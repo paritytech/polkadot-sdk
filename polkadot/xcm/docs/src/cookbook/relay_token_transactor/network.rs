@@ -78,9 +78,12 @@ pub fn relay_ext() -> TestExternalities {
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
-	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(ALICE, INITIAL_BALANCE)] }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_balances::GenesisConfig::<Runtime> {
+		balances: vec![(ALICE, INITIAL_BALANCE)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
