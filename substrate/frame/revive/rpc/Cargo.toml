@@ -23,6 +23,11 @@ path = "examples/rust/deploy.rs"
 required-features = ["example"]
 
 [[example]]
+name = "test-deployment"
+path = "examples/rust/test-deployment.rs"
+required-features = ["example"]
+
+[[example]]
 name = "transfer"
 path = "examples/rust/transfer.rs"
 required-features = ["example"]
@@ -44,7 +49,7 @@ required-features = ["example"]
 
 [dependencies]
 anyhow = { workspace = true }
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
 ethabi = { version = "18.0.0" }
 futures = { workspace = true, features = ["thread-pool"] }
