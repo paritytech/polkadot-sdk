@@ -17,12 +17,11 @@
 
 //! Tests for the module.
 
-use super::*;
-use frame_support::{assert_noop, assert_ok, assert_storage_noop};
-use mock::{
-	new_test_ext, run_to_block, Balances, BalancesCall, Lottery, RuntimeCall, RuntimeOrigin,
-	SystemCall, Test,
+use crate::{
+	mock::{Lottery, *},
+	*,
 };
+use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 use sp_runtime::{traits::BadOrigin, TokenError};
 
 #[test]
@@ -74,13 +73,13 @@ fn basic_end_to_end_works() {
 		assert_eq!(TicketsCount::<Test>::get(), 4);
 
 		// Go to end
-		run_to_block(20);
+		System::run_to_block::<AllPalletsWithSystem>(20);
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(5), call.clone()));
 		// Ticket isn't bought
 		assert_eq!(TicketsCount::<Test>::get(), 4);
 
 		// Go to payout
-		run_to_block(25);
+		System::run_to_block::<AllPalletsWithSystem>(25);
 		// User 1 wins
 		assert_eq!(Balances::free_balance(&1), 70 + 40);
 		// Lottery is reset and restarted
@@ -115,11 +114,11 @@ fn stop_repeat_works() {
 		// Lottery still exists.
 		assert!(crate::Lottery::<Test>::get().is_some());
 		// End and pick a winner.
-		run_to_block(length + delay);
+		System::run_to_block::<AllPalletsWithSystem>(length + delay);
 
 		// Lottery stays dead and does not repeat.
 		assert!(crate::Lottery::<Test>::get().is_none());
-		run_to_block(length + delay + 1);
+		System::run_to_block::<AllPalletsWithSystem>(length + delay + 1);
 		assert!(crate::Lottery::<Test>::get().is_none());
 	});
 }
@@ -281,7 +280,7 @@ fn buy_ticket_works() {
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), 1, 20, 5, false));
 
 		// Go to start, buy ticket for transfer
-		run_to_block(5);
+		System::run_to_block::<AllPalletsWithSystem>(5);
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call));
 		assert_eq!(TicketsCount::<Test>::get(), 1);
 
@@ -300,12 +299,12 @@ fn buy_ticket_works() {
 		assert_eq!(TicketsCount::<Test>::get(), 2);
 
 		// Go to end, can't buy tickets anymore
-		run_to_block(20);
+		System::run_to_block::<AllPalletsWithSystem>(20);
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(2), call.clone()));
 		assert_eq!(TicketsCount::<Test>::get(), 2);
 
 		// Go to payout, can't buy tickets when there is no lottery open
-		run_to_block(25);
+		System::run_to_block::<AllPalletsWithSystem>(25);
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(2), call.clone()));
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 		assert_eq!(LotteryIndex::<Test>::get(), 1);
@@ -409,7 +408,7 @@ fn no_participants_works() {
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), 10, length, delay, false));
 
 		// End the lottery, no one wins.
-		run_to_block(length + delay);
+		System::run_to_block::<AllPalletsWithSystem>(length + delay);
 	});
 }
 

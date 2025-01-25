@@ -389,8 +389,7 @@ where
 impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
 	ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	// TODO: Expose both version 4 and version 5 in metadata v16.
-	const VERSION: u8 = LEGACY_EXTRINSIC_FORMAT_VERSION;
+	const VERSIONS: &'static [u8] = &[LEGACY_EXTRINSIC_FORMAT_VERSION, EXTRINSIC_FORMAT_VERSION];
 	type TransactionExtensions = Extension;
 }
 
@@ -684,7 +683,7 @@ mod legacy {
 		Extra: Encode,
 	{
 		fn encode(&self) -> Vec<u8> {
-			let mut tmp = Vec::with_capacity(sp_std::mem::size_of::<Self>());
+			let mut tmp = Vec::with_capacity(core::mem::size_of::<Self>());
 
 			// 1 byte version id.
 			match self.signature.as_ref() {

@@ -49,10 +49,10 @@ chain-spec-builder create --relay-chain <relay_chain_id> --para-id <id> -r <runt
 
 ### 3. Run Omni Node
 
-And now with the generated chain spec we can start Omni Node like so:
+And now with the generated chain spec we can start the node in development mode like so:
 
 ```bash
-polkadot-omni-node --chain <chain_spec.json>
+polkadot-omni-node --dev --chain <chain_spec.json>
 ```
 
 ## Useful links

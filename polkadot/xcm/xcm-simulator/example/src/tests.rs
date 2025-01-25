@@ -47,6 +47,7 @@ fn dmp() {
 			Xcm(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
 				call: remark.encode().into(),
+				fallback_max_weight: None,
 			}]),
 		));
 	});
@@ -74,6 +75,7 @@ fn ump() {
 			Xcm(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
 				call: remark.encode().into(),
+				fallback_max_weight: None,
 			}]),
 		));
 	});
@@ -101,6 +103,7 @@ fn xcmp() {
 			Xcm(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
 				call: remark.encode().into(),
+				fallback_max_weight: None,
 			}]),
 		));
 	});
@@ -388,6 +391,7 @@ fn reserve_asset_class_create_and_reserve_transfer() {
 			)
 			.encode()
 			.into(),
+			fallback_max_weight: None,
 		}]);
 		// Send creation.
 		assert_ok!(RelayChainPalletXcm::send_xcm(Here, Parachain(1), message));

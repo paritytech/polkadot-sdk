@@ -133,10 +133,11 @@ fn default_parachains_host_configuration(
 		},
 		node_features: bitvec::vec::BitVec::from_element(
 			1u8 << (FeatureIndex::ElasticScalingMVP as usize) |
-				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize),
+				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize) |
+				1u8 << (FeatureIndex::CandidateReceiptV2 as usize),
 		),
 		scheduler_params: SchedulerParams {
-			lookahead: 2,
+			lookahead: 3,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
 			..Default::default()

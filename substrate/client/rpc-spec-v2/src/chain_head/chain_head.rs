@@ -318,7 +318,7 @@ where
 				}),
 			};
 
-			let (rp, rp_fut) = method_started_response(operation_id);
+			let (rp, rp_fut) = method_started_response(operation_id, None);
 			let fut = async move {
 				// Wait for the server to send out the response and if it produces an error no event
 				// should be generated.
@@ -432,7 +432,8 @@ where
 
 		let mut storage_client = ChainHeadStorage::<Client, Block, BE>::new(self.client.clone());
 
-		let (rp, rp_fut) = method_started_response(block_guard.operation().operation_id());
+		// Storage items are never discarded.
+		let (rp, rp_fut) = method_started_response(block_guard.operation().operation_id(), Some(0));
 
 		let fut = async move {
 			// Wait for the server to send out the response and if it produces an error no event
@@ -507,7 +508,7 @@ where
 		let operation_id = block_guard.operation().operation_id();
 		let client = self.client.clone();
 
-		let (rp, rp_fut) = method_started_response(operation_id.clone());
+		let (rp, rp_fut) = method_started_response(operation_id.clone(), None);
 		let fut = async move {
 			// Wait for the server to send out the response and if it produces an error no event
 			// should be generated.
@@ -630,8 +631,9 @@ where
 
 fn method_started_response(
 	operation_id: String,
+	discarded_items: Option<usize>,
 ) -> (ResponsePayload<'static, MethodResponse>, MethodResponseFuture) {
-	let rp = MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items: None });
+	let rp = MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items });
 	ResponsePayload::success(rp).notify_on_completion()
 }
 

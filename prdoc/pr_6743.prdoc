@@ -1,0 +1,10 @@
+title: 'umbrella: Remove `pallet-revive-fixtures`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    No need to have them in the umbrella crate also by having them in the umbrella crate they are bleeding into the normal build.
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: polkadot-sdk
+  bump: major

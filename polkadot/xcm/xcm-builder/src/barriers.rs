@@ -95,7 +95,8 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 			})?
 			.skip_inst_while(|inst| {
 				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
-					matches!(inst, DescendOrigin(child) if child != &Here)
+					matches!(inst, DescendOrigin(child) if child != &Here) ||
+					matches!(inst, SetHints { .. })
 			})?
 			.match_next_inst(|inst| match inst {
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
@@ -489,7 +490,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
 					log::warn!(
-						target: "xcm::barrier",
+						target: "xcm::barriers",
 						"Unexpected ReserveAssetDeposited from the Relay Chain",
 					);
 					Ok(ControlFlow::Continue(()))

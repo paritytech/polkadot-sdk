@@ -632,7 +632,7 @@ where
 	///
 	/// This is `Polite` and thus will not repatriate any funds which would lead the total balance
 	/// to be less than the frozen amount. Returns `Ok` with the actual amount of funds moved,
-	/// which may be less than `value` since the operation is done an a `BestEffort` basis.
+	/// which may be less than `value` since the operation is done on a `BestEffort` basis.
 	fn repatriate_reserved(
 		slashed: &T::AccountId,
 		beneficiary: &T::AccountId,

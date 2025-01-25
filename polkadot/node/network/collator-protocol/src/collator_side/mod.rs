@@ -899,7 +899,7 @@ async fn process_msg<Context>(
 				);
 			}
 		},
-		msg @ (ReportCollator(..) | Invalid(..) | Seconded(..)) => {
+		msg @ (Invalid(..) | Seconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				"{:?} message is not expected on the collator side of the protocol",
