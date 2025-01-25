@@ -2780,7 +2780,6 @@ dependencies = [
  "bp-runtime 0.7.0",
  "bp-test-utils 0.7.0",
  "bp-xcm-bridge-hub 0.2.0",
- "bridge-runtime-common 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "frame-support 28.0.0",
@@ -22426,7 +22425,6 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-statement-store 10.0.0",
  "sp-storage 19.0.0",
- "sp-test-primitives",
  "sp-trie 29.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
@@ -22449,7 +22447,6 @@ dependencies = [
  "parity-db",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "quickcheck",
  "rand",
  "sc-client-api",
  "sc-state-db",
@@ -23771,7 +23768,6 @@ dependencies = [
  "parking_lot 0.12.3",
  "pin-project",
  "rand",
- "sc-network",
  "sc-utils",
  "serde",
  "serde_json",
@@ -28336,7 +28332,6 @@ dependencies = [
 name = "staging-xcm-builder"
 version = "7.0.0"
 dependencies = [
- "assert_matches",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "impl-trait-for-tuples",
