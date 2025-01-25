@@ -572,7 +572,7 @@ pub mod pallet {
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
 			data: ParachainInherentData,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(
 				!<ValidationData<T>>::exists(),
@@ -698,7 +698,7 @@ pub mod pallet {
 				DispatchClass::Mandatory,
 			);
 
-			Ok(Pays::No.into())
+			Ok(())
 		}
 
 		#[pallet::call_index(1)]
