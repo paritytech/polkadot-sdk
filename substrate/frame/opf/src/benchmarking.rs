@@ -48,11 +48,11 @@ pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
 
 fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<(), &'static str> {
 	let mut batch = BoundedVec::<ProjectId<T>, <T as Config>::MaxProjects>::new();
-	for i in 1..n + 1 {
+	for i in 1..=n {
 		let project_id = account("project", i, SEED);
-		let _ = batch.try_push(project_id);
+		let _ = batch.try_push(project_id).map_err(|_| "Exceeded max projects")?;
 	}
-	let _ = crate::Pallet::<T>::register_projects_batch(RawOrigin::Signed(caller).into(), batch);
+	crate::Pallet::<T>::register_projects_batch(RawOrigin::Signed(caller).into(), batch)?;
 
 	Ok(())
 }
