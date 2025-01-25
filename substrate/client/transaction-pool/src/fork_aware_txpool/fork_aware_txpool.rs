@@ -268,10 +268,10 @@ where
 				tracing::debug!(target: LOG_TARGET, "fatp::dropped_monitor_task: terminated...");
 				break;
 			};
-			let dropped_tx_hash = dropped.tx_hash;
+			let tx_hash = dropped.tx_hash;
 			tracing::trace!(
 				target: LOG_TARGET,
-				?dropped_tx_hash,
+				?tx_hash,
 				reason = ?dropped.reason,
 				"fatp::dropped notification, removing"
 			);
@@ -282,7 +282,7 @@ where
 							.replace_transaction(
 								new_tx.source(),
 								new_tx.tx(),
-								dropped_tx_hash,
+								tx_hash,
 								new_tx.is_watched(),
 							)
 							.await;
@@ -297,9 +297,9 @@ where
 				DroppedReason::LimitsEnforced => {},
 			};
 
-			mempool.remove_transaction(&dropped_tx_hash);
+			mempool.remove_transaction(&tx_hash);
 			view_store.listener.transaction_dropped(dropped);
-			import_notification_sink.clean_notified_items(&[dropped_tx_hash]);
+			import_notification_sink.clean_notified_items(&[tx_hash]);
 		}
 	}
 
@@ -440,7 +440,7 @@ where
 		let api = self.api.clone();
 		tracing::trace!(
 			target: LOG_TARGET,
-			at = ?at,
+			?at,
 			"fatp::ready_at_light"
 		);
 
@@ -553,16 +553,16 @@ where
 
 		let maybe_ready = async move {
 			select! {
-							ready = ready_at => Some(ready),
-							_ = timeout => {
-								tracing::warn!(
-				target: LOG_TARGET,
-				?at,
-				"Timeout fired waiting for transaction pool at block. Proceeding with production."
-			);
-								None
-							}
-						}
+				ready = ready_at => Some(ready),
+				_ = timeout => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?at,
+						"Timeout fired waiting for transaction pool at block. Proceeding with production."
+					);
+					None
+				}
+			}
 		};
 
 		let fall_back_ready = self.ready_at_light(at);
@@ -840,11 +840,7 @@ where
 	// useful for verification for debugging purposes).
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
 		if !hashes.is_empty() {
-			tracing::debug!(
-				target: LOG_TARGET,
-				count = hashes.len(),
-				"fatp::remove_invalid"
-			);
+			log_xt_trace!(target:LOG_TARGET, hashes, "fatp::remove_invalid");
 			self.metrics
 				.report(|metrics| metrics.removed_invalid_txs.inc_by(hashes.len() as _));
 		}

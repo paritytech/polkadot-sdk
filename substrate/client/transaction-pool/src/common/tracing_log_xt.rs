@@ -5,7 +5,7 @@ macro_rules! log_xt {
                 $level,
                 target = $target,
                 message = $text_with_format,
-                tx = format!("{:?}", tx)
+                tx_hash = format!("{:?}", tx)
             );
         }
     };
@@ -15,7 +15,7 @@ macro_rules! log_xt {
                 $level,
                 target = $target,
                 message = $text_with_format,
-                tx = format!("{:?}", tx),
+                tx_hash = format!("{:?}", tx),
                 $($arg),*
             );
         }
@@ -26,8 +26,8 @@ macro_rules! log_xt {
                 $level,
                 target = $target,
                 message = $text_with_format,
-                tx_0 = format!("{:?}", tx.0),
-                tx_1 = format!("{:?}", tx.1)
+                tx_hash = format!("{:?}", tx.0),
+                some_value = format!("{:?}", tx.1)
             );
         }
     };
