@@ -713,7 +713,7 @@ fn deny_then_try_works() {
 }
 
 #[test]
-fn deny_reserver_transfer_to_relaychain_should_work() {
+fn deny_reserve_transfer_to_relaychain_should_work() {
 	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
 			DenyReserveTransferToRelayChain::deny_execution(
