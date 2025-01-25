@@ -168,14 +168,14 @@ where
 			.map(|view| view.submit_local(xt.clone()))
 			.find_or_first(Result::is_ok);
 
-		if let Some(Err(err)) = result {
+		if let Some(Err(error)) = result {
 			tracing::trace!(
 				target: LOG_TARGET,
-				tx_hash = ?tx_hash,
-				error = %err,
+				?tx_hash,
+				%error,
 				"submit_local: err"
 			);
-			return Err(err)
+			return Err(error)
 		};
 
 		Ok(tx_hash)
@@ -227,14 +227,14 @@ where
 			.into_iter()
 			.find_or_first(Result::is_ok);
 
-		if let Some(Err(err)) = maybe_error {
+		if let Some(Err(error)) = maybe_error {
 			tracing::trace!(
 				target: LOG_TARGET,
-				tx_hash = ?tx_hash,
-				error = %err,
+				?tx_hash,
+				%error,
 				"submit_and_watch: err"
 			);
-			return Err(err);
+			return Err(error);
 		};
 
 		Ok(external_watcher)
@@ -340,8 +340,8 @@ where
 	) -> Vec<ExtrinsicHash<ChainApi>> {
 		tracing::trace!(
 			target: LOG_TARGET,
-			finalized_hash = ?finalized_hash,
-			tree_route = ?tree_route,
+			?finalized_hash,
+			?tree_route,
 			"finalize_route"
 		);
 		let mut finalized_transactions = Vec::new();
@@ -351,10 +351,10 @@ where
 				.api
 				.block_body(*block)
 				.await
-				.unwrap_or_else(|e| {
+				.unwrap_or_else(|error| {
 					tracing::warn!(
 						target: LOG_TARGET,
-						error = %e,
+						%error,
 						"Finalize route: error request"
 					);
 					None
@@ -487,7 +487,7 @@ where
 
 		tracing::trace!(
 			target: LOG_TARGET,
-			removed_views = ?removed_views,
+			?removed_views,
 			"handle_pre_finalized"
 		);
 		removed_views.iter().for_each(|view| {
@@ -553,7 +553,7 @@ where
 
 		tracing::trace!(
 			target: LOG_TARGET,
-			dropped_views = ?dropped_views,
+			?dropped_views,
 			"handle_finalized"
 		);
 
@@ -621,9 +621,9 @@ where
 		let xt_hash = self.api.hash_and_length(&xt).0;
 		tracing::trace!(
 			target: LOG_TARGET,
-			replaced = ?replaced,
-			xt_hash = ?xt_hash,
-			watched = watched,
+			?replaced,
+			?xt_hash,
+			watched,
 			"replace_transaction"
 		);
 
@@ -673,23 +673,23 @@ where
 						watcher.into_stream().boxed(),
 					);
 				},
-				Err(e) => {
+				Err(error) => {
 					tracing::trace!(
 						target: LOG_TARGET,
-						xt_hash = ?xt_hash,
+						?xt_hash,
 						at_hash = ?view.at.hash,
-						error = %e,
+						%error,
 						"replace_transaction: submit_and_watch failed"
 					);
 				},
 			}
 		} else {
-			if let Some(Err(e)) = view.submit_many(std::iter::once((source, xt))).await.pop() {
+			if let Some(Err(error)) = view.submit_many(std::iter::once((source, xt))).await.pop() {
 				tracing::trace!(
 					target: LOG_TARGET,
-					xt_hash = ?xt_hash,
+					?xt_hash,
 					at_hash = ?view.at.hash,
-					error = %e,
+					%error,
 					"replace_transaction: submit failed"
 				);
 			}
@@ -711,7 +711,7 @@ where
 		if watched && !self.listener.contains_tx(&xt_hash) {
 			tracing::trace!(
 				target: LOG_TARGET,
-				xt_hash = ?xt_hash,
+				?xt_hash,
 				"error: replace_transaction_in_views: no listener for watched transaction"
 			);
 			return;

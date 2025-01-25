@@ -184,8 +184,8 @@ where
 		trace!(
 			target: LOG_TARGET,
 			tx_hash = ?self.tx_hash,
-			hash = ?hash,
-			status = ?status,
+			?hash,
+			?status,
 			views = ?self.status_stream_map.keys().collect::<Vec<_>>(),
 			"mvl handle event"
 		);
@@ -270,7 +270,7 @@ where
 		trace!(
 			target: LOG_TARGET,
 			tx_hash = ?self.tx_hash,
-			block_hash = ?block_hash,
+			?block_hash,
 			views = ?self.status_stream_map.keys().collect::<Vec<_>>(),
 			"AddView view"
 		);
@@ -286,7 +286,7 @@ where
 		trace!(
 			target: LOG_TARGET,
 			tx_hash = ?self.tx_hash,
-			block_hash = ?block_hash,
+			?block_hash,
 			views = ?self.status_stream_map.keys().collect::<Vec<_>>(),
 			"RemoveView view"
 		);
@@ -326,7 +326,7 @@ where
 
 		trace!(
 			target: LOG_TARGET,
-			tx_hash = ?tx_hash,
+			?tx_hash,
 			"create_external_watcher_for_tx"
 		);
 		let (tx, rx) = mpsc::tracing_unbounded("txpool-multi-view-listener", 32);
@@ -347,7 +347,7 @@ where
 								trace!(
 									target: LOG_TARGET,
 									tx_hash = ?ctx.tx_hash,
-									new_status = ?new_status,
+									?new_status,
 									"mvl sending out"
 								);
 							return Some((new_status, ctx))
@@ -412,7 +412,7 @@ where
 										target: LOG_TARGET,
 										tx_hash = ?ctx.tx_hash,
 										status = "Usurped",
-										by = ?by,
+										?by,
 										"mvl sending out"
 									);
 									ctx.terminate = true;
@@ -440,14 +440,14 @@ where
 		let mut controllers = self.controllers.write();
 
 		if let Entry::Occupied(mut tx) = controllers.entry(tx_hash) {
-			if let Err(e) = tx
+			if let Err(error) = tx
 				.get_mut()
 				.unbounded_send(ControllerCommand::AddViewStream(block_hash, stream))
 			{
 				trace!(
 					target: LOG_TARGET,
-					tx_hash = ?tx_hash,
-					error = ?e,
+					?tx_hash,
+					%error,
 					"add_view_watcher_for_tx: send message failed"
 				);
 				tx.remove();
@@ -463,14 +463,14 @@ where
 		self.controllers.write().retain(|tx_hash, sender| {
 			sender
 				.unbounded_send(ControllerCommand::RemoveViewStream(block_hash))
-				.map_err(|e| {
+				.map_err(|error| {
 					trace!(
 						target: LOG_TARGET,
-						tx_hash = ?tx_hash,
-						error = ?e,
+						?tx_hash,
+						%error,
 						"remove_view: send message failed"
 					);
-					e
+					error
 				})
 				.is_ok()
 		});
@@ -489,16 +489,16 @@ where
 			if let Entry::Occupied(mut tx) = controllers.entry(*tx_hash) {
 				trace!(
 					target: LOG_TARGET,
-					tx_hash = ?tx_hash,
+					?tx_hash,
 					"invalidate_transaction"
 				);
-				if let Err(e) =
+				if let Err(error) =
 					tx.get_mut().unbounded_send(ControllerCommand::TransactionInvalidated)
 				{
 					trace!(
 						target: LOG_TARGET,
-						tx_hash = ?tx_hash,
-						error = ?e,
+						?tx_hash,
+						%error,
 						"invalidate_transaction: send message failed"
 					);
 					tx.remove();
@@ -520,16 +520,16 @@ where
 			if let Entry::Occupied(mut tx) = controllers.entry(tx_hash) {
 				trace!(
 					target: LOG_TARGET,
-					tx_hash = ?tx_hash,
+					?tx_hash,
 					"transaction_broadcasted"
 				);
-				if let Err(e) =
+				if let Err(error) =
 					tx.get_mut().unbounded_send(ControllerCommand::TransactionBroadcasted(peers))
 				{
 					trace!(
 						target: LOG_TARGET,
-						tx_hash = ?tx_hash,
-						error = ?e,
+						?tx_hash,
+						%error,
 						"transactions_broadcasted: send message failed"
 					);
 					tx.remove();
@@ -546,21 +546,21 @@ where
 		let mut controllers = self.controllers.write();
 		debug!(
 			target: LOG_TARGET,
-			dropped = ?dropped,
+			?dropped,
 			"mvl::transaction_dropped"
 		);
 		if let Some(tx) = controllers.remove(&dropped.tx_hash) {
 			let DroppedTransaction { tx_hash, reason } = dropped;
 			debug!(
 				target: LOG_TARGET,
-				tx_hash = ?tx_hash,
+				?tx_hash,
 				"transaction_dropped"
 			);
-			if let Err(e) = tx.unbounded_send(ControllerCommand::TransactionDropped(reason)) {
+			if let Err(error) = tx.unbounded_send(ControllerCommand::TransactionDropped(reason)) {
 				trace!(
 					target: LOG_TARGET,
-					tx_hash = ?tx_hash,
-					error = ?e,
+					?tx_hash,
+					%error,
 					"transaction_dropped: send message failed"
 				);
 			};
@@ -580,14 +580,16 @@ where
 		if let Some(tx) = controllers.remove(&tx_hash) {
 			trace!(
 				target: LOG_TARGET,
-				tx_hash = ?tx_hash,
+				?tx_hash,
 				"finalize_transaction"
 			);
-			if let Err(e) = tx.unbounded_send(ControllerCommand::FinalizeTransaction(block, idx)) {
+			if let Err(error) =
+				tx.unbounded_send(ControllerCommand::FinalizeTransaction(block, idx))
+			{
 				trace!(
 					target: LOG_TARGET,
-					tx_hash = ?tx_hash,
-					error = ?e,
+					?tx_hash,
+					%error,
 					"finalize_transaction: send message failed"
 				);
 			}

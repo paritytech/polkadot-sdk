@@ -105,29 +105,29 @@ where
 		let output_stream = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
 				tokio::select! {
-									biased;
-									cmd = ctx.command_receiver.next() => {
-										match cmd? {
-											Command::AddView(key,stream) => {
-												trace!(
-					target: LOG_TARGET,
-					key = ?key,
-					"Command::AddView"
-				);
-												ctx.stream_map.insert(key,stream);
-											},
-										}
-									},
+					biased;
+					cmd = ctx.command_receiver.next() => {
+						match cmd? {
+							Command::AddView(key,stream) => {
+								trace!(
+									target: LOG_TARGET,
+									?key,
+									"Command::AddView"
+								);
+								ctx.stream_map.insert(key,stream);
+							},
+						}
+					},
 
-									Some(event) = next_event(&mut ctx.stream_map) => {
-										trace!(
-					target: LOG_TARGET,
-					event = ?event,
-					"import_notification_sink: select_next_some"
-				);
-										return Some((event.1, ctx));
-									}
-								}
+					Some(event) = next_event(&mut ctx.stream_map) => {
+						trace!(
+							target: LOG_TARGET,
+							?event,
+							"import_notification_sink: select_next_some"
+						);
+						return Some((event.1, ctx));
+					}
+				}
 			}
 		})
 		.boxed();
@@ -189,13 +189,13 @@ where
 						external_sinks.write().retain_mut(|sink| {
 							trace!(
 								target: LOG_TARGET,
-								event = ?event,
+								?event,
 								"import_sink_worker sending out imported"
 							);
-							if let Err(e) = sink.try_send(event.clone()) {
+							if let Err(error) = sink.try_send(event.clone()) {
 								trace!(
 									target: LOG_TARGET,
-									error = %e,
+									%error,
 									"import_sink_worker sending message failed"
 								);
 								false
@@ -215,17 +215,17 @@ where
 	/// The new view's stream is added to the internal aggregated stream context by sending command
 	/// to its `command_receiver`.
 	pub fn add_view(&self, key: K, view: StreamOf<I>) {
-		let _ = self
-			.controller
-			.unbounded_send(Command::AddView(key.clone(), view))
-			.map_err(|e| {
-				trace!(
-					target: LOG_TARGET,
-					key = ?key,
-					error = %e,
-					"add_view send message failed"
-				);
-			});
+		let _ =
+			self.controller
+				.unbounded_send(Command::AddView(key.clone(), view))
+				.map_err(|error| {
+					trace!(
+						target: LOG_TARGET,
+						?key,
+						%error,
+						"add_view send message failed"
+					);
+				});
 	}
 
 	/// Creates and returns a new external stream of ready transactions hashes notifications.

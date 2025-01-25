@@ -297,7 +297,7 @@ where
 		};
 		tracing::trace!(
 			target: LOG_TARGET,
-			hash = ?hash,
+			?hash,
 			result_hash = ?result.as_ref().map(|r| r.hash),
 			"mempool::try_insert"
 		);
@@ -341,7 +341,7 @@ where
 	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
 		tracing::debug!(
 			target: LOG_TARGET,
-			dropped = ?dropped,
+			?dropped,
 			"mempool::remove_dropped_transaction"
 		);
 		self.transactions.write().remove(dropped)
@@ -381,7 +381,7 @@ where
 	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
 		tracing::trace!(
 			target: LOG_TARGET,
-			finalized_block = ?finalized_block,
+			?finalized_block,
 			"mempool::revalidate"
 		);
 		let start = Instant::now();
@@ -428,8 +428,8 @@ where
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
 					tracing::trace!(
 						target: LOG_TARGET,
-						xt_hash = ?xt_hash,
-						validation_result = ?validation_result,
+						?xt_hash,
+						?validation_result,
 						"Purging: invalid"
 					);
 					Some(xt_hash)
@@ -439,11 +439,11 @@ where
 
 		tracing::debug!(
 			target: LOG_TARGET,
-			finalized_block = ?finalized_block,
-			input_len = input_len,
-			count = count,
+			?finalized_block,
+			input_len,
+			count,
 			invalid_hashes = invalid_hashes.len(),
-			duration = ?duration,
+			?duration,
 			"mempool::revalidate"
 		);
 
@@ -472,7 +472,7 @@ where
 	pub(super) async fn revalidate(&self, finalized_block: HashAndNumber<Block>) {
 		tracing::trace!(
 			target: LOG_TARGET,
-			finalized_block = ?finalized_block,
+			?finalized_block,
 			"purge_transactions"
 		);
 		let invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;

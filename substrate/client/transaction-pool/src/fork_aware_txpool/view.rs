@@ -191,7 +191,7 @@ where
 		let (hash, length) = self.pool.validated_pool().api().hash_and_length(&xt);
 		tracing::trace!(
 			target: LOG_TARGET,
-			hash = ?hash,
+			?hash,
 			view_at_hash = ?self.at.hash,
 			"view::submit_local"
 		);
@@ -323,7 +323,7 @@ where
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			count = validation_results.len(),
-			batch_len = batch_len,
+			batch_len,
 			took = ?revalidation_duration,
 			"view::revalidate"
 		);
@@ -347,11 +347,11 @@ where
 						),
 					);
 				},
-				Ok(Err(TransactionValidityError::Unknown(e))) => {
+				Ok(Err(TransactionValidityError::Unknown(error))) => {
 					tracing::trace!(
 						target: LOG_TARGET,
-						tx_hash = ?tx_hash,
-						error = ?e,
+						?tx_hash,
+						?error,
 						"Removing. Cannot determine transaction validity"
 					);
 					invalid_hashes.push(tx_hash);
@@ -359,8 +359,8 @@ where
 				Err(validation_err) => {
 					tracing::trace!(
 						target: LOG_TARGET,
-						tx_hash = ?tx_hash,
-						error = %validation_err,
+						?tx_hash,
+						%validation_err,
 						"Removing due to error during revalidation"
 					);
 					invalid_hashes.push(tx_hash);
@@ -373,14 +373,14 @@ where
 			at_hash = ?self.at.hash,
 			"view::revalidate: sending revalidation result"
 		);
-		if let Err(e) = revalidation_result_tx
+		if let Err(error) = revalidation_result_tx
 			.send(RevalidationResult { invalid_hashes, revalidated })
 			.await
 		{
 			tracing::trace!(
 				target: LOG_TARGET,
 				at_hash = ?self.at.hash,
-				error = ?e,
+				?error,
 				"view::revalidate: sending revalidation_result failed"
 			);
 		}

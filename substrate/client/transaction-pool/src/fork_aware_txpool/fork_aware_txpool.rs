@@ -469,10 +469,10 @@ where
 				let extrinsics = api
 					.block_body(h.hash)
 					.await
-					.unwrap_or_else(|e| {
+					.unwrap_or_else(|error| {
 						tracing::warn!(
 							target: LOG_TARGET,
-							error = %e,
+							%error,
 							"Compute ready light transactions: error request"
 						);
 						None
@@ -497,11 +497,11 @@ where
 			let after_count = tmp_view.pool.validated_pool().status().ready;
 			tracing::debug!(
 				target: LOG_TARGET,
-				at = ?at,
+				?at,
 				best_view_hash = ?best_view.at.hash,
-				before_count = before_count,
+				before_count,
 				to_be_removed = all_extrinsics.len(),
-				after_count = after_count,
+				after_count,
 				took = ?start.elapsed(),
 				"fatp::ready_at_light"
 			);
@@ -510,7 +510,7 @@ where
 			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
 			tracing::debug!(
 				target: LOG_TARGET,
-				at = ?at,
+				?at,
 				took = ?start.elapsed(),
 				"fatp::ready_at_light -> empty"
 			);
@@ -535,7 +535,7 @@ where
 	) -> ReadyIteratorFor<ChainApi> {
 		tracing::debug!(
 			target: LOG_TARGET,
-			at = ?at,
+			?at,
 			allowed_delay = ?timeout,
 			"fatp::ready_at_with_timeout"
 		);
@@ -552,7 +552,7 @@ where
 							_ = timeout => {
 								tracing::warn!(
 				target: LOG_TARGET,
-				at = ?at,
+				?at,
 				"Timeout fired waiting for transaction pool at block. Proceeding with production."
 			);
 								None
@@ -575,8 +575,8 @@ where
 		if let Some((view, inactive)) = self.view_store.get_view_at(at, true) {
 			tracing::debug!(
 				target: LOG_TARGET,
-				at = ?at,
-				inactive = ?inactive,
+				?at,
+				?inactive,
 				"fatp::ready_at_internal"
 			);
 			let iterator: ReadyIteratorFor<ChainApi> = Box::new(view.pool.validated_pool().ready());
@@ -586,10 +586,10 @@ where
 		let pending = ready_poll
 			.add(at)
 			.map(|received| {
-				received.unwrap_or_else(|e| {
+				received.unwrap_or_else(|error| {
 					tracing::warn!(
 						target: LOG_TARGET,
-						error = %e,
+						%error,
 						"Error receiving ready-set iterator"
 					);
 					Box::new(std::iter::empty())
@@ -598,7 +598,7 @@ where
 			.boxed();
 		tracing::debug!(
 			target: LOG_TARGET,
-			at = ?at,
+			?at,
 			pending_keys = ?ready_poll.pollers.keys(),
 			"fatp::ready_at_internal"
 		);
@@ -782,7 +782,6 @@ where
 	// useful for verification for debugging purposes).
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
 		if !hashes.is_empty() {
-			tracing::debug!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
 			tracing::debug!(
 				target: LOG_TARGET,
 				count = hashes.len(),
@@ -839,9 +838,9 @@ where
 			.flatten();
 		tracing::trace!(
 			target: LOG_TARGET,
-			tx_hash = ?tx_hash,
+			?tx_hash,
 			result_is_some = result.is_some(),
-			most_recent_view = ?most_recent_view,
+			?most_recent_view,
 			"ready_transaction"
 		);
 		result
@@ -938,7 +937,7 @@ where
 			None => {
 				tracing::warn!(
 					target: LOG_TARGET,
-					tree_route = ?tree_route,
+					?tree_route,
 					"Skipping ChainEvent - no last block in tree route"
 				);
 				return
@@ -948,7 +947,7 @@ where
 		if self.has_view(&hash_and_number.hash) {
 			tracing::trace!(
 				target: LOG_TARGET,
-				hash_and_number = ?hash_and_number,
+				?hash_and_number,
 				"view already exists for block"
 			);
 			return
@@ -986,9 +985,9 @@ where
 	) -> Option<Arc<View<ChainApi>>> {
 		tracing::debug!(
 			target: LOG_TARGET,
-			at = ?at,
+			?at,
 			origin_view_at = ?origin_view.as_ref().map(|v| v.at.clone()),
-			tree_route = ?tree_route,
+			?tree_route,
 			"build_new_view"
 		);
 		let mut view = if let Some(origin_view) = origin_view {
@@ -1000,7 +999,7 @@ where
 		} else {
 			tracing::debug!(
 				target: LOG_TARGET,
-				at = ?at,
+				?at,
 				"creating non-cloned view"
 			);
 			View::new(
@@ -1032,8 +1031,8 @@ where
 		view.pool.validated_pool().retrigger_notifications();
 		tracing::debug!(
 			target: LOG_TARGET,
-			at = ?at,
-			duration = ?duration,
+			?at,
+			?duration,
 			"register_listeners"
 		);
 
@@ -1044,8 +1043,8 @@ where
 		let duration = start.elapsed();
 		tracing::debug!(
 			target: LOG_TARGET,
-			at = ?at,
-			duration = ?duration,
+			?at,
+			?duration,
 			"update_view_with_fork"
 		);
 
@@ -1055,8 +1054,8 @@ where
 		let duration = start.elapsed();
 		tracing::debug!(
 			target: LOG_TARGET,
-			at = ?at,
-			duration = ?duration,
+			?at,
+			?duration,
 			"update_view_with_mempool"
 		);
 		let view = Arc::from(view);
@@ -1081,10 +1080,10 @@ where
 		for h in tree_route.enacted().iter().rev() {
 			api.block_body(h.hash)
 				.await
-				.unwrap_or_else(|e| {
+				.unwrap_or_else(|error| {
 					tracing::warn!(
 						target: LOG_TARGET,
-						error = %e,
+						%error,
 						"Compute ready light transactions: error request"
 					);
 					None
@@ -1099,8 +1098,8 @@ where
 
 		tracing::debug!(
 			target: LOG_TARGET,
-			at = ?at,
-			recent_finalized_block = ?recent_finalized_block,
+			?at,
+			?recent_finalized_block,
 			extrinsics_count = all_extrinsics.len(),
 			took = ?start.elapsed(),
 			"fatp::extrinsics_included_since_finalized"
@@ -1138,8 +1137,8 @@ where
 				async move {
 					tracing::trace!(
 						target: LOG_TARGET,
-						tx_hash = ?tx_hash,
-						at_hash = ?at.hash,
+						?tx_hash,
+						?at.hash,
 						"adding watcher"
 					);
 					self.view_store.listener.add_view_watcher_for_tx(
@@ -1203,7 +1202,7 @@ where
 		tracing::debug!(
 			target: LOG_TARGET,
 			view_at_hash = ?view.at.hash,
-			submitted_count = submitted_count,
+			submitted_count,
 			mempool_len = self.mempool.len(),
 			"update_view_with_mempool"
 		);
@@ -1235,8 +1234,8 @@ where
 	) {
 		tracing::debug!(
 			target: LOG_TARGET,
-			tree_route = ?tree_route,
-			view_at = ?view.at,
+			?tree_route,
+			?view.at,
 			"update_view_with_fork"
 		);
 		let api = self.api.clone();
@@ -1267,10 +1266,10 @@ where
 				let block_transactions = api
 					.block_body(hash)
 					.await
-					.unwrap_or_else(|e| {
+					.unwrap_or_else(|error| {
 						tracing::warn!(
 							target: LOG_TARGET,
-							error = %e,
+							%error,
 							"Failed to fetch block body"
 						);
 						None
@@ -1293,9 +1292,9 @@ where
 							if !contains {
 								tracing::trace!(
 									target: LOG_TARGET,
-									"[{:?}]: Resubmitting from retracted block {:?}",
-									tx_hash,
-									hash,
+									?tx_hash,
+									?hash,
+									"Resubmitting from retracted block"
 								);
 							}
 							!contains
@@ -1331,8 +1330,8 @@ where
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 		tracing::debug!(
 			target: LOG_TARGET,
-			finalized_number = ?finalized_number,
-			tree_route = ?tree_route,
+			?finalized_number,
+			?tree_route,
 			views_count = self.active_views_count(),
 			"handle_finalized"
 		);
@@ -1354,7 +1353,7 @@ where
 		} else {
 			tracing::trace!(
 				target: LOG_TARGET,
-				finalized_number = ?finalized_number,
+				?finalized_number,
 				"purge_transactions_later skipped, cannot find block number"
 			);
 		}
@@ -1385,7 +1384,7 @@ where
 		let start = Instant::now();
 		tracing::debug!(
 			target: LOG_TARGET,
-			event = ?event,
+			?event,
 			"processing event"
 		);
 
@@ -1411,10 +1410,10 @@ where
 				.update(&event, &compute_tree_route, &block_id_to_number);
 
 		match result {
-			Err(msg) => {
+			Err(error) => {
 				tracing::trace!(
 					target: LOG_TARGET,
-					error_message = %msg,
+					%error,
 					"enactment_state::update error"
 				);
 				self.enactment_state.lock().force_update(&event);
@@ -1444,8 +1443,8 @@ where
 
 				tracing::trace!(
 					target: LOG_TARGET,
-					tree_route = ?tree_route,
-					prev_finalized_block = ?prev_finalized_block,
+					?tree_route,
+					?prev_finalized_block,
 					"on-finalized enacted"
 				);
 			},
@@ -1458,8 +1457,8 @@ where
 			mempool_len = format!("{:?}", self.mempool_len()),
 			active_views_count = self.active_views_count(),
 			views_stats = ?self.views_stats(),
-			event = ?event,
-			duration = ?maintain_duration,
+			?event,
+			?maintain_duration,
 			"maintain"
 		);
 
