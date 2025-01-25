@@ -566,7 +566,7 @@ pub mod cryptography {
 	pub use sp_core::{
 		crypto::{VrfPublic, VrfSecret, Wraps},
 		hashing::*,
-		Pair, H160, H256, H512, U256, U512,
+		H160, H256, H512, U256, U512,
 	};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
