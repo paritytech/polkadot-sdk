@@ -59,11 +59,11 @@ pub trait TransactionPool<H: ExHashT, B: BlockT>: Send + Sync {
 	/// Get transactions from the pool that are ready to be propagated.
 	fn transactions(&self) -> Vec<(H, Arc<B::Extrinsic>)>;
 	/// Get hash of transaction.
-	fn hash_of(&self, transaction: &Arc<B::Extrinsic>) -> H;
+	fn hash_of(&self, transaction: &B::Extrinsic) -> H;
 	/// Import a transaction into the pool.
 	///
 	/// This will return future.
-	fn import(&self, transaction: Arc<B::Extrinsic>) -> TransactionImportFuture;
+	fn import(&self, transaction: B::Extrinsic) -> TransactionImportFuture;
 	/// Notify the pool about transactions broadcast.
 	fn on_broadcasted(&self, propagations: HashMap<H, Vec<String>>);
 	/// Get transaction by hash.
@@ -83,11 +83,11 @@ impl<H: ExHashT + Default, B: BlockT> TransactionPool<H, B> for EmptyTransaction
 		Vec::new()
 	}
 
-	fn hash_of(&self, _transaction: &Arc<B::Extrinsic>) -> H {
+	fn hash_of(&self, _transaction: &B::Extrinsic) -> H {
 		Default::default()
 	}
 
-	fn import(&self, _transaction: Arc<B::Extrinsic>) -> TransactionImportFuture {
+	fn import(&self, _transaction: B::Extrinsic) -> TransactionImportFuture {
 		Box::pin(future::ready(TransactionImport::KnownGood))
 	}
 

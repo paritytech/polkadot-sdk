@@ -431,7 +431,7 @@ where
 					break
 				}
 
-				let hash = self.transaction_pool.hash_of(&Arc::new(t.clone()));
+				let hash = self.transaction_pool.hash_of(&t);
 				peer.known_transactions.insert(hash.clone());
 
 				self.network.report_peer(who, rep::ANY_TRANSACTION);
@@ -439,7 +439,7 @@ where
 				match self.pending_transactions_peers.entry(hash.clone()) {
 					Entry::Vacant(entry) => {
 						self.pending_transactions.push(PendingTransaction {
-							validation: self.transaction_pool.import(Arc::new(t)),
+							validation: self.transaction_pool.import(t),
 							tx_hash: hash,
 						});
 						entry.insert(vec![who]);

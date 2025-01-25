@@ -510,11 +510,11 @@ where
 		transactions_to_propagate(&*self.pool)
 	}
 
-	fn hash_of(&self, transaction: &Arc<B::Extrinsic>) -> H {
-		self.pool.hash_of(transaction.as_ref())
+	fn hash_of(&self, transaction: &B::Extrinsic) -> H {
+		self.pool.hash_of(transaction)
 	}
 
-	fn import(&self, transaction: Arc<B::Extrinsic>) -> TransactionImportFuture {
+	fn import(&self, transaction: B::Extrinsic) -> TransactionImportFuture {
 		let encoded = transaction.encode();
 		let uxt = match Decode::decode(&mut &encoded[..]) {
 			Ok(uxt) => uxt,
