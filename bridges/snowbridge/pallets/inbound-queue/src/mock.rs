@@ -248,20 +248,6 @@ impl inbound_queue::Config for Test {
 	type AssetTransactor = SuccessfulTransactor;
 }
 
-pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	frame_system::Pallet::<Test>::events()
-		.into_iter()
-		.rev()
-		.take(n)
-		.rev()
-		.map(|e| e.event)
-		.collect()
-}
-
-pub fn expect_events(e: Vec<RuntimeEvent>) {
-	assert_eq!(last_events(e.len()), e);
-}
-
 pub fn setup() {
 	System::set_block_number(1);
 	Balances::mint_into(

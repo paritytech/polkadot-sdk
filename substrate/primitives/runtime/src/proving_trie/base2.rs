@@ -22,9 +22,9 @@
 
 use super::{ProofToHashes, ProvingTrie, TrieError};
 use crate::{Decode, DispatchError, Encode};
+use alloc::{collections::BTreeMap, vec::Vec};
 use binary_merkle_tree::{merkle_proof, merkle_root, MerkleProof};
 use codec::MaxEncodedLen;
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// A helper structure for building a basic base-2 merkle trie and creating compact proofs for that
 /// trie.
@@ -161,7 +161,7 @@ mod tests {
 	use super::*;
 	use crate::traits::BlakeTwo256;
 	use sp_core::H256;
-	use sp_std::collections::btree_map::BTreeMap;
+	use std::collections::BTreeMap;
 
 	// A trie which simulates a trie of accounts (u32) and balances (u128).
 	type BalanceTrie = BasicProvingTrie<BlakeTwo256, u32, u128>;

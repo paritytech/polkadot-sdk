@@ -29,7 +29,7 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(addr: &[u8; 32],);
-	api::set_code_hash(addr).unwrap();
+	api::set_code_hash(addr);
 
 	// we return 1 after setting new code_hash
 	// next `call` will NOT return this value, because contract code has been changed

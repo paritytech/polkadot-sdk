@@ -16,28 +16,37 @@
 
 use crate::common::{
 	rpc::BuildRpcExtensions as BuildRpcExtensionsT,
-	spec::{BaseNodeSpec, BuildImportQueue, NodeSpec as NodeSpecT},
+	spec::{BaseNodeSpec, BuildImportQueue, ClientBlockImport, NodeSpec as NodeSpecT},
 	types::{Hash, ParachainBlockImport, ParachainClient},
 };
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{CollectCollationInfo, ParaId};
+use polkadot_primitives::UpgradeGoAhead;
 use sc_consensus::{DefaultImportQueue, LongestChain};
 use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
+use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Header;
 use std::{marker::PhantomData, sync::Arc};
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
 
-impl<NodeSpec: NodeSpecT> BuildImportQueue<NodeSpec::Block, NodeSpec::RuntimeApi>
-	for ManualSealNode<NodeSpec>
+impl<NodeSpec: NodeSpecT>
+	BuildImportQueue<
+		NodeSpec::Block,
+		NodeSpec::RuntimeApi,
+		Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
+	> for ManualSealNode<NodeSpec>
 {
 	fn build_import_queue(
 		client: Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
-		_block_import: ParachainBlockImport<NodeSpec::Block, NodeSpec::RuntimeApi>,
+		_block_import: ParachainBlockImport<
+			NodeSpec::Block,
+			Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
+		>,
 		config: &Configuration,
 		_telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
@@ -54,6 +63,7 @@ impl<NodeSpec: NodeSpecT> BaseNodeSpec for ManualSealNode<NodeSpec> {
 	type Block = NodeSpec::Block;
 	type RuntimeApi = NodeSpec::RuntimeApi;
 	type BuildImportQueue = Self;
+	type InitBlockImport = ClientBlockImport;
 }
 
 impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
@@ -78,7 +88,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			other: (_, mut telemetry, _),
+			other: (_, mut telemetry, _, _),
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
 
@@ -147,6 +157,18 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					.header(block)
 					.expect("Header lookup should succeed")
 					.expect("Header passed in as parent should be present in backend.");
+
+				let should_send_go_ahead = match client_for_cidp
+					.runtime_api()
+					.collect_collation_info(block, &current_para_head)
+				{
+					Ok(info) => info.new_validation_code.is_some(),
+					Err(e) => {
+						log::error!("Failed to collect collation info: {:?}", e);
+						false
+					},
+				};
+
 				let current_para_block_head =
 					Some(polkadot_primitives::HeadData(current_para_head.encode()));
 				let client_for_xcm = client_for_cidp.clone();
@@ -169,6 +191,12 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						raw_downward_messages: vec![],
 						raw_horizontal_messages: vec![],
 						additional_key_values: None,
+						upgrade_go_ahead: should_send_go_ahead.then(|| {
+							log::info!(
+								"Detected pending validation code, sending go-ahead signal."
+							);
+							UpgradeGoAhead::GoAhead
+						}),
 					};
 					Ok((
 						// This is intentional, as the runtime that we expect to run against this

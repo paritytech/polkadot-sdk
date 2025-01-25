@@ -31,7 +31,7 @@ pub fn xcm_transact_paid_execution(
 	VersionedXcm::from(Xcm(vec![
 		WithdrawAsset(fees.clone().into()),
 		BuyExecution { fees, weight_limit },
-		Transact { origin_kind, call },
+		Transact { origin_kind, call, fallback_max_weight: None },
 		RefundSurplus,
 		DepositAsset {
 			assets: All.into(),
@@ -53,7 +53,7 @@ pub fn xcm_transact_unpaid_execution(
 
 	VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
-		Transact { origin_kind, call },
+		Transact { origin_kind, call, fallback_max_weight: None },
 	]))
 }
 

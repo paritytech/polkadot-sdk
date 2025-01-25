@@ -16,7 +16,7 @@
 use crate::tests::*;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
-	// fund the AHR's SA on BHR for paying bridge transport fees
+	// fund the AHR's SA on BHR for paying bridge delivery fees
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
 
 	// set XCM versions
@@ -24,9 +24,6 @@ fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
 	PenpalA::force_xcm_version(local_asset_hub.clone(), XCM_VERSION);
 	AssetHubRococo::force_xcm_version(asset_hub_westend_location(), XCM_VERSION);
 	BridgeHubRococo::force_xcm_version(bridge_hub_westend_location(), XCM_VERSION);
-
-	// open bridge
-	open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
 
 	// send message over bridge
 	send_fn();

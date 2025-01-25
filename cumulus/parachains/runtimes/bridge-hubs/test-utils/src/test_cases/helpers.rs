@@ -39,7 +39,7 @@ use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
 use sp_core::Get;
-use sp_keyring::AccountKeyring::*;
+use sp_keyring::Sr25519Keyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -264,7 +264,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
 	construct_and_apply_extrinsic: fn(
-		sp_keyring::AccountKeyring,
+		sp_keyring::Sr25519Keyring,
 		RuntimeCallOf<Runtime>,
 	) -> sp_runtime::DispatchOutcome,
 	prepare_message_proof_import: impl FnOnce(
@@ -374,9 +374,9 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 
 /// Execute every call and verify its outcome.
 fn execute_and_verify_calls<Runtime: frame_system::Config>(
-	submitter: sp_keyring::AccountKeyring,
+	submitter: sp_keyring::Sr25519Keyring,
 	construct_and_apply_extrinsic: fn(
-		sp_keyring::AccountKeyring,
+		sp_keyring::Sr25519Keyring,
 		RuntimeCallOf<Runtime>,
 	) -> sp_runtime::DispatchOutcome,
 	calls_and_verifiers: CallsAndVerifiers<Runtime>,

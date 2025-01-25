@@ -29,7 +29,7 @@ use crate::{
 		error,
 		log_xt::log_xt_trace,
 	},
-	graph::{self, ExtrinsicHash, IsValidator},
+	graph::{self, base_pool::TimedTransactionSource, ExtrinsicHash, IsValidator},
 	ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
@@ -141,7 +141,11 @@ where
 		finalized_hash: Block::Hash,
 		options: graph::Options,
 	) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
-		let pool = Arc::new(graph::Pool::new(options, true.into(), pool_api.clone()));
+		let pool = Arc::new(graph::Pool::new_with_staticly_sized_rotator(
+			options,
+			true.into(),
+			pool_api.clone(),
+		));
 		let (revalidation_queue, background_task) = revalidation::RevalidationQueue::new_background(
 			pool_api.clone(),
 			pool.clone(),
@@ -177,7 +181,11 @@ where
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> Self {
-		let pool = Arc::new(graph::Pool::new(options, is_validator, pool_api.clone()));
+		let pool = Arc::new(graph::Pool::new_with_staticly_sized_rotator(
+			options,
+			is_validator,
+			pool_api.clone(),
+		));
 		let (revalidation_queue, background_task) = match revalidation_type {
 			RevalidationType::Light =>
 				(revalidation::RevalidationQueue::new(pool_api.clone(), pool.clone()), None),
@@ -254,14 +262,24 @@ where
 		xts: Vec<TransactionFor<Self>>,
 	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let pool = self.pool.clone();
-		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
+		let xts = xts
+			.into_iter()
+			.map(|xt| {
+				(TimedTransactionSource::from_transaction_source(source, false), Arc::from(xt))
+			})
+			.collect::<Vec<_>>();
 
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
 		let number = self.api.resolve_block_number(at);
 		let at = HashAndNumber { hash: at, number: number? };
-		Ok(pool.submit_at(&at, source, xts).await)
+		Ok(pool
+			.submit_at(&at, xts)
+			.await
+			.into_iter()
+			.map(|result| result.map(|outcome| outcome.hash()))
+			.collect())
 	}
 
 	async fn submit_one(
@@ -277,7 +295,9 @@ where
 
 		let number = self.api.resolve_block_number(at);
 		let at = HashAndNumber { hash: at, number: number? };
-		pool.submit_one(&at, source, xt).await
+		pool.submit_one(&at, TimedTransactionSource::from_transaction_source(source, false), xt)
+			.await
+			.map(|outcome| outcome.hash())
 	}
 
 	async fn submit_and_watch(
@@ -294,9 +314,13 @@ where
 		let number = self.api.resolve_block_number(at);
 
 		let at = HashAndNumber { hash: at, number: number? };
-		let watcher = pool.submit_and_watch(&at, source, xt).await?;
-
-		Ok(watcher.into_stream().boxed())
+		pool.submit_and_watch(
+			&at,
+			TimedTransactionSource::from_transaction_source(source, false),
+			xt,
+		)
+		.await
+		.map(|mut outcome| outcome.expect_watcher().into_stream().boxed())
 	}
 
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
@@ -458,13 +482,17 @@ where
 		let validated = ValidatedTransaction::valid_at(
 			block_number.saturated_into::<u64>(),
 			hash,
-			TransactionSource::Local,
+			TimedTransactionSource::new_local(false),
 			Arc::from(xt),
 			bytes,
 			validity,
 		);
 
-		self.pool.validated_pool().submit(vec![validated]).remove(0)
+		self.pool
+			.validated_pool()
+			.submit(vec![validated])
+			.remove(0)
+			.map(|outcome| outcome.hash())
 	}
 }
 
@@ -662,8 +690,8 @@ where
 
 				resubmit_transactions.extend(
 					//todo: arctx - we need to get ref from somewhere
-					block_transactions.into_iter().map(Arc::from).filter(|tx| {
-						let tx_hash = pool.hash_of(tx);
+					block_transactions.into_iter().map(Arc::from).filter_map(|tx| {
+						let tx_hash = pool.hash_of(&tx);
 						let contains = pruned_log.contains(&tx_hash);
 
 						// need to count all transactions, not just filtered, here
@@ -676,8 +704,15 @@ where
 								tx_hash,
 								hash,
 							);
+							Some((
+								// These transactions are coming from retracted blocks, we should
+								// simply consider them external.
+								TimedTransactionSource::new_external(false),
+								tx,
+							))
+						} else {
+							None
 						}
-						!contains
 					}),
 				);
 
@@ -686,14 +721,7 @@ where
 				});
 			}
 
-			pool.resubmit_at(
-				&hash_and_number,
-				// These transactions are coming from retracted blocks, we should
-				// simply consider them external.
-				TransactionSource::External,
-				resubmit_transactions,
-			)
-			.await;
+			pool.resubmit_at(&hash_and_number, resubmit_transactions).await;
 		}
 
 		let extra_pool = pool.clone();
