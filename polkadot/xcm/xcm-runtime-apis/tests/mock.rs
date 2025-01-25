@@ -365,7 +365,7 @@ impl pallet_xcm::Config for TestRuntime {
 pub fn new_test_ext_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
 
-	pallet_balances::GenesisConfig::<TestRuntime> { balances }
+	pallet_balances::GenesisConfig::<TestRuntime> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
@@ -381,7 +381,7 @@ pub fn new_test_ext_with_balances_and_assets(
 ) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
 
-	pallet_balances::GenesisConfig::<TestRuntime> { balances }
+	pallet_balances::GenesisConfig::<TestRuntime> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

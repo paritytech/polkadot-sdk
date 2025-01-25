@@ -63,6 +63,18 @@ where
 		.map_err(|e| Error::Verify.log_debug(e))
 }
 
+pub fn is_ancestry_proof_optimal<H>(ancestry_proof: &AncestryProof<H::Output>) -> bool
+where
+	H: frame::traits::Hash,
+{
+	let prev_mmr_size = NodesUtils::new(ancestry_proof.prev_leaf_count).size();
+	let mmr_size = NodesUtils::new(ancestry_proof.leaf_count).size();
+
+	let expected_proof_size =
+		mmr_lib::ancestry_proof::expected_ancestry_proof_size(prev_mmr_size, mmr_size);
+	ancestry_proof.items.len() == expected_proof_size
+}
+
 pub fn verify_ancestry_proof<H, L>(
 	root: H::Output,
 	ancestry_proof: AncestryProof<H::Output>,
@@ -83,9 +95,9 @@ where
 	);
 
 	let raw_ancestry_proof = mmr_lib::AncestryProof::<Node<H, L>, Hasher<H, L>> {
+		prev_mmr_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - 1),
 		prev_peaks: ancestry_proof.prev_peaks.into_iter().map(|hash| Node::Hash(hash)).collect(),
-		prev_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - 1),
-		proof: prev_peaks_proof,
+		prev_peaks_proof,
 	};
 
 	let prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<Node<H, L>, Hasher<H, L>>(
@@ -248,7 +260,7 @@ where
 			prev_leaf_count,
 			leaf_count: self.leaves,
 			items: raw_ancestry_proof
-				.proof
+				.prev_peaks_proof
 				.proof_items()
 				.iter()
 				.map(|(index, item)| (*index, item.hash()))

@@ -144,18 +144,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the origin's address.
 	fn origin(output: &mut [u8; 20]);
 
-	/// Retrieve the account id for a specified address.
-	///
-	/// # Parameters
-	///
-	/// - `addr`: A `H160` address.
-	/// - `output`: A reference to the output data buffer to write the account id.
-	///
-	/// # Note
-	///
-	/// If no mapping exists for `addr`, the fallback account id will be returned.
-	fn to_account_id(addr: &[u8; 20], output: &mut [u8]);
-
 	/// Retrieve the code hash for a specified contract address.
 	///
 	/// # Parameters
@@ -415,8 +403,20 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the block number.
-	#[unstable_hostfn]
 	fn block_number(output: &mut [u8; 32]);
+
+	/// Retrieve the account id for a specified address.
+	///
+	/// # Parameters
+	///
+	/// - `addr`: A `H160` address.
+	/// - `output`: A reference to the output data buffer to write the account id.
+	///
+	/// # Note
+	///
+	/// If no mapping exists for `addr`, the fallback account id will be returned.
+	#[unstable_hostfn]
+	fn to_account_id(addr: &[u8; 20], output: &mut [u8]);
 
 	/// Stores the block hash of the given block number into the supplied buffer.
 	///

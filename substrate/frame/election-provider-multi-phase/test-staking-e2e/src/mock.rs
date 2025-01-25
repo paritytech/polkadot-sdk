@@ -567,6 +567,7 @@ impl ExtBuilder {
 
 		let _ = pallet_balances::GenesisConfig::<Runtime> {
 			balances: self.balances_builder.balances.clone(),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 

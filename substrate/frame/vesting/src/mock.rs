@@ -94,6 +94,7 @@ impl ExtBuilder {
 				(12, 10 * self.existential_deposit),
 				(13, 9999 * self.existential_deposit),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

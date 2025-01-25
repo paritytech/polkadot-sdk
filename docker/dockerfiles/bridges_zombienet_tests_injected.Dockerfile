@@ -48,8 +48,9 @@ RUN set -eux; \
 	cd /home/nonroot/bridges-polkadot-sdk/bridges/testing/framework/utils/generate_hex_encoded_call; \
 	npm install
 
+# use the non-root user
+USER node
 # check if executable works in this container
-USER nonroot
 RUN /usr/local/bin/polkadot --version
 RUN /usr/local/bin/polkadot-parachain --version
 RUN /usr/local/bin/substrate-relay --version

@@ -99,6 +99,7 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 			(relay_sovereign_account_id(), INITIAL_BALANCE),
 			(BOB, INITIAL_BALANCE),
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -137,6 +138,7 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 			(parachain_sovereign_account_id(1), INITIAL_BALANCE),
 			(parachain_account_sovereign_account_id(1, ALICE), INITIAL_BALANCE),
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

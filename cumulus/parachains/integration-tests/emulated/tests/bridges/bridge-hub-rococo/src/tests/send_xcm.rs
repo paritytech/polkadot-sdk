@@ -74,9 +74,6 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	// fund sender
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get().into(), amount * 10)]);
 
-	// open bridge
-	open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
-
 	// Initially set only default version on all runtimes
 	let newer_xcm_version = xcm::prelude::XCM_VERSION;
 	let older_xcm_version = newer_xcm_version - 1;
