@@ -21,7 +21,7 @@ use alloc::vec;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	ensure,
-	storage::bounded_vec::BoundedVec,
+	storage::bounded_btree_set::BoundedBTreeSet,
 	traits::{schedule::Priority, BoundedInline},
 	weights::WeightMeter,
 };
@@ -47,12 +47,11 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 fn fill_queue<T: Config>(n: u32) {
-	let mut vec = Vec::<BlockNumberFor<T>>::new();
+	let mut btree_set = BoundedBTreeSet::<BlockNumberFor<T>, T::MaxScheduledBlocks>::default();
 	for i in 0..n {
-		vec.push(i.into());
+		btree_set.try_insert(i.into()).unwrap();
 	}
-	let bounded_vec = BoundedVec::try_from(vec).unwrap();
-	Queue::<T>::put::<BoundedVec<_, _>>(bounded_vec);
+	Queue::<T>::put(btree_set);
 }
 
 /// Add `n` items to the schedule.
@@ -144,22 +143,25 @@ fn make_origin<T: Config>(signed: bool) -> <T as Config>::PalletsOrigin {
 
 #[benchmarks]
 mod benchmarks {
+	use frame_benchmarking::BenchmarkParameter::s;
 	use super::*;
 
 	// `service_agenda` when no work is done.
 	#[benchmark]
 	fn service_agendas_base() {
 		let now = BlockNumberFor::<T>::from(block_number::<T>());
-		Queue::<T>::put::<BoundedVec<_, _>>(BoundedVec::try_from(vec![now + One::one()]).unwrap());
+		let mut set = BoundedBTreeSet::<_, _>::default();
+		set.try_insert(now + One::one()).unwrap();  // Insert the element
+		Queue::<T>::put(set);
 
 		#[block]
 		{
 			Pallet::<T>::service_agendas(&mut WeightMeter::new(), now, 0);
 		}
 
-		let expected: BoundedVec<BlockNumberFor<T>, T::MaxScheduledBlocks> =
-			BoundedVec::try_from(vec![now + One::one()]).unwrap();
-		assert_eq!(Queue::<T>::get(), expected);
+		let mut expected_set = BoundedBTreeSet::<BlockNumberFor<T>, T::MaxScheduledBlocks>::default();
+		expected_set.try_insert(now + One::one()).unwrap();
+		assert_eq!(Queue::<T>::get(), expected_set);
 	}
 
 	// `service_agenda` when no work is done.
