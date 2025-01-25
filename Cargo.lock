@@ -28826,7 +28826,6 @@ dependencies = [
  "sc-client-db",
  "sc-consensus",
  "sc-executor 0.32.0",
- "sc-offchain",
  "sc-service",
  "serde",
  "serde_json",
