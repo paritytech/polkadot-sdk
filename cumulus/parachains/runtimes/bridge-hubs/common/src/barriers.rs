@@ -48,7 +48,7 @@ where
 			|_| true,
 			|inst| match inst {
 				ExportMessage { network, .. } if ToGlobalConsensus::contains(network) =>
-					return Err(ProcessMessageError::Unsupported),
+				Err(ProcessMessageError::Unsupported),
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		) {
