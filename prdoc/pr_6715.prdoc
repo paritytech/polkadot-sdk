@@ -6,8 +6,9 @@ title: Update Nomination Pool Pallet to Support Block Number Provider
 doc:
   - audience: Runtime Dev
     description: |
-       This PR makes the block number provider used in the nomination pool pallet configurable. Before this PR, nomination pool pallet always used the system block number,
-       with this PR some runtime can opt to use the relay chain block number instead.
+       This PR makes the block number provider in the Society pallet configurable so that runtimes can choose between using the system block number or an alternative source like the relay chain’s block number.
+       If you want to keep the existing behavior, simply set the provider to System. For scenarios that require a different notion of block number—such as using a relay chain number you can select another provider,
+       ensuring flexibility in how the nomination pools pallet references the current block.
 crates:
 - name: pallet-nomination-pools
   bump: major
