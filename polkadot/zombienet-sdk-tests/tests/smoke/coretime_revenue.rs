@@ -10,21 +10,24 @@
 //! normal parachain runtime WILL mess things up.
 
 use anyhow::anyhow;
-#[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
-pub mod rococo {}
 
 #[subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
 mod coretime_rococo {}
 
-use rococo::runtime_types::{
-	staging_xcm::v4::{
-		asset::{Asset, AssetId, Assets, Fungibility},
-		junction::Junction,
-		junctions::Junctions,
-		location::Location,
+use crate::helpers::rococo::{
+	self as rococo_api,
+	runtime_types::{
+		polkadot_parachain_primitives::primitives,
+		staging_xcm::v4::{
+			asset::{Asset, AssetId, Assets, Fungibility},
+			junction::Junction,
+			junctions::Junctions,
+			location::Location,
+		},
+		xcm::{VersionedAssets, VersionedLocation},
 	},
-	xcm::{VersionedAssets, VersionedLocation},
 };
+
 use serde_json::json;
 use std::{fmt::Display, sync::Arc};
 use subxt::{events::StaticEvent, utils::AccountId32, OnlineClient, PolkadotConfig};
@@ -40,8 +43,6 @@ use coretime_rococo::{
 		sp_arithmetic::per_things::Perbill,
 	},
 };
-
-use rococo::{self as rococo_api, runtime_types::polkadot_parachain_primitives::primitives};
 
 type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_rococo_runtime::RuntimeCall;
 type CoretimeUtilityCall = coretime_api::runtime_types::pallet_utility::pallet::Call;
@@ -180,7 +181,7 @@ where
 
 #[tokio::test(flavor = "multi_thread")]
 async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
-	env_logger::init_from_env(
+	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
@@ -499,7 +500,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	assert_total_issuance(relay_client.clone(), para_client.clone(), total_issuance).await;
 
-	log::info!("Test finished successfuly");
+	log::info!("Test finished successfully");
 
 	Ok(())
 }

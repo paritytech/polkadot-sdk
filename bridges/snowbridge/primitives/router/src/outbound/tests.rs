@@ -516,6 +516,46 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 }
 
 #[test]
+fn xcm_converter_convert_with_native_eth_succeeds() {
+	let network = BridgedNetwork::get();
+
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	// The asset is `{ parents: 0, interior: X1(Here) }` relative to ethereum.
+	let assets: Assets = vec![Asset { id: AssetId([].into()), fun: Fungible(1000) }].into();
+	let filter: AssetFilter = Wild(All);
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+
+	// The token address that is expected to be sent should be
+	// `0x0000000000000000000000000000000000000000`. The solidity will
+	// interpret this as a transfer of ETH.
+	let expected_payload = Command::AgentExecute {
+		agent_id: Default::default(),
+		command: AgentExecuteCommand::TransferToken {
+			token: H160([0; 20]),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
+	};
+	let result = converter.convert();
+	assert_eq!(result, Ok((expected_payload, [0; 32])));
+}
+
+#[test]
 fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
 	let network = BridgedNetwork::get();
 

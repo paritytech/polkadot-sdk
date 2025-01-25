@@ -15,13 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Example utilities
-#![cfg(any(feature = "example", test))]
-
 use crate::{EthRpcClient, ReceiptInfo};
 use anyhow::Context;
 use pallet_revive::evm::{
-	rlp::*, Account, BlockTag, Bytes, GenericTransaction, TransactionLegacyUnsigned, H160, H256,
-	U256,
+	Account, BlockTag, Bytes, GenericTransaction, TransactionLegacyUnsigned, H160, H256, U256,
 };
 
 /// Wait for a transaction receipt.
@@ -169,11 +166,11 @@ impl TransactionBuilder {
 
 		mutate(&mut unsigned_tx);
 
-		let tx = signer.sign_transaction(unsigned_tx.clone());
-		let bytes = tx.rlp_bytes().to_vec();
+		let tx = signer.sign_transaction(unsigned_tx.into());
+		let bytes = tx.signed_payload();
 
 		let hash = client
-			.send_raw_transaction(bytes.clone().into())
+			.send_raw_transaction(bytes.into())
 			.await
 			.with_context(|| "transaction failed")?;
 

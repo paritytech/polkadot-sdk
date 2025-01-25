@@ -119,6 +119,7 @@ impl Config for Test {
 	type MaxPending = ConstU32<2>;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 use super::{Call as ProxyCall, Event as ProxyEvent};
@@ -132,6 +133,7 @@ pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 3)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

@@ -24,7 +24,7 @@ use frame_support::{
 	pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use pallet_verify_signature::VerifySignature;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	generic::ExtensionVersion,
 	traits::{Applyable, Checkable, IdentityLookup, TransactionExtension},
@@ -36,7 +36,7 @@ use crate::{extensions::AuthorizeCoownership, mock::*, pallet_assets};
 #[test]
 fn create_asset_works() {
 	new_test_ext().execute_with(|| {
-		let alice_keyring = AccountKeyring::Alice;
+		let alice_keyring = Sr25519Keyring::Alice;
 		let alice_account = AccountId::from(alice_keyring.public());
 		// Simple call to create asset with Id `42`.
 		let create_asset_call =
@@ -99,9 +99,9 @@ fn create_asset_works() {
 #[test]
 fn create_coowned_asset_works() {
 	new_test_ext().execute_with(|| {
-		let alice_keyring = AccountKeyring::Alice;
-		let bob_keyring = AccountKeyring::Bob;
-		let charlie_keyring = AccountKeyring::Charlie;
+		let alice_keyring = Sr25519Keyring::Alice;
+		let bob_keyring = Sr25519Keyring::Bob;
+		let charlie_keyring = Sr25519Keyring::Charlie;
 		let alice_account = AccountId::from(alice_keyring.public());
 		let bob_account = AccountId::from(bob_keyring.public());
 		let charlie_account = AccountId::from(charlie_keyring.public());
@@ -189,9 +189,9 @@ fn create_coowned_asset_works() {
 #[test]
 fn inner_authorization_works() {
 	new_test_ext().execute_with(|| {
-		let alice_keyring = AccountKeyring::Alice;
-		let bob_keyring = AccountKeyring::Bob;
-		let charlie_keyring = AccountKeyring::Charlie;
+		let alice_keyring = Sr25519Keyring::Alice;
+		let bob_keyring = Sr25519Keyring::Bob;
+		let charlie_keyring = Sr25519Keyring::Charlie;
 		let charlie_account = AccountId::from(charlie_keyring.public());
 		// Simple call to create asset with Id `42`.
 		let create_asset_call =

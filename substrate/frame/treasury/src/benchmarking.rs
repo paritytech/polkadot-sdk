@@ -198,7 +198,7 @@ mod benchmarks {
 			None,
 		);
 
-		let valid_from = frame_system::Pallet::<T>::block_number();
+		let valid_from = T::BlockNumberProvider::current_block_number();
 		let expire_at = valid_from.saturating_add(T::PayoutPeriod::get());
 		assert_last_event::<T, I>(
 			Event::AssetSpendApproved {

@@ -20,8 +20,6 @@ array-bytes = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
-serde = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { features = [
 	"test-helpers",
@@ -29,9 +27,9 @@ sc-client-db = { features = [
 sc-consensus = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
-sc-service = { features = [
-	"test-helpers",
-], workspace = true }
+sc-service = { workspace = true }
+serde = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }

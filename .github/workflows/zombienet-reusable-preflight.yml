@@ -1,0 +1,145 @@
+# Reusable workflow to set various useful variables
+# and to perform checks and generate conditions for other workflows.
+# Currently it checks if any Rust (build-related) file is changed
+# and if the current (caller) workflow file is changed.
+# Example:
+#
+# jobs:
+#   preflight:
+#     uses: ./.github/workflows/reusable-preflight.yml
+#   some-job:
+#     needs: changes
+#     if: ${{ needs.preflight.outputs.changes_rust }}
+#  .......
+
+name: Zombienet Preflight
+
+on:
+  workflow_call:
+    # Map the workflow outputs to job outputs
+    outputs:
+      changes_substrate:
+        value: ${{ jobs.preflight.outputs.changes_substrate }}
+
+      ZOMBIENET_IMAGE:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
+        description: "ZOMBIENET CI image"
+
+      ZOMBIENET_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_RUNNER }}
+        description: |
+          Main runner for zombienet tests.
+
+      DOCKER_IMAGES_VERSION:
+        value: ${{ jobs.preflight.outputs.DOCKER_IMAGES_VERSION }}
+        description: |
+          Version for temp docker images.
+
+      # Global vars (from global preflight)
+      SOURCE_REF_SLUG:
+        value: ${{ jobs.global_preflight.outputs.SOURCE_REF_SLUG }}
+
+      # Zombie vars
+      PUSHGATEWAY_URL:
+        value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
+        description: "Gateway (url) to push metrics related to test."
+      DEBUG:
+        value: ${{ jobs.preflight.outputs.DEBUG }}
+        description: "Debug value to zombienet v1 tests."
+      ZOMBIE_PROVIDER:
+        value: ${{ jobs.preflight.outputs.ZOMBIE_PROVIDER }}
+        description: "Provider to use in zombienet-sdk tests."
+      RUST_LOG:
+        value: ${{ jobs.preflight.outputs.RUST_LOG }}
+        description: "Log value to use in zombinet-sdk tests."
+      RUN_IN_CI:
+        value: ${{ jobs.preflight.outputs.RUN_IN_CI }}
+        description: "Internal flag to make zombienet aware of the env."
+
+      KUBERNETES_CPU_REQUEST:
+        value: ${{ jobs.preflight.outputs.KUBERNETES_CPU_REQUEST }}
+        description: "Base cpu (request) for pod runner."
+
+      KUBERNETES_MEMORY_REQUEST:
+        value: ${{ jobs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}
+        description: "Base memory (request) for pod runner."
+
+jobs:
+  global_preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  #
+  #
+  #
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+
+      ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
+      ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
+
+      DOCKER_IMAGES_VERSION: ${{ steps.set_images_version.outputs.ZOMBIENET_RUNNER }}
+
+      # common vars
+      PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
+      DEBUG: ${{ steps.set_vars.outputs.DEBUG }}
+      ZOMBIE_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIE_PROVIDER }}
+      RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
+      RUN_IN_CI: ${{ steps.set_vars.outputs.RUN_IN_CI }}
+      KUBERNETES_CPU_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_CPU_REQUEST }}
+      KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      #
+      # Set changes
+      #
+      - name: Current file
+        id: current_file
+        shell: bash
+        run: |
+          echo "currentWorkflowFile=$(echo ${{ github.workflow_ref }} | sed -nE "s/.*(\.github\/workflows\/[a-zA-Z0-9_-]*\.y[a]?ml)@refs.*/\1/p")" >> $GITHUB_OUTPUT
+          echo "currentActionDir=$(echo ${{ github.action_path }} | sed -nE "s/.*(\.github\/actions\/[a-zA-Z0-9_-]*)/\1/p")" >> $GITHUB_OUTPUT
+
+      - name: Set changes
+        id: set_changes
+        uses: tj-actions/changed-files@v45
+        with:
+          files_yaml: |
+            substrate:
+              - 'substrate/**/*'
+            currentWorkflow:
+              - '${{ steps.current_file.outputs.currentWorkflowFile }}'
+              - '.github/workflows/zombienet-reusable-preflight.yml'
+              - '.github/zombienet-env'
+
+
+      #
+      # Set environment vars (including runner/image)
+      #
+      - name: Set vars
+        id: set_vars
+        shell: bash
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+
+      #
+      #
+      #
+      - name: Set docker images version
+        id: set_images_version
+        shell: bash
+        run: |
+          export BRANCH_NAME=${{ github.head_ref || github.ref_name }}
+          export DOCKER_IMAGES_VERSION=${BRANCH_NAME/\//-}
+          if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
+          echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: log
+        shell: bash
+        run: |
+          echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
+          echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"

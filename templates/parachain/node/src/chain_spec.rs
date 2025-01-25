@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
+/// The relay chain that you want to configure this parachain to connect to.
+pub const RELAY_CHAIN: &str = "rococo-local";
 
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
@@ -35,16 +37,13 @@ pub fn development_chain_spec() -> ChainSpec {
 
 	ChainSpec::builder(
 		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions {
-			relay_chain: "rococo-local".into(),
-			// You MUST set this to the correct network!
-			para_id: 1000,
-		},
+		Extensions { relay_chain: RELAY_CHAIN.into(), para_id: runtime::PARACHAIN_ID },
 	)
 	.with_name("Development")
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
 	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
+	.with_properties(properties)
 	.build()
 }
 
@@ -58,11 +57,7 @@ pub fn local_chain_spec() -> ChainSpec {
 	#[allow(deprecated)]
 	ChainSpec::builder(
 		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions {
-			relay_chain: "rococo-local".into(),
-			// You MUST set this to the correct network!
-			para_id: 1000,
-		},
+		Extensions { relay_chain: RELAY_CHAIN.into(), para_id: runtime::PARACHAIN_ID },
 	)
 	.with_name("Local Testnet")
 	.with_id("local_testnet")

@@ -220,18 +220,16 @@ impl<B: BlockT> Future for GossipEngine<B> {
 							},
 							NotificationEvent::NotificationStreamOpened {
 								peer, handshake, ..
-							} => {
-								let Some(role) = this.network.peer_role(peer, handshake) else {
+							} =>
+								if let Some(role) = this.network.peer_role(peer, handshake) {
+									this.state_machine.new_peer(
+										&mut this.notification_service,
+										peer,
+										role,
+									);
+								} else {
 									log::debug!(target: "gossip", "role for {peer} couldn't be determined");
-									continue
-								};
-
-								this.state_machine.new_peer(
-									&mut this.notification_service,
-									peer,
-									role,
-								);
-							},
+								},
 							NotificationEvent::NotificationStreamClosed { peer } => {
 								this.state_machine
 									.peer_disconnected(&mut this.notification_service, peer);
@@ -256,10 +254,12 @@ impl<B: BlockT> Future for GossipEngine<B> {
 
 					match sync_event_stream {
 						Poll::Ready(Some(event)) => match event {
-							SyncEvent::PeerConnected(remote) =>
-								this.network.add_set_reserved(remote, this.protocol.clone()),
-							SyncEvent::PeerDisconnected(remote) =>
-								this.network.remove_set_reserved(remote, this.protocol.clone()),
+							SyncEvent::InitialPeers(peer_ids) =>
+								this.network.add_set_reserved(peer_ids, this.protocol.clone()),
+							SyncEvent::PeerConnected(peer_id) =>
+								this.network.add_set_reserved(vec![peer_id], this.protocol.clone()),
+							SyncEvent::PeerDisconnected(peer_id) =>
+								this.network.remove_set_reserved(peer_id, this.protocol.clone()),
 						},
 						// The sync event stream closed. Do the same for [`GossipValidator`].
 						Poll::Ready(None) => {

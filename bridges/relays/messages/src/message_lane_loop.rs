@@ -1041,7 +1041,7 @@ pub(crate) mod tests {
 	#[test]
 	fn message_lane_loop_is_able_to_recover_from_unsuccessful_transaction() {
 		// with this configuration, both source and target clients will mine their transactions, but
-		// their corresponding nonce won't be udpated => reconnect will happen
+		// their corresponding nonce won't be updated => reconnect will happen
 		let (exit_sender, exit_receiver) = unbounded();
 		let result = run_loop_test(
 			Arc::new(Mutex::new(TestClientData {

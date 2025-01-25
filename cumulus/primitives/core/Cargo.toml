@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Cumulus related core primitive types and traits"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -41,4 +43,5 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

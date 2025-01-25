@@ -283,6 +283,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(8, 1000),
 			(9, 1000),
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
