@@ -44,8 +44,9 @@ pub mod pallet {
 	/// It will be an identical, but won't have anything that is `#[pallet::no_default]`.
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
-		/// The overarching task type.
-		#[pallet::no_default]
+		/// The overarching task type. This is coming from the runtime, and cannot have a default.  
+		/// In general, `Runtime*`-oriented types cannot have a sensible default.
+		#[pallet::no_default] // optional. `RuntimeEvent` is automatically excluded as well.
 		type RuntimeTask: Task;
 
 		/// An input parameter to this pallet. This value can have a default, because it is not

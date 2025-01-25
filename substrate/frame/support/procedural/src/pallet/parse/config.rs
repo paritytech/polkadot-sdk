@@ -17,6 +17,7 @@
 
 use super::helper;
 use frame_support_procedural_tools::{get_cfg_attributes, get_doc_literals, is_using_frame_crate};
+use proc_macro_warning::Warning;
 use quote::ToTokens;
 use syn::{spanned::Spanned, token, Token, TraitItemType};
 
@@ -73,6 +74,8 @@ pub struct ConfigDef {
 	/// Vec will be empty if `#[pallet::config(with_default)]` is not specified or if there are
 	/// no trait items.
 	pub default_sub_trait: Option<DefaultTrait>,
+	/// Compile time warnings. Mainly for deprecated items.
+	pub warnings: Vec<Warning>,
 }
 
 /// Input definition for an associated type in pallet config.
@@ -458,6 +461,7 @@ impl ConfigDef {
 		let mut has_event_type = false;
 		let mut consts_metadata = vec![];
 		let mut associated_types_metadata = vec![];
+		let mut warnings = vec![];
 		let mut default_sub_trait = if enable_default {
 			Some(DefaultTrait {
 				items: Default::default(),
@@ -478,9 +482,17 @@ impl ConfigDef {
 			// add deprecation notice for `RuntimeEvent`, iff pallet is not `frame_system`
 			if is_event && has_frame_system_supertrait {
 				if let syn::TraitItem::Type(type_event) = trait_item {
-					type_event
-						.attrs
-						.push(syn::parse_quote!(#[deprecated(note = "`RuntimeEvent` associated type is deprecated, there is no need to define it in the pallet config.")]));
+					type_event.attrs.push(syn::parse_quote!(#[allow(deprecated)]));
+
+					let warning = Warning::new_deprecated("RuntimeEvent")
+						.old("have `RuntimeEvent` associated type in the pallet config")
+						.new("remove it or explicitly define it as an associated type bound in the system supertrait: \n
+							pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> { } \n")
+						.help_link("https://github.com/paritytech/polkadot-sdk/pull/7229")
+						.span(type_event.span())
+						.build_or_panic();
+
+					warnings.push(warning);
 				}
 			}
 
@@ -645,6 +657,7 @@ impl ConfigDef {
 			has_event_bound,
 			where_clause,
 			default_sub_trait,
+			warnings,
 		})
 	}
 }
