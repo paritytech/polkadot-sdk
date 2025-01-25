@@ -37,7 +37,7 @@ use crate::{
 	},
 };
 use core::marker::PhantomData;
-use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
+use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One, Zero};
 use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
@@ -507,6 +507,7 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 		};
 		let result = credit.offset(debt).try_drop();
 		debug_assert!(result.is_ok(), "ok deposit return must be equal to credit value; qed");
+		Self::done_resolve(who, v);
 		Ok(())
 	}
 
@@ -525,8 +526,14 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 		};
 
 		match credit.offset(debt) {
-			SameOrOther::None => Ok(Credit::<AccountId, Self>::zero()),
-			SameOrOther::Same(dust) => Ok(dust),
+			SameOrOther::None => {
+				Self::done_settle(who, amount.clone(), &Zero::zero());
+				Ok(Credit::<AccountId, Self>::zero())
+			},
+			SameOrOther::Same(dust) => {
+				Self::done_settle(who, amount, &dust.peek());
+				Ok(dust)
+			},
 			SameOrOther::Other(rest) => {
 				debug_assert!(false, "ok withdraw return must be at least debt value; qed");
 				Err(rest)
@@ -538,6 +545,8 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	fn done_issue(_amount: Self::Balance) {}
 	fn done_deposit(_who: &AccountId, _amount: Self::Balance) {}
 	fn done_withdraw(_who: &AccountId, _amount: Self::Balance) {}
+	fn done_settle(_who: &AccountId, _amount: Self::Balance, _dust: &Self::Balance) {} // no dust or with dust to handle.
+	fn done_resolve(_who: &AccountId, _amount: Self::Balance) {}
 }
 
 /// Dummy implementation of [`Inspect`]

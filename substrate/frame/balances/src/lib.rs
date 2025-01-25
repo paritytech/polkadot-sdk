@@ -365,6 +365,8 @@ pub mod pallet {
 		Minted { who: T::AccountId, amount: T::Balance },
 		/// Some amount was burned from an account.
 		Burned { who: T::AccountId, amount: T::Balance },
+		/// Some amount was burned from an account with some dust left
+		BurnedWithDust { who: T::AccountId, amount: T::Balance, dust: T::Balance },
 		/// Some amount was suspended from an account (it can be restored later).
 		Suspended { who: T::AccountId, amount: T::Balance },
 		/// Some amount was restored into an account.
@@ -386,7 +388,7 @@ pub mod pallet {
 		/// The `TotalIssuance` was forcefully changed.
 		TotalIssuanceForced { old: T::Balance, new: T::Balance },
 		/// Some balance of who is currently being held.
-		Holding { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
+		Held { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
 		/// Some balance of who has been released.
 		Released { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance }
 	}
