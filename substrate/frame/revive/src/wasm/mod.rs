@@ -324,15 +324,6 @@ impl<T: Config> WasmBlob<T> {
 			Error::<T>::CodeRejected
 		})?;
 
-		// This is checked at deploy time but we also want to reject pre-existing
-		// 32bit programs.
-		// TODO: Remove when we reset the test net.
-		// https://github.com/paritytech/contract-issues/issues/11
-		if !module.is_64_bit() {
-			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
-			Err(Error::<T>::CodeRejected)?;
-		}
-
 		let entry_program_counter = module
 			.exports()
 			.find(|export| export.symbol().as_bytes() == entry_point.identifier().as_bytes())
