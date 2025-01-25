@@ -108,13 +108,14 @@ impl Def {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config{ with_default, without_automatic_metadata, ..}) if config.is_none() =>
+				Some(PalletAttr::Config{ with_default, is_frame_system, without_automatic_metadata, ..}) if config.is_none() =>
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
 						index,
 						item,
 						with_default,
 						without_automatic_metadata,
+						is_frame_system,
 					)?),
 				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
 					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
@@ -558,6 +559,7 @@ mod keyword {
 	syn::custom_keyword!(config);
 	syn::custom_keyword!(with_default);
 	syn::custom_keyword!(without_automatic_metadata);
+	syn::custom_keyword!(is_frame_system);
 	syn::custom_keyword!(hooks);
 	syn::custom_keyword!(inherent);
 	syn::custom_keyword!(error);
@@ -578,6 +580,8 @@ enum ConfigValue {
 	WithDefault(keyword::with_default),
 	/// `#[pallet::config(without_automatic_metadata)]`
 	WithoutAutomaticMetadata(keyword::without_automatic_metadata),
+	/// `#[pallet::config(is_frame_system)]`
+	IsFrameSystem(keyword::is_frame_system),
 }
 
 impl syn::parse::Parse for ConfigValue {
@@ -588,6 +592,8 @@ impl syn::parse::Parse for ConfigValue {
 			input.parse().map(ConfigValue::WithDefault)
 		} else if lookahead.peek(keyword::without_automatic_metadata) {
 			input.parse().map(ConfigValue::WithoutAutomaticMetadata)
+		} else if lookahead.peek(keyword::is_frame_system) {
+			input.parse().map(ConfigValue::IsFrameSystem)
 		} else {
 			Err(lookahead.error())
 		}
@@ -601,6 +607,7 @@ enum PalletAttr {
 		span: proc_macro2::Span,
 		with_default: bool,
 		without_automatic_metadata: bool,
+		is_frame_system: bool,
 	},
 	Pallet(proc_macro2::Span),
 	Hooks(proc_macro2::Span),
@@ -710,6 +717,7 @@ impl syn::parse::Parse for PalletAttr {
 
 				let mut with_default = false;
 				let mut without_automatic_metadata = false;
+				let mut is_frame_system = false;
 				for config in config_values {
 					match config {
 						ConfigValue::WithDefault(_) => {
@@ -730,15 +738,30 @@ impl syn::parse::Parse for PalletAttr {
 							}
 							without_automatic_metadata = true;
 						},
+						ConfigValue::IsFrameSystem(_) => {
+							if is_frame_system {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: is_frame_system.",
+								));
+							}
+							is_frame_system = true;
+						},
 					}
 				}
 
-				Ok(PalletAttr::Config { span, with_default, without_automatic_metadata })
+				Ok(PalletAttr::Config {
+					span,
+					with_default,
+					without_automatic_metadata,
+					is_frame_system,
+				})
 			} else {
 				Ok(PalletAttr::Config {
 					span,
 					with_default: false,
 					without_automatic_metadata: false,
+					is_frame_system: false,
 				})
 			}
 		} else if lookahead.peek(keyword::pallet) {

@@ -410,6 +410,7 @@ impl ConfigDef {
 		item: &mut syn::Item,
 		enable_default: bool,
 		disable_associated_metadata: bool,
+		is_frame_system: bool,
 	) -> syn::Result<Self> {
 		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
@@ -443,30 +444,21 @@ impl ConfigDef {
 			false
 		};
 
-		let (has_frame_system_supertrait, has_event_bound) = item
-			.supertraits
-			.iter()
-			.filter_map(|supertrait| syn::parse2::<syn::Path>(supertrait.to_token_stream()).ok())
-			.fold((false, false), |(mut has_system, mut has_event_bound), supertrait| {
-				if has_expected_system_config(supertrait.clone(), frame_system) {
-					has_system = true;
-					// only check for `RuntimeEvent` bound if `frame_system::Config` is found.
-					has_event_bound = has_event_bound ||
-						contains_runtime_event_associated_type_bound(&supertrait);
-				}
-
-				(has_system, has_event_bound)
-			});
+		let has_event_bound = if is_frame_system {
+			false
+		} else {
+			item.supertraits.iter().any(|supertrait| {
+				syn::parse2::<syn::Path>(supertrait.to_token_stream())
+					.map_or(false, |b| contains_runtime_event_associated_type_bound(&b))
+			})
+		};
 
 		let mut has_event_type = false;
 		let mut consts_metadata = vec![];
 		let mut associated_types_metadata = vec![];
 		let mut warnings = vec![];
 		let mut default_sub_trait = if enable_default {
-			Some(DefaultTrait {
-				items: Default::default(),
-				has_system: has_frame_system_supertrait,
-			})
+			Some(DefaultTrait { items: Default::default(), has_system: !is_frame_system })
 		} else {
 			None
 		};
@@ -480,14 +472,14 @@ impl ConfigDef {
 			let mut already_collected_associated_type = None;
 
 			// add deprecation notice for `RuntimeEvent`, iff pallet is not `frame_system`
-			if is_event && has_frame_system_supertrait {
+			if is_event && !is_frame_system {
 				if let syn::TraitItem::Type(type_event) = trait_item {
 					type_event.attrs.push(syn::parse_quote!(#[allow(deprecated)]));
 
 					let warning = Warning::new_deprecated("RuntimeEvent")
 						.old("have `RuntimeEvent` associated type in the pallet config")
 						.new("remove it or explicitly define it as an associated type bound in the system supertrait: \n
-							pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> { } \n")
+							pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> { }")
 						.help_link("https://github.com/paritytech/polkadot-sdk/pull/7229")
 						.span(type_event.span())
 						.build_or_panic();
@@ -623,7 +615,7 @@ impl ConfigDef {
 			helper::take_first_item_pallet_attr(&mut item.attrs)?;
 		let disable_system_supertrait_check = attr.is_some();
 
-		if !has_frame_system_supertrait && !disable_system_supertrait_check {
+		if is_frame_system && !disable_system_supertrait_check {
 			let found = if item.supertraits.is_empty() {
 				"none".to_string()
 			} else {
