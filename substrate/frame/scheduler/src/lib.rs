@@ -228,7 +228,6 @@ impl<T: WeightInfo> MarginalWeightInfo for T {}
 
 #[frame_support::pallet]
 pub mod pallet {
-	use std::collections::BTreeSet;
 	use super::*;
 	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, OriginFor};
@@ -239,7 +238,6 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
-
 	/// `system::Config` should always be included in our implied traits.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -342,7 +340,8 @@ pub mod pallet {
 	/// The queue of block numbers that have scheduled agendas.
 	#[pallet::storage]
 	pub(crate) type Queue<T: Config> =
-		StorageValue<_, BTreeSet<BlockNumberFor<T>>, ValueQuery>;
+	StorageValue<_, BoundedBTreeSet<BlockNumberFor<T>, T::MaxScheduledBlocks>, ValueQuery>;
+
 
 	/// Events type.
 	#[pallet::event]
@@ -958,10 +957,14 @@ impl<T: Config> Pallet<T> {
 		};
 		Agenda::<T>::insert(when, agenda);
 		Queue::<T>::mutate(|q| {
+			// Ensure q is mutable
 			if !q.contains(&when) {
-				if !q.insert(when) {
-					return Err((DispatchError::Exhausted, what)); // If insert fails, return an error
+				// Check if the set is full before inserting
+				if q.len() >= T::MaxScheduledBlocks::get() as usize {
+					return Err((DispatchError::Exhausted, what)); // Return an error if full
 				}
+				// Insert the block number into the set
+				q.try_insert(when).map_err(|_| (DispatchError::Exhausted, what))?;
 			}
 			Ok(())
 		})?;

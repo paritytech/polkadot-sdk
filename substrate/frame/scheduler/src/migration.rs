@@ -564,6 +564,7 @@ mod test {
 pub mod v5 {
 	use super::*;
 	use alloc::vec;
+	use std::collections::BTreeSet;
 	use frame_support::{
 		migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
 	};
@@ -577,16 +578,15 @@ pub mod v5 {
 			IncompleteSince::<T>::kill();
 			let mut weight = T::DbWeight::get().writes(1);
 
-			let mut queue = vec![];
+			let mut queue = BoundedBTreeSet::<BlockNumberFor<T>, T::MaxScheduledBlocks>::default();
 			Agenda::<T>::iter().for_each(|(k, _)| {
-				queue.push(k);
-				weight.saturating_accrue(T::DbWeight::get().reads(1));
+				if queue.len() < T::MaxScheduledBlocks::get() as usize {
+					// Attempt to insert only if there's capacity left
+					if queue.try_insert(k).is_ok() {
+						weight.saturating_accrue(T::DbWeight::get().reads(1));
+					}
+				}
 			});
-			queue.sort_unstable();
-			queue.dedup();
-
-			let queue =
-				BoundedVec::<BlockNumberFor<T>, T::MaxScheduledBlocks>::try_from(queue).unwrap();
 			Queue::<T>::put(queue);
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
 
