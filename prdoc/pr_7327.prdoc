@@ -1,0 +1,11 @@
+title: Correctly register the weight n `set_validation_data` in `cumulus-pallet-parachain-system`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        The actual weight of the call was register as a refund, but the pre-dispatch weight is 0,
+        and we can't refund from 0. Now the actual weight is registered manually instead of ignored.
+
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: patch
