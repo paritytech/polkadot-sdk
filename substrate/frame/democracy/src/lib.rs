@@ -1211,7 +1211,7 @@ impl<T: Config> Pallet<T> {
 		// DepositOf should be equal to PublicProps in storage
 		ensure!(
 			DepositOf::<T>::iter().count() == PublicProps::<T>::get().len() as usize,
-			"`DepositOf` should be greater than of `PublicProps` in storage"
+			"`DepositOf` count should be equal to `PublicProps` count in storage"
 		);
 		// Total number of depositors should be greater or equal to `PublicProps`
 		ensure!(
@@ -1227,7 +1227,7 @@ impl<T: Config> Pallet<T> {
 		if (NextExternal::<T>::get().is_some()) {
 			ensure!(
 				PublicProps::<T>::get().len() == 0,
-				"`NextExternal` should exists if PublicProps is empty"
+				"`NextExternal` should exists only if PublicProps is empty"
 			);
 		}
 
