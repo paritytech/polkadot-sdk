@@ -52,7 +52,7 @@ use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnlockChunk, ValidatorPrefs,
 	STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
