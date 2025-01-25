@@ -182,7 +182,7 @@ const NIL_MARKER: u32 = u32::MAX;
 enum Link {
 	/// Nil, denotes that there is no next element.
 	Nil,
-	/// Link to the next element represented as a pointer to the a header.
+	/// Link to the next element represented as a pointer to the header.
 	Ptr(u32),
 }
 

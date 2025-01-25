@@ -165,12 +165,14 @@ jobs:
 
       - name: Download artifact (master run)
         uses: actions/download-artifact@v4.1.8
+        continue-on-error: true
         with:
           name: cargo-check-benches-master-${{ github.sha }}
           path: ./artifacts/master
 
       - name: Download artifact (current run)
         uses: actions/download-artifact@v4.1.8
+        continue-on-error: true
         with:
           name: cargo-check-benches-current-${{ github.sha }}
           path: ./artifacts/current
@@ -181,6 +183,12 @@ jobs:
           if [ "${{ github.ref_name }}" = "master" ]; then
             echo -e "Exiting on master branch"
             exit 0
+          fi
+
+          # fail if no artifacts
+          if [ ! -d ./artifacts/master ] || [ ! -d ./artifacts/current ]; then
+            echo "No artifacts found"
+            exit 1
           fi
 
           docker run --rm \

@@ -43,7 +43,7 @@ use substrate_test_runtime_client::{
 		AccountId, Block, BlockNumber, Extrinsic, ExtrinsicBuilder, Hash, Header, Nonce, Transfer,
 		TransferData,
 	},
-	AccountKeyring::{self, *},
+	Sr25519Keyring::{self, *},
 };
 
 /// Error type used by [`TestApi`].
@@ -338,7 +338,7 @@ trait TagFrom {
 
 impl TagFrom for AccountId {
 	fn tag_from(&self) -> u8 {
-		let f = AccountKeyring::iter().enumerate().find(|k| AccountId::from(k.1) == *self);
+		let f = Sr25519Keyring::iter().enumerate().find(|k| AccountId::from(k.1) == *self);
 		u8::try_from(f.unwrap().0).unwrap()
 	}
 }
@@ -352,9 +352,18 @@ impl ChainApi for TestApi {
 	fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
-		_source: TransactionSource,
+		source: TransactionSource,
 		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
 	) -> Self::ValidationFuture {
+		ready(self.validate_transaction_blocking(at, source, uxt))
+	}
+
+	fn validate_transaction_blocking(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		_source: TransactionSource,
+		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+	) -> Result<TransactionValidity, Error> {
 		let uxt = (*uxt).clone();
 		self.validation_requests.write().push(uxt.clone());
 		let block_number;
@@ -374,16 +383,12 @@ impl ChainApi for TestApi {
 				// the transaction. (This is not required for this test function, but in real
 				// environment it would fail because of this).
 				if !found_best {
-					return ready(Ok(Err(TransactionValidityError::Invalid(
-						InvalidTransaction::Custom(1),
-					))))
+					return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1))))
 				}
 			},
 			Ok(None) =>
-				return ready(Ok(Err(TransactionValidityError::Invalid(
-					InvalidTransaction::Custom(2),
-				)))),
-			Err(e) => return ready(Err(e)),
+				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(2)))),
+			Err(e) => return Err(e),
 		}
 
 		let (requires, provides) = if let Ok(transfer) = TransferData::try_from(&uxt) {
@@ -423,7 +428,7 @@ impl ChainApi for TestApi {
 
 			if self.enable_stale_check && transfer.nonce < chain_nonce {
 				log::info!("test_api::validate_transaction: invalid_transaction(stale)....");
-				return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))))
+				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)))
 			}
 
 			(requires, provides)
@@ -433,7 +438,7 @@ impl ChainApi for TestApi {
 
 		if self.chain.read().invalid_hashes.contains(&self.hash_and_length(&uxt).0) {
 			log::info!("test_api::validate_transaction: invalid_transaction....");
-			return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)))))
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0))))
 		}
 
 		let priority = self.chain.read().priorities.get(&self.hash_and_length(&uxt).0).cloned();
@@ -447,16 +452,7 @@ impl ChainApi for TestApi {
 
 		(self.valid_modifier.read())(&mut validity);
 
-		ready(Ok(Ok(validity)))
-	}
-
-	fn validate_transaction_blocking(
-		&self,
-		_at: <Self::Block as BlockT>::Hash,
-		_source: TransactionSource,
-		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-	) -> Result<TransactionValidity, Error> {
-		unimplemented!();
+		Ok(Ok(validity))
 	}
 
 	fn block_id_to_number(
@@ -534,7 +530,7 @@ impl sp_blockchain::HeaderMetadata<Block> for TestApi {
 /// Generate transfer extrinsic with a given nonce.
 ///
 /// Part of the test api.
-pub fn uxt(who: AccountKeyring, nonce: Nonce) -> Extrinsic {
+pub fn uxt(who: Sr25519Keyring, nonce: Nonce) -> Extrinsic {
 	let dummy = codec::Decode::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 	let transfer = Transfer { from: who.into(), to: dummy, nonce, amount: 1 };
 	ExtrinsicBuilder::new_transfer(transfer).build()

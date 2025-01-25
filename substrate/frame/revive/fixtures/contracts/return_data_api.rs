@@ -75,15 +75,21 @@ fn recursion_guard() -> [u8; 20] {
 
 /// Assert [api::return_data_size] to match the `expected` value.
 fn assert_return_data_size_of(expected: u64) {
-	let mut return_data_size = [0xff; 32];
-	api::return_data_size(&mut return_data_size);
-	assert_eq!(return_data_size, u256_bytes(expected));
+	assert_eq!(api::return_data_size(), expected);
 }
 
 /// Assert the return data to be reset after a balance transfer.
 fn assert_balance_transfer_does_reset() {
-	api::call(uapi::CallFlags::empty(), &[0u8; 20], 0, 0, None, &u256_bytes(128), &[], None)
-		.unwrap();
+	api::call(
+		uapi::CallFlags::empty(),
+		&[0u8; 20],
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
+		&u256_bytes(128),
+		&[],
+		None
+	).unwrap();
 	assert_return_data_size_of(0);
 }
 
@@ -113,9 +119,9 @@ pub extern "C" fn call() {
 	let mut instantiate = |exit_flag| {
 		api::instantiate(
 			code_hash,
-			0u64,
-			0u64,
-			None,
+			u64::MAX,
+			u64::MAX,
+			&[u8::MAX; 32],
 			&[0; 32],
 			&construct_input(exit_flag),
 			Some(&mut address_buf),
@@ -127,9 +133,9 @@ pub extern "C" fn call() {
 		api::call(
 			uapi::CallFlags::empty(),
 			address_buf,
-			0u64,
-			0u64,
-			None,
+			u64::MAX,
+			u64::MAX,
+			&[u8::MAX; 32],
 			&[0; 32],
 			&construct_input(exit_flag),
 			None,

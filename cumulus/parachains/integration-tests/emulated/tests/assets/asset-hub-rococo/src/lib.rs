@@ -76,10 +76,11 @@ mod imports {
 			genesis::ED as ROCOCO_ED,
 			rococo_runtime::{
 				governance as rococo_governance,
+				governance::pallet_custom_origins::Origin::Treasurer,
 				xcm_config::{
 					UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
 				},
-				OriginCaller as RococoOriginCaller,
+				Dmp, OriginCaller as RococoOriginCaller,
 			},
 			RococoRelayPallet as RococoPallet,
 		},

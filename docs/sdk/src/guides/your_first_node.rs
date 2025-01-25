@@ -103,6 +103,7 @@
 #[cfg(test)]
 mod tests {
 	use assert_cmd::Command;
+	use cmd_lib::*;
 	use rand::Rng;
 	use sc_chain_spec::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 	use sp_genesis_builder::PresetId;
@@ -173,13 +174,10 @@ mod tests {
 			println!("Building polkadot-sdk-docs-first-runtime...");
 			#[docify::export_content]
 			fn build_runtime() {
-				Command::new("cargo")
-					.arg("build")
-					.arg("--release")
-					.arg("-p")
-					.arg(FIRST_RUNTIME)
-					.assert()
-					.success();
+				run_cmd!(
+					cargo build --release -p $FIRST_RUNTIME
+				)
+				.expect("Failed to run command");
 			}
 			build_runtime()
 		}
@@ -274,14 +272,10 @@ mod tests {
 			let chain_spec_builder = find_release_binary(&CHAIN_SPEC_BUILDER).unwrap();
 			let runtime_path = find_wasm(PARA_RUNTIME).unwrap();
 			let output = "/tmp/demo-chain-spec.json";
-			Command::new(chain_spec_builder)
-				.args(["-c", output])
-				.arg("create")
-				.args(["--para-id", "1000", "--relay-chain", "dontcare"])
-				.args(["-r", runtime_path.to_str().unwrap()])
-				.args(["named-preset", "development"])
-				.assert()
-				.success();
+			let runtime_str = runtime_path.to_str().unwrap();
+			run_cmd!(
+				$chain_spec_builder -c $output create --para-id 1000 --relay-chain dontcare -r $runtime_str named-preset development
+			).expect("Failed to run command");
 			std::fs::remove_file(output).unwrap();
 		}
 		build_para_chain_spec_works();
