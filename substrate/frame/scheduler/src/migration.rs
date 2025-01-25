@@ -563,7 +563,6 @@ mod test {
 
 pub mod v5 {
 	use super::*;
-	use alloc::vec;
 	use frame_support::{
 		migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
 	};
