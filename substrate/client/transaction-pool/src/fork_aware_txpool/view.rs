@@ -159,7 +159,7 @@ where
 		&self,
 		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)>,
 	) -> Vec<Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error>> {
-        if tracing::enabled!(target: LOG_TARGET, tracing::Level::TRACE) {
+		if tracing::enabled!(target: LOG_TARGET, tracing::Level::TRACE) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
 			log_xt_trace!(target: LOG_TARGET, xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
 			self.pool.submit_at(&self.at, xts).await
@@ -174,7 +174,7 @@ where
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
-        tracing::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			tx_hash = ?self.pool.validated_pool().api().hash_and_length(&xt).0,
 			view_at_hash = ?self.at.hash,

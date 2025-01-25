@@ -259,12 +259,12 @@ where
 
 		match result {
 			Some(Err(error)) => {
-                tracing::trace!(
-				    target: LOG_TARGET,
-				    ?tx_hash,
-				    %error,
-				    "submit_local: err"
-                );
+				tracing::trace!(
+					target: LOG_TARGET,
+					?tx_hash,
+					%error,
+					"submit_local: err"
+				);
 				Err(error)
 			},
 			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None)),
@@ -320,13 +320,13 @@ where
 
 		match result {
 			Some(Err(error)) => {
-                tracing::trace!(
-				    target: LOG_TARGET,
-				    ?tx_hash,
-				    %error,
-				    "submit_and_watch: err"
-			    );
-                return Err(error);
+				tracing::trace!(
+					target: LOG_TARGET,
+					?tx_hash,
+					%error,
+					"submit_and_watch: err"
+				);
+				return Err(error);
 			},
 			Some(Ok(result)) =>
 				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
