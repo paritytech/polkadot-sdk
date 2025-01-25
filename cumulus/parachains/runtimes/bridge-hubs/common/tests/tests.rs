@@ -53,33 +53,33 @@ fn test_deny_export_message_from() {
 	};
 
 	// A message without an `ExportMessage` should pass
-	assert_deny_execution(vec![AliasOrigin(Here.into())], Source1::get(), None);
+	assert_deny_execution(vec![AliasOrigin(Here.into())], Source1::get(), Ok(()));
 
 	// `ExportMessage` from source1 and remote1 should pass
 	assert_deny_execution(
 		vec![ExportMessage { network: Remote1::get(), destination: Here, xcm: Default::default() }],
 		Source1::get(),
-		None,
+		Ok(()),
 	);
 
 	// `ExportMessage` from source1 and remote2 should pass
 	assert_deny_execution(
 		vec![ExportMessage { network: Remote2::get(), destination: Here, xcm: Default::default() }],
 		Source1::get(),
-		None,
+		Ok(()),
 	);
 
 	// `ExportMessage` from source2 and remote2 should pass
 	assert_deny_execution(
 		vec![ExportMessage { network: Remote2::get(), destination: Here, xcm: Default::default() }],
 		Source2::get(),
-		None,
+		Ok(()),
 	);
 
 	// `ExportMessage` from source2 and remote1 should be banned
 	assert_deny_execution(
 		vec![ExportMessage { network: Remote1::get(), destination: Here, xcm: Default::default() }],
 		Source2::get(),
-		Some(Unsupported),
+		Err(Unsupported),
 	);
 }
