@@ -564,10 +564,10 @@ mod test {
 pub mod v5 {
 	use super::*;
 	use alloc::vec;
-	use std::collections::BTreeSet;
 	use frame_support::{
 		migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
 	};
+	use std::collections::BTreeSet;
 
 	#[frame_support::storage_alias]
 	pub(crate) type IncompleteSince<T: Config> = StorageValue<Pallet<T>, BlockNumberFor<T>>;

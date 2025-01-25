@@ -340,8 +340,7 @@ pub mod pallet {
 	/// The queue of block numbers that have scheduled agendas.
 	#[pallet::storage]
 	pub(crate) type Queue<T: Config> =
-	StorageValue<_, BoundedBTreeSet<BlockNumberFor<T>, T::MaxScheduledBlocks>, ValueQuery>;
-
+		StorageValue<_, BoundedBTreeSet<BlockNumberFor<T>, T::MaxScheduledBlocks>, ValueQuery>;
 
 	/// Events type.
 	#[pallet::event]
