@@ -50,7 +50,6 @@ sp-api = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
@@ -98,7 +97,6 @@ std = [
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"wasm-instrument?/std",
 	"wasmi/std",
 	"xcm-builder/std",

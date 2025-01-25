@@ -308,6 +308,17 @@ impl PostDispatchInfo {
 	/// Calculate how much weight was actually spent by the `Dispatchable`.
 	pub fn calc_actual_weight(&self, info: &DispatchInfo) -> Weight {
 		if let Some(actual_weight) = self.actual_weight {
+			let info_total_weight = info.total_weight();
+			if actual_weight.any_gt(info_total_weight) {
+				log::error!(
+					target: crate::LOG_TARGET,
+					"Post dispatch weight is greater than pre dispatch weight. \
+					Pre dispatch weight may underestimating the actual weight. \
+					Greater post dispatch weight components are ignored.
+					Pre dispatch weight: {info_total_weight:?},
+					Post dispatch weight: {actual_weight:?}",
+				);
+			}
 			actual_weight.min(info.total_weight())
 		} else {
 			info.total_weight()
