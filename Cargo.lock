@@ -998,7 +998,6 @@ dependencies = [
  "pallet-multisig 28.0.0",
  "pallet-nft-fractionalization 10.0.0",
  "pallet-nfts 22.0.0",
- "pallet-nfts-runtime-api 14.0.0",
  "pallet-proxy 28.0.0",
  "pallet-session 28.0.0",
  "pallet-timestamp 27.0.0",
@@ -13701,7 +13700,6 @@ dependencies = [
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "log",
- "pallet-balances 28.0.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
@@ -13867,7 +13865,6 @@ dependencies = [
  "scale-info",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
- "sp-keyring 31.0.0",
  "sp-runtime 31.0.1",
 ]
 
@@ -14234,7 +14231,6 @@ dependencies = [
 name = "pallet-nfts-runtime-api"
 version = "14.0.0"
 dependencies = [
- "pallet-nfts 22.0.0",
  "parity-scale-codec",
  "sp-api 26.0.0",
 ]
@@ -14455,7 +14451,6 @@ dependencies = [
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "log",
- "pallet-balances 28.0.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
