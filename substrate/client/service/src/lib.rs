@@ -23,14 +23,11 @@
 #![recursion_limit = "1024"]
 
 pub mod chain_ops;
+pub mod client;
 pub mod config;
 pub mod error;
 
 mod builder;
-#[cfg(feature = "test-helpers")]
-pub mod client;
-#[cfg(not(feature = "test-helpers"))]
-mod client;
 mod metrics;
 mod task_manager;
 
@@ -599,8 +596,8 @@ mod tests {
 		let transaction = Transfer {
 			amount: 5,
 			nonce: 0,
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Bob.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Bob.into(),
 		}
 		.into_unchecked_extrinsic();
 		block_on(pool.submit_one(best.hash(), source, transaction.clone())).unwrap();

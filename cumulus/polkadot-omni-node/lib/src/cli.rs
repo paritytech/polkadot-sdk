@@ -126,9 +126,14 @@ pub struct Cli<Config: CliConfig> {
 
 	/// Start a dev node that produces a block each `dev_block_time` ms.
 	///
-	/// This is a dev option, and it won't result in starting or connecting to a parachain network.
-	/// The resulting node will work on its own, running the wasm blob and artificially producing
-	/// a block each `dev_block_time` ms, as if it was part of a parachain.
+	/// This is a dev option. It enables a manual sealing, meaning blocks are produced manually
+	/// rather than being part of an actual network consensus process. Using the option won't
+	/// result in starting or connecting to a parachain network. The resulting node will work on
+	/// its own, running the wasm blob and artificially producing a block each `dev_block_time` ms,
+	/// as if it was part of a parachain.
+	///
+	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
+	/// provided.
 	#[arg(long)]
 	pub dev_block_time: Option<u64>,
 

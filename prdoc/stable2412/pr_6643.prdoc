@@ -1,0 +1,47 @@
+title: Added fallback_max_weight to Transact for sending messages to V4 chains
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removing the `require_weight_at_most` parameter in V5 Transact introduced a problem when converting a message from V5 to V4 to send to chains that didn't upgrade yet.
+    The local chain doesn't know how to decode calls for remote chains so it can't automatically populate `require_weight_at_most` required by V4 Transact.
+    To fix this, XCM v5 Transact now also takes a `fallback_max_weight: Option<Weight>` parameter.
+    This can be set to `None` if the instruction is not meant to be sent to chains running XCM versions lower than V5.
+    If set to `Some(weight)`, a subsequent conversion to V4 will result in `Transact { require_weight_at_most: weight, .. }`.
+    The plan is to remove this workaround in V6 since there will be a good conversion path from V6 to V5.
+crates:
+- name: snowbridge-router-primitives
+  bump: major
+- name: emulated-integration-tests-common
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: asset-test-utils
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: parachains-runtimes-test-utils
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: staging-xcm
+  bump: major
+- name: staging-xcm-builder
+  bump: major
+- name: staging-xcm-executor
+  bump: major

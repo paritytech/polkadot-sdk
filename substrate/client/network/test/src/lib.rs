@@ -91,7 +91,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
 	Justification, Justifications,
 };
-use substrate_test_runtime_client::AccountKeyring;
+use substrate_test_runtime_client::Sr25519Keyring;
 pub use substrate_test_runtime_client::{
 	runtime::{Block, ExtrinsicBuilder, Hash, Header, Transfer},
 	TestClient, TestClientBuilder, TestClientBuilderExt,
@@ -475,8 +475,8 @@ where
 				BlockOrigin::File,
 				|mut builder| {
 					let transfer = Transfer {
-						from: AccountKeyring::Alice.into(),
-						to: AccountKeyring::Alice.into(),
+						from: Sr25519Keyring::Alice.into(),
+						to: Sr25519Keyring::Alice.into(),
 						amount: 1,
 						nonce,
 					};

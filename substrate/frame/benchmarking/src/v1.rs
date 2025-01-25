@@ -1894,7 +1894,7 @@ macro_rules! add_benchmark {
 /// This macro allows users to easily generate a list of benchmarks for the pallets configured
 /// in the runtime.
 ///
-/// To use this macro, first create a an object to store the list:
+/// To use this macro, first create an object to store the list:
 ///
 /// ```ignore
 /// let mut list = Vec::<BenchmarkList>::new();

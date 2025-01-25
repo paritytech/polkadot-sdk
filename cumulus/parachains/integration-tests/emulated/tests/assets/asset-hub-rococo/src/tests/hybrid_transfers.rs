@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
+
 use super::reserve_transfer::*;
 use crate::{
 	imports::*,
@@ -776,6 +778,8 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 			dest,
 			xcm: xcm_on_final_dest,
 		}]);
+
+		Dmp::make_parachain_reachable(AssetHubRococo::para_id());
 
 		// First leg is a teleport, from there a local-reserve-transfer to final dest
 		<Rococo as RococoPallet>::XcmPallet::transfer_assets_using_type_and_then(

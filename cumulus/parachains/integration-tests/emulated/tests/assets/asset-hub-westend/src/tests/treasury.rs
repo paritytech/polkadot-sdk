@@ -20,6 +20,7 @@ use emulated_integration_tests_common::{
 };
 use frame_support::traits::fungibles::{Inspect, Mutate};
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
+use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 use xcm_executor::traits::ConvertLocation;
 
 #[test]
@@ -57,6 +58,8 @@ fn create_and_claim_treasury_spend() {
 
 		// create a conversion rate from `asset_kind` to the native currency.
 		assert_ok!(AssetRate::create(root.clone(), Box::new(asset_kind.clone()), 2.into()));
+
+		Dmp::make_parachain_reachable(1000);
 
 		// create and approve a treasury spend.
 		assert_ok!(Treasury::spend(
