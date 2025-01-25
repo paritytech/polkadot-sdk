@@ -196,7 +196,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(BOB, 200_000 * BSX),
 			(DAVE, 150_000 * BSX),
 			(EVE, 150_000 * BSX),
-			(pot_account, 150_000_000 * BSX),			
+			(pot_account, 150_000_000 * BSX),
 		],
 		..Default::default()
 	}

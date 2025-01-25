@@ -47,7 +47,7 @@ pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
 }
 
 fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<(), &'static str> {
-	let mut batch = BoundedVec::<ProjectId<T>,<T as Config>::MaxProjects>::new();
+	let mut batch = BoundedVec::<ProjectId<T>, <T as Config>::MaxProjects>::new();
 	for i in 1..n + 1 {
 		let project_id = account("project", i, SEED);
 		let _ = batch.try_push(project_id);
@@ -69,7 +69,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn vote(r: Linear<1, {T::MaxProjects::get()}>) {
+	fn vote(r: Linear<1, { T::MaxProjects::get() }>) {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		let _ = add_whitelisted_project::<T>(r, caller.clone());
@@ -89,7 +89,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn remove_vote(r: Linear<1, {T::MaxProjects::get()}>) -> Result<(), BenchmarkError> {
+	fn remove_vote(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
@@ -121,7 +121,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn release_voter_funds(r: Linear<1, {T::MaxProjects::get()}>) -> Result<(), BenchmarkError> {
+	fn release_voter_funds(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
@@ -158,7 +158,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn claim_reward_for(r: Linear<1, {T::MaxProjects::get()}>) -> Result<(), BenchmarkError> {
+	fn claim_reward_for(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
