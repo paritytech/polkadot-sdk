@@ -23163,16 +23163,10 @@ dependencies = [
 name = "sc-network-common"
 version = "0.33.0"
 dependencies = [
- "async-trait",
  "bitflags 1.3.2",
  "futures",
- "libp2p-identity",
  "parity-scale-codec",
  "prost-build",
- "sc-consensus",
- "sc-network-types",
- "sp-consensus",
- "sp-consensus-grandpa 13.0.0",
  "sp-runtime 31.0.1",
  "tempfile",
 ]
