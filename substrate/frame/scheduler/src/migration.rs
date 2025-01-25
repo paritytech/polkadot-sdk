@@ -567,7 +567,6 @@ pub mod v5 {
 	use frame_support::{
 		migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
 	};
-	use std::collections::BTreeSet;
 
 	#[frame_support::storage_alias]
 	pub(crate) type IncompleteSince<T: Config> = StorageValue<Pallet<T>, BlockNumberFor<T>>;
@@ -616,7 +615,6 @@ pub mod v5 {
 pub mod test_v5 {
 	use super::*;
 	use crate::{migration::v5::IncompleteSince, mock::*};
-	use alloc::vec;
 	use frame_support::testing_prelude::*;
 
 	#[test]
