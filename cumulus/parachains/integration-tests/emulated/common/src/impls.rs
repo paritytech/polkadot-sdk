@@ -370,6 +370,8 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 						let destination:  $crate::impls::Location = <Self as RelayChain>::child_location_of(recipient);
 						let xcm = $crate::impls::xcm_transact_unpaid_execution(call, $crate::impls::OriginKind::Superuser);
 
+						$crate::impls::dmp::Pallet::<<Self as $crate::impls::Chain>::Runtime>::make_parachain_reachable(recipient);
+
 						// Send XCM `Transact`
 						$crate::impls::assert_ok!(<Self as [<$chain RelayPallet>]>::XcmPallet::send(
 							root_origin,

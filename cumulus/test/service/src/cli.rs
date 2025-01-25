@@ -262,10 +262,16 @@ impl SubstrateCli for TestCollatorCli {
 				tracing::info!("Using default test service chain spec.");
 				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(2000)))) as Box<_>
 			},
+			"elastic-scaling-mvp" => {
+				tracing::info!("Using elastic-scaling mvp chain spec.");
+				Box::new(cumulus_test_service::get_elastic_scaling_mvp_chain_spec(Some(
+					ParaId::from(2100),
+				))) as Box<_>
+			},
 			"elastic-scaling" => {
 				tracing::info!("Using elastic-scaling chain spec.");
 				Box::new(cumulus_test_service::get_elastic_scaling_chain_spec(Some(ParaId::from(
-					2100,
+					2200,
 				)))) as Box<_>
 			},
 			path => {

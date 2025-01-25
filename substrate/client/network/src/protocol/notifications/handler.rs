@@ -74,12 +74,12 @@ use futures::{
 };
 use libp2p::{
 	swarm::{
-		handler::ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, KeepAlive, Stream,
+		handler::ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, Stream,
 		SubstreamProtocol,
 	},
 	PeerId,
 };
-use log::error;
+use log::{error, warn};
 use parking_lot::{Mutex, RwLock};
 use std::{
 	collections::VecDeque,
@@ -87,7 +87,7 @@ use std::{
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
-	time::{Duration, Instant},
+	time::Duration,
 };
 
 /// Number of pending notifications in asynchronous contexts.
@@ -113,16 +113,18 @@ pub struct NotifsHandler {
 	/// List of notification protocols, specified by the user at initialization.
 	protocols: Vec<Protocol>,
 
-	/// When the connection with the remote has been successfully established.
-	when_connection_open: Instant,
+	/// Whether to keep connection alive
+	keep_alive: bool,
+
+	/// Optional future that keeps connection alive for a certain amount of time.
+	// TODO: this should be safe to remove, see https://github.com/paritytech/polkadot-sdk/issues/6350
+	keep_alive_timeout_future: Option<Pin<Box<dyn Future<Output = ()> + Send + 'static>>>,
 
 	/// Remote we are connected to.
 	peer_id: PeerId,
 
 	/// Events to return in priority from `poll`.
-	events_queue: VecDeque<
-		ConnectionHandlerEvent<NotificationsOut, usize, NotifsHandlerOut, NotifsHandlerError>,
-	>,
+	events_queue: VecDeque<ConnectionHandlerEvent<NotificationsOut, usize, NotifsHandlerOut>>,
 
 	/// Metrics.
 	metrics: Option<Arc<NotificationMetrics>>,
@@ -149,7 +151,12 @@ impl NotifsHandler {
 				})
 				.collect(),
 			peer_id,
-			when_connection_open: Instant::now(),
+			// Keep connection alive initially until below timeout expires
+			keep_alive: true,
+			// A grace period of `INITIAL_KEEPALIVE_TIME` must be given to leave time for the remote
+			// to express desire to open substreams.
+			// TODO: This is a hack and ideally should not be necessary
+			keep_alive_timeout_future: Some(Box::pin(tokio::time::sleep(INITIAL_KEEPALIVE_TIME))),
 			events_queue: VecDeque::with_capacity(16),
 			metrics: metrics.map_or(None, |metrics| Some(Arc::new(metrics))),
 		}
@@ -327,6 +334,12 @@ pub enum NotifsHandlerOut {
 		/// Message that has been received.
 		message: BytesMut,
 	},
+
+	/// Close connection
+	Close {
+		/// Index of the protocol in the list of protocols passed at initialization.
+		protocol_index: usize,
+	},
 }
 
 /// Sink connected directly to the node background task. Allows sending notifications to the peer.
@@ -465,17 +478,9 @@ impl<'a> Ready<'a> {
 	}
 }
 
-/// Error specific to the collection of protocols.
-#[derive(Debug, thiserror::Error)]
-pub enum NotifsHandlerError {
-	#[error("Channel of synchronous notifications is full.")]
-	SyncNotificationsClogged,
-}
-
 impl ConnectionHandler for NotifsHandler {
 	type FromBehaviour = NotifsHandlerIn;
 	type ToBehaviour = NotifsHandlerOut;
-	type Error = NotifsHandlerError;
 	type InboundProtocol = UpgradeCollec<NotificationsIn>;
 	type OutboundProtocol = NotificationsOut;
 	// Index within the `out_protocols`.
@@ -616,6 +621,9 @@ impl ConnectionHandler for NotifsHandler {
 				State::Open { .. } => debug_assert!(false),
 			},
 			ConnectionEvent::ListenUpgradeError(_listen_upgrade_error) => {},
+			event => {
+				warn!(target: "sub-libp2p", "New unknown `ConnectionEvent` libp2p event: {event:?}");
+			},
 		}
 	}
 
@@ -711,35 +719,36 @@ impl ConnectionHandler for NotifsHandler {
 		}
 	}
 
-	fn connection_keep_alive(&self) -> KeepAlive {
+	fn connection_keep_alive(&self) -> bool {
 		// `Yes` if any protocol has some activity.
 		if self.protocols.iter().any(|p| !matches!(p.state, State::Closed { .. })) {
-			return KeepAlive::Yes
+			return true;
 		}
 
-		// A grace period of `INITIAL_KEEPALIVE_TIME` must be given to leave time for the remote
-		// to express desire to open substreams.
-		#[allow(deprecated)]
-		KeepAlive::Until(self.when_connection_open + INITIAL_KEEPALIVE_TIME)
+		self.keep_alive
 	}
 
-	#[allow(deprecated)]
 	fn poll(
 		&mut self,
 		cx: &mut Context,
 	) -> Poll<
-		ConnectionHandlerEvent<
-			Self::OutboundProtocol,
-			Self::OutboundOpenInfo,
-			Self::ToBehaviour,
-			Self::Error,
-		>,
+		ConnectionHandlerEvent<Self::OutboundProtocol, Self::OutboundOpenInfo, Self::ToBehaviour>,
 	> {
+		{
+			let maybe_keep_alive_timeout_future = &mut self.keep_alive_timeout_future;
+			if let Some(keep_alive_timeout_future) = maybe_keep_alive_timeout_future {
+				if keep_alive_timeout_future.poll_unpin(cx).is_ready() {
+					maybe_keep_alive_timeout_future.take();
+					self.keep_alive = false;
+				}
+			}
+		}
+
 		if let Some(ev) = self.events_queue.pop_front() {
 			return Poll::Ready(ev)
 		}
 
-		// For each open substream, try send messages from `notifications_sink_rx` to the
+		// For each open substream, try to send messages from `notifications_sink_rx` to the
 		// substream.
 		for protocol_index in 0..self.protocols.len() {
 			if let State::Open {
@@ -750,11 +759,10 @@ impl ConnectionHandler for NotifsHandler {
 					// Only proceed with `out_substream.poll_ready_unpin` if there is an element
 					// available in `notifications_sink_rx`. This avoids waking up the task when
 					// a substream is ready to send if there isn't actually something to send.
-					#[allow(deprecated)]
 					match Pin::new(&mut *notifications_sink_rx).as_mut().poll_peek(cx) {
 						Poll::Ready(Some(&NotificationsSinkMessage::ForceClose)) =>
-							return Poll::Ready(ConnectionHandlerEvent::Close(
-								NotifsHandlerError::SyncNotificationsClogged,
+							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
+								NotifsHandlerOut::Close { protocol_index },
 							)),
 						Poll::Ready(Some(&NotificationsSinkMessage::Notification { .. })) => {},
 						Poll::Ready(None) | Poll::Pending => break,
@@ -975,6 +983,17 @@ pub mod tests {
 		rx_buffer: BytesMut,
 	}
 
+	/// Mirror of `ActiveStreamCounter` in `libp2p`
+	#[allow(dead_code)]
+	struct MockActiveStreamCounter(Arc<()>);
+
+	// Mirror of `Stream` in `libp2p`
+	#[allow(dead_code)]
+	struct MockStream {
+		stream: Negotiated<SubstreamBox>,
+		counter: Option<MockActiveStreamCounter>,
+	}
+
 	impl MockSubstream {
 		/// Create new substream pair.
 		pub fn new() -> (Self, Self) {
@@ -1004,16 +1023,11 @@ pub mod tests {
 
 		/// Unsafe substitute for `Stream::new` private constructor.
 		fn stream_new(stream: Negotiated<SubstreamBox>) -> Stream {
+			let stream = MockStream { stream, counter: None };
 			// Static asserts to make sure this doesn't break.
 			const _: () = {
-				assert!(
-					core::mem::size_of::<Stream>() ==
-						core::mem::size_of::<Negotiated<SubstreamBox>>()
-				);
-				assert!(
-					core::mem::align_of::<Stream>() ==
-						core::mem::align_of::<Negotiated<SubstreamBox>>()
-				);
+				assert!(core::mem::size_of::<Stream>() == core::mem::size_of::<MockStream>());
+				assert!(core::mem::align_of::<Stream>() == core::mem::align_of::<MockStream>());
 			};
 
 			unsafe { core::mem::transmute(stream) }
@@ -1084,24 +1098,16 @@ pub mod tests {
 
 	/// Create new [`NotifsHandler`].
 	fn notifs_handler() -> NotifsHandler {
-		let proto = Protocol {
-			config: ProtocolConfig {
+		NotifsHandler::new(
+			PeerId::random(),
+			vec![ProtocolConfig {
 				name: "/foo".into(),
 				fallback_names: vec![],
 				handshake: Arc::new(RwLock::new(b"hello, world".to_vec())),
 				max_notification_size: u64::MAX,
-			},
-			in_upgrade: NotificationsIn::new("/foo", Vec::new(), u64::MAX),
-			state: State::Closed { pending_opening: false },
-		};
-
-		NotifsHandler {
-			protocols: vec![proto],
-			when_connection_open: Instant::now(),
-			peer_id: PeerId::random(),
-			events_queue: VecDeque::new(),
-			metrics: None,
-		}
+			}],
+			None,
+		)
 	}
 
 	// verify that if another substream is attempted to be opened by remote while an inbound
@@ -1608,12 +1614,11 @@ pub mod tests {
 		notifications_sink.send_sync_notification(vec![1, 3, 3, 9]);
 		notifications_sink.send_sync_notification(vec![1, 3, 4, 0]);
 
-		#[allow(deprecated)]
 		futures::future::poll_fn(|cx| {
 			assert!(std::matches!(
 				handler.poll(cx),
-				Poll::Ready(ConnectionHandlerEvent::Close(
-					NotifsHandlerError::SyncNotificationsClogged,
+				Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
+					NotifsHandlerOut::Close { .. }
 				))
 			));
 			Poll::Ready(())

@@ -231,6 +231,18 @@ impl NetworkDHTProvider for TestNetwork {
 			.unbounded_send(TestNetworkEvent::StoreRecordCalled)
 			.unwrap();
 	}
+
+	fn start_providing(&self, _: KademliaKey) {
+		unimplemented!()
+	}
+
+	fn stop_providing(&self, _: KademliaKey) {
+		unimplemented!()
+	}
+
+	fn get_providers(&self, _: KademliaKey) {
+		unimplemented!()
+	}
 }
 
 impl NetworkStateInfo for TestNetwork {
