@@ -305,7 +305,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn register_projects_batch(
 			origin: OriginFor<T>,
-			projects_id: Vec<ProjectId<T>>,
+			projects_id: BoundedVec<ProjectId<T>, T::MaxProjects>,
 		) -> DispatchResult {
 			//T::AdminOrigin::ensure_origin_or_root(origin.clone())?;
 			let who = T::SubmitOrigin::ensure_origin(origin.clone())?;
@@ -358,7 +358,7 @@ pub mod pallet {
 			}
 			VotingRounds::<T>::mutate(current_round_index, |round| *round = Some(round_infos));
 
-			Self::deposit_event(Event::Projectslisted { when, projects_id });
+			Self::deposit_event(Event::Projectslisted { when, projects_id: projects_id.to_vec() });
 			Ok(())
 		}
 

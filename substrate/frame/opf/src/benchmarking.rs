@@ -47,10 +47,10 @@ pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
 }
 
 fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<(), &'static str> {
-	let mut batch: Vec<_> = Vec::new();
-	for i in 0..n + 1 {
+	let mut batch = BoundedVec::<ProjectId<T>,<T as Config>::MaxProjects>::new();
+	for i in 1..n + 1 {
 		let project_id = account("project", i, SEED);
-		batch.push(project_id);
+		let _ = batch.try_push(project_id);
 	}
 	let _ = crate::Pallet::<T>::register_projects_batch(RawOrigin::Signed(caller).into(), batch);
 
@@ -69,7 +69,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn vote(r: Linear<1, 500>) {
+	fn vote(r: Linear<1, {T::MaxProjects::get()}>) {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		let _ = add_whitelisted_project::<T>(r, caller.clone());
@@ -89,7 +89,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn remove_vote(r: Linear<1, 500>) -> Result<(), BenchmarkError> {
+	fn remove_vote(r: Linear<1, {T::MaxProjects::get()}>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
@@ -121,7 +121,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn release_voter_funds(r: Linear<1, 500>) -> Result<(), BenchmarkError> {
+	fn release_voter_funds(r: Linear<1, {T::MaxProjects::get()}>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
@@ -158,7 +158,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn claim_reward_for(r: Linear<1, 500>) -> Result<(), BenchmarkError> {
+	fn claim_reward_for(r: Linear<1, {T::MaxProjects::get()}>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;

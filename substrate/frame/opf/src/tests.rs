@@ -32,8 +32,12 @@ pub fn next_block() {
 	);
 }
 
-pub fn project_list() -> Vec<ProjectId<Test>> {
-	vec![101, 102, 103]
+pub fn project_list() -> BoundedVec<u64, <Test as Config>::MaxProjects> {
+	let mut batch = BoundedVec::<u64,  <Test as Config>::MaxProjects>::new();
+	for i in 0..3{
+	batch.try_push(101+i).expect("Should work");
+}
+batch
 }
 
 pub fn run_to_block(n: BlockNumberFor<Test>) {
