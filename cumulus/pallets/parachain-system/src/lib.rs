@@ -45,7 +45,7 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	defensive,
-	dispatch::{DispatchResult, Pays, PostDispatchInfo},
+	dispatch::{DispatchResult, Pays},
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
 	traits::{Get, HandleMessage},
