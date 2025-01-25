@@ -282,7 +282,7 @@ impl ExtBuilder {
 		let balances: Vec<_> =
 			(0..self.authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
 
-		pallet_balances::GenesisConfig::<Test> { balances }
+		pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
