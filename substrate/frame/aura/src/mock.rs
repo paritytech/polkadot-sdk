@@ -96,6 +96,7 @@ pub fn build_ext_and_execute_test(authorities: Vec<u64>, test: impl FnOnce() -> 
 	let mut ext = build_ext(authorities);
 	ext.execute_with(|| {
 		test();
+		#[cfg(feature = "try-runtime")]
 		Aura::do_try_state().expect("Storage invariants should hold")
 	});
 }

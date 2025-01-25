@@ -259,7 +259,7 @@ impl<T: Config> Pallet<T> {
 	/// * The current authority cannot be disabled.
 	/// * The number of authorities must be less than or equal to `T::MaxAuthorities`. This however,
 	///   is guarded by the type system.
-	#[cfg(any(test, feature = "try-runtime"))]
+	#[cfg(feature = "try-runtime")]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		// We don't have any guarantee that we are already after `on_initialize` and thus we have to
 		// check the current slot from the digest or take the last known slot.
