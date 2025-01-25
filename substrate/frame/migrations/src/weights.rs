@@ -63,6 +63,7 @@ pub trait WeightInfo {
 	fn force_set_active_cursor() -> Weight;
 	fn force_onboard_mbms() -> Weight;
 	fn clear_historic(n: u32, ) -> Weight;
+	fn reset_pallet_migration(n: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_migrations` using the Substrate node and recommended hardware.
@@ -211,6 +212,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2740).saturating_mul(n.into()))
 	}
+	/// Storage: `Skipped::Metadata` (r:0 w:0)
+	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 2048]`.
+	fn reset_pallet_migration(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1053 + n * (6 ±0)`
+		//  Estimated: `612 + n * (7 ±0)`
+		// Minimum execution time: 2_182_000 picoseconds.
+		Weight::from_parts(2_281_000, 0)
+			.saturating_add(Weight::from_parts(0, 612))
+			// Standard Error: 494
+			.saturating_add(Weight::from_parts(630_585, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 7).saturating_mul(n.into()))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -357,5 +374,21 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2740).saturating_mul(n.into()))
+	}
+	/// Storage: `Skipped::Metadata` (r:0 w:0)
+	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 2048]`.
+	fn reset_pallet_migration(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1053 + n * (6 ±0)`
+		//  Estimated: `612 + n * (7 ±0)`
+		// Minimum execution time: 2_182_000 picoseconds.
+		Weight::from_parts(2_281_000, 0)
+			.saturating_add(Weight::from_parts(0, 612))
+			// Standard Error: 494
+			.saturating_add(Weight::from_parts(630_585, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 7).saturating_mul(n.into()))
 	}
 }
