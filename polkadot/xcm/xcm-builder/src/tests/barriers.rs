@@ -680,7 +680,7 @@ fn deny_then_try_works() {
 		Parachain(1).into_location(),
 		Err(ProcessMessageError::Yield),
 	);
-	// DenyClearTransactStatusAsYield wins against AllowClearErrorOrYield
+	// DenyClearTransactStatusAsYield wins against AllowSingleClearErrorOrYield
 	assert_should_execute(
 		vec![ClearError, ClearTransactStatus],
 		Parachain(1).into_location(),
