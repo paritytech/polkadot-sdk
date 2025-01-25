@@ -436,13 +436,7 @@ impl XcmContext {
 ///
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
-#[derive(
-	Encode,
-	Decode,
-	TypeInfo,
-	xcm_procedural::XcmWeightInfoTrait,
-	xcm_procedural::Builder,
-)]
+#[derive(Encode, Decode, TypeInfo, xcm_procedural::XcmWeightInfoTrait, xcm_procedural::Builder)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
