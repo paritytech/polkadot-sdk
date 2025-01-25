@@ -34,7 +34,6 @@ pallet-timestamp = { workspace = true, default-features = true }
 
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true }
-sp-std = { workspace = true, default-features = true }
 
 frame-election-provider-support = { workspace = true, default-features = true }
 

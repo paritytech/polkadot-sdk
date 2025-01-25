@@ -62,10 +62,7 @@ for (const file of input) {
 			console.log(`📜 Add PVM contract ${name}`)
 			const abi = contract.abi
 			const abiName = `${name}Abi`
-			writeFileSync(
-				join(abiDir, `${name}.json`),
-				JSON.stringify(abi, null, 2)
-			)
+			writeFileSync(join(abiDir, `${name}.json`), JSON.stringify(abi, null, 2))
 
 			writeFileSync(
 				join(abiDir, `${name}.ts`),
