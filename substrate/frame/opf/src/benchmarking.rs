@@ -35,12 +35,17 @@ pub fn next_block<T: Config>() {
 	let when = T::BlockNumberProvider::current_block_number().saturating_add(One::one());
 	run_to_block::<T>(when);
 	Democracy::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+	frame_system::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	crate::Pallet::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
+	frame_system::Pallet::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
+	crate::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 }
 pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
 	while T::BlockNumberProvider::current_block_number() < n {
 		if T::BlockNumberProvider::current_block_number() > One::one() {
 			Democracy::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
+			crate::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
+			frame_system::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
 		}
 		next_block::<T>();
 	}
@@ -69,10 +74,10 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn vote(r: Linear<1, { T::MaxProjects::get() }>) {
+	fn vote(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError>{
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
-		let _ = add_whitelisted_project::<T>(r, caller.clone());
+		add_whitelisted_project::<T>(r, caller.clone())?;
 		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(account0.clone()), true);
 
 		let when = T::BlockNumberProvider::current_block_number() + One::one();
@@ -81,11 +86,16 @@ mod benchmarks {
 		let _ = assert_eq!(VotingRounds::<T>::get(0).is_some(), true);
 		let caller_balance = T::NativeBalance::minimum_balance() * 1000000u32.into();
 
-		let _ = T::NativeBalance::mint_into(&caller, caller_balance);
+		T::NativeBalance::mint_into(&caller, caller_balance)?;
 
 		let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 10u32.into() * (r).into();
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account0, value, true, Conviction::Locked1x);
+		_(RawOrigin::Signed(caller.clone()), account0.clone(), value, true, Conviction::Locked1x);
+
+		// Verify the vote was recorded
+		let vote_info = Votes::<T>::get(account0.clone(), caller.clone()).ok_or("Vote not recorded!").unwrap();
+		assert_eq!(vote_info.amount, value, "Vote value mismatch!");
+		Ok(())
 	}
 
 	#[benchmark]
