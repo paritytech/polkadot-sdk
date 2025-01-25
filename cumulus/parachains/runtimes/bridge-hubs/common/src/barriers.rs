@@ -39,21 +39,19 @@ where
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
-	) -> Option<ProcessMessageError> {
+	) -> Result<(), ProcessMessageError> {
 		// This barrier only cares about messages with `origin` matching `FromOrigin`.
 		if !FromOrigin::contains(origin) {
-			return None;
+			return Ok(())
 		}
-		match message.matcher().match_next_inst_while(
+		message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
 				ExportMessage { network, .. } if ToGlobalConsensus::contains(network) =>
-				Err(ProcessMessageError::Unsupported),
+					Err(ProcessMessageError::Unsupported),
 				_ => Ok(ControlFlow::Continue(())),
 			},
-		) {
-			Ok(_) => None,
-			Err(error) => Some(error),
-		}
+		)?;
+		Ok(())
 	}
 }

@@ -147,7 +147,7 @@ pub trait DenyExecution {
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
-	) -> Option<ProcessMessageError>;
+	) -> Result<(), ProcessMessageError>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
@@ -157,11 +157,11 @@ impl DenyExecution for Tuple {
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
-	) -> Option<ProcessMessageError> {
+	) -> Result<(), ProcessMessageError> {
 		for_tuples!( #(
             let barrier = core::any::type_name::<Tuple>();
             match Tuple::deny_execution(origin, instructions, max_weight, properties) {
-                Some(error) => {
+                Err(error) => {
                     tracing::error!(
                         target: "xcm::deny_execution",
                         ?origin,
@@ -172,9 +172,9 @@ impl DenyExecution for Tuple {
                         %barrier,
                         "did not pass barrier",
                     );
-                    return Some(error);
+                    return Err(error);
                 },
-				 None => {
+				  Ok(())  => {
                     tracing::trace!(
                         target: "xcm::deny_execution",
                         ?origin,
@@ -188,6 +188,6 @@ impl DenyExecution for Tuple {
             }
         )* );
 
-		None
+		Ok(())
 	}
 }

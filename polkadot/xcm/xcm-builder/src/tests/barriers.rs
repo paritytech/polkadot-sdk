@@ -544,17 +544,15 @@ fn deny_then_try_works() {
 			instructions: &mut [Instruction<RuntimeCall>],
 			_max_weight: Weight,
 			_properties: &mut Properties,
-		) -> Option<ProcessMessageError> {
-			match instructions.matcher().match_next_inst_while(
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().match_next_inst_while(
 				|_| true,
 				|inst| match inst {
 					ClearTransactStatus { .. } => Err(ProcessMessageError::Yield),
 					_ => Ok(ControlFlow::Continue(())),
 				},
-			) {
-				Ok(_) => None,
-				Err(err) => Some(err),
-			}
+			)?;
+			Ok(())
 		}
 	}
 
@@ -567,8 +565,8 @@ fn deny_then_try_works() {
 			instructions: &mut [Instruction<RuntimeCall>],
 			_max_weight: Weight,
 			_properties: &mut Properties,
-		) -> Option<ProcessMessageError> {
-			match instructions.matcher().match_next_inst_while(
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().match_next_inst_while(
 				|_| true,
 				|inst| match inst {
 					ClearOrigin { .. } =>
@@ -579,10 +577,8 @@ fn deny_then_try_works() {
 						},
 					_ => Ok(ControlFlow::Continue(())),
 				},
-			) {
-				Ok(_) => None,
-				Err(err) => Some(err),
-			}
+			)?;
+			Ok(())
 		}
 	}
 
@@ -595,13 +591,13 @@ fn deny_then_try_works() {
 			instructions: &mut [Instruction<RuntimeCall>],
 			_max_weight: Weight,
 			_properties: &mut Properties,
-		) -> Option<ProcessMessageError> {
+		) -> Result<(), ProcessMessageError> {
 			if instructions.len() != 1 {
-				return None;
+				return Ok(())
 			}
 			match instructions.get(0).unwrap() {
-				UnsubscribeVersion { .. } => Some(ProcessMessageError::StackLimitReached),
-				_ => None,
+				UnsubscribeVersion { .. } => Err(ProcessMessageError::StackLimitReached),
+				_ => Ok(()),
 			}
 		}
 	}
@@ -733,7 +729,7 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		Some(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
 	);
 	// deny InitiateReserveWithdraw to RelayChain
 	assert_deny_execution(
@@ -743,7 +739,7 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		Some(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
 	);
 	// deny TransferReserveAsset to RelayChain
 	assert_deny_execution(
@@ -753,7 +749,7 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		Some(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
 	);
 	// accept DepositReserveAsset to destination other than RelayChain
 	assert_deny_execution(
@@ -763,8 +759,8 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		None,
+		Ok(()),
 	);
 	// others instructions should pass
-	assert_deny_execution(vec![ClearOrigin], Here.into_location(), None);
+	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
 }

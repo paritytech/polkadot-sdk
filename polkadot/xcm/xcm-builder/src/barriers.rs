@@ -458,10 +458,8 @@ where
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		match Deny::deny_execution(origin, message, max_weight, properties) {
-			Some(err) => Err(err),
-			None => Allow::should_execute(origin, message, max_weight, properties),
-		}
+		Deny::deny_execution(origin, message, max_weight, properties)?;
+		Allow::should_execute(origin, message, max_weight, properties)
 	}
 }
 
@@ -473,8 +471,8 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
-	) -> Option<ProcessMessageError> {
-		match message.matcher().match_next_inst_while(
+	) -> Result<(), ProcessMessageError> {
+		message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
 				InitiateReserveWithdraw {
@@ -500,9 +498,7 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 
 				_ => Ok(ControlFlow::Continue(())),
 			},
-		) {
-			Ok(_) => None,
-			Err(err) => Some(err),
-		}
+		)?;
+		Ok(())
 	}
 }
