@@ -56,7 +56,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountId = AccountId;
-	type AccountData = pallet_balances::AccountData<Balance>;
+	type AccountData = pallet_balances::AccountData<u64>;
 	type Block = Block;
 	type Lookup = IdentityLookup<Self::AccountId>;
 }
@@ -196,8 +196,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(BOB, 200_000 * BSX),
 			(DAVE, 150_000 * BSX),
 			(EVE, 150_000 * BSX),
-			(pot_account, 150_000_000 * BSX),
+			(pot_account, 150_000_000 * BSX),			
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
