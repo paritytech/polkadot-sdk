@@ -264,8 +264,8 @@ fn add_block_entry_adds_child() {
 fn canonicalize_works() {
 	let (mut db, store) = make_db();
 
-	//   -> B1 -> C1 -> D1
-	// A -> B2 -> C2 -> D2
+	//   -> B1 -> C1 -> D1 -> E1
+	// A -> B2 -> C2 -> D2 -> E2
 	//
 	// We'll canonicalize C1. Everything except D1 should disappear.
 	//
@@ -293,18 +293,22 @@ fn canonicalize_works() {
 	let block_hash_c2 = Hash::repeat_byte(5);
 	let block_hash_d1 = Hash::repeat_byte(6);
 	let block_hash_d2 = Hash::repeat_byte(7);
+	let block_hash_e1 = Hash::repeat_byte(8);
+	let block_hash_e2 = Hash::repeat_byte(9);
 
 	let candidate_receipt_genesis = make_candidate(ParaId::from(1_u32), genesis);
 	let candidate_receipt_a = make_candidate(ParaId::from(2_u32), block_hash_a);
 	let candidate_receipt_b = make_candidate(ParaId::from(3_u32), block_hash_a);
 	let candidate_receipt_b1 = make_candidate(ParaId::from(4_u32), block_hash_b1);
 	let candidate_receipt_c1 = make_candidate(ParaId::from(5_u32), block_hash_c1);
+	let candidate_receipt_e1 = make_candidate(ParaId::from(6_u32), block_hash_e1);
 
 	let cand_hash_1 = candidate_receipt_genesis.hash();
 	let cand_hash_2 = candidate_receipt_a.hash();
 	let cand_hash_3 = candidate_receipt_b.hash();
 	let cand_hash_4 = candidate_receipt_b1.hash();
 	let cand_hash_5 = candidate_receipt_c1.hash();
+	let cand_hash_6 = candidate_receipt_e1.hash();
 
 	let block_entry_a = make_block_entry(block_hash_a, genesis, 1, Vec::new());
 	let block_entry_b1 = make_block_entry(block_hash_b1, block_hash_a, 2, Vec::new());
@@ -326,6 +330,12 @@ fn canonicalize_works() {
 	let block_entry_d2 =
 		make_block_entry(block_hash_d2, block_hash_c2, 4, vec![(CoreIndex(0), cand_hash_5)]);
 
+	let block_entry_e1 =
+		make_block_entry(block_hash_e1, block_hash_d1, 5, vec![(CoreIndex(0), cand_hash_6)]);
+
+	let block_entry_e2 =
+		make_block_entry(block_hash_e2, block_hash_d2, 5, vec![(CoreIndex(0), cand_hash_6)]);
+
 	let candidate_info = {
 		let mut candidate_info = HashMap::new();
 		candidate_info.insert(
@@ -346,6 +356,8 @@ fn canonicalize_works() {
 			.insert(cand_hash_5, NewCandidateInfo::new(candidate_receipt_c1, GroupIndex(5), None));
 
 		candidate_info
+			.insert(cand_hash_6, NewCandidateInfo::new(candidate_receipt_e1, GroupIndex(6), None));
+		candidate_info
 	};
 
 	// now insert all the blocks.
@@ -357,6 +369,8 @@ fn canonicalize_works() {
 		block_entry_c2.clone(),
 		block_entry_d1.clone(),
 		block_entry_d2.clone(),
+		block_entry_e1.clone(),
+		block_entry_e2.clone(),
 	];
 
 	let mut overlay_db = OverlayedBackend::new(&db);
@@ -438,7 +452,7 @@ fn canonicalize_works() {
 
 	assert_eq!(
 		load_stored_blocks(store.as_ref(), &TEST_CONFIG).unwrap().unwrap(),
-		StoredBlockRange(4, 5)
+		StoredBlockRange(4, 6)
 	);
 
 	check_candidates_in_store(vec![
@@ -447,6 +461,7 @@ fn canonicalize_works() {
 		(cand_hash_3, Some(vec![block_hash_d1])),
 		(cand_hash_4, Some(vec![block_hash_d1])),
 		(cand_hash_5, None),
+		(cand_hash_6, Some(vec![block_hash_e1])),
 	]);
 
 	check_blocks_in_store(vec![
@@ -456,6 +471,37 @@ fn canonicalize_works() {
 		(block_hash_c1, None),
 		(block_hash_c2, None),
 		(block_hash_d1, Some(vec![cand_hash_3, cand_hash_4])),
+		(block_hash_e1, Some(vec![cand_hash_6])),
+		(block_hash_d2, None),
+	]);
+
+	let mut overlay_db = OverlayedBackend::new(&db);
+	canonicalize(&mut overlay_db, 4, block_hash_d1).unwrap();
+	let write_ops = overlay_db.into_write_ops();
+	db.write(write_ops).unwrap();
+
+	assert_eq!(
+		load_stored_blocks(store.as_ref(), &TEST_CONFIG).unwrap().unwrap(),
+		StoredBlockRange(5, 6)
+	);
+
+	check_candidates_in_store(vec![
+		(cand_hash_1, None),
+		(cand_hash_2, None),
+		(cand_hash_3, None),
+		(cand_hash_4, None),
+		(cand_hash_5, None),
+		(cand_hash_6, Some(vec![block_hash_e1])),
+	]);
+
+	check_blocks_in_store(vec![
+		(block_hash_a, None),
+		(block_hash_b1, None),
+		(block_hash_b2, None),
+		(block_hash_c1, None),
+		(block_hash_c2, None),
+		(block_hash_d1, None),
+		(block_hash_e1, Some(vec![cand_hash_6])),
 		(block_hash_d2, None),
 	]);
 }

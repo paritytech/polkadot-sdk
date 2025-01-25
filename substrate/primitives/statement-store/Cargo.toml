@@ -18,23 +18,23 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { workspace = true }
-sp-crypto-hashing = { workspace = true }
-sp-runtime = { workspace = true }
 sp-api = { workspace = true }
 sp-application-crypto = { workspace = true }
-sp-runtime-interface = { workspace = true }
+sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }
+sp-runtime = { workspace = true }
+sp-runtime-interface = { workspace = true }
 thiserror = { optional = true, workspace = true }
 
 # ECIES dependencies
-ed25519-dalek = { optional = true, workspace = true, default-features = true }
-x25519-dalek = { optional = true, features = ["static_secrets"], workspace = true }
-curve25519-dalek = { optional = true, workspace = true }
 aes-gcm = { optional = true, workspace = true }
+curve25519-dalek = { optional = true, workspace = true }
+ed25519-dalek = { optional = true, workspace = true, default-features = true }
 hkdf = { optional = true, workspace = true }
-sha2 = { optional = true, workspace = true, default-features = true }
 rand = { features = ["small_rng"], optional = true, workspace = true, default-features = true }
+sha2 = { optional = true, workspace = true, default-features = true }
+x25519-dalek = { optional = true, features = ["static_secrets"], workspace = true }
 
 [features]
 default = ["std"]

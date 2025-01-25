@@ -203,6 +203,7 @@ jobs:
           echo $( substrate-contracts-node --version | awk 'NF' )
           estuary --version
           cargo-contract --version
+          taplo --version
 
       - name: Info forklift
         run: forklift version

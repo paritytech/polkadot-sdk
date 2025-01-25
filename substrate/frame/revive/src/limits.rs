@@ -47,7 +47,7 @@ pub const NUM_EVENT_TOPICS: u32 = 4;
 pub const DELEGATE_DEPENDENCIES: u32 = 32;
 
 /// Maximum size of events (including topics) and storage values.
-pub const PAYLOAD_BYTES: u32 = 512;
+pub const PAYLOAD_BYTES: u32 = 448;
 
 /// The maximum size of the transient storage in bytes.
 ///
@@ -56,11 +56,6 @@ pub const TRANSIENT_STORAGE_BYTES: u32 = 4 * 1024;
 
 /// The maximum allowable length in bytes for (transient) storage keys.
 pub const STORAGE_KEY_BYTES: u32 = 128;
-
-/// The maximum size of the debug buffer contracts can write messages to.
-///
-/// The buffer will always be disabled for on-chain execution.
-pub const DEBUG_BUFFER_BYTES: u32 = 2 * 1024 * 1024;
 
 /// The page size in which PolkaVM should allocate memory chunks.
 pub const PAGE_SIZE: u32 = 4 * 1024;
@@ -116,7 +111,10 @@ pub mod code {
 	const BASIC_BLOCK_SIZE: u32 = 1000;
 
 	/// Make sure that the various program parts are within the defined limits.
-	pub fn enforce<T: Config>(blob: Vec<u8>) -> Result<CodeVec, DispatchError> {
+	pub fn enforce<T: Config>(
+		blob: Vec<u8>,
+		available_syscalls: &[&[u8]],
+	) -> Result<CodeVec, DispatchError> {
 		fn round_page(n: u32) -> u64 {
 			// performing the rounding in u64 in order to prevent overflow
 			u64::from(n).next_multiple_of(PAGE_SIZE.into())
@@ -132,6 +130,26 @@ pub mod code {
 		if !program.is_64_bit() {
 			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
 			Err(Error::<T>::CodeRejected)?;
+		}
+
+		// Need to check that no non-existent syscalls are used. This allows us to add
+		// new syscalls later without affecting already deployed code.
+		for (idx, import) in program.imports().iter().enumerate() {
+			// We are being defensive in case an attacker is able to somehow include
+			// a lot of imports. This is important because we search the array of host
+			// functions for every import.
+			if idx == available_syscalls.len() {
+				log::debug!(target: LOG_TARGET, "Program contains too many imports.");
+				Err(Error::<T>::CodeRejected)?;
+			}
+			let Some(import) = import else {
+				log::debug!(target: LOG_TARGET, "Program contains malformed import.");
+				return Err(Error::<T>::CodeRejected.into());
+			};
+			if !available_syscalls.contains(&import.as_bytes()) {
+				log::debug!(target: LOG_TARGET, "Program references unknown syscall: {}", import);
+				Err(Error::<T>::CodeRejected)?;
+			}
 		}
 
 		// This scans the whole program but we only do it once on code deployment.

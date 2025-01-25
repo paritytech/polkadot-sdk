@@ -31,7 +31,7 @@ use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_core::ChannelId;
 use sp_consensus_aura::SlotDuration;
 use sp_core::{crypto::Ss58Codec, H160};
-use sp_keyring::AccountKeyring::Alice;
+use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32, Perbill,
@@ -45,7 +45,7 @@ parameter_types! {
 }
 
 fn construct_extrinsic(
-	sender: sp_keyring::AccountKeyring,
+	sender: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
@@ -63,7 +63,6 @@ fn construct_extrinsic(
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 	)
 		.into();
 	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
@@ -72,7 +71,7 @@ fn construct_extrinsic(
 }
 
 fn construct_and_apply_extrinsic(
-	relayer_at_target: sp_keyring::AccountKeyring,
+	relayer_at_target: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> sp_runtime::DispatchOutcome {
 	let xt = construct_extrinsic(relayer_at_target, call);
