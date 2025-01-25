@@ -80,32 +80,16 @@ impl<T: pallet_ranked_collective::Config<I>, I: 'static> UncheckedOnRuntimeUpgra
     }
 
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        let in_code = Pallet::<T, I>::in_code_storage_version();
-		let onchain = Pallet::<T, I>::on_chain_storage_version();
 
-        log::info!("Starting onchain migration from Version {:?} to Version {:?}...",
-            onchain,
-            in_code,
-        );
+        // Migrate `VotingV0` (OldVoteRecord to NewVoteRecord).
+        let mut translated = 0u64;
+        Voting::<T, I>::translate::<OldVoteRecord, _>(|_, _, old_vote| {
+            translated.saturating_inc();
+            Some(old_vote.migrate_to_v1())
+        });
 
-        if in_code == 1 && onchain == 0 {
-            // Migrate `VotingV0` (OldVoteRecord to NewVoteRecord).
-            let mut translated = 0u64;
-            Voting::<T, I>::translate::<OldVoteRecord, _>(|_, _, old_vote| {
-                translated.saturating_inc();
-                Some(old_vote.migrate_to_v1())
-            });
-
-            in_code.put::<Pallet<T, I>>();
-            log::info!("Voting Migration from V0 to V1 finished. {} votes migrated", translated);
-
-            T::DbWeight::get()
-				.reads_writes(translated, translated.saturating_add(1))
-        } else {
-            log::info!("Unexpected versioning. Migration failed");
-            T::DbWeight::get().reads(1)
-        }
-    
+        T::DbWeight::get()
+			.reads_writes(translated, translated.saturating_add(1))
     }
 
     #[cfg(feature = "try-runtime")] 
