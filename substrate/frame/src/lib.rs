@@ -229,9 +229,6 @@ pub mod prelude {
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
-	/// All account management related things.
-	pub use super::account::*;
-
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
