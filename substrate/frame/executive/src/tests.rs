@@ -576,7 +576,7 @@ fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
 #[test]
 fn balance_transfer_dispatch_works() {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 211)] }
+	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 211)], ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 	let xt = UncheckedXt::new_signed(call_transfer(2, 69), 1, 1.into(), tx_ext(0, 0));
@@ -598,9 +598,12 @@ fn balance_transfer_dispatch_works() {
 
 fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 111 * balance_factor)] }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_balances::GenesisConfig::<Runtime> {
+		balances: vec![(1, 111 * balance_factor)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| {
 		SystemCallbacksCalled::set(0);
@@ -610,9 +613,12 @@ fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 
 fn new_test_ext_v0(balance_factor: Balance) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 111 * balance_factor)] }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_balances::GenesisConfig::<Runtime> {
+		balances: vec![(1, 111 * balance_factor)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 	(t, sp_runtime::StateVersion::V0).into()
 }
 
