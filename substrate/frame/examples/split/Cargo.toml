@@ -32,6 +32,10 @@ std = [
 	"frame/std",
 ]
 
+runtime-benchmarks = [
+	"frame/runtime-benchmarks",
+]
+
 try-runtime = [
 	"frame/try-runtime",
 ]
