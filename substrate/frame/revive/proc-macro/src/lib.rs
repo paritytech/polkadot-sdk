@@ -510,12 +510,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 			quote! {
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
-				if ::log::log_enabled!(target: "runtime::revive::strace", ::log::Level::Trace) {
-						use core::fmt::Write;
-						let mut msg = alloc::string::String::default();
-						let _ = core::write!(&mut msg, #trace_fmt_str, #( #trace_fmt_args, )* result);
-						self.ext().append_debug_buffer(&msg);
-				}
+				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result);
 				result
 			}
 		};

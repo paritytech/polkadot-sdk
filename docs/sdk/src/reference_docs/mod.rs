@@ -111,3 +111,6 @@ pub mod custom_runtime_api_rpc;
 
 /// The [`polkadot-omni-node`](https://crates.io/crates/polkadot-omni-node) and its related binaries.
 pub mod omni_node;
+
+/// Learn about the state in Substrate.
+pub mod state;
