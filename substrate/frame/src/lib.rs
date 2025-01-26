@@ -245,9 +245,11 @@ pub mod prelude {
 			MaybeConvert, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating,
 			StaticLookup, TrailingZeroInput,
 		},
-		ArithmeticError::Overflow,
 		Perbill, RuntimeDebug,
 	};
+
+	// Error variant
+	pub use sp_runtime::ArithmeticError::Overflow;
 
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
@@ -352,6 +354,7 @@ pub mod testing_prelude {
 
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::{traits::BadOrigin, StateVersion};
+
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
