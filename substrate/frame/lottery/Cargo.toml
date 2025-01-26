@@ -26,7 +26,7 @@ pallet-balances = { workspace = true, default-features = true }
 default = ["std"]
 std = ["codec/std", "frame/std", "pallet-balances/std", "scale-info/std"]
 runtime-benchmarks = [
-  "frame/runtime-benchmarks",
-  "pallet-balances/runtime-benchmarks",
+	"frame/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 ]
 try-runtime = ["frame/try-runtime", "pallet-balances/try-runtime"]
