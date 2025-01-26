@@ -105,8 +105,8 @@ impl<T: Config<I>, I: 'static, M: GetMaxVoters> Tally<T, I, M> {
 // All functions of VoteTally now include the class as a param.
 
 pub type TallyOf<T, I = ()> = Tally<T, I, Pallet<T, I>>;
-pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as frame::traits::Polling<TallyOf<T, I>>>::Index;
-pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as frame::traits::Polling<TallyOf<T, I>>>::Class;
+pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 impl<T: Config<I>, I: 'static, M: GetMaxVoters<Class = ClassOf<T, I>>>
@@ -369,7 +369,6 @@ pub trait BenchmarkSetup<AccountId> {
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	// use frame_support::{pallet_prelude::*, storage::KeyLenOf};
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
