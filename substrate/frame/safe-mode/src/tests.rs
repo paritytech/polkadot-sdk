@@ -22,7 +22,7 @@
 use super::*;
 use crate::mock::{RuntimeCall, *};
 
-use frame::{deps::frame_support::hypothetically_ok, testing_prelude::*, traits::Currency};
+use frame::{testing_prelude::*, traits::Currency};
 
 #[test]
 fn fails_to_filter_calls_to_safe_mode_pallet() {

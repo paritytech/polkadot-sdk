@@ -76,7 +76,10 @@ mod tests;
 pub mod weights;
 
 use frame::{
-	prelude::*,
+	prelude::{
+		fungible::hold::{Inspect, Mutate},
+		*,
+	},
 	traits::{fungible, CallMetadata, GetCallMetadata, SafeModeNotify},
 };
 
