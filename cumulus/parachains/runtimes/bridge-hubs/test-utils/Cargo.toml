@@ -50,7 +50,6 @@ bp-relayers = { workspace = true }
 bp-runtime = { workspace = true }
 bp-test-utils = { workspace = true }
 bp-xcm-bridge-hub = { workspace = true }
-bridge-runtime-common = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-messages = { features = ["test-helpers"], workspace = true }
 pallet-bridge-parachains = { workspace = true }
@@ -69,7 +68,6 @@ std = [
 	"bp-runtime/std",
 	"bp-test-utils/std",
 	"bp-xcm-bridge-hub/std",
-	"bridge-runtime-common/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcmp-queue/std",
