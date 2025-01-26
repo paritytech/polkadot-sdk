@@ -2062,11 +2062,18 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[track_caller]
 	pub fn assert_has_event(event: T::RuntimeEvent) {
+		let warn = if Self::block_number().is_zero() {
+			"WARNING: block number is zero, and events are not registered at block number zero.\n"
+		} else {
+			""
+		};
+
 		let events = Self::events();
 		assert!(
 			events.iter().any(|record| record.event == event),
-			"expected event {event:?} not found in events {events:?}",
+			"{warn}expected event {event:?} not found in events {events:?}",
 		);
 	}
 
@@ -2074,11 +2081,22 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[track_caller]
 	pub fn assert_last_event(event: T::RuntimeEvent) {
-		let last_event = Self::events().last().expect("events expected").event.clone();
+		let warn = if Self::block_number().is_zero() {
+			"WARNING: block number is zero, and events are not registered at block number zero.\n"
+		} else {
+			""
+		};
+
+		let last_event = Self::events()
+			.last()
+			.expect(&alloc::format!("{warn}events expected"))
+			.event
+			.clone();
 		assert_eq!(
 			last_event, event,
-			"expected event {event:?} is not equal to the last event {last_event:?}",
+			"{warn}expected event {event:?} is not equal to the last event {last_event:?}",
 		);
 	}
 
