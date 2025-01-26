@@ -250,9 +250,9 @@ jobs:
               echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
           fi
 
-          if [[ $BODY == "/cmd bench"* ]]; then
+          if [[ $BODY == "bench"* ]]; then
               echo "RUNNER=parity-weights" >> $GITHUB_OUTPUT
-          elif [[ $BODY == "/cmd update-ui"* ]]; then
+          elif [[ $BODY == "update-ui"* ]]; then
               echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
           else
               echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
@@ -348,7 +348,7 @@ jobs:
       - name: Install dependencies for bench
         if: startsWith(needs.get-pr-info.outputs.CMD, 'bench')
         run: |
-          cargo install --path substrate/utils/frame/omni-bencher --locked
+          cargo install --path substrate/utils/frame/omni-bencher --locked --profile production
 
       - name: Run cmd
         id: cmd

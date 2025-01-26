@@ -646,9 +646,9 @@ impl Client {
 		&self,
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
-	) -> Result<Block, ClientError> {
+	) -> Block {
 		let runtime_api = self.api.runtime_api().at(block.hash());
-		let gas_limit = Self::block_gas_limit(&runtime_api).await?;
+		let gas_limit = Self::block_gas_limit(&runtime_api).await.unwrap_or_default();
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(&block).await.unwrap_or_default();
@@ -658,7 +658,7 @@ impl Client {
 		let state_root = header.state_root.0.into();
 		let extrinsics_root = header.extrinsics_root.0.into();
 
-		let receipts = extract_receipts_from_block(&block).await?;
+		let receipts = extract_receipts_from_block(&block).await.unwrap_or_default();
 		let gas_used =
 			receipts.iter().fold(U256::zero(), |acc, (_, receipt)| acc + receipt.gas_used);
 		let transactions = if hydrated_transactions {
@@ -675,7 +675,7 @@ impl Client {
 				.into()
 		};
 
-		Ok(Block {
+		Block {
 			hash: block.hash(),
 			parent_hash,
 			state_root,
@@ -689,7 +689,7 @@ impl Client {
 			receipts_root: extrinsics_root,
 			transactions,
 			..Default::default()
-		})
+		}
 	}
 
 	/// Convert a weight to a fee.
@@ -697,7 +697,6 @@ impl Client {
 		runtime_api: &subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 	) -> Result<U256, ClientError> {
 		let payload = subxt_client::apis().revive_api().block_gas_limit();
-
 		let gas_limit = runtime_api.call(payload).await?;
 		Ok(*gas_limit)
 	}
