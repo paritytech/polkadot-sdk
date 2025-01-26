@@ -205,9 +205,10 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-			UnfilteredDispatchable, VariantCount, VariantCountOf
+			Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
+			NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			UnfilteredDispatchable, ValidatorSet, ValidatorSetWithIdentification, VariantCount,
+			VariantCountOf,
 		},
 	};
 
@@ -566,16 +567,22 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
+/// All crypto related traits & types used in frame.
+///
+/// This is already part of the [`prelude`].
 pub mod cryptography {
 	pub use sp_application_crypto::{BoundToRuntimeAppPublic, RuntimeAppPublic};
 	pub use sp_core::{
 		crypto::{VrfPublic, VrfSecret, Wraps},
 		hashing::*,
-		Pair, H160, H256, H512, U256, U512,
+		H160, H256, H512, U256, U512,
 	};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
+/// All offchain systems used in frame.
+///
+/// This is already part of the [`prelude`].
 pub mod offchain {
 	pub use frame_system::offchain::{CreateInherent, SubmitTransaction};
 	pub use sp_io::offchain;
@@ -584,15 +591,15 @@ pub mod offchain {
 	};
 }
 
+/// All session related tyoes used in frame.
+///
+/// This is already part of the [`prelude`].
 pub mod session {
-	pub use frame_support::traits::{
-		EstimateNextSessionRotation, OneSessionHandler, ValidatorSet,
-		ValidatorSetWithIdentification,
-	};
 	pub use sp_staking::{
 		offence::{Kind, Offence, OffenceError, ReportOffence},
 		SessionIndex,
 	};
+}
 
 /// All account management related traits.
 ///
