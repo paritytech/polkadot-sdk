@@ -206,8 +206,8 @@ pub mod prelude {
 		defensive, defensive_assert,
 		traits::{
 			Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+			NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			VariantCount, VariantCountOf,
 		},
 	};
 
@@ -223,8 +223,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
-	pub use super::hashing::*;
+	/// All crypto related things
+	pub use super::cryptography::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -241,7 +241,6 @@ pub mod prelude {
 
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
-
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -562,9 +561,16 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+/// All crypto related traits & types used in frame.
+///
+/// This is already part of the [`prelude`].
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		H160, H256, H512, U256, U512,
+	};
+	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify};
 }
 
 /// All account management related traits.
