@@ -144,7 +144,6 @@ fn make_origin<T: Config>(signed: bool) -> <T as Config>::PalletsOrigin {
 #[benchmarks]
 mod benchmarks {
 	use super::*;
-	use frame_benchmarking::BenchmarkParameter::s;
 
 	// `service_agenda` when no work is done.
 	#[benchmark]
