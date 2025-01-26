@@ -15,12 +15,13 @@
 
 //! Generic multi block migrations not specific to any pallet.
 
+use crate::{weights::WeightInfo, Config};
 use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::{
 	migrations::{SteppedMigration, SteppedMigrationError},
 	traits::{BuildGenesisConfig, OnGenesis, PalletInfoAccess},
-	weights::{RuntimeDbWeight, WeightMeter},
+	weights::WeightMeter,
 };
 use sp_core::{twox_128, Get};
 use sp_io::{storage::clear_prefix, KillStorageResult};
@@ -41,9 +42,9 @@ use sp_runtime::SaturatedConversion;
 ///
 /// The costs to set the optional genesis state are not accounted for. This should be fine as long
 /// as no massive amounts of data are written.
-pub struct ResetPallet<P, W, B = (), G = ()>(PhantomData<(P, W, B, G)>);
+pub struct ResetPallet<T, P, B = (), G = ()>(PhantomData<(T, P, B, G)>);
 
-impl<P, W, B, G> ResetPallet<P, W, B, G>
+impl<T, P, B, G> ResetPallet<T, P, B, G>
 where
 	P: PalletInfoAccess,
 {
@@ -58,10 +59,10 @@ where
 	}
 }
 
-impl<P, W, B, G> SteppedMigration for ResetPallet<P, W, B, G>
+impl<T, P, B, G> SteppedMigration for ResetPallet<T, P, B, G>
 where
+	T: Config,
 	P: PalletInfoAccess + OnGenesis,
-	W: Get<RuntimeDbWeight>,
 	B: BuildGenesisConfig,
 	G: Get<B>,
 {
@@ -76,9 +77,11 @@ where
 		_cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		let weight_per_key = W::get().writes(1);
+		let base_weight = T::WeightInfo::reset_pallet_migration(0);
+		let weight_per_key = T::WeightInfo::reset_pallet_migration(1) - base_weight;
 		let key_budget = meter
 			.remaining()
+			.saturating_sub(base_weight)
 			.checked_div_per_component(&weight_per_key)
 			.expect("costs not zero")
 			.saturated_into();
@@ -92,7 +95,7 @@ where
 			KillStorageResult::SomeRemaining(value) => (value.into(), Some(())),
 		};
 
-		meter.consume(W::get().writes(keys_removed));
+		meter.consume(T::WeightInfo::reset_pallet_migration(keys_removed));
 
 		if cursor.is_none() {
 			// sets pallet version to current in-code version
