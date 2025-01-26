@@ -30,29 +30,18 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
 use log;
 
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, Pays},
-	pallet_prelude::*,
-	traits::{Get, OneSessionHandler},
-	weights::{constants::RocksDbWeight as DbWeight, Weight},
-	BoundedSlice, BoundedVec, Parameter,
-};
-use frame_system::{
-	ensure_none, ensure_signed,
-	pallet_prelude::{BlockNumberFor, HeaderFor, OriginFor},
-};
+use frame::weights_prelude::DbWeight;
+use sp_staking::{offence::OffenceReportSystem, SessionIndex};
+
 use sp_consensus_beefy::{
 	AncestryHelper, AncestryHelperWeightInfo, AuthorityIndex, BeefyAuthorityId, ConsensusLog,
 	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet,
 	BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
-use sp_runtime::{
-	generic::DigestItem,
-	traits::{IsMember, Member, One},
-	RuntimeAppPublic,
-};
-use sp_session::{GetSessionNumber, GetValidatorCount};
-use sp_staking::{offence::OffenceReportSystem, SessionIndex};
+
+use frame::deps::sp_session::{GetSessionNumber, GetValidatorCount};
+
+use frame::runtime::prelude::*;
 
 use crate::equivocation::EquivocationEvidenceFor;
 pub use crate::equivocation::{EquivocationOffence, EquivocationReportSystem, TimeSlot};
@@ -60,10 +49,9 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::beefy";
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_system::{ensure_root, pallet_prelude::BlockNumberFor};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -71,7 +59,7 @@ pub mod pallet {
 		type BeefyId: Member
 			+ Parameter
 			// todo: use custom signature hashing type instead of hardcoded `Keccak256`
-			+ BeefyAuthorityId<sp_runtime::traits::Keccak256>
+			+ BeefyAuthorityId<Keccak256>
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
 
@@ -656,7 +644,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
+impl<T: Config> BoundToRuntimeAppPublic for Pallet<T> {
 	type Public = T::BeefyId;
 }
 

@@ -18,10 +18,7 @@
 //! Default weights for the BEEFY Pallet
 //! This file was not auto-generated.
 
-use frame_support::weights::{
-	constants::{RocksDbWeight as DbWeight, WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS},
-	Weight,
-};
+use frame::weights_prelude::*;
 
 impl crate::WeightInfo for () {
 	fn report_voting_equivocation(

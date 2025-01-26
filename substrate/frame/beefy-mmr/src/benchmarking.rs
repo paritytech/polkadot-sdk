@@ -22,12 +22,9 @@
 use super::*;
 use crate::Pallet as BeefyMmr;
 use codec::Encode;
-use frame_benchmarking::v2::*;
-use frame_support::traits::Hooks;
-use frame_system::{Config as SystemConfig, Pallet as System};
+use frame::benchmarking::prelude::Pallet as System;
 use pallet_mmr::{Nodes, Pallet as Mmr};
 use sp_consensus_beefy::Payload;
-use sp_runtime::traits::One;
 
 pub trait Config:
 	pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing> + crate::Config
