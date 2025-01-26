@@ -81,16 +81,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_reset_base_price(price: BalanceOf<T>) -> DispatchResult {
-		// Ensure the price is valid (e.g., greater than or equal to zero).
-		ensure!(price >= Zero::zero(), Error::<T>::InvalidPrice);
-
-		// Update the storage.
-		BasePrice::<T>::put(price);
-
-		Ok(())
-	}
-
 	pub(crate) fn do_set_lease(task: TaskId, until: Timeslice) -> DispatchResult {
 		let mut r = Leases::<T>::get();
 		ensure!(until > Self::current_timeslice(), Error::<T>::AlreadyExpired);

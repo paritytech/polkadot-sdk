@@ -905,6 +905,8 @@ mod benches {
 			);
 		});
 
+		OverridePrice::<T>::kill();
+
 		Ok(())
 	}
 
@@ -1059,16 +1061,27 @@ mod benches {
 
 	#[benchmark]
 	fn reset_base_price() -> Result<(), BenchmarkError> {
-		let price: BalanceOf<T> = 100u32.into();
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
+		let new_price = 100u32.into(); // Example new price
+		#[extrinsic_call]
+		_(origin, new_price);
+
+		assert_eq!(OverriddenEndPrice::<T>::get(), Some(new_price));
+		Ok(())
+	}
+
+	#[benchmark]
+	fn clear_overridden_price() -> Result<(), BenchmarkError> {
+		OverriddenEndPrice::<T>::put(100u32.into()); // Set initial price
 		let origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(origin, price);
+		_(origin);
 
-		assert_eq!(BasePrice::<T>::get(), price);
-
+		assert!(OverriddenEndPrice::<T>::get().is_none());
 		Ok(())
 	}
 

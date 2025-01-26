@@ -24,7 +24,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit, Inspect, ItemOf, Mutate},
 		nonfungible::Inspect as NftInspect,
-		EitherOfDiverse, Hooks, OnUnbalanced,
+		EitherOfDiverse, OnUnbalanced,
 	},
 	PalletId,
 };

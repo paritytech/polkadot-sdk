@@ -23,11 +23,9 @@ use frame_support::{
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
-use frame_system::RawOrigin::Root;
+use frame_system::{Origin, RawOrigin::Root};
 use pretty_assertions::assert_eq;
 use sp_runtime::{traits::Get, Perbill, TokenError};
-use frame_system::Origin;
-use sp_runtime::DispatchError::BadOrigin; // For handling `BadOrigin`
 
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
@@ -1914,26 +1912,20 @@ fn reserve_works() {
 }
 
 #[test]
-fn reset_base_price_works() {
-    new_test_ext().execute_with(|| {
-        let price: Balance = 100u32.into();
-
-        assert_ok!(Broker::reset_base_price(Origin::root(), price));
-
-        assert_eq!(Broker::base_price(), price);
-    });
+fn reset_base_price() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Broker::reset_sale_price(Origin::root(), 500));
+		assert_eq!(OverriddenEndPrice::get(), Some(500));
+	});
 }
 
 #[test]
-fn reset_base_price_fails_for_non_admin() {
-    new_test_ext().execute_with(|| {
-        let price: Balance = 100u32.into();
-
-        assert_noop!(
-            Broker::reset_base_price(Origin::signed(1), price),
-            BadOrigin
-        );
-    });
+fn clear_overridden_price() {
+	new_test_ext().execute_with(|| {
+		OverriddenEndPrice::put(500);
+		assert_ok!(Broker::clear_overridden_price(Origin::root()));
+		assert!(OverriddenEndPrice::get().is_none());
+	});
 }
 
 // We can use a hack to accelerate this by injecting it into the workplan.

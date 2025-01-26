@@ -125,10 +125,11 @@ pub mod pallet {
 		type MaxAutoRenewals: Get<u32>;
 	}
 
-	/// The base or minimum price for workloads in the network.
 	#[pallet::storage]
-	#[pallet::getter(fn base_price)]
-	pub type BasePrice<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+	#[pallet::getter(fn override_price)]
+	/// Optional override for the current sale price. If set, this value will be used instead of
+	/// the dynamically calculated sale price.
+	pub type OverridePrice<T: Config> = StorageValue<_, Option<BalanceOf<T>>, ValueQuery>;
 
 	/// The current configuration of this pallet.
 	#[pallet::storage]
@@ -975,22 +976,17 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Reset the base or minimum price for workloads.
-		///
-		/// - `origin`: Must be Root or pass `AdminOrigin`.
-		/// - `price`: The new base or minimum price to set.
-		///
-		/// This updates the `BasePrice` storage to the provided value.
 		#[pallet::call_index(24)]
-		pub fn reset_base_price(
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		/// Allows an admin or root user to set an override price for the current sale.
+		/// - `origin`: Must be Root or Admin.
+		/// - `price`: The new override price. Pass `None` to clear the override.
+		pub fn set_override_price(
 			origin: OriginFor<T>,
-			price: BalanceOf<T>,
+			price: Option<BalanceOf<T>>,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-
-			// Call the implementation function.
-			Self::do_reset_base_price(price)?;
-
+			OverridePrice::<T>::put(price);
 			Ok(Pays::No.into())
 		}
 
