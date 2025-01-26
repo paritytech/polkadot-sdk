@@ -242,7 +242,8 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchError, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
@@ -561,9 +562,12 @@ pub mod hashing {
 /// This is already part of the [`prelude`].
 pub mod account {
 	pub use frame_support::traits::{
-		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, FindAuthor, InitializeMembers,
 	};
-	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
+	pub use sp_runtime::{
+		traits::{IdentifyAccount, IdentityLookup, LookupError},
+		MultiAddress::{self, Id},
+	};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
