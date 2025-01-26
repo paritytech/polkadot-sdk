@@ -221,7 +221,7 @@ impl PeerInfoBehaviour {
 				if is_new && self.external_addresses.add(observed_addr.clone()) {
 					trace!(
 						target: LOG_TARGET,
-						"Observed address reported by Identify comfirmed as external {}",
+						"Observed address reported by Identify confirmed as external {}",
 						observed_addr,
 					);
 					self.pending_actions.push_back(ToSwarm::ExternalAddrConfirmed(observed_addr));
@@ -235,7 +235,7 @@ impl PeerInfoBehaviour {
 			Err(addr) => {
 				warn!(
 					target: LOG_TARGET,
-					"Discovered external address for a peer that is not us: {addr}",
+					"Identify reported observed address for a peer that is not us: {addr}",
 				);
 			},
 		}
