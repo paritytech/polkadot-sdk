@@ -33,7 +33,6 @@ sp-tracing = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }
-cumulus-pallet-xcmp-queue = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }

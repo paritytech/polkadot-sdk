@@ -15,7 +15,6 @@ anyhow = { workspace = true, default-features = true }
 async-std = { workspace = true }
 async-trait = { workspace = true }
 backoff = { workspace = true }
-console = { workspace = true }
 futures = { workspace = true }
 isahc = { workspace = true }
 jsonpath_lib = { workspace = true }
