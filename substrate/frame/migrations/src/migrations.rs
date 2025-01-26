@@ -119,7 +119,7 @@ where
 		let keys_now = Self::num_keys();
 		log::info!("ResetPallet<{}>: Keys remaining after migration: {keys_now}", P::name());
 
-		if !(keys_before > keys_now) {
+		if keys_before <= keys_now {
 			log::error!("ResetPallet<{}>: Removed suspiciously low number of keys.", P::name());
 			Err("ResetPallet failed")?;
 		}
