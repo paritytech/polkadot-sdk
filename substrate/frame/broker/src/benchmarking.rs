@@ -1060,32 +1060,6 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn reset_base_price() -> Result<(), BenchmarkError> {
-		let origin =
-			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-
-		let new_price = 100u32.into(); // Example new price
-		#[extrinsic_call]
-		_(origin, new_price);
-
-		assert_eq!(OverriddenEndPrice::<T>::get(), Some(new_price));
-		Ok(())
-	}
-
-	#[benchmark]
-	fn clear_overridden_price() -> Result<(), BenchmarkError> {
-		OverriddenEndPrice::<T>::put(100u32.into()); // Set initial price
-		let origin =
-			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-
-		#[extrinsic_call]
-		_(origin);
-
-		assert!(OverriddenEndPrice::<T>::get().is_none());
-		Ok(())
-	}
-
-	#[benchmark]
 	fn swap_leases() -> Result<(), BenchmarkError> {
 		let admin_origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;

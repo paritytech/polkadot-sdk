@@ -550,7 +550,6 @@ pub mod pallet {
 		SovereignAccountNotFound,
 		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
 		AutoRenewalNotEnabled,
-		InvalidPrice,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
