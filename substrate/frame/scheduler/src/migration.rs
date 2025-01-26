@@ -612,10 +612,9 @@ pub mod v5 {
 
 #[cfg(test)]
 pub mod test_v5 {
-	use frame_support::BoundedBTreeSet;
 	use super::*;
 	use crate::{migration::v5::IncompleteSince, mock::*};
-	use frame_support::testing_prelude::*;
+	use frame_support::{testing_prelude::*, BoundedBTreeSet};
 
 	#[test]
 	fn migration_v4_to_v5_works() {
@@ -635,7 +634,10 @@ pub mod test_v5 {
 
 			assert_eq!(StorageVersion::get::<Scheduler>(), 5);
 			assert_eq!(IncompleteSince::<Test>::get(), None);
-			let mut queue = BoundedBTreeSet::<BlockNumberFor<Test>, <Test as Config>::MaxScheduledBlocks>::default();
+			let mut queue = BoundedBTreeSet::<
+				BlockNumberFor<Test>,
+				<Test as Config>::MaxScheduledBlocks,
+			>::default();
 			for block in vec![2, 3] {
 				queue.try_insert(block).expect("BoundedBTreeSet insertion failed");
 			}

@@ -3081,7 +3081,7 @@ fn stale_task_is_removed() {
 			root(),
 			Preimage::bound(call).unwrap()
 		));
-		assert!(Agenda::<Test>::get(4).len() == 1);
+		assert_eq!(Agenda::<Test>::get(4).len(), 1);
 		assert!(Queue::<Test>::get().contains(&4));
 
 		go_to_block(20);

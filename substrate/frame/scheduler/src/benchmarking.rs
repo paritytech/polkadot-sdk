@@ -143,15 +143,15 @@ fn make_origin<T: Config>(signed: bool) -> <T as Config>::PalletsOrigin {
 
 #[benchmarks]
 mod benchmarks {
-	use frame_benchmarking::BenchmarkParameter::s;
 	use super::*;
+	use frame_benchmarking::BenchmarkParameter::s;
 
 	// `service_agenda` when no work is done.
 	#[benchmark]
 	fn service_agendas_base() {
 		let now = BlockNumberFor::<T>::from(block_number::<T>());
 		let mut set = BoundedBTreeSet::<_, _>::default();
-		set.try_insert(now + One::one()).unwrap();  // Insert the element
+		set.try_insert(now + One::one()).unwrap(); // Insert the element
 		Queue::<T>::put(set);
 
 		#[block]
@@ -159,7 +159,8 @@ mod benchmarks {
 			Pallet::<T>::service_agendas(&mut WeightMeter::new(), now, 0);
 		}
 
-		let mut expected_set = BoundedBTreeSet::<BlockNumberFor<T>, T::MaxScheduledBlocks>::default();
+		let mut expected_set =
+			BoundedBTreeSet::<BlockNumberFor<T>, T::MaxScheduledBlocks>::default();
 		expected_set.try_insert(now + One::one()).unwrap();
 		assert_eq!(Queue::<T>::get(), expected_set);
 	}
