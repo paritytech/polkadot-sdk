@@ -17,10 +17,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
+log = { workspace = true }
 pallet-timestamp = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 [features]
 default = ["std"]

@@ -521,8 +521,10 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::{BuildStorage, DispatchError};
-		pub use sp_runtime::testing::{TestSignature, UintAuthorityId};
+		pub use sp_runtime::{
+			testing::{TestSignature, UintAuthorityId},
+			BuildStorage, DispatchError,
+		};
 	}
 }
 
@@ -546,9 +548,10 @@ pub mod arithmetic {
 
 /// Consensus types
 pub mod consensus {
-	pub use sp_consensus_aura::{ed25519::AuthorityId, AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID};
-	pub use sp_runtime::{DigestItem, Digest};
-	pub use sp_runtime::ConsensusEngineId;
+	pub use sp_consensus_aura::{
+		ed25519::AuthorityId, AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID,
+	};
+	pub use sp_runtime::{ConsensusEngineId, Digest, DigestItem};
 }
 
 /// All derive macros used in frame.
@@ -566,13 +569,13 @@ pub mod derive {
 }
 
 pub mod cryptography {
+	pub use sp_application_crypto::{BoundToRuntimeAppPublic, RuntimeAppPublic};
 	pub use sp_core::{
 		crypto::{VrfPublic, VrfSecret, Wraps},
 		hashing::*,
-		Pair, H160, H256, H512, U256, U512,
+		H160, H256, H512, U256, U512,
 	};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
-	pub use sp_application_crypto::{RuntimeAppPublic, BoundToRuntimeAppPublic};
 }
 
 /// All account management related traits.
@@ -611,6 +614,8 @@ pub mod deps {
 	#[cfg(feature = "runtime")]
 	pub use sp_api;
 	#[cfg(feature = "runtime")]
+	pub use sp_application_crypto;
+	#[cfg(feature = "runtime")]
 	pub use sp_block_builder;
 	#[cfg(feature = "runtime")]
 	pub use sp_consensus_aura;
@@ -628,8 +633,6 @@ pub mod deps {
 	pub use sp_storage;
 	#[cfg(feature = "runtime")]
 	pub use sp_version;
-	#[cfg(feature = "runtime")]
-	pub use sp_application_crypto;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub use frame_benchmarking;
