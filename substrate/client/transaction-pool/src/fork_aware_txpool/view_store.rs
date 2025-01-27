@@ -747,14 +747,6 @@ where
 		replaced: ExtrinsicHash<ChainApi>,
 		watched: bool,
 	) {
-		if watched && !self.listener.contains_tx(&xt_hash) {
-			log::trace!(
-				target:LOG_TARGET,
-				"warning: replace_transaction_in_views: no listener for watched transaction {:?}",
-				xt_hash,
-			);
-		}
-
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			let inactive_views = self.inactive_views.read();
