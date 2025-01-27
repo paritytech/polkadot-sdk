@@ -14801,7 +14801,6 @@ dependencies = [
  "pallet-revive-fixtures 0.1.0",
  "pallet-revive-proc-macro 0.1.0",
  "pallet-revive-uapi 0.1.0",
- "pallet-session 28.0.0",
  "pallet-timestamp 27.0.0",
  "pallet-transaction-payment 28.0.0",
  "pallet-utility 28.0.0",
