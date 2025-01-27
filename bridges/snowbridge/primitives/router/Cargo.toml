@@ -31,6 +31,7 @@ xcm-builder = { workspace = true }
 snowbridge-core = { workspace = true }
 
 hex-literal = { workspace = true, default-features = true }
+hex = { workspace = true, default-features = false }
 
 [dev-dependencies]
 

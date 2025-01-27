@@ -126,6 +126,7 @@ fn register_token_v2() {
 		let eth_asset_value_hex = hex::encode(eth_asset_value_encoded);
 		println!("register token hex: {:x?}", hex_string);
 		println!("eth value hex: {:x?}", eth_asset_value_hex);
+		println!("token: {:?}", token);
 
 		let message = Message {
 			origin,

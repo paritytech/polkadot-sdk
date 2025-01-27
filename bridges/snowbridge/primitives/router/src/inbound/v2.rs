@@ -14,6 +14,7 @@ use xcm::{
 	prelude::{Asset as XcmAsset, Junction::AccountKey20, *},
 	MAX_XCM_DECODE_DEPTH,
 };
+use hex;
 
 const LOG_TARGET: &str = "snowbridge-router-primitives";
 
@@ -127,6 +128,8 @@ where
 	) -> Result<(Xcm<()>, u128), ConvertMessageError> {
 		let mut message_xcm: Xcm<()> = Xcm::new();
 		if message.xcm.len() > 0 {
+			let xcm_string = hex::encode(message.xcm.clone());
+			log::info!(target: LOG_TARGET,"found xcm payload: {:x?}", xcm_string);
 			// Allow xcm decode failure so that assets can be trapped on AH instead of this
 			// message failing but funds are already locked on Ethereum.
 			if let Ok(versioned_xcm) = VersionedXcm::<()>::decode_with_depth_limit(
@@ -135,11 +138,15 @@ where
 			) {
 				if let Ok(decoded_xcm) = versioned_xcm.try_into() {
 					message_xcm = decoded_xcm;
+				} else {
+					log::error!(target: LOG_TARGET,"unable to decode xcm");
 				}
+			} else {
+				log::error!(target: LOG_TARGET,"unable to decode versioned xcm");
 			}
 		}
 
-		log::debug!(target: LOG_TARGET,"xcm decoded as {:?}", message_xcm);
+		log::info!(target: LOG_TARGET,"xcm decoded as {:?}", message_xcm);
 
 		let network = EthereumNetwork::get();
 

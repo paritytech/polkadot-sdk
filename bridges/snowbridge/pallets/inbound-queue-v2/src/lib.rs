@@ -236,6 +236,7 @@ pub mod pallet {
 			// Attempt to forward XCM to AH
 
 			// Set nonce flag to true
+			log::info!(target: "snowbridge-inbound-queue:v2","💫 setting nonce to {:?}", envelope.nonce);
 			Nonce::<T>::set(envelope.nonce.into());
 
 			let message_id = Self::send_xcm(xcm, T::AssetHubParaId::get())?;

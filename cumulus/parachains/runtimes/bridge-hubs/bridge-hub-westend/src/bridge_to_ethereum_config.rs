@@ -57,7 +57,7 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 
 // Ethereum Bridge
 parameter_types! {
-	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
+	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("b8ea8cb425d85536b158d661da1ef0895bb92f1d"));
 }
 
 parameter_types! {
