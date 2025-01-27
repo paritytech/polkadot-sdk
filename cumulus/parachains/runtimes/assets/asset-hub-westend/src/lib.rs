@@ -2029,7 +2029,7 @@ impl_runtime_apis! {
 						ParachainSystem
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(AssetHubWestend::get())
+					Ok(RandomParaLocation::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
