@@ -144,8 +144,8 @@ pub trait Create<Strategy: CreateStrategy> {
 /// A strategy for use in the [`Transfer`] implementations.
 ///
 /// The common transfer strategies are:
-/// * [`JustDo`](common_strategies::JustDo)
-/// * [`FromTo`](common_strategies::FromTo)
+/// * [`To`](common_strategies::To)
+/// * [`IfOwnedBy`](common_strategies::IfOwnedBy)
 pub trait TransferStrategy {
 	/// This type represents a successful asset transfer.
 	/// It will be in the [`Result`] type of the [`Transfer::transfer`] function.
@@ -168,10 +168,9 @@ pub trait Transfer<Strategy: TransferStrategy>: AssetDefinition {
 /// A strategy for use in the [`Destroy`] implementations.
 ///
 /// The common destroy strategies are:
-/// * [`JustDo`](common_strategies::JustDo)
+/// * [`Unchecked`](common_strategies::Unchecked)
 /// * [`IfOwnedBy`](common_strategies::IfOwnedBy)
 /// * [`WithWitness`](common_strategies::WithWitness)
-/// * [`IfOwnedByWithWitness`](common_strategies::IfOwnedByWithWitness)
 pub trait DestroyStrategy {
 	/// This type represents a successful asset destruction.
 	/// It will be in the [`Result`] type of the [`Destroy::destroy`] function.
@@ -194,7 +193,7 @@ pub trait Destroy<Strategy: DestroyStrategy>: AssetDefinition {
 /// A strategy for use in the [`Stash`] implementations.
 ///
 /// The common stash strategies are:
-/// * [`JustDo`](common_strategies::JustDo)
+/// * [`Unchecked`](common_strategies::Unchecked)
 /// * [`IfOwnedBy`](common_strategies::IfOwnedBy)
 pub trait StashStrategy {
 	/// This type represents a successful asset stashing.
@@ -217,7 +216,7 @@ pub trait Stash<Strategy: StashStrategy>: AssetDefinition {
 
 /// A strategy for use in the [`Restore`] implementations.
 /// The common restore strategies are:
-/// * [`JustDo`](common_strategies::JustDo)
+/// * [`Unchecked`](common_strategies::Unchecked)
 /// * [`IfRestorable`](common_strategies::IfRestorable)
 pub trait RestoreStrategy {
 	/// This type represents a successful asset restoration.

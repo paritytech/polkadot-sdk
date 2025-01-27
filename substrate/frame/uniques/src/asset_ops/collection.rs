@@ -6,7 +6,7 @@ use frame_support::{
 	traits::{
 		tokens::asset_ops::{
 			common_strategies::{
-				Bytes, IfOwnedByWithWitness, Ownership, PredefinedId, WithAdmin, WithOrigin,
+				Bytes, CheckOrigin, CheckState, IfOwnedBy, Ownership, PredefinedId, WithAdmin,
 				WithWitness,
 			},
 			AssetDefinition, Create, Destroy, Inspect,
@@ -81,16 +81,16 @@ impl<T: Config<I>, I: 'static> Create<WithAdmin<T::AccountId, PredefinedId<T::Co
 }
 
 impl<T: Config<I>, I: 'static>
-	Create<WithOrigin<T::RuntimeOrigin, WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>>>
+	Create<CheckOrigin<T::RuntimeOrigin, WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>>>
 	for Collection<Pallet<T, I>>
 {
 	fn create(
-		strategy: WithOrigin<
+		strategy: CheckOrigin<
 			T::RuntimeOrigin,
 			WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>,
 		>,
 	) -> Result<T::CollectionId, DispatchError> {
-		let WithOrigin(origin, creation) = strategy;
+		let CheckOrigin(origin, creation) = strategy;
 
 		let WithAdmin { owner, id_assignment, .. } = &creation;
 		let collection = &id_assignment.params;
@@ -121,52 +121,32 @@ impl<T: Config<I>, I: 'static> Destroy<WithWitness<DestroyWitness>> for Collecti
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<WithOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>>
+impl<T: Config<I>, I: 'static> Destroy<IfOwnedBy<T::AccountId, WithWitness<DestroyWitness>>>
 	for Collection<Pallet<T, I>>
 {
 	fn destroy(
 		collection: &Self::Id,
-		strategy: WithOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>,
+		strategy: IfOwnedBy<T::AccountId, WithWitness<DestroyWitness>>,
 	) -> Result<DestroyWitness, DispatchError> {
-		let WithOrigin(origin, destroy) = strategy;
-
-		T::ForceOrigin::ensure_origin(origin)?;
-
-		Self::destroy(collection, destroy)
-	}
-}
-
-impl<T: Config<I>, I: 'static> Destroy<IfOwnedByWithWitness<T::AccountId, DestroyWitness>>
-	for Collection<Pallet<T, I>>
-{
-	fn destroy(
-		collection: &Self::Id,
-		strategy: IfOwnedByWithWitness<T::AccountId, DestroyWitness>,
-	) -> Result<DestroyWitness, DispatchError> {
-		let IfOwnedByWithWitness { owner, witness } = strategy;
+		let CheckState(owner, WithWitness(witness)) = strategy;
 
 		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, Some(owner))
 	}
 }
 
-impl<T: Config<I>, I: 'static>
-	Destroy<WithOrigin<T::RuntimeOrigin, IfOwnedByWithWitness<T::AccountId, DestroyWitness>>>
+impl<T: Config<I>, I: 'static> Destroy<CheckOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>>
 	for Collection<Pallet<T, I>>
 {
 	fn destroy(
 		collection: &Self::Id,
-		strategy: WithOrigin<T::RuntimeOrigin, IfOwnedByWithWitness<T::AccountId, DestroyWitness>>,
+		strategy: CheckOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>,
 	) -> Result<DestroyWitness, DispatchError> {
-		let WithOrigin(origin, IfOwnedByWithWitness { owner, witness }) = strategy;
+		let CheckOrigin(origin, WithWitness(witness)) = strategy;
 		let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {
 			Ok(_) => None,
 			Err(origin) => Some(ensure_signed(origin)?),
 		};
 
-		if let Some(signer) = maybe_check_owner {
-			ensure!(signer == owner, Error::<T, I>::NoPermission);
-		}
-
-		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, Some(owner))
+		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, maybe_check_owner)
 	}
 }

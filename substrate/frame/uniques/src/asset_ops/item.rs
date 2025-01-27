@@ -6,8 +6,8 @@ use frame_support::{
 	ensure,
 	traits::tokens::asset_ops::{
 		common_strategies::{
-			Bytes, CanTransfer, FromTo, IfOwnedBy, JustDo, Owned, Ownership, PredefinedId,
-			WithOrigin,
+			Bytes, CanTransfer, CheckOrigin, CheckState, IfOwnedBy, Owned, Ownership, PredefinedId,
+			To, Unchecked,
 		},
 		AssetDefinition, Create, Inspect, Stash, Transfer,
 	},
@@ -85,19 +85,19 @@ impl<T: Config<I>, I: 'static>
 
 impl<T: Config<I>, I: 'static>
 	Create<
-		WithOrigin<
+		CheckOrigin<
 			T::RuntimeOrigin,
 			Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
 		>,
 	> for Item<Pallet<T, I>>
 {
 	fn create(
-		strategy: WithOrigin<
+		strategy: CheckOrigin<
 			T::RuntimeOrigin,
 			Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
 		>,
 	) -> Result<(T::CollectionId, T::ItemId), DispatchError> {
-		let WithOrigin(origin, Owned { owner, id_assignment, .. }) = strategy;
+		let CheckOrigin(origin, Owned { owner, id_assignment, .. }) = strategy;
 		let (collection, item) = id_assignment.params;
 
 		let signer = ensure_signed(origin)?;
@@ -111,22 +111,22 @@ impl<T: Config<I>, I: 'static>
 	}
 }
 
-impl<T: Config<I>, I: 'static> Transfer<JustDo<T::AccountId>> for Item<Pallet<T, I>> {
-	fn transfer((collection, item): &Self::Id, strategy: JustDo<T::AccountId>) -> DispatchResult {
-		let JustDo(dest) = strategy;
+impl<T: Config<I>, I: 'static> Transfer<To<T::AccountId>> for Item<Pallet<T, I>> {
+	fn transfer((collection, item): &Self::Id, strategy: To<T::AccountId>) -> DispatchResult {
+		let To(dest) = strategy;
 
 		<Pallet<T, I>>::do_transfer(collection.clone(), *item, dest, |_, _| Ok(()))
 	}
 }
 
-impl<T: Config<I>, I: 'static> Transfer<WithOrigin<T::RuntimeOrigin, JustDo<T::AccountId>>>
+impl<T: Config<I>, I: 'static> Transfer<CheckOrigin<T::RuntimeOrigin, To<T::AccountId>>>
 	for Item<Pallet<T, I>>
 {
 	fn transfer(
 		(collection, item): &Self::Id,
-		strategy: WithOrigin<T::RuntimeOrigin, JustDo<T::AccountId>>,
+		strategy: CheckOrigin<T::RuntimeOrigin, To<T::AccountId>>,
 	) -> DispatchResult {
-		let WithOrigin(origin, JustDo(dest)) = strategy;
+		let CheckOrigin(origin, To(dest)) = strategy;
 
 		let signer = ensure_signed(origin)?;
 
@@ -145,9 +145,14 @@ impl<T: Config<I>, I: 'static> Transfer<WithOrigin<T::RuntimeOrigin, JustDo<T::A
 	}
 }
 
-impl<T: Config<I>, I: 'static> Transfer<FromTo<T::AccountId>> for Item<Pallet<T, I>> {
-	fn transfer((collection, item): &Self::Id, strategy: FromTo<T::AccountId>) -> DispatchResult {
-		let FromTo(from, to) = strategy;
+impl<T: Config<I>, I: 'static> Transfer<IfOwnedBy<T::AccountId, To<T::AccountId>>>
+	for Item<Pallet<T, I>>
+{
+	fn transfer(
+		(collection, item): &Self::Id,
+		strategy: IfOwnedBy<T::AccountId, To<T::AccountId>>,
+	) -> DispatchResult {
+		let CheckState(from, To(to)) = strategy;
 
 		<Pallet<T, I>>::do_transfer(collection.clone(), *item, to.clone(), |_, details| {
 			ensure!(details.owner == from, Error::<T, I>::WrongOwner);
@@ -156,51 +161,35 @@ impl<T: Config<I>, I: 'static> Transfer<FromTo<T::AccountId>> for Item<Pallet<T,
 	}
 }
 
-impl<T: Config<I>, I: 'static> Stash<JustDo> for Item<Pallet<T, I>> {
-	fn stash((collection, item): &Self::Id, _strategy: JustDo) -> DispatchResult {
+impl<T: Config<I>, I: 'static> Stash<Unchecked> for Item<Pallet<T, I>> {
+	fn stash((collection, item): &Self::Id, _strategy: Unchecked) -> DispatchResult {
 		<Pallet<T, I>>::do_burn(collection.clone(), *item, |_, _| Ok(()))
 	}
 }
 
-impl<T: Config<I>, I: 'static> Stash<WithOrigin<T::RuntimeOrigin, JustDo>> for Item<Pallet<T, I>> {
-	fn stash(
-		id @ (collection, item): &Self::Id,
-		strategy: WithOrigin<T::RuntimeOrigin, JustDo>,
-	) -> DispatchResult {
-		let WithOrigin(origin, _just_do) = strategy;
-		let details =
-			ItemStorage::<T, I>::get(collection, item).ok_or(Error::<T, I>::UnknownCollection)?;
-
-		Self::stash(id, WithOrigin(origin, IfOwnedBy(details.owner)))
-	}
-}
-
-impl<T: Config<I>, I: 'static> Stash<IfOwnedBy<T::AccountId>> for Item<Pallet<T, I>> {
-	fn stash((collection, item): &Self::Id, strategy: IfOwnedBy<T::AccountId>) -> DispatchResult {
-		let IfOwnedBy(who) = strategy;
-
-		<Pallet<T, I>>::do_burn(collection.clone(), *item, |_, d| {
-			ensure!(d.owner == who, Error::<T, I>::NoPermission);
-			Ok(())
-		})
-	}
-}
-
-impl<T: Config<I>, I: 'static> Stash<WithOrigin<T::RuntimeOrigin, IfOwnedBy<T::AccountId>>>
-	for Item<Pallet<T, I>>
-{
+impl<T: Config<I>, I: 'static> Stash<CheckOrigin<T::RuntimeOrigin>> for Item<Pallet<T, I>> {
 	fn stash(
 		(collection, item): &Self::Id,
-		strategy: WithOrigin<T::RuntimeOrigin, IfOwnedBy<T::AccountId>>,
+		strategy: CheckOrigin<T::RuntimeOrigin>,
 	) -> DispatchResult {
-		let WithOrigin(origin, IfOwnedBy(who)) = strategy;
+		let CheckOrigin(origin, ..) = strategy;
 
 		let signer = ensure_signed(origin)?;
 
 		<Pallet<T, I>>::do_burn(collection.clone(), *item, |collection_details, details| {
 			let is_permitted = collection_details.admin == signer || details.owner == signer;
 			ensure!(is_permitted, Error::<T, I>::NoPermission);
-			ensure!(who == details.owner, Error::<T, I>::WrongOwner);
+			Ok(())
+		})
+	}
+}
+
+impl<T: Config<I>, I: 'static> Stash<IfOwnedBy<T::AccountId>> for Item<Pallet<T, I>> {
+	fn stash((collection, item): &Self::Id, strategy: IfOwnedBy<T::AccountId>) -> DispatchResult {
+		let CheckState(who, ..) = strategy;
+
+		<Pallet<T, I>>::do_burn(collection.clone(), *item, |_, d| {
+			ensure!(d.owner == who, Error::<T, I>::NoPermission);
 			Ok(())
 		})
 	}

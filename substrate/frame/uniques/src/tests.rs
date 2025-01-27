@@ -1139,14 +1139,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&bob, 100);
 
 			// Signed origin, same owner
-			assert_ok!(Collection::create(WithOrigin(
+			assert_ok!(Collection::create(CheckOrigin(
 				RuntimeOrigin::signed(alice),
 				WithAdmin::new(PredefinedId::from(0), alice, collection_admin,),
 			)));
 
 			// Signed origin, different owner
 			assert_noop!(
-				Collection::create(WithOrigin(
+				Collection::create(CheckOrigin(
 					RuntimeOrigin::signed(alice),
 					WithAdmin::new(PredefinedId::from(1), bob, collection_admin,),
 				)),
@@ -1154,12 +1154,12 @@ mod asset_ops_tests {
 			);
 
 			// Root origin, any owner
-			assert_ok!(Collection::create(WithOrigin(
+			assert_ok!(Collection::create(CheckOrigin(
 				RuntimeOrigin::root(),
 				WithAdmin::new(PredefinedId::from(2), alice, collection_admin,),
 			)));
 
-			assert_ok!(Collection::create(WithOrigin(
+			assert_ok!(Collection::create(CheckOrigin(
 				RuntimeOrigin::root(),
 				WithAdmin::new(PredefinedId::from(3), bob, collection_admin,),
 			)));
@@ -1200,80 +1200,11 @@ mod asset_ops_tests {
 				crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
 
 			assert_noop!(
-				Collection::destroy(&collection_id, WithWitness(outdated_witness),),
+				Collection::destroy(&collection_id, WithWitness(outdated_witness)),
 				Error::<Test>::BadWitness,
 			);
 
-			assert_ok!(Collection::destroy(&collection_id, WithWitness(ok_witness),));
-
-			assert_eq!(collections(), vec![]);
-			assert_eq!(items(), vec![]);
-		});
-	}
-
-	#[test]
-	fn destroy_collection_with_origin_without_ownership_check() {
-		new_test_ext().execute_with(|| {
-			let collection_id = 10;
-
-			let collection_owner = 1;
-			let collection_admin = 2;
-			let item_owner = 3;
-
-			Balances::make_free_balance_be(&collection_owner, 100);
-
-			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
-				collection_owner,
-				collection_admin,
-			)));
-
-			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, 0)),
-				item_owner,
-			)));
-
-			let outdated_witness =
-				crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
-
-			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, 1)),
-				item_owner,
-			)));
-
-			let ok_witness =
-				crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
-
-			// No signed origin can destroy a collection without the ownership check.
-			assert_noop!(
-				Collection::destroy(
-					&collection_id,
-					WithOrigin(RuntimeOrigin::signed(collection_owner), WithWitness(ok_witness),),
-				),
-				DispatchError::BadOrigin,
-			);
-
-			assert_noop!(
-				Collection::destroy(
-					&collection_id,
-					WithOrigin(RuntimeOrigin::signed(collection_admin), WithWitness(ok_witness),),
-				),
-				DispatchError::BadOrigin,
-			);
-
-			// A bad witness is rejected even for the force origin.
-			assert_noop!(
-				Collection::destroy(
-					&collection_id,
-					WithOrigin(RuntimeOrigin::root(), WithWitness(outdated_witness),),
-				),
-				Error::<Test>::BadWitness,
-			);
-
-			assert_ok!(Collection::destroy(
-				&collection_id,
-				WithOrigin(RuntimeOrigin::root(), WithWitness(ok_witness),),
-			));
+			assert_ok!(Collection::destroy(&collection_id, WithWitness(ok_witness)));
 
 			assert_eq!(collections(), vec![]);
 			assert_eq!(items(), vec![]);
@@ -1316,7 +1247,7 @@ mod asset_ops_tests {
 			assert_noop!(
 				Collection::destroy(
 					&collection_id,
-					IfOwnedByWithWitness { owner: collection_admin, witness: ok_witness },
+					IfOwnedBy::new(collection_admin, WithWitness(ok_witness)),
 				),
 				Error::<Test>::NoPermission,
 			);
@@ -1325,14 +1256,14 @@ mod asset_ops_tests {
 			assert_noop!(
 				Collection::destroy(
 					&collection_id,
-					IfOwnedByWithWitness { owner: collection_owner, witness: outdated_witness },
+					IfOwnedBy::new(collection_owner, WithWitness(outdated_witness)),
 				),
 				Error::<Test>::BadWitness,
 			);
 
 			assert_ok!(Collection::destroy(
 				&collection_id,
-				IfOwnedByWithWitness { owner: collection_owner, witness: ok_witness },
+				IfOwnedBy::new(collection_owner, WithWitness(ok_witness)),
 			));
 
 			assert_eq!(collections(), vec![]);
@@ -1341,7 +1272,7 @@ mod asset_ops_tests {
 	}
 
 	#[test]
-	fn destroy_collection_with_origin_and_ownership_check() {
+	fn destroy_collection_with_origin() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 
@@ -1383,23 +1314,7 @@ mod asset_ops_tests {
 			assert_noop!(
 				Collection::destroy(
 					&collection_id,
-					WithOrigin(
-						RuntimeOrigin::signed(collection_admin),
-						IfOwnedByWithWitness { owner: collection_owner, witness: ok_witness },
-					),
-				),
-				Error::<Test>::NoPermission,
-			);
-
-			// The owner signed origin is rejected if the supplied `owner` parameter
-			// doesn't correspond to the actual owner.
-			assert_noop!(
-				Collection::destroy(
-					&collection_id,
-					WithOrigin(
-						RuntimeOrigin::signed(collection_owner),
-						IfOwnedByWithWitness { owner: collection_admin, witness: ok_witness },
-					),
+					CheckOrigin(RuntimeOrigin::signed(collection_admin), WithWitness(ok_witness)),
 				),
 				Error::<Test>::NoPermission,
 			);
@@ -1408,9 +1323,9 @@ mod asset_ops_tests {
 			assert_noop!(
 				Collection::destroy(
 					&collection_id,
-					WithOrigin(
+					CheckOrigin(
 						RuntimeOrigin::signed(collection_owner),
-						IfOwnedByWithWitness { owner: collection_owner, witness: outdated_witness },
+						WithWitness(outdated_witness),
 					),
 				),
 				Error::<Test>::BadWitness,
@@ -1418,10 +1333,7 @@ mod asset_ops_tests {
 
 			assert_ok!(Collection::destroy(
 				&collection_id,
-				WithOrigin(
-					RuntimeOrigin::signed(collection_owner),
-					IfOwnedByWithWitness { owner: collection_owner, witness: ok_witness },
-				),
+				CheckOrigin(RuntimeOrigin::signed(collection_owner), WithWitness(ok_witness)),
 			));
 
 			assert_eq!(collections(), vec![]);
@@ -1430,37 +1342,18 @@ mod asset_ops_tests {
 			// Recreate the collection to the the root origin
 			let (outdated_witness, ok_witness) = setup_test_collection();
 
-			// The root origin is rejected if the supplied `owner` parameter
-			// doesn't correspond to the actual owner.
-			assert_noop!(
-				Collection::destroy(
-					&collection_id,
-					WithOrigin(
-						RuntimeOrigin::root(),
-						IfOwnedByWithWitness { owner: collection_admin, witness: ok_witness },
-					),
-				),
-				Error::<Test>::NoPermission,
-			);
-
 			// A bad witness is rejected even for the root origin
 			assert_noop!(
 				Collection::destroy(
 					&collection_id,
-					WithOrigin(
-						RuntimeOrigin::root(),
-						IfOwnedByWithWitness { owner: collection_owner, witness: outdated_witness },
-					),
+					CheckOrigin(RuntimeOrigin::root(), WithWitness(outdated_witness)),
 				),
 				Error::<Test>::BadWitness,
 			);
 
 			assert_ok!(Collection::destroy(
 				&collection_id,
-				WithOrigin(
-					RuntimeOrigin::root(),
-					IfOwnedByWithWitness { owner: collection_owner, witness: ok_witness },
-				),
+				CheckOrigin(RuntimeOrigin::root(), WithWitness(ok_witness)),
 			));
 
 			assert_eq!(collections(), vec![]);
@@ -1508,7 +1401,7 @@ mod asset_ops_tests {
 			)));
 
 			assert_noop!(
-				Collection::inspect(&collection_id, Bytes::default(),),
+				Collection::inspect(&collection_id, Bytes::default()),
 				Error::<Test>::NoMetadata,
 			);
 
@@ -1531,7 +1424,7 @@ mod asset_ops_tests {
 			));
 
 			assert_noop!(
-				Collection::inspect(&collection_id, Bytes::default(),),
+				Collection::inspect(&collection_id, Bytes::default()),
 				Error::<Test>::NoMetadata,
 			);
 		});
@@ -1583,12 +1476,12 @@ mod asset_ops_tests {
 			)));
 
 			assert_noop!(
-				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())),),
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice()))),
 				Error::<Test>::AttributeNotFound,
 			);
 
 			assert_noop!(
-				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())),),
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice()))),
 				Error::<Test>::AttributeNotFound,
 			);
 
@@ -1601,7 +1494,7 @@ mod asset_ops_tests {
 			assert_eq!(retreived_food_value, food_attr_value);
 
 			assert_noop!(
-				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())),),
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice()))),
 				Error::<Test>::AttributeNotFound,
 			);
 
@@ -1622,7 +1515,7 @@ mod asset_ops_tests {
 			clear_attribute(&food_attr_key);
 
 			assert_noop!(
-				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())),),
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice()))),
 				Error::<Test>::AttributeNotFound,
 			);
 
@@ -1635,12 +1528,12 @@ mod asset_ops_tests {
 			clear_attribute(&drink_attr_key);
 
 			assert_noop!(
-				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())),),
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice()))),
 				Error::<Test>::AttributeNotFound,
 			);
 
 			assert_noop!(
-				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())),),
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice()))),
 				Error::<Test>::AttributeNotFound,
 			);
 		});
@@ -1724,33 +1617,33 @@ mod asset_ops_tests {
 
 			// Not an admin (not an issuer) can't mint new tokens
 			assert_noop!(
-				Item::create(WithOrigin(
+				Item::create(CheckOrigin(
 					RuntimeOrigin::signed(collection_owner),
 					Owned::new(PredefinedId::from((collection_id, item_id)), item_owner,),
-				),),
+				)),
 				Error::<Test>::NoPermission,
 			);
 
 			// Force origin doesn't affect minting: only the admin (the issuer) can mint
 			assert_noop!(
-				Item::create(WithOrigin(
+				Item::create(CheckOrigin(
 					RuntimeOrigin::root(),
 					Owned::new(PredefinedId::from((collection_id, item_id)), item_owner,),
-				),),
+				)),
 				DispatchError::BadOrigin,
 			);
 
-			assert_ok!(Item::create(WithOrigin(
+			assert_ok!(Item::create(CheckOrigin(
 				RuntimeOrigin::signed(collection_admin),
 				Owned::new(PredefinedId::from((collection_id, item_id)), item_owner,),
-			),));
+			)));
 
 			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
 		});
 	}
 
 	#[test]
-	fn transfer_item_just_do() {
+	fn transfer_item_unchecked() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 			let item_id = 111;
@@ -1775,14 +1668,14 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
 
-			assert_ok!(Item::transfer(&(collection_id, item_id), JustDo(bob),));
+			assert_ok!(Item::transfer(&(collection_id, item_id), To(bob)));
 
 			assert_eq!(items(), vec![(bob, collection_id, item_id)]);
 		});
 	}
 
 	#[test]
-	fn transfer_item_just_do_with_origin() {
+	fn transfer_item_check_origin() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 			let item_id = 111;
@@ -1812,7 +1705,7 @@ mod asset_ops_tests {
 			assert_noop!(
 				Item::transfer(
 					&(collection_id, item_id),
-					WithOrigin(RuntimeOrigin::signed(bob), JustDo(bob),),
+					CheckOrigin(RuntimeOrigin::signed(bob), To(bob)),
 				),
 				Error::<Test>::NoPermission,
 			);
@@ -1821,7 +1714,7 @@ mod asset_ops_tests {
 			assert_noop!(
 				Item::transfer(
 					&(collection_id, item_id),
-					WithOrigin(RuntimeOrigin::root(), JustDo(bob),),
+					CheckOrigin(RuntimeOrigin::root(), To(bob)),
 				),
 				DispatchError::BadOrigin,
 			);
@@ -1829,7 +1722,7 @@ mod asset_ops_tests {
 			// The owner can transfer the token
 			assert_ok!(Item::transfer(
 				&(collection_id, item_id),
-				WithOrigin(RuntimeOrigin::signed(alice), JustDo(bob),),
+				CheckOrigin(RuntimeOrigin::signed(alice), To(bob)),
 			));
 
 			assert_eq!(items(), vec![(bob, collection_id, item_id)]);
@@ -1837,7 +1730,7 @@ mod asset_ops_tests {
 			// The admin can transfer the token
 			assert_ok!(Item::transfer(
 				&(collection_id, item_id),
-				WithOrigin(RuntimeOrigin::signed(collection_admin), JustDo(alice),),
+				CheckOrigin(RuntimeOrigin::signed(collection_admin), To(alice)),
 			));
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
@@ -1853,7 +1746,7 @@ mod asset_ops_tests {
 			// Now Bob can transfer Alice's token
 			assert_ok!(Item::transfer(
 				&(collection_id, item_id),
-				WithOrigin(RuntimeOrigin::signed(bob), JustDo(bob),),
+				CheckOrigin(RuntimeOrigin::signed(bob), To(bob)),
 			));
 
 			assert_eq!(items(), vec![(bob, collection_id, item_id)]);
@@ -1886,23 +1779,23 @@ mod asset_ops_tests {
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
 
-			assert_ok!(Item::transfer(&(collection_id, item_id), FromTo(alice, bob),));
+			assert_ok!(Item::transfer(&(collection_id, item_id), IfOwnedBy::new(alice, To(bob))));
 
 			assert_eq!(items(), vec![(bob, collection_id, item_id)]);
 
 			assert_noop!(
-				Item::transfer(&(collection_id, item_id), FromTo(alice, bob),),
+				Item::transfer(&(collection_id, item_id), IfOwnedBy::new(alice, To(bob))),
 				Error::<Test>::WrongOwner,
 			);
 
-			assert_ok!(Item::transfer(&(collection_id, item_id), FromTo(bob, alice),));
+			assert_ok!(Item::transfer(&(collection_id, item_id), IfOwnedBy::new(bob, To(alice))));
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
 		});
 	}
 
 	#[test]
-	fn stash_item_just_do() {
+	fn stash_item_unchecked() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 			let item_id = 111;
@@ -1937,7 +1830,7 @@ mod asset_ops_tests {
 				test_value.clone().try_into().unwrap(),
 			));
 
-			assert_ok!(Item::stash(&(collection_id, item_id), JustDo::default(),));
+			assert_ok!(Item::stash(&(collection_id, item_id), Unchecked));
 
 			assert_eq!(items(), vec![]);
 
@@ -1987,16 +1880,16 @@ mod asset_ops_tests {
 			));
 
 			assert_noop!(
-				Item::stash(&(collection_id, item_id), IfOwnedBy(collection_owner),),
+				Item::stash(&(collection_id, item_id), IfOwnedBy::expect(collection_owner)),
 				Error::<Test>::NoPermission,
 			);
 
 			assert_noop!(
-				Item::stash(&(collection_id, item_id), IfOwnedBy(collection_admin),),
+				Item::stash(&(collection_id, item_id), IfOwnedBy::expect(collection_admin)),
 				Error::<Test>::NoPermission,
 			);
 
-			assert_ok!(Item::stash(&(collection_id, item_id), IfOwnedBy(item_owner),));
+			assert_ok!(Item::stash(&(collection_id, item_id), IfOwnedBy::expect(item_owner)));
 
 			assert_eq!(items(), vec![]);
 
@@ -2051,44 +1944,21 @@ mod asset_ops_tests {
 			assert_noop!(
 				Item::stash(
 					&(collection_id, item_id),
-					WithOrigin(RuntimeOrigin::signed(bob), IfOwnedBy(alice),),
+					CheckOrigin::expect(RuntimeOrigin::signed(bob)),
 				),
 				Error::<Test>::NoPermission,
 			);
 
 			// Force origin can't stash tokens
 			assert_noop!(
-				Item::stash(
-					&(collection_id, item_id),
-					WithOrigin(RuntimeOrigin::root(), IfOwnedBy(alice),),
-				),
+				Item::stash(&(collection_id, item_id), CheckOrigin::expect(RuntimeOrigin::root())),
 				DispatchError::BadOrigin,
-			);
-
-			// The collection admin can stash the token
-			// only if the ownership check passes
-			assert_noop!(
-				Item::stash(
-					&(collection_id, item_id),
-					WithOrigin(RuntimeOrigin::signed(collection_admin), IfOwnedBy(bob)),
-				),
-				Error::<Test>::WrongOwner,
-			);
-
-			// The token owner can stash the token
-			// only if the ownership check passes
-			assert_noop!(
-				Item::stash(
-					&(collection_id, item_id),
-					WithOrigin(RuntimeOrigin::signed(alice), IfOwnedBy(bob)),
-				),
-				Error::<Test>::WrongOwner,
 			);
 
 			// The collection admin can stash tokens
 			assert_ok!(Item::stash(
 				&(collection_id, item_id),
-				WithOrigin(RuntimeOrigin::signed(collection_admin), IfOwnedBy(alice),),
+				CheckOrigin::expect(RuntimeOrigin::signed(collection_admin)),
 			));
 
 			assert_eq!(items(), vec![]);
@@ -2111,7 +1981,7 @@ mod asset_ops_tests {
 			// The token owner can stash it
 			assert_ok!(Item::stash(
 				&(collection_id, item_id),
-				WithOrigin(RuntimeOrigin::signed(alice), IfOwnedBy(alice),),
+				CheckOrigin::expect(RuntimeOrigin::signed(alice)),
 			));
 
 			assert_eq!(items(), vec![]);
@@ -2182,7 +2052,7 @@ mod asset_ops_tests {
 			)));
 
 			assert_noop!(
-				Item::inspect(&(collection_id, item_id), Bytes::default(),),
+				Item::inspect(&(collection_id, item_id), Bytes::default()),
 				Error::<Test>::NoMetadata,
 			);
 
@@ -2202,7 +2072,7 @@ mod asset_ops_tests {
 			assert_ok!(Uniques::clear_metadata(RuntimeOrigin::root(), collection_id, item_id,));
 
 			assert_noop!(
-				Item::inspect(&(collection_id, item_id), Bytes::default(),),
+				Item::inspect(&(collection_id, item_id), Bytes::default()),
 				Error::<Test>::NoMetadata,
 			);
 		});

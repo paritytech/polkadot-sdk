@@ -5,64 +5,100 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
-/// The `WithOrigin` is a strategy that accepts a runtime origin and the `Inner` strategy.
+/// The `CheckState` is a strategy that accepts an an `Inspect` value and the `Inner` strategy.
+///
+/// It is meant to be used when the asset state check should be performed
+/// in addition to the `Inner` strategy.
+///
+/// The `CheckState` implements all potentially state-mutating strategies that the `Inner` implements.
+pub struct CheckState<Inspect: InspectStrategy, Inner = Unchecked>(
+    pub Inspect::Value,
+    pub Inner
+);
+impl<Inspect: InspectStrategy> CheckState<Inspect, Unchecked> {
+    pub fn expect(expected: Inspect::Value) -> Self {
+        Self(expected, Unchecked)
+    }
+}
+impl<Inspect: InspectStrategy, Inner> CheckState<Inspect, Inner> {
+    pub fn new(expected: Inspect::Value, inner: Inner) -> Self {
+        Self(expected, inner)
+    }
+}
+impl<Inspect: InspectStrategy, Inner: UpdateStrategy> UpdateStrategy for CheckState<Inspect, Inner> {
+    type Update<'u> = Inner::Update<'u>;
+    type Success = Inner::Success;
+}
+impl<Inspect: InspectStrategy, Inner: CreateStrategy> CreateStrategy for CheckState<Inspect, Inner> {
+	type Success = Inner::Success;
+}
+impl<Inspect: InspectStrategy, Inner: TransferStrategy> TransferStrategy for CheckState<Inspect, Inner> {
+	type Success = Inner::Success;
+}
+impl<Inspect: InspectStrategy, Inner: DestroyStrategy> DestroyStrategy for CheckState<Inspect, Inner> {
+	type Success = Inner::Success;
+}
+impl<Inspect: InspectStrategy, Inner: StashStrategy> StashStrategy for CheckState<Inspect, Inner> {
+	type Success = Inner::Success;
+}
+impl<Inspect: InspectStrategy, Inner: RestoreStrategy> RestoreStrategy for CheckState<Inspect, Inner> {
+	type Success = Inner::Success;
+}
+
+/// The `CheckOrigin` is a strategy that accepts a runtime origin and the `Inner` strategy.
 ///
 /// It is meant to be used when the origin check should be performed
 /// in addition to the `Inner` strategy.
 ///
-/// The `WithOrigin` implements any strategy that the `Inner` implements.
-pub struct WithOrigin<RuntimeOrigin, Inner>(pub RuntimeOrigin, pub Inner);
-impl<RuntimeOrigin, Inner: InspectStrategy> InspectStrategy for WithOrigin<RuntimeOrigin, Inner> {
-	type Value = Inner::Value;
+/// The `CheckOrigin` implements all potentially state-mutating strategies that the `Inner` implements.
+pub struct CheckOrigin<RuntimeOrigin, Inner = Unchecked>(pub RuntimeOrigin, pub Inner);
+impl<RuntimeOrigin> CheckOrigin<RuntimeOrigin, Unchecked> {
+    pub fn expect(origin: RuntimeOrigin) -> Self {
+        Self(origin, Unchecked)
+    }
 }
-impl<RuntimeOrigin, Inner: UpdateStrategy> UpdateStrategy for WithOrigin<RuntimeOrigin, Inner> {
+impl<RuntimeOrigin, Inner: UpdateStrategy> UpdateStrategy for CheckOrigin<RuntimeOrigin, Inner> {
 	type Update<'u> = Inner::Update<'u>;
 	type Success = Inner::Success;
 }
-impl<RuntimeOrigin, Inner: CreateStrategy> CreateStrategy for WithOrigin<RuntimeOrigin, Inner> {
+impl<RuntimeOrigin, Inner: CreateStrategy> CreateStrategy for CheckOrigin<RuntimeOrigin, Inner> {
 	type Success = Inner::Success;
 }
-impl<RuntimeOrigin, Inner: TransferStrategy> TransferStrategy for WithOrigin<RuntimeOrigin, Inner> {
+impl<RuntimeOrigin, Inner: TransferStrategy> TransferStrategy for CheckOrigin<RuntimeOrigin, Inner> {
 	type Success = Inner::Success;
 }
-impl<RuntimeOrigin, Inner: DestroyStrategy> DestroyStrategy for WithOrigin<RuntimeOrigin, Inner> {
+impl<RuntimeOrigin, Inner: DestroyStrategy> DestroyStrategy for CheckOrigin<RuntimeOrigin, Inner> {
 	type Success = Inner::Success;
 }
-impl<RuntimeOrigin, Inner: StashStrategy> StashStrategy for WithOrigin<RuntimeOrigin, Inner> {
+impl<RuntimeOrigin, Inner: StashStrategy> StashStrategy for CheckOrigin<RuntimeOrigin, Inner> {
 	type Success = Inner::Success;
 }
-impl<RuntimeOrigin, Inner: RestoreStrategy> RestoreStrategy for WithOrigin<RuntimeOrigin, Inner> {
+impl<RuntimeOrigin, Inner: RestoreStrategy> RestoreStrategy for CheckOrigin<RuntimeOrigin, Inner> {
 	type Success = Inner::Success;
 }
 
-/// The JustDo represents the simplest strategy,
+/// The Unchecked represents the simplest state-mutating strategy,
 /// which doesn't require additional checks to perform the operation.
 ///
 /// It can be used as the following strategies:
-/// * [`transfer strategy`](TransferStrategy)
 /// * [`destroy strategy`](DestroyStrategy)
 /// * [`stash strategy`](StashStrategy)
 /// * [`restore strategy`](RestoreStrategy)
-///
-/// It accepts whatever parameters are set in its generic argument.
-/// For instance, for an unchecked transfer,
-/// this strategy may take a reference to a beneficiary account.
-pub struct JustDo<Params = ()>(pub Params);
-impl Default for JustDo<()> {
-	fn default() -> Self {
-		Self(())
-	}
-}
-impl<Params> TransferStrategy for JustDo<Params> {
+pub struct Unchecked;
+impl DestroyStrategy for Unchecked {
 	type Success = ();
 }
-impl<Params> DestroyStrategy for JustDo<Params> {
+impl StashStrategy for Unchecked {
 	type Success = ();
 }
-impl<Params> StashStrategy for JustDo<Params> {
+impl RestoreStrategy for Unchecked {
 	type Success = ();
 }
-impl<Params> RestoreStrategy for JustDo<Params> {
+
+/// This is a simple transfer strategy
+/// which unconditionally transfers the asset to the beneficiary account.
+pub struct To<AccountId>(pub AccountId);
+impl<AccountId> TransferStrategy for To<AccountId> {
 	type Success = ();
 }
 
@@ -104,6 +140,10 @@ impl<Owner> Default for Ownership<Owner> {
 impl<Owner> InspectStrategy for Ownership<Owner> {
 	type Value = Owner;
 }
+
+/// The operation implementation must check
+/// if the given account owns the asset and act according to the inner strategy.
+pub type IfOwnedBy<Owner, Inner = Unchecked> = CheckState<Ownership<Owner>, Inner>;
 
 /// The `CanCreate` strategy represents the ability to create an asset.
 /// It is both an [inspect](InspectStrategy) and [update](UpdateStrategy)
@@ -326,27 +366,6 @@ impl<Account, Assignment: IdAssignment, Config, Witness> CreateStrategy
 	type Success = Assignment::ReportedId;
 }
 
-/// The `FromTo` is a [`transfer strategy`](TransferStrategy).
-///
-/// It accepts two parameters: `from` and `to` whom the asset should be transferred.
-pub struct FromTo<Owner>(pub Owner, pub Owner);
-impl<Owner> TransferStrategy for FromTo<Owner> {
-	type Success = ();
-}
-
-/// The `IfOwnedBy` is both a [`destroy strategy`](DestroyStrategy)
-/// and a [`stash strategy`](StashStrategy).
-///
-/// It accepts a possible owner of the asset.
-/// If the provided entity owns the asset, the corresponding operation will be performed.
-pub struct IfOwnedBy<Owner>(pub Owner);
-impl<Owner> DestroyStrategy for IfOwnedBy<Owner> {
-	type Success = ();
-}
-impl<Owner> StashStrategy for IfOwnedBy<Owner> {
-	type Success = ();
-}
-
 /// The `IfRestorable` is a [`restore strategy`](RestoreStrategy).
 ///
 /// It accepts whatever parameters are set in its generic argument.
@@ -364,16 +383,5 @@ impl<Params> RestoreStrategy for IfRestorable<Params> {
 /// It will also return a `Witness` value upon destruction.
 pub struct WithWitness<Witness>(pub Witness);
 impl<Witness> DestroyStrategy for WithWitness<Witness> {
-	type Success = Witness;
-}
-
-/// The `IfOwnedByWithWitness` is a [`destroy strategy`](DestroyStrategy).
-///
-/// It is a combination of the [`IfOwnedBy`] and the [`WithWitness`] strategies.
-pub struct IfOwnedByWithWitness<Owner, Witness> {
-	pub owner: Owner,
-	pub witness: Witness,
-}
-impl<Owner, Witness> DestroyStrategy for IfOwnedByWithWitness<Owner, Witness> {
 	type Success = Witness;
 }
