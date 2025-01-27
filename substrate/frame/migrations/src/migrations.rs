@@ -35,13 +35,12 @@ use sp_runtime::SaturatedConversion;
 /// # Parameters
 ///
 /// - P: The pallet to resetted as defined in construct runtime
-/// - W: The weight definition for storage access.
 /// - B, G: Optional. Can be used if the pallet needs to be initialized via [`BuildGenesisConfig`].
 ///
 /// # Note
 ///
-/// The costs to set the optional genesis state are not accounted for. This should be fine as long
-/// as no massive amounts of data are written.
+/// The costs to set the optional genesis state are not accounted for. Make sure that there is enough
+/// space in the block when supplying those parameters.
 pub struct ResetPallet<T, P, B = (), G = ()>(PhantomData<(T, P, B, G)>);
 
 impl<T, P, B, G> ResetPallet<T, P, B, G>
