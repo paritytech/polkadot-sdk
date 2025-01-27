@@ -38,6 +38,12 @@ default_args = [
 	"-ltxpool=debug",
 ]
 
+[parachains.genesis.runtimeGenesis.patch.balances]
+balances = [
+
+]
+
+
 # run charlie as parachain collator
 [[parachains.collators]]
 name = "charlie"
