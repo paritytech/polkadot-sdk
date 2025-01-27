@@ -91,8 +91,8 @@ where
 		}
 
 		let (keys_removed, cursor) = match clear_prefix(&Self::hashed_prefix(), Some(key_budget)) {
-			KillStorageResult::AllRemoved(value) => (value.into(), None),
-			KillStorageResult::SomeRemaining(value) => (value.into(), Some(())),
+			KillStorageResult::AllRemoved(value) => (value, None),
+			KillStorageResult::SomeRemaining(value) => (value, Some(())),
 		};
 
 		meter.consume(T::WeightInfo::reset_pallet_migration(keys_removed));
