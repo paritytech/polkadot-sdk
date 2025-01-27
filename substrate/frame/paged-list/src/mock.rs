@@ -61,7 +61,7 @@ pub type MetaOf<T, I> =
 	StoragePagedListMeta<ListPrefix<T, I>, <T as Config>::Value, <T as Config>::ValuesPerNewPage>;
 
 /// Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> TestExternalities {
+pub fn new_test_ext() -> TestState {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
