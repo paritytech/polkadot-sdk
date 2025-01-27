@@ -19,7 +19,7 @@
 //! [`PeerInfoBehaviour`] is implementation of `NetworkBehaviour` that holds information about peers
 //! in cache.
 
-use crate::utils::interval;
+use crate::{utils::interval, LOG_TARGET};
 use either::Either;
 
 use fnv::FnvHashMap;
@@ -57,8 +57,6 @@ use std::{
 	time::{Duration, Instant},
 };
 
-/// Log target for this file.
-const LOG_TARGET: &str = "sub-libp2p";
 /// Time after we disconnect from a node before we purge its information from the cache.
 const CACHE_EXPIRE: Duration = Duration::from_secs(10 * 60);
 /// Interval at which we perform garbage collection on the node info.
@@ -204,8 +202,8 @@ impl PeerInfoBehaviour {
 		}
 	}
 
-	/// Inserts an identify record in the cache. Has no effect if we don't have any entry for that
-	/// node, which shouldn't happen.
+	/// Inserts an identify record in the cache & discovers external addresses when multiple
+	/// peers report the same address as observed.
 	fn handle_identify_report(&mut self, peer_id: &PeerId, info: &IdentifyInfo) {
 		trace!(target: LOG_TARGET, "Identified {:?} => {:?}", peer_id, info);
 		if let Some(entry) = self.nodes_info.get_mut(peer_id) {
