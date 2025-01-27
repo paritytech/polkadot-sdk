@@ -1900,7 +1900,7 @@ impl_runtime_apis! {
 				);
 
 				fn reachable_dest() -> Option<Location> {
-					Some(AssetHubWestend::get())
+					Some(RandomParaLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
