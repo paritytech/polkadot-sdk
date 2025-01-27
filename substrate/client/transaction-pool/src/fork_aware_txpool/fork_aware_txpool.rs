@@ -1039,8 +1039,6 @@ where
 			view.pool.validated_pool().create_dropped_by_limits_stream().boxed(),
 		);
 
-		//todo [#5495]: maybe we don't need to register listener in view? We could use
-		// multi_view_listener.transaction_in_block
 		self.view_store.listener.add_view_aggregated_stream(
 			view.at.hash,
 			view.pool.validated_pool().create_aggregated_stream().boxed(),

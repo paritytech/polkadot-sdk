@@ -72,7 +72,6 @@ where
 	Block: BlockT,
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
-	//todo: add listener for updating listeners with events [#5495]
 	/// Is the progress of transaction watched.
 	///
 	/// Was transaction sent with `submit_and_watch`.
@@ -210,7 +209,6 @@ where
 	/// A shared instance of the `MultiViewListener`.
 	///
 	/// Provides a side-channel allowing to send per-transaction state changes notification.
-	//todo: could be removed after removing watched field (and adding listener into tx) [#5495]
 	listener: Arc<MultiViewListener<ChainApi>>,
 
 	///  A map that stores the transactions currently in the memory pool.
