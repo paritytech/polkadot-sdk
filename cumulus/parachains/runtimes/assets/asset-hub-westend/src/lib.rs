@@ -1878,7 +1878,8 @@ impl_runtime_apis! {
 					AssetHubWestend::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub const SiblingAssetHubId: ParaId = ParaId::new(AssetHubId::get());
+				pub const RandomParaId: ParaId = ParaId::new(43211234);
+				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
