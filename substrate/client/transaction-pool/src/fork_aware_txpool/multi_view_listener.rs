@@ -524,12 +524,6 @@ where
 		(Self { external_controllers, controller: tx }, task.boxed())
 	}
 
-	/// Returns `true` if the listener contains an exeternal stream controller for the specified
-	/// transaction hash.
-	pub fn contains_tx(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> bool {
-		self.external_controllers.read().contains_key(tx_hash)
-	}
-
 	/// Creates an external stream of events for given transaction.
 	///
 	/// This method initializes an `ExternalWatcherContext` for the provided transaction hash, sets
