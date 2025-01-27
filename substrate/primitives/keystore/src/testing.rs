@@ -585,7 +585,7 @@ mod tests {
 
 	#[test]
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_generate_works() {
+	fn ecdsa_bls381_generate_with_seed_works() {
 		use sp_core::testing::{ECDSA, BLS381, ECDSA_BLS381};
 
 			let store = MemoryKeystore::new();
