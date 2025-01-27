@@ -46,7 +46,7 @@ pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
 	dropped_stream_sink: Option<TracingUnboundedSender<TransactionStatusEvent<H, BlockHash<C>>>>,
 
 	/// The sink of the single, merged stream providing updates for all the transactions in the
-	/// pool.
+	/// associated pool.
 	aggregated_stream_sink: Option<TracingUnboundedSender<TransactionStatusEvent<H, BlockHash<C>>>>,
 }
 
@@ -99,7 +99,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		single_stream
 	}
 
-	/// Creates a new single merged stream for entire pool.
+	/// Creates a new single merged stream for all extrinsics in the associated pool.
 	///
 	/// The stream can be used to subscribe to life-cycle events of all extrinsics in the pool. For
 	/// some implementations (e.g. fork-aware pool) this approach may be more efficient than using
@@ -114,7 +114,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		aggregated_stream
 	}
 
-	/// Notify the listeners about extrinsic broadcast.
+	/// Notify the listeners about the extrinsic broadcast.
 	pub fn broadcasted(&mut self, hash: &H, peers: Vec<String>) {
 		trace!(target: LOG_TARGET, "[{:?}] Broadcasted", hash);
 		self.fire(hash, |watcher| watcher.broadcast(peers));
@@ -184,7 +184,6 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	pub fn dropped(&mut self, tx: &H) {
 		trace!(target: LOG_TARGET, "[{:?}] Dropped", tx);
 		self.fire(tx, |watcher| watcher.dropped());
-		self.send_to_aggregated_stram_sink(tx, TransactionStatus::Dropped);
 	}
 
 	/// Transaction was removed as invalid.
@@ -224,9 +223,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		if let Some(hashes) = self.finality_watchers.remove(&block_hash) {
 			for hash in hashes {
 				self.fire(&hash, |watcher| watcher.retracted(block_hash));
-				//todo: do we need this? [#5479]
-				// self.send_to_aggregated_stram_sink(&tx,
-				// TransactionStatus::Finalzied(block_hash));
+				// note: [#5479], we do not send to aggregated stream.
 			}
 		}
 	}
