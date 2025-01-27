@@ -17,11 +17,11 @@
 
 use crate::CheckMetadataHash;
 use codec::{Decode, Encode};
-use frame_metadata::RuntimeMetadataPrefixed;
 use frame::testing_prelude::*;
+use frame_metadata::RuntimeMetadataPrefixed;
 
-use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use frame::deps::sp_api::{Metadata, ProvideRuntimeApi};
+use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use substrate_test_runtime_client::{
@@ -121,6 +121,7 @@ mod docs {
 
 	#[docify::export]
 	mod add_metadata_hash_extension {
+		use frame::testing_prelude::*;
 		construct_runtime! {
 			pub enum Runtime {
 				System: frame_system,
@@ -148,8 +149,12 @@ mod docs {
 		type Signature = ();
 
 		/// Unchecked extrinsic type as expected by this runtime.
-		pub type UncheckedExtrinsic =
-			sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+		pub type UncheckedExtrinsic = frame::deps::sp_runtime::generic::UncheckedExtrinsic<
+			Address,
+			RuntimeCall,
+			Signature,
+			TxExtension,
+		>;
 	}
 
 	// Put here to not have it in the docs as well.
