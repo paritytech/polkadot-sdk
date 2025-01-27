@@ -338,6 +338,15 @@ pub mod pallet {
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
+		impl FindAuthor<u64> for TestDefaultConfig {
+			fn find_author<'a, I>(_digests: I) -> Option<u64>
+			where
+				I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
+			{
+				Some(Default::default())
+			}
+		}
+
 		#[frame_support::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
@@ -365,7 +374,7 @@ pub mod pallet {
 			type ChainId = ConstU64<0>;
 			type NativeToEthRatio = ConstU32<1>;
 			type EthGasEncoder = ();
-			type FindAuthor = ();
+			type FindAuthor = Self;
 		}
 	}
 
