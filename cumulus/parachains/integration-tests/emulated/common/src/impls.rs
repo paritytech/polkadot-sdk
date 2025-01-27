@@ -69,6 +69,7 @@ pub use pallet_bridge_messages::{
 	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
 	Instance3 as BridgeMessagesInstance3,
 };
+// TODO: FAIL-CI - make this generic or as a part of CFG
 use pallet_xcm_bridge::XcmBlobMessageDispatchResult;
 
 pub struct BridgeHubMessageHandler<S, SI, T, TI> {
