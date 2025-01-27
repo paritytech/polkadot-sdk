@@ -1933,7 +1933,7 @@ impl_runtime_apis! {
 					let dest = RandomParaLocation::get();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
-					let fee_asset: Asset = (AssetHubWestend::get(), fee_amount).into();
+					let fee_asset: Asset = (WestendLocation::get(), fee_amount).into();
 
 					let who = frame_benchmarking::whitelisted_caller();
 					// Give some multiple of the existential deposit
