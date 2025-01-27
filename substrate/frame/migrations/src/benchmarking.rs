@@ -215,7 +215,9 @@ mod benches {
 			// we need to avoid allocations here
 			let mut iter = prefix.into_iter().chain(i.to_le_bytes());
 			let key: [u8; 20] = array::from_fn(|_| iter.next().unwrap());
-			storage::set(&key, &[42]);
+			// 32 byte will trigger the worst case where the value is
+			// no longer stored inline
+			storage::set(&key, &[0u8; 32]);
 		}
 
 		let result;
