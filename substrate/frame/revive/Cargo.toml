@@ -48,9 +48,9 @@ sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-consensus-babe = { workspace = true, default-features = false, optional = true }
-sp-consensus-aura = { workspace = true, default-features = false, optional = true }
-sp-consensus-slots = { workspace = true, default-features = false, optional = true  }
+sp-consensus-babe = { workspace = true, optional = true }
+sp-consensus-aura = { workspace = true, optional = true }
+sp-consensus-slots = { workspace = true, optional = true  }
 subxt-signer = { workspace = true, optional = true, features = [
 	"unstable-eth",
 ] }
