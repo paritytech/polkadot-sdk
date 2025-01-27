@@ -60,7 +60,7 @@ pub struct FeesMode {
 	pub jit_withdraw: bool,
 }
 
-const RECURSION_LIMIT: u8 = 10;
+pub const RECURSION_LIMIT: u8 = 10;
 
 environmental::environmental!(recursion_count: u8);
 
