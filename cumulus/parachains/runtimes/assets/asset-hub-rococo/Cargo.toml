@@ -40,7 +40,6 @@ pallet-message-queue = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nft-fractionalization = { workspace = true }
 pallet-nfts = { workspace = true }
-pallet-nfts-runtime-api = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-session = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -226,7 +225,6 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
 	"pallet-nft-fractionalization/std",
-	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
