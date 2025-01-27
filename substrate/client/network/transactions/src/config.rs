@@ -67,7 +67,7 @@ pub trait TransactionPool<H: ExHashT, B: BlockT>: Send + Sync {
 	/// Notify the pool about transactions broadcast.
 	fn on_broadcasted(&self, propagations: HashMap<H, Vec<String>>);
 	/// Get transaction by hash.
-	fn transaction(&self, hash: &H) -> Option<B::Extrinsic>;
+	fn transaction(&self, hash: &H) -> Option<Arc<B::Extrinsic>>;
 }
 
 /// Dummy implementation of the [`TransactionPool`] trait for a transaction pool that is always
@@ -93,7 +93,7 @@ impl<H: ExHashT + Default, B: BlockT> TransactionPool<H, B> for EmptyTransaction
 
 	fn on_broadcasted(&self, _: HashMap<H, Vec<String>>) {}
 
-	fn transaction(&self, _h: &H) -> Option<B::Extrinsic> {
+	fn transaction(&self, _h: &H) -> Option<Arc<B::Extrinsic>> {
 		None
 	}
 }

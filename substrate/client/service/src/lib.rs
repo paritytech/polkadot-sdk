@@ -559,10 +559,10 @@ where
 		self.pool.on_broadcasted(propagations)
 	}
 
-	fn transaction(&self, hash: &H) -> Option<B::Extrinsic> {
+	fn transaction(&self, hash: &H) -> Option<Arc<B::Extrinsic>> {
 		self.pool.ready_transaction(hash).and_then(
 			// Only propagable transactions should be resolved for network service.
-			|tx| if tx.is_propagable() { Some((**tx.data()).clone()) } else { None },
+			|tx| if tx.is_propagable() { Some(Arc::new((**tx.data()).clone())) } else { None },
 		)
 	}
 }
