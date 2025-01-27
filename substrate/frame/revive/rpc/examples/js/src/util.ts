@@ -85,7 +85,16 @@ export async function createEnv(name: 'geth' | 'kitchensink') {
 		chain,
 	}).extend(publicActions)
 
-	return { serverWallet, accountWallet, evm: name == 'geth' }
+	const emptyWallet = createWalletClient({
+		account: privateKeyToAccount(
+			'0x4450c571bae82da0528ecf76fcf7079e12ecc46dc873c9cacb6db8b75ed22f41',
+			{ nonceManager }
+		),
+		transport,
+		chain,
+	}).extend(publicActions)
+
+	return { serverWallet, emptyWallet, accountWallet, evm: name == 'geth' }
 }
 
 export function wait(ms: number) {
