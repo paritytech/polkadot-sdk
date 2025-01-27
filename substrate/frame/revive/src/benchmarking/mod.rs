@@ -925,7 +925,7 @@ mod benchmarks {
 		// Construct a `Digest` log fixture returning some value in AURA
 		let slot = Slot::default();
 		digest.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
-		digest.push(DigestItem::Seal(BABE_ENGINE_ID, slot.encode()));
+		digest.push(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
 
 		frame_system::Pallet::<T>::initialize(&Default::default(), &Default::default(), &digest);
 
