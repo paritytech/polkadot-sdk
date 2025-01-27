@@ -109,11 +109,11 @@ pallet-xcm-bridge-hub = { workspace = true }
 # Ethereum Bridge (Snowbridge)
 snowbridge-beacon-primitives = { workspace = true }
 snowbridge-core = { workspace = true }
+snowbridge-inbound-queue-v2-runtime-api = { workspace = true }
 snowbridge-outbound-queue-runtime-api = { workspace = true }
 snowbridge-pallet-ethereum-client = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
 snowbridge-pallet-inbound-queue-v2 = { workspace = true }
-snowbridge-inbound-queue-v2-runtime-api = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
@@ -191,8 +191,8 @@ std = [
 	"serde_json/std",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
-	"snowbridge-outbound-queue-runtime-api/std",
 	"snowbridge-inbound-queue-v2-runtime-api/std",
+	"snowbridge-outbound-queue-runtime-api/std",
 	"snowbridge-pallet-ethereum-client/std",
 	"snowbridge-pallet-inbound-queue/std",
 	"snowbridge-pallet-outbound-queue/std",

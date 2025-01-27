@@ -4,8 +4,8 @@
 
 use frame_support::traits::tokens::Balance as BalanceT;
 use snowbridge_router_primitives::inbound::v2::Message;
-use xcm::latest::Xcm;
 use sp_runtime::DispatchError;
+use xcm::latest::Xcm;
 
 sp_api::decl_runtime_apis! {
 	pub trait InboundQueueApiV2<Balance> where Balance: BalanceT

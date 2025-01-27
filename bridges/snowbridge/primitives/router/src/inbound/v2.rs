@@ -5,6 +5,7 @@
 use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
 use frame_support::PalletError;
+use hex;
 use scale_info::TypeInfo;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160, H256};
@@ -14,7 +15,6 @@ use xcm::{
 	prelude::{Asset as XcmAsset, Junction::AccountKey20, *},
 	MAX_XCM_DECODE_DEPTH,
 };
-use hex;
 
 const LOG_TARGET: &str = "snowbridge-router-primitives";
 
@@ -172,7 +172,9 @@ where
 			if let Ok(claimer) = Junction::decode(&mut claimer.as_ref()) {
 				let claimer_location: Location = Location::new(0, [claimer.into()]);
 				refund_surplus_to = claimer_location.clone();
-				instructions.push(SetHints { hints: vec![AssetClaimer  {location: claimer_location }].try_into().unwrap() }); // TODO
+				instructions.push(SetHints {
+					hints: vec![AssetClaimer { location: claimer_location }].try_into().unwrap(),
+				}); // TODO
 			}
 		}
 

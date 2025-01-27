@@ -30,7 +30,10 @@ use sp_core::H160;
 use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
-	snowbridge::{EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2},
+	snowbridge::{
+		EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX_V1,
+		INBOUND_QUEUE_PALLET_INDEX_V2,
+	},
 };
 
 use crate::xcm_config::RelayNetwork;
