@@ -13,6 +13,3 @@ export const CONFIG = {
     RC: "ws://localhost:8002",
   },
 };
-
-// const BOB_KEY = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
-// const ALICE_KEY = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
