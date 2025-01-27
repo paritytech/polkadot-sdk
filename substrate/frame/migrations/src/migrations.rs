@@ -39,8 +39,8 @@ use sp_runtime::SaturatedConversion;
 ///
 /// # Note
 ///
-/// The costs to set the optional genesis state are not accounted for. Make sure that there is enough
-/// space in the block when supplying those parameters.
+/// The costs to set the optional genesis state are not accounted for. Make sure that there is
+/// enough space in the block when supplying those parameters.
 pub struct ResetPallet<T, P, B = (), G = ()>(PhantomData<(T, P, B, G)>);
 
 impl<T, P, B, G> ResetPallet<T, P, B, G>
