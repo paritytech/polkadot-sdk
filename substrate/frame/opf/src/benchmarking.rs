@@ -74,7 +74,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn vote(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError>{
+	fn vote(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
@@ -93,7 +93,9 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), account0.clone(), value, true, Conviction::Locked1x);
 
 		// Verify the vote was recorded
-		let vote_info = Votes::<T>::get(account0.clone(), caller.clone()).ok_or("Vote not recorded!").unwrap();
+		let vote_info = Votes::<T>::get(account0.clone(), caller.clone())
+			.ok_or("Vote not recorded!")
+			.unwrap();
 		assert_eq!(vote_info.amount, value, "Vote value mismatch!");
 		Ok(())
 	}
