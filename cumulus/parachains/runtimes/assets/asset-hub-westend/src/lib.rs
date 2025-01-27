@@ -1976,7 +1976,7 @@ impl_runtime_apis! {
 
 				fn get_asset() -> Asset {
 					Asset {
-						id: AssetId(AssetHubWestend::get()),
+						id: AssetId(WestendLocation::get()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
