@@ -24,13 +24,16 @@ use scale_info::TypeInfo;
 /// The kind of the dispute offence.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, Debug)]
 pub enum SlashingOffenceKind {
-	/// A severe offence when a validator backed an invalid block.
+	/// A severe offence when a validator backed an invalid block
+	/// (backing only)
 	#[codec(index = 0)]
-	BackedInvalid,
-	/// A medium offence when a validator approved an invalid block.
+	ForInvalidBacked,
+	/// A medium offence when a validator approved an invalid block
+	/// (approval checking and dispute vote only)
 	#[codec(index = 1)]
-	ForInvalid,
+	ForInvalidApproved,
 	/// A minor offence when a validator disputed a valid block.
+	/// (dispute vote only)
 	#[codec(index = 2)]
 	AgainstValid,
 }
