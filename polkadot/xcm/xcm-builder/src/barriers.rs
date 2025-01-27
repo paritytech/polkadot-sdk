@@ -470,10 +470,25 @@ where
 				SetAppendix(nested_xcm)
 				| SetErrorHandler(nested_xcm)
 				| ExecuteWithOrigin { xcm: nested_xcm, .. } => {
-					log::debug!(
+					log::trace!(
 						target: "xcm::barriers",
-						"{:?}", nested_xcm,
+						"Hard-code origin: {:?}, max_weight: {:?}, properties: {:?}",
+						origin, max_weight, properties,
 					);
+					let _ = Deny::deny_execution(
+						origin,
+						nested_xcm.inner_mut(),
+						max_weight,
+						properties,
+					).inspect_err(|e| {
+						log::warn!(
+							target: "xcm::barriers",
+							"Hard-code `Deny::deny_execution` did not pass for origin: {:?} and nested_xcm: {:?} with error: {:?}",
+							origin,
+							nested_xcm,
+							e
+						);
+					})?;
 					Ok(ControlFlow::Continue(()))
 				},
 				_ => Ok(ControlFlow::Continue(())),
