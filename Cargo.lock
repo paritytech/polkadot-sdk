@@ -29556,6 +29556,7 @@ dependencies = [
  "polkadot-service",
  "polkadot-test-service",
  "sc-cli",
+ "sc-client-api",
  "sc-service",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",

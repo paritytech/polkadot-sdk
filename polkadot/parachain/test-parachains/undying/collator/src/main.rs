@@ -124,12 +124,12 @@ fn main() -> Result<()> {
 					// If the collator is malicious, disable the collation function
 					// (set to None) and manually handle collation submission later.
 					collator: if cli.run.malus_type == MalusType::None {
-						None
-					} else {
 						Some(
 							collator
 								.create_collation_function(full_node.task_manager.spawn_handle()),
 						)
+					} else {
+						None
 					},
 					para_id,
 				};

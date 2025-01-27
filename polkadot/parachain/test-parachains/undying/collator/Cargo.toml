@@ -30,6 +30,7 @@ polkadot-service = { features = ["rococo-native"], workspace = true, default-fea
 test-parachain-undying = { workspace = true }
 
 sc-cli = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 

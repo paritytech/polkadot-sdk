@@ -17,7 +17,7 @@
 //! Collator for the `Undying` test parachain.
 
 use codec::{Decode, Encode};
-use futures::channel::oneshot;
+use futures::{channel::oneshot, StreamExt};
 use futures_timer::Delay;
 use polkadot_cli::ProvideRuntimeApi;
 use polkadot_node_primitives::{
@@ -32,7 +32,8 @@ use polkadot_primitives::{
 	CandidateCommitments, CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId,
 	OccupiedCoreAssumption,
 };
-use polkadot_service::{Backend, Handle, HeaderBackend, NewFull, ParachainHost};
+use polkadot_service::{Handle, NewFull, ParachainHost};
+use sc_client_api::client::BlockchainEvents;
 use sp_core::Pair;
 
 use std::{
@@ -41,7 +42,6 @@ use std::{
 		atomic::{AtomicU32, Ordering},
 		Arc, Mutex,
 	},
-	thread::sleep,
 	time::Duration,
 };
 use test_parachain_undying::{
@@ -358,7 +358,6 @@ impl Collator {
 		para_id: ParaId,
 	) {
 		let client = full_node.client.clone();
-		let backend = full_node.backend.clone();
 
 		let collation_function =
 			self.create_collation_function(full_node.task_manager.spawn_handle());
@@ -367,10 +366,13 @@ impl Collator {
 			.task_manager
 			.spawn_handle()
 			.spawn("malus-undying-collator", None, async move {
-				// In each iteration, build a collation and submit
-				// it to all cores assigned to the parachain.
-				loop {
-					let relay_parent = backend.blockchain().info().best_hash;
+				// Subscribe to relay chain block import notifications. In each iteration, build a
+				// collation in response to a block import notification and submits it to all cores
+				// assigned to the parachain.
+				let mut import_notifications = client.import_notification_stream();
+
+				while let Some(notification) = import_notifications.next().await {
+					let relay_parent = notification.hash;
 
 					// Get the list of cores assigned to the parachain.
 					let claim_queue = match client.runtime_api().claim_queue(relay_parent) {
@@ -380,7 +382,6 @@ impl Collator {
 								target: LOG_TARGET,
 								"Failed to query claim queue runtime API: {error:?}"
 							);
-							Self::wait_for_next_slot();
 							continue;
 						},
 					};
@@ -402,7 +403,6 @@ impl Collator {
 							target: LOG_TARGET,
 							"Scheduled cores is empty."
 						);
-						Self::wait_for_next_slot();
 						continue;
 					}
 
@@ -426,7 +426,6 @@ impl Collator {
 								target: LOG_TARGET,
 								"Persisted validation data is None."
 							);
-							Self::wait_for_next_slot();
 							continue;
 						},
 						Err(error) => {
@@ -447,7 +446,6 @@ impl Collator {
 									target: LOG_TARGET,
 									"Collation result is None."
 								);
-								Self::wait_for_next_slot();
 								continue;
 							},
 						}
@@ -465,7 +463,6 @@ impl Collator {
 								target: LOG_TARGET,
 								"Validation code hash is None."
 							);
-							Self::wait_for_next_slot();
 							continue;
 						},
 						Err(error) => {
@@ -473,7 +470,6 @@ impl Collator {
 								target: LOG_TARGET,
 								"Failed to query validation code hash runtime API: {error:?}"
 							);
-							Self::wait_for_next_slot();
 							continue;
 						},
 					};
@@ -487,7 +483,6 @@ impl Collator {
 									target: LOG_TARGET,
 									"Failed to query session index for child runtime API: {error:?}"
 								);
-								Self::wait_for_next_slot();
 								continue;
 							},
 						};
@@ -513,7 +508,6 @@ impl Collator {
 								target: LOG_TARGET,
 								"PoV size {encoded_size} exceeded maximum size of {max_pov_size}",
 							);
-							Self::wait_for_next_slot();
 							continue;
 						}
 
@@ -531,7 +525,6 @@ impl Collator {
 									target: LOG_TARGET,
 									"Session info is None."
 								);
-								Self::wait_for_next_slot();
 								continue;
 							},
 							Err(error) => {
@@ -539,7 +532,6 @@ impl Collator {
 									target: LOG_TARGET,
 									"Failed to query session info runtime API: {error:?}"
 								);
-								Self::wait_for_next_slot();
 								continue;
 							},
 						};
@@ -558,7 +550,6 @@ impl Collator {
 								target: LOG_TARGET,
 								"Failed to obtain chunks v1: {error:?}"
 							);
-							Self::wait_for_next_slot();
 							continue;
 						},
 					};
@@ -573,7 +564,7 @@ impl Collator {
 						hrmp_watermark: collation.hrmp_watermark,
 					};
 
-					// Submit the same collation for all assigned cores.
+					// Submit the same collation to all assigned cores.
 					for core_index in &scheduled_cores {
 						let candidate_receipt = CandidateReceiptV2 {
 							descriptor: CandidateDescriptorV2::new(
@@ -610,18 +601,8 @@ impl Collator {
 							)
 							.await;
 					}
-
-					Self::wait_for_next_slot();
 				}
 			});
-	}
-
-	fn wait_for_next_slot() {
-		log::info!(
-			target: LOG_TARGET,
-			"Waiting for the next slot..."
-		);
-		sleep(Duration::from_secs(6 as u64));
 	}
 }
 
