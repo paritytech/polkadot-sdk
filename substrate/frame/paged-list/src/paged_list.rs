@@ -58,10 +58,10 @@ pub type ValueIndex = u32;
 /// as long as there are elements in the page and there are pages in storage. All elements of a page
 /// are loaded once a page is read from storage. Iteration then happens on the cached elements. This
 /// reduces the number of storage `read` calls on the overlay. **Appending** to the list happens by
-/// appending to the last page by utilizing [`append`]. It allows to directly extend
+/// appending to the last page by utilizing [`storage::append`]. It allows to directly extend
 /// the elements of `values` vector of the page without loading the whole vector from storage. A new
 /// page is instantiated once [`Page::next`] overflows `ValuesPerNewPage`. Its vector will also be
-/// created through [`append`]. **Draining** advances the internal indices identical
+/// created through [`storage::append`]. **Draining** advances the internal indices identical
 /// to Iteration. It additionally persists the increments to storage and thereby 'drains' elements.
 /// Completely drained pages are deleted from storage.
 ///
