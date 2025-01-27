@@ -57,11 +57,6 @@ pub const TRANSIENT_STORAGE_BYTES: u32 = 4 * 1024;
 /// The maximum allowable length in bytes for (transient) storage keys.
 pub const STORAGE_KEY_BYTES: u32 = 128;
 
-/// The maximum size of the debug buffer contracts can write messages to.
-///
-/// The buffer will always be disabled for on-chain execution.
-pub const DEBUG_BUFFER_BYTES: u32 = 2 * 1024 * 1024;
-
 /// The page size in which PolkaVM should allocate memory chunks.
 pub const PAGE_SIZE: u32 = 4 * 1024;
 
