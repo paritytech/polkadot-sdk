@@ -236,7 +236,7 @@ pub mod pallet {
 			Self::do_unrequest_preimage(&hash)
 		}
 
-		/// Ensure that the a bulk of pre-images is upgraded.
+		/// Ensure that the bulk of pre-images is upgraded.
 		///
 		/// The caller pays no fee if at least 90% of pre-images were successfully updated.
 		#[pallet::call_index(4)]

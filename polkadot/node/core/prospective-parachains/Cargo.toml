@@ -12,21 +12,21 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+fatality = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-fatality = { workspace = true }
 
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
-sp-tracing = { workspace = true }
-sp-core = { workspace = true, default-features = true }
+polkadot-primitives-test-helpers = { workspace = true }
 rand = { workspace = true }
 rstest = { workspace = true }
+sp-core = { workspace = true, default-features = true }
+sp-tracing = { workspace = true }

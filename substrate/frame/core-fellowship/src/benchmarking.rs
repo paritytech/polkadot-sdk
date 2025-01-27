@@ -50,6 +50,7 @@ mod benchmarks {
 		for _ in 0..rank {
 			T::Members::promote(&member)?;
 		}
+		#[allow(deprecated)]
 		CoreFellowship::<T, I>::import(RawOrigin::Signed(member.clone()).into())?;
 		Ok(member)
 	}
@@ -255,6 +256,23 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(member.clone()));
+
+		assert!(Member::<T, I>::contains_key(&member));
+		Ok(())
+	}
+
+	#[benchmark]
+	fn import_member() -> Result<(), BenchmarkError> {
+		let member = account("member", 0, SEED);
+		let sender = account("sender", 0, SEED);
+
+		T::Members::induct(&member)?;
+		T::Members::promote(&member)?;
+
+		assert!(!Member::<T, I>::contains_key(&member));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(sender), member.clone());
 
 		assert!(Member::<T, I>::contains_key(&member));
 		Ok(())
