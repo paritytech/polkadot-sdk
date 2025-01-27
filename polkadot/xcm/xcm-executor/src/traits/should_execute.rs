@@ -134,8 +134,8 @@ impl CheckSuspension for Tuple {
 /// `Some(ProcessMessageError)`, the execution stops. Else, `None` is returned if all elements
 /// accept the message.
 pub trait DenyExecution {
-	/// Returns `None` if there is no reason to deny execution,
-	/// while `Some(ProcessMessageError)` indicates there is a reason to deny execution.
+	/// Returns `Ok(())` if there is no reason to deny execution,
+	/// while `Err(ProcessMessageError)` indicates there is a reason to deny execution.
 	///
 	/// - `origin`: The origin (sender) of the message.
 	/// - `instructions`: The message itself.
