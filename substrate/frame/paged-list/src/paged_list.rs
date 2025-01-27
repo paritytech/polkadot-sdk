@@ -26,7 +26,6 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
-
 use frame::{
 	runtime::prelude::storage::StoragePrefixedContainer, testing_prelude::*,
 	traits::StorageInstance,
