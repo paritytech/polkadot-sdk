@@ -42,9 +42,9 @@ fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; 
 	api::call(
 		uapi::CallFlags::ALLOW_REENTRY,
 		callee_address,
-		0u64,
-		0u64,
-		None,
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
 		&[0u8; 32],
 		&[],
 		Some(output_buf_capped),
@@ -67,9 +67,9 @@ fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
 
 	api::instantiate(
 		&code_hash,
-		0u64,
-		0u64,
-		None,
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
 		&[0; 32],
 		&[0; 32],
 		None,

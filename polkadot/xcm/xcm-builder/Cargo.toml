@@ -31,7 +31,6 @@ xcm-executor = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 
 [dev-dependencies]
-assert_matches = { workspace = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-salary = { workspace = true, default-features = true }
