@@ -95,8 +95,13 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame::prelude::*;
+
+use frame::traits::ExistenceRequirement::AllowDeath;
 use scale_info::TypeInfo;
 pub use weights::WeightInfo;
+
+use frame::benchmarking::prelude::{BlockNumberFor as SystemBlockNumberFor, *};
+
 
 pub use pallet::*;
 

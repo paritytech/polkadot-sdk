@@ -20,7 +20,7 @@
 use super::*;
 
 use alloc::{vec, vec::Vec};
-use frame::benchmarking::prelude::*;
+use frame::benchmarking::prelude::{BlockNumberFor as SystemBlockNumberFor, *};
 
 use crate::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;

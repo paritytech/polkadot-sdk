@@ -21,6 +21,8 @@ use frame::testing_prelude::*;
 
 use crate as pallet_bounties;
 
+use frame::deps::sp_io::storage;
+
 /// Migrate the storage of the bounties pallet to a new prefix, leaving all other storage untouched
 ///
 /// This new prefix must be the same as the one set in construct_runtime. For safety, use

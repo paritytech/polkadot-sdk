@@ -208,15 +208,12 @@ pub mod prelude {
 		defensive, defensive_assert,
 		storage::{generator::StorageValue, StoragePrefixedMap, migration},
 		traits::{
-			tokens::{PayFromAccount, UnityAssetBalanceConversion},
 			Contains, Currency, EitherOf, EnsureOrigin, EstimateNextSessionRotation,
-			ExistenceRequirement::AllowDeath,
 			Get, GetStorageVersion, Imbalance, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
 			OnUnbalanced, OneSessionHandler, PalletInfoAccess, RankedMembers,
 			RankedMembersSwapHandler, ReservableCurrency, StorageVersion,
 			STORAGE_VERSION_STORAGE_KEY_POSTFIX,
 		},
-		weights::Weight,
 		PalletId,
 	};
 
@@ -286,6 +283,8 @@ pub mod benchmarking {
 		// The system origin, which is very often needed in benchmarking code. Might be tricky only
 		// if the pallet defines its own `#[pallet::origin]` and call it `RawOrigin`.
 		pub use frame_system::{Pallet as System, RawOrigin};
+
+		pub use frame_system::{pallet_prelude::BlockNumberFor as SystemBlockNumberFor};
 	}
 
 	#[deprecated(
@@ -353,6 +352,8 @@ pub mod testing_prelude {
 
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::{traits::BadOrigin, StateVersion};
+
+	pub use sp_core::hexdisplay::HexDisplay;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -399,8 +400,12 @@ pub mod runtime {
 			ConstU32, ConstU64, ConstU8,
 		};
 
+		pub use frame_support::traits::tokens::{PayFromAccount, UnityAssetBalanceConversion};
+
+		pub use frame_support::traits::ExistenceRequirement::AllowDeath;
+
 		/// Used for simple fee calculation.
-		pub use frame_support::weights::{self, FixedFee, NoFee};
+		pub use frame_support::weights::{self, FixedFee, NoFee, Weight};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
