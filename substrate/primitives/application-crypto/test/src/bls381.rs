@@ -8,6 +8,8 @@ use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
+use sp_application_crypto::bls381::AppPair;
+use sp_core::crypto::ProofOfPossessionVerifier;
 
 #[test]
 fn bls381_works_in_runtime() {
@@ -18,8 +20,9 @@ fn bls381_works_in_runtime() {
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
 
-	let public = runtime_api.test_bls381_crypto(test_client.chain_info().genesis_hash).expect("Tests `bls381` crypto.");
+	let (pop, public) = runtime_api.test_bls381_crypto(test_client.chain_info().genesis_hash).expect("Tests `bls381` crypto.");
 
 	let supported_keys = keystore.keys(BLS381).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));
+	assert!(AppPair::verify_proof_of_possession(&pop, &public));
 }

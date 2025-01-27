@@ -190,13 +190,17 @@ pub type Balance = u64;
 pub mod bls_experimental {
 	use sp_application_crypto::{bls381, ecdsa_bls381};
     pub type Bls381Public = bls381::AppPublic;
+	pub type Bls381Pop = bls381::AppSignature;
     pub type EcdsaBls381Public = ecdsa_bls381::AppPublic;
+	pub type EcdsaBls381Pop = ecdsa_bls381::AppSignature;
 }
 
 #[cfg(not(feature = "bls-experimental"))]
 pub mod bls_disabled {
     pub type Bls381Public = ();
+	pub type Bls381Pop = ();
     pub type EcdsaBls381Public = ();
+	pub type EcdsaBls381Pop = ();
 }
 
 #[cfg(feature = "bls-experimental")]
@@ -245,11 +249,11 @@ decl_runtime_apis! {
 		/// Test that `bls381` crypto works in the runtime
 		///
 		/// Returns the public key.
-		fn test_bls381_crypto() -> Bls381Public;
+		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public);
 		/// Test that `ecdsa_bls381_crypto` works in the runtime
 		///
 		/// Returns the public key
-		fn test_ecdsa_bls381_crypto() -> EcdsaBls381Public;
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public);
 		/// Run various tests against storage.
 		fn test_storage();
 		/// Check a witness.
@@ -612,22 +616,22 @@ impl_runtime_apis! {
 		}
 
 		#[cfg(feature = "bls-experimental")]
-		fn test_bls381_crypto() -> Bls381Public {
+		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 			test_bls381_crypto()
 		}
 
 		#[cfg(feature = "bls-experimental")]
-		fn test_ecdsa_bls381_crypto() -> EcdsaBls381Public {
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
 			test_ecdsa_bls381_crypto()
 		}
 
 		#[cfg(not(feature = "bls-experimental"))]
-		fn test_bls381_crypto() -> Bls381Public {
+		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 			()
 		}
 
 		#[cfg(not(feature = "bls-experimental"))]
-		fn test_ecdsa_bls381_crypto() {
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
 			()
 		}
 
@@ -866,23 +870,23 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
 }
 
 #[cfg(feature = "bls-experimental")]
-fn test_bls381_crypto() -> Bls381Public {
+fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 	let mut public0 = bls381::AppPublic::generate_pair(None);
 
 	let pop = public0.generate_pop().expect("Cant generate Pop for bls381");
-
 	assert!(public0.verify_pop(&pop));
-	public0
+
+	(pop, public0)
 }
 
 #[cfg(feature = "bls-experimental")]
-fn test_ecdsa_bls381_crypto() -> EcdsaBls381Public {
+fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
 	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 
 	let pop = public0.generate_pop().expect("Cant Generate Pop for ecdsa_bls381");
 
 	assert!(public0.verify_pop(&pop));
-	public0
+	(pop, public0)
 }
 
 fn test_read_storage() {
