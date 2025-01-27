@@ -1875,7 +1875,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
-					AssetHubWestend::get(),
+					WestendLocation::get(),
 					ExistentialDeposit::get()
 				).into());
 				pub const RandomParaId: ParaId = ParaId::new(43211234);
