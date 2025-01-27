@@ -856,7 +856,7 @@ version = "12.0.0"
 path = "../substrate/frame/system"
 default-features = false
 optional = true
-version = "39.0.0"
+version = "39.1.0"
 
 [dependencies.frame-system-benchmarking]
 path = "../substrate/frame/system/benchmarking"
@@ -982,7 +982,7 @@ version = "40.0.0"
 path = "../substrate/frame/bounties"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.0.1"
 
 [dependencies.pallet-bridge-grandpa]
 path = "../bridges/modules/grandpa"
@@ -1372,7 +1372,7 @@ version = "39.0.0"
 path = "../substrate/frame/transaction-payment/skip-feeless-payment"
 default-features = false
 optional = true
-version = "14.0.0"
+version = "14.1.0"
 
 [dependencies.pallet-society]
 path = "../substrate/frame/society"
@@ -1384,7 +1384,7 @@ version = "39.0.0"
 path = "../substrate/frame/staking"
 default-features = false
 optional = true
-version = "39.0.0"
+version = "39.0.1"
 
 [dependencies.pallet-staking-reward-curve]
 path = "../substrate/frame/staking/reward-curve"
@@ -1558,7 +1558,7 @@ version = "18.0.0"
 path = "../polkadot/runtime/parachains"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "18.0.1"
 
 [dependencies.polkadot-sdk-frame]
 path = "../substrate/frame"
@@ -1636,7 +1636,7 @@ version = "0.12.0"
 path = "../bridges/snowbridge/pallets/inbound-queue/fixtures"
 default-features = false
 optional = true
-version = "0.20.0"
+version = "0.20.1"
 
 [dependencies.snowbridge-pallet-outbound-queue]
 path = "../bridges/snowbridge/pallets/outbound-queue"
@@ -1654,7 +1654,7 @@ version = "0.12.0"
 path = "../bridges/snowbridge/primitives/router"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.18.1"
 
 [dependencies.snowbridge-runtime-common]
 path = "../bridges/snowbridge/runtime/runtime-common"
@@ -1840,7 +1840,7 @@ version = "35.0.0"
 path = "../substrate/primitives/runtime"
 default-features = false
 optional = true
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.sp-runtime-interface]
 path = "../substrate/primitives/runtime-interface"
@@ -2026,7 +2026,7 @@ version = "0.20.0"
 path = "../cumulus/client/consensus/aura"
 default-features = false
 optional = true
-version = "0.20.0"
+version = "0.20.1"
 
 [dependencies.cumulus-client-consensus-common]
 path = "../cumulus/client/consensus/common"
@@ -2056,7 +2056,7 @@ version = "0.20.0"
 path = "../cumulus/client/parachain-inherent"
 default-features = false
 optional = true
-version = "0.14.0"
+version = "0.14.1"
 
 [dependencies.cumulus-client-pov-recovery]
 path = "../cumulus/client/pov-recovery"
@@ -2104,7 +2104,7 @@ version = "0.17.0"
 path = "../cumulus/parachains/integration-tests/emulated/common"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "18.0.1"
 
 [dependencies.fork-tree]
 path = "../substrate/utils/fork-tree"
@@ -2248,7 +2248,7 @@ version = "20.0.0"
 path = "../polkadot/node/core/approval-voting"
 default-features = false
 optional = true
-version = "20.0.0"
+version = "20.1.0"
 
 [dependencies.polkadot-node-core-approval-voting-parallel]
 path = "../polkadot/node/core/approval-voting-parallel"
@@ -2410,7 +2410,7 @@ version = "21.0.0"
 path = "../polkadot/node/service"
 default-features = false
 optional = true
-version = "21.0.0"
+version = "21.0.1"
 
 [dependencies.polkadot-statement-distribution]
 path = "../polkadot/node/network/statement-distribution"
@@ -2590,7 +2590,7 @@ version = "0.17.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.47.0"
+version = "0.47.1"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
@@ -2602,7 +2602,7 @@ version = "0.46.0"
 path = "../substrate/client/network-gossip"
 default-features = false
 optional = true
-version = "0.47.0"
+version = "0.47.1"
 
 [dependencies.sc-network-light]
 path = "../substrate/client/network/light"
@@ -2614,19 +2614,19 @@ version = "0.46.0"
 path = "../substrate/client/network/statement"
 default-features = false
 optional = true
-version = "0.29.0"
+version = "0.29.1"
 
 [dependencies.sc-network-sync]
 path = "../substrate/client/network/sync"
 default-features = false
 optional = true
-version = "0.46.0"
+version = "0.46.1"
 
 [dependencies.sc-network-transactions]
 path = "../substrate/client/network/transactions"
 default-features = false
 optional = true
-version = "0.46.0"
+version = "0.46.1"
 
 [dependencies.sc-network-types]
 path = "../substrate/client/network/types"
@@ -2866,7 +2866,7 @@ version = "17.0.0"
 path = "../cumulus/xcm/xcm-emulator"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.17.1"
 
 [dependencies.xcm-simulator]
 path = "../polkadot/xcm/xcm-simulator"
