@@ -10,38 +10,46 @@ use sp_runtime::RuntimeDebug;
 /// It is meant to be used when the asset state check should be performed
 /// in addition to the `Inner` strategy.
 ///
-/// The `CheckState` implements all potentially state-mutating strategies that the `Inner` implements.
-pub struct CheckState<Inspect: InspectStrategy, Inner = Unchecked>(
-    pub Inspect::Value,
-    pub Inner
-);
+/// The `CheckState` implements all potentially state-mutating strategies that the `Inner`
+/// implements.
+pub struct CheckState<Inspect: InspectStrategy, Inner = Unchecked>(pub Inspect::Value, pub Inner);
 impl<Inspect: InspectStrategy> CheckState<Inspect, Unchecked> {
-    pub fn expect(expected: Inspect::Value) -> Self {
-        Self(expected, Unchecked)
-    }
+	pub fn expect(expected: Inspect::Value) -> Self {
+		Self(expected, Unchecked)
+	}
 }
 impl<Inspect: InspectStrategy, Inner> CheckState<Inspect, Inner> {
-    pub fn new(expected: Inspect::Value, inner: Inner) -> Self {
-        Self(expected, inner)
-    }
+	pub fn new(expected: Inspect::Value, inner: Inner) -> Self {
+		Self(expected, inner)
+	}
 }
-impl<Inspect: InspectStrategy, Inner: UpdateStrategy> UpdateStrategy for CheckState<Inspect, Inner> {
-    type Update<'u> = Inner::Update<'u>;
-    type Success = Inner::Success;
-}
-impl<Inspect: InspectStrategy, Inner: CreateStrategy> CreateStrategy for CheckState<Inspect, Inner> {
+impl<Inspect: InspectStrategy, Inner: UpdateStrategy> UpdateStrategy
+	for CheckState<Inspect, Inner>
+{
+	type Update<'u> = Inner::Update<'u>;
 	type Success = Inner::Success;
 }
-impl<Inspect: InspectStrategy, Inner: TransferStrategy> TransferStrategy for CheckState<Inspect, Inner> {
+impl<Inspect: InspectStrategy, Inner: CreateStrategy> CreateStrategy
+	for CheckState<Inspect, Inner>
+{
 	type Success = Inner::Success;
 }
-impl<Inspect: InspectStrategy, Inner: DestroyStrategy> DestroyStrategy for CheckState<Inspect, Inner> {
+impl<Inspect: InspectStrategy, Inner: TransferStrategy> TransferStrategy
+	for CheckState<Inspect, Inner>
+{
+	type Success = Inner::Success;
+}
+impl<Inspect: InspectStrategy, Inner: DestroyStrategy> DestroyStrategy
+	for CheckState<Inspect, Inner>
+{
 	type Success = Inner::Success;
 }
 impl<Inspect: InspectStrategy, Inner: StashStrategy> StashStrategy for CheckState<Inspect, Inner> {
 	type Success = Inner::Success;
 }
-impl<Inspect: InspectStrategy, Inner: RestoreStrategy> RestoreStrategy for CheckState<Inspect, Inner> {
+impl<Inspect: InspectStrategy, Inner: RestoreStrategy> RestoreStrategy
+	for CheckState<Inspect, Inner>
+{
 	type Success = Inner::Success;
 }
 
@@ -50,12 +58,13 @@ impl<Inspect: InspectStrategy, Inner: RestoreStrategy> RestoreStrategy for Check
 /// It is meant to be used when the origin check should be performed
 /// in addition to the `Inner` strategy.
 ///
-/// The `CheckOrigin` implements all potentially state-mutating strategies that the `Inner` implements.
+/// The `CheckOrigin` implements all potentially state-mutating strategies that the `Inner`
+/// implements.
 pub struct CheckOrigin<RuntimeOrigin, Inner = Unchecked>(pub RuntimeOrigin, pub Inner);
 impl<RuntimeOrigin> CheckOrigin<RuntimeOrigin, Unchecked> {
-    pub fn expect(origin: RuntimeOrigin) -> Self {
-        Self(origin, Unchecked)
-    }
+	pub fn expect(origin: RuntimeOrigin) -> Self {
+		Self(origin, Unchecked)
+	}
 }
 impl<RuntimeOrigin, Inner: UpdateStrategy> UpdateStrategy for CheckOrigin<RuntimeOrigin, Inner> {
 	type Update<'u> = Inner::Update<'u>;
@@ -64,7 +73,9 @@ impl<RuntimeOrigin, Inner: UpdateStrategy> UpdateStrategy for CheckOrigin<Runtim
 impl<RuntimeOrigin, Inner: CreateStrategy> CreateStrategy for CheckOrigin<RuntimeOrigin, Inner> {
 	type Success = Inner::Success;
 }
-impl<RuntimeOrigin, Inner: TransferStrategy> TransferStrategy for CheckOrigin<RuntimeOrigin, Inner> {
+impl<RuntimeOrigin, Inner: TransferStrategy> TransferStrategy
+	for CheckOrigin<RuntimeOrigin, Inner>
+{
 	type Success = Inner::Success;
 }
 impl<RuntimeOrigin, Inner: DestroyStrategy> DestroyStrategy for CheckOrigin<RuntimeOrigin, Inner> {
@@ -311,12 +322,12 @@ pub struct Owned<Owner, Assignment: IdAssignment, Config = (), Witness = ()> {
 	pub witness: Witness,
 }
 impl<Owner, Assignment: IdAssignment> Owned<Owner, Assignment, (), ()> {
-	pub fn new(id_assignment: Assignment, owner: Owner) -> Self {
+	pub fn new(owner: Owner, id_assignment: Assignment) -> Self {
 		Self { id_assignment, owner, config: (), witness: () }
 	}
 }
 impl<Owner, Assignment: IdAssignment, Config> Owned<Owner, Assignment, Config, ()> {
-	pub fn new_configured(id_assignment: Assignment, owner: Owner, config: Config) -> Self {
+	pub fn new_configured(owner: Owner, id_assignment: Assignment, config: Config) -> Self {
 		Self { id_assignment, owner, config, witness: () }
 	}
 }
@@ -346,7 +357,7 @@ pub struct WithAdmin<Account, Assignment: IdAssignment, Config = (), Witness = (
 	pub witness: Witness,
 }
 impl<Account, Assignment: IdAssignment> WithAdmin<Account, Assignment, (), ()> {
-	pub fn new(id_assignment: Assignment, owner: Account, admin: Account) -> Self {
+	pub fn new(owner: Account, admin: Account, id_assignment: Assignment) -> Self {
 		Self { id_assignment, owner, admin, config: (), witness: () }
 	}
 }
@@ -368,12 +379,10 @@ impl<Account, Assignment: IdAssignment, Config, Witness> CreateStrategy
 
 /// The `IfRestorable` is a [`restore strategy`](RestoreStrategy).
 ///
-/// It accepts whatever parameters are set in its generic argument.
-/// For instance, if an asset is restorable,
-/// this strategy may reference a beneficiary account,
-/// which should own the asset upon restoration.
-pub struct IfRestorable<Params>(pub Params);
-impl<Params> RestoreStrategy for IfRestorable<Params> {
+/// If possible, it restores the asset to a beneficiary
+/// according to the supplied transfer strategy.
+pub struct IfRestorable<Inner: TransferStrategy>(pub Inner);
+impl<Inner: TransferStrategy> RestoreStrategy for IfRestorable<Inner> {
 	type Success = ();
 }
 

@@ -1119,9 +1119,9 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_eq!(collections(), vec![(collection_owner, collection_id)]);
@@ -1129,7 +1129,7 @@ mod asset_ops_tests {
 	}
 
 	#[test]
-	fn create_collection_with_origin() {
+	fn create_collection_check_origin() {
 		new_test_ext().execute_with(|| {
 			let alice = 1;
 			let bob = 2;
@@ -1141,14 +1141,14 @@ mod asset_ops_tests {
 			// Signed origin, same owner
 			assert_ok!(Collection::create(CheckOrigin(
 				RuntimeOrigin::signed(alice),
-				WithAdmin::new(PredefinedId::from(0), alice, collection_admin,),
+				WithAdmin::new(alice, collection_admin, PredefinedId::from(0)),
 			)));
 
 			// Signed origin, different owner
 			assert_noop!(
 				Collection::create(CheckOrigin(
 					RuntimeOrigin::signed(alice),
-					WithAdmin::new(PredefinedId::from(1), bob, collection_admin,),
+					WithAdmin::new(bob, collection_admin, PredefinedId::from(1)),
 				)),
 				Error::<Test>::NoPermission,
 			);
@@ -1156,18 +1156,18 @@ mod asset_ops_tests {
 			// Root origin, any owner
 			assert_ok!(Collection::create(CheckOrigin(
 				RuntimeOrigin::root(),
-				WithAdmin::new(PredefinedId::from(2), alice, collection_admin,),
+				WithAdmin::new(alice, collection_admin, PredefinedId::from(2)),
 			)));
 
 			assert_ok!(Collection::create(CheckOrigin(
 				RuntimeOrigin::root(),
-				WithAdmin::new(PredefinedId::from(3), bob, collection_admin,),
+				WithAdmin::new(bob, collection_admin, PredefinedId::from(3)),
 			)));
 		});
 	}
 
 	#[test]
-	fn destroy_collection_without_ownership_check() {
+	fn destroy_collection_with_witness() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 
@@ -1178,22 +1178,22 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, 0)),
 				item_owner,
+				PredefinedId::from((collection_id, 0)),
 			)));
 
 			let outdated_witness =
 				crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, 1)),
 				item_owner,
+				PredefinedId::from((collection_id, 1)),
 			)));
 
 			let ok_witness =
@@ -1212,7 +1212,7 @@ mod asset_ops_tests {
 	}
 
 	#[test]
-	fn destroy_collection_with_ownership_check() {
+	fn destroy_collection_if_owned_by_and_with_witness() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 
@@ -1223,22 +1223,22 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, 0)),
 				item_owner,
+				PredefinedId::from((collection_id, 0)),
 			)));
 
 			let outdated_witness =
 				crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, 1)),
 				item_owner,
+				PredefinedId::from((collection_id, 1)),
 			)));
 
 			let ok_witness =
@@ -1272,7 +1272,7 @@ mod asset_ops_tests {
 	}
 
 	#[test]
-	fn destroy_collection_with_origin() {
+	fn destroy_collection_check_origin() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 
@@ -1284,22 +1284,22 @@ mod asset_ops_tests {
 
 			let setup_test_collection = || {
 				assert_ok!(Collection::create(WithAdmin::new(
-					PredefinedId::from(collection_id),
 					collection_owner,
 					collection_admin,
+					PredefinedId::from(collection_id),
 				)));
 
 				assert_ok!(Item::create(Owned::new(
-					PredefinedId::from((collection_id, 0)),
 					item_owner,
+					PredefinedId::from((collection_id, 0)),
 				)));
 
 				let outdated_witness =
 					crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
 
 				assert_ok!(Item::create(Owned::new(
-					PredefinedId::from((collection_id, 1)),
 					item_owner,
+					PredefinedId::from((collection_id, 1)),
 				)));
 
 				let ok_witness =
@@ -1372,9 +1372,9 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			let retrieved_collection_owner =
@@ -1395,9 +1395,9 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_noop!(
@@ -1470,9 +1470,9 @@ mod asset_ops_tests {
 			};
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_noop!(
@@ -1552,16 +1552,16 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_eq!(collections(), vec![(collection_owner, collection_id)]);
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				item_owner,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
@@ -1581,9 +1581,9 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Uniques::mint(
@@ -1598,7 +1598,7 @@ mod asset_ops_tests {
 	}
 
 	#[test]
-	fn mint_item_with_origin() {
+	fn mint_item_check_origin() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 			let item_id = 111;
@@ -1610,16 +1610,16 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			// Not an admin (not an issuer) can't mint new tokens
 			assert_noop!(
 				Item::create(CheckOrigin(
 					RuntimeOrigin::signed(collection_owner),
-					Owned::new(PredefinedId::from((collection_id, item_id)), item_owner,),
+					Owned::new(item_owner, PredefinedId::from((collection_id, item_id))),
 				)),
 				Error::<Test>::NoPermission,
 			);
@@ -1628,14 +1628,14 @@ mod asset_ops_tests {
 			assert_noop!(
 				Item::create(CheckOrigin(
 					RuntimeOrigin::root(),
-					Owned::new(PredefinedId::from((collection_id, item_id)), item_owner,),
+					Owned::new(item_owner, PredefinedId::from((collection_id, item_id))),
 				)),
 				DispatchError::BadOrigin,
 			);
 
 			assert_ok!(Item::create(CheckOrigin(
 				RuntimeOrigin::signed(collection_admin),
-				Owned::new(PredefinedId::from((collection_id, item_id)), item_owner,),
+				Owned::new(item_owner, PredefinedId::from((collection_id, item_id))),
 			)));
 
 			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
@@ -1656,14 +1656,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				alice,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
@@ -1688,14 +1688,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				alice,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
@@ -1767,14 +1767,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				alice,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
@@ -1807,14 +1807,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				item_owner,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
@@ -1856,14 +1856,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				item_owner,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
@@ -1903,7 +1903,7 @@ mod asset_ops_tests {
 	}
 
 	#[test]
-	fn stash_item_if_owned_by_with_origin() {
+	fn stash_item_if_check_origin() {
 		new_test_ext().execute_with(|| {
 			let collection_id = 10;
 			let item_id = 111;
@@ -1916,14 +1916,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				alice,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
@@ -1972,8 +1972,8 @@ mod asset_ops_tests {
 
 			// Recreate the token
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				alice,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
@@ -2008,14 +2008,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				item_owner,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			let retreived_item_owner =
@@ -2041,14 +2041,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				item_owner,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_noop!(
@@ -2116,14 +2116,14 @@ mod asset_ops_tests {
 			};
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				item_owner,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			assert_noop!(
@@ -2229,14 +2229,14 @@ mod asset_ops_tests {
 			Balances::make_free_balance_be(&collection_owner, 100);
 
 			assert_ok!(Collection::create(WithAdmin::new(
-				PredefinedId::from(collection_id),
 				collection_owner,
 				collection_admin,
+				PredefinedId::from(collection_id),
 			)));
 
 			assert_ok!(Item::create(Owned::new(
-				PredefinedId::from((collection_id, item_id)),
 				item_owner,
+				PredefinedId::from((collection_id, item_id)),
 			)));
 
 			let can_transfer =
