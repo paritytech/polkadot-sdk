@@ -2056,8 +2056,8 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					AssetHubWestend::get(),
-					Asset { fun: Fungible(UNITS), id: AssetId(AssetHubWestend::get()) },
+					RandomParaLocation::get(),
+					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
