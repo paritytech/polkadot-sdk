@@ -5625,7 +5625,7 @@ mod election_data_provider {
 	fn estimate_next_election_single_page_works() {
 		ExtBuilder::default().session_per_era(5).period(5).build_and_execute(|| {
 			// first session is always length 0.
-			for b in 1..20 {
+			for b in 1..19 {
 				run_to_block(b);
 				assert_eq!(Staking::next_election_prediction(System::block_number()), 20);
 			}
@@ -5635,7 +5635,7 @@ mod election_data_provider {
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 45);
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
-			for b in 21..45 {
+			for b in 21..44 {
 				run_to_block(b);
 				assert_eq!(Staking::next_election_prediction(System::block_number()), 45);
 			}

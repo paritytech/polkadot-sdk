@@ -60,6 +60,8 @@
 //! 3. signed
 //! 4. unsigned
 //!
+//! This is critical for the phase transition to work.
+//!
 //! This should be manually checked, there is not automated way to test it.
 //!
 //! ## Pagination
@@ -552,8 +554,6 @@ pub mod pallet {
 					Self::phase_transition(Phase::SignedValidation(now));
 					// we don't do anything else here. We expect the signed sub-pallet to handle
 					// whatever else needs to be done.
-					// TODO: this notification system based on block numbers is 100% based on the
-					// on_initialize of the parent pallet is called before the rest of them.
 					todo_weight
 				},
 

@@ -42,7 +42,6 @@ use frame_system::RawOrigin;
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
 const MAX_SLASHES: u32 = 1000;
-const SINGLE_PAGE: u32 = 0;
 
 type MaxValidators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
 type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
@@ -1031,7 +1030,10 @@ mod benchmarks {
 		let voters;
 		#[block]
 		{
-			voters = <Staking<T>>::get_npos_voters(DataProviderBounds::default(), SINGLE_PAGE);
+			voters = <Staking<T>>::get_npos_voters(
+				DataProviderBounds::default(),
+				&SnapshotStatus::<T::AccountId>::Waiting,
+			);
 		}
 
 		assert_eq!(voters.len(), num_voters);

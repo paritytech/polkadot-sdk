@@ -330,6 +330,15 @@ pub trait ElectionDataProvider {
 		page: PageIndex,
 	) -> data_provider::Result<Vec<Self::AccountId>>;
 
+	/// A state-less version of [`Self::electing_targets`].
+	///
+	/// An election-provider that only uses 1 page should use this.
+	fn electable_targets_stateless(
+		bounds: DataProviderBounds,
+	) -> data_provider::Result<Vec<Self::AccountId>> {
+		Self::electable_targets(bounds, 0)
+	}
+
 	/// All the voters that participate in the election associated with page `page`, thus
 	/// "electing".
 	///
@@ -341,6 +350,13 @@ pub trait ElectionDataProvider {
 		bounds: DataProviderBounds,
 		page: PageIndex,
 	) -> data_provider::Result<Vec<VoterOf<Self>>>;
+
+	/// A state-less version of [`Self::electing_voters`].
+	fn electing_voters_stateless(
+		bounds: DataProviderBounds,
+	) -> data_provider::Result<Vec<VoterOf<Self>>> {
+		Self::electing_voters(bounds, 0)
+	}
 
 	/// The number of targets to elect.
 	///

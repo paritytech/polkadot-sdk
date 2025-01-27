@@ -831,6 +831,31 @@ impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxValidators = ConstU32<1000>;
 }
 
+use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
+pub struct MultiElectionProvider;
+impl ElectionProvider for MultiElectionProvider {
+	type AccountId = <MultiBlock as ElectionProvider>::AccountId;
+	type BlockNumber = <MultiBlock as ElectionProvider>::BlockNumber;
+	type DataProvider = <MultiBlock as ElectionProvider>::DataProvider;
+	type Error = <MultiBlock as ElectionProvider>::Error;
+	type Pages = <MultiBlock as ElectionProvider>::Pages;
+	type MaxBackersPerWinner = <MultiBlock as ElectionProvider>::MaxBackersPerWinner;
+	type MaxWinnersPerPage = <MultiBlock as ElectionProvider>::MaxWinnersPerPage;
+
+	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		if page == 0 {
+			// TODO: later on, we can even compare the results of the multi-page and multi-block
+			// election like this.
+			let _ = ElectionProviderMultiPhase::elect(page);
+		}
+		MultiBlock::elect(page)
+	}
+
+	fn ongoing() -> bool {
+		MultiBlock::ongoing()
+	}
+}
+
 impl pallet_staking::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
@@ -855,8 +880,7 @@ impl pallet_staking::Config for Runtime {
 	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxActiveValidators;
-	type ElectionProvider = MultiBlock;
-	// type ElectionProvider = ElectionProviderMultiPhase;
+	type ElectionProvider = MultiElectionProvider;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;

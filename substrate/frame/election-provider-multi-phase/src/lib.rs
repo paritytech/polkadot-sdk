@@ -768,7 +768,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			return Default::default();
 			let next_election = T::DataProvider::next_election_prediction(now).max(now);
 
 			let signed_deadline = T::SignedPhase::get() + T::UnsignedPhase::get();
@@ -1525,7 +1524,7 @@ impl<T: Config> Pallet<T> {
 	fn create_snapshot_external(
 	) -> Result<(Vec<T::AccountId>, Vec<VoterOf<T>>, u32), ElectionError<T>> {
 		let election_bounds = T::ElectionBounds::get();
-		let targets = T::DataProvider::electable_targets(election_bounds.targets, SINGLE_PAGE)
+		let targets = T::DataProvider::electable_targets_stateless(election_bounds.targets)
 			.and_then(|t| {
 				election_bounds.ensure_targets_limits(
 					CountBound(t.len() as u32),
@@ -1535,7 +1534,7 @@ impl<T: Config> Pallet<T> {
 			})
 			.map_err(ElectionError::DataProvider)?;
 
-		let voters = T::DataProvider::electing_voters(election_bounds.voters, SINGLE_PAGE)
+		let voters = T::DataProvider::electing_voters_stateless(election_bounds.voters)
 			.and_then(|v| {
 				election_bounds.ensure_voters_limits(
 					CountBound(v.len() as u32),

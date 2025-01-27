@@ -1038,7 +1038,7 @@ impl<T: Config> Pallet<T> {
 	/// This function is self-weighing as [`DispatchClass::Mandatory`].
 	pub(crate) fn get_npos_voters(
 		bounds: DataProviderBounds,
-		page: PageIndex,
+		status: &SnapshotStatus<T::AccountId>,
 	) -> Vec<VoterOf<Self>> {
 		let mut voters_size_tracker: StaticTracker<Self> = StaticTracker::default();
 
@@ -1057,7 +1057,7 @@ impl<T: Config> Pallet<T> {
 		let mut nominators_taken = 0u32;
 		let mut min_active_stake = u64::MAX;
 
-		let mut sorted_voters = match VoterSnapshotStatus::<T>::get() {
+		let mut sorted_voters = match status {
 			// start the snapshot processing from the beginning.
 			SnapshotStatus::Waiting => T::VoterList::iter(),
 			// snapshot continues, start from the last iterated voter in the list.
@@ -1140,29 +1140,6 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// update the voter snapshot status.
-		VoterSnapshotStatus::<T>::mutate(|status| {
-			match (page, status.clone()) {
-				// last page, reset status for next round.
-				(0, _) => *status = SnapshotStatus::Waiting,
-
-				(_, SnapshotStatus::Waiting) | (_, SnapshotStatus::Ongoing(_)) => {
-					let maybe_last = all_voters.last().map(|(x, _, _)| x).cloned();
-
-					if let Some(ref last) = maybe_last {
-						if maybe_last == T::VoterList::iter().last() {
-							// all voters in the voter list have been consumed.
-							*status = SnapshotStatus::Consumed;
-						} else {
-							*status = SnapshotStatus::Ongoing(last.clone());
-						}
-					}
-				},
-				// do nothing.
-				(_, SnapshotStatus::Consumed) => (),
-			}
-		});
-
 		// all_voters should have not re-allocated.
 		debug_assert!(all_voters.capacity() == page_len_prediction as usize);
 
@@ -1172,17 +1149,6 @@ impl<T: Config> Pallet<T> {
 			if all_voters.is_empty() { Zero::zero() } else { min_active_stake.into() };
 
 		MinimumActiveStake::<T>::put(min_active_stake);
-
-		log!(
-			info,
-			"[page {}, status {:?}, bounds {:?}] generated {} npos voters, {} from validators and {} nominators",
-			page,
-			VoterSnapshotStatus::<T>::get(),
-			bounds,
-			all_voters.len(),
-			validators_taken,
-			nominators_taken
-		);
 
 		all_voters
 	}
@@ -1463,10 +1429,55 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		bounds: DataProviderBounds,
 		page: PageIndex,
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
-		let voters = Self::get_npos_voters(bounds, page);
+		let mut status = VoterSnapshotStatus::<T>::get();
+		let voters = Self::get_npos_voters(bounds, &status);
+
+		// update the voter snapshot status.
+		match (page, &status) {
+			// last page, reset status for next round.
+			(0, _) => status = SnapshotStatus::Waiting,
+
+			(_, SnapshotStatus::Waiting) | (_, SnapshotStatus::Ongoing(_)) => {
+				let maybe_last = voters.last().map(|(x, _, _)| x).cloned();
+
+				if let Some(ref last) = maybe_last {
+					if maybe_last == T::VoterList::iter().last() {
+						// all voters in the voter list have been consumed.
+						status = SnapshotStatus::Consumed;
+					} else {
+						status = SnapshotStatus::Ongoing(last.clone());
+					}
+				}
+			},
+			// do nothing.
+			(_, SnapshotStatus::Consumed) => (),
+		}
+		log!(
+			info,
+			"[page {}, status {:?}, bounds {:?}] generated {} npos voters",
+			page,
+			VoterSnapshotStatus::<T>::get(),
+			bounds,
+			voters.len(),
+		);
+		VoterSnapshotStatus::<T>::put(status);
 
 		debug_assert!(!bounds.slice_exhausted(&voters));
 
+		Ok(voters)
+	}
+
+	fn electing_voters_stateless(
+		bounds: DataProviderBounds,
+	) -> data_provider::Result<Vec<VoterOf<Self>>> {
+		let voters = Self::get_npos_voters(bounds, &SnapshotStatus::Waiting);
+		log!(
+			info,
+			"[stateless, status {:?}, bounds {:?}] generated {} npos voters",
+			VoterSnapshotStatus::<T>::get(),
+			bounds,
+			voters.len(),
+		);
 		Ok(voters)
 	}
 
@@ -2295,7 +2306,6 @@ impl<T: Config> Pallet<T> {
 	///
 	/// - `NextElectionPage`: should only be set if pages > 1 and if we are within `pages-election
 	///   -> election`
-	/// - `ElectableStashes`: should only be set in `pages-election -> election block`
 	/// - `VoterSnapshotStatus`: cannot be argued about as we don't know when we get a call to data
 	///   provider, but we know it should never be set if we have 1 page.
 	///
@@ -2304,13 +2314,6 @@ impl<T: Config> Pallet<T> {
 		let next_election = Self::next_election_prediction(now);
 		let pages = Self::election_pages().saturated_into::<BlockNumberFor<T>>();
 		let election_prep_start = next_election - pages;
-		let is_mid_election = now >= election_prep_start && now < next_election;
-		if !is_mid_election {
-			ensure!(
-				ElectableStashes::<T>::get().is_empty(),
-				"ElectableStashes should not be empty mid election"
-			);
-		}
 
 		if pages > One::one() && now >= election_prep_start {
 			ensure!(

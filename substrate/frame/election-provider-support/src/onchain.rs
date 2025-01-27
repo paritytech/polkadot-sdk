@@ -184,8 +184,9 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 	type Error = Error;
 	type MaxWinnersPerPage = T::MaxWinnersPerPage;
 	type MaxBackersPerWinner = T::MaxBackersPerWinner;
-	// can support any number of pages, as this is meant to be called "instantly".
-	type Pages = sp_core::ConstU32<{ u32::MAX }>;
+	// can support any number of pages, as this is meant to be called "instantly". We don't care
+	// about this value here.
+	type Pages = sp_core::ConstU32<1>;
 	type DataProvider = T::DataProvider;
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
