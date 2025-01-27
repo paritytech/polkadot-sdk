@@ -1387,9 +1387,9 @@ impl<T: Config> EraInfo<T> {
 
 /// Configurations of the benchmarking of the pallet.
 pub trait BenchmarkingConfig {
-	/// The maximum number of validators to use.
+	/// The maximum number of validators to use for snapshot creation.
 	type MaxValidators: Get<u32>;
-	/// The maximum number of nominators to use.
+	/// The maximum number of nominators to use for snapshot creation, per page.
 	type MaxNominators: Get<u32>;
 }
 

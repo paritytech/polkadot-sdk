@@ -331,7 +331,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		bag.put();
 
 		crate::log!(
-			debug,
+			trace,
 			"inserted {:?} with score {:?} into bag {:?}, new count is {}",
 			id,
 			score,

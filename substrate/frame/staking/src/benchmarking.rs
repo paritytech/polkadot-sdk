@@ -19,32 +19,33 @@
 
 use super::*;
 use crate::{asset, ConfigOp, Pallet as Staking};
-use testing_utils::*;
-
+use alloc::collections::btree_set::BTreeSet;
 use codec::Decode;
+pub use frame_benchmarking::{
+	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
+};
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
 	traits::{Get, Imbalance, UnfilteredDispatchable},
 };
+use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
-	Perbill, Percent, Saturating,
+	BoundedBTreeSet, Perbill, Percent, Saturating,
 };
 use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
-
-pub use frame_benchmarking::{
-	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
-};
-use frame_system::RawOrigin;
+use testing_utils::*;
 
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
 const MAX_SLASHES: u32 = 1000;
 
-type MaxValidators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
-type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
+type BenchMaxValidators<T> =
+	<<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
+type BenchMaxNominators<T> =
+	<<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
 
 // Add slashing spans to a user account. Not relevant for actual use, only to benchmark
 // read and write operations.
@@ -114,8 +115,15 @@ pub fn create_validator_with_nominators<T: Config>(
 	}
 
 	ValidatorCount::<T>::put(1);
+	MinimumValidatorCount::<T>::put(1);
 
-	// Start a new Era
+	// Start a new (genesis) Era
+	// populate electable stashes as it gets read within `try_plan_new_era`
+
+	// ElectableStashes::<T>::put(
+	// 	BoundedBTreeSet::try_from(vec![v_stash.clone()].into_iter().collect::<BTreeSet<_>>())
+	// 		.unwrap(),
+	// );
 	let new_validators = Staking::<T>::try_plan_new_era(SessionIndex::one(), true).unwrap();
 
 	assert_eq!(new_validators.len(), 1);
@@ -238,20 +246,35 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn do_elect_paged(v: Linear<1, { T::MaxValidatorSet::get() }>) -> Result<(), BenchmarkError> {
-		assert!(ElectableStashes::<T>::get().is_empty());
-
-		create_validators_with_nominators_for_era::<T>(
-			v,
-			100,
-			MaxNominationsOf::<T>::get() as usize,
-			false,
-			None,
-		)?;
+	fn do_elect_paged_inner(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		use frame_election_provider_support::{
+			BoundedSupport, BoundedSupportsOf, ElectionProvider,
+		};
+		let mut bounded_random_supports = BoundedSupportsOf::<T::ElectionProvider>::default();
+		for i in 0..v {
+			let backed = account("validator", i, SEED);
+			let mut total = 0;
+			let voters = (0..<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get())
+				.map(|j| {
+					let voter = account("nominator", j, SEED);
+					let support = 100000;
+					total += support;
+					(voter, support)
+				})
+				.collect::<Vec<_>>()
+				.try_into()
+				.unwrap();
+			bounded_random_supports
+				.try_push((backed, BoundedSupport { total, voters }))
+				.map_err(|_| "bound failed")
+				.expect("map is over the correct bound");
+		}
 
 		#[block]
 		{
-			Pallet::<T>::do_elect_paged(0u32);
+			assert_eq!(Pallet::<T>::do_elect_paged_inner(bounded_random_supports), Ok(v as usize));
 		}
 
 		assert!(!ElectableStashes::<T>::get().is_empty());
@@ -260,26 +283,65 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn clear_election_metadata(
-		v: Linear<1, { T::MaxValidatorSet::get() }>,
-	) -> Result<(), BenchmarkError> {
-		use frame_support::BoundedBTreeSet;
+	fn get_npos_voters(
+		// number of validator intention. we will iterate all of them.
+		v: Linear<{ BenchMaxValidators::<T>::get() / 2 }, { BenchMaxValidators::<T>::get() }>,
 
-		let mut stashes: BoundedBTreeSet<T::AccountId, T::MaxValidatorSet> = BoundedBTreeSet::new();
-		for u in (0..v).into_iter() {
-			frame_support::assert_ok!(stashes.try_insert(account("stash", u, SEED)));
+		// number of nominator intention. we will iterate all of them.
+		n: Linear<{ BenchMaxNominators::<T>::get() / 2 }, { BenchMaxNominators::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+
+		assert_eq!(Validators::<T>::count(), v);
+		assert_eq!(Nominators::<T>::count(), n);
+
+		let num_voters = (v + n) as usize;
+
+		// default bounds are unbounded.
+		let voters;
+		#[block]
+		{
+			voters = <Staking<T>>::get_npos_voters(
+				DataProviderBounds::default(),
+				&SnapshotStatus::<T::AccountId>::Waiting,
+			);
 		}
 
-		ElectableStashes::<T>::set(stashes);
-		NextElectionPage::<T>::set(Some(10u32.into()));
+		assert_eq!(voters.len(), num_voters);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn get_npos_targets(
+		// number of validator intention.
+		v: Linear<{ BenchMaxValidators::<T>::get() / 2 }, { BenchMaxValidators::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		// number of nominator intention.
+		let n = BenchMaxNominators::<T>::get();
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+
+		let targets;
 
 		#[block]
 		{
-			Pallet::<T>::clear_election_metadata()
+			// default bounds are unbounded.
+			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
 		}
 
-		assert!(NextElectionPage::<T>::get().is_none());
-		assert!(ElectableStashes::<T>::get().is_empty());
+		assert_eq!(targets.len() as u32, v);
 
 		Ok(())
 	}
@@ -630,7 +692,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_validator_count() {
-		let validator_count = MaxValidators::<T>::get();
+		let validator_count = BenchMaxValidators::<T>::get();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, validator_count);
@@ -664,7 +726,7 @@ mod benchmarks {
 
 	#[benchmark]
 	// Worst case scenario, the list of invulnerables is very long.
-	fn set_invulnerables(v: Linear<0, { MaxValidators::<T>::get() }>) {
+	fn set_invulnerables(v: Linear<0, { BenchMaxValidators::<T>::get() }>) {
 		let mut invulnerables = Vec::new();
 		for i in 0..v {
 			invulnerables.push(account("invulnerable", i, SEED));
@@ -888,29 +950,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn new_era(v: Linear<1, 10>, n: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		create_validators_with_nominators_for_era::<T>(
-			v,
-			n,
-			MaxNominationsOf::<T>::get() as usize,
-			false,
-			None,
-		)?;
-		let session_index = SessionIndex::one();
-
-		let validators;
-		#[block]
-		{
-			validators =
-				Staking::<T>::try_plan_new_era(session_index, true).ok_or("`new_era` failed")?;
-		}
-
-		assert!(validators.len() == v as usize);
-
-		Ok(())
-	}
-
 	#[benchmark(extra)]
 	fn payout_all(v: Linear<1, 10>, n: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		create_validators_with_nominators_for_era::<T>(
@@ -1001,70 +1040,6 @@ mod benchmarks {
 
 		let balance_after = asset::stakeable_balance::<T>(&stash);
 		assert!(balance_before > balance_after);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn get_npos_voters(
-		// number of validator intention. we will iterate all of them.
-		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
-
-		// number of nominator intention. we will iterate all of them.
-		n: Linear<{ MaxNominators::<T>::get() / 2 }, { MaxNominators::<T>::get() }>,
-	) -> Result<(), BenchmarkError> {
-		create_validators_with_nominators_for_era::<T>(
-			v,
-			n,
-			MaxNominationsOf::<T>::get() as usize,
-			false,
-			None,
-		)?;
-
-		assert_eq!(Validators::<T>::count(), v);
-		assert_eq!(Nominators::<T>::count(), n);
-
-		let num_voters = (v + n) as usize;
-
-		// default bounds are unbounded.
-		let voters;
-		#[block]
-		{
-			voters = <Staking<T>>::get_npos_voters(
-				DataProviderBounds::default(),
-				&SnapshotStatus::<T::AccountId>::Waiting,
-			);
-		}
-
-		assert_eq!(voters.len(), num_voters);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn get_npos_targets(
-		// number of validator intention.
-		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
-	) -> Result<(), BenchmarkError> {
-		// number of nominator intention.
-		let n = MaxNominators::<T>::get();
-		create_validators_with_nominators_for_era::<T>(
-			v,
-			n,
-			MaxNominationsOf::<T>::get() as usize,
-			false,
-			None,
-		)?;
-
-		let targets;
-
-		#[block]
-		{
-			// default bounds are unbounded.
-			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
-		}
-
-		assert_eq!(targets.len() as u32, v);
 
 		Ok(())
 	}

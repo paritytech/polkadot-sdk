@@ -69,6 +69,8 @@
 //!
 //! - TODO: allow less winners, and backport it.
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 mod impls;
 #[cfg(test)]
 mod tests;

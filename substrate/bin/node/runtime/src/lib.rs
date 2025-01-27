@@ -827,7 +827,7 @@ const MAX_QUOTA_NOMINATIONS: u32 = 16;
 
 pub struct StakingBenchmarkingConfig;
 impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
-	type MaxNominators = ConstU32<1000>;
+	type MaxNominators = ConstU32<5000>;
 	type MaxValidators = ConstU32<1000>;
 }
 
@@ -843,9 +843,9 @@ impl ElectionProvider for MultiElectionProvider {
 	type MaxWinnersPerPage = <MultiBlock as ElectionProvider>::MaxWinnersPerPage;
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		if page == 0 {
+		if page == 0 && !cfg!(feature = "runtime-benchmarks") {
 			// TODO: later on, we can even compare the results of the multi-page and multi-block
-			// election like this.
+			// election in here.
 			let _ = ElectionProviderMultiPhase::elect(page);
 		}
 		MultiBlock::elect(page)
@@ -926,7 +926,10 @@ pub(crate) mod multi_block_impls {
 		type AdminOrigin = EnsureRoot<AccountId>;
 		type RuntimeEvent = RuntimeEvent;
 		type DataProvider = Staking;
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Fallback = multi_block::Continue<Self>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 		// prepare for election 5 blocks ahead of time
 		type Lookahead = ConstU32<5>;
 		// split election into 8 pages.
@@ -1029,7 +1032,7 @@ parameter_types! {
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
 		.voters_count(5000.into()).targets_count(10.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(1000.into()).targets_count(10.into()).build();
+		.voters_count(50_000.into()).targets_count(1000.into()).build();
 
 	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	/// The maximum winners that can be elected by the Election pallet which is equivalent to the
@@ -1137,6 +1140,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SlashHandler = (); // burn slashes
 	type RewardHandler = (); // rewards are minted from the void
 	type DataProvider = Staking;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Fallback = frame_election_provider_support::NoElection<(
 		AccountId,
 		BlockNumber,
@@ -1144,6 +1148,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 		MaxActiveValidators,
 		MaxBackersPerWinner,
 	)>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, OffchainRandomBalancing>;
 	type ForceOrigin = EnsureRootOrHalfCouncil;

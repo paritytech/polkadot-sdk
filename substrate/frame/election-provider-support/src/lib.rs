@@ -829,6 +829,34 @@ pub struct BoundedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>>(
 	pub BoundedVec<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>,
 );
 
+impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
+	BoundedSupports<AccountId, BOuter, BInner>
+{
+	pub fn sorted_truncate_from(supports: Supports<AccountId>) -> Self {
+		// if bounds, meet, short circuit
+		if let Ok(bounded) = supports.clone().try_into() {
+			return bounded
+		}
+
+		// first, convert all inner supports.
+		let mut inner_supports = supports
+			.into_iter()
+			.map(|(account, support)| {
+				(account, BoundedSupport::<AccountId, BInner>::sorted_truncate_from(support))
+			})
+			.collect::<Vec<_>>();
+
+		// then sort outer supports based on total stake, high to low
+		inner_supports.sort_by(|a, b| b.1.total.cmp(&a.1.total));
+
+		// then take the first slice that can fit.
+		BoundedSupports(
+			BoundedVec::<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>::truncate_from(
+				inner_supports,
+			),
+		)
+	}
+}
 pub trait TryFromUnboundedPagedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {
 	fn try_from_unbounded_paged(
 		self,
@@ -948,35 +976,6 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> TryFrom<Supports<AccountId>>
 			.map_err(|_| crate::Error::BoundsExceeded)?;
 
 		Ok(outer_bounded_supports.into())
-	}
-}
-
-impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
-	BoundedSupports<AccountId, BOuter, BInner>
-{
-	pub fn sorted_truncate_from(supports: Supports<AccountId>) -> Self {
-		// if bounds, meet, short circuit
-		if let Ok(bounded) = supports.clone().try_into() {
-			return bounded
-		}
-
-		// first, convert all inner supports.
-		let mut inner_supports = supports
-			.into_iter()
-			.map(|(account, support)| {
-				(account, BoundedSupport::<AccountId, BInner>::sorted_truncate_from(support))
-			})
-			.collect::<Vec<_>>();
-
-		// then sort outer supports based on total stake, high to low
-		inner_supports.sort_by(|a, b| b.1.total.cmp(&a.1.total));
-
-		// then take the first slice that can fit.
-		BoundedSupports(
-			BoundedVec::<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>::truncate_from(
-				inner_supports,
-			),
-		)
 	}
 }
 

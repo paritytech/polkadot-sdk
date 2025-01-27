@@ -82,6 +82,8 @@ impl<T: Config> Pallet<T> {
 		VoterSnapshotStatus::<T>::kill();
 		NextElectionPage::<T>::kill();
 		ElectableStashes::<T>::kill();
+		// TODO: crude weights, improve.
+		Self::register_weight(T::DbWeight::get().writes(3));
 	}
 
 	/// Fetches the ledger associated with a controller or stash account, if any.
@@ -633,6 +635,7 @@ impl<T: Config> Pallet<T> {
 		start_session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
+		// TODO: weights of this call path are rather crude, improve.
 		let validators: BoundedVec<T::AccountId, MaxWinnersOf<T>> = if is_genesis {
 			// genesis election only uses one election result page.
 			let result = <T::GenesisElectionProvider>::elect(Zero::zero()).map_err(|e| {
@@ -652,10 +655,13 @@ impl<T: Config> Pallet<T> {
 			// set stakers info for genesis era (0).
 			let _ = Self::store_stakers_info(exposures, Zero::zero());
 
+			// consume full block weight to be safe.
+			Self::register_weight(sp_runtime::traits::Bounded::max_value());
 			validators
 		} else {
 			// note: exposures have already been processed and stored for each of the election
 			// solution page at the time of `elect_paged(page_index)`.
+			Self::register_weight(T::DbWeight::get().reads(1));
 			ElectableStashes::<T>::take()
 				.into_inner()
 				.into_iter()
@@ -746,6 +752,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_elect_paged(page: PageIndex) -> Weight {
 		match T::ElectionProvider::elect(page) {
 			Ok(supports) => {
+				let supports_len = supports.len() as u32;
 				let inner_processing_results = Self::do_elect_paged_inner(supports);
 				if let Err(not_included) = inner_processing_results {
 					defensive!(
@@ -759,7 +766,7 @@ impl<T: Config> Pallet<T> {
 					page,
 					result: inner_processing_results.map(|x| x as u32).map_err(|x| x as u32),
 				});
-				T::WeightInfo::do_elect_paged(T::MaxValidatorSet::get())
+				T::WeightInfo::do_elect_paged_inner(supports_len)
 			},
 			Err(e) => {
 				log!(warn, "election provider page failed due to {:?} (page: {})", e, page);

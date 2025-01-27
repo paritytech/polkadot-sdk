@@ -184,6 +184,8 @@ use verifier::Verifier;
 mod mock;
 #[macro_use]
 pub mod helpers;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 const LOG_PREFIX: &'static str = "runtime::multiblock-election";
 
@@ -515,7 +517,7 @@ pub mod pallet {
 				// start and continue snapshot.
 				Phase::Off
 					if remaining_blocks <= snapshot_deadline
-					// && remaining_blocks > signed_deadline
+					// && remaining_blocks > signed_deadline // TODO do we need this?
 					=>
 				{
 					let remaining_pages = Self::msp();
