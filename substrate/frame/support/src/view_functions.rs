@@ -17,8 +17,48 @@
 
 //! Traits for querying pallet view functions.
 
-use codec::{DecodeAll, Encode, Output};
-use sp_core::{ViewFunctionDispatchError, ViewFunctionId};
+use alloc::vec::Vec;
+use codec::{Decode, DecodeAll, Encode, Output};
+use scale_info::TypeInfo;
+use sp_runtime::RuntimeDebug;
+
+/// The unique identifier for a view function.
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct ViewFunctionId {
+	/// The part of the id for dispatching view functions from the top level of the runtime.
+	///
+	/// Specifies which view function grouping this view function belongs to. This could be a group
+	/// of view functions associated with a pallet, or a pallet agnostic group of view functions.
+	pub prefix: [u8; 16],
+	/// The part of the id for dispatching to a view function within a group.
+	pub suffix: [u8; 16],
+}
+
+impl From<ViewFunctionId> for [u8; 32] {
+	fn from(value: ViewFunctionId) -> Self {
+		let mut output = [0u8; 32];
+		output[..16].copy_from_slice(&value.prefix);
+		output[16..].copy_from_slice(&value.suffix);
+		output
+	}
+}
+
+/// Error type for view function dispatching.
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum ViewFunctionDispatchError {
+	/// View functions are not implemented for this runtime.
+	NotImplemented,
+	/// A view function with the given `ViewFunctionId` was not found
+	NotFound(ViewFunctionId),
+	/// Failed to decode the view function input.
+	Codec,
+}
+
+impl From<codec::Error> for ViewFunctionDispatchError {
+	fn from(_: codec::Error) -> Self {
+		ViewFunctionDispatchError::Codec
+	}
+}
 
 /// Implemented by both pallets and the runtime. The runtime is dispatching by prefix using the
 /// pallet implementation of `ViewFunctionIdPrefix` then the pallet is dispatching by suffix using
@@ -68,5 +108,21 @@ pub trait ViewFunction: DecodeAll {
 		let result = view_function.invoke();
 		Encode::encode_to(&result, output);
 		Ok(())
+	}
+}
+
+pub mod runtime_api {
+	use super::*;
+
+	sp_api::decl_runtime_apis! {
+		#[api_version(1)]
+		/// Runtime API for executing view functions
+		pub trait RuntimeViewFunction {
+			/// Execute a view function query.
+			fn execute_view_function(
+				query_id: ViewFunctionId,
+				input: Vec<u8>,
+			) -> Result<Vec<u8>, ViewFunctionDispatchError>;
+		}
 	}
 }

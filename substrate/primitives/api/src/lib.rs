@@ -113,10 +113,9 @@ pub mod __private {
 	pub use sp_runtime_interface::polkavm::{polkavm_abi, polkavm_export};
 }
 
-use alloc::vec::Vec;
 #[cfg(feature = "std")]
 pub use sp_core::traits::CallContext;
-use sp_core::{OpaqueMetadata, ViewFunctionDispatchError, ViewFunctionId};
+use sp_core::OpaqueMetadata;
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
 #[cfg(feature = "std")]
@@ -843,12 +842,6 @@ decl_runtime_apis! {
 		///
 		/// This can be used to call `metadata_at_version`.
 		fn metadata_versions() -> alloc::vec::Vec<u32>;
-	}
-
-	/// API for executing view functions
-	pub trait RuntimeViewFunction where {
-		/// Execute a view function query.
-		fn execute_view_function(query_id: ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError>;
 	}
 }
 

@@ -31,8 +31,8 @@ pub fn expand_outer_query(
 		let attr = pallet.get_attributes();
 		quote::quote! {
 			#attr
-			if id.prefix == <#pallet_name as #scrate::traits::ViewFunctionIdPrefix>::prefix() {
-				return <#pallet_name as #scrate::traits::DispatchViewFunction>::dispatch_view_function(id, input, output)
+			if id.prefix == <#pallet_name as #scrate::view_functions::ViewFunctionIdPrefix>::prefix() {
+				return <#pallet_name as #scrate::view_functions::DispatchViewFunction>::dispatch_view_function(id, input, output)
 			}
 		}
 	});
@@ -49,27 +49,27 @@ pub fn expand_outer_query(
 		pub enum #runtime_view_function {}
 
 		const _: () = {
-			impl #scrate::traits::DispatchViewFunction for #runtime_view_function {
+			impl #scrate::view_functions::DispatchViewFunction for #runtime_view_function {
 				fn dispatch_view_function<O: #scrate::__private::codec::Output>(
-					id: & #scrate::__private::ViewFunctionId,
+					id: & #scrate::view_functions::ViewFunctionId,
 					input: &mut &[u8],
 					output: &mut O
-				) -> Result<(), #scrate::__private::ViewFunctionDispatchError>
+				) -> Result<(), #scrate::view_functions::ViewFunctionDispatchError>
 				{
 					#( #prefix_conditionals )*
-					Err(#scrate::__private::ViewFunctionDispatchError::NotFound(id.clone()))
+					Err(#scrate::view_functions::ViewFunctionDispatchError::NotFound(id.clone()))
 				}
 			}
 
 			impl #runtime_name {
 				/// Convenience function for query execution from the runtime API.
 				pub fn execute_view_function(
-					id: #scrate::__private::ViewFunctionId,
+					id: #scrate::view_functions::ViewFunctionId,
 					input: #scrate::__private::Vec<::core::primitive::u8>,
-				) -> Result<#scrate::__private::Vec<::core::primitive::u8>, #scrate::__private::ViewFunctionDispatchError>
+				) -> Result<#scrate::__private::Vec<::core::primitive::u8>, #scrate::view_functions::ViewFunctionDispatchError>
 				{
 					let mut output = #scrate::__private::vec![];
-					<#runtime_view_function as #scrate::traits::DispatchViewFunction>::dispatch_view_function(&id, &mut &input[..], &mut output)?;
+					<#runtime_view_function as #scrate::view_functions::DispatchViewFunction>::dispatch_view_function(&id, &mut &input[..], &mut output)?;
 					Ok(output)
 				}
 			}

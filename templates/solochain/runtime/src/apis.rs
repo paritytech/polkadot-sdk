@@ -32,7 +32,7 @@ use frame_support::{
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, ViewFunctionDispatchError, ViewFunctionId};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionSource, TransactionValidity},
@@ -75,8 +75,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_api::RuntimeViewFunction<Block> for Runtime {
-		fn execute_view_function(id: ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError> {
+	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
+		fn execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
 			Runtime::execute_view_function(id, input)
 		}
 	}

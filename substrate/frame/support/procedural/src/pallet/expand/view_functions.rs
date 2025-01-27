@@ -61,7 +61,7 @@ fn expand_view_function_prefix_impl(
 	let type_use_gen = &def.type_use_generics(span);
 
 	quote::quote! {
-		impl<#type_impl_gen> #frame_support::traits::ViewFunctionIdPrefix for #pallet_ident<#type_use_gen> #where_clause {
+		impl<#type_impl_gen> #frame_support::view_functions::ViewFunctionIdPrefix for #pallet_ident<#type_use_gen> #where_clause {
 			fn prefix() -> [::core::primitive::u8; 16usize] {
 				<
 					<T as #frame_system::Config>::PalletInfo
@@ -134,15 +134,15 @@ fn expand_view_function(
 			}
 		}
 
-		impl<#type_impl_gen> #frame_support::traits::ViewFunctionIdSuffix for #view_function_struct_ident<#type_use_gen> #where_clause {
+		impl<#type_impl_gen> #frame_support::view_functions::ViewFunctionIdSuffix for #view_function_struct_ident<#type_use_gen> #where_clause {
 			const SUFFIX: [::core::primitive::u8; 16usize] = [ #( #view_function_id_suffix_bytes ),* ];
 		}
 
-		impl<#type_impl_gen> #frame_support::traits::ViewFunction for #view_function_struct_ident<#type_use_gen> #where_clause {
-			fn id() -> #frame_support::__private::ViewFunctionId {
-				#frame_support::__private::ViewFunctionId {
-					prefix: <#pallet_ident<#type_use_gen> as #frame_support::traits::ViewFunctionIdPrefix>::prefix(),
-					suffix: <Self as #frame_support::traits::ViewFunctionIdSuffix>::SUFFIX,
+		impl<#type_impl_gen> #frame_support::view_functions::ViewFunction for #view_function_struct_ident<#type_use_gen> #where_clause {
+			fn id() -> #frame_support::view_functions::ViewFunctionId {
+				#frame_support::view_functions::ViewFunctionId {
+					prefix: <#pallet_ident<#type_use_gen> as #frame_support::view_functions::ViewFunctionIdPrefix>::prefix(),
+					suffix: <Self as #frame_support::view_functions::ViewFunctionIdSuffix>::SUFFIX,
 				}
 			}
 
@@ -170,26 +170,26 @@ fn impl_dispatch_view_function(
 	let query_match_arms = view_fns.iter().map(|view_fn| {
 		let view_function_struct_ident = view_fn.view_function_struct_ident();
 		quote::quote! {
-			<#view_function_struct_ident<#type_use_gen> as #frame_support::traits::ViewFunctionIdSuffix>::SUFFIX => {
-				<#view_function_struct_ident<#type_use_gen> as #frame_support::traits::ViewFunction>::execute(input, output)
+			<#view_function_struct_ident<#type_use_gen> as #frame_support::view_functions::ViewFunctionIdSuffix>::SUFFIX => {
+				<#view_function_struct_ident<#type_use_gen> as #frame_support::view_functions::ViewFunction>::execute(input, output)
 			}
 		}
 	});
 
 	quote::quote! {
-		impl<#type_impl_gen> #frame_support::traits::DispatchViewFunction
+		impl<#type_impl_gen> #frame_support::view_functions::DispatchViewFunction
 			for #pallet_ident<#type_use_gen> #where_clause
 		{
 			#[deny(unreachable_patterns)]
 			fn dispatch_view_function<O: #frame_support::__private::codec::Output>(
-				id: & #frame_support::__private::ViewFunctionId,
+				id: & #frame_support::view_functions::ViewFunctionId,
 				input: &mut &[u8],
 				output: &mut O
-			) -> Result<(), #frame_support::__private::ViewFunctionDispatchError>
+			) -> Result<(), #frame_support::view_functions::ViewFunctionDispatchError>
 			{
 				match id.suffix {
 					#( #query_match_arms )*
-					_ => Err(#frame_support::__private::ViewFunctionDispatchError::NotFound(id.clone())),
+					_ => Err(#frame_support::view_functions::ViewFunctionDispatchError::NotFound(id.clone())),
 				}
 			}
 		}
@@ -233,10 +233,10 @@ fn impl_view_function_metadata(
 		quote::quote! {
 			#frame_support::__private::metadata_ir::ViewFunctionMetadataIR {
 				name: ::core::stringify!(#name),
-				id: <#view_function_struct_ident<#type_use_gen> as #frame_support::traits::ViewFunction>::id().into(),
+				id: <#view_function_struct_ident<#type_use_gen> as #frame_support::view_functions::ViewFunction>::id().into(),
 				args: #frame_support::__private::sp_std::vec![ #( #args ),* ],
 				output: #frame_support::__private::scale_info::meta_type::<
-					<#view_function_struct_ident<#type_use_gen> as #frame_support::traits::ViewFunction>::ReturnType
+					<#view_function_struct_ident<#type_use_gen> as #frame_support::view_functions::ViewFunction>::ReturnType
 				>(),
 				docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
 			}

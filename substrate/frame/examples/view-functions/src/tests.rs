@@ -25,7 +25,7 @@ use crate::{
 use codec::{Decode, Encode};
 use scale_info::{form::PortableForm, meta_type};
 
-use frame_support::{derive_impl, pallet_prelude::PalletInfoAccess, traits::ViewFunction};
+use frame_support::{derive_impl, pallet_prelude::PalletInfoAccess, view_functions::ViewFunction};
 use sp_io::hashing::twox_128;
 use sp_metadata_ir::{ViewFunctionArgMetadataIR, ViewFunctionGroupIR, ViewFunctionMetadataIR};
 use sp_runtime::testing::TestXt;

@@ -94,9 +94,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{
-	ConstU8, OpaqueMetadata, RuntimeDebug, ViewFunctionDispatchError, ViewFunctionId, H256,
-};
+use sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
@@ -1976,8 +1974,8 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl sp_api::RuntimeViewFunction<Block> for Runtime {
-		fn execute_view_function(id: ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError> {
+	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
+		fn execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
 			Runtime::execute_view_function(id, input)
 		}
 	}

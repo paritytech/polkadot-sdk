@@ -55,7 +55,7 @@ pub mod __private {
 	pub use scale_info;
 	pub use serde;
 	pub use serde_json;
-	pub use sp_core::{Get, OpaqueMetadata, ViewFunctionDispatchError, ViewFunctionId, Void};
+	pub use sp_core::{Get, OpaqueMetadata, Void};
 	pub use sp_crypto_hashing_proc_macro;
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
@@ -87,6 +87,7 @@ pub mod storage;
 #[cfg(test)]
 mod tests;
 pub mod traits;
+pub mod view_functions;
 pub mod weights;
 #[doc(hidden)]
 pub mod unsigned {

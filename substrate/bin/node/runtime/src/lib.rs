@@ -103,7 +103,7 @@ use sp_consensus_beefy::{
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, ViewFunctionDispatchError, ViewFunctionId, H160};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -3014,8 +3014,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_api::RuntimeViewFunction<Block> for Runtime {
-		fn execute_view_function(id: ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError> {
+	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
+		fn execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
 			Runtime::execute_view_function(id, input)
 		}
 	}

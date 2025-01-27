@@ -327,44 +327,6 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 #[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum Void {}
 
-/// Error type for view function dispatching.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum ViewFunctionDispatchError {
-	/// View functions are not implemented for this runtime.
-	NotImplemented,
-	/// A view function with the given `ViewFunctionId` was not found
-	NotFound(ViewFunctionId),
-	/// Failed to decode the view function input.
-	Codec,
-}
-
-impl From<codec::Error> for ViewFunctionDispatchError {
-	fn from(_: codec::Error) -> Self {
-		ViewFunctionDispatchError::Codec
-	}
-}
-
-/// The unique identifier for a view function.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct ViewFunctionId {
-	/// The part of the id for dispatching view functions from the top level of the runtime.
-	///
-	/// Specifies which view function grouping this view function belongs to. This could be a group
-	/// of view functions associated with a pallet, or a pallet agnostic group of view functions.
-	pub prefix: [u8; 16],
-	/// The part of the id for dispatching to a view function within a group.
-	pub suffix: [u8; 16],
-}
-
-impl From<ViewFunctionId> for [u8; 32] {
-	fn from(value: ViewFunctionId) -> Self {
-		let mut output = [0u8; 32];
-		output[..16].copy_from_slice(&value.prefix);
-		output[16..].copy_from_slice(&value.suffix);
-		output
-	}
-}
-
 /// Macro for creating `Maybe*` marker traits.
 ///
 /// Such a maybe-marker trait requires the given bound when `feature = std` and doesn't require

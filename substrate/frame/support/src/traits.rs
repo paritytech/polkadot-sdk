@@ -139,12 +139,6 @@ pub use proving::*;
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime;
-
-mod view_function;
-pub use view_function::{
-	DispatchViewFunction, ViewFunction, ViewFunctionIdPrefix, ViewFunctionIdSuffix,
-};
-
 #[cfg(feature = "try-runtime")]
 pub use try_runtime::{
 	Select as TryStateSelect, TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState,
