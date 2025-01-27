@@ -1918,7 +1918,7 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(AssetHubWestend::get())
+							id: AssetId(WestendLocation::get())
 						},
 						// AH can reserve transfer native token to some random parachain.
 						AssetHubWestend::get(),
