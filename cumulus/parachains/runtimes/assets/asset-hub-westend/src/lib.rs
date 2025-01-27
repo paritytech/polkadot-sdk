@@ -1910,7 +1910,7 @@ impl_runtime_apis! {
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(WestendLocation::get())
 						},
-						AssetHubWestend::get(),
+						RandomParaLocation::get(),
 					))
 				}
 
