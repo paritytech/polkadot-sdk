@@ -297,9 +297,9 @@ test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
 	});
 
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
-	await rc_provider.send('dev_newBlock', [{ count: 1 }])
 	expect(r).toBeTruthy();
 
+	await rc_provider.send('dev_newBlock', [{ count: 1 }])
 	const bob_balance_after = await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
 	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
 });
@@ -368,6 +368,10 @@ test("Initiate Teleport (AH -> RC) with remote fees", async () => {
 	);
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
+
+	await rc_provider.send('dev_newBlock', [{ count: 1 }])
+	const bob_balance_after = await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
+	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
 });
 
 test("Reserve Asset Transfer (local) of USDT from Asset Hub `Alice` to Penpal `Alice`", async () => {
