@@ -1499,7 +1499,7 @@ impl_runtime_apis! {
 		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
-	};
+	}
 
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
@@ -1870,7 +1870,7 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, AssetHubWestend, AssetHubId};
+			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			parameter_types! {
@@ -1884,20 +1884,13 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = (
-					cumulus_primitives_utility::ToParentDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						xcm_config::PriceForParentDelivery,
-					>,
-					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
 						RandomParaId,
 						ParachainSystem,
-					>
-				);
+					>;
 
 				fn reachable_dest() -> Option<Location> {
 					Some(RandomParaLocation::get())
