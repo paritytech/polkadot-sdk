@@ -63,7 +63,7 @@ use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	MessageKey, OutboundLaneData,
 };
-pub use bp_xcm_bridge::{Receiver, XcmBridgeHubCall};
+pub use bp_xcm_bridge::{Receiver, XcmBridgeCall};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LaneIdOf, OutboundLanes, Pallet};
 pub use pallet_bridge_messages::{
 	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
@@ -1024,7 +1024,7 @@ macro_rules! impl_bridge_helpers_for_chain {
 	( $chain:ident, $pallet:ident, $pallet_xcm:ident, $runtime_call_wrapper:path ) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
-				/// Open bridge with `dest`.
+				/// Open bridge with `dest` (works with `pallet-xcm-bridge`).
 				pub fn open_bridge(
 					bridge_location: $crate::impls::Location,
 					bridge_destination_universal_location: $crate::impls::InteriorLocation,
@@ -1033,14 +1033,14 @@ macro_rules! impl_bridge_helpers_for_chain {
 				) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						use $crate::impls::{bx, Chain};
-						use $crate::impls::XcmBridgeHubCall;
+						use $crate::impls::XcmBridgeCall;
 						use $crate::impls::Encode;
 
 						// important to use `root` and `OriginKind::Xcm`
 						let root_origin = <Self as Chain>::RuntimeOrigin::root();
 
 						// construct call
-						let call: $crate::impls::DoubleEncoded<()> = $runtime_call_wrapper(XcmBridgeHubCall::open_bridge {
+						let call: $crate::impls::DoubleEncoded<()> = $runtime_call_wrapper(XcmBridgeCall::open_bridge {
 							bridge_destination_universal_location: bx!(
 								bridge_destination_universal_location.clone().into()
 							),

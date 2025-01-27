@@ -22,7 +22,7 @@ use futures::prelude::*;
 use sc_network::MAX_RESPONSE_SIZE;
 use sc_network_common::ExHashT;
 use sp_runtime::traits::Block as BlockT;
-use std::{collections::HashMap, future::Future, pin::Pin, time};
+use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc, time};
 
 /// Interval at which we propagate transactions;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(2900);
@@ -57,7 +57,7 @@ pub type TransactionImportFuture = Pin<Box<dyn Future<Output = TransactionImport
 /// Transaction pool interface
 pub trait TransactionPool<H: ExHashT, B: BlockT>: Send + Sync {
 	/// Get transactions from the pool that are ready to be propagated.
-	fn transactions(&self) -> Vec<(H, B::Extrinsic)>;
+	fn transactions(&self) -> Vec<(H, Arc<B::Extrinsic>)>;
 	/// Get hash of transaction.
 	fn hash_of(&self, transaction: &B::Extrinsic) -> H;
 	/// Import a transaction into the pool.
@@ -67,7 +67,7 @@ pub trait TransactionPool<H: ExHashT, B: BlockT>: Send + Sync {
 	/// Notify the pool about transactions broadcast.
 	fn on_broadcasted(&self, propagations: HashMap<H, Vec<String>>);
 	/// Get transaction by hash.
-	fn transaction(&self, hash: &H) -> Option<B::Extrinsic>;
+	fn transaction(&self, hash: &H) -> Option<Arc<B::Extrinsic>>;
 }
 
 /// Dummy implementation of the [`TransactionPool`] trait for a transaction pool that is always
@@ -79,7 +79,7 @@ pub trait TransactionPool<H: ExHashT, B: BlockT>: Send + Sync {
 pub struct EmptyTransactionPool;
 
 impl<H: ExHashT + Default, B: BlockT> TransactionPool<H, B> for EmptyTransactionPool {
-	fn transactions(&self) -> Vec<(H, B::Extrinsic)> {
+	fn transactions(&self) -> Vec<(H, Arc<B::Extrinsic>)> {
 		Vec::new()
 	}
 
@@ -93,7 +93,7 @@ impl<H: ExHashT + Default, B: BlockT> TransactionPool<H, B> for EmptyTransaction
 
 	fn on_broadcasted(&self, _: HashMap<H, Vec<String>>) {}
 
-	fn transaction(&self, _h: &H) -> Option<B::Extrinsic> {
+	fn transaction(&self, _h: &H) -> Option<Arc<B::Extrinsic>> {
 		None
 	}
 }
