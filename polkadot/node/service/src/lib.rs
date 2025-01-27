@@ -90,6 +90,7 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 pub use polkadot_primitives::{Block, BlockId, BlockNumber, CollatorPair, Hash, Id as ParaId};
+use sc_chain_spec::ChainType;
 pub use sc_client_api::{Backend, CallExecutor};
 pub use sc_consensus::{BlockImport, LongestChain};
 pub use sc_executor::NativeExecutionDispatch;
@@ -99,7 +100,6 @@ pub use sc_service::{
 	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, TFullBackend,
 	TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
-use sc_chain_spec::ChainType;
 pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_consensus::{Proposal, SelectChain};
 use sp_consensus_beefy::ecdsa_crypto;
