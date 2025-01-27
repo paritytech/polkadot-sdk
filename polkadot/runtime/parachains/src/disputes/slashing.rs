@@ -83,8 +83,8 @@ const LOG_TARGET: &str = "runtime::parachains::slashing";
 
 // These are constants, but we want to make them configurable
 // via `HostConfiguration` in the future.
-const SLASH_BACKED_INVALID: Perbill = Perbill::from_percent(100);
-const SLASH_FOR_INVALID: Perbill = Perbill::from_percent(2);
+const SLASH_FOR_INVALID_BACKED: Perbill = Perbill::from_percent(100);
+const SLASH_FOR_INVALID_APPROVED: Perbill = Perbill::from_percent(2);
 const SLASH_AGAINST_VALID: Perbill = Perbill::zero();
 const DEFENSIVE_PROOF: &'static str = "disputes module should bail on old session";
 
@@ -159,8 +159,8 @@ impl<KeyOwnerIdentification> SlashingOffence<KeyOwnerIdentification> {
 	) -> Self {
 		let time_slot = DisputesTimeSlot::new(session_index, candidate_hash);
 		let slash_fraction = match kind {
-			SlashingOffenceKind::BackedInvalid => SLASH_BACKED_INVALID,
-			SlashingOffenceKind::ForInvalid => SLASH_FOR_INVALID,
+			SlashingOffenceKind::ForInvalidBacked => SLASH_FOR_INVALID_BACKED,
+			SlashingOffenceKind::ForInvalidApproved => SLASH_FOR_INVALID_APPROVED,
 			SlashingOffenceKind::AgainstValid => SLASH_AGAINST_VALID,
 		};
 		Self { time_slot, validator_set_count, offenders, slash_fraction, kind }
@@ -220,7 +220,6 @@ where
 	) {
 		let losers: BTreeSet<_> = losers.into_iter().collect();
 		if losers.is_empty() {
-			todo!("defensive, should that happen?");
 			return
 		}
 		let session_info = crate::session_info::Sessions::<T>::get(session_index);
@@ -245,7 +244,7 @@ where
 			return
 		}
 
-		let keys = to_punish
+		let keys = losers
 			.into_iter()
 			.filter_map(|i| session_info.validators.get(i).cloned().map(|id| (i, id)))
 			.collect();
@@ -266,28 +265,21 @@ impl<T> disputes::SlashingHandler<BlockNumberFor<T>> for SlashValidatorsForDispu
 where
 	T: Config<KeyOwnerIdentification = IdentificationTuple<T>>,
 {
-	fn punish_backed_invalid(
-		session_index: SessionIndex,
-		candidate_hash: CandidateHash,
-		losers: impl IntoIterator<Item = ValidatorIndex>,
-	) {
-		let kind = SlashingOffenceKind::BackedInvalid;
-		Self::do_punish(session_index, candidate_hash, kind, losers);
-	}
-
 	fn punish_for_invalid(
 		session_index: SessionIndex,
 		candidate_hash: CandidateHash,
 		losers: impl IntoIterator<Item = ValidatorIndex>,
+		backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		let kind = SlashingOffenceKind::ForInvalid;
-		Self::do_punish(session_index, candidate_hash, kind, losers);
+		Self::do_punish(session_index, candidate_hash, SlashingOffenceKind::ForInvalidBacked, backers);
+		Self::do_punish(session_index, candidate_hash, SlashingOffenceKind::ForInvalidApproved, losers);
 	}
 
 	fn punish_against_valid(
 		session_index: SessionIndex,
 		candidate_hash: CandidateHash,
 		losers: impl IntoIterator<Item = ValidatorIndex>,
+		_backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
 		let kind = SlashingOffenceKind::AgainstValid;
 		Self::do_punish(session_index, candidate_hash, kind, losers);
@@ -591,7 +583,8 @@ impl<T: Config> Pallet<T> {
 			let longevity = <T::HandleReports as HandleReports<T>>::ReportLongevity::get();
 
 			let tag_prefix = match dispute_proof.kind {
-				SlashingOffenceKind::ForInvalid => "DisputeForInvalid",
+				SlashingOffenceKind::ForInvalidBacked => "DisputeForInvalidBacked",
+				SlashingOffenceKind::ForInvalidApproved => "DisputeForInvalidApproved",
 				SlashingOffenceKind::AgainstValid => "DisputeAgainstValid",
 			};
 
