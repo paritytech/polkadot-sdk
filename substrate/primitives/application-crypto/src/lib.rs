@@ -367,16 +367,6 @@ macro_rules! app_crypto_public_common {
 			pub fn into_inner(self) -> $public {
 				self.0
 			}
-
-			/// Verify the proposed proof of possession is correct.
-			pub fn verify_proof_of_possession(
-				proof_of_possession: &<Self as $crate::AppCrypto>::Signature,
-				allegedly_possessed_pubkey: &Self
-			) -> bool {
-				let pub_key_as_bytes = allegedly_possessed_pubkey.0.to_vec();
-				let pop_statement = [$crate::POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
-				<<Self as $crate::AppCrypto>::Pair as $crate::Pair>::verify(&proof_of_possession, pop_statement, allegedly_possessed_pubkey)
-			}
 		}
 	};
 }

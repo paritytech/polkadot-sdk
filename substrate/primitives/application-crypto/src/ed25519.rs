@@ -21,7 +21,7 @@ use crate::{KeyTypeId, RuntimePublic};
 
 use alloc::vec::Vec;
 
-use sp_core::crypto::{ProofOfPossessionVerifier, POP_CONTEXT_TAG, CryptoType};
+use sp_core::crypto::POP_CONTEXT_TAG;
 pub use sp_core::ed25519::*;
 
 mod app {
@@ -56,9 +56,9 @@ impl RuntimePublic for Public {
 	}
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
-		let pop = AppSignature::from(pop.clone());
-		let pub_key = AppPublic::from(self.clone());
-		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&pop, &pub_key)
+		let pub_key_as_bytes = self.to_raw_vec();
+		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
+		sp_io::crypto::ed25519_verify(&pop, &pop_statement, &self)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
