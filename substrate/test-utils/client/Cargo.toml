@@ -26,7 +26,6 @@ sc-client-db = { features = [
 ], workspace = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
-sc-offchain = { workspace = true, default-features = true }
 sc-service = { workspace = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
