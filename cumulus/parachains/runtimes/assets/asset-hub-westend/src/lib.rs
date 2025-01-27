@@ -1908,7 +1908,7 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(AssetHubWestend::get())
+							id: AssetId(WestendLocation::get())
 						},
 						AssetHubWestend::get(),
 					))
