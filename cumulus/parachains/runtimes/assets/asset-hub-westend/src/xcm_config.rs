@@ -64,8 +64,6 @@ use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
-	pub const AssetHubId: u32 = 1000;
-	pub const AssetHubWestend: Location = Parachain(AssetHubId::get()).into();
 	pub const WestendLocation: Location = Location::parent();
 	pub const GovernanceLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
