@@ -1,4 +1,7 @@
-import { test, expect } from "bun:test";
+import { test, beforeAll, expect } from "bun:test";
+import { CONFIG } from "./config";
+import { createPolkadotClient, getFreeBalance } from './util'
+
 import {
 	wnd_ah,
 	Wnd_ahCalls,
@@ -13,73 +16,61 @@ import {
 	XcmV4AssetAssetFilter,
 	XcmV2OriginKind,
 } from "@polkadot-api/descriptors";
-import { Binary, Enum, createClient } from "polkadot-api";
-import { getWsProvider } from "polkadot-api/ws-provider/web";
-import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
-import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
-import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy } from "@polkadot-labs/hdkd-helpers";
+
+import { Binary, Enum } from "polkadot-api";
 import { getPolkadotSigner } from "polkadot-api/signer";
 
-import { ApiPromise } from '@polkadot/api';
+import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
+import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy } from "@polkadot-labs/hdkd-helpers";
+
 import { WsProvider } from '@polkadot/rpc-provider';
 
-const WESTEND_NETWORK = Uint8Array.from([
-	225, 67, 242, 56, 3, 172, 80, 232, 246, 248, 230, 38, 149, 209, 206, 158, 78, 29, 104, 170, 54,
-	193, 205, 44, 253, 21, 52, 2, 19, 243, 66, 62,
-]);
-// TODO: find a way to extract keys below from yaml config.
-const BOB_KEY = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
-const ALICE_KEY = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+let ah_provider, rc_provider;
+let AHApi, PenpalApi, rcApi;
 
-// Addresses
-const AH_ADDRESS = 'ws://localhost:8000'
-const PENPAL_ADDRESS = 'ws://localhost:8001'
-const RC_ADDRESS = 'ws://localhost:8002'
+let hdkdKeyPairAlice, hdkdKeyPairBob;
+let aliceSigner, bobSigner;
 
-// init providers
-const ah_provider = new WsProvider(AH_ADDRESS);
-await ah_provider.isReady;
 
-const rc_provider = new WsProvider(RC_ADDRESS);
-await rc_provider.isReady;
+beforeAll(async () => {
+	// Initialize HDKD key pairs and signers
+	const entropy = mnemonicToEntropy(DEV_PHRASE);
+	const miniSecret = entropyToMiniSecret(entropy);
+	const derive = sr25519CreateDerive(miniSecret);
 
-// Create and initialize clients
-const ahClient = createClient(withPolkadotSdkCompat(getWsProvider(AH_ADDRESS)));
-const AHApi = ahClient.getTypedApi(wnd_ah);
 
-const penaplClient = createClient(withPolkadotSdkCompat(getWsProvider(PENPAL_ADDRESS)));
-const PenpalApi = penaplClient.getTypedApi(wnd_penpal);
+	hdkdKeyPairAlice = derive("//Alice");
+	aliceSigner = getPolkadotSigner(hdkdKeyPairAlice.publicKey,
+		"Sr25519",
+		hdkdKeyPairAlice.sign,
+	);
 
-const rcClient = createClient(withPolkadotSdkCompat(getWsProvider(RC_ADDRESS)));
-const rcApi = rcClient.getTypedApi(wnd_penpal);
+	hdkdKeyPairBob = derive("//Bob");
+	bobSigner = getPolkadotSigner(
+		hdkdKeyPairBob.publicKey,
+		"Sr25519",
+		hdkdKeyPairBob.sign,
+	);
 
-// Initialize HDKD key pairs and signers
-const entropy = mnemonicToEntropy(DEV_PHRASE);
-const miniSecret = entropyToMiniSecret(entropy);
-const derive = sr25519CreateDerive(miniSecret);
 
-const hdkdKeyPairAlice = derive("//Alice");
-const aliceSigner = getPolkadotSigner(
-	hdkdKeyPairAlice.publicKey,
-	"Sr25519",
-	hdkdKeyPairAlice.sign,
-);
+	// init clients
+	AHApi = createPolkadotClient(CONFIG.WS_ADDRESSES.AH, wnd_ah);
+	PenpalApi = createPolkadotClient(CONFIG.WS_ADDRESSES.PENPAL, wnd_penpal);
+	rcApi = createPolkadotClient(CONFIG.WS_ADDRESSES.RC, wnd_rc);
 
-const hdkdKeyPairBob = derive("//Bob");
-const bobSigner = getPolkadotSigner(
-	hdkdKeyPairBob.publicKey,
-	"Sr25519",
-	hdkdKeyPairBob.sign,
-);
+	// init providers
+	ah_provider = new WsProvider(CONFIG.WS_ADDRESSES.AH);
+	rc_provider = new WsProvider(CONFIG.WS_ADDRESSES.RC);
 
-// Utility function for balance fetching
-async function getFreeBalance(api, accountKey) {
-	const balance = await api.query.System.Account.getValue(accountKey);
-	return balance.data.free;
-}
+	await Promise.all([
+		ah_provider.isReady,
+		rc_provider.isReady,
+	]);
+});
+
 
 test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
-	const bobBalanceBefore = await getFreeBalance(AHApi, BOB_KEY);
+	const bobBalanceBefore = await getFreeBalance(AHApi, CONFIG.KEYS.BOB);
 
 	const alice_msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V5", [
 		Enum('SetHints', {
@@ -88,7 +79,7 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 					location: {
 						parents: 0,
 						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-							network: Enum("ByGenesis", Binary.fromBytes(WESTEND_NETWORK)),
+							network: Enum("ByGenesis", Binary.fromBytes(CONFIG.WESTEND_NETWORK)),
 							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
 						}))
 					},
@@ -164,7 +155,7 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 	const claimResult = await bobClaimTx.signAndSubmit(bobSigner);
 	expect(claimResult.ok).toBeTruthy();
 
-	const bobBalanceAfter = await getFreeBalance(AHApi, BOB_KEY);
+	const bobBalanceAfter = await getFreeBalance(AHApi, CONFIG.KEYS.BOB);
 	expect(bobBalanceAfter > bobBalanceBefore).toBeTruthy();
 });
 
@@ -206,7 +197,7 @@ test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
 });
 
 test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
-	const bob_balance_before =  await getFreeBalance(rcApi, BOB_KEY);
+	const bob_balance_before =  await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
 	const deposit_amount = 1_000_000_000_000n;
 
 	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
@@ -287,7 +278,7 @@ test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
 	await rc_provider.send('dev_newBlock', [{ count: 1 }])
 	expect(r).toBeTruthy();
 
-	const bob_balance_after = await getFreeBalance(rcApi, BOB_KEY);
+	const bob_balance_after = await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
 	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
 });
 
@@ -739,7 +730,7 @@ test("Initiate Teleport XCM v5 from Westend's Asset Hub to Westend People w/ Ini
 	const r = await ahToPpl.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
 
-	expect(await getFreeBalance(AHApi, ALICE_KEY)).toBeLessThan(
+	expect(await getFreeBalance(AHApi, CONFIG.KEYS.ALICE)).toBeLessThan(
 		1_000_000_000_000_000n - 10_000_000_000_000n
 	);
 });
