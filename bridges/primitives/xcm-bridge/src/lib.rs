@@ -21,7 +21,7 @@
 
 use bp_messages::LaneIdType;
 use bp_runtime::{AccountIdOf, BalanceOf, Chain};
-pub use call_info::XcmBridgeHubCall;
+pub use call_info::XcmBridgeCall;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure, sp_runtime::RuntimeDebug, CloneNoBound, PalletError, PartialEqNoBound,

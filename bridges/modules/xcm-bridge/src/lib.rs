@@ -1857,7 +1857,7 @@ mod tests {
 		let receiver = Receiver::new(13, 15);
 
 		assert_eq!(
-			bp_xcm_bridge::XcmBridgeHubCall::open_bridge {
+			bp_xcm_bridge::XcmBridgeCall::open_bridge {
 				bridge_destination_universal_location: Box::new(
 					bridge_destination_universal_location.clone().into()
 				),
@@ -1873,7 +1873,7 @@ mod tests {
 			.encode()
 		);
 		assert_eq!(
-			bp_xcm_bridge::XcmBridgeHubCall::close_bridge {
+			bp_xcm_bridge::XcmBridgeCall::close_bridge {
 				bridge_destination_universal_location: Box::new(
 					bridge_destination_universal_location.clone().into()
 				),

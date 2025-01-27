@@ -26,7 +26,7 @@ use xcm::prelude::VersionedInteriorLocation;
 /// A minimized version of `pallet_xcm_bridge::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
-pub enum XcmBridgeHubCall {
+pub enum XcmBridgeCall {
 	/// `pallet_xcm_bridge::Call::open_bridge`
 	#[codec(index = 0)]
 	open_bridge {
