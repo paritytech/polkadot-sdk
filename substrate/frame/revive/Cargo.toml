@@ -41,16 +41,16 @@ frame-system = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["scale"] }
-pallet-transaction-payment = { workspace = true }
 pallet-session = { workspace = true, default-features = false }
+pallet-transaction-payment = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
+sp-consensus-aura = { workspace = true, optional = true }
+sp-consensus-babe = { workspace = true, optional = true }
+sp-consensus-slots = { workspace = true, optional = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-consensus-babe = { workspace = true, optional = true }
-sp-consensus-aura = { workspace = true, optional = true }
-sp-consensus-slots = { workspace = true, optional = true  }
 subxt-signer = { workspace = true, optional = true, features = [
 	"unstable-eth",
 ] }
@@ -118,8 +118,8 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"sp-consensus-babe",
 	"sp-consensus-aura",
+	"sp-consensus-babe",
 	"sp-consensus-slots",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

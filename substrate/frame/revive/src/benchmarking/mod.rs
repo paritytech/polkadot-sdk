@@ -46,8 +46,10 @@ use sp_consensus_babe::{
 	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::traits::{Bounded, Hash};
-use sp_runtime::generic::{Digest, DigestItem};
+use sp_runtime::{
+	generic::{Digest, DigestItem},
+	traits::{Bounded, Hash},
+};
 
 /// How many runs we do per API benchmark.
 ///
