@@ -160,6 +160,9 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 });
 
 test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
+	const bob_balance_before =  await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
+	const deposit_amount = 5_000_000_000_000n;
+
 	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V4", [
 		XcmV4Instruction.WithdrawAsset([{
 			id: { parents: 1, interior: XcmV3Junctions.Here() },
@@ -182,6 +185,21 @@ test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
 					},
 					weight_limit: XcmV3WeightLimit.Unlimited(),
 				}),
+				XcmV4Instruction.DepositAsset({
+					assets: XcmV3MultiassetMultiAssetFilter.Definite([{
+						fun: XcmV3MultiassetFungibility.Fungible(deposit_amount),
+						id: { parents: 0, interior: XcmV3Junctions.Here() },
+					}]),
+					beneficiary: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(
+							XcmV3Junction.AccountId32({
+								network: undefined,
+								id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+							})
+						),
+					},
+				}),
 			],
 		}),
 	]);
@@ -194,6 +212,10 @@ test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
 
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
+
+	await rc_provider.send('dev_newBlock', [{ count: 1 }])
+	const bob_balance_after = await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
+	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
 });
 
 test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
