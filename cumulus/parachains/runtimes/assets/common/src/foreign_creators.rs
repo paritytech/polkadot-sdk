@@ -45,7 +45,7 @@ where
 		tracing::trace!(target: "xcm::try_origin", ?origin, ?asset_location, "ForeignCreators");
 		let origin_location = EnsureXcm::<Everything, L>::try_origin(origin.clone())?;
 		if !IsForeign::contains(asset_location, &origin_location) {
-			tracing::debug!(target: "xcm::try_origin", ?asset_location, ?origin_location, "ForeignCreators: asset location not contained in origin location");
+			tracing::trace!(target: "xcm::try_origin", ?asset_location, ?origin_location, "ForeignCreators: no match");
 			return Err(origin)
 		}
 		let latest_location: Location =

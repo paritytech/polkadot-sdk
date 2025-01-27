@@ -33,8 +33,9 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 	for IsForeignConcreteAsset<IsForeign>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		tracing::trace!(target: "xcm::contains", ?asset, ?origin, "IsForeignConcreteAsset");
-		matches!(asset.id, AssetId(ref id) if IsForeign::contains(id, origin))
+		let result = matches!(asset.id, AssetId(ref id) if IsForeign::contains(id, origin));
+		tracing::trace!(target: "xcm::contains", ?asset, ?origin, ?result, "IsForeignConcreteAsset");
+		result
 	}
 }
 

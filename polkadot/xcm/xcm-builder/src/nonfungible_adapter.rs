@@ -233,7 +233,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let instance = Matcher::matches_nonfungible(what).ok_or(MatchError::AssetNotHandled)?;
 		NonFungible::burn(&instance, Some(&who)).map_err(|e| {
-			tracing::debug!(target: LOG_TARGET, ?e, ?instance, ?who, "Failed to withdraw asset");
+			tracing::debug!(target: LOG_TARGET, ?e, ?instance, ?who, "Failed to burn asset");
 			XcmError::FailedToTransactAsset(e.into())
 		})?;
 		Ok(what.clone().into())
