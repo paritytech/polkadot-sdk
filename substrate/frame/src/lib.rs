@@ -211,8 +211,7 @@ pub mod prelude {
 			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
 			UnfilteredDispatchable,
 		},
-		weights::Weight,
-  }
+  };
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
