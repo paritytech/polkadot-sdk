@@ -766,7 +766,6 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
 }
 
-
 #[test]
 fn deny_instructions_with_xcm_works() {
 	frame_support::__private::sp_tracing::try_init_simple();
@@ -774,7 +773,12 @@ fn deny_instructions_with_xcm_works() {
 	// dummy filter which denies `ClearOrigin`
 	struct DenyClearOrigin;
 	impl ShouldExecute for DenyClearOrigin {
-		fn should_execute<RuntimeCall>(_: &Location, message: &mut [Instruction<RuntimeCall>], _: Weight, _: &mut Properties) -> Result<(), ProcessMessageError> {
+		fn should_execute<RuntimeCall>(
+			_: &Location,
+			message: &mut [Instruction<RuntimeCall>],
+			_: Weight,
+			_: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
 			message.matcher().match_next_inst_while(
 				|_| true,
 				|inst| match inst {
@@ -786,7 +790,8 @@ fn deny_instructions_with_xcm_works() {
 		}
 	}
 
-	// closure for (xcm, origin) testing with `DenyInstructionsWithXcm` which denies `ClearOrigin` instruction
+	// closure for (xcm, origin) testing with `DenyInstructionsWithXcm` which denies `ClearOrigin`
+	// instruction
 	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
 			DenyInstructionsWithXcm::<DenyClearOrigin>::should_execute(
@@ -800,17 +805,9 @@ fn deny_instructions_with_xcm_works() {
 	};
 
 	// ok
-	assert_should_execute(
-		vec![ClearTransactStatus],
-		Location::parent(),
-		Ok(()),
-	);
+	assert_should_execute(vec![ClearTransactStatus], Location::parent(), Ok(()));
 	// ok top-level contains `ClearOrigin`
-	assert_should_execute(
-		vec![ClearOrigin],
-		Location::parent(),
-		Ok(()),
-	);
+	assert_should_execute(vec![ClearOrigin], Location::parent(), Ok(()));
 	// ok - SetAppendix with XCM without ClearOrigin
 	assert_should_execute(
 		vec![SetAppendix(Xcm(vec![ClearTransactStatus]))],
@@ -819,11 +816,7 @@ fn deny_instructions_with_xcm_works() {
 	);
 
 	// invalid - empty XCM
-	assert_should_execute(
-		vec![],
-		Location::parent(),
-		Err(ProcessMessageError::BadFormat),
-	);
+	assert_should_execute(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
 	// invalid - SetAppendix with empty XCM
 	assert_should_execute(
 		vec![SetAppendix(Xcm(vec![]))],
@@ -838,29 +831,13 @@ fn deny_instructions_with_xcm_works() {
 	);
 	// invalid nested SetAppendix contains `ClearOrigin`
 	assert_should_execute(
-		vec![SetAppendix(Xcm(vec![
-			SetAppendix(Xcm(vec![
-				SetAppendix(Xcm(vec![
-					SetAppendix(Xcm(vec![
-						SetAppendix(Xcm(vec![
-							SetAppendix(Xcm(vec![
-								SetAppendix(Xcm(vec![
-									SetAppendix(Xcm(vec![
-										SetAppendix(Xcm(vec![
-											SetAppendix(Xcm(vec![
-												SetAppendix(Xcm(vec![
-													SetAppendix(Xcm(vec![ClearOrigin]))
-												]))
-											]))
-										]))
-									]))
-								]))
-							]))
-						]))
-					]))
-				]))
-			]))
-		]))],
+		vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
+			Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+				SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+					SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))])),
+				]))]))])),
+			]))]))]))]),
+		)]))]))]))],
 		Location::parent(),
 		Err(ProcessMessageError::StackLimitReached),
 	);

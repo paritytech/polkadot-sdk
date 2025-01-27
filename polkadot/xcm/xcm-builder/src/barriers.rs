@@ -506,7 +506,8 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 environmental::environmental!(recursion_count: u8);
 
 // TBD:
-/// Applies the `Inner` filter to the nested XCM for the `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instructions.
+/// Applies the `Inner` filter to the nested XCM for the `SetAppendix`, `SetErrorHandler`, and
+/// `ExecuteWithOrigin` instructions.
 ///
 /// Note: The nested XCM is checked recursively!
 pub struct DenyInstructionsWithXcm<Inner>(PhantomData<Inner>);

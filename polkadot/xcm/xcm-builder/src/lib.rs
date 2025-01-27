@@ -42,9 +42,9 @@ mod barriers;
 pub use barriers::{
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain, DenyInstructionsWithXcm, DenyThenTry,
-	IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain, RespectSuspension, TakeWeightCredit,
-	TrailingSetTopicAsId, WithComputedOrigin,
+	AllowUnpaidExecutionFrom, DenyInstructionsWithXcm, DenyReserveTransferToRelayChain,
+	DenyThenTry, IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain,
+	RespectSuspension, TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;
