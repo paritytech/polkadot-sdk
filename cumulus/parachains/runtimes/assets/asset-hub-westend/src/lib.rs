@@ -1921,7 +1921,7 @@ impl_runtime_apis! {
 							id: AssetId(WestendLocation::get())
 						},
 						// AH can reserve transfer native token to some random parachain.
-						AssetHubWestend::get(),
+						RandomParaLocation::get(),
 					))
 				}
 
