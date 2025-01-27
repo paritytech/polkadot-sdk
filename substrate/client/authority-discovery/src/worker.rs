@@ -33,7 +33,6 @@ use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt}
 
 use addr_cache::AddrCache;
 use codec::{Decode, Encode};
-use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
 use sc_network_types::kad::{Key, PeerRecord, Record};
 
@@ -280,7 +279,9 @@ where
 			config
 				.public_addresses
 				.into_iter()
-				.map(|address| AddressType::PublicAddress(address).without_p2p(local_peer_id))
+				.filter_map(|address| {
+					AddressType::PublicAddress(address).without_p2p(local_peer_id)
+				})
 				.collect()
 		};
 
@@ -374,17 +375,6 @@ where
 		let local_peer_id = self.network.local_peer_id();
 		let publish_non_global_ips = self.publish_non_global_ips;
 
-		// Checks that the address is global.
-		let address_is_global = |address: &Multiaddr| {
-			address.iter().all(|protocol| match protocol {
-				// The `ip_network` library is used because its `is_global()` method is stable,
-				// while `is_global()` in the standard library currently isn't.
-				multiaddr::Protocol::Ip4(ip) => IpNetwork::from(ip).is_global(),
-				multiaddr::Protocol::Ip6(ip) => IpNetwork::from(ip).is_global(),
-				_ => true,
-			})
-		};
-
 		// These are the addresses the node is listening for incoming connections,
 		// as reported by installed protocols (tcp / websocket etc).
 		//
@@ -397,8 +387,9 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				address_is_global(&address)
+				(address.is_external_address_valid() && address.is_global())
 					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
+					.flatten()
 			})
 			.take(MAX_GLOBAL_LISTEN_ADDRESSES)
 			.peekable();
@@ -409,8 +400,10 @@ where
 			.external_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				(publish_non_global_ips || address_is_global(&address))
-					.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
+				(publish_non_global_ips ||
+					(address.is_external_address_valid() && address.is_global()))
+				.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
+				.flatten()
 			})
 			.peekable();
 
@@ -846,10 +839,20 @@ where
 			_ => None,
 		};
 
+		log::debug!(
+			target: LOG_TARGET,
+			"Received DHT record for authority {:?} with addresses {:?}",
+			authority_id,
+			addresses
+		);
+
 		// Ignore [`Multiaddr`]s without [`PeerId`] or with own addresses.
 		let addresses: Vec<Multiaddr> = addresses
 			.into_iter()
-			.filter(|a| get_peer_id(&a).filter(|p| *p != local_peer_id).is_some())
+			.filter(|addr| {
+				addr.is_external_address_valid() &&
+					get_peer_id(&addr).filter(|p| *p != local_peer_id).is_some()
+			})
 			.collect();
 
 		let remote_peer_id = single(addresses.iter().map(|a| get_peer_id(&a)))
@@ -1001,7 +1004,9 @@ impl AddressType {
 	///
 	/// In case the peer id in the address does not match the local peer id, an error is logged for
 	/// `ExternalAddress` and `GlobalListenAddress`.
-	fn without_p2p(self, local_peer_id: PeerId) -> Multiaddr {
+	///
+	/// Returns `None` if the address is empty after removing the `/p2p/..` part.
+	fn without_p2p(self, local_peer_id: PeerId) -> Option<Multiaddr> {
 		// Get the address and the source str for logging.
 		let (mut address, source) = match self {
 			AddressType::PublicAddress(address) => (address, "public address"),
@@ -1019,7 +1024,13 @@ impl AddressType {
 			}
 			address.pop();
 		}
-		address
+
+		// Empty addresses cannot be published.
+		if address.is_empty() {
+			None
+		} else {
+			Some(address)
+		}
 	}
 }
 

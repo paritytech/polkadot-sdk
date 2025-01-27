@@ -762,13 +762,15 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							};
 						}
 						NetworkServiceCommand::AddKnownAddress { peer, address } => {
-							let mut address: Multiaddr = address.into();
-
-							if !address.iter().any(|protocol| std::matches!(protocol, Protocol::P2p(_))) {
-								address.push(Protocol::P2p(litep2p::PeerId::from(peer).into()));
+							if !address.is_external_address_valid() {
+								log::debug!(
+									target: LOG_TARGET,
+									"ignoring invalid external address {address} for {peer:?}",
+								);
+								continue
 							}
 
-							if self.litep2p.add_known_address(peer.into(), iter::once(address.clone())) == 0usize {
+							if self.litep2p.add_known_address(peer.into(), iter::once(address.clone().into())) == 0usize {
 								log::debug!(
 									target: LOG_TARGET,
 									"couldn't add known address ({address}) for {peer:?}, unsupported transport"
