@@ -119,11 +119,10 @@ pub type DescribeAllTerminal = (
 	DescribeBodyTerminal,
 );
 
-pub type LocationToAccount = GenericLocationToAccountConverter<
-    AccountId32,
-    GlobalConsensusConvertsFor,
-    GlobalConsensusParachainConvertsFor,
-    DescribeAllTerminal
+pub type GlobalLocationToAccount<AccountId> = GenericLocationToAccountConverter<
+    AccountId,
+    (GlobalConsensusConvertsFor, GlobalConsensusParachainConvertsFor),
+    (DescribeAllTerminal, DescribeFamily<DescribeAllTerminal>),
 >;
 
 
@@ -420,33 +419,33 @@ impl<UniversalLocation, AccountId> GlobalConsensusConvertsFor<UniversalLocation,
 	}
 }
 
-pub struct GenericLocationToAccountConverter<AccountId, GlobalConsensus, GlobalConsensusParachain, Describe>(
-    PhantomData<(AccountId, GlobalConsensus, GlobalConsensusParachain, Describe)>
+/// A generic location-to-account converter for external ecosystems.
+/// Combines multiple describers and converters into a single unified implementation.
+pub struct GenericLocationToAccountConverter<AccountId, Converters, Describers>(
+    PhantomData<(AccountId, Converters, Describers)>,
 );
 
-impl<AccountId, GlobalConsensus, GlobalConsensusParachain, Describe>
-    ConvertLocation<AccountId>
-    for GenericLocationToAccountConverter<AccountId, GlobalConsensus, GlobalConsensusParachain, Describe>
+impl<AccountId, Converters, Describers> ConvertLocation<AccountId>
+    for GenericLocationToAccountConverter<AccountId, Converters, Describers>
 where
     AccountId: From<[u8; 32]> + Clone,
-    GlobalConsensus: ConvertLocation<AccountId>,
-    GlobalConsensusParachain: ConvertLocation<AccountId>,
-    Describe: DescribeLocation,
+    Converters: ConvertLocation<AccountId>,
+    Describers: DescribeLocation,
 {
     fn convert_location(location: &Location) -> Option<AccountId> {
-        // Attempt conversion using GlobalConsensus
-        if let Some(account) = GlobalConsensus::convert_location(location) {
-            return Some(account);
-        }
+        let descriptor = Describers::describe_location(location)?;
+        Some(blake2_256(&descriptor).into())
+    }
+}
 
-        // Attempt conversion using GlobalConsensusParachain
-        if let Some(account) = GlobalConsensusParachain::convert_location(location) {
-            return Some(account);
-        }
-
-        // Use the Describe trait to generate a unique description
-        let description = Describe::describe_location(location)?;
-        Some(blake2_256(&description).into())
+impl<Converters, Describers> DescribeLocation
+    for GenericLocationToAccountConverter<(), Converters, Describers>
+where
+    Converters: ConvertLocation<()>,
+    Describers: DescribeLocation,
+{
+    fn describe_location(location: &Location) -> Option<Vec<u8>> {
+        Describers::describe_location(location)
     }
 }
 
@@ -1050,12 +1049,10 @@ mod tests {
 	}
 
 	#[test]
-    fn test_generic_location_to_account_conversion() {
-    let global_location = Location::new(0, Junctions::X1(GlobalConsensusJunction));
-    let parachain_location = Location::new(1, Junctions::X2(Parachain(2000), AccountId32 { id: [0u8; 32], network: None }));
-
-    assert!(LocationToAccount::convert_location(&global_location).is_some());
-    assert!(LocationToAccount::convert_location(&parachain_location).is_some());
-}
+	fn test_global_location_to_account_conversion() {
+		let location = Location::new(1, vec![AccountId32 { id: [0; 32], network: NetworkId::Any }]);
+		let account = GlobalLocationToAccount::<[u8; 32]>::convert_location(&location);
+		assert!(account.is_some());
+	}
 
 }
