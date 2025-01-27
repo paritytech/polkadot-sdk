@@ -6454,6 +6454,7 @@ dependencies = [
  "pallet-message-queue 31.0.0",
  "pallet-xcm 7.0.0",
  "pallet-xcm-bridge",
+ "pallet-xcm-bridge-hub 0.2.0",
  "parachains-common 7.0.0",
  "parity-scale-codec",
  "paste",

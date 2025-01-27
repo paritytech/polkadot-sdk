@@ -48,3 +48,4 @@ bp-messages = { workspace = true, default-features = true }
 bp-xcm-bridge = { workspace = true, default-features = true }
 pallet-bridge-messages = { workspace = true, default-features = true }
 pallet-xcm-bridge = { workspace = true, default-features = true }
+pallet-xcm-bridge-hub = { workspace = true, default-features = true }

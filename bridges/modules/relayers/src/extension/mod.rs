@@ -460,6 +460,7 @@ mod tests {
 	use bp_runtime::{BasicOperatingMode, HeaderId, Parachain};
 	use bp_test_utils::{make_default_justification, test_keyring, TEST_GRANDPA_SET_ID};
 	use frame_support::{
+		__private::sp_tracing,
 		assert_storage_noop, parameter_types,
 		traits::{fungible::Mutate, ReservableCurrency},
 		weights::Weight,
@@ -1132,6 +1133,7 @@ mod tests {
 		Option<PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType>>,
 		TransactionValidityError,
 	> {
+		sp_tracing::try_init_simple();
 		let extension: TestExtension = BridgeRelayersTransactionExtension(PhantomData);
 		extension
 			.validate_and_prepare(
