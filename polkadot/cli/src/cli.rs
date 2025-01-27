@@ -152,6 +152,11 @@ pub struct RunCmd {
 	/// explicitly advised to.
 	#[arg(long)]
 	pub enable_approval_voting_parallel: bool,
+
+	/// How long finalized data should be kept in the availability store (in hours).
+	/// Defaults to 25 hours for live networks and 1 hour for test networks.
+	#[arg(long)]
+	pub keep_finalized_for: Option<u32>,
 }
 
 #[allow(missing_docs)]

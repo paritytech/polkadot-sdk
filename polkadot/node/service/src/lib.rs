@@ -99,6 +99,7 @@ pub use sc_service::{
 	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, TFullBackend,
 	TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
+use sc_chain_spec::ChainType;
 pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_consensus::{Proposal, SelectChain};
 use sp_consensus_beefy::ecdsa_crypto;
@@ -628,6 +629,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub prepare_workers_soft_max_num: Option<usize>,
 	/// An optional absolute number of pvf workers that can be spawned in the pvf prepare pool.
 	pub prepare_workers_hard_max_num: Option<usize>,
+	/// How long finalized data should be kept in the availability store (in hours)
+	pub keep_finalized_for: Option<u32>,
 	pub overseer_gen: OverseerGenerator,
 	pub overseer_message_channel_capacity_override: Option<usize>,
 	#[allow(dead_code)]
@@ -691,11 +694,6 @@ impl IsParachainNode {
 	}
 }
 
-pub const AVAILABILITY_CONFIG: AvailabilityConfig = AvailabilityConfig {
-	col_data: parachains_db::REAL_COLUMNS.col_availability_data,
-	col_meta: parachains_db::REAL_COLUMNS.col_availability_meta,
-};
-
 /// Create a new full node of arbitrary runtime and executor.
 ///
 /// This is an advanced feature and not recommended for general use. Generally, `build_full` is
@@ -727,6 +725,7 @@ pub fn new_full<
 		execute_workers_max_num,
 		prepare_workers_soft_max_num,
 		prepare_workers_hard_max_num,
+		keep_finalized_for,
 		enable_approval_voting_parallel,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
@@ -979,11 +978,23 @@ pub fn new_full<
 		let fetch_chunks_threshold =
 			if config.chain_spec.is_polkadot() { None } else { Some(FETCH_CHUNKS_THRESHOLD) };
 
+		let availability_config = AvailabilityConfig {
+			col_data: parachains_db::REAL_COLUMNS.col_availability_data,
+			col_meta: parachains_db::REAL_COLUMNS.col_availability_meta,
+			keep_finalized_for: keep_finalized_for.unwrap_or_else(|| {
+				if matches!(config.chain_spec.chain_type(), ChainType::Live) {
+					25
+				} else {
+					1
+				}
+			}),
+		};
+
 		Some(ExtendedOverseerGenArgs {
 			keystore,
 			parachains_db,
 			candidate_validation_config,
-			availability_config: AVAILABILITY_CONFIG,
+			availability_config,
 			pov_req_receiver,
 			chunk_req_v1_receiver,
 			chunk_req_v2_receiver,
