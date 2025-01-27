@@ -1894,7 +1894,7 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						SiblingAssetHubId,
+						RandomParaId,
 						ParachainSystem,
 					>
 				);
