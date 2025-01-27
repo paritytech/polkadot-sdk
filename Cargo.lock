@@ -2932,7 +2932,6 @@ dependencies = [
  "frame-system-rpc-runtime-api 26.0.0",
  "frame-try-runtime 0.34.0",
  "hex-literal",
- "log",
  "pallet-aura 27.0.0",
  "pallet-authorship 28.0.0",
  "pallet-balances 28.0.0",
@@ -2991,6 +2990,7 @@ dependencies = [
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
+ "tracing",
  "westend-runtime-constants 7.0.0",
  "xcm-runtime-apis 0.1.0",
 ]
