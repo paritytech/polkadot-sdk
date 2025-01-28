@@ -119,7 +119,10 @@ def main():
             build_status = os.system(build_command)
             if build_status != 0:
                 print_and_log(f'❌ Failed to build {runtime["name"]}')
-                sys.exit(1)
+                if args.fail_fast:
+                    sys.exit(1)
+                else:
+                    continue
 
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
