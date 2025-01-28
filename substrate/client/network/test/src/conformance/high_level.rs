@@ -16,10 +16,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::conformance::setup::{connect_backends, create_network_backend, NetworkBackendClient};
+use crate::conformance::setup::{
+	connect_backends, connect_notifications, create_network_backend, NetworkBackendClient,
+};
 
 use sc_network::{
-	request_responses::OutgoingResponse, IfDisconnected, Litep2pNetworkBackend, NetworkWorker,
+	config::MultiaddrWithPeerId, request_responses::OutgoingResponse,
+	service::traits::NotificationEvent, IfDisconnected, Litep2pNetworkBackend, NetworkWorker,
 };
 
 #[tokio::test]
@@ -98,6 +101,64 @@ async fn check_request_response() {
 	.await;
 
 	inner_check_request_response(
+		create_network_backend::<Litep2pNetworkBackend>(),
+		create_network_backend::<NetworkWorker<_, _>>(),
+	)
+	.await;
+}
+
+#[tokio::test]
+async fn check_notifications() {
+	let _ = sp_tracing::tracing_subscriber::fmt()
+		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.try_init();
+
+	async fn inner_check_notifications(left: NetworkBackendClient, right: NetworkBackendClient) {
+		const MAX_NOTIFICATIONS: usize = 128;
+		connect_notifications(&left, &right, MAX_NOTIFICATIONS).await;
+
+		let right_peer = right.network_service.local_peer_id();
+		let (tx, rx) = async_channel::bounded(1);
+
+		tokio::spawn(async move {
+			let mut notifications_left = left.notification_service.lock().await;
+			for _ in 0..MAX_NOTIFICATIONS {
+				notifications_left
+					.send_async_notification(&right_peer, vec![1, 2, 3])
+					.await
+					.expect("qed; cannot fail");
+			}
+			let _ = rx.recv().await;
+		});
+
+		let mut notifications_right = right.notification_service.lock().await;
+		let mut notification_index = 0;
+		while let Some(event) = notifications_right.next_event().await {
+			match event {
+				NotificationEvent::NotificationReceived { notification, .. } => {
+					notification_index += 1;
+
+					if notification_index >= MAX_NOTIFICATIONS {
+						let _ = tx.send(()).await;
+						break;
+					}
+
+					assert_eq!(notification, vec![1, 2, 3]);
+				},
+				_ => {},
+			}
+		}
+	}
+
+	// Check libp2p -> litep2p.
+	inner_check_notifications(
+		create_network_backend::<NetworkWorker<_, _>>(),
+		create_network_backend::<Litep2pNetworkBackend>(),
+	)
+	.await;
+
+	// Check litep2p -> libp2p.
+	inner_check_notifications(
 		create_network_backend::<Litep2pNetworkBackend>(),
 		create_network_backend::<NetworkWorker<_, _>>(),
 	)

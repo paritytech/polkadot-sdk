@@ -18,7 +18,7 @@
 
 use sc_network::{
 	config::{
-		notification_service, FullNetworkConfiguration, IncomingRequest,
+		notification_service, FullNetworkConfiguration, IncomingRequest, MultiaddrWithPeerId,
 		NetworkConfiguration, NonReservedPeerMode, NotificationHandshake, OutgoingResponse, Params,
 		ProtocolId, Role, SetConfig,
 	},
@@ -26,6 +26,7 @@ use sc_network::{
 	IfDisconnected, Litep2pNetworkBackend, NetworkBackend, NetworkRequest, NetworkWorker,
 	NotificationMetrics, NotificationService, PeerId, Roles,
 };
+
 use sc_network_common::{sync::message::BlockAnnouncesHandshake, ExHashT};
 use sc_utils::notification;
 use sp_core::H256;
@@ -162,4 +163,83 @@ pub async fn connect_backends(left: &NetworkBackendClient, right: &NetworkBacken
 		.expect("Left backend should send a request");
 	assert_eq!(result.0, vec![4, 5, 6]);
 	assert_eq!(result.1, "/request-response/1".into());
+}
+
+/// Ensure connectivity on the notification protocol level.
+///
+/// This performs a ping pong between notification based on the number provided.
+pub async fn connect_notifications(
+	left: &NetworkBackendClient,
+	right: &NetworkBackendClient,
+	ping_pong_num: usize,
+) {
+	let left_peer_id = left.network_service.local_peer_id();
+	let right_peer_id = right.network_service.local_peer_id();
+
+	while left.network_service.listen_addresses().is_empty() {
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
+	while right.network_service.listen_addresses().is_empty() {
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
+
+	let right_listen_address = right
+		.network_service
+		.listen_addresses()
+		.first()
+		.expect("qed; non empty")
+		.clone();
+
+	left.network_service
+		.add_reserved_peer(MultiaddrWithPeerId {
+			multiaddr: right_listen_address.into(),
+			peer_id: right_peer_id,
+		})
+		.unwrap();
+
+	let mut notifications_left = left.notification_service.lock().await;
+	let mut notifications_right = right.notification_service.lock().await;
+	let mut received = 0;
+	loop {
+		tokio::select! {
+			Some(event) = notifications_left.next_event() => {
+				match event {
+					NotificationEvent::NotificationStreamOpened { .. } => {
+						notifications_left.send_async_notification(&right_peer_id, vec![1, 2, 3]).await.unwrap();
+					},
+					NotificationEvent::ValidateInboundSubstream { result_tx, .. } => {
+						result_tx.send(sc_network::service::traits::ValidationResult::Accept).unwrap();
+					},
+					NotificationEvent::NotificationReceived { .. } => {
+						received += 1;
+						if received >= ping_pong_num {
+							break;
+						}
+
+						notifications_left.send_async_notification(&right_peer_id, vec![1, 2, 3]).await.unwrap();
+					}
+					_ => {},
+				};
+			},
+			Some(event) = notifications_right.next_event() => {
+				match event {
+					NotificationEvent::ValidateInboundSubstream { result_tx, .. } => {
+						result_tx.send(sc_network::service::traits::ValidationResult::Accept).unwrap();
+					},
+					NotificationEvent::NotificationStreamOpened { .. } => {
+						notifications_right.send_async_notification(&left_peer_id, vec![1, 2, 3]).await.unwrap();
+					},
+					NotificationEvent::NotificationReceived { .. } => {
+						received += 1;
+						if received >= ping_pong_num {
+							break;
+						}
+
+						notifications_left.send_async_notification(&right_peer_id, vec![1, 2, 3]).await.unwrap();
+					}
+					_ => {}
+				}
+			},
+		}
+	}
 }
