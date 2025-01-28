@@ -160,9 +160,6 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame::testing_prelude::*;
 
-use frame::runtime::prelude::*;
-
-
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
 pub enum MigrationCursor<Cursor, BlockNumber> {
@@ -362,12 +359,12 @@ pub mod pallet {
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		#[register_default_impl(TestDefaultConfig)]
-		impl DefaultConfig for TestDefaultConfig {
+		#[register_default_impl(frame_system::config_preludes::TestDefaultConfig)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
 			type CursorMaxLen = ConstU32<{ 1 << 16 }>;
-			type IdentifierMaxLen = ConstU32<{ 256 }>;
+			type IdentifierMaxLen = ConstU32<256>;
 			type MigrationStatusHandler = ();
 			type FailedMigrationHandler = FreezeChainOnFailedMigration;
 			type MaxServiceWeight = TestMaxServiceWeight;
