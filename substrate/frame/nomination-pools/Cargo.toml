@@ -25,7 +25,7 @@ scale-info = { features = [
 
 # FRAME
 log = { workspace = true }
-frame = { workspace = true, features = ["runtime"]}
+frame = { workspace = true, features = ["runtime", "try-runtime"] }
 
 # Optional: use for testing and/or fuzzing
 pallet-balances = { optional = true, workspace = true }

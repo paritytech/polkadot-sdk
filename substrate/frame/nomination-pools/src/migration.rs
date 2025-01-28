@@ -28,7 +28,7 @@ pub mod versioned {
 	use super::*;
 
 	/// v8: Adds commission claim permissions to `BondedPools`.
-	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
+	pub type V7ToV8<T> = VersionedMigration<
 		7,
 		8,
 		v8::VersionUncheckedMigrateV7ToV8<T>,
@@ -38,7 +38,7 @@ pub mod versioned {
 
 	/// Migration V6 to V7 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
 	/// the migration is only performed when on-chain version is 6.
-	pub type V6ToV7<T> = frame_support::migrations::VersionedMigration<
+	pub type V6ToV7<T> = VersionedMigration<
 		6,
 		7,
 		v7::VersionUncheckedMigrateV6ToV7<T>,
@@ -47,7 +47,7 @@ pub mod versioned {
 	>;
 
 	/// Wrapper over `MigrateToV6` with convenience version checks.
-	pub type V5toV6<T> = frame_support::migrations::VersionedMigration<
+	pub type V5toV6<T> = VersionedMigration<
 		5,
 		6,
 		v6::MigrateToV6<T>,
@@ -337,7 +337,7 @@ pub(crate) mod v7 {
 	}
 
 	// NOTE: We cannot put a V7 prefix here since that would change the storage key.
-	#[frame_support::storage_alias]
+	#[frame::storage_alias]
 	pub type BondedPools<T: Config> =
 		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, V7BondedPoolInner<T>>;
 
@@ -768,7 +768,6 @@ pub mod v3 {
 
 pub mod v2 {
 	use super::*;
-	use sp_runtime::Perbill;
 
 	#[test]
 	fn migration_assumption_is_correct() {

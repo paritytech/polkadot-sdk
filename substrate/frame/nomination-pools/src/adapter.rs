@@ -82,7 +82,7 @@ impl<T> Member<T> {
 /// different. Refer the two possible strategies currently: [`TransferStake`] and
 /// [`DelegateStake`] for more detail.
 pub trait StakeStrategy {
-	type Balance: frame_support::traits::tokens::Balance;
+	type Balance: Balance;
 	type AccountId: Clone + core::fmt::Debug;
 	type CoreStaking: StakingInterface<Balance = Self::Balance, AccountId = Self::AccountId>;
 

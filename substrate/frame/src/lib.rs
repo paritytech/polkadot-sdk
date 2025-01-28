@@ -204,17 +204,17 @@ pub mod prelude {
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
 		defensive, defensive_assert, ensure,
-		storage::bounded_btree_map::BoundedBTreeMap,
 		traits::{
 			fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
-			tokens::{Fortitude::Polite, Preservation::Expendable},
 			Contains, Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, EitherOf,
 			EstimateNextSessionRotation, Get, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
 			OneSessionHandler, RankedMembers, RankedMembersSwapHandler, StorageVersion,
 			UncheckedOnRuntimeUpgrade, VariantCountOf,
 		},
-		PalletError, PalletId,
+		PalletError, PalletId, PartialEqNoBound
 	};
+
+	pub use frame_support::traits::tokens::{Fortitude::Polite, Preservation::Expendable, Balance};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -242,7 +242,7 @@ pub mod prelude {
 	pub use sp_runtime::{
 		bounded_btree_map,
 		traits::{
-			AccountIdConversion, BadOrigin, BlockNumberProvider, Bounded, CheckedAdd, CheckedSub,
+			AccountIdConversion, BlockNumberProvider, Bounded, CheckedAdd, CheckedSub,
 			Convert, DispatchInfoOf, Dispatchable, ReduceBy, ReplaceWithDefault,
 			SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput, Zero,
 		},
@@ -342,6 +342,8 @@ pub mod testing_prelude {
 		assert_storage_noop, hypothetically, storage_alias, DefaultNoBound,
 	};
 
+	pub use frame_support::migrations::VersionedMigration;
+
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
 	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
@@ -416,7 +418,7 @@ pub mod runtime {
 		pub use sp_version::NativeVersion;
 
 		/// Macro to implement runtime APIs.
-		pub use sp_api::impl_runtime_apis;
+		pub use sp_api::{impl_runtime_apis, decl_runtime_apis};
 
 		// Types often used in the runtime APIs.
 		pub use sp_core::OpaqueMetadata;
