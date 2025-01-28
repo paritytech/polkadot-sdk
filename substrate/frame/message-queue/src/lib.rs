@@ -1336,7 +1336,7 @@ impl<T: Config> Pallet<T> {
 	/// * `first` <= `last`
 	/// * Every page can be decoded into peek_* functions
 	
-	#[cfg(any(test, feature = "try-runtime"))]
+	#[cfg(any(test, feature = "try-runtime", feature = "std"))]
 	pub fn do_try_state() -> Result<(), frame::try_runtime::TryRuntimeError> {
 		// Checking memory corruption for BookStateFor
 		ensure!(
