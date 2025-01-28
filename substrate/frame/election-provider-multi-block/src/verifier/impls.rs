@@ -107,6 +107,7 @@ pub(crate) mod pallet {
 		/// Maximum number of backers, per winner, among all pages of an election.
 		///
 		/// This can only be checked at the very final step of verification.
+		// TODO: integrity check for the relation of these bounds.
 		type MaxBackersPerWinnerFinal: Get<u32>;
 
 		/// Maximum number of backers, per winner, per page.

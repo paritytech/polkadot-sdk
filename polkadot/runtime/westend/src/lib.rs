@@ -1686,7 +1686,9 @@ mod runtime {
 	#[runtime::pallet_index(23)]
 	pub type Multisig = pallet_multisig;
 
-	// RIP EPM 24
+	// Election pallet. Only works with staking, but placed here to maintain indices.
+	#[runtime::pallet_index(24)]
+	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
 
 	// Provides a semi-sorted list of nominators for staking.
 	#[runtime::pallet_index(25)]
@@ -1766,15 +1768,6 @@ mod runtime {
 	pub type AssignedSlots = assigned_slots;
 	#[runtime::pallet_index(66)]
 	pub type Coretime = coretime;
-
-	#[runtime::pallet_index(67)]
-	pub type MultiBlock = pallet_election_provider_multi_block;
-	#[runtime::pallet_index(68)]
-	pub type MultiBlockVerifier = pallet_election_provider_multi_block::verifier;
-	#[runtime::pallet_index(69)]
-	pub type MultiBlockUnsigned = pallet_election_provider_multi_block::unsigned;
-	#[runtime::pallet_index(70)]
-	pub type MultiBlockSigned = pallet_election_provider_multi_block::signed;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
@@ -1913,10 +1906,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_beefy_mmr, BeefyMmrLeaf]
 		[pallet_conviction_voting, ConvictionVoting]
-		[pallet_election_provider_multi_block, MultiBlock]
-		[pallet_election_provider_multi_block::verifier, MultiBlockVerifier]
-		[pallet_election_provider_multi_block::unsigned, MultiBlockUnsigned]
-		[pallet_election_provider_multi_block::signed, MultiBlockSigned]
+		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[frame_election_provider_support, ElectionProviderBench::<Runtime>]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_identity, Identity]

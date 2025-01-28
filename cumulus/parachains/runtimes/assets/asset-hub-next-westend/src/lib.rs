@@ -1179,8 +1179,13 @@ construct_runtime!(
 		NominationPools: pallet_nomination_pools = 81,
 		FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 84, // to be swapped out for multi-block
-		DelegatedStaking: pallet_delegated_staking = 85,
+		DelegatedStaking: pallet_delegated_staking = 84,
+
+		// Election apparatus.
+		MultiBlock: pallet_election_provider_multi_block = 85,
+		MultiBlockVerifier: pallet_election_provider_multi_block::verifier = 86,
+		MultiBlockUnsigned: pallet_election_provider_multi_block::unsigned = 87,
+		MultiBlockSigned: pallet_election_provider_multi_block::signed = 88,
 
 		// Governance.
 		Preimage: pallet_preimage = 90,
@@ -1355,7 +1360,10 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
+		[pallet_election_provider_multi_block, MultiBlock]
+		[pallet_election_provider_multi_block_verifier, MultiBlockVerifier]
+		[pallet_election_provider_multi_block_unsigned, MultiBlockUnsigned]
+		[pallet_election_provider_multi_block_signed, MultiBlockSigned]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]

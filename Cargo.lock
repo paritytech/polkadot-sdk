@@ -1101,7 +1101,7 @@ dependencies = [
  "pallet-collator-selection 9.0.0",
  "pallet-conviction-voting 28.0.0",
  "pallet-delegated-staking 1.0.0",
- "pallet-election-provider-multi-phase 27.0.0",
+ "pallet-election-provider-multi-block",
  "pallet-fast-unstake 27.0.0",
  "pallet-message-queue 31.0.0",
  "pallet-multisig 28.0.0",

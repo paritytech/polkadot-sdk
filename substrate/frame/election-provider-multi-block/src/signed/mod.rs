@@ -214,6 +214,7 @@ pub mod pallet {
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// Base deposit amount for a submission.
+		// TODO: needs to also be geometric.
 		type DepositBase: Get<BalanceOf<Self>>;
 
 		/// Extra deposit per-page.

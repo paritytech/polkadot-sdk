@@ -41,7 +41,7 @@ pallet-bags-list = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-delegated-staking = { workspace = true }
-pallet-election-provider-multi-phase = { workspace = true }
+pallet-election-provider-multi-block = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nft-fractionalization = { workspace = true }
@@ -157,7 +157,7 @@ runtime-benchmarks = [
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -217,7 +217,7 @@ try-runtime = [
 	"pallet-collator-selection/try-runtime",
 	"pallet-conviction-voting/try-runtime",
 	"pallet-delegated-staking/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-election-provider-multi-block/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -285,7 +285,7 @@ std = [
 	"pallet-collator-selection/std",
 	"pallet-conviction-voting/std",
 	"pallet-delegated-staking/std",
-	"pallet-election-provider-multi-phase/std",
+	"pallet-election-provider-multi-block/std",
 	"pallet-fast-unstake/std",
 	"pallet-message-queue/std",
 	"pallet-multisig/std",

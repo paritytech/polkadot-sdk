@@ -17,12 +17,11 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{
-	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen,
+	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder},
+	onchain, NposSolver, SequentialPhragmen,
 };
 use frame_support::traits::{ConstU128, EitherOf};
-use pallet_election_provider_multi_block as multi_block;
-use pallet_election_provider_multi_phase::GeometricDepositBase;
+use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking::UseValidatorsMap;
 use polkadot_runtime_common::{
 	elections::OnChainAccuracy, prod_or_fast, BalanceToU256, CurrencyToVote, U256ToBalance,
@@ -44,11 +43,10 @@ frame_election_provider_support::generate_solution_type!(
 );
 
 parameter_types! {
-	pub ElectionBoundsOnChain: ElectionBounds =
-		ElectionBoundsBuilder::default().voters_count(500).targets_count(100).build();
-	pub MaxWinnersPerPage: u32 = 128;
-	pub MaxBackersPerWinner: u32 = 256;
-	pub MaxExposurePageSize: u32 = MaxBackersPerWinner::get() / 4;
+	pub MaxWinnersPerPage: u32 = 64;
+	pub MaxBackersPerWinnerPerPage: u32 = 64;
+	pub MaxBackersPerWinnerFinal: u32 = 512;
+	pub MaxExposurePageSize: u32 = MaxBackersPerWinnerFinal::get() / 4;
 	pub MaxValidatorSet: u32 = 1000;
 	pub Pages: u32 = 8;
 	pub VoterSnapshotPerBlock: u32 = 22_500 / Pages::get();
@@ -58,6 +56,7 @@ parameter_types! {
 	pub UnsignedPhase: u32 = prod_or_fast!(MINUTES * 30, MINUTES * 2);
 	// validate up to 4 signed solution.
 	pub SignedValidationPhase: u32 = Pages::get() * 4;
+	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 impl multi_block::Config for Runtime {
@@ -77,24 +76,73 @@ impl multi_block::Config for Runtime {
 	type Verifier = MultiBlockVerifier;
 }
 
-impl multi_block::verifier::Config for Runtime {}
-impl multi_block::signed::Config for Runtime {}
-impl multi_block::unsigned::Config for Runtime {}
+impl multi_block::verifier::Config for Runtime {
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinnerPerPage;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
+	type SolutionDataProvider = MultiBlockSigned;
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type SolutionImprovementThreshold = SolutionImprovementThreshold;
+}
 
+parameter_types! {
+	pub BailoutGraceRatio: Perbill = Perbill::from_percent(50);
+	pub DepositBase: Balance = 5 * UNITS;
+	pub DepositPerPage: Balance = 1 * UNITS;
+	pub RewardBase: Balance = 10 * UNITS;
+}
+
+impl multi_block::signed::Config for Runtime {
+	type BailoutGraceRatio = BailoutGraceRatio;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositPerPage = DepositPerPage;
+	type EstimateCallFee = TransactionPayment;
+	type MaxSubmissions = ConstU32<32>;
+	type RewardBase = RewardBase;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub MinerTxPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub MinerMaxLength: u32 = Perbill::from_rational(9u32, 10) *
+		*RuntimeBlockLength::get()
+		.max
+		.get(DispatchClass::Normal);
+	pub MinerMaxWeight: Weight = RuntimeBlockWeights::get()
+		.get(DispatchClass::Normal)
+		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
+		.saturating_sub(BlockExecutionWeight::get());
+}
+
+impl multi_block::unsigned::Config for Runtime {
+	type WeightInfo = ();
+	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
+	type MinerTxPriority = MinerTxPriority;
+	type MinerMaxLength = MinerMaxLength;
+	type MinerMaxWeight = MinerMaxWeight;
+	type OffchainRepeat = ConstU32<5>;
+}
+
+parameter_types! {
+	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
+		.voters_count(CountBound(500))
+		.targets_count(CountBound(100))
+		.build();
+}
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type Sort = ConstBool<true>;
 	type System = Runtime;
-	type Solver = SequentialPhragmen<
-		AccountId,
-		pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
-	>;
+	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type DataProvider = Staking;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
 	type Bounds = ElectionBoundsOnChain;
-	type MaxBackersPerWinner =
-		<Runtime as pallet_election_provider_multi_phase::Config>::MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxActiveValidators;
+	type MaxBackersPerWinner = <Runtime as multi_block::verifier::Config>::MaxBackersPerWinner;
+	type MaxWinnersPerPage = <Runtime as multi_block::verifier::Config>::MaxWinnersPerPage;
 }
 
 parameter_types! {
@@ -165,7 +213,6 @@ parameter_types! {
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
-	pub const MaxExposurePageSize: u32 = 64;
 	// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
 	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
 	// of nominators.
@@ -193,7 +240,7 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type NextNewSession = Session;
-	type ElectionProvider = ();
+	type ElectionProvider = MultiBlock; // Kaboom!
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type TargetList = UseValidatorsMap<Self>;
