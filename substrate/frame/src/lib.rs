@@ -209,7 +209,6 @@ pub mod prelude {
 			MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers,
 			RankedMembersSwapHandler, StorageVersion,
 		},
-		Twox64Concat,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -236,12 +235,11 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		testing::{Header, UintAuthorityId},
 		traits::{
 			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, Hash, ReduceBy,
 			ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 		},
-		BuildStorage, KeyTypeId, Perbill,
+		KeyTypeId, Perbill,
 	};
 
 	/// Bounded storage related types.
@@ -346,6 +344,10 @@ pub mod testing_prelude {
 
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::{traits::BadOrigin, StateVersion};
+
+	pub use sp_runtime::curve::PiecewiseLinear;
+
+	pub use sp_runtime::testing::{Header, UintAuthorityId};
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -562,6 +564,7 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+	pub use frame_support::Twox64Concat;
 }
 
 /// All account management related traits.

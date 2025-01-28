@@ -19,7 +19,7 @@
 
 use alloc::{vec, vec::Vec};
 
-use frame::testing_prelude::*;
+use frame::benchmarking::prelude::*;
 
 use frame::deps::sp_staking::offence::ReportOffence;
 
