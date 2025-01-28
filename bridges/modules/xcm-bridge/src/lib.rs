@@ -272,7 +272,6 @@ pub mod pallet {
 	pub type WeightInfoOf<T, I> = <T as Config<I>>::WeightInfo;
 
 	#[pallet::pallet]
-	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::hooks]

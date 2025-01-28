@@ -182,10 +182,6 @@ pub type Migrations = (
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
-	pallet_xcm_bridge::migration::v1::MigrationToV1<
-		Runtime,
-		bridge_to_westend_config::XcmOverBridgeHubWestendInstance,
-	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
