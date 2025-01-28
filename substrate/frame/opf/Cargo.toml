@@ -22,6 +22,7 @@ codec = { features = [
 frame-benchmarking = { optional = true, workspace = true, default-features = false }
 frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
+getrandom = { version = "0.2.0", features = ["js"] }
 log = { workspace = true }
 pallet-democracy = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
