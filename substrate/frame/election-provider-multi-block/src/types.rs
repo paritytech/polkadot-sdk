@@ -20,7 +20,7 @@ use frame_support::{
 };
 use sp_std::{collections::btree_set::BTreeSet, fmt::Debug, prelude::*};
 
-use crate::Verifier;
+use crate::{unsigned::MinerConfig, Verifier};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{BoundedSupports, ElectionProvider};
 pub use frame_election_provider_support::{NposSolution, PageIndex};
@@ -40,7 +40,7 @@ pub type SupportsOf<V> = BoundedSupports<
 >;
 
 /// The solution type used by this crate.
-pub type SolutionOf<T> = <T as crate::Config>::Solution;
+pub type SolutionOf<T> = <T as MinerConfig>::Solution;
 
 /// The voter index. Derived from [`SolutionOf`].
 pub type SolutionVoterIndexOf<T> = <SolutionOf<T> as NposSolution>::VoterIndex;
@@ -49,7 +49,7 @@ pub type SolutionTargetIndexOf<T> = <SolutionOf<T> as NposSolution>::TargetIndex
 /// The accuracy of the election, when submitted from offchain. Derived from [`SolutionOf`].
 pub type SolutionAccuracyOf<T> = <SolutionOf<T> as NposSolution>::Accuracy;
 /// The fallback election type.
-pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProvider>::Error;
+//pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProvider>::Error;
 
 /// The relative distribution of a voter's stake among the winning targets.
 pub type AssignmentOf<T> =
@@ -68,8 +68,8 @@ pub type AssignmentOf<T> =
 )]
 #[codec(mel_bound(T: crate::Config))]
 #[scale_info(skip_type_params(T))]
-pub struct PagedRawSolution<T: crate::Config> {
-	pub solution_pages: BoundedVec<SolutionOf<T>, T::Pages>,
+pub struct PagedRawSolution<T: MinerConfig> {
+	pub solution_pages: BoundedVec<SolutionOf<T>, <T as MinerConfig>::Pages>,
 	pub score: ElectionScore,
 	pub round: u32,
 }
@@ -132,7 +132,7 @@ impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolu
 	}
 }
 
-impl<T: crate::Config> PagedRawSolution<T> {
+impl<T: MinerConfig> PagedRawSolution<T> {
 	/// Get the total number of voters, assuming that voters in each page are unique.
 	pub fn voter_count(&self) -> usize {
 		self.solution_pages

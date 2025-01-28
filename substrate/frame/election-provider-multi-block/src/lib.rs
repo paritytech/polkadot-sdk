@@ -278,11 +278,11 @@ impl<T: Config> InstantElectionProvider for Continue<T> {
 #[derive(
 	frame_support::DebugNoBound, frame_support::PartialEqNoBound, frame_support::EqNoBound,
 )]
-pub enum ElectionError<T: Config> {
+pub enum ElectionError {
 	/// An error happened in the feasibility check sub-system.
 	Feasibility(verifier::FeasibilityError),
 	/// An error in the fallback.
-	Fallback(FallbackErrorOf<T>),
+	Fallback(String),
 	/// An error in the onchain seq-phragmen implementation
 	OnChain(onchain::Error),
 	/// An error happened in the data provider.
@@ -295,13 +295,13 @@ pub enum ElectionError<T: Config> {
 	Other(&'static str),
 }
 
-impl<T: Config> From<onchain::Error> for ElectionError<T> {
+impl From<onchain::Error> for ElectionError {
 	fn from(e: onchain::Error) -> Self {
 		ElectionError::OnChain(e)
 	}
 }
 
-impl<T: Config> From<verifier::FeasibilityError> for ElectionError<T> {
+impl From<verifier::FeasibilityError> for ElectionError {
 	fn from(e: verifier::FeasibilityError) -> Self {
 		ElectionError::Feasibility(e)
 	}
@@ -413,7 +413,7 @@ pub mod pallet {
 		>;
 
 		/// The verifier pallet's interface.
-		type Verifier: verifier::Verifier<Solution = SolutionOf<Self>, AccountId = Self::AccountId>
+		type Verifier: verifier::Verifier<AccountId = Self::AccountId>
 			+ verifier::AsynchronousVerifier;
 
 		/// The number of blocks ahead of time to try and have the election results ready by.
@@ -999,8 +999,9 @@ impl<T: Config> Pallet<T> {
 	///
 	/// These compliment a feasibility-check, which is exactly the opposite: snapshot-dependent
 	/// checks.
+	// TODO(niklasad1): MinerConfig is not known by Config trait so this won't work
 	pub(crate) fn snapshot_independent_checks(
-		paged_solution: &PagedRawSolution<T>,
+		paged_solution: &PagedRawSolution<T::MinerConfig>,
 		maybe_snapshot_fingerprint: Option<T::Hash>,
 	) -> Result<(), Error<T>> {
 		// Note that the order of these checks are critical for the correctness and performance of

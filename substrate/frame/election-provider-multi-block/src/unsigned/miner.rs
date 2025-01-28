@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Call, Config, Pallet, WeightInfo};
+use super::{Call, Config, MinerConfig, Pallet, WeightInfo};
 use crate::{
 	helpers,
 	types::*,
@@ -55,15 +55,15 @@ pub type OffchainSolverErrorOf<T> = <<T as Config>::OffchainSolver as NposSolver
 #[derive(
 	frame_support::DebugNoBound, frame_support::EqNoBound, frame_support::PartialEqNoBound,
 )]
-pub enum MinerError<T: Config> {
+pub enum MinerError {
 	/// An internal error in the NPoS elections crate.
 	NposElections(sp_npos_elections::Error),
 	/// An internal error in the generic solver.
-	Solver(OffchainSolverErrorOf<T>),
+	Solver(String),
 	/// Snapshot data was unavailable unexpectedly.
 	SnapshotUnAvailable(SnapshotType),
 	/// The snapshot-independent checks failed for the mined solution.
-	SnapshotIndependentChecks(crate::Error<T>),
+	SnapshotIndependentChecks(String),
 	/// The solution generated from the miner is not feasible.
 	Feasibility(verifier::FeasibilityError),
 	/// Some page index has been invalid.
@@ -74,13 +74,13 @@ pub enum MinerError<T: Config> {
 	Defensive(&'static str),
 }
 
-impl<T: Config> From<sp_npos_elections::Error> for MinerError<T> {
+impl From<sp_npos_elections::Error> for MinerError {
 	fn from(e: sp_npos_elections::Error) -> Self {
 		MinerError::NposElections(e)
 	}
 }
 
-impl<T: Config> From<crate::verifier::FeasibilityError> for MinerError<T> {
+impl From<crate::verifier::FeasibilityError> for MinerError {
 	fn from(e: verifier::FeasibilityError) -> Self {
 		MinerError::Feasibility(e)
 	}
@@ -92,7 +92,7 @@ impl<T: Config> From<crate::verifier::FeasibilityError> for MinerError<T> {
 )]
 pub enum OffchainMinerError<T: Config> {
 	/// An error in the base miner.
-	BaseMiner(MinerError<T>),
+	BaseMiner(MinerError),
 	/// unsigned-specific checks failed.
 	// NOTE: This uses the error type of the parent crate for now. Might be reworked.
 	UnsignedChecks(crate::Error<T>),
@@ -108,8 +108,8 @@ pub enum OffchainMinerError<T: Config> {
 	FailedToStoreSolution,
 }
 
-impl<T: Config> From<MinerError<T>> for OffchainMinerError<T> {
-	fn from(e: MinerError<T>) -> Self {
+impl<T: Config> From<MinerError> for OffchainMinerError<T> {
+	fn from(e: MinerError) -> Self {
 		OffchainMinerError::BaseMiner(e)
 	}
 }
@@ -120,11 +120,11 @@ impl<T: Config> From<MinerError<T>> for OffchainMinerError<T> {
 /// The type of solver is generic and can be provided, as long as it has the same error and account
 /// id type as the [`crate::Config::OffchainSolver`]. The default is whatever is fed to
 /// [`crate::unsigned::Config::OffchainSolver`].
-pub struct BaseMiner<T: Config, Solver = <T as Config>::OffchainSolver>(
+pub struct BaseMiner<T: MinerConfig, Solver = <T as Config>::OffchainSolver>(
 	sp_std::marker::PhantomData<(T, Solver)>,
 );
 
-impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSolverErrorOf<T>>>
+impl<T: MinerConfig, Solver: NposSolver<AccountId = T::AccountId, Error = MinerError>>
 	BaseMiner<T, Solver>
 {
 	/// Mine a new npos solution, with the given number of pages.
@@ -146,8 +146,10 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 	pub fn mine_solution(
 		mut pages: PageIndex,
 		do_reduce: bool,
-	) -> Result<PagedRawSolution<T>, MinerError<T>> {
-		pages = pages.min(T::Pages::get());
+	) -> Result<PagedRawSolution<T>, MinerError> {
+		todo!();
+
+		/*pages = pages.min(T::Pages::get());
 
 		// read the appropriate snapshot pages.
 		let desired_targets = crate::Snapshot::<T>::desired_targets()
@@ -334,17 +336,19 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 			paged.using_encoded(|b| b.len())
 		);
 
-		Ok(paged)
+		Ok(paged)*/
 	}
 
 	/// Mine a new solution. Performs the feasibility checks on it as well.
 	pub fn mine_checked_solution(
 		pages: PageIndex,
 		reduce: bool,
-	) -> Result<PagedRawSolution<T>, MinerError<T>> {
-		let paged_solution = Self::mine_solution(pages, reduce)?;
+	) -> Result<PagedRawSolution<T>, MinerError> {
+		todo!();
+
+		/*let paged_solution = Self::mine_solution(pages, reduce)?;
 		let _ = Self::check_solution(&paged_solution, None, true, "mined")?;
-		Ok(paged_solution)
+		Ok(paged_solution)*/
 	}
 
 	/// Check the solution, from the perspective of the base miner:
@@ -362,8 +366,10 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 		maybe_snapshot_fingerprint: Option<T::Hash>,
 		do_feasibility: bool,
 		solution_type: &str,
-	) -> Result<(), MinerError<T>> {
-		let _ = crate::Pallet::<T>::snapshot_independent_checks(
+	) -> Result<(), MinerError> {
+		todo!();
+
+		/*let _ = crate::Pallet::<T>::snapshot_independent_checks(
 			paged_solution,
 			maybe_snapshot_fingerprint,
 		)
@@ -373,7 +379,7 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 			let _ = Self::check_feasibility(&paged_solution, solution_type)?;
 		}
 
-		Ok(())
+		Ok(())*/
 	}
 
 	/// perform the feasibility check on all pages of a solution, returning `Ok(())` if all good and
@@ -381,35 +387,39 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 	pub fn check_feasibility(
 		paged_solution: &PagedRawSolution<T>,
 		solution_type: &str,
-	) -> Result<Vec<SupportsOf<T::Verifier>>, MinerError<T>> {
+	) -> Result<Vec<SupportsOf<T::Verifier>>, MinerError> {
+		todo!();
+
 		// check every solution page for feasibility.
-		paged_solution
-			.solution_pages
-			.pagify(T::Pages::get())
-			.map(|(page_index, page_solution)| {
-				<T::Verifier as verifier::Verifier>::feasibility_check_page(
-					page_solution.clone(),
-					page_index as PageIndex,
-				)
-			})
-			.collect::<Result<Vec<_>, _>>()
-			.map_err(|err| {
-				sublog!(
-					warn,
-					"unsigned::base-miner",
-					"feasibility check failed for {} solution at: {:?}",
-					solution_type,
-					err
-				);
-				MinerError::from(err)
-			})
+		/*paged_solution
+		.solution_pages
+		.pagify(T::Pages::get())
+		.map(|(page_index, page_solution)| {
+			<T::Verifier as verifier::Verifier>::feasibility_check_page(
+				page_solution.clone(),
+				page_index as PageIndex,
+			)
+		})
+		.collect::<Result<Vec<_>, _>>()
+		.map_err(|err| {
+			sublog!(
+				warn,
+				"unsigned::base-miner",
+				"feasibility check failed for {} solution at: {:?}",
+				solution_type,
+				err
+			);
+			MinerError::from(err)
+		})*/
 	}
 
 	/// Take the given raw paged solution and compute its score. This will replicate what the chain
 	/// would do as closely as possible, and expects all the corresponding snapshot data to be
 	/// available.
-	fn compute_score(paged_solution: &PagedRawSolution<T>) -> Result<ElectionScore, MinerError<T>> {
-		use sp_npos_elections::EvaluateSupport;
+	fn compute_score(paged_solution: &PagedRawSolution<T>) -> Result<ElectionScore, MinerError> {
+		todo!();
+
+		/*use sp_npos_elections::EvaluateSupport;
 		use sp_std::collections::btree_map::BTreeMap;
 
 		let all_supports = Self::check_feasibility(paged_solution, "mined")?;
@@ -424,7 +434,7 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 			.map(|(who, total)| (who, Support { total, ..Default::default() }))
 			.collect::<Vec<_>>();
 
-		Ok((&all_supports).evaluate())
+		Ok((&all_supports).evaluate())*/
 	}
 
 	/// Trim the given supports so that the count of backings in none of them exceeds
@@ -436,7 +446,9 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 	///
 	/// Returns the count of supports trimmed.
 	pub fn trim_supports(supports: &mut sp_npos_elections::Supports<T::AccountId>) -> u32 {
-		let limit = <T::Verifier as crate::verifier::Verifier>::MaxBackersPerWinner::get() as usize;
+		todo!();
+
+		/*let limit = <T::Verifier as crate::verifier::Verifier>::MaxBackersPerWinner::get() as usize;
 		let mut count = 0;
 		supports
 			.iter_mut()
@@ -449,7 +461,7 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 				support.total = support.voters.iter().fold(0, |acc, (_, x)| acc.saturating_add(*x));
 				count.saturating_inc();
 			});
-		count
+		count*/
 	}
 
 	/// Maybe tim the weight and length of the given multi-page solution.
@@ -477,8 +489,10 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 	pub fn maybe_trim_weight_and_len(
 		solution_pages: &mut Vec<SolutionOf<T>>,
 		paged_voters: &AllVoterPagesOf<T>,
-	) -> Result<u32, MinerError<T>> {
-		debug_assert_eq!(solution_pages.len(), paged_voters.len());
+	) -> Result<u32, MinerError> {
+		todo!();
+
+		/*debug_assert_eq!(solution_pages.len(), paged_voters.len());
 		let size_limit = T::MinerMaxLength::get();
 		let weight_limit = T::MinerMaxWeight::get();
 
@@ -606,7 +620,7 @@ impl<T: Config, Solver: NposSolver<AccountId = T::AccountId, Error = OffchainSol
 			}
 		}
 
-		Ok(removed)
+		Ok(removed)*/
 	}
 }
 

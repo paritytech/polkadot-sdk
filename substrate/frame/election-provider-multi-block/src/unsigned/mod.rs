@@ -69,9 +69,10 @@ pub mod miner;
 mod pallet {
 	use crate::{
 		types::*,
-		unsigned::miner::{self},
-		verifier::Verifier,
+		unsigned::miner,
+		verifier::{self, Verifier},
 	};
+	use frame_election_provider_support::ElectionDataProvider;
 	use frame_support::pallet_prelude::*;
 	use frame_system::{offchain::CreateInherent, pallet_prelude::*};
 	use sp_runtime::traits::SaturatedConversion;
@@ -126,6 +127,34 @@ mod pallet {
 		type MinerMaxLength: Get<u32>;
 
 		type WeightInfo: WeightInfo;
+
+		type MinerConfig: MinerConfig<
+			AccountId = Self::AccountId,
+			MinerMaxWeight = Self::MinerMaxWeight,
+			MinerMaxLength = Self::MinerMaxLength,
+			Pages = Self::Pages,
+			Verifier = Self::Verifier,
+		>;
+	}
+
+	pub trait MinerConfig {
+		type AccountId: Ord + Clone + codec::Codec + core::fmt::Debug;
+		/// The solution that the miner is mining.
+		type Solution: codec::Codec
+			+ Default
+			+ PartialEq
+			+ Eq
+			+ Clone
+			+ core::fmt::Debug
+			+ Ord
+			+ NposSolution
+			+ TypeInfo;
+		/// The verifier pallet's interface.
+		type Verifier: verifier::Verifier<AccountId = Self::AccountId>
+			+ verifier::AsynchronousVerifier;
+		type Pages: Get<PageIndex>;
+		type MinerMaxWeight: Get<Weight>;
+		type MinerMaxLength: Get<u32>;
 	}
 
 	#[pallet::pallet]
@@ -145,7 +174,7 @@ mod pallet {
 		#[pallet::call_index(0)]
 		pub fn submit_unsigned(
 			origin: OriginFor<T>,
-			paged_solution: Box<PagedRawSolution<T>>,
+			paged_solution: Box<PagedRawSolution<T::MinerConfig>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			let error_message = "Invalid unsigned submission must produce invalid block and \
@@ -311,7 +340,7 @@ mod pallet {
 		/// These check both for snapshot independent checks, and some checks that are specific to
 		/// the unsigned phase.
 		pub(crate) fn validate_unsigned_checks(
-			paged_solution: &PagedRawSolution<T>,
+			paged_solution: &PagedRawSolution<T::MinerConfig>,
 		) -> DispatchResult {
 			Self::unsigned_specific_checks(paged_solution)
 				.and(crate::Pallet::<T>::snapshot_independent_checks(paged_solution, None))
@@ -322,7 +351,7 @@ mod pallet {
 		///
 		/// ensure solution has the correct phase, and it has only 1 page.
 		pub fn unsigned_specific_checks(
-			paged_solution: &PagedRawSolution<T>,
+			paged_solution: &PagedRawSolution<T::MinerConfig>,
 		) -> Result<(), crate::Error<T>> {
 			ensure!(
 				crate::Pallet::<T>::current_phase().is_unsigned(),
