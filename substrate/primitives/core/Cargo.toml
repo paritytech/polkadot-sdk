@@ -70,9 +70,6 @@ secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = tru
 sha2 = { optional = true, workspace = true }
 w3f-bls = { optional = true, workspace = true }
 
-# bandersnatch crypto
-ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
-
 [target.'cfg(not(substrate_runtime))'.dependencies]
 sp-externalities.workspace = true
 sp-externalities.default-features = false
@@ -87,7 +84,6 @@ serde_json = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"ark-vrf?/std",
 	"bip39/rand",
 	"bip39/std",
 	"blake2/std",
@@ -162,4 +158,4 @@ bls-experimental = ["sha2", "w3f-bls"]
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = ["ark-vrf"]
+bandersnatch-experimental = []
