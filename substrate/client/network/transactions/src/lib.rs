@@ -35,8 +35,7 @@ use log::{debug, trace, warn};
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network::{
 	config::{NonReservedPeerMode, ProtocolId, SetConfig},
-	error,
-	multiaddr::{Multiaddr, Protocol},
+	error, multiaddr,
 	peer_store::PeerStoreProvider,
 	service::{
 		traits::{NotificationEvent, NotificationService, ValidationResult},
@@ -378,19 +377,9 @@ where
 
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
-			SyncEvent::InitialPeers(peer_ids) => {
-				let addrs = peer_ids
-					.into_iter()
-					.map(|peer_id| Multiaddr::empty().with(Protocol::P2p(peer_id.into())))
-					.collect();
-				let result =
-					self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs);
-				if let Err(err) = result {
-					log::error!(target: LOG_TARGET, "Add reserved peers failed: {}", err);
-				}
-			},
-			SyncEvent::PeerConnected(peer_id) => {
-				let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
+			SyncEvent::PeerConnected(remote) => {
+				let addr = iter::once(multiaddr::Protocol::P2p(remote.into()))
+					.collect::<multiaddr::Multiaddr>();
 				let result = self.network.add_peers_to_reserved_set(
 					self.protocol_name.clone(),
 					iter::once(addr).collect(),
@@ -399,10 +388,10 @@ where
 					log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
 				}
 			},
-			SyncEvent::PeerDisconnected(peer_id) => {
+			SyncEvent::PeerDisconnected(remote) => {
 				let result = self.network.remove_peers_from_reserved_set(
 					self.protocol_name.clone(),
-					iter::once(peer_id).collect(),
+					iter::once(remote).collect(),
 				);
 				if let Err(err) = result {
 					log::error!(target: LOG_TARGET, "Remove reserved peer failed: {}", err);
@@ -480,7 +469,7 @@ where
 
 	fn do_propagate_transactions(
 		&mut self,
-		transactions: &[(H, B::Extrinsic)],
+		transactions: &[(H, Arc<B::Extrinsic>)],
 	) -> HashMap<H, Vec<String>> {
 		let mut propagated_to = HashMap::<_, Vec<_>>::new();
 		let mut propagated_transactions = 0;
