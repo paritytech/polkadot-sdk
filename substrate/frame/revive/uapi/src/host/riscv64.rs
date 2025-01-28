@@ -71,7 +71,7 @@ mod sys {
 			flags_and_callee: u64,
 			ref_time_limit: u64,
 			proof_size_limit: u64,
-			deposit_ptr: *const u32,
+			deposit_ptr: *const u8,
 			input_data: u64,
 			output_data: u64,
 		) -> ReturnCode;
