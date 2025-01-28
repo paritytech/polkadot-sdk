@@ -19,7 +19,7 @@ use polkadot_node_network_protocol::{
 	authority_discovery::AuthorityDiscovery,
 	peer_set::{peer_sets_info, IsAuthority, PeerSet, PeerSetProtocolNames},
 };
-use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
+use polkadot_primitives::AuthorityDiscoveryId;
 use polkadot_service::runtime_traits::Zero;
 use prometheus::Registry;
 use sc_network::{
@@ -29,11 +29,13 @@ use sc_network::{
 	},
 	multiaddr,
 	service::traits::NetworkService,
-	NetworkWorker, NotificationMetrics, NotificationService,
+	NetworkBackend, NotificationConfig, NotificationMetrics, NotificationService,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sc_network_types::PeerId;
 use sp_consensus::SyncOracle;
+use sp_core::H256;
+use sp_runtime::traits::Block as BlockT;
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
@@ -85,111 +87,97 @@ impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 	}
 }
 
-pub(crate) fn build_network_config(
+pub(crate) fn build_network_config<B, N>(
 	transport: TransportConfig,
 	listen_address: multiaddr::Multiaddr,
 	node_key: NodeKeyConfig,
 	metrics_registry: Option<Registry>,
-) -> FullNetworkConfiguration<Block, Hash, NetworkWorker<Block, Hash>> {
+) -> FullNetworkConfiguration<B, B::Hash, N>
+where
+	B: BlockT<Hash = H256> + 'static,
+	N: NetworkBackend<B, B::Hash>,
+{
 	let mut net_conf = NetworkConfiguration::new_local();
 	net_conf.transport = transport;
 	net_conf.listen_addresses = vec![listen_address];
 	net_conf.node_key = node_key;
 
-	FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(
-		&net_conf,
-		metrics_registry,
-	)
+	FullNetworkConfiguration::<B, B::Hash, N>::new(&net_conf, metrics_registry)
 }
 
-pub(crate) fn build_block_announce_service(
-	network_config: &FullNetworkConfiguration<Block, Hash, NetworkWorker<Block, Hash>>,
-	role: Role,
-	protocol_id_str: &str,
-	notification_metrics: &NotificationMetrics,
-) -> (sc_network::config::NonDefaultSetConfig, Box<dyn NotificationService>) {
-	let peer_store_handle = network_config.peer_store_handle();
-	let block_announce_protocol =
-		format!("/{}/block-announces/1", array_bytes::bytes2hex("", GENESIS_HASH.as_ref()));
-	let (block_announce_config,  block_announce_service) =
-			    <NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
-				    block_announce_protocol.into(),
-				    std::iter::once(format!("/{}/block-announces/1", protocol_id_str).into())
-					    .collect(),
-				    1024 * 1024,
-				    Some(sc_network::config::NotificationHandshake::new(
-					    BlockAnnouncesHandshake::<Block>::build(
-						    sc_network::Roles::from(&role),
-						    Zero::zero(),
-						    GENESIS_HASH,
-						    GENESIS_HASH,
-					    ),
-				    )),
-				    // NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
-				    // protocol is still hardcoded into the peerset.
-				    SetConfig {
-					    in_peers: 0,
-					    out_peers: 0,
-					    reserved_nodes: vec![],
-					    non_reserved_mode: NonReservedPeerMode::Deny,
-				    },
-				    notification_metrics.clone(),
-				    Arc::clone(&peer_store_handle),
-			    );
-
-	(block_announce_config, block_announce_service)
-}
-
-pub(crate) fn build_network_worker(
+pub(crate) fn build_network_worker<B, N>(
 	dependencies: &TestEnvironmentDependencies,
-	network_config: FullNetworkConfiguration<Block, Hash, NetworkWorker<Block, Hash>>,
+	network_config: FullNetworkConfiguration<B, B::Hash, N>,
 	role: Role,
 	protocol_id: ProtocolId,
 	notification_metrics: NotificationMetrics,
-	block_announce_config: sc_network::config::NonDefaultSetConfig,
 	metrics_registry: Option<Registry>,
 	task_group: &str,
-) -> (NetworkWorker<Block, Hash>, Arc<dyn NetworkService>) {
+) -> (N, Arc<dyn NetworkService>, Box<dyn NotificationService>)
+where
+	B: BlockT<Hash = H256> + 'static,
+	N: NetworkBackend<B, B::Hash>,
+{
+	let peer_store_handle = network_config.peer_store_handle();
+	let block_announce_protocol =
+		format!("/{}/block-announces/1", array_bytes::bytes2hex("", GENESIS_HASH.as_ref()));
+	let (block_announce_config, block_announce_service) = N::notification_config(
+		block_announce_protocol.into(),
+		std::iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
+		1024 * 1024,
+		Some(sc_network::config::NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
+			sc_network::Roles::from(&role),
+			Zero::zero(),
+			GENESIS_HASH,
+			GENESIS_HASH,
+		))),
+		// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
+		// protocol is still hardcoded into the peerset.
+		SetConfig {
+			in_peers: 0,
+			out_peers: 0,
+			reserved_nodes: vec![],
+			non_reserved_mode: NonReservedPeerMode::Deny,
+		},
+		notification_metrics.clone(),
+		Arc::clone(&peer_store_handle),
+	);
 	let spawn_handle = dependencies.task_manager.spawn_handle();
 	let task_group: &'static str = Box::leak(task_group.to_string().into_boxed_str());
-	let worker =
-		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::new(Params::<
-			Block,
-			Hash,
-			NetworkWorker<Block, Hash>,
-		> {
-			block_announce_config,
-			role,
-			executor: {
-				let handle = Clone::clone(&spawn_handle);
-				Box::new(move |fut| {
-					handle.spawn("libp2p-node", Some(task_group), fut);
-				})
-			},
-			genesis_hash: GENESIS_HASH,
-			network_config,
-			protocol_id,
-			fork_id: None,
-			metrics_registry,
-			bitswap_config: None,
-			notification_metrics,
-		})
-		.unwrap();
-	let network_service =
-		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::network_service(
-			&worker,
-		);
+	let worker = N::new(Params::<B, B::Hash, N> {
+		block_announce_config,
+		role,
+		executor: {
+			let handle = Clone::clone(&spawn_handle);
+			Box::new(move |fut| {
+				handle.spawn("libp2p-node", Some(task_group), fut);
+			})
+		},
+		genesis_hash: GENESIS_HASH,
+		network_config,
+		protocol_id,
+		fork_id: None,
+		metrics_registry,
+		bitswap_config: None,
+		notification_metrics,
+	})
+	.unwrap();
+	let network_service = worker.network_service();
 
-	(worker, network_service)
+	(worker, network_service, block_announce_service)
 }
 
-pub(crate) fn build_peer_set_services(
-	network_config: &mut FullNetworkConfiguration<Block, Hash, NetworkWorker<Block, Hash>>,
+pub(crate) fn build_peer_set_services<B, N>(
+	network_config: &mut FullNetworkConfiguration<B, B::Hash, N>,
 	notification_metrics: &NotificationMetrics,
-) -> (PeerSetProtocolNames, HashMap<PeerSet, Box<dyn NotificationService>>) {
+) -> (PeerSetProtocolNames, HashMap<PeerSet, Box<dyn NotificationService>>)
+where
+	B: BlockT<Hash = H256> + 'static,
+	N: NetworkBackend<B, B::Hash>,
+{
 	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 	let peer_store_handle = network_config.peer_store_handle();
-	let peer_set_services = peer_sets_info::<Block, NetworkWorker<Block, Hash>>(
+	let peer_set_services = peer_sets_info::<B, N>(
 		IsAuthority::Yes,
 		&peer_set_protocol_names,
 		notification_metrics.clone(),

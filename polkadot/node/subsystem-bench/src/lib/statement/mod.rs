@@ -53,8 +53,8 @@ use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, Block, CompactStatement, GroupIndex, Hash, Id, SignedStatement,
-	SigningContext, ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, CompactStatement, GroupIndex, Id, SignedStatement, SigningContext,
+	ValidatorId, ValidatorIndex,
 };
 use polkadot_service::overseer::{
 	NetworkBridgeMetrics, NetworkBridgeRxSubsystem, NetworkBridgeTxSubsystem,
@@ -66,14 +66,14 @@ use sc_network::{
 	config::{MultiaddrWithPeerId, NodeKeyConfig, ProtocolId, Role, TransportConfig},
 	multiaddr,
 	request_responses::ProtocolConfig,
-	service::traits::{NotificationEvent, ValidationResult},
-	IfDisconnected, NetworkWorker, NotificationMetrics,
+	service::traits::{NotificationEvent, RequestResponseConfig, ValidationResult},
+	IfDisconnected, NetworkBackend, NotificationMetrics,
 };
 use sc_service::SpawnTaskHandle;
 use sp_application_crypto::Pair;
-use sp_core::Bytes;
+use sp_core::{Bytes, H256};
 use sp_keystore::{Keystore, KeystorePtr};
-use sp_runtime::RuntimeAppPublic;
+use sp_runtime::{traits::Block as BlockT, RuntimeAppPublic};
 use std::{
 	collections::HashMap,
 	sync::{atomic::Ordering, Arc},
@@ -97,14 +97,18 @@ pub fn make_keystore() -> KeystorePtr {
 	keystore
 }
 
-fn build_overseer(
+fn build_overseer<B, N>(
 	state: &TestState,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 	OverseerHandle,
 	Vec<ProtocolConfig>,
-) {
+)
+where
+	B: BlockT<Hash = H256> + 'static,
+	N: NetworkBackend<B, B::Hash>,
+{
 	let _guard = dependencies.runtime.handle().enter();
 
 	let transport: TransportConfig = TransportConfig::MemoryOnly;
@@ -116,7 +120,7 @@ fn build_overseer(
 	let protocol_id = ProtocolId::from("sup");
 	let notification_metrics = NotificationMetrics::new(Some(&dependencies.registry));
 
-	let mut network_config = network_utils::build_network_config(
+	let mut network_config = network_utils::build_network_config::<B, N>(
 		transport,
 		listen_address,
 		node_key,
@@ -126,39 +130,27 @@ fn build_overseer(
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
 	// v1 requests
 	// We don't use them in this benchmark but still need to add the protocol
-	let (v1_statement_req_receiver, v1_statement_req_cfg) = IncomingRequest::get_config_receiver::<
-		Block,
-		sc_network::NetworkWorker<Block, Hash>,
-	>(&req_protocol_names);
+	let (v1_statement_req_receiver, v1_statement_req_cfg) =
+		IncomingRequest::get_config_receiver::<B, N>(&req_protocol_names);
 	network_config.add_request_response_protocol(v1_statement_req_cfg);
 	// v2 requests
-	let (v2_candidate_req_receiver, v2_candidate_req_cfg) = IncomingRequest::get_config_receiver::<
-		Block,
-		sc_network::NetworkWorker<Block, Hash>,
-	>(&req_protocol_names);
+	let (v2_candidate_req_receiver, v2_candidate_req_cfg) =
+		IncomingRequest::get_config_receiver::<B, N>(&req_protocol_names);
 	network_config.add_request_response_protocol(v2_candidate_req_cfg);
 
-	let (block_announce_config, mut block_announce_service) =
-		network_utils::build_block_announce_service(
-			&network_config,
-			role,
-			protocol_id.as_ref(),
-			&notification_metrics,
-		);
-
 	let (peer_set_protocol_names, peer_set_services) =
-		network_utils::build_peer_set_services(&mut network_config, &notification_metrics);
+		network_utils::build_peer_set_services::<B, N>(&mut network_config, &notification_metrics);
 
-	let (worker, network_service) = network_utils::build_network_worker(
-		dependencies,
-		network_config,
-		role,
-		protocol_id,
-		notification_metrics,
-		block_announce_config,
-		Some(dependencies.registry.clone()),
-		"networking",
-	);
+	let (worker, network_service, mut block_announce_service) =
+		network_utils::build_network_worker::<B, N>(
+			dependencies,
+			network_config,
+			role,
+			protocol_id,
+			notification_metrics,
+			Some(dependencies.registry.clone()),
+			"networking",
+		);
 
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
@@ -266,7 +258,11 @@ fn build_overseer(
 	(overseer, overseer_handle, vec![])
 }
 
-fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies, index: u16) {
+fn build_peer<B, N>(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies, index: u16)
+where
+	B: BlockT<Hash = H256> + 'static,
+	N: NetworkBackend<B, B::Hash>,
+{
 	let _guard = dependencies.runtime.handle().enter();
 	let node_peer_id =
 		state.test_authorities.peer_ids.get(NODE_UNDER_TEST as usize).unwrap().clone();
@@ -282,27 +278,18 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 	let notification_metrics = NotificationMetrics::new(None);
 
 	let mut network_config =
-		network_utils::build_network_config(transport, listen_address, node_key, None);
+		network_utils::build_network_config::<B, N>(transport, listen_address, node_key, None);
 
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
 	let (mut candidate_req_receiver, candidate_req_cfg) =
-		IncomingRequest::<AttestedCandidateRequest>::get_config_receiver::<
-			Block,
-			NetworkWorker<Block, Hash>,
-		>(&req_protocol_names);
-	let candidate_req_name = candidate_req_cfg.name.clone();
+		IncomingRequest::<AttestedCandidateRequest>::get_config_receiver::<B, N>(
+			&req_protocol_names,
+		);
+	let candidate_req_name = candidate_req_cfg.protocol_name().clone();
 	network_config.add_request_response_protocol(candidate_req_cfg);
 
-	let (block_announce_config, mut block_announce_service) =
-		network_utils::build_block_announce_service(
-			&network_config,
-			role,
-			protocol_id.as_ref(),
-			&notification_metrics,
-		);
-
 	let (_peer_set_protocol_names, mut peer_set_services) =
-		network_utils::build_peer_set_services(&mut network_config, &notification_metrics);
+		network_utils::build_peer_set_services::<B, N>(&mut network_config, &notification_metrics);
 	let mut validation_service = peer_set_services
 		.remove(&PeerSet::Validation)
 		.expect("validation protocol was enabled so `NotificationService` must exist; qed");
@@ -311,16 +298,16 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 		.expect("collation protocol was enabled so `NotificationService` must exist; qed");
 	assert!(peer_set_services.is_empty());
 
-	let (worker, network_service) = network_utils::build_network_worker(
-		dependencies,
-		network_config,
-		role,
-		protocol_id,
-		notification_metrics,
-		block_announce_config,
-		None,
-		"test-environment",
-	);
+	let (worker, network_service, mut block_announce_service) =
+		network_utils::build_network_worker::<B, N>(
+			dependencies,
+			network_config,
+			role,
+			protocol_id,
+			notification_metrics,
+			None,
+			"test-environment",
+		);
 
 	let peer_id = network_service.local_peer_id();
 	let spawn_handle = dependencies.task_manager.spawn_handle();
@@ -508,10 +495,14 @@ fn build_peer(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies,
 	gum::debug!(target: LOG_TARGET, ?local_peer_id, ?listen_addresses, "Peer {} ready", index);
 }
 
-pub fn prepare_test(
+pub fn prepare_test<B, N>(
 	state: &TestState,
 	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, Vec<ProtocolConfig>) {
+) -> (TestEnvironment, Vec<ProtocolConfig>)
+where
+	B: BlockT<Hash = H256> + 'static,
+	N: NetworkBackend<B, B::Hash>,
+{
 	let dependencies = TestEnvironmentDependencies::default();
 	let (network, _network_interface, _network_receiver) = new_network(
 		&state.config,
@@ -521,10 +512,10 @@ pub fn prepare_test(
 	);
 
 	let arc_state = Arc::new(state.clone());
-	let (overseer, overseer_handle, cfg) = build_overseer(state, &dependencies);
+	let (overseer, overseer_handle, cfg) = build_overseer::<B, N>(state, &dependencies);
 	(0..state.config.n_validators)
 		.filter(|i| *i != NODE_UNDER_TEST as usize)
-		.for_each(|i| build_peer(Arc::clone(&arc_state), &dependencies, i as u16));
+		.for_each(|i| build_peer::<B, N>(Arc::clone(&arc_state), &dependencies, i as u16));
 
 	(
 		TestEnvironment::new(

@@ -20,9 +20,11 @@
 use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
+use polkadot_primitives::Block;
 use polkadot_subsystem_bench::{approval, availability, configuration, statement};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use sc_network::NetworkWorker;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -165,7 +167,8 @@ impl BenchCli {
 				},
 				TestObjective::StatementDistribution => {
 					let state = statement::TestState::new(&test_config);
-					let (mut env, _protocol_config) = statement::prepare_test(&state, true);
+					let (mut env, _protocol_config) =
+						statement::prepare_test::<Block, NetworkWorker<_, _>>(&state, true);
 					env.runtime()
 						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
 				},

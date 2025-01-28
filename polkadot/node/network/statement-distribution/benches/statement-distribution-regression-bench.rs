@@ -18,12 +18,14 @@
 //!
 //! Statement distribution benchmark based on Kusama parameters and scale.
 
+use polkadot_primitives::Block;
 use polkadot_subsystem_bench::{
 	configuration::TestConfiguration,
 	statement::{benchmark_statement_distribution, prepare_test, TestState},
 	usage::BenchmarkUsage,
 	utils::save_to_file,
 };
+use sc_network::NetworkWorker;
 use std::io::Write;
 
 const BENCH_COUNT: usize = 50;
@@ -43,7 +45,7 @@ fn main() -> Result<(), String> {
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let (mut env, _cfgs) = prepare_test(&state, false);
+			let (mut env, _cfgs) = prepare_test::<Block, NetworkWorker<_, _>>(&state, false);
 			env.runtime().block_on(benchmark_statement_distribution(&mut env, &state))
 		})
 		.collect();
