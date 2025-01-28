@@ -1,0 +1,14 @@
+title: 'xcm: fix DenyThenTry when work with multiple Deny tuples'
+doc:
+- audience: Runtime User
+  description: |-
+    This PR changes the behavior of DenyThenTry to fix #7148
+    If any of the tuple elements returns `Err(())`, the execution stops. 
+    Else, `Ok(_)` is returned if all elements accept the message.
+crates:
+- name: staging-xcm-executor
+  bump: minor
+- name: staging-xcm-builder
+  bump: minor
+- name: bridge-hub-common
+  bump: minor
