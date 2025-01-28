@@ -85,10 +85,7 @@ impl TryFrom<syn::ImplItemFn> for ViewFunctionDef {
 	type Error = syn::Error;
 	fn try_from(method: syn::ImplItemFn) -> Result<Self, Self::Error> {
 		let syn::ReturnType::Type(_, type_) = method.sig.output else {
-			return Err(syn::Error::new(
-				method.sig.output.span(),
-				"view functions must return a value",
-			))
+			return Err(syn::Error::new(method.sig.span(), "view functions must return a value"))
 		};
 
 		Ok(Self {
