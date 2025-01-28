@@ -200,7 +200,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit())]
 		pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
-			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
+			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
 			T::Verifier::verify(&message.event_log, &message.proof)
