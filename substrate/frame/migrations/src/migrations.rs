@@ -86,7 +86,9 @@ where
 			.saturated_into();
 
 		if key_budget == 0 {
-			return Err(SteppedMigrationError::InsufficientWeight { required: weight_per_key })
+			return Err(SteppedMigrationError::InsufficientWeight {
+				required: T::WeightInfo::reset_pallet_migration(1),
+			})
 		}
 
 		let (keys_removed, cursor) = match clear_prefix(&Self::hashed_prefix(), Some(key_budget)) {
