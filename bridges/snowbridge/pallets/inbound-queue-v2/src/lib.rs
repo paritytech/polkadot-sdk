@@ -114,9 +114,6 @@ pub mod pallet {
 		type Helper: BenchmarkHelper<Self>;
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -194,7 +191,6 @@ pub mod pallet {
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
-	#[pallet::getter(fn operating_mode)]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
@@ -233,12 +229,11 @@ pub mod pallet {
 			// d. The execution cost on destination chain(if any)
 			// e. The reward
 
-			// Attempt to forward XCM to AH
-
 			// Set nonce flag to true
 			log::info!(target: "snowbridge-inbound-queue:v2","💫 setting nonce to {:?}", envelope.nonce);
 			Nonce::<T>::set(envelope.nonce.into());
 
+			// Attempt to forward XCM to AH
 			let message_id = Self::send_xcm(xcm, T::AssetHubParaId::get())?;
 			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
