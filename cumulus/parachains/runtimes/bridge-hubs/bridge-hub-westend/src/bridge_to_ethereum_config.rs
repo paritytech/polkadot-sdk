@@ -143,7 +143,7 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("05000000"),
-			epoch: 80000000000, // setting to a future epoch until the Sepolia Electra epoch is announced.
+			epoch: 80000000000, // setting to a future epoch for local testing to remain on Deneb.
 		},
 	};
 }
@@ -173,7 +173,7 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("90000073"),
-			epoch: 80000000000, // setting to a future epoch until the Sepolia Electra epoch is announced.
+			epoch: 219392, // Tentative epoch, source: https://discord.com/channels/595666850260713488/745077610685661265/1331992315106955444
 		},
 	};
 }
