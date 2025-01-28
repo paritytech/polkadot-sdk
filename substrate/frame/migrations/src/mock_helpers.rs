@@ -134,7 +134,7 @@ impl SteppedMigrations for MockedMigrations {
 	fn nth_post_upgrade(
 		n: u32,
 		_state: Vec<u8>,
-	) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
+	) -> Option<Result<(), frame::try_runtime::TryRuntimeError>> {
 		let (kind, _) = MIGRATIONS::get()[n as usize];
 
 		if let PostUpgradeFail = kind {
