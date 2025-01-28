@@ -68,6 +68,9 @@ mod benchmarks {
 		#[cfg(not(feature = "insecure_zero_ed"))]
 		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
 
+		#[cfg(feature = "insecure_zero_ed")]
+		assert_eq!(Balances::<T, I>::free_balance(&caller), balance - transfer_amount);
+
 		assert_eq!(Balances::<T, I>::free_balance(&recipient), transfer_amount);
 	}
 
@@ -178,6 +181,9 @@ mod benchmarks {
 		#[cfg(not(feature = "insecure_zero_ed"))]
 		assert_eq!(Balances::<T, I>::free_balance(&source), Zero::zero());
 
+		#[cfg(feature = "insecure_zero_ed")]
+		assert_eq!(Balances::<T, I>::free_balance(&source), balance - transfer_amount);
+
 		assert_eq!(Balances::<T, I>::free_balance(&recipient), transfer_amount);
 	}
 
@@ -214,6 +220,9 @@ mod benchmarks {
 
 		#[cfg(not(feature = "insecure_zero_ed"))]
 		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+
+		#[cfg(feature = "insecure_zero_ed")]
+		assert_eq!(Balances::<T, I>::free_balance(&caller), balance - transfer_amount);
 
 		assert_eq!(Balances::<T, I>::free_balance(&recipient), transfer_amount);
 	}
