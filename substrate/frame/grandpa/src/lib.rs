@@ -541,6 +541,11 @@ impl<T: Config> Pallet<T> {
 				forced,
 			});
 
+			CurrentSetId:<T>::mutate(|s| {
+				*s += 1;
+				*s
+			});
+
 			Ok(())
 		} else {
 			Err(Error::<T>::ChangePending.into())
@@ -647,6 +652,12 @@ where
 			// of the current set.
 			CurrentSetId::<T>::get()
 		};
+
+		if changed || Stalled::<T>::exists() {
+			let current_set_id = CurrentSetId::<T>::mutate(|s| {
+				*s += 1;
+				*s
+			});
 
 		// update the mapping to note that the current set corresponds to the
 		// latest equivalent session (i.e. now).
