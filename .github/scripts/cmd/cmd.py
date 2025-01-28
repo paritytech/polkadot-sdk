@@ -114,7 +114,7 @@ def main():
 
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            build_command = f"cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}"
+            build_command = f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}"
             print(f'-- building "{runtime["name"]}" with `{build_command}`')
             build_status = os.system(build_command)
             if build_status != 0:
