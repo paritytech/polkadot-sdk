@@ -57,7 +57,7 @@ fn test_submit_happy_path() {
 				RuntimeEvent::InboundQueue(Event::MessageReceived { nonce, ..})
 					if nonce == 1
 			)),
-			"no event emit."
+			"no event emitted."
 		);
 	});
 }
