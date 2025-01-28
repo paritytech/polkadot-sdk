@@ -63,8 +63,7 @@ use polkadot_statement_distribution::StatementDistributionSubsystem;
 use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
 use sc_network::{
-	config::{MultiaddrWithPeerId, NodeKeyConfig, ProtocolId, Role, TransportConfig},
-	multiaddr,
+	config::{MultiaddrWithPeerId, NodeKeyConfig, ProtocolId, Role},
 	request_responses::ProtocolConfig,
 	service::traits::{NotificationEvent, RequestResponseConfig, ValidationResult},
 	IfDisconnected, NetworkBackend, NotificationMetrics,
@@ -104,6 +103,8 @@ fn build_overseer<B, N>(
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 	OverseerHandle,
 	Vec<ProtocolConfig>,
+	sc_network::PeerId,
+	sc_network::Multiaddr,
 )
 where
 	B: BlockT<Hash = H256> + 'static,
@@ -111,21 +112,14 @@ where
 {
 	let _guard = dependencies.runtime.handle().enter();
 
-	let transport: TransportConfig = TransportConfig::MemoryOnly;
-	let listen_address: sc_network::Multiaddr =
-		multiaddr::Protocol::Memory(NODE_UNDER_TEST.saturating_add(1) as u64).into();
 	let node_key: NodeKeyConfig =
 		state.test_authorities.node_key_configs[NODE_UNDER_TEST as usize].clone();
 	let role = Role::Authority;
 	let protocol_id = ProtocolId::from("sup");
 	let notification_metrics = NotificationMetrics::new(Some(&dependencies.registry));
 
-	let mut network_config = network_utils::build_network_config::<B, N>(
-		transport,
-		listen_address,
-		node_key,
-		Some(dependencies.registry.clone()),
-	);
+	let mut network_config =
+		network_utils::build_network_config::<B, N>(node_key, Some(dependencies.registry.clone()));
 
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
 	// v1 requests
@@ -255,30 +249,33 @@ where
 	let listen_addresses = network_service.listen_addresses();
 	gum::debug!(target: LOG_TARGET, ?local_peer_id, ?listen_addresses, "Peer {} ready", NODE_UNDER_TEST);
 
-	(overseer, overseer_handle, vec![])
+	(
+		overseer,
+		overseer_handle,
+		vec![],
+		local_peer_id,
+		listen_addresses.first().expect("listen addresses must not be empty").clone(),
+	)
 }
 
-fn build_peer<B, N>(state: Arc<TestState>, dependencies: &TestEnvironmentDependencies, index: u16)
-where
+fn build_peer<B, N>(
+	state: Arc<TestState>,
+	dependencies: &TestEnvironmentDependencies,
+	index: u16,
+	node_peer_id: sc_network::PeerId,
+	node_multiaddr: sc_network::Multiaddr,
+) where
 	B: BlockT<Hash = H256> + 'static,
 	N: NetworkBackend<B, B::Hash>,
 {
 	let _guard = dependencies.runtime.handle().enter();
-	let node_peer_id =
-		state.test_authorities.peer_ids.get(NODE_UNDER_TEST as usize).unwrap().clone();
-	let node_multiaddr =
-		multiaddr::Protocol::Memory(NODE_UNDER_TEST.saturating_add(1) as u64).into();
 
-	let transport: TransportConfig = TransportConfig::MemoryOnly;
-	let listen_address: sc_network::Multiaddr =
-		multiaddr::Protocol::Memory(index.saturating_add(1) as u64).into();
 	let node_key: NodeKeyConfig = state.test_authorities.node_key_configs[index as usize].clone();
 	let role = Role::Authority;
 	let protocol_id = ProtocolId::from("sup");
 	let notification_metrics = NotificationMetrics::new(None);
 
-	let mut network_config =
-		network_utils::build_network_config::<B, N>(transport, listen_address, node_key, None);
+	let mut network_config = network_utils::build_network_config::<B, N>(node_key, None);
 
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
 	let (mut candidate_req_receiver, candidate_req_cfg) =
@@ -512,10 +509,19 @@ where
 	);
 
 	let arc_state = Arc::new(state.clone());
-	let (overseer, overseer_handle, cfg) = build_overseer::<B, N>(state, &dependencies);
+	let (overseer, overseer_handle, cfg, peer_id, listen_address) =
+		build_overseer::<B, N>(state, &dependencies);
 	(0..state.config.n_validators)
 		.filter(|i| *i != NODE_UNDER_TEST as usize)
-		.for_each(|i| build_peer::<B, N>(Arc::clone(&arc_state), &dependencies, i as u16));
+		.for_each(|i| {
+			build_peer::<B, N>(
+				Arc::clone(&arc_state),
+				&dependencies,
+				i as u16,
+				peer_id,
+				listen_address.clone(),
+			)
+		});
 
 	(
 		TestEnvironment::new(

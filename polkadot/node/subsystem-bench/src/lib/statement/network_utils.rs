@@ -88,8 +88,6 @@ impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 }
 
 pub(crate) fn build_network_config<B, N>(
-	transport: TransportConfig,
-	listen_address: multiaddr::Multiaddr,
 	node_key: NodeKeyConfig,
 	metrics_registry: Option<Registry>,
 ) -> FullNetworkConfiguration<B, B::Hash, N>
@@ -98,8 +96,8 @@ where
 	N: NetworkBackend<B, B::Hash>,
 {
 	let mut net_conf = NetworkConfiguration::new_local();
-	net_conf.transport = transport;
-	net_conf.listen_addresses = vec![listen_address];
+	net_conf.transport = TransportConfig::MemoryOnly;
+	net_conf.listen_addresses = vec![multiaddr::Protocol::Memory(0).into()];
 	net_conf.node_key = node_key;
 
 	FullNetworkConfiguration::<B, B::Hash, N>::new(&net_conf, metrics_registry)
