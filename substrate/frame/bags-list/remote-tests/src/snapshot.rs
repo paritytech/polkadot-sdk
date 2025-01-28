@@ -22,7 +22,10 @@ use frame_election_provider_support::{
 };
 use frame_support::traits::PalletInfoAccess;
 use remote_externalities::{Builder, Mode, OnlineConfig};
-use sp_runtime::{traits::Block as BlockT, DeserializeOwned};
+use sp_runtime::{
+	traits::{Block as BlockT, Zero},
+	DeserializeOwned,
+};
 
 /// Execute create a snapshot from pallet-staking.
 pub async fn execute<Runtime, Block>(voter_limit: Option<usize>, currency_unit: u64, ws_url: String)
@@ -70,8 +73,9 @@ where
 			Some(v) => DataProviderBounds { count: Some(CountBound(v as u32)), size: None },
 		};
 
+		// single page voter snapshot, thus page index == 0.
 		let voters =
-			<pallet_staking::Pallet<Runtime> as ElectionDataProvider>::electing_voters(bounds)
+			<pallet_staking::Pallet<Runtime> as ElectionDataProvider>::electing_voters(bounds, Zero::zero())
 				.unwrap();
 
 		let mut voters_nominator_only = voters

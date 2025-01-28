@@ -64,7 +64,7 @@ pallet-collective = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-democracy = { workspace = true }
-pallet-election-provider-multi-phase = { workspace = true }
+pallet-election-provider-multi-block = { workspace = true }
 pallet-elections-phragmen = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-grandpa = { workspace = true }
@@ -163,7 +163,7 @@ std = [
 	"pallet-conviction-voting/std",
 	"pallet-delegated-staking/std",
 	"pallet-democracy/std",
-	"pallet-election-provider-multi-phase/std",
+	"pallet-election-provider-multi-block/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen/std",
 	"pallet-fast-unstake/std",
@@ -254,7 +254,7 @@ runtime-benchmarks = [
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-democracy/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
@@ -319,7 +319,7 @@ try-runtime = [
 	"pallet-conviction-voting/try-runtime",
 	"pallet-delegated-staking/try-runtime",
 	"pallet-democracy/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-election-provider-multi-block/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-grandpa/try-runtime",

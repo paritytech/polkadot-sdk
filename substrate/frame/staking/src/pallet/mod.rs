@@ -19,9 +19,7 @@
 
 use alloc::vec::Vec;
 use codec::Codec;
-use frame_election_provider_support::{
-	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
-};
+use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -33,12 +31,12 @@ use frame_support::{
 		InspectLockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
-	BoundedVec,
+	BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
 	traits::{SaturatedConversion, StaticLookup, Zero},
-	ArithmeticError, Perbill, Percent,
+	ArithmeticError, Perbill, Percent, Saturating,
 };
 
 use sp_staking::{
@@ -67,11 +65,10 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_election_provider_support::ElectionDataProvider;
-
-	use crate::{BenchmarkingConfig, PagedExposureMetadata};
-
 	use super::*;
+
+	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
+	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
@@ -157,6 +154,8 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Pallet<Self>,
+			MaxWinnersPerPage = <Self::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
+			MaxBackersPerWinner = <Self::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
 		>;
 
 		/// Something that defines the maximum number of nominations per nominator.
@@ -252,6 +251,13 @@ pub mod pallet {
 		/// without handling it in a migration.
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
+
+		/// The absolute maximum of winner validators this pallet should return.
+		///
+		/// As this pallet supports multi-block election, the set of winner validators *per
+		/// election* is bounded by this type.
+		#[pallet::constant]
+		type MaxValidatorSet: Get<u32>;
 
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
 		/// used for NPoS election.
@@ -371,6 +377,7 @@ pub mod pallet {
 			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
+			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
@@ -751,6 +758,28 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	/// Voter snapshot progress status.
+	///
+	/// If the status is `Ongoing`, it keeps a cursor of the last voter retrieved to proceed when
+	/// creating the next snapshot page.
+	#[pallet::storage]
+	pub(crate) type VoterSnapshotStatus<T: Config> =
+		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
+
+	/// Keeps track of an ongoing multi-page election solution request.
+	///
+	/// If `Some(_)``, it is the next page that we intend to elect. If `None`, we are not in the
+	/// election process.
+	///
+	/// This is only set in multi-block elections. Should always be `None` otherwise.
+	#[pallet::storage]
+	pub(crate) type NextElectionPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
+
+	/// A bounded list of the "electable" stashes that resulted from a successful election.
+	#[pallet::storage]
+	pub(crate) type ElectableStashes<T: Config> =
+		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -816,7 +845,8 @@ pub mod pallet {
 				});
 				assert!(
 					ValidatorCount::<T>::get() <=
-						<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
+						<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
+							<T::ElectionProvider as ElectionProvider>::Pages::get()
 				);
 			}
 
@@ -834,7 +864,11 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
-		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },
+		EraPaid {
+			era_index: EraIndex,
+			validator_payout: BalanceOf<T>,
+			remainder: BalanceOf<T>,
+		},
 		/// The nominator has been rewarded by this amount to this destination.
 		Rewarded {
 			stash: T::AccountId,
@@ -842,31 +876,54 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		},
 		/// A staker (validator or nominator) has been slashed by the given amount.
-		Slashed { staker: T::AccountId, amount: BalanceOf<T> },
+		Slashed {
+			staker: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// A slash for the given validator, for the given percentage of their stake, at the given
 		/// era as been reported.
-		SlashReported { validator: T::AccountId, fraction: Perbill, slash_era: EraIndex },
+		SlashReported {
+			validator: T::AccountId,
+			fraction: Perbill,
+			slash_era: EraIndex,
+		},
 		/// An old slashing report from a prior era was discarded because it could
 		/// not be processed.
-		OldSlashingReportDiscarded { session_index: SessionIndex },
+		OldSlashingReportDiscarded {
+			session_index: SessionIndex,
+		},
 		/// A new set of stakers was elected.
 		StakersElected,
 		/// An account has bonded this amount. \[stash, amount\]
 		///
 		/// NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
 		/// it will not be emitted for staking rewards when they are added to stake.
-		Bonded { stash: T::AccountId, amount: BalanceOf<T> },
+		Bonded {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// An account has unbonded this amount.
-		Unbonded { stash: T::AccountId, amount: BalanceOf<T> },
+		Unbonded {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
 		/// from the unlocking queue.
-		Withdrawn { stash: T::AccountId, amount: BalanceOf<T> },
+		Withdrawn {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// A nominator has been kicked from a validator.
-		Kicked { nominator: T::AccountId, stash: T::AccountId },
+		Kicked {
+			nominator: T::AccountId,
+			stash: T::AccountId,
+		},
 		/// The election failed. No new era is planned.
 		StakingElectionFailed,
 		/// An account has stopped participating as either a validator or nominator.
-		Chilled { stash: T::AccountId },
+		Chilled {
+			stash: T::AccountId,
+		},
 		/// A Page of stakers rewards are getting paid. `next` is `None` if all pages are claimed.
 		PayoutStarted {
 			era_index: EraIndex,
@@ -875,22 +932,52 @@ pub mod pallet {
 			next: Option<Page>,
 		},
 		/// A validator has set their preferences.
-		ValidatorPrefsSet { stash: T::AccountId, prefs: ValidatorPrefs },
+		ValidatorPrefsSet {
+			stash: T::AccountId,
+			prefs: ValidatorPrefs,
+		},
 		/// Voters size limit reached.
-		SnapshotVotersSizeExceeded { size: u32 },
+		SnapshotVotersSizeExceeded {
+			size: u32,
+		},
 		/// Targets size limit reached.
-		SnapshotTargetsSizeExceeded { size: u32 },
-		/// A new force era mode was set.
-		ForceEra { mode: Forcing },
+		SnapshotTargetsSizeExceeded {
+			size: u32,
+		},
+		ForceEra {
+			mode: Forcing,
+		},
 		/// Report of a controller batch deprecation.
-		ControllerBatchDeprecated { failures: u32 },
+		ControllerBatchDeprecated {
+			failures: u32,
+		},
 		/// Validator has been disabled.
-		ValidatorDisabled { stash: T::AccountId },
+		ValidatorDisabled {
+			stash: T::AccountId,
+		},
 		/// Validator has been re-enabled.
-		ValidatorReenabled { stash: T::AccountId },
+		ValidatorReenabled {
+			stash: T::AccountId,
+		},
 		/// Staking balance migrated from locks to holds, with any balance that could not be held
 		/// is force withdrawn.
-		CurrencyMigrated { stash: T::AccountId, force_withdraw: BalanceOf<T> },
+		CurrencyMigrated {
+			stash: T::AccountId,
+			force_withdraw: BalanceOf<T>,
+		},
+		/// A page from a multi-page election was fetched. A number of these are followed by
+		/// `StakersElected`.
+		///
+		/// `Ok(count)` indicates the give number of stashes were added.
+		/// `Err(index)` indicates that the stashes after index were dropped.
+		/// `Err(0)` indicates that an error happened but no stashes were dropped nor added.
+		///
+		/// The error indicates that a number of validators were dropped due to excess size, but
+		/// the overall election will continue.
+		PagedElectionProceeded {
+			page: PageIndex,
+			result: Result<u32, u32>,
+		},
 	}
 
 	#[pallet::error]
@@ -970,9 +1057,38 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// just return the weight of the on_finalize.
-			T::DbWeight::get().reads(1)
+		/// Start fetching the election pages `Pages` blocks before the election prediction, so
+		/// that the `ElectableStashes` has been populated with all validators from all pages at
+		/// the time of the election.
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			let pages = Self::election_pages();
+
+			// election ongoing, fetch the next page.
+			let inner_weight = if let Some(next_page) = NextElectionPage::<T>::get() {
+				let next_next_page = next_page.checked_sub(1);
+				NextElectionPage::<T>::set(next_next_page);
+				Self::do_elect_paged(next_page)
+			} else {
+				// election isn't ongoing yet, check if it should start.
+				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
+
+				if now == (next_election.saturating_sub(pages.into())) {
+					crate::log!(
+						trace,
+						"elect(): start fetching solution pages. expected pages: {:?}",
+						pages
+					);
+
+					let current_page = pages.saturating_sub(1);
+					let next_page = current_page.checked_sub(1);
+					NextElectionPage::<T>::set(next_page);
+					Self::do_elect_paged(current_page)
+				} else {
+					Weight::default()
+				}
+			};
+
+			T::WeightInfo::on_initialize_noop().saturating_add(inner_weight)
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
@@ -998,18 +1114,20 @@ pub mod pallet {
 			// and that MaxNominations is always greater than 1, since we count on this.
 			assert!(!MaxNominationsOf::<T>::get().is_zero());
 
-			// ensure election results are always bounded with the same value
-			assert!(
-				<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get() ==
-					<T::GenesisElectionProvider as ElectionProviderBase>::MaxWinners::get()
-			);
-
 			assert!(
 				T::SlashDeferDuration::get() < T::BondingDuration::get() || T::BondingDuration::get() == 0,
 				"As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
 				T::SlashDeferDuration::get(),
 				T::BondingDuration::get(),
-			)
+			);
+
+			// the max validator set bound must be the same of lower that the EP's max winner's per
+			// page, to ensure that the max validator set does not overflow when the retuned
+			// election page is full.
+			assert!(
+				<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() <=
+					T::MaxValidatorSet::get()
+			);
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -1604,18 +1722,15 @@ pub mod pallet {
 			#[pallet::compact] new: u32,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			// ensure new validator count does not exceed maximum winners
-			// support by election provider.
-			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
-				Error::<T>::TooManyValidators
-			);
+
+			ensure!(new <= T::MaxValidatorSet::get(), Error::<T>::TooManyValidators);
+
 			ValidatorCount::<T>::put(new);
 			Ok(())
 		}
 
 		/// Increments the ideal number of validators up to maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// `T::MaxValidatorSet`.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1630,17 +1745,15 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(additional).ok_or(ArithmeticError::Overflow)?;
-			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
-				Error::<T>::TooManyValidators
-			);
+
+			ensure!(new <= T::MaxValidatorSet::get(), Error::<T>::TooManyValidators);
 
 			ValidatorCount::<T>::put(new);
 			Ok(())
 		}
 
 		/// Scale up the ideal number of validators by a factor up to maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// `T::MaxValidatorSet`.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1653,10 +1766,7 @@ pub mod pallet {
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(factor.mul_floor(old)).ok_or(ArithmeticError::Overflow)?;
 
-			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
-				Error::<T>::TooManyValidators
-			);
+			ensure!(new <= T::MaxValidatorSet::get(), Error::<T>::TooManyValidators);
 
 			ValidatorCount::<T>::put(new);
 			Ok(())
@@ -1810,6 +1920,7 @@ pub mod pallet {
 			era: EraIndex,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
+
 			Self::do_payout_stakers(validator_stash, era)
 		}
 
