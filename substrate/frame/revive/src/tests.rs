@@ -1589,13 +1589,13 @@ fn instantiate_return_code() {
 		// Contract has only the minimal balance so any transfer will fail.
 		<Test as Config>::Currency::set_balance(&contract.account_id, min_balance);
 		let result = builder::bare_call(contract.addr)
-			.data(callee_hash.clone())
+			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
 			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 
 		// Contract has enough balance but the passed code hash is invalid
 		<Test as Config>::Currency::set_balance(&contract.account_id, min_balance + 10_000);
-		let result = builder::bare_call(contract.addr).data(vec![0; 33]).build();
+		let result = builder::bare_call(contract.addr).data(vec![0; 36]).build();
 		assert_err!(result.result, <Error<Test>>::CodeNotFound);
 
 		// Contract has enough balance but callee reverts because "1" is passed.
@@ -3141,7 +3141,7 @@ fn deposit_limit_in_nested_instantiate() {
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.storage_deposit_limit(DepositLimit::Balance(0))
-			.data((100u32, &code_hash_callee, &U256::MAX.to_little_endian()).encode())
+			.data((&code_hash_callee, 100u32, &U256::MAX.to_little_endian()).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on instantiation should be rolled back.
@@ -3154,7 +3154,7 @@ fn deposit_limit_in_nested_instantiate() {
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.storage_deposit_limit(DepositLimit::Balance(callee_min_deposit))
-			.data((0u32, &code_hash_callee, &U256::MAX.to_little_endian()).encode())
+			.data((&code_hash_callee, 0u32, &U256::MAX.to_little_endian()).encode())
 			.build();
 		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
 		// The charges made on the instantiation should be rolled back.
@@ -3166,7 +3166,7 @@ fn deposit_limit_in_nested_instantiate() {
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.storage_deposit_limit(DepositLimit::Balance(caller_min_deposit + 1))
-			.data((1u32, &code_hash_callee, U256::from(callee_min_deposit)).encode())
+			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on the instantiation should be rolled back.
@@ -3178,7 +3178,7 @@ fn deposit_limit_in_nested_instantiate() {
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.storage_deposit_limit(DepositLimit::Balance(callee_min_deposit + 1))
-			.data((1u32, &code_hash_callee, U256::from(callee_min_deposit + 1)).encode())
+			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
 		// The charges made on the instantiation should be rolled back.
@@ -3188,7 +3188,7 @@ fn deposit_limit_in_nested_instantiate() {
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.storage_deposit_limit((caller_min_deposit + 2).into())
-			.data((1u32, &code_hash_callee, U256::from(callee_min_deposit + 1)).encode())
+			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 
 		let returned = result.result.unwrap();
