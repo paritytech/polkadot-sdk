@@ -18,7 +18,7 @@
 
 use sc_network::{
 	config::{
-		notification_service, FullNetworkConfiguration, IncomingRequest, MultiaddrWithPeerId,
+		notification_service, FullNetworkConfiguration, IncomingRequest,
 		NetworkConfiguration, NonReservedPeerMode, NotificationHandshake, OutgoingResponse, Params,
 		ProtocolId, Role, SetConfig,
 	},
@@ -34,10 +34,11 @@ use std::{sync::Arc, time::Duration};
 use substrate_test_runtime_client::runtime;
 use tokio::{sync::Mutex, task::JoinHandle};
 
-struct NetworkBackendClient {
-	network_service: Arc<dyn NetworkService>,
-	notification_service: Arc<Mutex<Box<dyn NotificationService>>>,
-	receiver: async_channel::Receiver<IncomingRequest>,
+/// High level network backend (litep2p or libp2p) test client.
+pub struct NetworkBackendClient {
+	pub network_service: Arc<dyn NetworkService>,
+	pub notification_service: Arc<Mutex<Box<dyn NotificationService>>>,
+	pub receiver: async_channel::Receiver<IncomingRequest>,
 }
 
 /// Configure the network backend client for tests based on the given service.

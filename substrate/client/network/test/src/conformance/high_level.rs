@@ -16,5 +16,27 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-mod high_level;
-mod setup;
+use crate::conformance::setup::{connect_backends, create_network_backend};
+
+use sc_network::{Litep2pNetworkBackend, NetworkWorker};
+
+#[tokio::test]
+async fn check_connectivity() {
+	let _ = sp_tracing::tracing_subscriber::fmt()
+		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.try_init();
+
+	// Libp2p dials litep2p.
+	connect_backends(
+		&create_network_backend::<NetworkWorker<_, _>>(),
+		&create_network_backend::<Litep2pNetworkBackend>(),
+	)
+	.await;
+
+	// Litep2p dials libp2p.
+	connect_backends(
+		&create_network_backend::<Litep2pNetworkBackend>(),
+		&create_network_backend::<NetworkWorker<_, _>>(),
+	)
+	.await;
+}
