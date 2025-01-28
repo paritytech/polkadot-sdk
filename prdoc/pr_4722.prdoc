@@ -19,10 +19,6 @@ doc:
 crates:
   - name: frame-support
     bump: minor
-  - name: sp-core
-    bump: minor
-  - name: sp-api
-    bump: minor
   - name: sp-metadata-ir
     bump: major
   - name: frame-support-procedural
