@@ -48,13 +48,9 @@ impl<T, P> ResetPallet<T, P>
 where
 	P: PalletInfoAccess,
 {
-	fn hashed_prefix() -> [u8; 16] {
-		twox_128(P::name().as_bytes())
-	}
-
 	#[cfg(feature = "try-runtime")]
 	fn num_keys() -> u64 {
-		let prefix = Self::hashed_prefix().to_vec();
+		let prefix = Self::name_hash().to_vec();
 		crate::storage::KeyPrefixIterator::new(prefix.clone(), prefix, |_| Ok(())).count() as _
 	}
 }
@@ -92,7 +88,7 @@ where
 			.remaining()
 			.saturating_sub(base_weight)
 			.checked_div_per_component(&weight_per_key)
-			.expect("costs not zero")
+			.unwrap_or(Zero::zero())
 			.saturated_into();
 
 		if key_budget == 0 {
@@ -126,7 +122,7 @@ where
 		log::info!("ResetPallet<{}>: Keys remaining after migration: {keys_now}", P::name());
 
 		if keys_before <= keys_now {
-			log::error!("ResetPallet<{}>: Removed suspiciously low number of keys.", P::name());
+			log::error!("ResetPallet<{}>: Did not remove any keys.", P::name());
 			Err("ResetPallet failed")?;
 		}
 
