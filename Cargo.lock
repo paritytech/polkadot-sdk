@@ -15756,6 +15756,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-ah-client"
+version = "0.1.0"
+dependencies = [
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "pallet-session 28.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 31.0.1",
+ "sp-staking 26.0.0",
+]
+
+[[package]]
+name = "pallet-staking-rc-client"
+version = "0.1.0"
+dependencies = [
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-staking 26.0.0",
+]
+
+[[package]]
 name = "pallet-staking-reward-curve"
 version = "11.0.0"
 dependencies = [
