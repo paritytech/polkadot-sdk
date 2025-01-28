@@ -1,7 +1,7 @@
 # Availability Recovery
 
 This subsystem is responsible for recovering the data made available via the
-[Availability Distribution](availability-distribution.md) subsystem, neccessary for candidate validation during the
+[Availability Distribution](availability-distribution.md) subsystem, necessary for candidate validation during the
 approval/disputes processes. Additionally, it is also being used by collators to recover PoVs in adversarial scenarios
 where the other collators of the para are censoring blocks.
 
