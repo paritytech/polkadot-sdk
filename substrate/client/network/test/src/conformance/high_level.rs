@@ -27,10 +27,6 @@ use sc_network::{
 
 #[tokio::test]
 async fn check_connectivity() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	// Libp2p dials litep2p.
 	connect_backends(
 		&create_network_backend::<NetworkWorker<_, _>>(),
@@ -48,10 +44,6 @@ async fn check_connectivity() {
 
 #[tokio::test]
 async fn check_request_response() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	async fn inner_check_request_response(left: NetworkBackendClient, right: NetworkBackendClient) {
 		connect_backends(&left, &right).await;
 
@@ -109,10 +101,6 @@ async fn check_request_response() {
 
 #[tokio::test]
 async fn check_notifications() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	async fn inner_check_notifications(left: NetworkBackendClient, right: NetworkBackendClient) {
 		const MAX_NOTIFICATIONS: usize = 128;
 		connect_notifications(&left, &right, MAX_NOTIFICATIONS).await;
