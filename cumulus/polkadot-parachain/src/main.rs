@@ -23,11 +23,16 @@ mod chain_spec;
 
 use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig};
 
+// The current node version, which takes the basic SemVer form `<major>.<minor>.<patch>`.
+// It should correspond to the latest `polkadot` version of a stable release.
+const NODE_VERSION: &'static str = "1.17.0";
+
 struct CliConfig;
 
 impl CliConfigT for CliConfig {
 	fn impl_version() -> String {
-		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+		let commit_hash = env!("SUBSTRATE_CLI_COMMIT_HASH");
+		format!("{}-{commit_hash}", NODE_VERSION)
 	}
 
 	fn author() -> String {
