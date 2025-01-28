@@ -23277,6 +23277,7 @@ dependencies = [
 name = "sc-network-test"
 version = "0.8.0"
 dependencies = [
+ "async-channel 1.9.0",
  "async-trait",
  "futures",
  "futures-timer",
@@ -23302,6 +23303,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tokio",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
