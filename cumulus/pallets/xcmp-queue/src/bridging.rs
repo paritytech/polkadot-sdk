@@ -17,12 +17,39 @@ use crate::{pallet, OutboundState};
 use cumulus_primitives_core::ParaId;
 use xcm::latest::prelude::*;
 
-/// Adapter implementation for `bp_xcm_bridge::ChannelStatusProvider` which checks
-/// only `OutboundXcmpStatus` for defined `SiblingParaId` if is suspended.
-pub struct OutXcmpChannelStatusProvider<Runtime>(core::marker::PhantomData<Runtime>);
-impl<Runtime: crate::Config> bp_xcm_bridge::ChannelStatusProvider
-	for OutXcmpChannelStatusProvider<Runtime>
+/// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
+/// both `OutboundXcmpStatus` and `InboundXcmpStatus` for defined `Location` if any of those is
+/// suspended.
+pub struct InAndOutXcmpChannelStatusProvider<Runtime>(core::marker::PhantomData<Runtime>);
+impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+	for InAndOutXcmpChannelStatusProvider<Runtime>
 {
+	fn is_congested(with: &Location) -> bool {
+		// handle congestion only for a sibling parachain locations.
+		let sibling_para_id: ParaId = match with.unpack() {
+			(_, [Parachain(para_id)]) => (*para_id).into(),
+			_ => return false,
+		};
+
+		// if the inbound channel with recipient is suspended, it means that we are unable to
+		// receive congestion reports from the `with` location. So we assume the pipeline is
+		// congested too.
+		if pallet::Pallet::<Runtime>::is_inbound_channel_suspended(sibling_para_id) {
+			return true
+		}
+
+		// if the outbound channel with recipient is suspended, it means that one of further
+		// queues (e.g. bridge queue between two bridge hubs) is overloaded, so we shall
+		// take larger fee for our outbound messages
+		OutXcmpChannelStatusProvider::<Runtime>::is_congested(with)
+	}
+}
+
+/// Adapter implementation for `bp_xcm_bridge::ChannelStatusProvider` and/or
+/// `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks only `OutboundXcmpStatus`
+/// for defined `Location` if is suspended.
+pub struct OutXcmpChannelStatusProvider<Runtime>(core::marker::PhantomData<Runtime>);
+impl<Runtime: crate::Config> OutXcmpChannelStatusProvider<Runtime> {
 	fn is_congested(with: &Location) -> bool {
 		// handle congestion only for a sibling parachain locations.
 		let sibling_para_id: ParaId = match with.unpack() {
@@ -57,6 +84,22 @@ impl<Runtime: crate::Config> bp_xcm_bridge::ChannelStatusProvider
 		}
 
 		false
+	}
+}
+
+impl<Runtime: crate::Config> bp_xcm_bridge::ChannelStatusProvider
+	for OutXcmpChannelStatusProvider<Runtime>
+{
+	fn is_congested(with: &Location) -> bool {
+		Self::is_congested(with)
+	}
+}
+
+impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+	for OutXcmpChannelStatusProvider<Runtime>
+{
+	fn is_congested(with: &Location) -> bool {
+		Self::is_congested(with)
 	}
 }
 

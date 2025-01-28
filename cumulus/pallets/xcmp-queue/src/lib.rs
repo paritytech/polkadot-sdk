@@ -692,6 +692,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	#[cfg(feature = "bridging")]
+	fn is_inbound_channel_suspended(sender: ParaId) -> bool {
+		<InboundXcmpSuspended<T>>::get().iter().any(|c| c == &sender)
+	}
+
+	#[cfg(feature = "bridging")]
 	/// Returns tuple of `OutboundState` and number of queued pages.
 	fn outbound_channel_state(target: ParaId) -> Option<(OutboundState, u16)> {
 		<OutboundXcmpStatus<T>>::get().iter().find(|c| c.recipient == target).map(|c| {
