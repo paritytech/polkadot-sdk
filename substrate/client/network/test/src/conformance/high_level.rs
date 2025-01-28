@@ -21,8 +21,8 @@ use crate::conformance::setup::{
 };
 
 use sc_network::{
-	config::MultiaddrWithPeerId, request_responses::OutgoingResponse,
-	service::traits::NotificationEvent, IfDisconnected, Litep2pNetworkBackend, NetworkWorker,
+	request_responses::OutgoingResponse, service::traits::NotificationEvent, IfDisconnected,
+	Litep2pNetworkBackend, NetworkWorker,
 };
 
 #[tokio::test]

@@ -18,22 +18,20 @@
 
 use sc_network::{
 	config::{
-		notification_service, FullNetworkConfiguration, IncomingRequest, MultiaddrWithPeerId,
-		NetworkConfiguration, NonReservedPeerMode, NotificationHandshake, OutgoingResponse, Params,
-		ProtocolId, Role, SetConfig,
+		FullNetworkConfiguration, IncomingRequest, MultiaddrWithPeerId, NetworkConfiguration,
+		NonReservedPeerMode, NotificationHandshake, OutgoingResponse, Params, ProtocolId, Role,
+		SetConfig,
 	},
 	service::traits::{NetworkService, NotificationEvent},
-	IfDisconnected, Litep2pNetworkBackend, NetworkBackend, NetworkRequest, NetworkWorker,
-	NotificationMetrics, NotificationService, PeerId, Roles,
+	IfDisconnected, NetworkBackend, NetworkRequest, NotificationMetrics, NotificationService,
+	Roles,
 };
 
-use sc_network_common::{sync::message::BlockAnnouncesHandshake, ExHashT};
-use sc_utils::notification;
-use sp_core::H256;
-use sp_runtime::traits::{Block as BlockT, Zero};
+use sc_network_common::sync::message::BlockAnnouncesHandshake;
+use sp_runtime::traits::Zero;
 use std::{sync::Arc, time::Duration};
 use substrate_test_runtime_client::runtime;
-use tokio::{sync::Mutex, task::JoinHandle};
+use tokio::sync::Mutex;
 
 /// High level network backend (litep2p or libp2p) test client.
 pub struct NetworkBackendClient {
@@ -115,7 +113,6 @@ where
 /// Connect two backends together and submit one request with `IfDisconnected::TryConnect` option
 /// expecting the left backend to dial the right one.
 pub async fn connect_backends(left: &NetworkBackendClient, right: &NetworkBackendClient) {
-	let left_peer_id = left.network_service.local_peer_id();
 	let right_peer_id = right.network_service.local_peer_id();
 
 	// Ensure the right backend responds to a first request
