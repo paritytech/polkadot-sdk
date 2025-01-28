@@ -23,7 +23,7 @@ extern crate alloc;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-pub use bp_xcm_bridge_router::XcmBridgeHubRouterCall;
+pub use bp_xcm_bridge_router::XcmBridgeHubCall;
 use xcm::latest::prelude::*;
 
 /// `AssetHubWestend` Runtime `Call` enum.
@@ -39,7 +39,7 @@ use xcm::latest::prelude::*;
 pub enum Call {
 	/// `ToRococoXcmRouter` bridge pallet.
 	#[codec(index = 34)]
-	ToRococoXcmRouter(XcmBridgeHubRouterCall<sp_core::H256>),
+	ToRococoXcmRouter(XcmBridgeHubCall<sp_core::H256>),
 }
 
 frame_support::parameter_types! {
@@ -58,7 +58,7 @@ pub fn build_congestion_message<RuntimeCall>(
 		Transact {
 			origin_kind: OriginKind::Xcm,
 			fallback_max_weight: Some(XcmBridgeHubRouterTransactCallMaxWeight::get()),
-			call: Call::ToRococoXcmRouter(XcmBridgeHubRouterCall::report_bridge_status {
+			call: Call::ToRococoXcmRouter(XcmBridgeHubCall::update_bridge_status {
 				bridge_id,
 				is_congested,
 			})

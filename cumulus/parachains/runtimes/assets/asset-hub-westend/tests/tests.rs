@@ -1278,7 +1278,7 @@ fn test_report_bridge_status_call_compatibility() {
 		})
 		.encode(),
 		bp_asset_hub_westend::Call::ToRococoXcmRouter(
-			bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
+			bp_asset_hub_westend::XcmBridgeHubCall::update_bridge_status {
 				bridge_id: bridge_id.inner(),
 				is_congested: true,
 			}
