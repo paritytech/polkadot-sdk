@@ -25,7 +25,7 @@ use crate::{
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
-	network::{new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver},
+	network::new_network,
 	usage::BenchmarkUsage,
 	NODE_UNDER_TEST,
 };
@@ -43,7 +43,7 @@ use polkadot_node_network_protocol::{
 		IncomingRequest, ReqProtocolNames,
 	},
 	v3::{self, BackedCandidateAcknowledgement, BackedCandidateManifest, StatementFilter},
-	view, Versioned, View,
+	view, Versioned,
 };
 use polkadot_node_subsystem::messages::{
 	network_bridge_event::NewGossipTopology, AllMessages, NetworkBridgeEvent,
@@ -69,7 +69,6 @@ use sc_network::{
 	service::traits::{NotificationEvent, ValidationResult},
 	IfDisconnected, NetworkWorker, NotificationMetrics,
 };
-use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use sp_application_crypto::Pair;
 use sp_core::Bytes;
@@ -100,9 +99,6 @@ pub fn make_keystore() -> KeystorePtr {
 
 fn build_overseer(
 	state: &TestState,
-	_network: NetworkEmulatorHandle,
-	_network_interface: NetworkInterface,
-	_network_receiver: NetworkInterfaceReceiver,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
@@ -517,7 +513,7 @@ pub fn prepare_test(
 	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	let dependencies = TestEnvironmentDependencies::default();
-	let (network, network_interface, network_receiver) = new_network(
+	let (network, _network_interface, _network_receiver) = new_network(
 		&state.config,
 		&dependencies,
 		&state.test_authorities,
@@ -525,8 +521,7 @@ pub fn prepare_test(
 	);
 
 	let arc_state = Arc::new(state.clone());
-	let (overseer, overseer_handle, cfg) =
-		build_overseer(state, network.clone(), network_interface, network_receiver, &dependencies);
+	let (overseer, overseer_handle, cfg) = build_overseer(state, &dependencies);
 	(0..state.config.n_validators)
 		.filter(|i| *i != NODE_UNDER_TEST as usize)
 		.for_each(|i| build_peer(Arc::clone(&arc_state), &dependencies, i as u16));
@@ -543,26 +538,6 @@ pub fn prepare_test(
 		),
 		cfg,
 	)
-}
-
-pub fn generate_peer_view_change(block_hash: Hash, peer_id: PeerId) -> AllMessages {
-	let network = NetworkBridgeEvent::PeerViewChange(peer_id, View::new([block_hash], 0));
-
-	AllMessages::StatementDistribution(StatementDistributionMessage::NetworkBridgeUpdate(network))
-}
-
-pub fn generate_new_session_topology(
-	topology: &SessionGridTopology,
-	test_node: ValidatorIndex,
-) -> Vec<AllMessages> {
-	let event = NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
-		session: 0,
-		topology: topology.clone(),
-		local_index: Some(test_node),
-	});
-	vec![AllMessages::StatementDistribution(StatementDistributionMessage::NetworkBridgeUpdate(
-		event,
-	))]
 }
 
 /// Generates a topology to be used for this benchmark.
@@ -620,12 +595,16 @@ pub async fn benchmark_statement_distribution(
 	env.metrics().set_n_cores(config.n_cores);
 
 	let topology = generate_topology(&state.test_authorities);
-	let peer_connected_messages = vec![];
-	let new_session_topology_messages =
-		generate_new_session_topology(&topology, ValidatorIndex(NODE_UNDER_TEST));
-	for message in peer_connected_messages.into_iter().chain(new_session_topology_messages) {
-		env.send_message(message).await;
-	}
+	env.send_message(AllMessages::StatementDistribution(
+		StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::NewGossipTopology(
+			NewGossipTopology {
+				session: 0,
+				topology: topology.clone(),
+				local_index: Some(ValidatorIndex(NODE_UNDER_TEST)),
+			},
+		)),
+	))
+	.await;
 
 	let test_start = Instant::now();
 	let mut candidates_advertised = 0;
