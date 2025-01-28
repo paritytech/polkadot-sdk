@@ -109,3 +109,56 @@ where
 		receiver: rx,
 	}
 }
+
+/// Connect two backends together and submit one request with `IfDisconnected::TryConnect` option
+/// expecting the left backend to dial the right one.
+pub async fn connect_backends(left: &NetworkBackendClient, right: &NetworkBackendClient) {
+	let left_peer_id = left.network_service.local_peer_id();
+	let right_peer_id = right.network_service.local_peer_id();
+
+	// Ensure the right backend responds to a first request
+	let rx = right.receiver.clone();
+	tokio::spawn(async move {
+		let request = rx.recv().await.expect("Left backend should receive a request");
+		assert_eq!(request.payload, vec![1, 2, 3]);
+		request
+			.pending_response
+			.send(OutgoingResponse {
+				result: Ok(vec![4, 5, 6]),
+				reputation_changes: vec![],
+				sent_feedback: None,
+			})
+			.expect("Left backend should send a response");
+	});
+
+	// Connect the two backends
+	while left.network_service.listen_addresses().is_empty() {
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
+	while right.network_service.listen_addresses().is_empty() {
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
+	let right_listen_address = right
+		.network_service
+		.listen_addresses()
+		.first()
+		.expect("qed; non empty")
+		.clone();
+
+	left.network_service
+		.add_known_address(right_peer_id, right_listen_address.clone().into());
+
+	let result = left
+		.network_service
+		.request(
+			right_peer_id,
+			"/request-response/1".into(),
+			vec![1, 2, 3],
+			None,
+			IfDisconnected::TryConnect,
+		)
+		.await
+		.expect("Left backend should send a request");
+	assert_eq!(result.0, vec![4, 5, 6]);
+	assert_eq!(result.1, "/request-response/1".into());
+}
