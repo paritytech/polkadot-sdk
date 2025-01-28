@@ -31,15 +31,13 @@
 //! performed through the methods exposed by the [`StakingLedger`] implementation in order to ensure
 //! state consistency.
 
-use frame_support::{
-	defensive, ensure,
-	traits::{Defensive, LockableCurrency, WithdrawReasons},
-};
-use sp_staking::StakingAccount;
-use sp_std::prelude::*;
+use frame_support::{defensive, ensure, traits::Defensive};
+use sp_runtime::DispatchResult;
+use sp_staking::{StakingAccount, StakingInterface};
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
+	asset, BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination,
+	StakingLedger, VirtualStakers,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -187,7 +185,13 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
+		// We skip locking virtual stakers.
+		if !Pallet::<T>::is_virtual_staker(&self.stash) {
+			// for direct stakers, update lock on stash based on ledger.
+			asset::update_stake::<T>(&self.stash, self.total)
+				.map_err(|_| Error::<T>::NotEnoughFunds)?;
+		}
+
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
 				defensive!("update called on a ledger that is not bonded.");
@@ -204,22 +208,22 @@ impl<T: Config> StakingLedger<T> {
 	/// It sets the reward preferences for the bonded stash.
 	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::AlreadyBonded)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			<Bonded<T>>::insert(&self.stash, &self.stash);
-			self.update()
+			return Err(Error::<T>::AlreadyBonded)
 		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		<Bonded<T>>::insert(&self.stash, &self.stash);
+		self.update()
 	}
 
 	/// Sets the ledger Payee.
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::NotStash)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			Ok(())
+			return Err(Error::<T>::NotStash)
 		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		Ok(())
 	}
 
 	/// Sets the ledger controller to its stash.
@@ -248,15 +252,19 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
-	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
+	pub(crate) fn kill(stash: &T::AccountId) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			T::Currency::remove_lock(STAKING_ID, &ledger.stash);
 			Ledger::<T>::remove(controller);
-
 			<Bonded<T>>::remove(&stash);
 			<Payee<T>>::remove(&stash);
+
+			// kill virtual staker if it exists.
+			if <VirtualStakers<T>>::take(&ledger.stash).is_none() {
+				// if not virtual staker, clear locks.
+				asset::kill_stake::<T>(&ledger.stash)?;
+			}
 
 			Ok(())
 		})?

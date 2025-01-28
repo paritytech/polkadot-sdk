@@ -1,0 +1,19 @@
+title: Allow to disable gap creation during block import
+
+doc:
+  - audience: Node Dev
+    description: |
+      New property `BlockImportParams::create_gap` allows to change whether to create block gap in case block
+      has no parent (defaults to `true` keeping existing behavior), which is helpful for sync protocols that do not need
+      to sync the gap after this happens. `BlockImportOperation::create_gap()` method was also introduced, though in
+      most cases `BlockImportParams::create_gap` will be used.
+
+crates:
+  - name: sc-client-api
+    bump: major
+  - name: sc-consensus
+    bump: minor
+  - name: sc-client-db
+    bump: minor
+  - name: sc-service
+    bump: minor

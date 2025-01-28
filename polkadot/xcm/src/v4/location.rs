@@ -17,12 +17,9 @@
 //! XCM `Location` datatype.
 
 use super::{traits::Reanchorable, Junction, Junctions};
-use crate::{v3::MultiLocation as OldLocation, VersionedLocation};
-use core::{
-	convert::{TryFrom, TryInto},
-	result,
-};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use crate::{v3::MultiLocation as OldLocation, v5::Location as NewLocation, VersionedLocation};
+use codec::{Decode, Encode, MaxEncodedLen};
+use core::result;
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -492,6 +489,20 @@ impl TryFrom<OldLocation> for Location {
 	}
 }
 
+impl TryFrom<NewLocation> for Option<Location> {
+	type Error = ();
+	fn try_from(new: NewLocation) -> result::Result<Self, Self::Error> {
+		Ok(Some(Location::try_from(new)?))
+	}
+}
+
+impl TryFrom<NewLocation> for Location {
+	type Error = ();
+	fn try_from(new: NewLocation) -> result::Result<Self, ()> {
+		Ok(Location { parents: new.parent_count(), interior: new.interior().clone().try_into()? })
+	}
+}
+
 /// A unit struct which can be converted into a `Location` of `parents` value 1.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Parent;
@@ -537,12 +548,18 @@ impl From<[u8; 32]> for Location {
 	}
 }
 
+impl From<sp_runtime::AccountId32> for Location {
+	fn from(id: sp_runtime::AccountId32) -> Self {
+		Junction::AccountId32 { network: None, id: id.into() }.into()
+	}
+}
+
 xcm_procedural::impl_conversion_functions_for_location_v4!();
 
 #[cfg(test)]
 mod tests {
 	use crate::v4::prelude::*;
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	#[test]
 	fn conversion_works() {
@@ -723,7 +740,6 @@ mod tests {
 	#[test]
 	fn conversion_from_other_types_works() {
 		use crate::v3;
-		use core::convert::TryInto;
 
 		fn takes_location<Arg: Into<Location>>(_arg: Arg) {}
 

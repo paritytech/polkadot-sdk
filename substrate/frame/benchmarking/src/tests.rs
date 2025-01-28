@@ -25,7 +25,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-use sp_std::prelude::*;
 use std::cell::RefCell;
 
 #[frame_support::pallet(dev_mode)]
@@ -130,7 +129,6 @@ mod benchmarks {
 	use frame_support::{assert_err, assert_ok, ensure, traits::Get};
 	use frame_system::RawOrigin;
 	use rusty_fork::rusty_fork_test;
-	use sp_std::prelude::*;
 
 	// Additional used internally by the benchmark macro.
 	use super::pallet_test::{Call, Config, Pallet};

@@ -17,14 +17,14 @@
 //! Various implementations for `ShouldExecute`.
 
 use crate::{CreateMatcher, MatchXcm};
+use core::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use frame_support::{
 	ensure,
 	traits::{Contains, Get, ProcessMessageError},
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
-use sp_std::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use xcm::prelude::*;
-use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecute};
+use xcm_executor::traits::{CheckSuspension, DenyExecution, OnResponse, Properties, ShouldExecute};
 
 /// Execution barrier that just takes `max_weight` from `properties.weight_credit`.
 ///
@@ -57,8 +57,9 @@ const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 2;
 /// Allows execution from `origin` if it is contained in `T` (i.e. `T::Contains(origin)`) taking
 /// payments into account.
 ///
-/// Only allows for `TeleportAsset`, `WithdrawAsset`, `ClaimAsset` and `ReserveAssetDeposit` XCMs
-/// because they are the only ones that place assets in the Holding Register to pay for execution.
+/// Only allows for `WithdrawAsset`, `ReceiveTeleportedAsset`, `ReserveAssetDeposited` and
+/// `ClaimAsset` XCMs because they are the only ones that place assets in the Holding Register to
+/// pay for execution.
 pub struct AllowTopLevelPaidExecutionFrom<T>(PhantomData<T>);
 impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> {
 	fn should_execute<RuntimeCall>(
@@ -81,9 +82,9 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
+				WithdrawAsset(ref assets) |
 				ReceiveTeleportedAsset(ref assets) |
 				ReserveAssetDeposited(ref assets) |
-				WithdrawAsset(ref assets) |
 				ClaimAsset { ref assets, .. } =>
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
@@ -92,7 +93,11 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 					},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
-			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?
+			.skip_inst_while(|inst| {
+				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
+					matches!(inst, DescendOrigin(child) if child != &Here) ||
+					matches!(inst, SetHints { .. })
+			})?
 			.match_next_inst(|inst| match inst {
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
 					if weight.all_gte(max_weight) =>
@@ -104,6 +109,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 					*weight_limit = Limited(max_weight);
 					Ok(())
 				},
+				PayFees { .. } => Ok(()),
 				_ => Err(ProcessMessageError::Overweight(max_weight)),
 			})?;
 		Ok(())
@@ -322,6 +328,29 @@ impl<ParaId: IsSystem + From<u32>> Contains<Location> for IsChildSystemParachain
 	}
 }
 
+/// Matches if the given location is a system-level sibling parachain.
+pub struct IsSiblingSystemParachain<ParaId, SelfParaId>(PhantomData<(ParaId, SelfParaId)>);
+impl<ParaId: IsSystem + From<u32> + Eq, SelfParaId: Get<ParaId>> Contains<Location>
+	for IsSiblingSystemParachain<ParaId, SelfParaId>
+{
+	fn contains(l: &Location) -> bool {
+		matches!(
+			l.unpack(),
+			(1, [Junction::Parachain(id)])
+				if SelfParaId::get() != ParaId::from(*id) && ParaId::from(*id).is_system(),
+		)
+	}
+}
+
+/// Matches if the given location contains only the specified amount of parents and no interior
+/// junctions.
+pub struct IsParentsOnly<Count>(PhantomData<Count>);
+impl<Count: Get<u8>> Contains<Location> for IsParentsOnly<Count> {
+	fn contains(t: &Location) -> bool {
+		t.contains_parents_only(Count::get())
+	}
+}
+
 /// Allows only messages if the generic `ResponseHandler` expects them via `expecting_response`.
 pub struct AllowKnownQueryResponses<ResponseHandler>(PhantomData<ResponseHandler>);
 impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<ResponseHandler> {
@@ -376,16 +405,51 @@ impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
 	}
 }
 
+/// Allows execution for the Relay Chain origin (represented as `Location::parent()`) if it is just
+/// a straight `HrmpNewChannelOpenRequest`, `HrmpChannelAccepted`, or `HrmpChannelClosing`
+/// instruction.
+///
+/// Note: This barrier fulfills safety recommendations for the mentioned instructions - see their
+/// documentation.
+pub struct AllowHrmpNotificationsFromRelayChain;
+impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		log::trace!(
+			target: "xcm::barriers",
+			"AllowHrmpNotificationsFromRelayChain origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
+			origin, instructions, _max_weight, _properties,
+		);
+		// accept only the Relay Chain
+		ensure!(matches!(origin.unpack(), (1, [])), ProcessMessageError::Unsupported);
+		// accept only HRMP notifications and nothing else
+		instructions
+			.matcher()
+			.assert_remaining_insts(1)?
+			.match_next_inst(|inst| match inst {
+				HrmpNewChannelOpenRequest { .. } |
+				HrmpChannelAccepted { .. } |
+				HrmpChannelClosing { .. } => Ok(()),
+				_ => Err(ProcessMessageError::BadFormat),
+			})?;
+		Ok(())
+	}
+}
+
 /// Deny executing the XCM if it matches any of the Deny filter regardless of anything else.
 /// If it passes the Deny, and matches one of the Allow cases then it is let through.
 pub struct DenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
 where
-	Deny: ShouldExecute,
+	Deny: DenyExecution,
 	Allow: ShouldExecute;
 
 impl<Deny, Allow> ShouldExecute for DenyThenTry<Deny, Allow>
 where
-	Deny: ShouldExecute,
+	Deny: DenyExecution,
 	Allow: ShouldExecute,
 {
 	fn should_execute<RuntimeCall>(
@@ -394,15 +458,15 @@ where
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Deny::should_execute(origin, message, max_weight, properties)?;
+		Deny::deny_execution(origin, message, max_weight, properties)?;
 		Allow::should_execute(origin, message, max_weight, properties)
 	}
 }
 
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
-impl ShouldExecute for DenyReserveTransferToRelayChain {
-	fn should_execute<RuntimeCall>(
+impl DenyExecution for DenyReserveTransferToRelayChain {
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
@@ -426,7 +490,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
 					log::warn!(
-						target: "xcm::barrier",
+						target: "xcm::barriers",
 						"Unexpected ReserveAssetDeposited from the Relay Chain",
 					);
 					Ok(ControlFlow::Continue(()))
@@ -435,8 +499,6 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		)?;
-
-		// Permit everything else
 		Ok(())
 	}
 }

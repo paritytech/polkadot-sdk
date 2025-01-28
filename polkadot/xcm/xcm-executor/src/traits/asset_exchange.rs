@@ -37,6 +37,27 @@ pub trait AssetExchange {
 		want: &Assets,
 		maximal: bool,
 	) -> Result<AssetsInHolding, AssetsInHolding>;
+
+	/// Handler for quoting the exchange price of two asset collections.
+	///
+	/// It's useful before calling `exchange_asset`, to get some information on whether or not the
+	/// exchange will be successful.
+	///
+	/// Arguments:
+	/// - `give` The asset(s) that are going to be given.
+	/// - `want` The asset(s) that are wanted.
+	/// - `maximal`:
+	/// 	  - If `true`, then the return value is the resulting amount of `want` obtained by swapping
+	///      `give`.
+	///   - If `false`, then the return value is the required amount of `give` needed to get `want`.
+	///
+	/// The return value is `Assets` since it comprises both which assets and how much of them.
+	///
+	/// The relationship between this function and `exchange_asset` is the following:
+	/// - quote(give, want, maximal) = resulting_want -> exchange(give, resulting_want, maximal) ✅
+	/// - quote(give, want, minimal) = required_give -> exchange(required_give_amount, want,
+	///   minimal) ✅
+	fn quote_exchange_price(_give: &Assets, _want: &Assets, _maximal: bool) -> Option<Assets>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -54,5 +75,15 @@ impl AssetExchange for Tuple {
 			};
 		)* );
 		Err(give)
+	}
+
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
+		for_tuples!( #(
+			match Tuple::quote_exchange_price(give, want, maximal) {
+				Some(assets) => return Some(assets),
+				None => {}
+			}
+		)* );
+		None
 	}
 }

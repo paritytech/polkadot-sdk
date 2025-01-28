@@ -23,10 +23,10 @@ use sc_network::{
 	config::MultiaddrWithPeerId,
 	request_responses::{IfDisconnected, RequestFailure},
 	types::ProtocolName,
-	Multiaddr, NetworkPeers, NetworkRequest, NetworkSyncForkRequest, ReputationChange,
+	NetworkPeers, NetworkRequest, NetworkSyncForkRequest, ReputationChange,
 };
 use sc_network_common::role::ObservedRole;
-use sc_network_types::PeerId;
+use sc_network_types::{multiaddr::Multiaddr, PeerId};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::collections::HashSet;
@@ -45,19 +45,19 @@ mockall::mock! {
 
 	impl<B: BlockT> sc_consensus::Link<B> for ChainSyncInterface<B> {
 		fn blocks_processed(
-			&mut self,
+			&self,
 			imported: usize,
 			count: usize,
 			results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
 		);
 		fn justification_imported(
-			&mut self,
+			&self,
 			who: PeerId,
 			hash: &B::Hash,
 			number: NumberFor<B>,
 			success: bool,
 		);
-		fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>);
+		fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>);
 	}
 }
 

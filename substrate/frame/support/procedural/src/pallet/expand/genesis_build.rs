@@ -35,7 +35,7 @@ pub fn expand_genesis_build(def: &mut Def) -> proc_macro2::TokenStream {
 	let where_clause = &genesis_build.where_clause;
 
 	quote::quote_spanned!(genesis_build.attr_span =>
-		#[cfg(feature = "std")]
+		#frame_support::std_enabled! {
 			impl<#type_impl_gen> #frame_support::sp_runtime::BuildStorage for #gen_cfg_ident<#gen_cfg_use_gen> #where_clause
 			{
 				fn assimilate_storage(&self, storage: &mut #frame_support::sp_runtime::Storage) -> std::result::Result<(), std::string::String> {
@@ -45,5 +45,6 @@ pub fn expand_genesis_build(def: &mut Def) -> proc_macro2::TokenStream {
 					})
 				}
 			}
+		}
 	)
 }

@@ -26,7 +26,6 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound};
 use sp_runtime::{BoundedBTreeMap, Saturating};
-use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub fn store_old_contract_info<T: Config>(

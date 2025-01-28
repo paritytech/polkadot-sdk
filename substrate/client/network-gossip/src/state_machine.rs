@@ -542,14 +542,14 @@ impl Metrics {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::multiaddr::Multiaddr;
 	use futures::prelude::*;
 	use sc_network::{
 		config::MultiaddrWithPeerId, event::Event, service::traits::NotificationEvent, MessageSink,
 		NetworkBlock, NetworkEventStream, NetworkPeers, ReputationChange,
 	};
+	use sc_network_types::multiaddr::Multiaddr;
 	use sp_runtime::{
-		testing::{Block as RawBlock, ExtrinsicWrapper, H256},
+		testing::{Block as RawBlock, MockCallU64, TestXt, H256},
 		traits::NumberFor,
 	};
 	use std::{
@@ -558,7 +558,7 @@ mod tests {
 		sync::{Arc, Mutex},
 	};
 
-	type Block = RawBlock<ExtrinsicWrapper<u64>>;
+	type Block = RawBlock<TestXt<MockCallU64, ()>>;
 
 	macro_rules! push_msg {
 		($consensus:expr, $topic:expr, $hash: expr, $m:expr) => {

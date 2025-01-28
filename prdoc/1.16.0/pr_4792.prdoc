@@ -1,0 +1,62 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "rpc: bind to `ipv6` if available and add `CLI --experimental-rpc-endpoint` to specify listen addr"
+
+doc:
+  - audience: Node Operator
+    description: |
+      This PR changes/adds the following:
+
+      1. The default setting is that substrate starts a rpc server that listens to localhost both ipv4 and ipv6 on the same port. 
+         ipv6 is allowed to fail because some platforms may not support it
+      2. A new RPC CLI option `--experimental-rpc-endpoint` is introduced which allows to configure arbitrary listen addresses including the port, 
+         if this is enabled no other interfaces are enabled.
+      3. If the local addr is not found for any of the sockets the server is not started and throws an error.
+      4. Remove the deny_unsafe from the RPC implementations instead this is an extension to allow different polices for different interfaces/sockets 
+         such one may enable unsafe on local interface and safe on only the external interface.
+      5. This new `--experimental-rpc-endpoint` has several options and in the help menu all possible parameters are documented.
+      6. The log emitted by jsonrpc server when it has been started has been modified to indicate all started rpc endpoints. 
+
+      So for instance it's now possible to start up three RPC endpoints as follows:
+      ```
+      $ polkadot --experimental-rpc-endpoint "listen-addr=127.0.0.1:9944,methods=unsafe" --experimental-rpc-endpoint "listen-addr=0.0.0.0:9945,methods=safe,rate-limit=100" --experimental-rpc-endpoint "listen-addr=[::1]:9944,optional=true"
+      ```
+
+crates:
+  - name: sc-rpc-server
+    bump: major
+  - name: sc-rpc
+    bump: major
+  - name: sc-cli
+    bump: major
+  - name: sc-service
+    bump: major
+  - name: sc-rpc-api
+    bump: patch
+  - name: polkadot-dispute-distribution
+    bump: patch
+  - name: polkadot-parachain-lib
+    bump: patch
+  - name: substrate-frame-rpc-system
+    bump: major
+  - name: substrate-state-trie-migration-rpc
+    bump: major
+  - name: cumulus-client-cli
+    bump: major
+    validate: false
+  - name: sc-consensus-beefy-rpc
+    bump: major
+    validate: false
+  - name: sc-consensus-grandpa-rpc
+    bump: major
+    validate: false
+  - name: sc-consensus-babe-rpc
+    bump: major
+    validate: false
+  - name: polkadot-rpc
+    bump: major
+    validate: false
+  - name: polkadot-service
+    bump: major
+    validate: false

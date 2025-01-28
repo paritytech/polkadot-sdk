@@ -13,20 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "std")]
+#[cfg(all(not(feature = "metadata-hash"), feature = "std"))]
 fn main() {
-	substrate_wasm_builder::WasmBuilder::new()
-		.with_current_project()
-		.export_heap_base()
-		.import_memory()
-		.build();
+	substrate_wasm_builder::WasmBuilder::build_using_defaults();
 
-	substrate_wasm_builder::WasmBuilder::new()
-		.with_current_project()
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
 		.set_file_name("fast_runtime_binary.rs")
 		.enable_feature("fast-runtime")
-		.import_memory()
-		.export_heap_base()
+		.build();
+}
+
+#[cfg(all(feature = "metadata-hash", feature = "std"))]
+fn main() {
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.enable_metadata_hash("WND", 12)
+		.build();
+
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.set_file_name("fast_runtime_binary.rs")
+		.enable_feature("fast-runtime")
+		.enable_metadata_hash("WND", 12)
 		.build();
 }
 

@@ -272,6 +272,10 @@ pub use sc_network_common::{
 	role::{ObservedRole, Roles},
 	types::ReputationChange,
 };
+pub use sc_network_types::{
+	multiaddr::{self, Multiaddr},
+	PeerId,
+};
 pub use service::{
 	metrics::NotificationMetrics,
 	signature::Signature,
@@ -285,7 +289,7 @@ pub use service::{
 	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
 	PublicKey,
 };
-pub use types::{multiaddr, Multiaddr, PeerId, ProtocolName};
+pub use types::ProtocolName;
 
 /// The maximum allowed number of established connections per peer.
 ///
@@ -298,3 +302,6 @@ const MAX_CONNECTIONS_PER_PEER: usize = 2;
 
 /// The maximum number of concurrent established connections that were incoming.
 const MAX_CONNECTIONS_ESTABLISHED_INCOMING: u32 = 10_000;
+
+/// Maximum response size limit.
+pub const MAX_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;

@@ -39,7 +39,7 @@ use sc_network::{
 	request_responses::{IfDisconnected, IncomingRequest, OutgoingResponse, RequestFailure},
 	service::traits::RequestResponseConfig,
 	types::ProtocolName,
-	NetworkBackend,
+	NetworkBackend, MAX_RESPONSE_SIZE,
 };
 use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
 use sc_network_types::PeerId;
@@ -89,7 +89,7 @@ pub fn generate_protocol_config<
 		generate_protocol_name(genesis_hash, fork_id).into(),
 		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
 		1024 * 1024,
-		16 * 1024 * 1024,
+		MAX_RESPONSE_SIZE,
 		Duration::from_secs(20),
 		Some(inbound_queue),
 	)
@@ -502,6 +502,7 @@ enum HandleRequestError {
 }
 
 /// The full block downloader implementation of [`BlockDownloader].
+#[derive(Debug)]
 pub struct FullBlockDownloader {
 	protocol_name: ProtocolName,
 	network: NetworkServiceHandle,
@@ -576,6 +577,10 @@ impl FullBlockDownloader {
 
 #[async_trait::async_trait]
 impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
+	fn protocol_name(&self) -> &ProtocolName {
+		&self.protocol_name
+	}
+
 	async fn download_blocks(
 		&self,
 		who: PeerId,

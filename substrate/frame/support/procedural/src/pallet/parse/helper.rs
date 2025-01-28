@@ -55,16 +55,16 @@ pub(crate) fn take_first_item_pallet_attr<Attr>(
 where
 	Attr: syn::parse::Parse,
 {
-	let attrs = if let Some(attrs) = item.mut_item_attrs() { attrs } else { return Ok(None) };
+	let Some(attrs) = item.mut_item_attrs() else { return Ok(None) };
 
-	if let Some(index) = attrs.iter().position(|attr| {
+	let Some(index) = attrs.iter().position(|attr| {
 		attr.path().segments.first().map_or(false, |segment| segment.ident == "pallet")
-	}) {
-		let pallet_attr = attrs.remove(index);
-		Ok(Some(syn::parse2(pallet_attr.into_token_stream())?))
-	} else {
-		Ok(None)
-	}
+	}) else {
+		return Ok(None)
+	};
+
+	let pallet_attr = attrs.remove(index);
+	Ok(Some(syn::parse2(pallet_attr.into_token_stream())?))
 }
 
 /// Take all the pallet attributes (e.g. attribute like `#[pallet..]`) and decode them to `Attr`
@@ -597,25 +597,38 @@ pub fn check_type_value_gen(
 	Ok(i)
 }
 
+/// The possible return type of a dispatchable.
+#[derive(Clone)]
+pub enum CallReturnType {
+	DispatchResult,
+	DispatchResultWithPostInfo,
+}
+
 /// Check the keyword `DispatchResultWithPostInfo` or `DispatchResult`.
-pub fn check_pallet_call_return_type(type_: &syn::Type) -> syn::Result<()> {
-	pub struct Checker;
+pub fn check_pallet_call_return_type(sig: &syn::Signature) -> syn::Result<CallReturnType> {
+	let syn::ReturnType::Type(_, type_) = &sig.output else {
+		let msg = "Invalid pallet::call, require return type \
+			DispatchResultWithPostInfo";
+		return Err(syn::Error::new(sig.span(), msg))
+	};
+
+	pub struct Checker(CallReturnType);
 	impl syn::parse::Parse for Checker {
 		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
 			let lookahead = input.lookahead1();
 			if lookahead.peek(keyword::DispatchResultWithPostInfo) {
 				input.parse::<keyword::DispatchResultWithPostInfo>()?;
-				Ok(Self)
+				Ok(Self(CallReturnType::DispatchResultWithPostInfo))
 			} else if lookahead.peek(keyword::DispatchResult) {
 				input.parse::<keyword::DispatchResult>()?;
-				Ok(Self)
+				Ok(Self(CallReturnType::DispatchResult))
 			} else {
 				Err(lookahead.error())
 			}
 		}
 	}
 
-	syn::parse2::<Checker>(type_.to_token_stream()).map(|_| ())
+	syn::parse2::<Checker>(type_.to_token_stream()).map(|c| c.0)
 }
 
 pub(crate) fn two128_str(s: &str) -> TokenStream {

@@ -126,8 +126,10 @@ mod tests {
 		}
 
 		fn load_spec(&self, _: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
+			let builder =
+				GenericChainSpec::<NoExtension, ()>::builder(Default::default(), NoExtension::None);
 			Ok(Box::new(
-				GenericChainSpec::<()>::builder(Default::default(), NoExtension::None)
+				builder
 					.with_name("test")
 					.with_id("test_id")
 					.with_chain_type(ChainType::Development)

@@ -18,11 +18,9 @@
 //! parachain finality proofs synchronization pipelines.
 
 use async_trait::async_trait;
+use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
-use pallet_bridge_parachains::{
-	Call as BridgeParachainsCall, Config as BridgeParachainsConfig, RelayBlockHash,
-	RelayBlockHasher, RelayBlockNumber,
-};
+use pallet_bridge_parachains::{Call as BridgeParachainsCall, Config as BridgeParachainsConfig};
 use parachains_relay::ParachainsPipeline;
 use relay_substrate_client::{
 	CallOf, Chain, ChainWithTransactions, HeaderIdOf, Parachain, RelayChain,
@@ -71,6 +69,7 @@ pub trait SubmitParachainHeadsCallBuilder<P: SubstrateParachainsPipeline>:
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: Vec<(ParaId, ParaHash)>,
 		parachain_heads_proof: ParaHeadsProof,
+		is_free_execution_expected: bool,
 	) -> CallOf<P::TargetChain>;
 }
 
@@ -97,6 +96,7 @@ where
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: Vec<(ParaId, ParaHash)>,
 		parachain_heads_proof: ParaHeadsProof,
+		_is_free_execution_expected: bool,
 	) -> CallOf<P::TargetChain> {
 		BridgeParachainsCall::<R, I>::submit_parachain_heads {
 			at_relay_block: (at_relay_block.0, at_relay_block.1),

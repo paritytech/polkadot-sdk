@@ -17,9 +17,9 @@
 
 //! Trait for handling imbalances.
 
+use core::marker::PhantomData;
 use frame_support::traits::{fungible, fungibles, misc::TryDrop};
 use sp_core::TypedGet;
-use sp_std::marker::PhantomData;
 
 /// Handler for when some currency "account" decreased in balance for
 /// some reason.
@@ -35,11 +35,26 @@ pub trait OnUnbalanced<Imbalance: TryDrop> {
 	/// Handler for some imbalances. The different imbalances might have different origins or
 	/// meanings, dependent on the context. Will default to simply calling on_unbalanced for all
 	/// of them. Infallible.
-	fn on_unbalanceds<B>(amounts: impl Iterator<Item = Imbalance>)
+	fn on_unbalanceds(mut amounts: impl Iterator<Item = Imbalance>)
 	where
-		Imbalance: crate::traits::Imbalance<B>,
+		Imbalance: crate::traits::tokens::imbalance::TryMerge,
 	{
-		Self::on_unbalanced(amounts.fold(Imbalance::zero(), |i, x| x.merge(i)))
+		let mut sum: Option<Imbalance> = None;
+		while let Some(next) = amounts.next() {
+			sum = match sum {
+				Some(sum) => match sum.try_merge(next) {
+					Ok(sum) => Some(sum),
+					Err((sum, next)) => {
+						Self::on_unbalanced(next);
+						Some(sum)
+					},
+				},
+				None => Some(next),
+			}
+		}
+		if let Some(sum) = sum {
+			Self::on_unbalanced(sum)
+		}
 	}
 
 	/// Handler for some imbalance. Infallible.

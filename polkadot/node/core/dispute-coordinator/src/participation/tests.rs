@@ -22,14 +22,11 @@ use std::{sync::Arc, time::Duration};
 use sp_core::testing::TaskExecutor;
 
 use super::*;
-use ::test_helpers::{
-	dummy_candidate_commitments, dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash,
-};
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_primitives::{AvailableData, BlockData, InvalidCandidate, PoV};
 use polkadot_node_subsystem::{
 	messages::{
-		AllMessages, ChainApiMessage, DisputeCoordinatorMessage, RuntimeApiMessage,
+		AllMessages, ChainApiMessage, DisputeCoordinatorMessage, PvfExecKind, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
 	ActiveLeavesUpdate, SpawnGlue,
@@ -39,6 +36,9 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_primitives::{
 	BlakeTwo256, CandidateCommitments, HashT, Header, PersistedValidationData, ValidationCode,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_commitments, dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash,
 };
 
 type VirtualOverseer = TestSubsystemContextHandle<DisputeCoordinatorMessage>;
@@ -68,7 +68,8 @@ async fn participate_with_commitments_hash<Context>(
 		let mut receipt = dummy_candidate_receipt_bad_sig(dummy_hash(), dummy_hash());
 		receipt.commitments_hash = commitments_hash;
 		receipt
-	};
+	}
+	.into();
 	let session = 1;
 
 	let request_timer = participation.metrics.time_participation_pipeline();
@@ -116,7 +117,7 @@ pub async fn participation_full_happy_path(
 	ctx_handle.recv().await,
 	AllMessages::CandidateValidation(
 		CandidateValidationMessage::ValidateFromExhaustive { candidate_receipt, exec_kind, response_sender, .. }
-		) if exec_kind == PvfExecKind::Approval => {
+		) if exec_kind == PvfExecKind::Dispute => {
 			if expected_commitments_hash != candidate_receipt.commitments_hash {
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
 			} else {
@@ -132,7 +133,7 @@ pub async fn participation_missing_availability(ctx_handle: &mut VirtualOverseer
 	assert_matches!(
 		ctx_handle.recv().await,
 		AllMessages::AvailabilityRecovery(
-			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 		) => {
 			tx.send(Err(RecoveryError::Unavailable)).unwrap();
 		},
@@ -151,7 +152,7 @@ async fn recover_available_data(virtual_overseer: &mut VirtualOverseer) {
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::AvailabilityRecovery(
-			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 		) => {
 			tx.send(Ok(available_data)).unwrap();
 		},
@@ -195,7 +196,7 @@ fn same_req_wont_get_queued_if_participation_is_already_running() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::AvailabilityRecovery(
-				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 			) => {
 				tx.send(Err(RecoveryError::Unavailable)).unwrap();
 			},
@@ -260,7 +261,7 @@ fn reqs_get_queued_when_out_of_capacity() {
 		{
 			match ctx_handle.recv().await {
 				AllMessages::AvailabilityRecovery(
-					AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx),
+					AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx),
 				) => {
 					tx.send(Err(RecoveryError::Unavailable)).unwrap();
 					recover_available_data_msg_count += 1;
@@ -346,7 +347,7 @@ fn cannot_participate_if_cannot_recover_available_data() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::AvailabilityRecovery(
-				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 			) => {
 				tx.send(Err(RecoveryError::Unavailable)).unwrap();
 			},
@@ -412,7 +413,7 @@ fn cast_invalid_vote_if_available_data_is_invalid() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::AvailabilityRecovery(
-				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 			) => {
 				tx.send(Err(RecoveryError::Invalid)).unwrap();
 			},
@@ -450,7 +451,7 @@ fn cast_invalid_vote_if_validation_fails_or_is_invalid() {
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
 				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
-			) if exec_kind == PvfExecKind::Approval => {
+			) if exec_kind == PvfExecKind::Dispute => {
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::Timeout))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
@@ -487,7 +488,7 @@ fn cast_invalid_vote_if_commitments_dont_match() {
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
 				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
-			) if exec_kind == PvfExecKind::Approval => {
+			) if exec_kind == PvfExecKind::Dispute => {
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
@@ -524,7 +525,7 @@ fn cast_valid_vote_if_validation_passes() {
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
 				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
-			) if exec_kind == PvfExecKind::Approval => {
+			) if exec_kind == PvfExecKind::Dispute => {
 				response_sender.send(Ok(ValidationResult::Valid(dummy_candidate_commitments(None), PersistedValidationData::default()))).unwrap();
 			},
 			"overseer did not receive candidate validation message",

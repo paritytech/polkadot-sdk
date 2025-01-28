@@ -15,9 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Custom inner attributes are unstable, so we need to faky disable the attribute.
-// rustfmt still honors the attribute to not format the rustdocs below.
-#![cfg_attr(feature = "never", rustfmt::skip)]
 //! Substrate runtime interface
 //!
 //! This crate provides types, traits and macros around runtime interfaces. A runtime interface is
@@ -60,11 +57,10 @@
 //! For more information on declaring a runtime interface, see
 //! [`#[runtime_interface]`](./attr.runtime_interface.html).
 
-
 #![no_std]
 
-extern crate self as sp_runtime_interface;
 pub extern crate alloc;
+extern crate self as sp_runtime_interface;
 
 #[doc(hidden)]
 #[cfg(not(substrate_runtime))]
@@ -306,8 +302,8 @@ pub use sp_std;
 /// which can be passed directly through the FFI boundary and which don't require any special
 /// handling besides a straightforward, direct conversion.
 ///
-/// The following table documents those types which can be passed between the host and the runtime
-/// without a marshalling strategy wrapper:
+/// The following table documents those types which can be passed between the host and the
+/// runtime without a marshalling strategy wrapper:
 ///
 /// | Type | FFI type | Conversion |
 /// |----|----|----|

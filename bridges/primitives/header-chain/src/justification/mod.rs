@@ -32,7 +32,6 @@ pub use verification::{
 
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderId};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::RuntimeDebugNoBound;
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature};
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug, SaturatedConversion};
@@ -43,7 +42,8 @@ use sp_std::prelude::*;
 ///
 /// This particular proof is used to prove that headers on a bridged chain
 /// (so not our chain) have been finalized correctly.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct GrandpaJustification<Header: HeaderT> {
 	/// The round (voting period) this justification is valid for.
 	pub round: u64,
@@ -52,6 +52,17 @@ pub struct GrandpaJustification<Header: HeaderT> {
 		finality_grandpa::Commit<Header::Hash, Header::Number, AuthoritySignature, AuthorityId>,
 	/// A proof that the chain of blocks in the commit are related to each other.
 	pub votes_ancestries: Vec<Header>,
+}
+
+// A proper Debug impl for no-std is not possible for the `GrandpaJustification` since the `Commit`
+// type only implements Debug that for `std` here:
+// https://github.com/paritytech/finality-grandpa/blob/8c45a664c05657f0c71057158d3ba555ba7d20de/src/lib.rs#L275
+// so we do a manual impl.
+#[cfg(not(feature = "std"))]
+impl<H: HeaderT> core::fmt::Debug for GrandpaJustification<H> {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		write!(f, "GrandpaJustification {{ round: {:?}, commit: <wasm:stripped>, votes_ancestries: {:?} }}", self.round, self.votes_ancestries)
+	}
 }
 
 impl<H: HeaderT> GrandpaJustification<H> {

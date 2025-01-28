@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Only allow apply slash to be executed if the slash amount is atleast ED
+
+doc:
+  - audience: Runtime User
+    description: |
+      This change prevents `pools::apply_slash` from being executed when the pending slash amount of the member is lower
+      than the ED. With this change, such small slashes will still be applied but only when member funds are withdrawn.
+
+crates:
+- name: pallet-nomination-pools-runtime-api
+  bump: patch
+- name: pallet-nomination-pools
+  bump: major

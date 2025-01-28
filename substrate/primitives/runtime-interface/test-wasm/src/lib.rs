@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
@@ -30,8 +32,9 @@ use sp_runtime_interface::{
 };
 
 #[cfg(not(feature = "std"))]
-use sp_std::{mem, prelude::*};
+use core::mem;
 
+use alloc::{vec, vec::Vec};
 use sp_core::{sr25519::Public, wasm_export_functions};
 
 // Include the WASM binary
@@ -305,7 +308,7 @@ wasm_export_functions! {
 	fn test_invalid_utf8_data_should_return_an_error() {
 		let data = vec![0, 159, 146, 150];
 		// I'm an evil hacker, trying to hack!
-		let data_str = unsafe { sp_std::str::from_utf8_unchecked(&data) };
+		let data_str = unsafe { alloc::str::from_utf8_unchecked(&data) };
 
 		test_api::invalid_utf8_data(data_str);
 	}

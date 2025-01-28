@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: CheckWeight checks for combined extrinsic length and proof size
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `CheckWeight` `SignedExtension` will now perform an additional check. The extension was verifying the extrinsic length and
+      weight limits individually. However, the proof size dimension of the weight and extrinsic length together are bound by the PoV size limit.
+      The `CheckWeight` extension will now check that the combined size of the proof and the extrinsic lengths will not
+      exceed the PoV size limit.
+
+crates:
+  - name: frame-system
+    bump: minor

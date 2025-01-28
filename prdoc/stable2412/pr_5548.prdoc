@@ -1,0 +1,16 @@
+title: Use H160 when interfacing with contracts
+
+doc:
+  - audience: Runtime Dev
+    description: |
+     When interfacing with a contract we now use the native ethereum address
+     type and map it to AccountId32 when interfacing with the rest
+     of substrate.
+
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-fixtures
+    bump: major
+  - name: pallet-revive-mock-network
+    bump: major

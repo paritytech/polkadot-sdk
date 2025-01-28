@@ -87,9 +87,9 @@ impl<B: Block> IncomingRequest<B> {
 					sent_feedback: None,
 				};
 				if let Err(_) = pending_response.send(response) {
-					return Err(Error::DecodingErrorNoReputationChange(peer, err))
+					return Err(Error::DecodingErrorNoReputationChange(peer, err));
 				}
-				return Err(Error::DecodingError(peer, err))
+				return Err(Error::DecodingError(peer, err));
 			},
 		};
 		Ok(Self::new(peer, payload, pending_response))
@@ -144,7 +144,7 @@ where
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
-		prometheus_registry: Option<prometheus::Registry>,
+		prometheus_registry: Option<prometheus_endpoint::Registry>,
 	) -> (Self, Network::RequestResponseProtocolConfig) {
 		let (request_receiver, config): (_, Network::RequestResponseProtocolConfig) =
 			on_demand_justifications_protocol_config::<_, _, Network>(genesis_hash, fork_id);

@@ -69,7 +69,7 @@ pub trait SubstrateEquivocationDetectionPipeline:
 
 	/// Add relay guards if required.
 	async fn start_relay_guards(
-		source_client: &Client<Self::SourceChain>,
+		source_client: &impl Client<Self::SourceChain>,
 		enable_version_guard: bool,
 	) -> relay_substrate_client::Result<()> {
 		if enable_version_guard {
@@ -199,8 +199,8 @@ macro_rules! generate_report_equivocation_call_builder {
 
 /// Run Substrate-to-Substrate equivocations detection loop.
 pub async fn run<P: SubstrateEquivocationDetectionPipeline>(
-	source_client: Client<P::SourceChain>,
-	target_client: Client<P::TargetChain>,
+	source_client: impl Client<P::SourceChain>,
+	target_client: impl Client<P::TargetChain>,
 	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	metrics_params: MetricsParams,
 ) -> anyhow::Result<()> {
@@ -212,8 +212,8 @@ pub async fn run<P: SubstrateEquivocationDetectionPipeline>(
 	);
 
 	equivocation_detector::run(
-		SubstrateEquivocationSource::<P>::new(source_client, source_transaction_params),
-		SubstrateEquivocationTarget::<P>::new(target_client),
+		SubstrateEquivocationSource::<P, _>::new(source_client, source_transaction_params),
+		SubstrateEquivocationTarget::<P, _>::new(target_client),
 		P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 		metrics_params,
 		futures::future::pending(),

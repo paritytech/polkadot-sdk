@@ -21,7 +21,7 @@ use crate::{
 	message_lane_loop::{SourceClientState, TargetClientState},
 };
 
-use bp_messages::MessageNonce;
+use bp_messages::{HashedLaneId, LegacyLaneId, MessageNonce};
 use finality_relay::SyncLoopMetrics;
 use relay_utils::metrics::{
 	metric_name, register, GaugeVec, Metric, Opts, PrometheusError, Registry, U64,
@@ -145,4 +145,33 @@ impl Metric for MessageLaneLoopMetrics {
 		register(self.lane_state_nonces.clone(), registry)?;
 		Ok(())
 	}
+}
+
+/// Provides a label for metrics.
+pub trait Labeled {
+	/// Returns a label.
+	fn label(&self) -> String;
+}
+
+/// `Labeled` implementation for `LegacyLaneId`.
+impl Labeled for LegacyLaneId {
+	fn label(&self) -> String {
+		hex::encode(self.0)
+	}
+}
+
+/// `Labeled` implementation for `HashedLaneId`.
+impl Labeled for HashedLaneId {
+	fn label(&self) -> String {
+		format!("{:?}", self.inner())
+	}
+}
+
+#[test]
+fn lane_to_label_works() {
+	assert_eq!(
+		"0x0101010101010101010101010101010101010101010101010101010101010101",
+		HashedLaneId::from_inner(sp_core::H256::from([1u8; 32])).label(),
+	);
+	assert_eq!("00000001", LegacyLaneId([0, 0, 0, 1]).label());
 }

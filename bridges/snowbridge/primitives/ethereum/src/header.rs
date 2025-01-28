@@ -8,7 +8,7 @@ use rlp::RlpStream;
 use scale_info::TypeInfo;
 use sp_io::hashing::keccak_256;
 use sp_runtime::RuntimeDebug;
-use sp_std::{convert::TryInto, prelude::*};
+use sp_std::prelude::*;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

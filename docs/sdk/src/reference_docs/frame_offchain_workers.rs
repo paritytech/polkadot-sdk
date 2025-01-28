@@ -58,7 +58,6 @@
 //! [`frame::pallet_macros::hooks`].
 //!
 //! ```
-//! 
 //! #[frame::pallet]
 //! pub mod pallet {
 //! 	use frame::prelude::*;
@@ -89,7 +88,7 @@
 //!
 //! They can both read from the state, and have no means of updating the state, other than the route
 //! of submitting an extrinsic to the chain. Therefore, it is worth thinking twice before embedding
-//! a logic as a part of Substrate's offchain worker API. Does it have to be there? can it not be a
+//! a logic as a part of Substrate's offchain worker API. Does it have to be there? Can it not be a
 //! simple, actual offchain application that lives outside of the chain's WASM blob?
 //!
 //! Some of the reasons why you might want to do the opposite, and actually embed an offchain worker

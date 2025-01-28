@@ -24,13 +24,15 @@ use crate::{
 	configuration, paras, scheduler, shared,
 	util::{take_active_subset, take_active_subset_and_inactive},
 };
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{OneSessionHandler, ValidatorSet, ValidatorSetWithIdentification},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo};
-use sp_std::vec::Vec;
+use polkadot_primitives::{
+	AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo,
+};
 
 pub use pallet::*;
 
@@ -133,8 +135,8 @@ impl<T: Config> Pallet<T> {
 		let assignment_keys = AssignmentKeysUnsafe::<T>::get();
 		let active_set = shared::ActiveValidatorIndices::<T>::get();
 
-		let validator_groups = scheduler::ValidatorGroups::<T>::get().into();
-		let n_cores = scheduler::AvailabilityCores::<T>::get().len() as u32;
+		let validator_groups = scheduler::ValidatorGroups::<T>::get();
+		let n_cores = validator_groups.len() as u32;
 		let zeroth_delay_tranche_width = config.zeroth_delay_tranche_width;
 		let relay_vrf_modulo_samples = config.relay_vrf_modulo_samples;
 		let n_delay_tranches = config.n_delay_tranches;
@@ -175,7 +177,7 @@ impl<T: Config> Pallet<T> {
 			validators, // these are from the notification and are thus already correct.
 			discovery_keys: take_active_subset_and_inactive(&active_set, &discovery_keys),
 			assignment_keys: take_active_subset(&active_set, &assignment_keys),
-			validator_groups,
+			validator_groups: validator_groups.into(),
 			n_cores,
 			zeroth_delay_tranche_width,
 			relay_vrf_modulo_samples,

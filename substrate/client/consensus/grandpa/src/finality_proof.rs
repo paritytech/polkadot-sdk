@@ -39,7 +39,7 @@
 use log::{trace, warn};
 use std::sync::Arc;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use sc_client_api::backend::Backend;
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus_grandpa::GRANDPA_ENGINE_ID;
@@ -319,7 +319,7 @@ mod tests {
 	) -> (Arc<TestClient>, Arc<TestBackend>, Vec<Block>) {
 		let builder = TestClientBuilder::new();
 		let backend = builder.backend();
-		let mut client = Arc::new(builder.build());
+		let client = Arc::new(builder.build());
 
 		let mut blocks = Vec::new();
 		for _ in 0..number_of_blocks {

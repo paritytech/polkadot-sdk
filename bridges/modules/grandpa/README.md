@@ -87,7 +87,7 @@ It'd be better for anyone (for chain and for submitters) to reject all transacti
 already known headers to the pallet. This way, we leave block space to other useful transactions and
 we don't charge concurrent submitters for their honest actions.
 
-To deal with that, we have a [signed extension](./src/call_ext) that may be added to the runtime.
+To deal with that, we have a [signed extension](./src/call_ext.rs) that may be added to the runtime.
 It does exactly what is required - rejects all transactions with already known headers. The submitter
 pays nothing for such transactions - they're simply removed from the transaction pool, when the block
 is built.

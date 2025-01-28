@@ -1,0 +1,79 @@
+[package]
+name = "pallet-revive-eth-rpc"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "An Ethereum JSON-RPC server for pallet-revive."
+default-run = "eth-rpc"
+
+[[bin]]
+name = "eth-rpc"
+path = "src/main.rs"
+
+[[bin]]
+name = "eth-indexer"
+path = "src/eth-indexer.rs"
+
+[[bin]]
+name = "eth-rpc-tester"
+path = "src/eth-rpc-tester.rs"
+
+[[example]]
+name = "deploy"
+path = "examples/rust/deploy.rs"
+
+[[example]]
+name = "transfer"
+path = "examples/rust/transfer.rs"
+
+[[example]]
+name = "rpc-playground"
+path = "examples/rust/rpc-playground.rs"
+
+[[example]]
+name = "extrinsic"
+path = "examples/rust/extrinsic.rs"
+
+[[example]]
+name = "remark-extrinsic"
+path = "examples/rust/remark-extrinsic.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+codec = { workspace = true, features = ["derive"] }
+ethabi = { version = "18.0.0" }
+futures = { workspace = true, features = ["thread-pool"] }
+hex = { workspace = true }
+jsonrpsee = { workspace = true, features = ["full"] }
+log = { workspace = true }
+pallet-revive = { workspace = true, default-features = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+rlp = { workspace = true }
+sc-cli = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+sc-rpc-api = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true }
+sp-weights = { workspace = true, default-features = true }
+sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "sqlite"] }
+subxt = { workspace = true, default-features = true, features = [
+	"reconnecting-rpc-client",
+] }
+subxt-signer = { workspace = true, features = [
+	"unstable-eth",
+] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+
+[dev-dependencies]
+env_logger = { workspace = true }
+static_init = { workspace = true }
+substrate-cli-test-utils = { workspace = true }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }

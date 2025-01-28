@@ -53,12 +53,16 @@ fn construct_and_reconstruct_5mb_pov(c: &mut Criterion) {
 	}
 	group.finish();
 
-	let mut group = c.benchmark_group("reconstruct");
+	let mut group = c.benchmark_group("reconstruct_regular");
 	for n_validators in N_VALIDATORS {
 		let all_chunks = chunks(n_validators, &pov);
 
-		let mut c: Vec<_> = all_chunks.iter().enumerate().map(|(i, c)| (&c[..], i)).collect();
-		let last_chunks = c.split_off((c.len() - 1) * 2 / 3);
+		let chunks: Vec<_> = all_chunks
+			.iter()
+			.enumerate()
+			.take(polkadot_erasure_coding::recovery_threshold(n_validators).unwrap())
+			.map(|(i, c)| (&c[..], i))
+			.collect();
 
 		group.throughput(Throughput::Bytes(pov.len() as u64));
 		group.bench_with_input(
@@ -67,7 +71,31 @@ fn construct_and_reconstruct_5mb_pov(c: &mut Criterion) {
 			|b, &n| {
 				b.iter(|| {
 					let _pov: Vec<u8> =
-						polkadot_erasure_coding::reconstruct(n, last_chunks.clone()).unwrap();
+						polkadot_erasure_coding::reconstruct(n, chunks.clone()).unwrap();
+				});
+			},
+		);
+	}
+	group.finish();
+
+	let mut group = c.benchmark_group("reconstruct_systematic");
+	for n_validators in N_VALIDATORS {
+		let all_chunks = chunks(n_validators, &pov);
+
+		let chunks = all_chunks
+			.into_iter()
+			.take(polkadot_erasure_coding::systematic_recovery_threshold(n_validators).unwrap())
+			.collect::<Vec<_>>();
+
+		group.throughput(Throughput::Bytes(pov.len() as u64));
+		group.bench_with_input(
+			BenchmarkId::from_parameter(n_validators),
+			&n_validators,
+			|b, &n| {
+				b.iter(|| {
+					let _pov: Vec<u8> =
+						polkadot_erasure_coding::reconstruct_from_systematic(n, chunks.clone())
+							.unwrap();
 				});
 			},
 		);

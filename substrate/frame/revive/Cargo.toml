@@ -1,0 +1,130 @@
+[package]
+name = "pallet-revive"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "FRAME pallet for PolkaVM contracts."
+readme = "README.md"
+include = ["CHANGELOG.md", "README.md", "build.rs", "src/**/*"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+derive_more = { workspace = true }
+environmental = { workspace = true }
+ethabi = { workspace = true }
+ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
+hex = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+log = { workspace = true }
+paste = { workspace = true }
+polkavm = { version = "0.19.0", default-features = false }
+rlp = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { features = [
+	"alloc",
+	"derive",
+], workspace = true, default-features = false }
+
+# Polkadot SDK Dependencies
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-revive-fixtures = { workspace = true, optional = true }
+pallet-revive-proc-macro = { workspace = true }
+pallet-revive-uapi = { workspace = true, features = ["scale"] }
+pallet-transaction-payment = { workspace = true }
+sp-api = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+subxt-signer = { workspace = true, optional = true, features = [
+	"unstable-eth",
+] }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+
+[dev-dependencies]
+array-bytes = { workspace = true, default-features = true }
+assert_matches = { workspace = true }
+hex-literal = { workspace = true }
+pretty_assertions = { workspace = true }
+secp256k1 = { workspace = true, features = ["recovery"] }
+serde_json = { workspace = true }
+
+# Polkadot SDK Dependencies
+pallet-balances = { workspace = true, default-features = true }
+pallet-proxy = { workspace = true, default-features = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"environmental/std",
+	"ethabi/std",
+	"ethereum-types/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"hex/std",
+	"log/std",
+	"pallet-proxy/std",
+	"pallet-revive-fixtures?/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment/std",
+	"pallet-utility/std",
+	"polkavm/std",
+	"rlp/std",
+	"scale-info/std",
+	"secp256k1/std",
+	"serde/std",
+	"serde_json/std",
+	"sp-api/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-keystore/std",
+	"sp-runtime/std",
+	"subxt-signer",
+	"xcm-builder/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-revive-fixtures",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-runtime/try-runtime",
+]

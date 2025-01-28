@@ -17,23 +17,19 @@
 
 //! Cryptographic utilities.
 
-use crate::{ed25519, sr25519};
+use crate::{ed25519, sr25519, U256};
+use alloc::{format, str, string::String, vec, vec::Vec};
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::hash::Hash;
+#[doc(hidden)]
+pub use core::ops::Deref;
 #[cfg(feature = "std")]
 use itertools::Itertools;
 #[cfg(feature = "std")]
 use rand::{rngs::OsRng, RngCore};
 use scale_info::TypeInfo;
 pub use secrecy::{ExposeSecret, SecretString};
-#[doc(hidden)]
-pub use sp_std::ops::Deref;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::{
-	alloc::{format, string::String},
-	vec,
-};
-use sp_std::{hash::Hash, str, vec::Vec};
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
@@ -244,8 +240,8 @@ pub enum PublicError {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::fmt::Debug for PublicError {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for PublicError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		// Just use the `Display` implementation
 		write!(f, "{}", self)
 	}
@@ -420,6 +416,17 @@ pub fn set_default_ss58_version(new_default: Ss58AddressFormat) {
 	DEFAULT_VERSION.store(new_default.into(), core::sync::atomic::Ordering::Relaxed);
 }
 
+/// Interprets the string `s` in order to generate a public key without password.
+///
+/// Function will panic when invalid string is provided.
+pub fn get_public_from_string_or_panic<TPublic: Public>(
+	s: &str,
+) -> <TPublic::Pair as Pair>::Public {
+	TPublic::Pair::from_string(&format!("//{}", s), None)
+		.expect("Function expects valid argument; qed")
+		.public()
+}
+
 #[cfg(feature = "std")]
 impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
@@ -586,8 +593,8 @@ impl std::fmt::Display for AccountId32 {
 	}
 }
 
-impl sp_std::fmt::Debug for AccountId32 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl core::fmt::Debug for AccountId32 {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		#[cfg(feature = "serde")]
 		{
 			let s = self.to_ss58check();
@@ -623,7 +630,7 @@ impl<'de> serde::Deserialize<'de> for AccountId32 {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for AccountId32 {
+impl std::str::FromStr for AccountId32 {
 	type Err = &'static str;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -785,7 +792,7 @@ pub struct SecretUri {
 	pub junctions: Vec<DeriveJunction>,
 }
 
-impl sp_std::str::FromStr for SecretUri {
+impl alloc::str::FromStr for SecretUri {
 	type Err = SecretStringError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -924,7 +931,7 @@ pub trait Pair: CryptoType + Sized {
 		s: &str,
 		password_override: Option<&str>,
 	) -> Result<(Self, Option<Self::Seed>), SecretStringError> {
-		use sp_std::str::FromStr;
+		use alloc::str::FromStr;
 		let SecretUri { junctions, phrase, password } = SecretUri::from_str(s)?;
 		let password =
 			password_override.or_else(|| password.as_ref().map(|p| p.expose_secret().as_str()));
@@ -1193,7 +1200,7 @@ macro_rules! impl_from_entropy_base {
 	}
 }
 
-impl_from_entropy_base!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+impl_from_entropy_base!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, U256);
 
 #[cfg(test)]
 mod tests {

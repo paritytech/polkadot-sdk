@@ -1,0 +1,18 @@
+title: Sync status refactoring
+
+doc:
+  - audience: Node Dev
+    description: |
+      `SyncingService` API in `sc-network-sync` has changed with some of the redundant methods related to sync status
+      removed that were mostly used internally or for testing purposes and is unlikely to impact external code.
+      `ExtendedPeerInfo` now has working `Clone` and `Copy` implementation.
+
+crates:
+  - name: sc-informant
+    bump: major
+  - name: sc-network-sync
+    bump: major
+  - name: sc-network-test
+    bump: major
+  - name: sc-service
+    bump: major

@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Omni-Node renamings
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR renames the `polkadot-parachain-lib` crate to `polkadot-omni-node-lib` and introduces a new
+      `polkadot-omni-node` binary.
+
+crates: 
+  - name: polkadot-omni-node-lib
+    bump: patch
+  - name: polkadot-parachain-bin
+    bump: patch
+  - name: polkadot-sdk
+    bump: patch

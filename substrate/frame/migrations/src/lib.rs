@@ -69,22 +69,27 @@
 //! either be [`MigrationCursor::Active`] or [`MigrationCursor::Stuck`]. In the active case it
 //! points to the currently active migration and stores its inner cursor. The inner cursor can then
 //! be used by the migration to store its inner state and advance. Each time when the migration
-//! returns `Some(cursor)`, it signals the pallet that it is not done yet.  
+//! returns `Some(cursor)`, it signals the pallet that it is not done yet.
+//!
 //! The cursor is reset on each runtime upgrade. This ensures that it starts to execute at the
 //! first migration in the vector. The pallets cursor is only ever incremented or set to `Stuck`
 //! once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
-//! it is fixed through manual governance intervention.  
+//! it is fixed through manual governance intervention.
+//!
 //! As soon as the cursor of the pallet becomes `Some(_)`; [`MultiStepMigrator::ongoing`] returns
 //! `true` (Goal 2). This can be used by upstream code to possibly pause transactions.
 //! In `on_initialize` the pallet will load the current migration and check whether it was already
 //! executed in the past by checking for membership of its ID in the [`Historic`] set. Historic
 //! migrations are skipped without causing an error. Each successfully executed migration is added
-//! to this set (Goal 5).  
+//! to this set (Goal 5).
+//!
 //! This proceeds until no more migrations remain. At that point, the event `UpgradeCompleted` is
-//! emitted (Goal 1).  
+//! emitted (Goal 1).
+//!
 //! The execution of each migration happens by calling [`SteppedMigration::transactional_step`].
 //! This function wraps the inner `step` function into a transactional layer to allow rollback in
-//! the error case (Goal 6).  
+//! the error case (Goal 6).
+//!
 //! Weight limits must be checked by the migration itself. The pallet provides a [`WeightMeter`] for
 //! that purpose. The pallet may return [`SteppedMigrationError::InsufficientWeight`] at any point.
 //! In that scenario, one of two things will happen: if that migration was exclusively executed
@@ -145,21 +150,27 @@ pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
 	defensive, defensive_assert,
 	migrations::*,
+	pallet_prelude::*,
 	traits::Get,
 	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
+use frame_system::{
+	pallet_prelude::{BlockNumberFor, *},
+	Pallet as System,
+};
 use sp_runtime::Saturating;
-use sp_std::vec::Vec;
 
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
@@ -260,6 +271,7 @@ pub type IdentifierOf<T> = BoundedVec<u8, <T as Config>::IdentifierMaxLen>;
 pub type ActiveCursorOf<T> = ActiveCursor<RawCursorOf<T>, BlockNumberFor<T>>;
 
 /// Trait for a tuple of No-OP migrations with one element.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait MockedMigrations: SteppedMigrations {
 	/// The migration should fail after `n` steps.
 	fn set_fail_after(n: u32);
@@ -267,11 +279,24 @@ pub trait MockedMigrations: SteppedMigrations {
 	fn set_success_after(n: u32);
 }
 
+#[cfg(feature = "try-runtime")]
+/// Wrapper for pre-upgrade bytes, allowing us to impl MEL on it.
+///
+/// For `try-runtime` testing only.
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, Default)]
+struct PreUpgradeBytesWrapper(pub Vec<u8>);
+
+/// Data stored by the pre-upgrade hook of the MBMs. Only used for `try-runtime` testing.
+///
+/// Define this outside of the pallet so it is not confused with actual storage.
+#[cfg(feature = "try-runtime")]
+#[frame_support::storage_alias]
+type PreUpgradeBytes<T: Config> =
+	StorageMap<Pallet<T>, Twox64Concat, IdentifierOf<T>, PreUpgradeBytesWrapper, ValueQuery>;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -676,7 +701,7 @@ impl<T: Config> Pallet<T> {
 			return Some(ControlFlow::Break(cursor))
 		}
 
-		let Some(id) = T::Migrations::nth_id(cursor.index) else {
+		if cursor.index >= T::Migrations::len() {
 			// No more migrations in the tuple - we are done.
 			defensive_assert!(cursor.index == T::Migrations::len(), "Inconsistent MBMs tuple");
 			Self::deposit_event(Event::UpgradeCompleted);
@@ -685,8 +710,9 @@ impl<T: Config> Pallet<T> {
 			return None;
 		};
 
-		let Ok(bounded_id): Result<IdentifierOf<T>, _> = id.try_into() else {
-			defensive!("integrity_test ensures that all identifiers' MEL bounds fit into CursorMaxLen; qed.");
+		let id = T::Migrations::nth_id(cursor.index).map(TryInto::try_into);
+		let Some(Ok(bounded_id)): Option<Result<IdentifierOf<T>, _>> = id else {
+			defensive!("integrity_test ensures that all identifiers are present and bounde; qed.");
 			Self::upgrade_failed(Some(cursor.index));
 			return None
 		};
@@ -698,6 +724,16 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let max_steps = T::Migrations::nth_max_steps(cursor.index);
+
+		// If this is the first time running this migration, exec the pre-upgrade hook.
+		#[cfg(feature = "try-runtime")]
+		if !PreUpgradeBytes::<T>::contains_key(&bounded_id) {
+			let bytes = T::Migrations::nth_pre_upgrade(cursor.index)
+				.expect("Invalid cursor.index")
+				.expect("Pre-upgrade failed");
+			PreUpgradeBytes::<T>::insert(&bounded_id, PreUpgradeBytesWrapper(bytes));
+		}
+
 		let next_cursor = T::Migrations::nth_transactional_step(
 			cursor.index,
 			cursor.inner_cursor.clone().map(|c| c.into_inner()),
@@ -732,6 +768,16 @@ impl<T: Config> Pallet<T> {
 			},
 			Ok(None) => {
 				// A migration is done when it returns cursor `None`.
+
+				// Run post-upgrade checks.
+				#[cfg(feature = "try-runtime")]
+				T::Migrations::nth_post_upgrade(
+					cursor.index,
+					PreUpgradeBytes::<T>::get(&bounded_id).0,
+				)
+				.expect("Invalid cursor.index.")
+				.expect("Post-upgrade failed.");
+
 				Self::deposit_event(Event::MigrationCompleted { index: cursor.index, took });
 				Historic::<T>::insert(&bounded_id, ());
 				cursor.goto_next_migration(System::<T>::block_number());
@@ -756,14 +802,21 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Fail the current runtime upgrade, caused by `migration`.
+	///
+	/// When the `try-runtime` feature is enabled, this function will panic.
+	// Allow unreachable code so it can compile without warnings when `try-runtime` is enabled.
 	fn upgrade_failed(migration: Option<u32>) {
 		use FailedMigrationHandling::*;
 		Self::deposit_event(Event::UpgradeFailed);
 
-		match T::FailedMigrationHandler::failed(migration) {
-			KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
-			ForceUnstuck => Cursor::<T>::kill(),
-			Ignore => {},
+		if cfg!(feature = "try-runtime") {
+			panic!("Migration with index {:?} failed.", migration);
+		} else {
+			match T::FailedMigrationHandler::failed(migration) {
+				KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
+				ForceUnstuck => Cursor::<T>::kill(),
+				Ignore => {},
+			}
 		}
 	}
 

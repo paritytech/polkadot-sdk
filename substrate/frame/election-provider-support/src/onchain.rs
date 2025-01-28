@@ -24,11 +24,12 @@ use crate::{
 	BoundedSupportsOf, Debug, ElectionDataProvider, ElectionProvider, ElectionProviderBase,
 	InstantElectionProvider, NposSolver, WeightInfo,
 };
+use alloc::collections::btree_map::BTreeMap;
+use core::marker::PhantomData;
 use frame_support::{dispatch::DispatchClass, traits::Get};
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, to_supports, BoundedSupports, ElectionResult, VoteWeight,
 };
-use sp_std::{collections::btree_map::BTreeMap, marker::PhantomData, prelude::*};
 
 /// Errors of the on-chain election.
 #[derive(Eq, PartialEq, Debug)]

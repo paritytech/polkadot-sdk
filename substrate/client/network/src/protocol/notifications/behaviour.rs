@@ -33,11 +33,11 @@ use bytes::BytesMut;
 use fnv::FnvHashMap;
 use futures::{future::BoxFuture, prelude::*, stream::FuturesUnordered};
 use libp2p::{
-	core::{ConnectedPoint, Endpoint, Multiaddr},
+	core::{transport::PortUse, Endpoint, Multiaddr},
 	swarm::{
 		behaviour::{ConnectionClosed, ConnectionEstablished, DialFailure, FromSwarm},
-		ConnectionDenied, ConnectionId, DialError, NetworkBehaviour, NotifyHandler, PollParameters,
-		THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
+		ConnectionDenied, ConnectionId, DialError, NetworkBehaviour, NotifyHandler, THandler,
+		THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	PeerId,
 };
@@ -49,6 +49,7 @@ use smallvec::SmallVec;
 use tokio::sync::oneshot::error::RecvError;
 use tokio_stream::StreamMap;
 
+use libp2p::swarm::CloseConnection;
 use std::{
 	cmp,
 	collections::{hash_map::Entry, VecDeque},
@@ -362,8 +363,6 @@ pub enum NotificationsOut {
 		received_handshake: Vec<u8>,
 		/// Object that permits sending notifications to the peer.
 		notifications_sink: NotificationsSink,
-		/// Is the connection inbound.
-		inbound: bool,
 	},
 
 	/// The [`NotificationsSink`] object used to send notifications with the given peer must be
@@ -1198,7 +1197,7 @@ impl Notifications {
 
 impl NetworkBehaviour for Notifications {
 	type ConnectionHandler = NotifsHandler;
-	type OutEvent = NotificationsOut;
+	type ToSwarm = NotificationsOut;
 
 	fn handle_pending_inbound_connection(
 		&mut self,
@@ -1223,36 +1222,24 @@ impl NetworkBehaviour for Notifications {
 		&mut self,
 		_connection_id: ConnectionId,
 		peer: PeerId,
-		local_addr: &Multiaddr,
-		remote_addr: &Multiaddr,
+		_local_addr: &Multiaddr,
+		_remote_addr: &Multiaddr,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-		Ok(NotifsHandler::new(
-			peer,
-			ConnectedPoint::Listener {
-				local_addr: local_addr.clone(),
-				send_back_addr: remote_addr.clone(),
-			},
-			self.notif_protocols.clone(),
-			Some(self.metrics.clone()),
-		))
+		Ok(NotifsHandler::new(peer, self.notif_protocols.clone(), Some(self.metrics.clone())))
 	}
 
 	fn handle_established_outbound_connection(
 		&mut self,
 		_connection_id: ConnectionId,
 		peer: PeerId,
-		addr: &Multiaddr,
-		role_override: Endpoint,
+		_addr: &Multiaddr,
+		_role_override: Endpoint,
+		_port_use: PortUse,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-		Ok(NotifsHandler::new(
-			peer,
-			ConnectedPoint::Dialer { address: addr.clone(), role_override },
-			self.notif_protocols.clone(),
-			Some(self.metrics.clone()),
-		))
+		Ok(NotifsHandler::new(peer, self.notif_protocols.clone(), Some(self.metrics.clone())))
 	}
 
-	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+	fn on_swarm_event(&mut self, event: FromSwarm) {
 		match event {
 			FromSwarm::ConnectionEstablished(ConnectionEstablished {
 				peer_id,
@@ -1678,12 +1665,16 @@ impl NetworkBehaviour for Notifications {
 			FromSwarm::ListenerClosed(_) => {},
 			FromSwarm::ListenFailure(_) => {},
 			FromSwarm::ListenerError(_) => {},
-			FromSwarm::ExpiredExternalAddr(_) => {},
+			FromSwarm::ExternalAddrExpired(_) => {},
 			FromSwarm::NewListener(_) => {},
 			FromSwarm::ExpiredListenAddr(_) => {},
-			FromSwarm::NewExternalAddr(_) => {},
+			FromSwarm::NewExternalAddrCandidate(_) => {},
+			FromSwarm::ExternalAddrConfirmed(_) => {},
 			FromSwarm::AddressChange(_) => {},
 			FromSwarm::NewListenAddr(_) => {},
+			event => {
+				warn!(target: "sub-libp2p", "New unknown `FromSwarm` libp2p event: {event:?}");
+			},
 		}
 	}
 
@@ -2060,7 +2051,6 @@ impl NetworkBehaviour for Notifications {
 								let event = NotificationsOut::CustomProtocolOpen {
 									peer_id,
 									set_id,
-									inbound,
 									direction: if inbound {
 										Direction::Inbound
 									} else {
@@ -2232,14 +2222,19 @@ impl NetworkBehaviour for Notifications {
 					);
 				}
 			},
+			NotifsHandlerOut::Close { protocol_index } => {
+				let set_id = SetId::from(protocol_index);
+
+				trace!(target: "sub-libp2p", "Handler({}, {:?}) => SyncNotificationsClogged({:?})", peer_id, connection_id, set_id);
+				self.events.push_back(ToSwarm::CloseConnection {
+					peer_id,
+					connection: CloseConnection::One(connection_id),
+				});
+			},
 		}
 	}
 
-	fn poll(
-		&mut self,
-		cx: &mut Context,
-		_params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+	fn poll(&mut self, cx: &mut Context) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		if let Some(event) = self.events.pop_front() {
 			return Poll::Ready(event)
 		}
@@ -2374,7 +2369,6 @@ impl NetworkBehaviour for Notifications {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
 	use super::*;
 	use crate::{
@@ -2382,7 +2376,7 @@ mod tests {
 		protocol::notifications::handler::tests::*,
 		protocol_controller::{IncomingIndex, ProtoSetConfig, ProtocolController},
 	};
-	use libp2p::swarm::AddressRecord;
+	use libp2p::core::ConnectedPoint;
 	use sc_utils::mpsc::tracing_unbounded;
 	use std::{collections::HashSet, iter};
 
@@ -2401,36 +2395,9 @@ mod tests {
 		}
 	}
 
-	#[derive(Clone)]
-	struct MockPollParams {
-		peer_id: PeerId,
-		addr: Multiaddr,
-	}
-
-	impl PollParameters for MockPollParams {
-		type SupportedProtocolsIter = std::vec::IntoIter<Vec<u8>>;
-		type ListenedAddressesIter = std::vec::IntoIter<Multiaddr>;
-		type ExternalAddressesIter = std::vec::IntoIter<AddressRecord>;
-
-		fn supported_protocols(&self) -> Self::SupportedProtocolsIter {
-			vec![].into_iter()
-		}
-
-		fn listened_addresses(&self) -> Self::ListenedAddressesIter {
-			vec![self.addr.clone()].into_iter()
-		}
-
-		fn external_addresses(&self) -> Self::ExternalAddressesIter {
-			vec![].into_iter()
-		}
-
-		fn local_peer_id(&self) -> &PeerId {
-			&self.peer_id
-		}
-	}
-
 	fn development_notifs(
-	) -> (Notifications, ProtocolController, Box<dyn crate::service::traits::NotificationService>) {
+	) -> (Notifications, ProtocolController, Box<dyn crate::service::traits::NotificationService>)
+	{
 		let (protocol_handle_pair, notif_service) =
 			crate::protocol::notifications::service::notification_service("/proto/1".into());
 		let (to_notifications, from_controller) =
@@ -2685,7 +2652,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -2885,7 +2852,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3038,7 +3005,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3082,7 +3049,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3152,7 +3119,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3205,7 +3172,7 @@ mod tests {
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Enabled { .. })));
 
 		// open new substream
-		let event = conn_yielder.open_substream(peer, 0, connected, vec![1, 2, 3, 4]);
+		let event = conn_yielder.open_substream(peer, 0, vec![1, 2, 3, 4]);
 
 		notif.on_connection_handler_event(peer, conn, event);
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Enabled { .. })));
@@ -3278,7 +3245,7 @@ mod tests {
 			notif.on_connection_handler_event(
 				peer,
 				*conn,
-				conn_yielder.open_substream(peer, 0, connected.clone(), vec![1, 2, 3, 4]),
+				conn_yielder.open_substream(peer, 0, vec![1, 2, 3, 4]),
 			);
 		}
 
@@ -3300,7 +3267,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn1,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3331,7 +3298,7 @@ mod tests {
 
 		notif.on_swarm_event(FromSwarm::DialFailure(libp2p::swarm::behaviour::DialFailure {
 			peer_id: Some(peer),
-			error: &libp2p::swarm::DialError::Banned,
+			error: &libp2p::swarm::DialError::Aborted,
 			connection_id: ConnectionId::new_unchecked(1337),
 		}));
 
@@ -3371,7 +3338,7 @@ mod tests {
 		notif.on_connection_handler_event(
 			peer,
 			conn,
-			conn_yielder.open_substream(peer, 0, connected, vec![1, 2, 3, 4]),
+			conn_yielder.open_substream(peer, 0, vec![1, 2, 3, 4]),
 		);
 
 		if let Some(PeerState::Enabled { ref connections, .. }) = notif.peers.get(&(peer, set_id)) {
@@ -3426,7 +3393,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3500,7 +3467,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3563,7 +3530,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn1,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected.clone(), vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3577,7 +3544,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn2,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3631,7 +3598,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3689,7 +3656,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn2,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3750,7 +3717,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn1,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3803,7 +3770,7 @@ mod tests {
 		notif.on_connection_handler_event(
 			peer,
 			conn1,
-			conn_yielder.open_substream(peer, 0, connected.clone(), vec![1, 2, 3, 4]),
+			conn_yielder.open_substream(peer, 0, vec![1, 2, 3, 4]),
 		);
 
 		if let Some(PeerState::Enabled { ref connections, .. }) = notif.peers.get(&(peer, set_id)) {
@@ -3819,7 +3786,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn1,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3860,7 +3827,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3877,7 +3844,7 @@ mod tests {
 		let now = Instant::now();
 		notif.on_swarm_event(FromSwarm::DialFailure(libp2p::swarm::behaviour::DialFailure {
 			peer_id: Some(peer),
-			error: &libp2p::swarm::DialError::Banned,
+			error: &libp2p::swarm::DialError::Aborted,
 			connection_id: ConnectionId::new_unchecked(0),
 		}));
 
@@ -3983,7 +3950,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4003,11 +3970,9 @@ mod tests {
 		assert!(notif.peers.get(&(peer, set_id)).is_some());
 
 		if tokio::time::timeout(Duration::from_secs(5), async {
-			let mut params = MockPollParams { peer_id: PeerId::random(), addr: Multiaddr::empty() };
-
 			loop {
 				futures::future::poll_fn(|cx| {
-					let _ = notif.poll(cx, &mut params);
+					let _ = notif.poll(cx);
 					Poll::Ready(())
 				})
 				.await;
@@ -4032,10 +3997,6 @@ mod tests {
 		let peer = PeerId::random();
 		let conn = ConnectionId::new_unchecked(0);
 		let set_id = SetId::from(0);
-		let connected = ConnectedPoint::Listener {
-			local_addr: Multiaddr::empty(),
-			send_back_addr: Multiaddr::empty(),
-		};
 		let mut conn_yielder = ConnectionYielder::new();
 
 		// move the peer to `Enabled` state
@@ -4069,7 +4030,7 @@ mod tests {
 		notif.protocol_report_accept(IncomingIndex(0));
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Enabled { .. })));
 
-		let event = conn_yielder.open_substream(peer, 0, connected, vec![1, 2, 3, 4]);
+		let event = conn_yielder.open_substream(peer, 0, vec![1, 2, 3, 4]);
 
 		notif.on_connection_handler_event(peer, conn, event);
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Enabled { .. })));
@@ -4115,11 +4076,9 @@ mod tests {
 		// verify that the code continues to keep the peer disabled by resetting the timer
 		// after the first one expired.
 		if tokio::time::timeout(Duration::from_secs(5), async {
-			let mut params = MockPollParams { peer_id: PeerId::random(), addr: Multiaddr::empty() };
-
 			loop {
 				futures::future::poll_fn(|cx| {
-					let _ = notif.poll(cx, &mut params);
+					let _ = notif.poll(cx);
 					Poll::Ready(())
 				})
 				.await;
@@ -4184,7 +4143,7 @@ mod tests {
 		notif.peerset_report_connect(peer, set_id);
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Enabled { .. })));
 
-		let event = conn_yielder.open_substream(peer, 0, connected, vec![1, 2, 3, 4]);
+		let event = conn_yielder.open_substream(peer, 0, vec![1, 2, 3, 4]);
 
 		notif.on_connection_handler_event(peer, conn, event);
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Enabled { .. })));
@@ -4297,7 +4256,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4538,7 +4497,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(0),
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4640,7 +4599,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(0),
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4698,7 +4657,7 @@ mod tests {
 		notif.peerset_report_connect(peer, set_id);
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Enabled { .. })));
 
-		let event = conn_yielder.open_substream(peer, 0, connected, vec![1, 2, 3, 4]);
+		let event = conn_yielder.open_substream(peer, 0, vec![1, 2, 3, 4]);
 		notif.on_connection_handler_event(peer, conn, event);
 
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Enabled { .. })));
@@ -4722,7 +4681,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(0),
 				endpoint: &endpoint.clone(),
-				handler: NotifsHandler::new(peer, endpoint, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4839,7 +4798,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(1337),
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4874,7 +4833,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(1337),
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4925,7 +4884,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(1337),
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4972,7 +4931,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -5022,7 +4981,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(1337),
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -5065,7 +5024,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected.clone(), vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -5076,7 +5035,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
-				handler: NotifsHandler::new(peer, connected, vec![], None),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -5088,16 +5047,12 @@ mod tests {
 	fn open_result_ok_non_existent_peer() {
 		let (mut notif, _controller, _notif_service) = development_notifs();
 		let conn = ConnectionId::new_unchecked(0);
-		let connected = ConnectedPoint::Listener {
-			local_addr: Multiaddr::empty(),
-			send_back_addr: Multiaddr::empty(),
-		};
 		let mut conn_yielder = ConnectionYielder::new();
 
 		notif.on_connection_handler_event(
 			PeerId::random(),
 			conn,
-			conn_yielder.open_substream(PeerId::random(), 0, connected, vec![1, 2, 3, 4]),
+			conn_yielder.open_substream(PeerId::random(), 0, vec![1, 2, 3, 4]),
 		);
 	}
 }

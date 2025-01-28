@@ -20,11 +20,7 @@ use crate::{
 	cli::{Cli, Subcommand},
 	service,
 };
-use sc_cli::SubstrateCli;
-use sc_service::PartialComponents;
-
-#[cfg(feature = "try-runtime")]
-use try_runtime_cli::block_building_info::timestamp_with_aura_info;
+use polkadot_sdk::{sc_cli::SubstrateCli, sc_service::PartialComponents, *};
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -53,7 +49,7 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"dev" => Box::new(chain_spec::development_config()?),
+			"dev" => Box::new(chain_spec::development_chain_spec()?),
 			path =>
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 		})
@@ -114,7 +110,9 @@ pub fn run() -> sc_cli::Result<()> {
 		},
 		Some(Subcommand::ChainInfo(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run::<runtime::interface::OpaqueBlock>(&config))
+			runner.sync_run(|config| {
+				cmd.run::<minimal_template_runtime::interface::OpaqueBlock>(&config)
+			})
 		},
 		None => {
 			let runner = cli.create_runner(&cli.run)?;

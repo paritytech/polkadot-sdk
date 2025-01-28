@@ -18,7 +18,7 @@
 //! mechanism of the relayers pallet.
 
 use bp_relayers::{ExplicitOrAccountParams, PayRewardFromAccount, StakeAndSlash};
-use codec::Codec;
+use codec::{Codec, Decode, Encode};
 use frame_support::traits::{tokens::BalanceStatus, NamedReservableCurrency};
 use sp_runtime::{traits::Get, DispatchError, DispatchResult};
 use sp_std::{fmt::Debug, marker::PhantomData};
@@ -53,15 +53,15 @@ where
 		Currency::unreserve_named(&ReserveId::get(), relayer, amount)
 	}
 
-	fn repatriate_reserved(
+	fn repatriate_reserved<LaneId: Decode + Encode>(
 		relayer: &AccountId,
-		beneficiary: ExplicitOrAccountParams<AccountId>,
+		beneficiary: ExplicitOrAccountParams<AccountId, LaneId>,
 		amount: Currency::Balance,
 	) -> Result<Currency::Balance, DispatchError> {
 		let beneficiary_account = match beneficiary {
 			ExplicitOrAccountParams::Explicit(account) => account,
 			ExplicitOrAccountParams::Params(params) =>
-				PayRewardFromAccount::<(), AccountId>::rewards_account(params),
+				PayRewardFromAccount::<(), AccountId, LaneId>::rewards_account(params),
 		};
 		Currency::repatriate_reserved_named(
 			&ReserveId::get(),
@@ -80,7 +80,7 @@ mod tests {
 
 	use frame_support::traits::fungible::Mutate;
 
-	fn test_stake() -> Balance {
+	fn test_stake() -> ThisChainBalance {
 		Stake::get()
 	}
 
@@ -130,7 +130,7 @@ mod tests {
 	#[test]
 	fn repatriate_reserved_works() {
 		run_test(|| {
-			let beneficiary = TEST_REWARDS_ACCOUNT_PARAMS;
+			let beneficiary = test_reward_account_param();
 			let beneficiary_account = TestPaymentProcedure::rewards_account(beneficiary);
 
 			let mut expected_balance = ExistentialDeposit::get();
@@ -186,7 +186,7 @@ mod tests {
 	#[test]
 	fn repatriate_reserved_doesnt_work_when_beneficiary_account_is_missing() {
 		run_test(|| {
-			let beneficiary = TEST_REWARDS_ACCOUNT_PARAMS;
+			let beneficiary = test_reward_account_param();
 			let beneficiary_account = TestPaymentProcedure::rewards_account(beneficiary);
 
 			Balances::mint_into(&3, test_stake() * 2).unwrap();

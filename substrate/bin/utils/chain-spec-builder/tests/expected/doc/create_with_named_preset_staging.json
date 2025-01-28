@@ -1,0 +1,39 @@
+{
+  "bootNodes": [],
+  "chainType": "Live",
+  "codeSubstitutes": {},
+  "genesis": {
+    "runtimeGenesis": {
+      "patch": {
+        "balances": {
+          "balances": [
+            [
+              "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+              1000000000000000
+            ],
+            [
+              "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+              1000000000000000
+            ]
+          ]
+        },
+        "substrateTest": {
+          "authorities": [
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"
+          ]
+        }
+      }
+    }
+  },
+  "id": "custom",
+  "name": "Custom",
+  "para_id": 1000,
+  "properties": {
+    "tokenDecimals": 12,
+    "tokenSymbol": "UNIT"
+  },
+  "protocolId": null,
+  "relay_chain": "dev",
+  "telemetryEndpoints": null
+}

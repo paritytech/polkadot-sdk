@@ -13,7 +13,6 @@
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${GH_DIR}"
     - echo "${LOCAL_DIR}"
-    - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${SUBSTRATE_IMAGE}":${SUBSTRATE_IMAGE_TAG}
     - echo "${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
   stage: zombienet
@@ -39,7 +38,9 @@
   after_script:
     - mkdir -p ./zombienet-logs
     - cp /tmp/zombie*/logs/* ./zombienet-logs/
-  retry: 2
+  retry:
+    max: 1
+    when: runner_system_failure
   tags:
     - zombienet-polkadot-integration-test
 
@@ -73,7 +74,7 @@ zombienet-substrate-0002-validators-warp-sync:
   extends:
     - .zombienet-substrate-warp-sync-common
   before_script:
-    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - !reference [ .zombienet-substrate-warp-sync-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -84,7 +85,7 @@ zombienet-substrate-0003-block-building-warp-sync:
   extends:
     - .zombienet-substrate-warp-sync-common
   before_script:
-    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - !reference [ .zombienet-substrate-warp-sync-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh

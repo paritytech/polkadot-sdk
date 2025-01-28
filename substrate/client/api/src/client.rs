@@ -65,9 +65,16 @@ pub trait BlockOf {
 pub trait BlockchainEvents<Block: BlockT> {
 	/// Get block import event stream.
 	///
-	/// Not guaranteed to be fired for every imported block, only fired when the node
-	/// has synced to the tip or there is a re-org. Use `every_import_notification_stream()`
-	/// if you want a notification of every imported block regardless.
+	/// Not guaranteed to be fired for every imported block. Use
+	/// `every_import_notification_stream()` if you want a notification of every imported block
+	/// regardless.
+	///
+	/// The events for this notification stream are emitted:
+	/// - During initial sync process: if there is a re-org while importing blocks. See
+	/// [here](https://github.com/paritytech/substrate/pull/7118#issuecomment-694091901) for the
+	/// rationale behind this.
+	/// - After initial sync process: on every imported block, regardless of whether it is
+	/// the new best block or not, causes a re-org or not.
 	fn import_notification_stream(&self) -> ImportNotifications<Block>;
 
 	/// Get a stream of every imported block.
@@ -168,7 +175,7 @@ pub trait ProvideUncles<Block: BlockT> {
 }
 
 /// Client info
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClientInfo<Block: BlockT> {
 	/// Best block hash.
 	pub chain: Info<Block>,

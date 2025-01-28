@@ -22,7 +22,7 @@
 pub use binary_merkle_tree::merkle_root;
 pub use pallet_beefy_mmr::BeefyEcdsaToEthereum;
 pub use pallet_mmr::{
-	primitives::{DataOrHash as MmrDataOrHash, Proof as MmrProof},
+	primitives::{DataOrHash as MmrDataOrHash, LeafProof as MmrProof},
 	verify_leaves_proof as verify_mmr_leaves_proof,
 };
 pub use sp_consensus_beefy::{

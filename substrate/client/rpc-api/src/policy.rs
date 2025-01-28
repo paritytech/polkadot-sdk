@@ -23,6 +23,15 @@
 
 use jsonrpsee::types::{error::ErrorCode, ErrorObject, ErrorObjectOwned};
 
+/// Checks if the RPC call is safe to be called externally.
+pub fn check_if_safe(ext: &jsonrpsee::Extensions) -> Result<(), UnsafeRpcError> {
+	match ext.get::<DenyUnsafe>().map(|deny_unsafe| deny_unsafe.check_if_safe()) {
+		Some(Ok(())) => Ok(()),
+		Some(Err(e)) => Err(e),
+		None => unreachable!("DenyUnsafe extension is always set by the substrate rpc server; qed"),
+	}
+}
+
 /// Signifies whether a potentially unsafe RPC should be denied.
 #[derive(Clone, Copy, Debug)]
 pub enum DenyUnsafe {

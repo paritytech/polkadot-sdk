@@ -18,6 +18,7 @@
 //! This module contains helper methods to configure the metadata of collections and items.
 
 use crate::*;
+use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {

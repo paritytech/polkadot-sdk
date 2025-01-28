@@ -23,6 +23,7 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
 use frame_support::{
@@ -32,7 +33,6 @@ use frame_support::{
 	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use sp_runtime::traits::Saturating;
-use sp_std::prelude::*;
 
 pub type PageIndex = u32;
 pub type ValueIndex = u32;
@@ -177,7 +177,7 @@ pub struct Page<V> {
 	/// The index of the page.
 	index: PageIndex,
 	/// The remaining values of the page, to be drained by [`Page::next`].
-	values: sp_std::iter::Skip<sp_std::vec::IntoIter<V>>,
+	values: core::iter::Skip<alloc::vec::IntoIter<V>>,
 }
 
 impl<V: FullCodec> Page<V> {
@@ -188,7 +188,7 @@ impl<V: FullCodec> Page<V> {
 	) -> Option<Self> {
 		let key = page_key::<Prefix>(index);
 		let values = sp_io::storage::get(&key)
-			.and_then(|raw| sp_std::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
+			.and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
 		if values.is_empty() {
 			// Don't create empty pages.
 			return None

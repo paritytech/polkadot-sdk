@@ -19,11 +19,19 @@
 use crate::{
 	barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId},
 	test_utils::*,
+	EnsureDecodableXcm,
 };
 pub use crate::{
 	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
 	FixedWeightBounds, TakeWeightCredit,
+};
+pub use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+pub use codec::{Decode, Encode};
+pub use core::{
+	cell::{Cell, RefCell},
+	fmt::Debug,
+	ops::ControlFlow,
 };
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
@@ -32,18 +40,12 @@ pub use frame_support::{
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
 };
-pub use parity_scale_codec::{Decode, Encode};
-pub use sp_std::{
-	cell::{Cell, RefCell},
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt::Debug,
-};
 pub use xcm::latest::{prelude::*, QueryId, Weight};
-use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
 pub use xcm_executor::{
 	traits::{
-		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, Enact, ExportXcm, FeeManager,
-		FeeReason, LockError, OnResponse, TransactAsset,
+		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
+		FeeManager, FeeReason, LockError, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, TransactAsset,
 	},
 	AssetsInHolding, Config,
 };
@@ -99,13 +101,13 @@ impl Dispatchable for TestCall {
 
 impl GetDispatchInfo for TestCall {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		let weight = *match self {
+		let call_weight = *match self {
 			TestCall::OnlyRoot(estimate, ..) |
 			TestCall::OnlyParachain(estimate, ..) |
 			TestCall::OnlySigned(estimate, ..) |
 			TestCall::Any(estimate, ..) => estimate,
 		};
-		DispatchInfo { weight, ..Default::default() }
+		DispatchInfo { call_weight, ..Default::default() }
 	}
 }
 
@@ -165,8 +167,8 @@ pub fn set_exporter_override(
 pub fn clear_exporter_override() {
 	EXPORTER_OVERRIDE.with(|x| x.replace(None));
 }
-pub struct TestMessageSender;
-impl SendXcm for TestMessageSender {
+pub struct TestMessageSenderImpl;
+impl SendXcm for TestMessageSenderImpl {
 	type Ticket = (Location, Xcm<()>, XcmHash);
 	fn validate(
 		dest: &mut Option<Location>,
@@ -183,6 +185,8 @@ impl SendXcm for TestMessageSender {
 		Ok(hash)
 	}
 }
+pub type TestMessageSender = EnsureDecodableXcm<TestMessageSenderImpl>;
+
 pub struct TestMessageExporter;
 impl ExportXcm for TestMessageExporter {
 	type Ticket = (NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash);
@@ -692,6 +696,20 @@ impl AssetExchange for TestAssetExchange {
 		EXCHANGE_ASSETS.with(|l| l.replace(have));
 		Ok(get)
 	}
+
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
+		let mut have = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
+		if !have.contains_assets(want) {
+			return None;
+		}
+		let get = if maximal {
+			have.saturating_take(give.clone().into())
+		} else {
+			have.saturating_take(want.clone().into())
+		};
+		let result: Vec<Asset> = get.fungible_assets_iter().collect();
+		Some(result.into())
+	}
 }
 
 pub struct SiblingPrefix;
@@ -745,6 +763,7 @@ impl Config for TestConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {

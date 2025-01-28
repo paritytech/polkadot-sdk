@@ -4,7 +4,7 @@ version = "0.29.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "PolkaVM executor for Substrate"
 readme = "README.md"
@@ -19,5 +19,5 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true }
 polkavm = { workspace = true }
 
-sc-executor-common = { path = "../common" }
-sp-wasm-interface = { path = "../../../primitives/wasm-interface" }
+sc-executor-common = { workspace = true, default-features = true }
+sp-wasm-interface = { workspace = true, default-features = true }

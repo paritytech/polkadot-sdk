@@ -69,7 +69,7 @@ impl<Client> ChainHeadMockClient<Client> {
 		}
 	}
 
-	pub async fn trigger_finality_stream(&self, header: Header) {
+	pub async fn trigger_finality_stream(&self, header: Header, stale_heads: Vec<Hash>) {
 		// Ensure the client called the `finality_notification_stream`.
 		while self.finality_sinks.lock().is_empty() {
 			tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
@@ -77,11 +77,8 @@ impl<Client> ChainHeadMockClient<Client> {
 
 		// Build the notification.
 		let (sink, _stream) = tracing_unbounded("test_sink", 100_000);
-		let summary = FinalizeSummary {
-			header: header.clone(),
-			finalized: vec![header.hash()],
-			stale_heads: vec![],
-		};
+		let summary =
+			FinalizeSummary { header: header.clone(), finalized: vec![header.hash()], stale_heads };
 		let notification = FinalityNotification::from_summary(summary, sink);
 
 		for sink in self.finality_sinks.lock().iter_mut() {
@@ -346,7 +343,8 @@ where
 	fn number(
 		&self,
 		hash: Block::Hash,
-	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
+	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>>
+	{
 		self.client.number(hash)
 	}
 

@@ -1,12 +1,12 @@
 // Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -21,11 +21,7 @@
 use super::{migration::*, mock::*};
 use crate::*;
 
-use frame_support::{
-	pallet_prelude::*,
-	traits::{OnFinalize, OnIdle, OnInitialize},
-	StorageNoopGuard,
-};
+use frame_support::{pallet_prelude::*, traits::OnIdle, StorageNoopGuard};
 
 #[test]
 fn migration_works() {
@@ -183,14 +179,12 @@ fn migration_too_long_ignored() {
 }
 
 fn run_to_block(n: u64) {
-	assert!(n > System::block_number(), "Cannot go back in time");
-
-	while System::block_number() < n {
-		AllPalletsWithSystem::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		AllPalletsWithSystem::on_initialize(System::block_number());
-		AllPalletsWithSystem::on_idle(System::block_number(), Weight::MAX);
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+			AllPalletsWithSystem::on_idle(bn, Weight::MAX);
+		}),
+	);
 }
 
 fn assert_only_event(e: Event<Runtime>) {

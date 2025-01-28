@@ -22,7 +22,7 @@ use mock::{
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, Error::UntrustedTeleportLocation};
 use xcm_executor::XcmExecutor;
 
 pub const ALICE: AccountId = AccountId::new([0u8; 32]);
@@ -217,7 +217,7 @@ fn teleport_to_asset_hub_works() {
 		];
 		let weight = BaseXcmWeight::get() * 3;
 
-		// teleports are allowed to community chains, even in the absence of trust from their side.
+		// teleports are not allowed to other chains, in the absence of trust from their side
 		let message = Xcm(vec![
 			WithdrawAsset((Here, amount).into()),
 			buy_execution(),
@@ -235,16 +235,7 @@ fn teleport_to_asset_hub_works() {
 			weight,
 			Weight::zero(),
 		);
-		assert_eq!(r, Outcome::Complete { used: weight });
-		let expected_msg = Xcm(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
-			.into_iter()
-			.chain(teleport_effects.clone().into_iter())
-			.collect());
-		let expected_hash = fake_message_hash(&expected_msg);
-		assert_eq!(
-			mock::sent_xcm(),
-			vec![(Parachain(other_para_id).into(), expected_msg, expected_hash,)]
-		);
+		assert_eq!(r, Outcome::Incomplete { used: weight, error: UntrustedTeleportLocation });
 
 		// teleports are allowed from asset hub to kusama.
 		let message = Xcm(vec![
@@ -274,10 +265,7 @@ fn teleport_to_asset_hub_works() {
 		let expected_hash = fake_message_hash(&expected_msg);
 		assert_eq!(
 			mock::sent_xcm(),
-			vec![
-				(Parachain(other_para_id).into(), expected_msg.clone(), expected_hash,),
-				(Parachain(asset_hub_id).into(), expected_msg, expected_hash,)
-			]
+			vec![(Parachain(asset_hub_id).into(), expected_msg, expected_hash,)]
 		);
 	});
 }

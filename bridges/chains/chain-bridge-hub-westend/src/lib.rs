@@ -24,8 +24,9 @@ use bp_messages::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
+use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchClass;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, StateVersion};
 
 /// BridgeHubWestend parachain.
 #[derive(RuntimeDebug)]
@@ -44,6 +45,8 @@ impl Chain for BridgeHubWestend {
 	type Nonce = Nonce;
 	type Signature = Signature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)
 	}
@@ -58,6 +61,7 @@ impl Chain for BridgeHubWestend {
 
 impl Parachain for BridgeHubWestend {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_WESTEND_PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE;
 }
 
 impl ChainWithMessages for BridgeHubWestend {
@@ -84,19 +88,27 @@ pub const WITH_BRIDGE_HUB_WESTEND_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 44;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_westend);
-decl_bridge_messages_runtime_apis!(bridge_hub_westend);
+decl_bridge_messages_runtime_apis!(bridge_hub_westend, LegacyLaneId);
 
 frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend
 	/// BridgeHub.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 17_756_830_000;
+	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 18_191_740_000;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single inbound message.
-	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
-	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 1_695_489_961_344;
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
+	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 89_305_927_116;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
-	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 1_618_309_961_344;
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
+	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 17_034_677_116;
+}
+
+/// Wrapper over `BridgeHubWestend`'s `RuntimeCall` that can be used without a runtime.
+#[derive(Decode, Encode)]
+pub enum RuntimeCall {
+	/// Points to the `pallet_xcm_bridge_hub` pallet instance for `BridgeHubRococo`.
+	#[codec(index = 45)]
+	XcmOverBridgeHubRococo(bp_xcm_bridge_hub::XcmBridgeHubCall),
 }

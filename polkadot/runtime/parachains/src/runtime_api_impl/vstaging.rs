@@ -16,36 +16,32 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{inclusion, initializer, scheduler};
-use primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
-use sp_runtime::traits::One;
-use sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	vec::Vec,
-};
+use crate::{configuration, initializer};
+use frame_system::pallet_prelude::*;
+use polkadot_primitives::{vstaging::async_backing::Constraints, Id as ParaId};
 
-/// Returns the claimqueue from the scheduler
-pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	let now = <frame_system::Pallet<T>>::block_number() + One::one();
-
-	// This explicit update is only strictly required for session boundaries:
-	//
-	// At the end of a session we clear the claim queues: Without this update call, nothing would be
-	// scheduled to the client.
-	<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(Vec::new(), now);
-
-	scheduler::ClaimQueue::<T>::get()
-		.into_iter()
-		.map(|(core_index, entries)| {
-			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
-		})
-		.collect()
-}
-
-/// Returns all the candidates that are pending availability for a given `ParaId`.
-/// Deprecates `candidate_pending_availability` in favor of supporting elastic scaling.
-pub fn candidates_pending_availability<T: initializer::Config>(
+/// Implementation for `constraints` function from the runtime API
+pub fn backing_constraints<T: initializer::Config>(
 	para_id: ParaId,
-) -> Vec<CommittedCandidateReceipt<T::Hash>> {
-	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
+) -> Option<Constraints<BlockNumberFor<T>>> {
+	let config = configuration::ActiveConfig::<T>::get();
+	let constraints_v11 = super::v11::backing_constraints::<T>(para_id)?;
+
+	Some(Constraints {
+		min_relay_parent_number: constraints_v11.min_relay_parent_number,
+		max_pov_size: constraints_v11.max_pov_size,
+		max_code_size: constraints_v11.max_code_size,
+		max_head_data_size: config.max_head_data_size,
+		ump_remaining: constraints_v11.ump_remaining,
+		ump_remaining_bytes: constraints_v11.ump_remaining_bytes,
+		max_ump_num_per_candidate: constraints_v11.max_ump_num_per_candidate,
+		dmp_remaining_messages: constraints_v11.dmp_remaining_messages,
+		hrmp_inbound: constraints_v11.hrmp_inbound,
+		hrmp_channels_out: constraints_v11.hrmp_channels_out,
+		max_hrmp_num_per_candidate: constraints_v11.max_hrmp_num_per_candidate,
+		required_parent: constraints_v11.required_parent,
+		validation_code_hash: constraints_v11.validation_code_hash,
+		upgrade_restriction: constraints_v11.upgrade_restriction,
+		future_validation_code: constraints_v11.future_validation_code,
+	})
 }

@@ -36,6 +36,7 @@ pub use value::StorageValue;
 
 #[cfg(test)]
 mod tests {
+	use alloc::vec::Vec;
 	use codec::Encode;
 	use sp_io::TestExternalities;
 	use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};

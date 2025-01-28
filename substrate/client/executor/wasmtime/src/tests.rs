@@ -455,7 +455,7 @@ fn test_max_memory_pages(
 
 // This test takes quite a while to execute in a debug build (over 6 minutes on a TR 3970x)
 // so it's ignored by default unless it was compiled with `--release`.
-#[cfg_attr(build_type = "debug", ignore)]
+#[cfg_attr(build_profile = "debug", ignore)]
 #[test]
 fn test_instances_without_reuse_are_not_leaked() {
 	let runtime = crate::create_runtime::<HostFunctions>(

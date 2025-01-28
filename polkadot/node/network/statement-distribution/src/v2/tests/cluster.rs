@@ -25,6 +25,7 @@ fn share_seconded_circulated_to_cluster() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -111,8 +112,8 @@ fn share_seconded_circulated_to_cluster() {
 		);
 
 		// sharing a `Seconded` message confirms a candidate, which leads to new
-		// fragment tree updates.
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		// fragment chain updates.
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		overseer
 	});
@@ -125,6 +126,7 @@ fn cluster_valid_statement_before_seconded_ignored() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -185,6 +187,7 @@ fn cluster_statement_bad_signature() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -258,6 +261,7 @@ fn useful_cluster_statement_from_non_cluster_peer_rejected() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -320,6 +324,7 @@ fn elastic_scaling_useful_cluster_statement_from_non_cluster_peer_rejected() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -379,6 +384,7 @@ fn statement_from_non_cluster_originator_unexpected() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -434,6 +440,7 @@ fn seconded_statement_leads_to_request() {
 		group_size,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -509,7 +516,7 @@ fn seconded_statement_leads_to_request() {
 				if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
 		);
 
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		overseer
 	});
@@ -522,6 +529,7 @@ fn cluster_statements_shared_seconded_first() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -583,7 +591,7 @@ fn cluster_statements_shared_seconded_first() {
 			.await;
 
 		// result of new confirmed candidate.
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		overseer
 			.send(FromOrchestra::Communication {
@@ -636,6 +644,7 @@ fn cluster_accounts_for_implicit_view() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -717,8 +726,8 @@ fn cluster_accounts_for_implicit_view() {
 		);
 
 		// sharing a `Seconded` message confirms a candidate, which leads to new
-		// fragment tree updates.
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		// fragment chain updates.
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		// activate new leaf, which has relay-parent in implicit view.
 		let next_relay_parent = Hash::repeat_byte(2);
@@ -772,6 +781,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 		group_size,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -855,7 +865,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 			);
 		}
 
-		answer_expected_hypothetical_depth_request(
+		answer_expected_hypothetical_membership_request(
 			&mut overseer,
 			vec![(
 				HypotheticalCandidate::Complete {
@@ -863,7 +873,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 					receipt: Arc::new(candidate.clone()),
 					persisted_validation_data: pvd.clone(),
 				},
-				vec![(relay_parent, vec![0])],
+				vec![relay_parent],
 			)],
 		)
 		.await;
@@ -895,6 +905,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 		group_size,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -978,7 +989,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 			);
 		}
 
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		let next_relay_parent = Hash::repeat_byte(2);
 		let mut next_test_leaf = state.make_dummy_leaf(next_relay_parent);
@@ -996,7 +1007,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 					receipt: Arc::new(candidate.clone()),
 					persisted_validation_data: pvd.clone(),
 				},
-				vec![(relay_parent, vec![0])],
+				vec![relay_parent],
 			)],
 		)
 		.await;
@@ -1031,6 +1042,7 @@ fn ensure_seconding_limit_is_respected() {
 			max_candidate_depth: 1,
 			allowed_ancestry_len: 3,
 		}),
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -1113,7 +1125,7 @@ fn ensure_seconding_limit_is_respected() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Candidate 2.
@@ -1139,7 +1151,7 @@ fn ensure_seconding_limit_is_respected() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Send first statement from peer A.

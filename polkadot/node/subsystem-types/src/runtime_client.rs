@@ -16,12 +16,18 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing, runtime_api::ParachainHost, slashing, ApprovalVotingParams, Block, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id,
-	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing,
+	runtime_api::ParachainHost,
+	slashing,
+	vstaging::{
+		self, async_backing::Constraints, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
+	},
+	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 use sc_client_api::{AuxStore, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -311,7 +317,7 @@ pub trait RuntimeApiSubsystemClient {
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<async_backing::BackingState>, ApiError>;
+	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError>;
 
 	// === v8 ===
 
@@ -341,6 +347,15 @@ pub trait RuntimeApiSubsystemClient {
 		at: Hash,
 		para_id: Id,
 	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError>;
+
+	// == v12 ==
+	/// Get the constraints on the actions that can be taken by a new parachain
+	/// block.
+	async fn backing_constraints(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Option<Constraints>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -587,7 +602,7 @@ where
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<async_backing::BackingState>, ApiError> {
+	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError> {
 		self.client.runtime_api().para_backing_state(at, para_id)
 	}
 
@@ -618,6 +633,14 @@ where
 	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError> {
 		self.client.runtime_api().claim_queue(at)
 	}
+
+	async fn backing_constraints(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Option<Constraints>, ApiError> {
+		self.client.runtime_api().backing_constraints(at, para_id)
+	}
 }
 
 impl<Client, Block> HeaderBackend<Block> for DefaultSubsystemClient<Client>
@@ -643,7 +666,8 @@ where
 	fn number(
 		&self,
 		hash: Block::Hash,
-	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
+	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>>
+	{
 		self.client.number(hash)
 	}
 
