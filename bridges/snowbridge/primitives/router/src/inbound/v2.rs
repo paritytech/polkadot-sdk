@@ -225,7 +225,7 @@ where
 
 		let appendix = vec![
 			RefundSurplus,
-			// Refund excess fees to the claimer, if present, otherwise the relayer
+			// Refund excess fees to the claimer, if present, otherwise to the relayer.
 			DepositAsset {
 				assets: Wild(AllOf { id: AssetId(fee_asset.into()), fun: WildFungible }),
 				beneficiary: refund_surplus_to,
