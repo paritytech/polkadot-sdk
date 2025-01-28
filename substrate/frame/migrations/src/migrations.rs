@@ -50,7 +50,7 @@ where
 {
 	#[cfg(feature = "try-runtime")]
 	fn num_keys() -> u64 {
-		let prefix = Self::name_hash().to_vec();
+		let prefix = P::name_hash().to_vec();
 		crate::storage::KeyPrefixIterator::new(prefix.clone(), prefix, |_| Ok(())).count() as _
 	}
 }
@@ -88,7 +88,7 @@ where
 			.remaining()
 			.saturating_sub(base_weight)
 			.checked_div_per_component(&weight_per_key)
-			.unwrap_or(Zero::zero())
+			.unwrap_or_default()
 			.saturated_into();
 
 		if key_budget == 0 {
@@ -97,7 +97,7 @@ where
 			})
 		}
 
-		let (keys_removed, is_done) = match clear_prefix(&Self::hashed_prefix(), Some(key_budget)) {
+		let (keys_removed, is_done) = match clear_prefix(&P::name_hash(), Some(key_budget)) {
 			KillStorageResult::AllRemoved(value) => (value, true),
 			KillStorageResult::SomeRemaining(value) => (value, false),
 		};
