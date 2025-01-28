@@ -1830,6 +1830,12 @@ mod asset_ops_tests {
 				test_value.clone().try_into().unwrap(),
 			));
 
+			// Can't restore an already existing item
+			assert_noop!(
+				Item::restore(&(collection_id, item_id), To(item_owner)),
+				Error::<Test>::InUse,
+			);
+
 			assert_ok!(Item::stash(&(collection_id, item_id), Unchecked));
 
 			assert_eq!(items(), vec![]);
@@ -1840,6 +1846,10 @@ mod asset_ops_tests {
 
 			// the attributes are still available
 			assert_eq!(retreived_test_value, test_value);
+
+			// A stahed item can be restored
+			assert_ok!(Item::restore(&(collection_id, item_id), To(item_owner)));
+			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
 		});
 	}
 
@@ -1879,6 +1889,12 @@ mod asset_ops_tests {
 				test_value.clone().try_into().unwrap(),
 			));
 
+			// Can't restore an already existing item
+			assert_noop!(
+				Item::restore(&(collection_id, item_id), To(item_owner)),
+				Error::<Test>::InUse,
+			);
+
 			assert_noop!(
 				Item::stash(&(collection_id, item_id), IfOwnedBy::expect(collection_owner)),
 				Error::<Test>::NoPermission,
@@ -1899,6 +1915,10 @@ mod asset_ops_tests {
 
 			// the attributes are still available
 			assert_eq!(retreived_test_value, test_value);
+
+			// A stahed item can be restored
+			assert_ok!(Item::restore(&(collection_id, item_id), To(item_owner)));
+			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
 		});
 	}
 
@@ -1939,6 +1959,9 @@ mod asset_ops_tests {
 				test_value.clone().try_into().unwrap(),
 			));
 
+			// Can't restore an already existing item
+			assert_noop!(Item::restore(&(collection_id, item_id), To(alice)), Error::<Test>::InUse,);
+
 			// Bob is not the admin and not the token owner
 			// He can't stash the token
 			assert_noop!(
@@ -1970,12 +1993,8 @@ mod asset_ops_tests {
 			// the attributes are still available
 			assert_eq!(retreived_test_value, test_value);
 
-			// Recreate the token
-			assert_ok!(Item::create(Owned::new(
-				alice,
-				PredefinedId::from((collection_id, item_id)),
-			)));
-
+			// Restore the token
+			assert_ok!(Item::restore(&(collection_id, item_id), To(alice)));
 			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
 
 			// The token owner can stash it
@@ -1992,6 +2011,10 @@ mod asset_ops_tests {
 
 			// the attributes are still available
 			assert_eq!(retreived_test_value, test_value);
+
+			// A stahed item can be restored
+			assert_ok!(Item::restore(&(collection_id, item_id), To(alice)));
+			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
 		});
 	}
 

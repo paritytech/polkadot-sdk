@@ -217,7 +217,7 @@ pub trait Stash<Strategy: StashStrategy>: AssetDefinition {
 /// A strategy for use in the [`Restore`] implementations.
 /// The common restore strategies are:
 /// * [`Unchecked`](common_strategies::Unchecked)
-/// * [`IfRestorable`](common_strategies::IfRestorable)
+/// * [`To`](common_strategies::To)
 pub trait RestoreStrategy {
 	/// This type represents a successful asset restoration.
 	/// It will be in the [`Result`] type of the [`Restore::restore`] function.

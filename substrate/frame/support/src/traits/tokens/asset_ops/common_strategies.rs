@@ -106,10 +106,13 @@ impl RestoreStrategy for Unchecked {
 	type Success = ();
 }
 
-/// This is a simple transfer strategy
-/// which unconditionally transfers the asset to the beneficiary account.
+/// This is a simple transfer and restore strategy
+/// which unconditionally transfers / restores the asset to the beneficiary account.
 pub struct To<AccountId>(pub AccountId);
 impl<AccountId> TransferStrategy for To<AccountId> {
+	type Success = ();
+}
+impl<AccountId> RestoreStrategy for To<AccountId> {
 	type Success = ();
 }
 
@@ -375,15 +378,6 @@ impl<Account, Assignment: IdAssignment, Config, Witness> CreateStrategy
 	for WithAdmin<Account, Assignment, Config, Witness>
 {
 	type Success = Assignment::ReportedId;
-}
-
-/// The `IfRestorable` is a [`restore strategy`](RestoreStrategy).
-///
-/// If possible, it restores the asset to a beneficiary
-/// according to the supplied transfer strategy.
-pub struct IfRestorable<Inner: TransferStrategy>(pub Inner);
-impl<Inner: TransferStrategy> RestoreStrategy for IfRestorable<Inner> {
-	type Success = ();
 }
 
 /// The `WithWitness` is a [`destroy strategy`](DestroyStrategy).

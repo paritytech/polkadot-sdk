@@ -9,7 +9,7 @@ use frame_support::{
 			Bytes, CanTransfer, CheckOrigin, CheckState, IfOwnedBy, Owned, Ownership, PredefinedId,
 			To, Unchecked,
 		},
-		AssetDefinition, Create, Inspect, Stash, Transfer,
+		AssetDefinition, Create, Inspect, Restore, Stash, Transfer,
 	},
 	BoundedSlice,
 };
@@ -192,5 +192,22 @@ impl<T: Config<I>, I: 'static> Stash<IfOwnedBy<T::AccountId>> for Item<Pallet<T,
 			ensure!(d.owner == who, Error::<T, I>::NoPermission);
 			Ok(())
 		})
+	}
+}
+// NOTE: pallet-uniques create and restore operations are equivalent.
+// If an NFT was burned, it can be "re-created" (equivalently, "restored").
+// It will be "re-created" with all the data still bound to it.
+// If an NFT is minted for the first time, it can be regarded as "restored" with an empty data
+// because it is indistinguishable from a burned empty NFT from the chain's perspective.
+impl<T: Config<I>, I: 'static> Restore<To<T::AccountId>> for Item<Pallet<T, I>> {
+	fn restore((collection, item): &Self::Id, strategy: To<T::AccountId>) -> DispatchResult {
+		let To(owner) = strategy;
+
+		let item_exists = ItemStorage::<T, I>::contains_key(collection, item);
+		ensure!(!item_exists, Error::<T, I>::InUse);
+
+		Self::create(Owned::new(owner, PredefinedId::from((collection.clone(), item.clone()))))?;
+
+		Ok(())
 	}
 }
