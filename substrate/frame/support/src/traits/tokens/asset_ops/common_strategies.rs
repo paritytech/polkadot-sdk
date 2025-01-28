@@ -9,6 +9,7 @@ use sp_runtime::RuntimeDebug;
 ///
 /// It is meant to be used when the asset state check should be performed
 /// in addition to the `Inner` strategy.
+/// The inspected state must be equal to the provided value.
 ///
 /// The `CheckState` implements all potentially state-mutating strategies that the `Inner`
 /// implements.
