@@ -1128,6 +1128,7 @@ fn operations_on_dead_account_should_not_change_state() {
 
 #[test]
 #[should_panic = "The existential deposit must be greater than zero!"]
+#[cfg(not(feature = "insecure_zero_ed"))]
 fn zero_ed_is_prohibited() {
 	// These functions all use `mutate_account` which may introduce a storage change when
 	// the account never existed to begin with, and shouldn't exist in the end.
