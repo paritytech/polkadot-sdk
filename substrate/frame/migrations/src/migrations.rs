@@ -20,7 +20,7 @@ use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::{
 	migrations::{SteppedMigration, SteppedMigrationError},
-	traits::{BuildGenesisConfig, OnGenesis, PalletInfoAccess},
+	traits::{OnGenesis, PalletInfoAccess},
 	weights::WeightMeter,
 };
 use sp_core::{twox_128, Get};
@@ -34,16 +34,17 @@ use sp_runtime::SaturatedConversion;
 ///
 /// # Parameters
 ///
+/// - T: The runtime. Used to access the weight definition.
 /// - P: The pallet to resetted as defined in construct runtime
-/// - B, G: Optional. Can be used if the pallet needs to be initialized via [`BuildGenesisConfig`].
 ///
 /// # Note
 ///
-/// The costs to set the optional genesis state are not accounted for. Make sure that there is
-/// enough space in the block when supplying those parameters.
-pub struct ResetPallet<T, P, B = (), G = ()>(PhantomData<(T, P, B, G)>);
+/// If your pallet does rely of some state in genesis you need to take care of that
+/// separately. This migration only sets the storage version after wiping by running
+/// [`OnGenesis::on_genesis`].
+pub struct ResetPallet<T, P>(PhantomData<(T, P)>);
 
-impl<T, P, B, G> ResetPallet<T, P, B, G>
+impl<T, P> ResetPallet<T, P>
 where
 	P: PalletInfoAccess,
 {
@@ -58,14 +59,12 @@ where
 	}
 }
 
-impl<T, P, B, G> SteppedMigration for ResetPallet<T, P, B, G>
+impl<T, P> SteppedMigration for ResetPallet<T, P>
 where
 	T: Config,
 	P: PalletInfoAccess + OnGenesis,
-	B: BuildGenesisConfig,
-	G: Get<B>,
 {
-	type Cursor = ();
+	type Cursor = bool;
 	type Identifier = [u8; 16];
 
 	fn id() -> Self::Identifier {
@@ -73,9 +72,20 @@ where
 	}
 
 	fn step(
-		_cursor: Option<Self::Cursor>,
+		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		// we write the storage version in a seperate block
+		if cursor.unwrap_or(false) {
+			let required = T::DbWeight::get().writes(1);
+			if meter.remaining().any_lt(required) {
+				return Err(SteppedMigrationError::InsufficientWeight { required })
+			}
+			P::on_genesis();
+			meter.consume(required);
+			return Ok(None);
+		}
+
 		let base_weight = T::WeightInfo::reset_pallet_migration(0);
 		let weight_per_key = T::WeightInfo::reset_pallet_migration(1) - base_weight;
 		let key_budget = meter
@@ -91,22 +101,14 @@ where
 			})
 		}
 
-		let (keys_removed, cursor) = match clear_prefix(&Self::hashed_prefix(), Some(key_budget)) {
-			KillStorageResult::AllRemoved(value) => (value, None),
-			KillStorageResult::SomeRemaining(value) => (value, Some(())),
+		let (keys_removed, is_done) = match clear_prefix(&Self::hashed_prefix(), Some(key_budget)) {
+			KillStorageResult::AllRemoved(value) => (value, true),
+			KillStorageResult::SomeRemaining(value) => (value, false),
 		};
 
 		meter.consume(T::WeightInfo::reset_pallet_migration(keys_removed));
 
-		if cursor.is_none() {
-			// sets pallet version to current in-code version
-			P::on_genesis();
-
-			// write the genesis state to storage
-			G::get().build();
-		}
-
-		Ok(cursor)
+		Ok(Some(is_done))
 	}
 
 	#[cfg(feature = "try-runtime")]
