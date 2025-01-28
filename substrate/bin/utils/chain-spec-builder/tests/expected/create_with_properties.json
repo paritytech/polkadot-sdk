@@ -8,7 +8,7 @@
   "properties": {
     "tokenDecimals": 6,
     "tokenSymbol": "TEST",
-	"isEthereum": false
+    "isEthereum": false
   },
   "codeSubstitutes": {},
   "genesis": {
