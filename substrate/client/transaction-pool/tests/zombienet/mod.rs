@@ -23,33 +23,23 @@ use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig, NetworkConfigExt};
 
 const DEFAULT_BASE_DIR: &'static str = "/tmp/zn-spawner";
 
-const YAP_HIGH_POOL_LIMIT_OLDP_SPEC_PATH: &'static str =
-	"tests/zombienet/network-specs/yap-high-pool-limit-oldp.toml";
-const YAP_HIGH_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
-	"tests/zombienet/network-specs/yap-high-pool-limit-fatp.toml";
+const ASSET_HUB_LOW_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
+	"tests/zombienet/network-specs/asset-hub-low-pool-limit-fatp.toml";
 
 #[derive(thiserror::Error, Debug)]
-enum Error {
+pub enum Error {
 	#[error("Network initialization failure: {0}")]
 	NetworkInit(anyhow::Error),
 }
 
 type Result<T> = std::result::Result<T, Error>;
 
-struct NetworkSpawner;
+pub struct NetworkSpawner;
 
 impl NetworkSpawner {
-	async fn init_from_yap_oldp_high_pool_limit_spec() -> Result<Network<LocalFileSystem>> {
-		let net_config = NetworkConfig::load_from_toml(YAP_HIGH_POOL_LIMIT_OLDP_SPEC_PATH)
-			.map_err(Error::NetworkInit)?;
-		net_config
-			.spawn_native()
-			.await
-			.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))
-	}
-
-	async fn init_from_yap_fatp_high_pool_limit_spec() -> Result<Network<LocalFileSystem>> {
-		let net_config = NetworkConfig::load_from_toml(YAP_GHIGH_POOL_LIMIT_FATP_SPEC_PATH)
+	pub async fn init_from_asset_hub_fatp_low_pool_limit_spec() -> Result<Network<LocalFileSystem>>
+	{
+		let net_config = NetworkConfig::load_from_toml(ASSET_HUB_LOW_POOL_LIMIT_FATP_SPEC_PATH)
 			.map_err(Error::NetworkInit)?;
 		net_config
 			.spawn_native()

@@ -20,15 +20,14 @@
 
 pub mod zombienet;
 
-use zombienet::{Network, ParachainConfig, RelaychainConfig};
+use std::time::Duration;
+
+use zombienet::NetworkSpawner;
 use zombienet_sdk::NetworkConfigExt;
 
 #[tokio::test(flavor = "multi_thread")]
 // TODO: continue this scenario
 async fn send_future_and_then_ready() {
-	let net_config = zombienet_configuration::NetworkConfig::load_from_toml(
-		"tests/zombienet/network-specs/small_network-yap.toml",
-	)
-	.unwrap();
-	let _net = net_config.spawn_native().await.unwrap();
+	let net = NetworkSpawner::init_from_asset_hub_fatp_low_pool_limit_spec().await.unwrap();
+	tokio::time::sleep(Duration::from_secs(1400)).await;
 }
