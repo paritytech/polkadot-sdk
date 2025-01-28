@@ -1,0 +1,8 @@
+title: Improve `set_validation_data` error message.
+doc:
+- audience: Runtime Dev
+  description: The old error message was often confusing, because the real reason
+    for the error will be printed during inherent execution.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch
