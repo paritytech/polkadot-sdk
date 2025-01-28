@@ -163,13 +163,7 @@ pub async fn connect_backends(left: &NetworkBackendClient, right: &NetworkBacken
 }
 
 /// Ensure connectivity on the notification protocol level.
-///
-/// This performs a ping pong between notification based on the number provided.
-pub async fn connect_notifications(
-	left: &NetworkBackendClient,
-	right: &NetworkBackendClient,
-	ping_pong_num: usize,
-) {
+pub async fn connect_notifications(left: &NetworkBackendClient, right: &NetworkBackendClient) {
 	let left_peer_id = left.network_service.local_peer_id();
 	let right_peer_id = right.network_service.local_peer_id();
 
@@ -209,11 +203,9 @@ pub async fn connect_notifications(
 					},
 					NotificationEvent::NotificationReceived { .. } => {
 						received += 1;
-						if received >= ping_pong_num {
+						if received >= 2 {
 							break;
 						}
-
-						notifications_left.send_async_notification(&right_peer_id, vec![1, 2, 3]).await.unwrap();
 					}
 					_ => {},
 				};
@@ -228,11 +220,9 @@ pub async fn connect_notifications(
 					},
 					NotificationEvent::NotificationReceived { .. } => {
 						received += 1;
-						if received >= ping_pong_num {
+						if received >= 2 {
 							break;
 						}
-
-						notifications_left.send_async_notification(&right_peer_id, vec![1, 2, 3]).await.unwrap();
 					}
 					_ => {}
 				}

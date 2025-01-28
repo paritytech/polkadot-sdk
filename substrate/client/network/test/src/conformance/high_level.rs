@@ -103,7 +103,7 @@ async fn check_request_response() {
 async fn check_notifications() {
 	async fn inner_check_notifications(left: NetworkBackendClient, right: NetworkBackendClient) {
 		const MAX_NOTIFICATIONS: usize = 128;
-		connect_notifications(&left, &right, MAX_NOTIFICATIONS).await;
+		connect_notifications(&left, &right).await;
 
 		let right_peer = right.network_service.local_peer_id();
 		let (tx, rx) = async_channel::bounded(1);
@@ -147,6 +147,88 @@ async fn check_notifications() {
 
 	// Check litep2p -> libp2p.
 	inner_check_notifications(
+		create_network_backend::<Litep2pNetworkBackend>(),
+		create_network_backend::<NetworkWorker<_, _>>(),
+	)
+	.await;
+}
+
+#[tokio::test]
+async fn check_notifications_ping_pong() {
+	async fn inner_check_notifications_ping_pong(
+		left: NetworkBackendClient,
+		right: NetworkBackendClient,
+	) {
+		const MAX_NOTIFICATIONS: usize = 128;
+		connect_notifications(&left, &right).await;
+
+		let left_peer = left.network_service.local_peer_id();
+		let right_peer = right.network_service.local_peer_id();
+
+		let mut notification_index = 0;
+		tokio::spawn(async move {
+			let mut notifications_left = left.notification_service.lock().await;
+
+			notifications_left
+				.send_async_notification(&right_peer, vec![1, 2, 3])
+				.await
+				.expect("qed; cannot fail");
+
+			while let Some(event) = notifications_left.next_event().await {
+				match event {
+					NotificationEvent::NotificationReceived { notification, .. } => {
+						assert_eq!(notification, vec![1, 2, 3, 4, 5]);
+
+						notification_index += 1;
+
+						if notification_index >= MAX_NOTIFICATIONS {
+							break;
+						}
+
+						notifications_left
+							.send_async_notification(&right_peer, vec![1, 2, 3])
+							.await
+							.expect("qed; cannot fail");
+					},
+					_ => {},
+				}
+			}
+
+			for _ in 0..MAX_NOTIFICATIONS {}
+		});
+
+		let mut notifications_right = right.notification_service.lock().await;
+		let mut notification_index = 0;
+		while let Some(event) = notifications_right.next_event().await {
+			match event {
+				NotificationEvent::NotificationReceived { notification, .. } => {
+					assert_eq!(notification, vec![1, 2, 3]);
+
+					notification_index += 1;
+
+					if notification_index >= MAX_NOTIFICATIONS {
+						break;
+					}
+
+					notifications_right
+						.send_async_notification(&left_peer, vec![1, 2, 3, 4, 5])
+						.await
+						.expect("qed; cannot fail");
+				},
+				_ => {},
+			}
+		}
+	}
+
+	// Check libp2p -> litep2p.
+	inner_check_notifications_ping_pong(
+		create_network_backend::<NetworkWorker<_, _>>(),
+		create_network_backend::<Litep2pNetworkBackend>(),
+	)
+	.await;
+
+	// Check litep2p -> libp2p.
+	inner_check_notifications_ping_pong(
 		create_network_backend::<Litep2pNetworkBackend>(),
 		create_network_backend::<NetworkWorker<_, _>>(),
 	)
