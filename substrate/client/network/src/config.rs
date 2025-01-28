@@ -35,8 +35,8 @@ pub use crate::{
 	types::ProtocolName,
 };
 
-pub use sc_network_types::{build_multiaddr, ed25519};
-use sc_network_types::{
+pub use sc_network_types::{
+	build_multiaddr, ed25519,
 	multiaddr::{self, Multiaddr},
 	PeerId,
 };
