@@ -2632,7 +2632,7 @@ version = "0.46.1"
 path = "../substrate/client/network/types"
 default-features = false
 optional = true
-version = "0.14.0"
+version = "0.15.0"
 
 [dependencies.sc-offchain]
 path = "../substrate/client/offchain"

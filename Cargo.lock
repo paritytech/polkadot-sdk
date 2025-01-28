@@ -14772,7 +14772,6 @@ dependencies = [
  "rand_chacha",
  "sc-authority-discovery",
  "sc-network",
- "sc-network-types",
  "sp-runtime 40.1.0",
  "strum 0.26.3",
  "thiserror",
@@ -19499,7 +19498,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "bs58",
  "ed25519-dalek",

@@ -17,10 +17,9 @@
 use futures::{channel::oneshot, prelude::Future, FutureExt};
 
 use codec::{Decode, Encode, Error as DecodingError};
-use network::ProtocolName;
+use network::{PeerId, ProtocolName};
 
 use sc_network as network;
-use sc_network_types::PeerId;
 
 use polkadot_primitives::AuthorityDiscoveryId;
 

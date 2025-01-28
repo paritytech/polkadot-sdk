@@ -16,7 +16,7 @@
 
 //! Error handling related code and Error/Result definitions.
 
-use sc_network_types::PeerId;
+use sc_network::PeerId;
 
 use codec::Error as DecodingError;
 

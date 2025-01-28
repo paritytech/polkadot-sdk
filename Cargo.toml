@@ -1174,7 +1174,7 @@ sc-network-statement = { default-features = false, path = "substrate/client/netw
 sc-network-sync = { path = "substrate/client/network/sync", default-features = false, version = "0.46.1" }
 sc-network-test = { path = "substrate/client/network/test" }
 sc-network-transactions = { path = "substrate/client/network/transactions", default-features = false, version = "0.46.1" }
-sc-network-types = { path = "substrate/client/network/types", default-features = false, version = "0.14.0" }
+sc-network-types = { path = "substrate/client/network/types", default-features = false, version = "0.15.0" }
 sc-offchain = { path = "substrate/client/offchain", default-features = false, version = "42.0.0" }
 sc-proposer-metrics = { path = "substrate/client/proposer-metrics", default-features = false, version = "0.18.0" }
 sc-rpc = { path = "substrate/client/rpc", default-features = false, version = "42.0.0" }

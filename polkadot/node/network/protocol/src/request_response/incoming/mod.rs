@@ -20,8 +20,7 @@ use futures::{channel::oneshot, StreamExt};
 
 use codec::{Decode, Encode};
 
-use sc_network::{config as netconfig, NetworkBackend};
-use sc_network_types::PeerId;
+use sc_network::{config as netconfig, NetworkBackend, PeerId};
 use sp_runtime::traits::Block;
 
 use super::{IsRequest, ReqProtocolNames};
