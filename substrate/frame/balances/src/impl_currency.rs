@@ -674,7 +674,10 @@ where
 		Reserves::<T, I>::try_mutate(who, |reserves| -> DispatchResult {
 			match reserves.binary_search_by_key(id, |data| data.id) {
 				Ok(index) => {
-					reserves[index].amount = reserves[index].amount.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
+					reserves[index].amount = reserves[index]
+						.amount
+						.checked_add(&value)
+						.ok_or(ArithmeticError::Overflow)?;
 				},
 				Err(index) => {
 					reserves
