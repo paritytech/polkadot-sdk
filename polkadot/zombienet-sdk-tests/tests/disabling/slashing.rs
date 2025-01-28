@@ -11,7 +11,7 @@ use crate::helpers::{assert_blocks_are_being_finalized, assert_para_throughput};
 use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, Id as ParaId, SessionIndex};
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_sdk::{NetworkConfigBuilder, NetworkNode};
+use zombienet_sdk::NetworkConfigBuilder;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
@@ -28,7 +28,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![
 					"--no-hardware-benchmarks".into(),
-					"-lparachain=debug".into(),
+					"-lparachain=debug,runtime=debug".into(),
 				])
 				.with_genesis_overrides(json!({
 					"configuration": {
@@ -84,7 +84,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = honest.wait_client().await?;
 
 	// Wait for some para blocks being produced
-	assert_para_throughput(&relay_client, 2, [(ParaId::from(1337), 1..5)].into_iter().collect())
+	assert_para_throughput(&relay_client, 20, [(ParaId::from(1337), 10..50)].into_iter().collect())
 		.await?;
 
 	// Let's initiate a dispute
