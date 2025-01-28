@@ -1,0 +1,28 @@
+title: Fix `frame-benchmarking-cli` not buildable without rocksdb
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Description
+
+    The `frame-benchmarking-cli`  crate has not been buildable without the `rocksdb` feature since version 1.17.0.
+
+    **Error:**
+    ```rust
+    self.database()?.unwrap_or(Database::RocksDb),
+                                 ^^^^^^^ variant or associated item not found in `Database`
+    ```
+
+    This issue is also related to the `rocksdb` feature bleeding (#3793), where the `rocksdb` feature was always activated even when compiling this crate with `--no-default-features`.
+
+    **Fix:**
+    - Resolved the error by choosing `paritydb` as the default database when compiled without the `rocksdb` feature.
+    - Fixed the issue where the `sc-cli` crate's `rocksdb` feature was always active, even compiling `frame-benchmarking-cli` with `--no-default-features`.
+
+    ## Review Notes
+
+    Fix the crate to be built without rocksdb, not intended to solve #3793.
+crates:
+- name: polkadot-node-metrics
+  bump: patch
+- name: frame-benchmarking-cli
+  bump: patch
