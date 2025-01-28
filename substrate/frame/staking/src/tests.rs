@@ -4269,6 +4269,8 @@ fn unbond_with_chill_works() {
 		mock::start_active_era(2);
 		assert_eq!(active_era(), 2);
 
+		assert_eq!(Validators::<Test>::count(), 3);
+
 		// Unbond all amount by ensuring chilling
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 
@@ -4284,6 +4286,9 @@ fn unbond_with_chill_works() {
 			]
 		));
 		assert!(!Validators::<Test>::contains_key(11));
+
+		assert!(Nominators::<Test>::get(11).is_none());
+		assert_eq!(Validators::<Test>::count(), 2);
 	})
 }
 
