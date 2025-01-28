@@ -94,7 +94,7 @@ pub mod v1 {
 	/// Transforms a submission deposit of ReferendumInfo(Approved|Rejected|Cancelled|TimedOut) to
 	/// optional value, making it refundable.
 	pub struct MigrateV0ToV1<T, I = ()>(PhantomData<(T, I)>);
-	impl<T: Config<I>, I: 'static> frame::traits::OnRuntimeUpgrade for MigrateV0ToV1<T, I> {
+	impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateV0ToV1<T, I> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, frame::try_runtime::TryRuntimeError> {
 			let referendum_count = v0::ReferendumInfoFor::<T, I>::iter().count();

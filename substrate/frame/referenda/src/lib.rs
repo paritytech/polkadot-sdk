@@ -69,7 +69,6 @@ extern crate alloc;
 use alloc::boxed::Box;
 use codec::{Codec, Encode};
 use core::fmt::Debug;
-
 use scale_info::TypeInfo;
 
 use frame::runtime::prelude::*;
@@ -879,7 +878,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
 		let desired = desired.evaluate(now);
 		let ok = T::Scheduler::schedule_named(
-			(ASSEMBLY_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256),
+			(ASSEMBLY_ID, "enactment", index).using_encoded(frame::hashing::blake2_256),
 			DispatchTime::At(desired.max(earliest_allowed)),
 			None,
 			63,

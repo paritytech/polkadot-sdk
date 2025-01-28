@@ -19,6 +19,7 @@
 
 use super::Config;
 use crate::weights::WeightInfo;
+use frame::weights_prelude::*;
 
 /// Branches within the `begin_deciding` function.
 pub enum BeginDecidingBranch {

@@ -205,17 +205,17 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert, ensure,
 		traits::{
-			schedule::{
-				v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
-				DispatchTime,
-			},
 			Contains, Currency, EitherOf, EnsureOrigin, EnsureOriginWithArg, EqualPrivilegeOnly,
 			EstimateNextSessionRotation, Get, IsSubType, LockIdentifier, MapSuccess, NoOpPoll,
 			OnInitialize, OnRuntimeUpgrade, OnUnbalanced, OneSessionHandler, OriginTrait,
 			PollStatus, Polling, QueryPreimage, RankedMembers, RankedMembersSwapHandler,
 			ReservableCurrency, StorePreimage, UnfilteredDispatchable, VoteTally,
 		},
-		BoundedVec, Parameter,
+	};
+
+	pub use frame_support::traits::schedule::{
+		v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
+		DispatchTime,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -247,7 +247,7 @@ pub mod prelude {
 			Dispatchable, One, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating,
 			StaticLookup, TrailingZeroInput, Zero,
 		},
-		BuildStorage, DispatchError, DispatchResult, FixedI64, PerThing, Perbill,
+		BuildStorage, FixedI64, PerThing, Perbill,
 	};
 
 	/// Bounded storage related types.
