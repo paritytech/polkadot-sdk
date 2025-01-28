@@ -53,8 +53,6 @@ where
 	xt: ExtrinsicFor<ChainApi>,
 	/// Source of the transaction.
 	source: TimedTransactionSource,
-	/// Inidicates if transaction is watched.
-	watched: bool,
 }
 
 /// Helper type representing the callback allowing to trigger per-transaction events on
@@ -106,14 +104,10 @@ where
 	ChainApi: graph::ChainApi,
 {
 	/// Creates new unprocessed instance of pending transaction submission.
-	fn new_submission_action(
-		xt: ExtrinsicFor<ChainApi>,
-		source: TimedTransactionSource,
-		watched: bool,
-	) -> Self {
+	fn new_submission_action(xt: ExtrinsicFor<ChainApi>, source: TimedTransactionSource) -> Self {
 		Self {
 			processed: false,
-			action: PreInsertAction::SubmitTx(PendingTxSubmission { xt, source, watched }),
+			action: PreInsertAction::SubmitTx(PendingTxSubmission { xt, source }),
 		}
 	}
 
@@ -283,7 +277,7 @@ where
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
 			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
 		};
-		let submit_and_watch_futures = {
+		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
 				.iter()
@@ -291,11 +285,16 @@ where
 					let view = view.clone();
 					let xt = xt.clone();
 					let source = source.clone();
-					async move { view.submit_and_watch(source, xt).await }
+					async move {
+						view.submit_many(std::iter::once((source, xt)))
+							.await
+							.pop()
+							.expect("There is exactly one result. qed.")
+					}
 				})
 				.collect::<Vec<_>>()
 		};
-		let result = futures::future::join_all(submit_and_watch_futures)
+		let result = futures::future::join_all(submit_futures)
 			.await
 			.into_iter()
 			.find_or_first(Result::is_ok);
@@ -654,22 +653,17 @@ where
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 		replaced: ExtrinsicHash<ChainApi>,
-		watched: bool,
 	) {
 		if let Entry::Vacant(entry) = self.pending_txs_tasks.write().entry(replaced) {
-			entry.insert(PendingPreInsertTask::new_submission_action(
-				xt.clone(),
-				source.clone(),
-				watched,
-			));
+			entry.insert(PendingPreInsertTask::new_submission_action(xt.clone(), source.clone()));
 		} else {
 			return
 		};
 
 		let xt_hash = self.api.hash_and_length(&xt).0;
-		log::trace!(target:LOG_TARGET,"[{replaced:?}] replace_transaction wtih {xt_hash:?}, w:{watched}");
+		log::trace!(target:LOG_TARGET,"[{replaced:?}] replace_transaction wtih {xt_hash:?}");
 
-		self.replace_transaction_in_views(source, xt, xt_hash, replaced, watched).await;
+		self.replace_transaction_in_views(source, xt, xt_hash, replaced).await;
 
 		if let Some(replacement) = self.pending_txs_tasks.write().get_mut(&replaced) {
 			replacement.mark_processed();
@@ -690,7 +684,6 @@ where
 						submission.source.clone(),
 						submission.xt.clone(),
 						xt_hash,
-						submission.watched,
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
@@ -711,27 +704,18 @@ where
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 		xt_hash: ExtrinsicHash<ChainApi>,
-		watched: bool,
 	) {
-		if watched {
-			match view.submit_and_watch(source, xt).await {
-				Ok(_) => (),
-				Err(e) => {
-					log::trace!(
-						target:LOG_TARGET,
-						"[{:?}] replace_transaction: submit_and_watch to {} failed {}",
-						xt_hash, view.at.hash, e
-					);
-				},
-			}
-		} else {
-			if let Some(Err(e)) = view.submit_many(std::iter::once((source, xt))).await.pop() {
-				log::trace!(
-					target:LOG_TARGET,
-					"[{:?}] replace_transaction: submit to {} failed {}",
-					xt_hash, view.at.hash, e
-				);
-			}
+		if let Err(e) = view
+			.submit_many(std::iter::once((source, xt)))
+			.await
+			.pop()
+			.expect("There is exactly one result, qed.")
+		{
+			log::trace!(
+				target:LOG_TARGET,
+				"[{:?}] replace_transaction: submit to {} failed {}",
+				xt_hash, view.at.hash, e
+			);
 		}
 	}
 
@@ -745,7 +729,6 @@ where
 		xt: ExtrinsicFor<ChainApi>,
 		xt_hash: ExtrinsicHash<ChainApi>,
 		replaced: ExtrinsicHash<ChainApi>,
-		watched: bool,
 	) {
 		let submit_futures = {
 			let active_views = self.active_views.read();
@@ -760,7 +743,6 @@ where
 						source.clone(),
 						xt.clone(),
 						xt_hash,
-						watched,
 					)
 				})
 				.collect::<Vec<_>>()

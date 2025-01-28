@@ -161,21 +161,16 @@ where
 	) -> Vec<Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error>> {
 		if log::log_enabled!(target: LOG_TARGET, log::Level::Trace) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
-			log_xt_trace!(target: LOG_TARGET, xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
+			log_xt_trace!(
+				target: LOG_TARGET,
+				xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0),
+				"[{:?}] view::submit_many at:{}",
+				self.at.hash
+			);
 			self.pool.submit_at(&self.at, xts).await
 		} else {
 			self.pool.submit_at(&self.at, xts).await
 		}
-	}
-
-	/// Import a single extrinsic and starts to watch its progress in the view.
-	pub(super) async fn submit_and_watch(
-		&self,
-		source: TimedTransactionSource,
-		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
-		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
-		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
 
 	/// Synchronously imports single unvalidated extrinsics into the view.

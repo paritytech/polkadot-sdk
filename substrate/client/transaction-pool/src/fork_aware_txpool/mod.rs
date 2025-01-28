@@ -84,7 +84,8 @@
 //!
 //! ### Multi-view listeners
 //! There is a number of event streams that are provided by individual views:
-//! - [transaction status][`Watcher`],
+//! - aggregated stream of [transactions statuses][`AggregatedStream`] for all the transactions
+//!   within the view in the form of `(transaction-hash, status)` tuple,
 //! - [ready notification][`vp::import_notification_stream`] (see [networking
 //!   section](#networking)),
 //! - [dropped notification][`create_dropped_by_limits_stream`].
@@ -106,10 +107,11 @@
 //! procedure. Additionally, it allows the pool to accept transactions when no blocks have been
 //! reported yet.
 //!
-//! Since watched and non-watched transactions require a different treatment, the *mempool* keeps a
-//! track on how the transaction was submitted. The [transaction source][`TransactionSource`] used
-//! to submit transactions also needs to be kept in the *mempool*. The *mempool* transaction is a
-//! simple [wrapper][`TxInMemPool`] around the [`Arc`] reference to the actual extrinsic body.
+//! The *mempool* keeps a track on how the transaction was submitted - keeping number of watched and
+//! non-watched transactions is useful for testing and metrics. The [transaction
+//! source][`TransactionSource`] used to submit transactions also needs to be kept in the *mempool*.
+//! The *mempool* transaction is a simple [wrapper][`TxInMemPool`] around the [`Arc`] reference to
+//! the actual extrinsic body.
 //!
 //! Once the view is created, all transactions from *mempool* are submitted to and validated at this
 //! view.
@@ -139,19 +141,22 @@
 //!
 //! The [`submit_and_watch`] function allows to submit the transaction and track its
 //! [status][`TransactionStatus`] within the pool. Every view is providing an independent
-//! [stream][`View::submit_and_watch`] of events, which needs to be merged into the single stream
-//! exposed to the [external listener][`TransactionStatusStreamFor`]. For majority of events simple
-//! forwarding of events would not work (e.g. we could get multiple [`Ready`] events, or [`Ready`] /
-//! [`Future`] mix). Some additional stateful logic is required to filter and process the views'
-//! events. It is also easier to trigger some events (e.g. [`Finalized`], [`Invalid`], and
-//! [`Broadcast`]) using some side-channel and simply ignoring these events from the view. All the
-//! before mentioned functionality is provided by the [`MultiViewListener`].
+//! aggreagated [stream][`create_aggregated_stream`] of events for all transactions in this view,
+//! which needs to be merged into the single stream exposed to the [external
+//! listener][`TransactionStatusStreamFor`]. For majority of events simple forwarding of events
+//! would not work (e.g. we could get multiple [`Ready`] events, or [`Ready`] / [`Future`] mix).
+//! Some additional stateful logic is required to filter and process the views' events. It is also
+//! easier to trigger some events (e.g. [`Finalized`], [`Invalid`], and [`Broadcast`]) using some
+//! side-channel and simply ignoring these events from the view. All the before mentioned
+//! functionality is provided by the [`MultiViewListener`].
 //!
-//! When watched transaction is submitted to the pool it is added the *mempool* with watched
-//! flag. The external stream for the transaction is created in a [`MultiViewListener`]. Then
-//! transaction is submitted to every active [`View`] (using
-//! [`submit_and_watch`][`View::submit_and_watch`]) and the resulting
-//! views' stream is connected to the [`MultiViewListener`].
+//! When a watched transaction is submitted to the pool it is added to the *mempool* with the
+//! watched flag. The external stream for the transaction is created in a [`MultiViewListener`].
+//! Then a transaction is submitted to every active [`View`] (using
+//! [`submit_many`][`View::submit_many`]). The view's [aggregated
+//! stream][`create_aggregated_stream`] was already connected to the [`MultiViewListener`] when new
+//! view was created, so no additional action is required upon the submission. The view will provide
+//! the required updates for all the transactions over this single stream.
 //!
 //! ### Maintain
 //! The transaction pool exposes the [task][`notification_future`] that listens to the
@@ -169,8 +174,8 @@
 //!   *mempool*
 //! 	- all transactions from the *mempool* (with some obvious filtering applied) are submitted to
 //!    the view,
-//! 	- for all watched transactions from the *mempool* the watcher is registered in the new view,
-//! 	and it is connected to the multi-view-listener,
+//! 	- the new [aggregated stream][`create_aggregated_stream`] of all transactions statuses  is
+//! 	created for the new view and it is connected to the multi-view-listener,
 //! - [update the view][ForkAwareTxPool::update_view_with_fork] with the transactions from the [tree
 //!   route][`TreeRoute`] (which is computed from the recent best block to newly notified one by
 //!   [enactment state][`EnactmentState`] helper):
@@ -292,7 +297,7 @@
 //! [`View`]: crate::fork_aware_txpool::view::View
 //! [`view::revalidate`]: crate::fork_aware_txpool::view::View::revalidate
 //! [`start_background_revalidation`]: crate::fork_aware_txpool::view::View::start_background_revalidation
-//! [`View::submit_and_watch`]: crate::fork_aware_txpool::view::View::submit_and_watch
+//! [`View::submit_many`]: crate::fork_aware_txpool::view::View::submit_many
 //! [`ViewStore`]: crate::fork_aware_txpool::view_store::ViewStore
 //! [`finish_background_revalidations`]: crate::fork_aware_txpool::view_store::ViewStore::finish_background_revalidations
 //! [find_best_view]: crate::fork_aware_txpool::view_store::ViewStore::find_best_view
@@ -305,10 +310,12 @@
 //! [`MultiViewListener`]: crate::fork_aware_txpool::multi_view_listener::MultiViewListener
 //! [`Pool`]: crate::graph::Pool
 //! [`Watcher`]: crate::graph::watcher::Watcher
+//! [`AggregatedStream`]: crate::graph::AggregatedStream
 //! [`Options`]: crate::graph::Options
 //! [`vp::import_notification_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.import_notification_stream
 //! [`vp::enforce_limits`]: ../graph/validated_pool/struct.ValidatedPool.html#method.enforce_limits
 //! [`create_dropped_by_limits_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.create_dropped_by_limits_stream
+//! [`create_aggregated_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.create_aggregated_stream
 //! [`ChainEvent`]: sc_transaction_pool_api::ChainEvent
 //! [`TransactionStatusStreamFor`]: sc_transaction_pool_api::TransactionStatusStreamFor
 //! [`api_submit`]: sc_transaction_pool_api::TransactionPool::submit_at

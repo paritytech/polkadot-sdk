@@ -49,4 +49,6 @@ pub(crate) use self::pool::CheckBannedBeforeVerify;
 pub(crate) use listener::TransactionStatusEvent;
 
 #[cfg(doc)]
+pub(crate) use listener::AggregatedStream;
+#[cfg(doc)]
 pub(crate) use validated_pool::ValidatedPool;

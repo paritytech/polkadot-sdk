@@ -440,15 +440,21 @@ where
 		>,
 		mut command_receiver: CommandReceiver<ControllerCommand<ChainApi>>,
 	) {
-		let mut aggregated_stream_map: StreamMap<BlockHash<ChainApi>, ViewStatusStream<ChainApi>> =
+		let mut aggregated_streams_map: StreamMap<BlockHash<ChainApi>, ViewStatusStream<ChainApi>> =
 			Default::default();
 
 		loop {
 			tokio::select! {
 				biased;
-				Some((view_hash, (tx_hash, status))) =  next_event(&mut aggregated_stream_map) => {
-					log::trace!(target: LOG_TARGET, "[{:?}] aggregated_stream_map event: view:{} status:{:?}", tx_hash, view_hash, status);
+				Some((view_hash, (tx_hash, status))) =  next_event(&mut aggregated_streams_map) => {
 					if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
+						log::trace!(
+							target: LOG_TARGET,
+							"[{:?}] aggregated_stream_map event: view:{} status:{:?}",
+							tx_hash,
+							view_hash,
+							status
+						);
 						if let Err(e) = ctrl
 							.get_mut()
 							.unbounded_send(ExternalWatcherCommand::ViewTransactionStatus(view_hash, status))
@@ -456,15 +462,13 @@ where
 							trace!(target: LOG_TARGET, "[{:?}] send status failed: {:?}", tx_hash, e);
 							ctrl.remove();
 						}
-					} else {
-						log::trace!(target: LOG_TARGET, "[{:?}] aggregated_stream_map ctrl does not exist", tx_hash);
 					}
 				},
 				cmd = command_receiver.next() => {
 					log::trace!(target: LOG_TARGET, "cmd {:?}", cmd);
 					match cmd {
 						Some(ControllerCommand::AddViewStream(h,stream)) => {
-							aggregated_stream_map.insert(h,stream);
+							aggregated_streams_map.insert(h,stream);
 							// //todo: aysnc and join all?
 							external_watchers_tx_hash_map.write().retain(|tx_hash, ctrl| {
 								ctrl.unbounded_send(ExternalWatcherCommand::AddView(h))
@@ -475,7 +479,7 @@ where
 							})
 						},
 						Some(ControllerCommand::RemoveViewStream(h)) => {
-							aggregated_stream_map.remove(&h);
+							aggregated_streams_map.remove(&h);
 							//todo: aysnc and join all?
 							external_watchers_tx_hash_map.write().retain(|tx_hash, ctrl| {
 								ctrl.unbounded_send(ExternalWatcherCommand::RemoveView(h))

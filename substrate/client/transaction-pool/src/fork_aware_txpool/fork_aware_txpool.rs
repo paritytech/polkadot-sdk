@@ -23,7 +23,7 @@ use super::{
 	import_notification_sink::MultiViewImportNotificationSink,
 	metrics::MetricsLink as PrometheusMetrics,
 	multi_view_listener::MultiViewListener,
-	tx_mem_pool::{InsertionInfo, TxInMemPool, TxMemPool, TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER},
+	tx_mem_pool::{InsertionInfo, TxMemPool, TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER},
 	view::View,
 	view_store::ViewStore,
 };
@@ -277,12 +277,7 @@ where
 				DroppedReason::Usurped(new_tx_hash) => {
 					if let Some(new_tx) = mempool.get_by_hash(new_tx_hash) {
 						view_store
-							.replace_transaction(
-								new_tx.source(),
-								new_tx.tx(),
-								dropped_tx_hash,
-								new_tx.is_watched(),
-							)
+							.replace_transaction(new_tx.source(), new_tx.tx(), dropped_tx_hash)
 							.await;
 					} else {
 						log::trace!(
@@ -1113,9 +1108,6 @@ where
 	/// the transaction is reported as invalid and removed from the mempool. This does not apply to
 	/// stale and temporarily banned transactions.
 	async fn update_view_with_mempool(&self, view: &View<ChainApi>) {
-		let watched_xts: Vec<(ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>)> =
-			self.mempool.clone_watched().into_iter().collect();
-
 		log::debug!(
 			target: LOG_TARGET,
 			"update_view_with_mempool: {:?} xts:{:?} v:{}",
@@ -1125,15 +1117,16 @@ where
 		);
 		let included_xts = self.extrinsics_included_since_finalized(view.at.hash).await;
 
-		let (hashes, xts_filtered): (Vec<_>, Vec<_>) = watched_xts
+		let (hashes, xts_filtered): (Vec<_>, Vec<_>) = self
+			.mempool
+			.clone_transactions()
 			.into_iter()
-			.chain(self.mempool.clone_unwatched().into_iter())
 			.filter(|(hash, _)| !view.is_imported(hash))
 			.filter(|(hash, _)| !included_xts.contains(&hash))
 			.map(|(tx_hash, tx)| (tx_hash, (tx.source(), tx.tx())))
 			.unzip();
 
-		let watched_results = view
+		let results = view
 			.submit_many(xts_filtered)
 			.await
 			.into_iter()
@@ -1145,7 +1138,7 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		let submitted_count = watched_results.len();
+		let submitted_count = results.len();
 
 		log::debug!(
 			target: LOG_TARGET,
@@ -1161,7 +1154,7 @@ where
 		// if there are no views yet, and a single newly created view is reporting error, just send
 		// out the invalid event, and remove transaction.
 		if self.view_store.is_empty() {
-			for result in watched_results {
+			for result in results {
 				if let Err(tx_hash) = result {
 					self.view_store.listener.transactions_invalidated(&[tx_hash]);
 					self.mempool.remove_transaction(&tx_hash);
