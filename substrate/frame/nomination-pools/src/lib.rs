@@ -18,7 +18,7 @@
 //! # Nomination Pools for Staking Delegation
 //!
 //! A pallet that allows members to delegate their stake to nominating pools. A nomination pool acts
-//! as nominator and nominates validators on the members behalf.
+//! as nominator and nominates validators on the members' behalf.
 //!
 //! # Index
 //!
@@ -178,7 +178,7 @@
 //!
 //! ### Pool Members
 //!
-//! * In general, whenever a pool member changes their total point, the chain will automatically
+//! * In general, whenever a pool member changes their total points, the chain will automatically
 //!   claim all their pending rewards for them. This is not optional, and MUST happen for the reward
 //!   calculation to remain correct (see the documentation of `bond` as an example). So, make sure
 //!   you are warning your users about it. They might be surprised if they see that they bonded an
@@ -2509,12 +2509,12 @@ pub mod pallet {
 		/// The dispatch origin of this call must be signed by the pool nominator or the pool
 		/// root role.
 		///
-		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
+		/// This directly forwards the call to the staking pallet, on behalf of the pool bonded
 		/// account.
 		///
 		/// # Note
 		///
-		/// In addition to a `root` or `nominator` role of `origin`, pool's depositor needs to have
+		/// In addition to a `root` or `nominator` role of `origin`, the pool's depositor needs to have
 		/// at least `depositor_min_bond` in the pool to start nominating.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() as u32))]
@@ -2628,6 +2628,8 @@ pub mod pallet {
 			max_members_per_pool: ConfigOp<u32>,
 			global_max_commission: ConfigOp<Perbill>,
 		) -> DispatchResult {
+			// No event?
+
 			T::AdminOrigin::ensure_origin(origin)?;
 
 			macro_rules! config_op_exp {
@@ -2718,8 +2720,8 @@ pub mod pallet {
 		///   are unable to unbond.
 		///
 		/// # Conditions for permissioned dispatch:
-		/// * The caller has a nominator or root role of the pool.
-		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
+		/// * The caller is the pool's nominator or root.
+		/// This directly forwards the call to the staking pallet, on behalf of the pool's bonded
 		/// account.
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::chill())]
@@ -2913,9 +2915,16 @@ pub mod pallet {
 
 		/// Claim pending commission.
 		///
-		/// The dispatch origin of this call must be signed by the `root` role of the pool. Pending
-		/// commission is paid out and added to total claimed commission`. Total pending commission
-		/// is reset to zero. the current.
+		/// The `root` role of the pool is _always_ allowed to claim the pool's commission.
+		///
+		/// If the pool has set `CommissionClaimPermission::Permissionless`, then any account can
+		/// trigger the process of claiming the pool's commission.
+		///
+		/// If the pool has set its `CommissionClaimPermission` to `Account(acc)`, then only accounts
+		/// `acc` and the pool's root account may call this extrinsic on behalf of the pool.
+		///
+		/// Pending commission is paid out and added to total claimed commission`. Total pending commission
+		/// is reset to zero.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::claim_commission())]
 		pub fn claim_commission(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
