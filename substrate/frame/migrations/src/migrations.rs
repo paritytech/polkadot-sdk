@@ -130,6 +130,11 @@ where
 			Err("ResetPallet failed")?;
 		}
 
+		if keys_now != 1 {
+			log::error!("ResetPallet<{}>: Should have a single key after reset", P::name());
+			Err("ResetPallet failed")?;
+		}
+
 		Ok(())
 	}
 }
