@@ -82,3 +82,8 @@ export const walletClient = await (async () => {
 		return serverWalletClient.extend(publicActions);
 	}
 })();
+
+export async function getFreeBalance(api, accountKey) {
+	const balance = await api.query.System.Account.getValue(accountKey);
+	return balance.data.free;
+}

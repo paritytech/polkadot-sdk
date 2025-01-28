@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@polkadot-api/descriptors": "file:.papi/descriptors",
+    "@polkadot-labs/hdkd": "^0.0.10",
+    "@polkadot-labs/hdkd-helpers": "^0.0.10",
     "@types/node": "^22.10.10",
     "polkadot-api": "^1.8.2",
     "viem": "^2.22.11"
