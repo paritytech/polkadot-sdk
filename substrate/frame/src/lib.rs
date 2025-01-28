@@ -422,7 +422,7 @@ pub mod runtime {
 
 		// Types often used in the runtime APIs.
 		pub use sp_core::{
-			offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
+			offchain::testing,
 			OpaqueMetadata,
 		};
 
@@ -580,6 +580,7 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+	pub use frame_support::crypto::ecdsa::ECDSAExt;
 }
 
 pub use sp_runtime::{
@@ -614,6 +615,7 @@ pub mod deps {
 	pub use sp_io;
 	pub use sp_runtime;
 	pub use sp_session;
+	pub use sp_staking;
 
 	pub use codec;
 	pub use scale_info;

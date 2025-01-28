@@ -30,6 +30,7 @@ use sp_consensus_beefy::{
 };
 // use sp_session::MembershipProof;
 
+
 use crate::{self as beefy, mock::*, Call, Config, Error, WeightInfoExt};
 
 fn init_block(block: u64) {

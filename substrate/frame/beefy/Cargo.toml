@@ -20,7 +20,6 @@ pallet-session = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 sp-consensus-beefy = { features = ["serde"], workspace = true }
-sp-staking = { optional = true, workspace = true }
 
 [dev-dependencies]
 frame-election-provider-support = { workspace = true, default-features = true }
@@ -48,7 +47,6 @@ std = [
 	"serde/std",
 	"sp-consensus-beefy/std",
 	"sp-state-machine/std",
-	"sp-staking/std",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",

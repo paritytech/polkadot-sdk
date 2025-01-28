@@ -31,7 +31,7 @@ use codec::{Encode, MaxEncodedLen};
 use log;
 
 use frame::weights_prelude::DbWeight;
-use sp_staking::{offence::OffenceReportSystem, SessionIndex};
+use frame::deps::sp_staking::{offence::OffenceReportSystem, SessionIndex};
 
 use sp_consensus_beefy::{
 	AncestryHelper, AncestryHelperWeightInfo, AuthorityIndex, BeefyAuthorityId, ConsensusLog,

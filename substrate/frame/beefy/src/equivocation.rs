@@ -44,7 +44,7 @@ use sp_consensus_beefy::{
 
 use frame::testing_prelude::*;
 use frame::deps::sp_session::{GetSessionNumber, GetValidatorCount};
-use sp_staking::{
+use frame::deps::sp_staking::{
 	offence::{Kind, Offence, OffenceReportSystem, ReportOffence},
 	SessionIndex,
 };
