@@ -83,6 +83,10 @@ pub struct CreateCmd {
 	/// errors will be reported.
 	#[arg(long, short = 'v')]
 	verify: bool,
+	/// Chain properties in comma-separated KEY=VALUE format.
+	/// Example: `--properties tokenSymbol=UNIT,tokenDecimals=12,ss58Format=42,isEthereum=false`
+	#[arg(long)]
+	pub properties: Option<String>,
 	#[command(subcommand)]
 	action: GenesisBuildAction,
 
@@ -385,15 +389,40 @@ impl CreateCmd {
 	}
 }
 
-/// Processes `CreateCmd` and returns string represenataion of JSON version of `ChainSpec`.
+/// Parses chain properties passed as a comma-separated KEY=VALUE pairs.
+fn parse_properties(raw: String) -> sc_chain_spec::Properties {
+	let mut props = sc_chain_spec::Properties::new();
+	for pair in raw.split(',') {
+		let mut iter = pair.splitn(2, '=');
+		let key = iter.next().unwrap_or("").trim().to_owned();
+		let value_str = iter.next().unwrap_or("").trim();
+
+		// Try to parse as bool, number, or fallback to String
+		let value = match value_str.parse::<bool>() {
+			Ok(b) => Value::Bool(b),
+			Err(_) => match value_str.parse::<u32>() {
+				Ok(i) => Value::Number(i.into()),
+				Err(_) => Value::String(value_str.to_string()),
+			},
+		};
+
+		props.insert(key, value);
+	}
+	props
+}
+
+/// Processes `CreateCmd` and returns string representation of JSON version of `ChainSpec`.
 pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
 	let code = cmd.get_runtime_code()?;
 
 	let chain_type = &cmd.chain_type;
 
-	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "UNIT".into());
-	properties.insert("tokenDecimals".into(), 12.into());
+	let properties = cmd.properties.clone().map(parse_properties).unwrap_or_else(|| {
+		let mut prop = sc_chain_spec::Properties::new();
+		prop.insert("tokenSymbol".into(), "UNIT".into());
+		prop.insert("tokenDecimals".into(), 12.into());
+		prop
+	});
 
 	let builder = ChainSpec::builder(&code[..], Default::default())
 		.with_name(&cmd.chain_name[..])
