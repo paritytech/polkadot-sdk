@@ -541,7 +541,7 @@ impl<T: Config> Pallet<T> {
 				forced,
 			});
 
-			CurrentSetId:<T>::mutate(|s| {
+			CurrentSetId::<T>::mutate(|s| {
 				*s += 1;
 				*s
 			});
@@ -663,6 +663,8 @@ where
 		// latest equivalent session (i.e. now).
 		let session_index = pallet_session::Pallet::<T>::current_index();
 		SetIdSession::<T>::insert(current_set_id, &session_index);
+
+		}
 	}
 
 	fn on_disabled(i: u32) {
