@@ -20,6 +20,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
+extern crate alloc;
 
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
@@ -27,6 +28,7 @@ pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use crate::BalanceOf;
+	use alloc::vec::Vec;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
@@ -102,7 +104,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
-		fn new_session(_: u32) -> std::option::Option<Vec<<T as frame_system::Config>::AccountId>> {
+		fn new_session(_: u32) -> Option<Vec<<T as frame_system::Config>::AccountId>> {
 			// Doesn't do anything because all the logic is handled in `historical::SessionManager`
 			// implementation
 			defensive!("new_session should not be called");
