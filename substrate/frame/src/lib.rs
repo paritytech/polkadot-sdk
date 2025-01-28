@@ -237,7 +237,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use sp_runtime::{
 		traits::{
-			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, One, ReduceBy,
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
 			ReplaceWithDefault, SaturatedConversion, StaticLookup, TrailingZeroInput,
 		},
 		Saturating,
@@ -333,8 +333,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, derive_impl, hypothetically, parameter_types, register_default_impl,
-		storage_alias,
+		assert_storage_noop, hypothetically, register_default_impl, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
@@ -377,7 +376,7 @@ pub mod runtime {
 		pub use frame_support::runtime as frame_construct_runtime;
 
 		/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.
-		pub use frame_support::derive_impl;
+		pub use frame_support::{derive_impl, register_default_impl};
 
 		/// Macros to easily impl traits such as `Get` for types.
 		// TODO: using linking in the Get in the line above triggers an ICE :/
@@ -543,6 +542,7 @@ pub mod traits {
 /// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+	pub use sp_runtime::traits::One;
 }
 
 /// All derive macros used in frame.

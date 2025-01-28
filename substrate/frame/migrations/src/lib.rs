@@ -158,8 +158,9 @@ pub use weights::WeightInfo;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
-use frame::prelude::*;
 use frame::testing_prelude::*;
+
+use frame::runtime::prelude::*;
 
 
 /// Points to the next migration to execute.
@@ -344,8 +345,6 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
-
-		// use frame_system::limits::BlockWeights;
 
 		/// Provides a viable default config that can be used with
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
@@ -538,7 +537,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			let started_at = started_at.unwrap_or(
-				System::<T>::block_number().saturating_add(sp_runtime::traits::One::one()),
+				System::<T>::block_number().saturating_add(One::one()),
 			);
 			Cursor::<T>::put(MigrationCursor::Active(ActiveCursor {
 				index,

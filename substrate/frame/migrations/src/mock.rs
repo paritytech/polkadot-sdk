@@ -41,7 +41,7 @@ impl frame_system::Config for Test {
 	type MultiBlockMigrator = Migrations;
 }
 
-frame_support::parameter_types! {
+parameter_types! {
 	pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
 }
 
@@ -55,7 +55,7 @@ impl crate::Config for Test {
 	type FailedMigrationHandler = MockedFailedMigrationHandler;
 }
 
-frame_support::parameter_types! {
+parameter_types! {
 	/// The number of started upgrades.
 	pub static UpgradesStarted: u32 = 0;
 	/// The number of completed upgrades.

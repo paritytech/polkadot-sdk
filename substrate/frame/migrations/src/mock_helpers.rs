@@ -22,8 +22,7 @@
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame::testing_prelude::*;
-use frame::deps::sp_core::ConstU32;
-use frame::deps::sp_runtime::BoundedVec;
+
 
 /// Opaque identifier of a migration.
 pub type MockedIdentifier = BoundedVec<u8, ConstU32<256>>;
