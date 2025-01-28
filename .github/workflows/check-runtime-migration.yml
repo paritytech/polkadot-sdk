@@ -97,7 +97,7 @@ jobs:
           save-always: true
 
       - name: Create Snapshot If Stale
-        if: ${{ hashFiles('snapshot.raw') == '' }}
+        # if: ${{ hashFiles('snapshot.raw') == '' }}
         run: |
           echo "Creating new snapshot for today (${{ steps.get-date.outputs.today }})"
           ./try-runtime create-snapshot --uri ${{ matrix.uri }} snapshot.raw
