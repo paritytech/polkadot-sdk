@@ -18,7 +18,6 @@
 //! Integration tests for sr25519
 
 use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_application_crypto::sr25519::AppPair;
 use sp_core::{
 	crypto::{ByteArray, Pair},
 	testing::SR25519,
@@ -28,6 +27,9 @@ use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
+use sp_application_crypto::{RuntimePublic, sr25519::AppPair};
+use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+use sp_core::sr25519::Pair as Sr25519Pair;
 
 #[test]
 fn sr25519_works_in_runtime() {
@@ -38,11 +40,20 @@ fn sr25519_works_in_runtime() {
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
 
-	let (signature, public) = runtime_api
+	let (signature, public, pop) = runtime_api
 		.test_sr25519_crypto(test_client.chain_info().genesis_hash)
 		.expect("Tests `sr25519` crypto.");
 
 	let supported_keys = keystore.keys(SR25519).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));
 	assert!(AppPair::verify(&signature, "sr25519", &public));
+	assert!(AppPair::verify_proof_of_possession(&pop.into(), &public.into()));
+}
+
+#[test]
+fn sr25519_client_pop_verified_by_runtime_public() {
+	let (mut test_pair, _) = Sr25519Pair::generate();
+
+	let client_generated_pop = test_pair.generate_proof_of_possession();
+	assert!(RuntimePublic::verify_pop(&test_pair.public(), &client_generated_pop));
 }

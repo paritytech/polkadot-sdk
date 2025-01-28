@@ -4,9 +4,9 @@ use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
-use sp_application_crypto::ecdsa_bls381::AppPair;
+use sp_application_crypto::{RuntimePublic, ecdsa_bls381::AppPair};
 use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
-use sp_core::{Pair as PairT, ecdsa_bls381::Pair};
+use sp_core::{Pair, ecdsa_bls381::Pair as EcdsaBls381Pair};
 
 #[test]
 fn ecdsa_bls381_works_in_runtime() {
@@ -19,10 +19,13 @@ fn ecdsa_bls381_works_in_runtime() {
 
 	let (pop, public) = runtime_api.test_ecdsa_bls381_crypto(test_client.chain_info().genesis_hash).expect("Tests `ecdsa_bls381` crypto.");
 
-	let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
-	let local_pop = pair.generate_proof_of_possession();
-	let local_public = pair.public();
-
 	assert!(AppPair::verify_proof_of_possession(&pop, &public));
-	assert!(AppPair::verify_proof_of_possession(&local_pop.into(), &local_public.into()));
+}
+
+#[test]
+fn ecdsa_bls381_client_pop_verified_by_runtime_public() {
+	let (mut test_pair, _) = EcdsaBls381Pair::generate();
+
+	let client_generated_pop = test_pair.generate_proof_of_possession();
+	assert!(RuntimePublic::verify_pop(&test_pair.public(), &client_generated_pop));
 }

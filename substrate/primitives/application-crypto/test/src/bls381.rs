@@ -8,9 +8,9 @@ use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
-use sp_application_crypto::bls381::AppPair;
+use sp_application_crypto::{RuntimePublic, bls381::AppPair};
 use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
-use sp_core::{Pair as PairT, bls381::Pair};
+use sp_core::{Pair, bls381::Pair as Bls381Pair};
 
 #[test]
 fn bls381_works_in_runtime() {
@@ -26,10 +26,13 @@ fn bls381_works_in_runtime() {
 	let supported_keys = keystore.keys(BLS381).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));
 
-	let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
-	let local_pop = pair.generate_proof_of_possession();
-	let local_public = pair.public();
+	assert!(AppPair::verify_proof_of_possession(&pop.into(), &public.into()));
+}
 
-	assert!(AppPair::verify_proof_of_possession(&pop, &public));
-	assert!(AppPair::verify_proof_of_possession(&local_pop.into(), &local_public.into()));
+#[test]
+fn bls381_client_pop_verified_by_runtime_public() {
+	let (mut test_pair, _) = Bls381Pair::generate();
+
+	let client_generated_pop = test_pair.generate_proof_of_possession();
+	assert!(RuntimePublic::verify_pop(&test_pair.public(), &client_generated_pop));
 }
