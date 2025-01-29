@@ -145,10 +145,10 @@
 
 use bp_messages::{LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
-pub use bp_xcm_bridge::{Bridge, BridgeId, BridgeState, Receiver};
+pub use bp_xcm_bridge::{Bridge, BridgeId, BridgeLocations, BridgeState, Deposit, Receiver};
 use bp_xcm_bridge::{
-	BridgeLocations, BridgeLocationsError, ChannelStatusProvider as DispatchChannelStatusProvider,
-	Deposit, DepositOf, LocalXcmChannelManager,
+	BridgeLocationsError, ChannelStatusProvider as DispatchChannelStatusProvider,
+	DepositOf, LocalXcmChannelManager,
 };
 use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;

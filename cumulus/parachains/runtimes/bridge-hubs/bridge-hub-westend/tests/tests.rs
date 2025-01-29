@@ -237,7 +237,7 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 				PolkadotXcm::force_xcm_version(RuntimeOrigin::root(), Box::new(BridgeHubRococoLocation::get()), XCM_VERSION).expect("version saved!");
 
 				// we need to create lane between sibling parachain and remote destination
-				bridge_hub_test_utils::ensure_opened_bridge::<
+				bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 					Runtime,
 					XcmOverBridgeHubRococoInstance,
 					LocationToAccountId,
@@ -247,7 +247,7 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 					BridgedUniversalLocation::get(),
 					false,
 					|locations, _fee| {
-						bridge_hub_test_utils::open_bridge_with_storage::<
+						bridge_hub_test_utils::open_xcm_bridge_with_storage::<
 							Runtime, XcmOverBridgeHubRococoInstance
 						>(locations, LegacyLaneId([0, 0, 0, 1]), None)
 					}
@@ -299,7 +299,7 @@ fn relayed_incoming_message_works() {
 		ByGenesis(WESTEND_GENESIS_HASH),
 		|| {
 			// we need to create lane between sibling parachain and remote destination
-			bridge_hub_test_utils::ensure_opened_bridge::<
+			bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 				Runtime,
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
@@ -309,7 +309,7 @@ fn relayed_incoming_message_works() {
 				BridgedUniversalLocation::get(),
 				false,
 				|locations, _fee| {
-					bridge_hub_test_utils::open_bridge_with_storage::<
+					bridge_hub_test_utils::open_xcm_bridge_with_storage::<
 						Runtime,
 						XcmOverBridgeHubRococoInstance,
 					>(locations, LegacyLaneId([0, 0, 0, 1]), None)
@@ -334,7 +334,7 @@ fn free_relay_extrinsic_works() {
 		ByGenesis(WESTEND_GENESIS_HASH),
 		|| {
 			// we need to create lane between sibling parachain and remote destination
-			bridge_hub_test_utils::ensure_opened_bridge::<
+			bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 				Runtime,
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
@@ -344,7 +344,7 @@ fn free_relay_extrinsic_works() {
 				BridgedUniversalLocation::get(),
 				false,
 				|locations, _fee| {
-					bridge_hub_test_utils::open_bridge_with_storage::<
+					bridge_hub_test_utils::open_xcm_bridge_with_storage::<
 						Runtime,
 						XcmOverBridgeHubRococoInstance,
 					>(locations, LegacyLaneId([0, 0, 0, 1]), None)
