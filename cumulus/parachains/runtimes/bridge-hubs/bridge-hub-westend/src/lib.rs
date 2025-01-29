@@ -401,7 +401,7 @@ impl pallet_message_queue::Config for Runtime {
 	#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
 	type MessageProcessor =
 		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
-	#[cfg(any(feature = "std", not(feature = "runtime-benchmarks"))]
+	#[cfg(any(feature = "std", not(feature = "runtime-benchmarks")))]
 	type MessageProcessor = bridge_hub_common::BridgeHubMessageRouter<
 		xcm_builder::ProcessXcmMessage<
 			AggregateMessageOrigin,
