@@ -18,13 +18,14 @@
 mod signed;
 mod staking;
 mod weight_info;
+
 use super::*;
 use crate::{
 	self as multi_block,
 	signed::{self as signed_pallet, HoldReason},
 	unsigned::{
 		self as unsigned_pallet,
-		miner::{BaseMiner, MinerError},
+		miner::{MinerConfig, OffchainMinerError, OffchainWorkerMiner},
 	},
 	verifier::{self as verifier_pallet, AsynchronousVerifier, Status},
 };
@@ -35,9 +36,7 @@ use frame_election_provider_support::{
 };
 pub use frame_support::{assert_noop, assert_ok};
 use frame_support::{
-	derive_impl,
-	pallet_prelude::*,
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{fungible::InspectHold, Hooks},
 	weights::{constants, Weight},
 };
@@ -138,7 +137,6 @@ parameter_types! {
 	pub static MinerTxPriority: u64 = 100;
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
-	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerMaxLength: u32 = 256;
 	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
 
@@ -177,12 +175,24 @@ impl crate::unsigned::WeightInfo for MockUnsignedWeightInfo {
 
 impl crate::unsigned::Config for Runtime {
 	type OffchainRepeat = OffchainRepeat;
-	type MinerMaxWeight = MinerMaxWeight;
-	type MinerMaxLength = MinerMaxLength;
 	type MinerTxPriority = MinerTxPriority;
-	type OffchainSolver =
-		frame_election_provider_support::SequentialPhragmen<Self::AccountId, Perbill>;
+	type OffchainSolver = SequentialPhragmen<Self::AccountId, Perbill>;
 	type WeightInfo = MockUnsignedWeightInfo;
+}
+
+impl MinerConfig for Runtime {
+	type AccountId = AccountId;
+	type Hash = <Runtime as frame_system::Config>::Hash;
+	type MaxLength = MinerMaxLength;
+	type Pages = Pages;
+	type MaxVotesPerVoter = MaxVotesPerVoter;
+	type Solution = TestNposSolution;
+	type Solver = SequentialPhragmen<AccountId, Perbill>;
+	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
 }
 
 impl crate::Config for Runtime {
@@ -195,7 +205,7 @@ impl crate::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type Lookahead = Lookahead;
-	type Solution = TestNposSolution;
+	type MinerConfig = Self;
 	type WeightInfo = weight_info::DualMockWeightInfo;
 	type Verifier = VerifierPallet;
 	type AdminOrigin = EnsureRoot<AccountId>;
@@ -338,10 +348,6 @@ impl ExtBuilder {
 		VoterSnapshotPerBlock::set(count);
 		self
 	}
-	pub(crate) fn miner_weight(self, weight: Weight) -> Self {
-		MinerMaxWeight::set(weight);
-		self
-	}
 	pub(crate) fn miner_max_length(self, len: u32) -> Self {
 		MinerMaxLength::set(len);
 		self
@@ -390,6 +396,7 @@ impl ExtBuilder {
 				(999, 100),
 				(9999, 100),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
@@ -518,13 +525,15 @@ pub fn assert_none_snapshot() {
 /// changes.
 ///
 /// For testing, we never want to do reduce.
-pub fn mine_full_solution() -> Result<PagedRawSolution<Runtime>, MinerError<Runtime>> {
-	BaseMiner::<Runtime>::mine_solution(Pages::get(), false)
+pub fn mine_full_solution() -> Result<PagedRawSolution<Runtime>, OffchainMinerError<Runtime>> {
+	OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false)
 }
 
 /// Same as [`mine_full_solution`] but with custom pages.
-pub fn mine_solution(pages: PageIndex) -> Result<PagedRawSolution<Runtime>, MinerError<Runtime>> {
-	BaseMiner::<Runtime>::mine_solution(pages, false)
+pub fn mine_solution(
+	pages: PageIndex,
+) -> Result<PagedRawSolution<Runtime>, OffchainMinerError<Runtime>> {
+	OffchainWorkerMiner::<Runtime>::mine_solution(pages, false)
 }
 
 /// Assert that `count` voters exist across `pages` number of pages.

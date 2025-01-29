@@ -16,19 +16,33 @@
 // limitations under the License.
 
 use super::*;
-use crate::{helpers, types::SupportsOf, verifier::Verifier, SolutionOf};
+use crate::{
+	helpers,
+	types::VoterOf,
+	unsigned::miner::{MinerConfig, SupportsOfMiner},
+	verifier::Verifier,
+	SolutionOf,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_election_provider_support::{ExtendedBalance, NposSolution, PageIndex};
+use frame_election_provider_support::{
+	ExtendedBalance, NposSolution, PageIndex, TryFromOtherBounds,
+};
 use frame_support::{
 	ensure,
 	pallet_prelude::{ValueQuery, *},
-	traits::{Defensive, Get},
+	traits::{defensive_prelude::*, Defensive, Get},
 };
 use frame_system::pallet_prelude::*;
 use pallet::*;
 use sp_npos_elections::{evaluate_support, ElectionScore, EvaluateSupport};
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+
+pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::BoundedSupports<
+	<V as Verifier>::AccountId,
+	<V as Verifier>::MaxWinnersPerPage,
+	<V as Verifier>::MaxBackersPerWinner,
+>;
 
 /// The status of this pallet.
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, RuntimeDebug)]
@@ -120,7 +134,9 @@ pub(crate) mod pallet {
 		/// Something that can provide the solution data to the verifier.
 		///
 		/// In reality, this will be fulfilled by the signed phase.
-		type SolutionDataProvider: crate::verifier::SolutionDataProvider<Solution = Self::Solution>;
+		type SolutionDataProvider: crate::verifier::SolutionDataProvider<
+			Solution = SolutionOf<Self::MinerConfig>,
+		>;
 
 		/// The weight information of this pallet.
 		type WeightInfo;
@@ -248,14 +264,14 @@ pub(crate) mod pallet {
 		/// known to be valid. At this stage, we write to the invalid variant. Once all pages are
 		/// verified, a call to [`finalize_correct`] will seal the correct pages and flip the
 		/// invalid/valid variants.
-		pub(crate) fn set_invalid_page(page: PageIndex, supports: SupportsOf<Pallet<T>>) {
+		pub(crate) fn set_invalid_page(page: PageIndex, supports: SupportsOfVerifier<Pallet<T>>) {
 			use frame_support::traits::TryCollect;
 			Self::mutate_checked(|| {
 				let backings: BoundedVec<_, _> = supports
 					.iter()
 					.map(|(x, s)| (x.clone(), PartialBackings { total: s.total, backers: s.voters.len() as u32 } ))
 					.try_collect()
-					.expect("`SupportsOf` is bounded by <Pallet<T> as Verifier>::MaxWinnersPerPage, which is assured to be the same as `T::MaxWinnersPerPage` in an integrity test");
+					.expect("`SupportsOfVerifier` is bounded by <Pallet<T> as Verifier>::MaxWinnersPerPage, which is assured to be the same as `T::MaxWinnersPerPage` in an integrity test");
 				QueuedSolutionBackings::<T>::insert(page, backings);
 
 				match Self::invalid() {
@@ -273,7 +289,7 @@ pub(crate) mod pallet {
 		/// solution.
 		pub(crate) fn force_set_single_page_valid(
 			page: PageIndex,
-			supports: SupportsOf<Pallet<T>>,
+			supports: SupportsOfVerifier<Pallet<T>>,
 			score: ElectionScore,
 		) {
 			Self::mutate_checked(|| {
@@ -352,7 +368,9 @@ pub(crate) mod pallet {
 		}
 
 		/// Get a page of the current queued (aka valid) solution.
-		pub(crate) fn get_queued_solution_page(page: PageIndex) -> Option<SupportsOf<Pallet<T>>> {
+		pub(crate) fn get_queued_solution_page(
+			page: PageIndex,
+		) -> Option<SupportsOfVerifier<Pallet<T>>> {
 			match Self::valid() {
 				ValidSolution::X => QueuedSolutionX::<T>::get(page),
 				ValidSolution::Y => QueuedSolutionY::<T>::get(page),
@@ -370,21 +388,23 @@ pub(crate) mod pallet {
 
 	#[cfg(any(test, debug_assertions))]
 	impl<T: Config> QueuedSolution<T> {
-		pub(crate) fn valid_iter() -> impl Iterator<Item = (PageIndex, SupportsOf<Pallet<T>>)> {
+		pub(crate) fn valid_iter(
+		) -> impl Iterator<Item = (PageIndex, SupportsOfVerifier<Pallet<T>>)> {
 			match Self::valid() {
 				ValidSolution::X => QueuedSolutionX::<T>::iter(),
 				ValidSolution::Y => QueuedSolutionY::<T>::iter(),
 			}
 		}
 
-		pub(crate) fn invalid_iter() -> impl Iterator<Item = (PageIndex, SupportsOf<Pallet<T>>)> {
+		pub(crate) fn invalid_iter(
+		) -> impl Iterator<Item = (PageIndex, SupportsOfVerifier<Pallet<T>>)> {
 			match Self::invalid() {
 				ValidSolution::X => QueuedSolutionX::<T>::iter(),
 				ValidSolution::Y => QueuedSolutionY::<T>::iter(),
 			}
 		}
 
-		pub(crate) fn get_valid_page(page: PageIndex) -> Option<SupportsOf<Pallet<T>>> {
+		pub(crate) fn get_valid_page(page: PageIndex) -> Option<SupportsOfVerifier<Pallet<T>>> {
 			match Self::valid() {
 				ValidSolution::X => QueuedSolutionX::<T>::get(page),
 				ValidSolution::Y => QueuedSolutionY::<T>::get(page),
@@ -452,10 +472,12 @@ pub(crate) mod pallet {
 	/// Writing them to a bugger and copying at the ned is slightly better, but expensive. This flag
 	/// system is best of both worlds.
 	#[pallet::storage]
-	type QueuedSolutionX<T: Config> = StorageMap<_, Twox64Concat, PageIndex, SupportsOf<Pallet<T>>>;
+	type QueuedSolutionX<T: Config> =
+		StorageMap<_, Twox64Concat, PageIndex, SupportsOfVerifier<Pallet<T>>>;
 	#[pallet::storage]
 	/// The `Y` variant of the current queued solution. Might be the valid one or not.
-	type QueuedSolutionY<T: Config> = StorageMap<_, Twox64Concat, PageIndex, SupportsOf<Pallet<T>>>;
+	type QueuedSolutionY<T: Config> =
+		StorageMap<_, Twox64Concat, PageIndex, SupportsOfVerifier<Pallet<T>>>;
 	/// Pointer to the variant of [`QueuedSolutionX`] or [`QueuedSolutionY`] that is currently
 	/// valid.
 	#[pallet::storage]
@@ -601,10 +623,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_verify_synchronous(
-		partial_solution: T::Solution,
+		partial_solution: SolutionOf<T::MinerConfig>,
 		claimed_score: ElectionScore,
 		page: PageIndex,
-	) -> Result<SupportsOf<Self>, FeasibilityError> {
+	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
 		// first, ensure this score will be good enough, even if valid..
 		let _ = Self::ensure_score_quality(claimed_score)?;
 
@@ -692,75 +714,27 @@ impl<T: Config> Pallet<T> {
 	/// - checks the number of winners to be less than or equal to `DesiredTargets` IN THIS PAGE
 	///   ONLY.
 	pub(super) fn feasibility_check_page_inner(
-		partial_solution: SolutionOf<T>,
+		partial_solution: SolutionOf<T::MinerConfig>,
 		page: PageIndex,
-	) -> Result<SupportsOf<Self>, FeasibilityError> {
+	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
 		// Read the corresponding snapshots.
 		let snapshot_targets =
 			crate::Snapshot::<T>::targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
 		let snapshot_voters =
 			crate::Snapshot::<T>::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)?;
-
-		// ----- Start building. First, we need some closures.
-		let cache = helpers::generate_voter_cache::<T, _>(&snapshot_voters);
-		let voter_at = helpers::voter_at_fn::<T>(&snapshot_voters);
-		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
-		let voter_index = helpers::voter_index_fn_usize::<T>(&cache);
-
-		// Then convert solution -> assignment. This will fail if any of the indices are
-		// gibberish.
-		let assignments = partial_solution
-			.into_assignment(voter_at, target_at)
-			.map_err::<FeasibilityError, _>(Into::into)?;
-
-		// Ensure that assignments are all correct.
-		let _ = assignments
-			.iter()
-			.map(|ref assignment| {
-				// Check that assignment.who is actually a voter (defensive-only). NOTE: while
-				// using the index map from `voter_index` is better than a blind linear search,
-				// this *still* has room for optimization. Note that we had the index when we
-				// did `solution -> assignment` and we lost it. Ideal is to keep the index
-				// around.
-
-				// Defensive-only: must exist in the snapshot.
-				let snapshot_index =
-					voter_index(&assignment.who).ok_or(FeasibilityError::InvalidVoter)?;
-				// Defensive-only: index comes from the snapshot, must exist.
-				let (_voter, _stake, targets) =
-					snapshot_voters.get(snapshot_index).ok_or(FeasibilityError::InvalidVoter)?;
-				debug_assert!(*_voter == assignment.who);
-
-				// Check that all of the targets are valid based on the snapshot.
-				if assignment.distribution.iter().any(|(t, _)| !targets.contains(t)) {
-					return Err(FeasibilityError::InvalidVote)
-				}
-				Ok(())
-			})
-			.collect::<Result<(), FeasibilityError>>()?;
-
-		// ----- Start building support. First, we need one more closure.
-		let stake_of = helpers::stake_of_fn::<T, _>(&snapshot_voters, &cache);
-
-		// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
-		let staked_assignments =
-			sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, stake_of)
-				.map_err::<FeasibilityError, _>(Into::into)?;
-
-		let supports = sp_npos_elections::to_supports(&staked_assignments);
-
-		// Ensure some heuristics. These conditions must hold in the **entire** support, this is
-		// just a single page. But, they must hold in a single page as well.
 		let desired_targets =
 			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
-		ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
 
-		// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
-		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
-		// is ALSO checked, so this conversion can almost never fail.
-		let bounded_supports =
-			supports.try_into().map_err(|_| FeasibilityError::FailedToBoundSupport)?;
-		Ok(bounded_supports)
+		feasibility_check_page_inner_with_snapshot::<T::MinerConfig>(
+			partial_solution,
+			&snapshot_voters,
+			&snapshot_targets,
+			desired_targets,
+		)
+		.and_then(|miner_supports| {
+			SupportsOfVerifier::<Self>::try_from_other_bounds(miner_supports)
+				.defensive_map_err(|_| FeasibilityError::FailedToBoundSupport)
+		})
 	}
 
 	#[cfg(debug_assertions)]
@@ -769,11 +743,82 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+/// Same as `feasibility_check_page_inner`, but with a snapshot.
+///
+/// This is exported as a standalone function, relying on `MinerConfig` rather than `Config` so that
+/// it can be used in any offchain miner.
+pub fn feasibility_check_page_inner_with_snapshot<T: MinerConfig>(
+	partial_solution: SolutionOf<T>,
+	snapshot_voters: &BoundedVec<VoterOf<T>, T::VoterSnapshotPerBlock>,
+	snapshot_targets: &BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
+	desired_targets: u32,
+) -> Result<SupportsOfMiner<T>, FeasibilityError> {
+	// ----- Start building. First, we need some closures.
+	let cache = helpers::generate_voter_cache::<T, _>(snapshot_voters);
+	let voter_at = helpers::voter_at_fn::<T>(snapshot_voters);
+	let target_at = helpers::target_at_fn::<T>(snapshot_targets);
+	let voter_index = helpers::voter_index_fn_usize::<T>(&cache);
+
+	// Then convert solution -> assignment. This will fail if any of the indices are
+	// gibberish.
+	let assignments = partial_solution
+		.into_assignment(voter_at, target_at)
+		.map_err::<FeasibilityError, _>(Into::into)?;
+
+	// Ensure that assignments are all correct.
+	let _ = assignments
+		.iter()
+		.map(|ref assignment| {
+			// Check that assignment.who is actually a voter (defensive-only). NOTE: while
+			// using the index map from `voter_index` is better than a blind linear search,
+			// this *still* has room for optimization. Note that we had the index when we
+			// did `solution -> assignment` and we lost it. Ideal is to keep the index
+			// around.
+
+			// Defensive-only: must exist in the snapshot.
+			let snapshot_index =
+				voter_index(&assignment.who).ok_or(FeasibilityError::InvalidVoter)?;
+			// Defensive-only: index comes from the snapshot, must exist.
+			let (_voter, _stake, targets) =
+				snapshot_voters.get(snapshot_index).ok_or(FeasibilityError::InvalidVoter)?;
+			debug_assert!(*_voter == assignment.who);
+
+			// Check that all of the targets are valid based on the snapshot.
+			if assignment.distribution.iter().any(|(t, _)| !targets.contains(t)) {
+				return Err(FeasibilityError::InvalidVote)
+			}
+			Ok(())
+		})
+		.collect::<Result<(), FeasibilityError>>()?;
+
+	// ----- Start building support. First, we need one more closure.
+	let stake_of = helpers::stake_of_fn::<T, _>(&snapshot_voters, &cache);
+
+	// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
+	let staked_assignments =
+		sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, stake_of)
+			.map_err::<FeasibilityError, _>(Into::into)?;
+
+	let supports = sp_npos_elections::to_supports(&staked_assignments);
+
+	// Ensure some heuristics. These conditions must hold in the **entire** support, this is
+	// just a single page. But, they must hold in a single page as well.
+	ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
+
+	// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
+	// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
+	// is ALSO checked, so this conversion can almost never fail.
+	let bounded_supports =
+		supports.try_into().map_err(|_| FeasibilityError::FailedToBoundSupport)?;
+	Ok(bounded_supports)
+}
+
 impl<T: Config> Verifier for Pallet<T> {
 	type AccountId = T::AccountId;
-	type Solution = SolutionOf<T>;
+	type Solution = SolutionOf<T::MinerConfig>;
 	type MaxBackersPerWinner = T::MaxBackersPerWinner;
 	type MaxWinnersPerPage = T::MaxWinnersPerPage;
+	type MaxBackersPerWinnerFinal = T::MaxBackersPerWinnerFinal;
 
 	fn set_minimum_score(score: ElectionScore) {
 		MinimumScore::<T>::put(score);
@@ -792,7 +837,7 @@ impl<T: Config> Verifier for Pallet<T> {
 		<StatusStorage<T>>::put(Status::Nothing);
 	}
 
-	fn get_queued_solution_page(page: PageIndex) -> Option<SupportsOf<Self>> {
+	fn get_queued_solution_page(page: PageIndex) -> Option<SupportsOfVerifier<Self>> {
 		QueuedSolution::<T>::get_queued_solution_page(page)
 	}
 
@@ -800,7 +845,7 @@ impl<T: Config> Verifier for Pallet<T> {
 		partial_solution: Self::Solution,
 		claimed_score: ElectionScore,
 		page: PageIndex,
-	) -> Result<SupportsOf<Self>, FeasibilityError> {
+	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
 		let maybe_current_score = Self::queued_score();
 		match Self::do_verify_synchronous(partial_solution, claimed_score, page) {
 			Ok(supports) => {
@@ -832,12 +877,12 @@ impl<T: Config> Verifier for Pallet<T> {
 	fn feasibility_check_page(
 		partial_solution: Self::Solution,
 		page: PageIndex,
-	) -> Result<SupportsOf<Self>, FeasibilityError> {
+	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
 		Self::feasibility_check_page_inner(partial_solution, page)
 	}
 
 	fn force_set_single_page_valid(
-		partial_supports: SupportsOf<Self>,
+		partial_supports: SupportsOfVerifier<Self>,
 		page: PageIndex,
 		score: ElectionScore,
 	) {

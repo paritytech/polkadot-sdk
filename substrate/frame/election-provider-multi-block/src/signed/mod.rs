@@ -40,7 +40,10 @@
 //!
 //! **Metadata update**: imagine you mis-computed your score.
 
-use crate::verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult};
+use crate::{
+	types::SolutionOf,
+	verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult},
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::PageIndex;
 use frame_support::{
@@ -93,7 +96,8 @@ pub struct SubmissionMetadata<T: Config> {
 }
 
 impl<T: Config> SolutionDataProvider for Pallet<T> {
-	type Solution = T::Solution;
+	type Solution = SolutionOf<T::MinerConfig>;
+
 	fn get_page(page: PageIndex) -> Option<Self::Solution> {
 		// note: a non-existing page will still be treated as merely an empty page. This could be
 		// re-considered.
@@ -269,7 +273,7 @@ pub mod pallet {
 	///       - And the value of `metadata.score` must be equal to the score stored in
 	///         `SortedScores`.
 	/// - And visa versa: for any key existing in `SubmissionMetadataStorage`, an item must exist in
-	///   `SortedScores`. TODO:
+	///   `SortedScores`.
 	/// - For any first key existing in `SubmissionStorage`, a key must exist in
 	///   `SubmissionMetadataStorage`.
 	/// - For any first key in `SubmissionStorage`, the number of second keys existing should be the
@@ -301,7 +305,7 @@ pub mod pallet {
 			NMapKey<Twox64Concat, T::AccountId>,
 			NMapKey<Twox64Concat, PageIndex>,
 		),
-		T::Solution,
+		SolutionOf<T::MinerConfig>,
 		OptionQuery,
 	>;
 
@@ -461,7 +465,7 @@ pub mod pallet {
 			round: u32,
 			who: &T::AccountId,
 			page: PageIndex,
-			maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResultWithPostInfo {
 			Self::mutate_checked(round, || {
 				Self::try_mutate_page_inner(round, who, page, maybe_solution)
@@ -472,7 +476,7 @@ pub mod pallet {
 			round: u32,
 			who: &T::AccountId,
 			page: PageIndex,
-			maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResultWithPostInfo {
 			let mut metadata =
 				SubmissionMetadataStorage::<T>::get(round, who).ok_or(Error::<T>::NotRegistered)?;
@@ -528,7 +532,7 @@ pub mod pallet {
 			round: u32,
 			who: &T::AccountId,
 			page: PageIndex,
-		) -> Option<T::Solution> {
+		) -> Option<SolutionOf<T::MinerConfig>> {
 			SubmissionStorage::<T>::get((round, who, &page))
 		}
 	}
@@ -537,7 +541,7 @@ pub mod pallet {
 	impl<T: Config> Submissions<T> {
 		pub fn submissions_iter(
 			round: u32,
-		) -> impl Iterator<Item = (T::AccountId, PageIndex, T::Solution)> {
+		) -> impl Iterator<Item = (T::AccountId, PageIndex, SolutionOf<T::MinerConfig>)> {
 			SubmissionStorage::<T>::iter_prefix((round,)).map(|((x, y), z)| (x, y, z))
 		}
 
@@ -554,7 +558,7 @@ pub mod pallet {
 		pub fn pages_of(
 			round: u32,
 			who: T::AccountId,
-		) -> impl Iterator<Item = (PageIndex, T::Solution)> {
+		) -> impl Iterator<Item = (PageIndex, SolutionOf<T::MinerConfig>)> {
 			SubmissionStorage::<T>::iter_prefix((round, who))
 		}
 
@@ -701,7 +705,7 @@ pub mod pallet {
 		pub fn submit_page(
 			origin: OriginFor<T>,
 			page: PageIndex,
-			maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(crate::Pallet::<T>::current_phase().is_signed(), Error::<T>::PhaseNotSigned);
