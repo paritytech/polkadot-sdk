@@ -495,10 +495,10 @@ where
 	/// Removes a transaction with given hash from the memory pool.
 	pub(super) fn remove_transaction(
 		&self,
-		hash: &ExtrinsicHash<ChainApi>,
+		tx_hash: &ExtrinsicHash<ChainApi>,
 	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
-		debug!(target: LOG_TARGET, ?hash, "mempool::remove_transaction");
-		self.transactions.write().remove(hash)
+		debug!(target: LOG_TARGET, ?tx_hash, "mempool::remove_transaction");
+		self.transactions.write().remove(tx_hash)
 	}
 
 	/// Revalidates a batch of transactions against the provided finalized block.
