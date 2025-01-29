@@ -511,8 +511,8 @@ environmental::environmental!(recursion_count: u8);
 ///
 /// Note: The nested XCM is checked recursively!
 pub struct DenyInstructionsWithXcm<Inner>(PhantomData<Inner>);
-impl<Inner: ShouldExecute> ShouldExecute for DenyInstructionsWithXcm<Inner> {
-	fn should_execute<RuntimeCall>(
+impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -525,11 +525,11 @@ impl<Inner: ShouldExecute> ShouldExecute for DenyInstructionsWithXcm<Inner> {
 				SetErrorHandler(nested_xcm) |
 				ExecuteWithOrigin { xcm: nested_xcm, .. } => {
 					// check xcm instructions with `Inner` filter
-					let _ = Inner::should_execute(origin, nested_xcm.inner_mut(), max_weight, properties)
+					let _ = Inner::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
 						.inspect_err(|e| {
 							log::warn!(
 								target: "xcm::barriers",
-								"`DenyInstructionsWithXcm`'s `Inner::should_execute` did not pass for origin: {:?} and nested_xcm: {:?} with error: {:?}",
+								"`DenyInstructionsWithXcm`'s `Inner::deny_execution` did not pass for origin: {:?} and nested_xcm: {:?} with error: {:?}",
 								origin,
 								nested_xcm,
 								e
@@ -564,7 +564,7 @@ impl<Inner: ShouldExecute> ShouldExecute for DenyInstructionsWithXcm<Inner> {
 						}
 
 						// check recursively with `DenyInstructionsWithXcm`
-						Self::should_execute(origin, nested_xcm.inner_mut(), max_weight, properties)
+						Self::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
 					})?;
 
 					Ok(ControlFlow::Continue(()))
@@ -665,14 +665,14 @@ where
 // Check nested XCM from top-level
 pub struct DenyFirstInstructionsWithXcm<Inner>(PhantomData<Inner>);
 
-impl<Inner: ShouldExecute> ShouldExecute for DenyFirstInstructionsWithXcm<Inner> {
-	fn should_execute<RuntimeCall>(
+impl<Inner: DenyExecution> DenyExecution for DenyFirstInstructionsWithXcm<Inner> {
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Inner::should_execute(origin, message, max_weight, properties)
+		Inner::deny_execution(origin, message, max_weight, properties)
 			.inspect_err(|e| {
 				log::warn!(
 					target: "xcm::barriers",
@@ -693,7 +693,7 @@ impl<Inner: ShouldExecute> ShouldExecute for DenyFirstInstructionsWithXcm<Inner>
 						origin, nested_xcm
 					);
 
-					let _ = Inner::should_execute(origin, nested_xcm.inner_mut(), max_weight, properties)
+					let _ = Inner::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
 						.inspect_err(|e| {
 							log::warn!(
 								target: "xcm::barriers",
@@ -723,7 +723,7 @@ impl<Inner: ShouldExecute> ShouldExecute for DenyFirstInstructionsWithXcm<Inner>
 							});
 						}
 
-						Self::should_execute(origin, nested_xcm.inner_mut(), max_weight, properties)
+						Self::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
 					})?;
 
 					Ok(ControlFlow::Continue(()))
