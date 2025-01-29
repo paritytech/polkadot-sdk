@@ -17,9 +17,12 @@ use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dm
 
 use super::reserve_transfer::*;
 use crate::{
+	foreign_balance_on,
+	create_pool_with_wnd_on,
 	imports::*,
 	tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt,
 };
+use emulated_integration_tests_common::USDT_ID;
 
 fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -1038,4 +1041,181 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 		execute_xcm_penpal_to_asset_hub,
 		execute_xcm_asset_hub_to_penpal,
 	);
+}
+
+// We transfer USDT from PenpalA to PenpalB through Asset Hub.
+// The sender on PenpalA pays delivery fees in WND.
+// When the message arrives to Asset Hub, execution and delivery fees are paid in USDT
+// swapping for WND automatically.
+// When it arrives to PenpalB, execution fees are paid with USDT by swapping for WND.
+#[test]
+fn usdt_only_transfer_from_para_to_para_through_asset_hub() {
+	// Initialize necessary variables.
+	let amount_to_send = 1_000_000_000_000;
+	let sender = PenpalASender::get();
+	let destination = PenpalA::sibling_location_of(PenpalB::para_id());
+	let penpal_a_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalA::para_id());
+	let sov_penpal_on_ah = AssetHubWestend::sovereign_account_id_of(penpal_a_as_seen_by_ah);
+	let receiver = PenpalBReceiver::get();
+	let fee_asset_item = 0;
+	let usdt_location: Location =
+		(Parent, Parachain(1000), PalletInstance(50), GeneralIndex(1984)).into();
+	let usdt_location_ah: Location = (PalletInstance(50), GeneralIndex(1984)).into();
+	let wnd_location = Location::parent();
+	let assets: Vec<Asset> = vec![(usdt_location.clone(), amount_to_send).into()];
+
+	// Sender needs some wnd to pay for delivery fees.
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		wnd_location.clone(),
+		sender.clone(),
+		10_000_000_000_000,
+	);
+
+	// The sovereign account of PenpalA in AssetHubWestend needs to have the same amount of USDT
+	// since it's the reserve.
+	AssetHubWestend::mint_asset(
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+		USDT_ID,
+		sov_penpal_on_ah,
+		10_000_000_000_000,
+	);
+
+	// Mint USDT to sender to be able to transfer.
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		usdt_location.clone(),
+		sender.clone(),
+		10_000_000_000_000,
+	);
+
+	// AssetHubWestend has a pool between USDT and wnd so fees can be paid with USDT by automatically
+	// swapping them for wnd.
+	create_pool_with_wnd_on!(
+		AssetHubWestend,
+		usdt_location_ah,
+		false,
+		AssetHubWestendAssetOwner::get()
+	);
+
+	// PenpalB has a pool between USDT and wnd so fees can be paid with USDT by automatically
+	// swapping them for wnd.
+	create_pool_with_wnd_on!(PenpalB, usdt_location.clone(), true, PenpalAssetOwner::get());
+
+	// Sender starts with a lot of USDT.
+	let sender_balance_before = foreign_balance_on!(PenpalA, usdt_location.clone(), &sender);
+	assert_eq!(sender_balance_before, 10_000_000_000_000);
+
+	// Receiver has no USDT.
+	let receiver_balance_before = foreign_balance_on!(PenpalB, usdt_location.clone(), &receiver);
+	assert_eq!(receiver_balance_before, 0);
+
+	let test_args = TestContext {
+		sender: sender.clone(),
+		receiver: receiver.clone(),
+		args: TestArgs::new_para(
+			destination.clone(),
+			receiver.clone(),
+			amount_to_send,
+			assets.into(),
+			None,
+			fee_asset_item,
+		),
+	};
+	let mut test = ParaToParaThroughAHTest::new(test_args);
+
+	// Assertions executed on the sender, PenpalA.
+	fn sender_assertions(_: ParaToParaThroughAHTest) {
+		type Event = <PenpalA as Chain>::RuntimeEvent;
+
+		let transfer_amount = 1_000_000_000_000;
+		let usdt_location: Location =
+			(Parent, Parachain(1000), PalletInstance(50), GeneralIndex(1984)).into();
+
+		assert_expected_events!(
+			PenpalA,
+			vec![
+				Event::ForeignAssets(
+					pallet_assets::Event::Burned { asset_id, balance, .. }
+				) => {
+					asset_id: *asset_id == usdt_location.clone(),
+					balance: *balance == transfer_amount,
+				},
+			]
+		);
+	}
+
+	// Assertions executed on the intermediate hop, AssetHubWestend.
+	fn ah_assertions(_: ParaToParaThroughAHTest) {
+		type Event = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		let transfer_amount = 1_000_000_000_000;
+		let penpal_a_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalA::para_id());
+		let sov_penpal_on_ah = AssetHubWestend::sovereign_account_id_of(penpal_a_as_seen_by_ah);
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				// USDT is burned from sovereign account of PenpalA.
+				Event::Assets(
+					pallet_assets::Event::Burned { asset_id, owner, balance }
+				) => {
+					asset_id: *asset_id == 1984,
+					owner: *owner == sov_penpal_on_ah,
+					balance: *balance == transfer_amount,
+				},
+				// Credit is swapped.
+				Event::AssetConversion(
+					pallet_asset_conversion::Event::SwapCreditExecuted { .. }
+				) => {},
+				// Message from PenpalA was processed.
+				Event::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+			]
+		);
+	}
+
+	// Assertions executed on the receiver, PenpalB.
+	fn receiver_assertions(_: ParaToParaThroughAHTest) {
+		type Event = <PenpalB as Chain>::RuntimeEvent;
+
+		let usdt_location: Location =
+			(Parent, Parachain(1000), PalletInstance(50), GeneralIndex(1984)).into();
+		let receiver = PenpalBReceiver::get();
+		let final_amount = 990_665_188_940;
+
+		assert_expected_events!(
+			PenpalB,
+			vec![
+				// Final amount gets deposited to receiver.
+				Event::ForeignAssets(
+					pallet_assets::Event::Issued { asset_id, owner, amount }
+				) => {
+					asset_id: *asset_id == usdt_location,
+					owner: *owner == receiver,
+					amount: *amount == final_amount,
+				},
+				// Swap was made to pay fees with USDT.
+				Event::AssetConversion(
+					pallet_asset_conversion::Event::SwapCreditExecuted { .. }
+				) => {},
+			]
+		);
+	}
+
+	// Run test and assert.
+	test.set_assertion::<PenpalA>(sender_assertions);
+	test.set_assertion::<AssetHubWestend>(ah_assertions);
+	test.set_assertion::<PenpalB>(receiver_assertions);
+	test.set_dispatchable::<PenpalA>(para_to_para_transfer_assets_through_ah);
+	test.assert();
+
+	// Sender has less USDT after the transfer.
+	let sender_balance_after = foreign_balance_on!(PenpalA, usdt_location.clone(), &sender);
+	assert_eq!(sender_balance_after, 9_000_000_000_000);
+
+	// Receiver gets `transfer_amount` minus fees.
+	let receiver_balance_after = foreign_balance_on!(PenpalB, usdt_location.clone(), &receiver);
+	assert_eq!(receiver_balance_after, 907_816_771_858);
 }
