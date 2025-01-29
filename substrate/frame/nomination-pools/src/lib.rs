@@ -1866,10 +1866,7 @@ pub mod pallet {
 		/// Claimed excess frozen ED of af the reward pool.
 		MinBalanceExcessAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
 		/// A pool member's claim permission has been updated.
-		MemberClaimPermissionUpdated {
-			member: T::AccountId,
-			permission: ClaimPermission,
-		},
+		MemberClaimPermissionUpdated { member: T::AccountId, permission: ClaimPermission },
 		/// A pool's metadata was updated.
 		MetadataUpdated { pool_id: PoolId, caller: T::AccountId },
 		/// A pool's nominator was chilled.
@@ -1882,7 +1879,7 @@ pub mod pallet {
 			max_members_per_pool: Option<u32>,
 			max_members: Option<u32>,
 			global_max_commission: Option<Perbill>,
-		}
+		},
 	}
 
 	#[pallet::error]
@@ -2532,8 +2529,8 @@ pub mod pallet {
 		///
 		/// # Note
 		///
-		/// In addition to a `root` or `nominator` role of `origin`, the pool's depositor needs to have
-		/// at least `depositor_min_bond` in the pool to start nominating.
+		/// In addition to a `root` or `nominator` role of `origin`, the pool's depositor needs to
+		/// have at least `depositor_min_bond` in the pool to start nominating.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() as u32))]
 		pub fn nominate(
@@ -2833,7 +2830,10 @@ pub mod pallet {
 				*source = permission;
 			});
 
-			Self::deposit_event(Event::<T>::MemberClaimPermissionUpdated { member: who, permission });
+			Self::deposit_event(Event::<T>::MemberClaimPermissionUpdated {
+				member: who,
+				permission,
+			});
 
 			Ok(())
 		}
@@ -2955,11 +2955,12 @@ pub mod pallet {
 		/// If the pool has set `CommissionClaimPermission::Permissionless`, then any account can
 		/// trigger the process of claiming the pool's commission.
 		///
-		/// If the pool has set its `CommissionClaimPermission` to `Account(acc)`, then only accounts
-		/// `acc` and the pool's root account may call this extrinsic on behalf of the pool.
+		/// If the pool has set its `CommissionClaimPermission` to `Account(acc)`, then only
+		/// accounts `acc` and the pool's root account may call this extrinsic on behalf of the
+		/// pool.
 		///
-		/// Pending commission is paid out and added to total claimed commission`. Total pending commission
-		/// is reset to zero.
+		/// Pending commission is paid out and added to total claimed commission`. Total pending
+		/// commission is reset to zero.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::claim_commission())]
 		pub fn claim_commission(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
