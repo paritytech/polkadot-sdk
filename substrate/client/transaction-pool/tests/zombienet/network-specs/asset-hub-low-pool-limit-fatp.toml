@@ -40,12 +40,13 @@ default_args = [
 	"-lsync=trace",
 	"-ltxpool=debug",
 ]
-genesis_overrides = "{\"genesis\" : { \"runtimeGenesis\" : { \"patch\": \"balances\": { \"balances\": [[\"5H6xHTXGMkafYD2ZBc9FxjjST1ipWPyJhUXNcmpopsstRM3R\", 200000000]]}}}}"
-# [parachains.genesis.runtimeGenesis.patch.balances]
-# dev_accounts = [
-# 	20000,
-# 	1000000000000000000,
-# ]
+#genesis_overrides = "{\"genesis\" : { \"runtimeGenesis\" : { \"patch\": \"balances\": { \"balances\": [[\"5H6xHTXGMkafYD2ZBc9FxjjST1ipWPyJhUXNcmpopsstRM3R\", 200000000]]}}}}"
+[parachains.genesis.runtimeGenesis.patch.balances]
+devAccounts = [
+ 	20000,
+ 	1000000000000000000,
+         "//Sender//{}"
+ ]
 
 # run charlie as parachain collator
 [[parachains.collators]]
