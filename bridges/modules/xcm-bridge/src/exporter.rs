@@ -301,7 +301,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let is_congested =
 			enqueued_messages > T::CongestionLimits::get().outbound_lane_uncongested_threshold;
 		if is_congested {
-			// and if it is bellow the `stop_threshold`
+			// and if it is below the `stop_threshold`
 			if enqueued_messages < T::CongestionLimits::get().outbound_lane_stop_threshold {
 				if let Some((bridge_id, bridge)) = Self::bridge_by_lane_id(&lane_id) {
 					if let BridgeState::HardSuspended = bridge.state {

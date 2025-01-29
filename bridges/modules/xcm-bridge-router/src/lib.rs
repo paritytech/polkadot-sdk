@@ -578,7 +578,7 @@ mod tests {
 			let dest =
 				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
 
-			// make bridge congested + update fee factor
+			// bridge not congested
 			let old_delivery_fee_factor = FixedU128::from_rational(125, 100);
 			set_bridge_state_for::<TestRuntime, ()>(
 				&dest,
