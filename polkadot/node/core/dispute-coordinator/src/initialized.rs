@@ -504,7 +504,7 @@ impl Initialized {
 					target: LOG_TARGET,
 					?session_index,
 					?candidate_hash,
-					?key_ownership_proof,
+					key_ownership_proof_len = key_ownership_proof.len(),
 					"Trying to submit a slashing report",
 				);
 
