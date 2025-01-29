@@ -82,22 +82,21 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
-				WithdrawAsset(ref assets)
-				| ReceiveTeleportedAsset(ref assets)
-				| ReserveAssetDeposited(ref assets)
-				| ClaimAsset { ref assets, .. } => {
+				WithdrawAsset(ref assets) |
+				ReceiveTeleportedAsset(ref assets) |
+				ReserveAssetDeposited(ref assets) |
+				ClaimAsset { ref assets, .. } =>
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
 					} else {
 						Err(ProcessMessageError::BadFormat)
-					}
-				},
+					},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| {
-				matches!(inst, ClearOrigin | AliasOrigin(..))
-					|| matches!(inst, DescendOrigin(child) if child != &Here)
-					|| matches!(inst, SetHints { .. })
+				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
+					matches!(inst, DescendOrigin(child) if child != &Here) ||
+					matches!(inst, SetHints { .. })
 			})?
 			.match_next_inst(|inst| match inst {
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
@@ -372,9 +371,7 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 			.match_next_inst(|inst| match inst {
 				QueryResponse { query_id, querier, .. }
 					if ResponseHandler::expecting_response(origin, *query_id, querier.as_ref()) =>
-				{
-					Ok(())
-				},
+					Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -434,9 +431,9 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 			.matcher()
 			.assert_remaining_insts(1)?
 			.match_next_inst(|inst| match inst {
-				HrmpNewChannelOpenRequest { .. }
-				| HrmpChannelAccepted { .. }
-				| HrmpChannelClosing { .. } => Ok(()),
+				HrmpNewChannelOpenRequest { .. } |
+				HrmpChannelAccepted { .. } |
+				HrmpChannelClosing { .. } => Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -481,9 +478,9 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 				InitiateReserveWithdraw {
 					reserve: Location { parents: 1, interior: Here },
 					..
-				}
-				| DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. }
-				| TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
+				} |
+				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
+				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
 					Err(ProcessMessageError::Unsupported) // Deny
 				},
 
@@ -509,7 +506,8 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 environmental::environmental!(recursion_count: u8);
 
 // TBD:
-/// Applies the `Inner` filter to the nested XCM for the `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instructions.
+/// Applies the `Inner` filter to the nested XCM for the `SetAppendix`, `SetErrorHandler`, and
+/// `ExecuteWithOrigin` instructions.
 ///
 /// Note: The nested XCM is checked recursively!
 pub struct DenyInstructionsWithXcm<Inner>(PhantomData<Inner>);
