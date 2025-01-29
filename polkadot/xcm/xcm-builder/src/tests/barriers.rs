@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use xcm_executor::traits::Properties;
-
 use super::*;
+use crate::barriers::DenyFirstInstructionsWithXcm;
+use xcm_executor::traits::Properties;
 
 fn props(weight_credit: Weight) -> Properties {
 	Properties { weight_credit, message_id: None }
@@ -844,6 +844,8 @@ fn deny_instructions_with_xcm_works() {
 
 #[test]
 fn test_deny_hardcoded_nested_xcm() {
+	frame_support::__private::sp_tracing::try_init_simple();
+
 	use crate::barriers::HardcodedDenyThenTry;
 
 	struct AllowAll;
@@ -906,4 +908,81 @@ fn test_deny_hardcoded_nested_xcm() {
 	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(nested_xcm.clone())]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_ok());
+}
+
+#[test]
+fn deny_top_level_instructions_with_xcm_works() {
+	frame_support::__private::sp_tracing::try_init_simple();
+
+	// dummy filter which denies `ClearOrigin`
+	struct DenyClearOrigin;
+	impl ShouldExecute for DenyClearOrigin {
+		fn should_execute<RuntimeCall>(
+			_: &Location,
+			message: &mut [Instruction<RuntimeCall>],
+			_: Weight,
+			_: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			message.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearOrigin => Err(ProcessMessageError::Unsupported),
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	// closure for (xcm, origin) testing with `DenyFirstInstructionsWithXcm` which denies
+	// `ClearOrigin` instruction
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			DenyFirstInstructionsWithXcm::<DenyClearOrigin>::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+
+	// ok
+	assert_should_execute(vec![ClearTransactStatus], Location::parent(), Ok(()));
+	// ok top-level contains `ClearOrigin`
+	assert_should_execute(vec![ClearOrigin], Location::parent(), Ok(()));
+	// ok - SetAppendix with XCM without ClearOrigin
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![ClearTransactStatus]))],
+		Location::parent(),
+		Ok(()),
+	);
+
+	// invalid - empty XCM
+	assert_should_execute(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
+	// invalid - SetAppendix with empty XCM
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![]))],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid SetAppendix contains `ClearOrigin`
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![ClearOrigin]))],
+		Location::parent(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// invalid nested SetAppendix contains `ClearOrigin`
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
+			Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+				SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+					SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))])),
+				]))]))])),
+			]))]))]))]),
+		)]))]))]))],
+		Location::parent(),
+		Err(ProcessMessageError::StackLimitReached),
+	);
 }

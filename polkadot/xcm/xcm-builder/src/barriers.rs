@@ -578,6 +578,9 @@ impl<Inner: ShouldExecute> ShouldExecute for DenyInstructionsWithXcm<Inner> {
 	}
 }
 
+// TBD:
+// Hardcode those three instructions (SetAppendix(xcm), SetErrorHandler(xcm), and ExecuteWithOrigin
+// { xcm, .. }) in DenyThenTry
 pub struct HardcodedDenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
 where
 	Deny: DenyExecution,
@@ -658,6 +661,8 @@ where
 	}
 }
 
+// TBD:
+// Check nested XCM from top-level
 pub struct DenyFirstInstructionsWithXcm<Inner>(PhantomData<Inner>);
 
 impl<Inner: ShouldExecute> ShouldExecute for DenyFirstInstructionsWithXcm<Inner> {
