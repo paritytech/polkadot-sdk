@@ -5,7 +5,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
-/// The `CheckState` is a strategy that accepts an an `Inspect` value and the `Inner` strategy.
+/// The `CheckState` is a strategy that accepts an `Inspect` value and the `Inner` strategy.
 ///
 /// It is meant to be used when the asset state check should be performed
 /// in addition to the `Inner` strategy.
