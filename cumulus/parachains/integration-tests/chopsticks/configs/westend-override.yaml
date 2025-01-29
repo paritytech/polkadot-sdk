@@ -15,5 +15,9 @@ import-storage:
               - providers: 1
                 data:
                     free: "10000000000000000000"
+            - - - 5ECaM5hgntoBwk7WSruqSyFy5wvEA1tNxaibtDrx2W6kNcfr # Smart Contract Sovereign Account
+              - providers: 1
+                data:
+                    free: "10000000000000000000"
     ParasDisputes:
         $removePrefix: ["disputes"]

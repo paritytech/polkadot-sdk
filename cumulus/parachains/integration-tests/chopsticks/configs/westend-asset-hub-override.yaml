@@ -23,7 +23,7 @@ import-storage:
                     { providers: 1, data: { free: 1000000000000000 } },
                 ], # Bob
                 [
-                    [5HYRCKHYJN9z5xUtfFkyMj4JUhsAwWyvuU8vKB1FcnYTf9ZQ],
+                    [5F9zau4ebeX91LbBMtHFpFPw6343rG2nqzKwou5tdfrFbL3s], # Smart Contract Substrate Address
                     { providers: 1, data: { free: 1000000000000000 } },
                 ],
             ]
