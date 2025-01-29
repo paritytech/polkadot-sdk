@@ -35,7 +35,7 @@ use xcm::GetVersion;
 use xcm_builder::{BridgeMessage, HaulBlob, HaulBlobError, HaulBlobExporter};
 use xcm_executor::traits::{validate_export, ExportXcm};
 
-pub(crate) type XcmAsPlainPayload = Vec<u8>;
+pub(crate) type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
 
 pub fn prepare_inbound_xcm(xcm_message: Xcm<()>, destination: InteriorLocation) -> Vec<u8> {
 	let location = xcm::VersionedInteriorLocation::from(destination);

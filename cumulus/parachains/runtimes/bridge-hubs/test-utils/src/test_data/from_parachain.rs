@@ -16,7 +16,10 @@
 
 //! Generating test data for bridges with remote parachains.
 
-use super::{from_grandpa_chain::make_complex_bridged_grandpa_header_proof, prepare_inbound_xcm, XcmAsPlainPayload};
+use super::{
+	from_grandpa_chain::make_complex_bridged_grandpa_header_proof, prepare_inbound_xcm,
+	XcmAsPlainPayload,
+};
 
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,

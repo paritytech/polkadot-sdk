@@ -87,7 +87,7 @@ impl<Runtime: crate::Config> OutXcmpChannelStatusProvider<Runtime> {
 	}
 }
 
-impl<Runtime: crate::Config> bp_xcm_bridge::ChannelStatusProvider
+impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
 	for OutXcmpChannelStatusProvider<Runtime>
 {
 	fn is_congested(with: &Location) -> bool {
@@ -95,7 +95,7 @@ impl<Runtime: crate::Config> bp_xcm_bridge::ChannelStatusProvider
 	}
 }
 
-impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+impl<Runtime: crate::Config> bp_xcm_bridge::ChannelStatusProvider
 	for OutXcmpChannelStatusProvider<Runtime>
 {
 	fn is_congested(with: &Location) -> bool {

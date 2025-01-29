@@ -388,8 +388,7 @@ fn execute_and_verify_calls<Runtime: frame_system::Config>(
 }
 
 pub(crate) mod for_pallet_xcm_bridge_hub {
-	use super::*;
-	use super::super::for_pallet_xcm_bridge_hub::*;
+	use super::{super::for_pallet_xcm_bridge_hub::*, *};
 
 	/// Helper function to open the bridge/lane for `source` and `destination` while ensuring all
 	/// required balances are placed into the SA of the source.
@@ -441,8 +440,9 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 				buy_execution_fee_amount.into();
 			let source_account_id =
 				LocationToAccountId::convert_location(&source).expect("valid location");
-			let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
-				.expect("mint_into passes");
+			let _ =
+				<pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
+					.expect("mint_into passes");
 			Some(buy_execution_fee)
 		} else {
 			None
@@ -555,8 +555,9 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 				buy_execution_fee_amount.into();
 			let source_account_id =
 				LocationToAccountId::convert_location(&expected_source).expect("valid location");
-			let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
-				.expect("mint_into passes");
+			let _ =
+				<pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
+					.expect("mint_into passes");
 			Some(buy_execution_fee)
 		} else {
 			None

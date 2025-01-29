@@ -656,10 +656,12 @@ where
 
 pub(crate) mod for_pallet_xcm_bridge_hub {
 	use super::*;
-	use crate::test_cases::helpers::for_pallet_xcm_bridge_hub::{ensure_opened_bridge, close_bridge, open_bridge_with_extrinsic};
+	use crate::test_cases::helpers::for_pallet_xcm_bridge_hub::{
+		close_bridge, ensure_opened_bridge, open_bridge_with_extrinsic,
+	};
 	pub(crate) use pallet_xcm_bridge_hub::{
-		Call as BridgeXcmOverBridgeCall, Config as BridgeXcmOverBridgeConfig, LanesManagerOf,
-		Bridge, BridgeState,
+		Bridge, BridgeState, Call as BridgeXcmOverBridgeCall, Config as BridgeXcmOverBridgeConfig,
+		LanesManagerOf,
 	};
 
 	/// Test-case makes sure that `Runtime` can open/close bridges.
@@ -774,12 +776,12 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 			);
 
 			// close bridge with Transact call
-			close_bridge::<
-				Runtime,
-				XcmOverBridgePalletInstance,
-				LocationToAccountId,
-				TokenLocation,
-			>(expected_source, destination, origin_with_origin_kind, is_paid_xcm_execution);
+			close_bridge::<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(
+				expected_source,
+				destination,
+				origin_with_origin_kind,
+				is_paid_xcm_execution,
+			);
 
 			// check bridge/lane DOES not exist
 			assert_eq!(
