@@ -463,7 +463,7 @@ where
 		&self,
 		hash: &ExtrinsicHash<ChainApi>,
 	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
-		log::debug!(target: LOG_TARGET, "[{hash:?}] mempool::remove_transaction");
+		log::trace!(target: LOG_TARGET, "[{hash:?}] mempool::remove_transaction");
 		self.transactions.write().remove(hash)
 	}
 
