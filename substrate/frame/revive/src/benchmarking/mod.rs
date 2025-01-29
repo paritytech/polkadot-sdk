@@ -940,7 +940,7 @@ mod benchmarks {
 			.ext()
 			.block_author()
 			.map(|account| T::AddressMapper::to_address(&account))
-			.expect("the benchmark runtime should be configured to have a block author");
+			.unwrap_or(H160::zero());
 		assert_eq!(&memory[..], block_author.as_bytes());
 	}
 
