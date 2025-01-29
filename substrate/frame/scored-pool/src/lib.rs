@@ -104,6 +104,7 @@ use codec::{FullCodec, MaxEncodedLen};
 use core::{cmp::Reverse, fmt::Debug};
 pub use pallet::*;
 use frame::runtime::prelude::*;
+use frame::traits::Currency;
 
 type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

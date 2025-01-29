@@ -205,7 +205,7 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert, ensure,
 		traits::{
-			ChangeMembers, Contains, Currency, EitherOf, EstimateNextSessionRotation, Get,
+			ChangeMembers, Contains, EitherOf, EstimateNextSessionRotation, Get,
 			InitializeMembers, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
 			OneSessionHandler, RankedMembers, RankedMembersSwapHandler, ReservableCurrency,
 		},
