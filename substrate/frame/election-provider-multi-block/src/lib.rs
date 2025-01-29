@@ -518,14 +518,11 @@ pub mod pallet {
 
 			match current_phase {
 				// start and continue snapshot.
-				Phase::Off
-					if remaining_blocks <= snapshot_deadline
-					// && remaining_blocks > signed_deadline // TODO do we need this?
-					=>
-				{
+				Phase::Off if remaining_blocks <= snapshot_deadline => {
 					let remaining_pages = Self::msp();
 					Self::create_targets_snapshot().defensive_unwrap_or_default();
-					Self::create_voters_snapshot_paged(remaining_pages).defensive_unwrap_or_default();
+					Self::create_voters_snapshot_paged(remaining_pages)
+						.defensive_unwrap_or_default();
 					Self::phase_transition(Phase::Snapshot(remaining_pages));
 					todo_weight
 				},
