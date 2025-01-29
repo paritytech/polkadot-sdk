@@ -76,9 +76,9 @@ mod impls;
 mod tests;
 
 // internal imports
-use crate::SupportsOf;
 use frame_election_provider_support::PageIndex;
-pub use impls::{pallet::*, Status};
+use impls::SupportsOfVerifier;
+pub use impls::{feasibility_check_page_inner_with_snapshot, pallet::*, Status};
 use sp_core::Get;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::RuntimeDebug;
@@ -134,17 +134,17 @@ pub trait Verifier {
 	/// The account if type.
 	type AccountId;
 
-	/// Maximum number of backers that each winner could have.
-	///
-	/// In multi-block verification, this can only be checked after all pages are known to be valid
-	/// and are already checked.
-	type MaxBackersPerWinner: Get<u32>;
-
 	/// Maximum number of winners that can be represented in each page.
 	///
 	/// A reasonable value for this should be the maximum number of winners that the election user
 	/// (e.g. the staking pallet) could ever desire.
 	type MaxWinnersPerPage: Get<u32>;
+	/// Maximum number of backers, per winner, among all pages of an election.
+	///
+	/// This can only be checked at the very final step of verification.
+	type MaxBackersPerWinnerFinal: Get<u32>;
+	/// Maximum number of backers that each winner could have, per page.
+	type MaxBackersPerWinner: Get<u32>;
 
 	/// Set the minimum score that is acceptable for any solution.
 	///
@@ -165,7 +165,7 @@ pub trait Verifier {
 	///
 	/// It is the responsibility of the call site to call this function with all appropriate
 	/// `page` arguments.
-	fn get_queued_solution_page(page: PageIndex) -> Option<SupportsOf<Self>>;
+	fn get_queued_solution_page(page: PageIndex) -> Option<SupportsOfVerifier<Self>>;
 
 	/// Perform the feasibility check on the given single-page solution.
 	///
@@ -182,7 +182,7 @@ pub trait Verifier {
 		partial_solution: Self::Solution,
 		claimed_score: ElectionScore,
 		page: PageIndex,
-	) -> Result<SupportsOf<Self>, FeasibilityError>;
+	) -> Result<SupportsOfVerifier<Self>, FeasibilityError>;
 
 	/// Just perform a single-page feasibility-check, based on the standards of this pallet, without
 	/// writing anything to anywhere.
@@ -191,14 +191,14 @@ pub trait Verifier {
 	fn feasibility_check_page(
 		partial_solution: Self::Solution,
 		page: PageIndex,
-	) -> Result<SupportsOf<Self>, FeasibilityError>;
+	) -> Result<SupportsOfVerifier<Self>, FeasibilityError>;
 
 	/// Force set a single page solution as the valid one.
 	///
 	/// Will erase any previous solution. Should only be used in case of emergency fallbacks and
 	/// similar.
 	fn force_set_single_page_valid(
-		partial_supports: SupportsOf<Self>,
+		partial_supports: SupportsOfVerifier<Self>,
 		page: PageIndex,
 		score: ElectionScore,
 	);

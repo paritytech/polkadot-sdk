@@ -71,21 +71,18 @@ mod pallet {
 		types::*,
 		unsigned::miner::{self},
 		verifier::Verifier,
+		CommonError,
 	};
 	use frame_support::pallet_prelude::*;
 	use frame_system::{offchain::CreateInherent, pallet_prelude::*};
 	use sp_runtime::traits::SaturatedConversion;
 	use sp_std::prelude::*;
 
-	/// convert a DispatchError to a custom InvalidTransaction with the inner code being the error
-	/// number.
-	fn dispatch_error_to_invalid(error: sp_runtime::DispatchError) -> InvalidTransaction {
-		use sp_runtime::ModuleError;
-		let error_number = match error {
-			DispatchError::Module(ModuleError { error, .. }) => error,
-			_ => [0u8, 0, 0, 0],
-		};
-		InvalidTransaction::Custom(error_number[0] as u8)
+	/// convert a [`crate::CommonError`] to a custom InvalidTransaction with the inner code being
+	/// the index of the variant.
+	fn base_error_to_invalid(error: CommonError) -> InvalidTransaction {
+		let index = error.encode().pop().unwrap_or(0);
+		InvalidTransaction::Custom(index)
 	}
 
 	pub trait WeightInfo {
@@ -114,16 +111,6 @@ mod pallet {
 
 		/// The priority of the unsigned transaction submitted in the unsigned-phase
 		type MinerTxPriority: Get<TransactionPriority>;
-		/// Maximum weight that the miner should consume.
-		///
-		/// The miner will ensure that the total weight of the unsigned solution will not exceed
-		/// this value, based on [`WeightInfo::submit_unsigned`].
-		type MinerMaxWeight: Get<Weight>;
-		/// Maximum length (bytes) that the mined solution should consume.
-		///
-		/// The miner will ensure that the total length of the unsigned solution will not exceed
-		/// this value.
-		type MinerMaxLength: Get<u32>;
 
 		type WeightInfo: WeightInfo;
 	}
@@ -145,9 +132,10 @@ mod pallet {
 		#[pallet::call_index(0)]
 		pub fn submit_unsigned(
 			origin: OriginFor<T>,
-			paged_solution: Box<PagedRawSolution<T>>,
+			paged_solution: Box<PagedRawSolution<T::MinerConfig>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
+			// TODO: remove the panic from this function for now.
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
@@ -199,7 +187,7 @@ mod pallet {
 						);
 						err
 					})
-					.map_err(dispatch_error_to_invalid)?;
+					.map_err(base_error_to_invalid)?;
 
 				ValidTransaction::with_tag_prefix("OffchainElection")
 					// The higher the score.minimal_stake, the better a paged_solution is.
@@ -223,7 +211,7 @@ mod pallet {
 		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
 			if let Call::submit_unsigned { paged_solution, .. } = call {
 				Self::validate_unsigned_checks(paged_solution.as_ref())
-					.map_err(dispatch_error_to_invalid)
+					.map_err(base_error_to_invalid)
 					.map_err(Into::into)
 			} else {
 				Err(InvalidTransaction::Call.into())
@@ -233,6 +221,11 @@ mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			// TODO: weight of a single page verification should be well below what we desire to
+			// have.
+		}
+
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
 
@@ -311,8 +304,8 @@ mod pallet {
 		/// These check both for snapshot independent checks, and some checks that are specific to
 		/// the unsigned phase.
 		pub(crate) fn validate_unsigned_checks(
-			paged_solution: &PagedRawSolution<T>,
-		) -> DispatchResult {
+			paged_solution: &PagedRawSolution<T::MinerConfig>,
+		) -> Result<(), CommonError> {
 			Self::unsigned_specific_checks(paged_solution)
 				.and(crate::Pallet::<T>::snapshot_independent_checks(paged_solution, None))
 				.map_err(Into::into)
@@ -322,20 +315,20 @@ mod pallet {
 		///
 		/// ensure solution has the correct phase, and it has only 1 page.
 		pub fn unsigned_specific_checks(
-			paged_solution: &PagedRawSolution<T>,
-		) -> Result<(), crate::Error<T>> {
+			paged_solution: &PagedRawSolution<T::MinerConfig>,
+		) -> Result<(), CommonError> {
 			ensure!(
 				crate::Pallet::<T>::current_phase().is_unsigned(),
-				crate::Error::<T>::EarlySubmission
+				CommonError::EarlySubmission
 			);
-
-			ensure!(paged_solution.solution_pages.len() == 1, crate::Error::<T>::WrongPageCount);
+			ensure!(paged_solution.solution_pages.len() == 1, CommonError::WrongPageCount);
 
 			Ok(())
 		}
 
 		#[cfg(test)]
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
+			// TODO
 			Ok(())
 		}
 	}

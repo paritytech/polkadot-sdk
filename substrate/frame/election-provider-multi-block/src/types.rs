@@ -18,30 +18,19 @@
 use frame_support::{
 	BoundedVec, CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+use sp_core::Get;
 use sp_std::{collections::btree_set::BTreeSet, fmt::Debug, prelude::*};
 
-use crate::Verifier;
+use crate::unsigned::miner::MinerConfig;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_election_provider_support::{BoundedSupports, ElectionProvider};
+use frame_election_provider_support::ElectionProvider;
 pub use frame_election_provider_support::{NposSolution, PageIndex};
 use scale_info::TypeInfo;
 pub use sp_npos_elections::{ElectionResult, ElectionScore};
-use sp_runtime::{
-	traits::{One, Saturating, Zero},
-	SaturatedConversion,
-};
-
-/// The supports that's returned from a given [`Verifier`].
-/// TODO: rename this
-pub type SupportsOf<V> = BoundedSupports<
-	<V as Verifier>::AccountId,
-	<V as Verifier>::MaxWinnersPerPage,
-	<V as Verifier>::MaxBackersPerWinner,
->;
+use sp_runtime::SaturatedConversion;
 
 /// The solution type used by this crate.
-pub type SolutionOf<T> = <T as crate::Config>::Solution;
-
+pub type SolutionOf<T> = <T as MinerConfig>::Solution;
 /// The voter index. Derived from [`SolutionOf`].
 pub type SolutionVoterIndexOf<T> = <SolutionOf<T> as NposSolution>::VoterIndex;
 /// The target index. Derived from [`SolutionOf`].
@@ -53,7 +42,7 @@ pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProvide
 
 /// The relative distribution of a voter's stake among the winning targets.
 pub type AssignmentOf<T> =
-	sp_npos_elections::Assignment<<T as frame_system::Config>::AccountId, SolutionAccuracyOf<T>>;
+	sp_npos_elections::Assignment<<T as MinerConfig>::AccountId, SolutionAccuracyOf<T>>;
 
 #[derive(
 	TypeInfo,
@@ -68,8 +57,8 @@ pub type AssignmentOf<T> =
 )]
 #[codec(mel_bound(T: crate::Config))]
 #[scale_info(skip_type_params(T))]
-pub struct PagedRawSolution<T: crate::Config> {
-	pub solution_pages: BoundedVec<SolutionOf<T>, T::Pages>,
+pub struct PagedRawSolution<T: MinerConfig> {
+	pub solution_pages: BoundedVec<SolutionOf<T>, <T as MinerConfig>::Pages>,
 	pub score: ElectionScore,
 	pub round: u32,
 }
@@ -132,7 +121,7 @@ impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolu
 	}
 }
 
-impl<T: crate::Config> PagedRawSolution<T> {
+impl<T: MinerConfig> PagedRawSolution<T> {
 	/// Get the total number of voters, assuming that voters in each page are unique.
 	pub fn voter_count(&self) -> usize {
 		self.solution_pages
@@ -163,20 +152,21 @@ impl<T: crate::Config> PagedRawSolution<T> {
 
 // NOTE on naming conventions: type aliases that end with `Of` should always be `Of<T: Config>`.
 
-/// Alias for a voter, parameterized by this crate's config.
-pub(crate) type VoterOf<T> =
-	frame_election_provider_support::VoterOf<<T as crate::Config>::DataProvider>;
+/// Alias for a voter, parameterized by the miner config.
+pub(crate) type VoterOf<T> = frame_election_provider_support::Voter<
+	<T as MinerConfig>::AccountId,
+	<T as MinerConfig>::MaxVotesPerVoter,
+>;
 
 /// Alias for a page of voters, parameterized by this crate's config.
-pub(crate) type VoterPageOf<T> =
-	BoundedVec<VoterOf<T>, <T as crate::Config>::VoterSnapshotPerBlock>;
+pub(crate) type VoterPageOf<T> = BoundedVec<VoterOf<T>, <T as MinerConfig>::VoterSnapshotPerBlock>;
 
 /// Alias for all pages of voters, parameterized by this crate's config.
-pub(crate) type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as crate::Config>::Pages>;
+pub(crate) type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as MinerConfig>::Pages>;
 
 /// Maximum number of items that [`AllVoterPagesOf`] can contain, when flattened.
-pub(crate) struct MaxFlattenedVoters<T: crate::Config>(sp_std::marker::PhantomData<T>);
-impl<T: crate::Config> frame_support::traits::Get<u32> for MaxFlattenedVoters<T> {
+pub(crate) struct MaxFlattenedVoters<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+impl<T: MinerConfig> Get<u32> for MaxFlattenedVoters<T> {
 	fn get() -> u32 {
 		T::VoterSnapshotPerBlock::get().saturating_mul(T::Pages::get())
 	}
@@ -220,53 +210,6 @@ pub enum ElectionCompute {
 impl Default for ElectionCompute {
 	fn default() -> Self {
 		ElectionCompute::OnChain
-	}
-}
-
-// TODO: maybe use it, else remove it.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
-pub enum PhaseExperimental<BlockNumber> {
-	Off,
-	Snapshot(BlockNumber),
-	Signed(BlockNumber),
-	SignedValidation(BlockNumber),
-	Unsigned(BlockNumber),
-	Emergency,
-}
-
-impl<BlockNumber: Saturating + Zero + One> PhaseExperimental<BlockNumber> {
-	pub fn tick(self, next_phase_len: BlockNumber) -> Self {
-		use PhaseExperimental::*;
-		match self {
-			Off => Snapshot(next_phase_len),
-			Snapshot(x) =>
-				if x.is_zero() {
-					Signed(next_phase_len)
-				} else {
-					Snapshot(x.saturating_sub(One::one()))
-				},
-			Signed(x) =>
-				if x.is_zero() {
-					SignedValidation(next_phase_len)
-				} else {
-					Signed(x.saturating_sub(One::one()))
-				},
-			SignedValidation(x) =>
-				if x.is_zero() {
-					Unsigned(next_phase_len)
-				} else {
-					SignedValidation(x.saturating_sub(One::one()))
-				},
-
-			Unsigned(x) =>
-				if x.is_zero() {
-					// note this: unsigned phase does not really end, only elect can end it.
-					Unsigned(Zero::zero())
-				} else {
-					Unsigned(x.saturating_sub(One::one()))
-				},
-			Emergency => Emergency,
-		}
 	}
 }
 
