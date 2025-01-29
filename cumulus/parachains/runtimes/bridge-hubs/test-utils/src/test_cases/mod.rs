@@ -65,8 +65,8 @@ pub(crate) mod bridges_prelude {
 }
 
 // Re-export test-case
-pub use for_pallet_xcm_bridge_hub::open_and_close_bridge_works;
 pub use for_pallet_xcm_bridge::open_and_close_xcm_bridge_works;
+pub use for_pallet_xcm_bridge_hub::open_and_close_bridge_works;
 
 // Re-export test_case from assets
 pub use asset_test_utils::include_teleports_for_native_asset_works;
@@ -740,8 +740,8 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 						maybe_paid_execution
 					)
 				)
-					.0
-					.bridge_id(),
+				.0
+				.bridge_id(),
 				locations.bridge_id()
 			);
 
@@ -804,10 +804,12 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 
 pub(crate) mod for_pallet_xcm_bridge {
 	use super::*;
-	use crate::test_cases::helpers::for_pallet_xcm_bridge::{ensure_opened_xcm_bridge, close_xcm_bridge, open_xcm_bridge_with_extrinsic};
+	use crate::test_cases::helpers::for_pallet_xcm_bridge::{
+		close_xcm_bridge, ensure_opened_xcm_bridge, open_xcm_bridge_with_extrinsic,
+	};
 	pub(crate) use pallet_xcm_bridge::{
-		Call as BridgeXcmOverBridgeCall, Config as BridgeXcmOverBridgeConfig, LanesManagerOf,
-		Bridge, BridgeState,
+		Bridge, BridgeState, Call as BridgeXcmOverBridgeCall, Config as BridgeXcmOverBridgeConfig,
+		LanesManagerOf,
 	};
 
 	/// Test-case makes sure that `Runtime` can open/close bridges.
@@ -891,8 +893,8 @@ pub(crate) mod for_pallet_xcm_bridge {
 						maybe_paid_execution
 					)
 				)
-					.0
-					.bridge_id(),
+				.0
+				.bridge_id(),
 				locations.bridge_id()
 			);
 

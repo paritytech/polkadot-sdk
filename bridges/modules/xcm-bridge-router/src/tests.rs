@@ -33,9 +33,9 @@ fn not_applicable_if_destination_is_within_other_network() {
 		// check that router does not consume when `NotApplicable`
 		let mut xcm_wrapper = Some(xcm.clone());
 		assert_eq!(
-				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
-				Err(SendError::NotApplicable),
-			);
+			XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
+			Err(SendError::NotApplicable),
+		);
 		// XCM is NOT consumed and untouched
 		assert_eq!(Some(xcm.clone()), xcm_wrapper);
 
@@ -48,31 +48,30 @@ fn not_applicable_if_destination_is_within_other_network() {
 fn exceeds_max_message_size_if_size_is_above_hard_limit() {
 	run_test(|| {
 		// routable dest with XCM version
-		let dest =
-			Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+		let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
 		// oversized XCM
 		let xcm: Xcm<()> = vec![ClearOrigin; HARD_MESSAGE_SIZE_LIMIT as usize].into();
 
 		// dest is routable with the inner router
 		assert_ok!(<TestRuntime as Config<()>>::MessageExporter::validate(
-				&mut Some(dest.clone()),
-				&mut Some(xcm.clone())
-			));
+			&mut Some(dest.clone()),
+			&mut Some(xcm.clone())
+		));
 
 		// check for oversized message
 		let mut xcm_wrapper = Some(xcm.clone());
 		assert_eq!(
-				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
-				Err(SendError::ExceedsMaxMessageSize),
-			);
+			XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
+			Err(SendError::ExceedsMaxMessageSize),
+		);
 		// XCM is consumed by the inner router
 		assert!(xcm_wrapper.is_none());
 
 		// check the full `send_xcm`
 		assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(dest, xcm,),
-				Err(SendError::ExceedsMaxMessageSize),
-			);
+			send_xcm::<XcmBridgeHubRouter>(dest, xcm,),
+			Err(SendError::ExceedsMaxMessageSize),
+		);
 	});
 }
 
@@ -85,24 +84,24 @@ fn destination_unsupported_if_wrap_version_fails() {
 
 		// dest is routable with the inner router
 		assert_ok!(<TestRuntime as Config<()>>::MessageExporter::validate(
-				&mut Some(dest.clone()),
-				&mut Some(xcm.clone())
-			));
+			&mut Some(dest.clone()),
+			&mut Some(xcm.clone())
+		));
 
 		// check that it does not pass XCM version check
 		let mut xcm_wrapper = Some(xcm.clone());
 		assert_eq!(
-				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
-				Err(SendError::DestinationUnsupported),
-			);
+			XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
+			Err(SendError::DestinationUnsupported),
+		);
 		// XCM is consumed by the inner router
 		assert!(xcm_wrapper.is_none());
 
 		// check the full `send_xcm`
 		assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(dest, xcm,),
-				Err(SendError::DestinationUnsupported),
-			);
+			send_xcm::<XcmBridgeHubRouter>(dest, xcm,),
+			Err(SendError::DestinationUnsupported),
+		);
 	});
 }
 
@@ -119,12 +118,12 @@ fn returns_proper_delivery_price() {
 		// initially the base fee is used
 		let expected_fee = base_cost_formula() + HRMP_FEE;
 		assert_eq!(
-				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut Some(xcm.clone()))
-					.unwrap()
-					.1
-					.get(0),
-				Some(&(BridgeFeeAsset::get(), expected_fee).into()),
-			);
+			XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut Some(xcm.clone()))
+				.unwrap()
+				.1
+				.get(0),
+			Some(&(BridgeFeeAsset::get(), expected_fee).into()),
+		);
 
 		// but when factor is larger than one, it increases the fee, so it becomes:
 		// `base_cost_formula() * F`
@@ -136,36 +135,33 @@ fn returns_proper_delivery_price() {
 			Some(BridgeState { delivery_fee_factor: factor, is_congested: true }),
 		);
 
-		let expected_fee =
-			(FixedU128::saturating_from_integer(base_cost_formula()) * factor).into_inner() /
-				FixedU128::DIV + HRMP_FEE;
+		let expected_fee = (FixedU128::saturating_from_integer(base_cost_formula()) * factor)
+			.into_inner() /
+			FixedU128::DIV +
+			HRMP_FEE;
 		assert_eq!(
-				XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm)).unwrap().1.get(0),
-				Some(&(BridgeFeeAsset::get(), expected_fee).into()),
-			);
+			XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm)).unwrap().1.get(0),
+			Some(&(BridgeFeeAsset::get(), expected_fee).into()),
+		);
 	});
 }
 
 #[test]
 fn sent_message_doesnt_increase_factor_if_bridge_is_uncongested() {
 	run_test(|| {
-		let dest =
-			Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+		let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
 
 		// bridge not congested
 		let old_delivery_fee_factor = FixedU128::from_rational(125, 100);
 		set_bridge_state_for::<TestRuntime, ()>(
 			&dest,
-			Some(BridgeState {
-				delivery_fee_factor: old_delivery_fee_factor,
-				is_congested: false,
-			}),
+			Some(BridgeState { delivery_fee_factor: old_delivery_fee_factor, is_congested: false }),
 		);
 
 		assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(dest.clone(), vec![ClearOrigin].into(),).map(drop),
-				Ok(()),
-			);
+			send_xcm::<XcmBridgeHubRouter>(dest.clone(), vec![ClearOrigin].into(),).map(drop),
+			Ok(()),
+		);
 
 		assert!(TestXcmRouter::is_message_sent());
 		assert_eq!(
@@ -180,22 +176,18 @@ fn sent_message_doesnt_increase_factor_if_bridge_is_uncongested() {
 #[test]
 fn sent_message_increases_factor_if_bridge_is_congested() {
 	run_test(|| {
-		let dest =
-			Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+		let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
 
 		// make bridge congested + update fee factor
 		let old_delivery_fee_factor = FixedU128::from_rational(125, 100);
 		set_bridge_state_for::<TestRuntime, ()>(
 			&dest,
-			Some(BridgeState {
-				delivery_fee_factor: old_delivery_fee_factor,
-				is_congested: true,
-			}),
+			Some(BridgeState { delivery_fee_factor: old_delivery_fee_factor, is_congested: true }),
 		);
 
 		assert_ok!(
-				send_xcm::<XcmBridgeHubRouter>(dest.clone(), vec![ClearOrigin].into(),).map(drop)
-			);
+			send_xcm::<XcmBridgeHubRouter>(dest.clone(), vec![ClearOrigin].into(),).map(drop)
+		);
 
 		assert!(TestXcmRouter::is_message_sent());
 		assert!(
@@ -206,15 +198,13 @@ fn sent_message_increases_factor_if_bridge_is_congested() {
 		// check emitted event
 		let first_system_event = System::events().first().cloned();
 		assert!(matches!(
-				first_system_event,
-				Some(EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::XcmBridgeHubRouter(
-						Event::DeliveryFeeFactorIncreased { .. }
-					),
-					..
-				})
-			));
+			first_system_event,
+			Some(EventRecord {
+				phase: Phase::Initialization,
+				event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorIncreased { .. }),
+				..
+			})
+		));
 	});
 }
 
@@ -222,9 +212,9 @@ fn sent_message_increases_factor_if_bridge_is_congested() {
 fn get_messages_does_not_return_anything() {
 	run_test(|| {
 		assert_ok!(send_xcm::<XcmBridgeHubRouter>(
-				(Parent, Parent, GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)).into(),
-				vec![ClearOrigin].into()
-			));
+			(Parent, Parent, GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)).into(),
+			vec![ClearOrigin].into()
+		));
 		assert_eq!(XcmBridgeHubRouter::get_messages(), vec![]);
 	});
 }
@@ -232,10 +222,8 @@ fn get_messages_does_not_return_anything() {
 #[test]
 fn update_bridge_status_works() {
 	run_test(|| {
-		let dest =
-			Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
-		let bridge_id =
-			bp_xcm_bridge::BridgeId::new(&UniversalLocation::get(), dest.interior());
+		let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+		let bridge_id = bp_xcm_bridge::BridgeId::new(&UniversalLocation::get(), dest.interior());
 		let update_bridge_status = |bridge_id, is_congested| {
 			let call = RuntimeCall::XcmBridgeHubRouter(Call::update_bridge_status {
 				bridge_id,
@@ -260,10 +248,7 @@ fn update_bridge_status_works() {
 
 		// make uncongested
 		update_bridge_status(bridge_id, false);
-		assert_eq!(
-			get_bridge_state_for::<TestRuntime, ()>(&dest),
-			None
-		);
+		assert_eq!(get_bridge_state_for::<TestRuntime, ()>(&dest), None);
 	});
 }
 
@@ -271,8 +256,7 @@ fn update_bridge_status_works() {
 fn do_update_bridge_status_works() {
 	run_test(|| {
 		let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
-		let bridge_id =
-			bp_xcm_bridge::BridgeId::new(&UniversalLocation::get(), dest.interior());
+		let bridge_id = bp_xcm_bridge::BridgeId::new(&UniversalLocation::get(), dest.interior());
 		assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
 
 		// update as is_congested=false when `None`
@@ -292,19 +276,18 @@ fn do_update_bridge_status_works() {
 		// increase fee factor when congested
 		Pallet::<TestRuntime, ()>::on_message_sent_to(5, dest.clone());
 		assert!(
-			get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR
+			get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor >
+				MINIMAL_DELIVERY_FEE_FACTOR
 		);
 		// update as is_congested=true - should not reset fee factor
 		Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, true);
 		assert!(
-			get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR
+			get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor >
+				MINIMAL_DELIVERY_FEE_FACTOR
 		);
 
 		// update as is_congested=false when `Some(..)`
 		Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, false);
-		assert_eq!(
-				get_bridge_state_for::<TestRuntime, ()>(&dest),
-				None,
-			);
+		assert_eq!(get_bridge_state_for::<TestRuntime, ()>(&dest), None,);
 	})
 }

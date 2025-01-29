@@ -502,17 +502,17 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 	uncongested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
 ) where
 	Runtime: frame_system::Config
-	+ pallet_balances::Config
-	+ pallet_session::Config
-	+ pallet_xcm::Config
-	+ parachain_info::Config
-	+ pallet_collator_selection::Config
-	+ cumulus_pallet_parachain_system::Config
-	+ cumulus_pallet_xcmp_queue::Config
-	+ pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>
-	+ pallet_timestamp::Config,
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
-	OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	BalanceOf<Runtime>: From<Balance>,
@@ -520,9 +520,9 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 	XcmConfig: xcm_executor::Config,
 	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as frame_system::Config>::AccountId:
-	Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
+		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
-	From<<Runtime as frame_system::Config>::AccountId>,
+		From<<Runtime as frame_system::Config>::AccountId>,
 	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
 	XcmBridgeHubRouterInstance: 'static,
 {

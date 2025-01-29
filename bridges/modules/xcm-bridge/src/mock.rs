@@ -45,8 +45,8 @@ use sp_std::{cell::RefCell, marker::PhantomData};
 use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
-	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
-	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, LocalExporter,
+	InspectMessageQueues, LocalExporter, NetworkExportTable, NetworkExportTableItem,
+	ParentIsPreset, SiblingParachainConvertsVia, SovereignPaidRemoteExporter,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, ConvertOrigin},
@@ -495,8 +495,7 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 	}
 }
 
-pub(crate) type OpenBridgeOriginOf<T, I> =
-	<T as pallet_xcm_bridge::Config<I>>::OpenBridgeOrigin;
+pub(crate) type OpenBridgeOriginOf<T, I> = <T as pallet_xcm_bridge::Config<I>>::OpenBridgeOrigin;
 
 pub(crate) fn fund_origin_sovereign_account(
 	locations: &BridgeLocations,

@@ -242,7 +242,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 			},
 			BridgeState::HardSuspended => {
-				// We cannot accept new messages and start dropping messages, until the outbound lane goes below the drop limit.
+				// We cannot accept new messages and start dropping messages, until the outbound
+				// lane goes below the drop limit.
 				return
 			},
 			_ => {
@@ -1144,18 +1145,15 @@ mod tests {
 				BridgeState::Opened
 			);
 			// both routers are uncongested
-			assert!(
-				router_bridge_state::<
-					TestRuntime,
-					XcmOverBridgeWrappedWithExportMessageRouterInstance,
-				>(&dest).is_none()
-			);
-			assert!(
-				router_bridge_state::<
-					TestRuntime,
-					XcmOverBridgeByExportXcmRouterInstance
-				>(&dest).is_none()
-			);
+			assert!(router_bridge_state::<
+				TestRuntime,
+				XcmOverBridgeWrappedWithExportMessageRouterInstance,
+			>(&dest)
+			.is_none());
+			assert!(router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(
+				&dest
+			)
+			.is_none());
 			assert!(TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
 			assert!(TestLocalXcmChannelManager::is_bridge_resumed(bridge_2.bridge_id()));
 		})

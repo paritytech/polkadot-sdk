@@ -33,8 +33,8 @@
 //! queues are congested, it will eventually lead to increased queuing on this chain.
 //!
 //! There are two methods for storing congestion status:
-//! 1. A dedicated extrinsic `update_bridge_status`, which relies on `T::UpdateBridgeStatusOrigin`. This
-//!    allows the message exporter to send, for example, an XCM `Transact`.
+//! 1. A dedicated extrinsic `update_bridge_status`, which relies on `T::UpdateBridgeStatusOrigin`.
+//!    This allows the message exporter to send, for example, an XCM `Transact`.
 //! 2. An implementation of `bp_xcm_bridge::LocalXcmChannelManager`.
 //!
 //! ## Usage
@@ -147,8 +147,8 @@ pub mod pallet {
 		/// - A system (sibling) bridge hub parachain (or another chain), in which case we need an
 		///   implementation for `T::MessageExporter` that sends `ExportMessage`, e.g.,
 		///   `SovereignPaidRemoteExporter`.
-		/// - The local chain, in which case we need an implementation for `T::MessageExporter`
-		///   that does not use `ExportMessage` but instead directly calls the `ExportXcm`
+		/// - The local chain, in which case we need an implementation for `T::MessageExporter` that
+		///   does not use `ExportMessage` but instead directly calls the `ExportXcm`
 		///   implementation.
 		#[pallet::no_default]
 		type MessageExporter: SendXcm;
@@ -262,12 +262,10 @@ pub mod pallet {
 		pub(crate) fn calculate_dynamic_fee(bridge_state: &BridgeState, asset: Asset) -> Asset {
 			match asset.fun {
 				Fungible(amount) => {
-					let adjusted_amount = bridge_state.delivery_fee_factor.saturating_mul_int(amount);
-					Asset {
-						fun: Fungible(adjusted_amount),
-						..asset
-					}
-				}
+					let adjusted_amount =
+						bridge_state.delivery_fee_factor.saturating_mul_int(amount);
+					Asset { fun: Fungible(adjusted_amount), ..asset }
+				},
 				_ => asset,
 			}
 		}
@@ -294,16 +292,17 @@ pub mod pallet {
 		/// - `is_congested` is false, does nothing and no `BridgeState` is created.
 		pub(crate) fn do_update_bridge_status(bridge_id: BridgeIdOf<T, I>, is_congested: bool) {
 			Bridges::<T, I>::mutate_exists(&bridge_id, |maybe_bridge| match maybe_bridge.take() {
-				Some(mut bridge) => if is_congested {
-					bridge.is_congested = is_congested;
-					*maybe_bridge = Some(bridge);
-				} else {
-					Self::deposit_event(Event::DeliveryFeeFactorDecreased {
-						previous_value: bridge.delivery_fee_factor,
-						new_value: 0.into(),
-						bridge_id: bridge_id.clone(),
-					});
-				},
+				Some(mut bridge) =>
+					if is_congested {
+						bridge.is_congested = is_congested;
+						*maybe_bridge = Some(bridge);
+					} else {
+						Self::deposit_event(Event::DeliveryFeeFactorDecreased {
+							previous_value: bridge.delivery_fee_factor,
+							new_value: 0.into(),
+							bridge_id: bridge_id.clone(),
+						});
+					},
 				None =>
 					if is_congested {
 						*maybe_bridge = Some(BridgeState {

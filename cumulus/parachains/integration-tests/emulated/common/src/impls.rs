@@ -181,7 +181,7 @@ where
 	TI: 'static,
 	<T as BridgeMessagesConfig<TI>>::InboundPayload: From<Vec<u8>>,
 	<T as BridgeMessagesConfig<TI>>::MessageDispatch:
-	MessageDispatch<DispatchLevelResult = pallet_xcm_bridge::XcmBlobMessageDispatchResult>,
+		MessageDispatch<DispatchLevelResult = pallet_xcm_bridge::XcmBlobMessageDispatchResult>,
 {
 	fn get_source_outbound_messages() -> Vec<BridgeMessage> {
 		// get the source active outbound lanes
