@@ -2181,6 +2181,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
+ "sp-std",
  "sp-tracing",
  "staging-xcm",
  "staging-xcm-builder",
