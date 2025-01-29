@@ -40,6 +40,7 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{collections::HashMap, sync::Arc, time::Instant};
+use tracing::{debug, trace};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: HashMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
@@ -174,7 +175,7 @@ where
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			tx_hash = ?self.pool.validated_pool().api().hash_and_length(&xt).0,
 			view_at_hash = ?self.at.hash,
@@ -188,10 +189,10 @@ where
 		&self,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
-		let (hash, length) = self.pool.validated_pool().api().hash_and_length(&xt);
-		tracing::trace!(
+		let (tx_hash, length) = self.pool.validated_pool().api().hash_and_length(&xt);
+		trace!(
 			target: LOG_TARGET,
-			?hash,
+			?tx_hash,
 			view_at_hash = ?self.at.hash,
 			"view::submit_local"
 		);
@@ -221,7 +222,7 @@ where
 
 		let validated = ValidatedTransaction::valid_at(
 			block_number.saturated_into::<u64>(),
-			hash,
+			tx_hash,
 			TimedTransactionSource::new_local(true),
 			Arc::from(xt),
 			length,
@@ -267,7 +268,7 @@ where
 			revalidation_result_tx,
 		} = finish_revalidation_worker_channels;
 
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			"view::revalidate: at starting"
@@ -291,24 +292,24 @@ where
 		loop {
 			let mut should_break = false;
 			tokio::select! {
-							_ = finish_revalidation_request_rx.recv() => {
-								tracing::trace!(
-				target: LOG_TARGET,
-				at_hash = ?self.at.hash,
-				"view::revalidate: finish revalidation request received"
-			);
-								break
-							}
-							_ = async {
-								if let Some(tx) = batch_iter.next() {
-									let validation_result = (api.validate_transaction(self.at.hash, tx.source.clone().into(), tx.data.clone()).await, tx.hash, tx);
-									validation_results.push(validation_result);
-								} else {
-									self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());
-									should_break = true;
-								}
-							} => {}
-						}
+				_ = finish_revalidation_request_rx.recv() => {
+					trace!(
+						target: LOG_TARGET,
+						at_hash = ?self.at.hash,
+						"view::revalidate: finish revalidation request received"
+					);
+					break
+				}
+				_ = async {
+					if let Some(tx) = batch_iter.next() {
+						let validation_result = (api.validate_transaction(self.at.hash, tx.source.clone().into(), tx.data.clone()).await, tx.hash, tx);
+						validation_results.push(validation_result);
+					} else {
+						self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());
+						should_break = true;
+					}
+				} => {}
+			}
 
 			if should_break {
 				break;
@@ -319,15 +320,15 @@ where
 		self.metrics.report(|metrics| {
 			metrics.view_revalidation_duration.observe(revalidation_duration.as_secs_f64());
 		});
-		tracing::debug!(
+		debug!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			count = validation_results.len(),
 			batch_len,
-			took = ?revalidation_duration,
+			duration = ?revalidation_duration,
 			"view::revalidate"
 		);
-		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "view::revalidate result: {:?}");
+		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "view::revalidateresult: {:?}");
 
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
@@ -348,7 +349,7 @@ where
 					);
 				},
 				Ok(Err(TransactionValidityError::Unknown(error))) => {
-					tracing::trace!(
+					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
 						?error,
@@ -356,11 +357,11 @@ where
 					);
 					invalid_hashes.push(tx_hash);
 				},
-				Err(validation_err) => {
-					tracing::trace!(
+				Err(error) => {
+					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						%validation_err,
+						%error,
 						"Removing due to error during revalidation"
 					);
 					invalid_hashes.push(tx_hash);
@@ -368,7 +369,7 @@ where
 			}
 		}
 
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			"view::revalidate: sending revalidation result"
@@ -377,7 +378,7 @@ where
 			.send(RevalidationResult { invalid_hashes, revalidated })
 			.await
 		{
-			tracing::trace!(
+			trace!(
 				target: LOG_TARGET,
 				at_hash = ?self.at.hash,
 				?error,
@@ -400,7 +401,7 @@ where
 			super::revalidation_worker::RevalidationQueue<ChainApi, ChainApi::Block>,
 		>,
 	) {
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			at_hash = ?view.at.hash,
 			"view::start_background_revalidation"
@@ -434,14 +435,14 @@ where
 	///
 	/// Refer to [*View revalidation*](../index.html#view-revalidation) for more details.
 	pub(super) async fn finish_revalidation(&self) {
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			"view::finish_revalidation"
 		);
 		let Some(revalidation_worker_channels) = self.revalidation_worker_channels.lock().take()
 		else {
-			tracing::trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
+			trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
 			return
 		};
 
@@ -451,11 +452,11 @@ where
 		} = revalidation_worker_channels;
 
 		if let Some(finish_revalidation_request_tx) = finish_revalidation_request_tx {
-			if let Err(e) = finish_revalidation_request_tx.send(()).await {
-				tracing::trace!(
+			if let Err(error) = finish_revalidation_request_tx.send(()).await {
+				trace!(
 					target: LOG_TARGET,
 					at_hash = ?self.at.hash,
-					error = ?e,
+					%error,
 					"view::finish_revalidation: sending cancellation request failed"
 				);
 			}
@@ -483,7 +484,7 @@ where
 				);
 			});
 
-			tracing::debug!(
+			debug!(
 				target: LOG_TARGET,
 				invalid = revalidation_result.invalid_hashes.len(),
 				revalidated = revalidated_len,

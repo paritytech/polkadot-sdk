@@ -30,6 +30,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use super::tx_mem_pool::TxMemPool;
 use futures::prelude::*;
+use tracing::{trace, warn};
 
 use super::view::{FinishRevalidationWorkerChannels, View};
 
@@ -131,7 +132,7 @@ where
 		view: Arc<View<Api>>,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<Api>,
 	) {
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			view_at_hash = ?view.at.hash,
 			"revalidation_queue::revalidate_view: Sending view to revalidation queue"
@@ -142,7 +143,7 @@ where
 				view,
 				finish_revalidation_worker_channels,
 			)) {
-				tracing::warn!(
+				warn!(
 					target: LOG_TARGET,
 					?error,
 					"revalidation_queue::revalidate_view: Failed to update background worker"
@@ -165,7 +166,7 @@ where
 		mempool: Arc<TxMemPool<Api, Block>>,
 		finalized_hash: HashAndNumber<Block>,
 	) {
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			?finalized_hash,
 			"Sent mempool to revalidation queue"
@@ -175,7 +176,7 @@ where
 			if let Err(error) =
 				to_worker.unbounded_send(WorkerPayload::RevalidateMempool(mempool, finalized_hash))
 			{
-				tracing::warn!(
+				warn!(
 					target: LOG_TARGET,
 					?error,
 					"Failed to update background worker"

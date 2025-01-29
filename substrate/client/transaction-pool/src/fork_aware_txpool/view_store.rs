@@ -42,6 +42,7 @@ use std::{
 	sync::Arc,
 	time::Instant,
 };
+use tracing::{trace, warn};
 
 /// Helper struct to maintain the context for pending transaction submission, executed for
 /// newly inserted views.
@@ -259,7 +260,7 @@ where
 
 		match result {
 			Some(Err(error)) => {
-				tracing::trace!(
+				trace!(
 					target: LOG_TARGET,
 					?tx_hash,
 					%error,
@@ -320,7 +321,7 @@ where
 
 		match result {
 			Some(Err(error)) => {
-				tracing::trace!(
+				trace!(
 					target: LOG_TARGET,
 					?tx_hash,
 					%error,
@@ -432,7 +433,7 @@ where
 		finalized_hash: Block::Hash,
 		tree_route: &[Block::Hash],
 	) -> Vec<ExtrinsicHash<ChainApi>> {
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			?finalized_hash,
 			?tree_route,
@@ -446,7 +447,7 @@ where
 				.block_body(*block)
 				.await
 				.unwrap_or_else(|error| {
-					tracing::warn!(
+					warn!(
 						target: LOG_TARGET,
 						%error,
 						"Finalize route: error request"
@@ -518,10 +519,10 @@ where
 			active_views.insert(view.at.hash, view.clone());
 			most_recent_view_lock.replace(view.at.hash);
 		};
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			inactive_views = ?self.inactive_views.read().keys(),
-			"insert_new_view: inactive_views"
+			"insert_new_view"
 		);
 	}
 
@@ -579,7 +580,7 @@ where
 				.for_each(drop);
 		}
 
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			?removed_views,
 			"handle_pre_finalized"
@@ -638,14 +639,14 @@ where
 				retain
 			});
 
-			tracing::trace!(
+			trace!(
 				target: LOG_TARGET,
 				inactive_views = ?inactive_views.keys(),
 				"handle_finalized"
 			);
 		}
 
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			?dropped_views,
 			"handle_finalized"
@@ -680,9 +681,9 @@ where
 				.collect::<Vec<_>>()
 		};
 		futures::future::join_all(finish_revalidation_futures).await;
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
-			took = ?start.elapsed(),
+			duration = ?start.elapsed(),
 			"finish_background_revalidations"
 		);
 	}
@@ -716,16 +717,16 @@ where
 			return
 		};
 
-		let xt_hash = self.api.hash_and_length(&xt).0;
-		tracing::trace!(
+		let tx_hash = self.api.hash_and_length(&xt).0;
+		trace!(
 			target: LOG_TARGET,
 			?replaced,
-			?xt_hash,
+			?tx_hash,
 			watched,
 			"replace_transaction"
 		);
 
-		self.replace_transaction_in_views(source, xt, xt_hash, replaced, watched).await;
+		self.replace_transaction_in_views(source, xt, tx_hash, replaced, watched).await;
 
 		if let Some(replacement) = self.pending_txs_tasks.write().get_mut(&replaced) {
 			replacement.mark_processed();
@@ -766,22 +767,22 @@ where
 		view: Arc<View<ChainApi>>,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-		xt_hash: ExtrinsicHash<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
 		watched: bool,
 	) {
 		if watched {
 			match view.submit_and_watch(source, xt).await {
 				Ok(mut result) => {
 					self.listener.add_view_watcher_for_tx(
-						xt_hash,
+						tx_hash,
 						view.at.hash,
 						result.expect_watcher().into_stream().boxed(),
 					);
 				},
 				Err(error) => {
-					tracing::trace!(
+					trace!(
 						target: LOG_TARGET,
-						?xt_hash,
+						?tx_hash,
 						at_hash = ?view.at.hash,
 						%error,
 						"replace_transaction: submit_and_watch failed"
@@ -790,9 +791,9 @@ where
 			}
 		} else {
 			if let Some(Err(error)) = view.submit_many(std::iter::once((source, xt))).await.pop() {
-				tracing::trace!(
+				trace!(
 					target: LOG_TARGET,
-					?xt_hash,
+					?tx_hash,
 					at_hash = ?view.at.hash,
 					%error,
 					"replace_transaction: submit failed"
@@ -809,14 +810,14 @@ where
 		&self,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-		xt_hash: ExtrinsicHash<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
 		replaced: ExtrinsicHash<ChainApi>,
 		watched: bool,
 	) {
-		if watched && !self.listener.contains_tx(&xt_hash) {
-			tracing::trace!(
+		if watched && !self.listener.contains_tx(&tx_hash) {
+			trace!(
 				target: LOG_TARGET,
-				?xt_hash,
+				?tx_hash,
 				"error: replace_transaction_in_views: no listener for watched transaction"
 			);
 			return;
@@ -834,7 +835,7 @@ where
 						view.clone(),
 						source.clone(),
 						xt.clone(),
-						xt_hash,
+						tx_hash,
 						watched,
 					)
 				})

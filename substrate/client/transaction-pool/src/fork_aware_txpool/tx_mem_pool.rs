@@ -26,25 +26,6 @@
 //!   it), while on other forks tx can be valid. Depending on which view is chosen to be cloned,
 //!   such transaction could not be present in the newly created view.
 
-use super::{
-	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
-	view_store::ViewStoreSubmitOutcome,
-};
-use crate::{
-	common::tracing_log_xt::log_xt_trace,
-	graph,
-	graph::{base_pool::TimedTransactionSource, tracked_map::Size, ExtrinsicFor, ExtrinsicHash},
-	LOG_TARGET,
-};
-use futures::FutureExt;
-use itertools::Itertools;
-use parking_lot::RwLock;
-use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
-use sp_blockchain::HashAndNumber;
-use sp_runtime::{
-	traits::Block as BlockT,
-	transaction_validity::{InvalidTransaction, TransactionValidityError},
-};
 use std::{
 	cmp::Ordering,
 	collections::HashMap,
@@ -53,6 +34,30 @@ use std::{
 		Arc,
 	},
 	time::Instant,
+};
+
+use futures::FutureExt;
+use itertools::Itertools;
+use parking_lot::RwLock;
+use tracing::{debug, trace};
+
+use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
+use sp_blockchain::HashAndNumber;
+use sp_runtime::{
+	traits::Block as BlockT,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
+
+use crate::{
+	common::tracing_log_xt::log_xt_trace,
+	graph,
+	graph::{base_pool::TimedTransactionSource, tracked_map::Size, ExtrinsicFor, ExtrinsicHash},
+	LOG_TARGET,
+};
+
+use super::{
+	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
+	view_store::ViewStoreSubmitOutcome,
 };
 
 /// The minimum interval between single transaction revalidations. Given in blocks.
@@ -324,7 +329,7 @@ where
 	/// exceed the maximum allowed transaction count.
 	fn try_insert(
 		&self,
-		hash: ExtrinsicHash<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let mut transactions = self.transactions.write();
@@ -333,20 +338,20 @@ where
 
 		let result = match (
 			self.is_limit_exceeded(transactions.len() + 1, bytes + tx.bytes),
-			transactions.contains_key(&hash),
+			transactions.contains_key(&tx_hash),
 		) {
 			(false, false) => {
 				let source = tx.source();
-				transactions.insert(hash, Arc::from(tx));
-				Ok(InsertionInfo::new(hash, source))
+				transactions.insert(tx_hash, Arc::from(tx));
+				Ok(InsertionInfo::new(tx_hash, source))
 			},
 			(_, true) =>
-				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash))),
+				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash))),
 			(true, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
 		};
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
-			?hash,
+			?tx_hash,
 			result_hash = ?result.as_ref().map(|r| r.hash),
 			"mempool::try_insert"
 		);
@@ -492,7 +497,7 @@ where
 		&self,
 		hash: &ExtrinsicHash<ChainApi>,
 	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
-		log::debug!(target: LOG_TARGET, "[{hash:?}] mempool::remove_transaction");
+		debug!(target: LOG_TARGET, ?hash, "mempool::remove_transaction");
 		self.transactions.write().remove(hash)
 	}
 
@@ -500,7 +505,7 @@ where
 	///
 	/// Returns a vector of invalid transaction hashes.
 	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
 			"mempool::revalidate"
@@ -541,24 +546,24 @@ where
 
 		let invalid_hashes = validation_results
 			.into_iter()
-			.filter_map(|(xt_hash, validation_result)| match validation_result {
+			.filter_map(|(tx_hash, validation_result)| match validation_result {
 				Ok(Ok(_)) |
 				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
 				Err(_) |
 				Ok(Err(TransactionValidityError::Unknown(_))) |
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
-					tracing::trace!(
+					trace!(
 						target: LOG_TARGET,
-						?xt_hash,
+						?tx_hash,
 						?validation_result,
 						"Purging: invalid"
 					);
-					Some(xt_hash)
+					Some(tx_hash)
 				},
 			})
 			.collect::<Vec<_>>();
 
-		tracing::debug!(
+		debug!(
 			target: LOG_TARGET,
 			?finalized_block,
 			input_len,
@@ -576,7 +581,7 @@ where
 		&self,
 		finalized_xts: &Vec<ExtrinsicHash<ChainApi>>,
 	) {
-		tracing::debug!(
+		debug!(
 			target: LOG_TARGET,
 			count = finalized_xts.len(),
 			"purge_finalized_transactions"
@@ -591,7 +596,7 @@ where
 	/// Revalidates transactions in the memory pool against a given finalized block and removes
 	/// invalid ones.
 	pub(super) async fn revalidate(&self, finalized_block: HashAndNumber<Block>) {
-		tracing::trace!(
+		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
 			"purge_transactions"
@@ -623,10 +628,13 @@ where
 
 #[cfg(test)]
 mod tx_mem_pool_tests {
-	use super::*;
-	use crate::{common::tests::TestApi, graph::ChainApi};
 	use substrate_test_runtime::{AccountId, Extrinsic, ExtrinsicBuilder, Transfer, H256};
 	use substrate_test_runtime_client::Sr25519Keyring::*;
+
+	use crate::{common::tests::TestApi, graph::ChainApi};
+
+	use super::*;
+
 	fn uxt(nonce: u64) -> Extrinsic {
 		crate::common::tests::uxt(Transfer {
 			from: Alice.into(),
