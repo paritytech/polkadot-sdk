@@ -19,8 +19,22 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+<<<<<<< HEAD
 use bridge_runtime_common::messages_xcm_extension::XcmBlobHauler;
 use pallet_bridge_messages::Config as BridgeMessagesConfig;
+=======
+use bp_messages::{LaneState, MessageNonce};
+use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
+use bp_xcm_bridge_hub::BridgeLocationsError;
+pub use bp_xcm_bridge_hub::{
+	Bridge, BridgeId, BridgeLocations, BridgeState, LocalXcmChannelManager,
+};
+use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
+use frame_system::Config as SystemConfig;
+use pallet_bridge_messages::{Config as BridgeMessagesConfig, LanesManagerError};
+use sp_runtime::traits::Zero;
+use sp_std::{boxed::Box, vec::Vec};
+>>>>>>> ada12be (Bridges small nits/improvements (#7383))
 use xcm::prelude::*;
 
 pub use exporter::PalletAsHaulBlobExporter;

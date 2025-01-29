@@ -1996,6 +1996,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
  "hex-literal",
+<<<<<<< HEAD
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -2004,6 +2005,15 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-bridge-hub",
  "parachains-common",
+=======
+ "pallet-asset-conversion 10.0.0",
+ "pallet-assets 29.1.0",
+ "pallet-balances 28.0.0",
+ "pallet-bridge-messages 0.7.0",
+ "pallet-message-queue 31.0.0",
+ "pallet-xcm 7.0.0",
+ "parachains-common 7.0.0",
+>>>>>>> ada12be (Bridges small nits/improvements (#7383))
  "parity-scale-codec",
  "rococo-system-emulated-network",
  "rococo-westend-system-emulated-network",
@@ -2126,6 +2136,7 @@ dependencies = [
 name = "bridge-hub-test-utils"
 version = "0.17.0"
 dependencies = [
+<<<<<<< HEAD
  "asset-test-utils",
  "bp-header-chain",
  "bp-messages",
@@ -2138,6 +2149,20 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
+=======
+ "asset-test-utils 7.0.0",
+ "bp-header-chain 0.7.0",
+ "bp-messages 0.7.0",
+ "bp-parachains 0.7.0",
+ "bp-polkadot-core 0.7.0",
+ "bp-relayers 0.7.0",
+ "bp-runtime 0.7.0",
+ "bp-test-utils 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+>>>>>>> ada12be (Bridges small nits/improvements (#7383))
  "impl-trait-for-tuples",
  "log",
  "pallet-balances",
@@ -2150,6 +2175,7 @@ dependencies = [
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-keyring",
@@ -2158,6 +2184,61 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.0",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "bridge-hub-test-utils"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de0b3aa5fd8481a06ca16e47fd3d2d9c6abe76b27d922ec8980a853f242173b3"
+dependencies = [
+ "asset-test-utils 18.0.0",
+ "bp-header-chain 0.18.1",
+ "bp-messages 0.18.0",
+ "bp-parachains 0.18.0",
+ "bp-polkadot-core 0.18.0",
+ "bp-relayers 0.18.0",
+ "bp-runtime 0.18.0",
+ "bp-test-utils 0.18.0",
+ "bp-xcm-bridge-hub 0.4.0",
+ "bridge-runtime-common 0.18.0",
+ "cumulus-pallet-parachain-system 0.17.1",
+ "cumulus-pallet-xcmp-queue 0.17.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-balances 39.0.0",
+ "pallet-bridge-grandpa 0.18.0",
+ "pallet-bridge-messages 0.18.0",
+ "pallet-bridge-parachains 0.18.0",
+ "pallet-bridge-relayers 0.18.0",
+ "pallet-timestamp 37.0.0",
+ "pallet-utility 38.0.0",
+ "pallet-xcm 17.0.0",
+ "pallet-xcm-bridge-hub 0.13.0",
+ "parachains-common 18.0.0",
+ "parachains-runtimes-test-utils 17.0.0",
+ "parity-scale-codec",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-keyring 39.0.0",
+ "sp-runtime 39.0.2",
+ "sp-tracing 17.0.1",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> ada12be (Bridges small nits/improvements (#7383))
 ]
 
 [[package]]
@@ -2181,6 +2262,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
  "hex-literal",
+<<<<<<< HEAD
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -2189,6 +2271,17 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-bridge-hub",
  "parachains-common",
+=======
+ "log",
+ "pallet-asset-conversion 10.0.0",
+ "pallet-assets 29.1.0",
+ "pallet-balances 28.0.0",
+ "pallet-bridge-messages 0.7.0",
+ "pallet-message-queue 31.0.0",
+ "pallet-xcm 7.0.0",
+ "parachains-common 7.0.0",
+ "parity-scale-codec",
+>>>>>>> ada12be (Bridges small nits/improvements (#7383))
  "rococo-westend-system-emulated-network",
  "sp-core",
  "sp-runtime",

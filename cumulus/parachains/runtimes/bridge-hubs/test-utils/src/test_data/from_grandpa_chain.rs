@@ -16,7 +16,7 @@
 
 //! Generating test data for bridges with remote GRANDPA chains.
 
-use crate::test_data::prepare_inbound_xcm;
+use crate::test_data::{prepare_inbound_xcm, XcmAsPlainPayload};
 
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
@@ -25,7 +25,10 @@ use bp_messages::{
 };
 use bp_runtime::{AccountIdOf, BlockNumberOf, Chain, HeaderOf, UnverifiedStorageProofParams};
 use bp_test_utils::make_default_justification;
+<<<<<<< HEAD
 use bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+=======
+>>>>>>> ada12be (Bridges small nits/improvements (#7383))
 use codec::Encode;
 use pallet_bridge_grandpa::{BridgedChain, BridgedHeader};
 use sp_runtime::traits::Header as HeaderT;

@@ -42,6 +42,7 @@ impl<SiblingBridgeHubParaId: Get<ParaId>, Runtime: crate::Config>
 	}
 }
 
+<<<<<<< HEAD
 /// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
 /// only `OutboundXcmpStatus` for defined `SiblingParaId` if is suspended.
 pub struct OutXcmpChannelStatusProvider<SiblingBridgeHubParaId, Runtime>(
@@ -53,6 +54,19 @@ impl<SiblingBridgeHubParaId: Get<ParaId>, Runtime: crate::Config>
 {
 	fn is_congested() -> bool {
 		let sibling_bridge_hub_id: ParaId = SiblingBridgeHubParaId::get();
+=======
+/// Adapter implementation for `bp_xcm_bridge::ChannelStatusProvider` and/or
+/// `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks only `OutboundXcmpStatus`
+/// for defined `Location` if is suspended.
+pub struct OutXcmpChannelStatusProvider<Runtime>(core::marker::PhantomData<Runtime>);
+impl<Runtime: crate::Config> OutXcmpChannelStatusProvider<Runtime> {
+	fn is_congested(with: &Location) -> bool {
+		// handle congestion only for a sibling parachain locations.
+		let sibling_para_id: ParaId = match with.unpack() {
+			(_, [Parachain(para_id)]) => (*para_id).into(),
+			_ => return false,
+		};
+>>>>>>> ada12be (Bridges small nits/improvements (#7383))
 
 		// let's find the channel's state with the sibling parachain,
 		let Some((outbound_state, queued_pages)) =
@@ -81,6 +95,14 @@ impl<SiblingBridgeHubParaId: Get<ParaId>, Runtime: crate::Config>
 		}
 
 		false
+	}
+}
+
+impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+	for OutXcmpChannelStatusProvider<Runtime>
+{
+	fn is_congested(with: &Location) -> bool {
+		Self::is_congested(with)
 	}
 }
 

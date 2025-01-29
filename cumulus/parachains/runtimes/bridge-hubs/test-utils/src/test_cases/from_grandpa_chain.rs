@@ -20,13 +20,17 @@
 use crate::{
 	test_cases::{bridges_prelude::*, helpers, run_test},
 	test_data,
+	test_data::XcmAsPlainPayload,
 };
 
 use alloc::{boxed::Box, vec};
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{LaneId, UnrewardedRelayersState};
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
+<<<<<<< HEAD
 use bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+=======
+>>>>>>> ada12be (Bridges small nits/improvements (#7383))
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_messages::{BridgedChainOf, ThisChainOf};

@@ -16,7 +16,10 @@
 
 //! Generating test data for bridges with remote parachains.
 
-use super::{from_grandpa_chain::make_complex_bridged_grandpa_header_proof, prepare_inbound_xcm};
+use super::{
+	from_grandpa_chain::make_complex_bridged_grandpa_header_proof, prepare_inbound_xcm,
+	XcmAsPlainPayload,
+};
 
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
@@ -27,7 +30,10 @@ use bp_runtime::{
 	AccountIdOf, BlockNumberOf, Chain, HeaderOf, Parachain, UnverifiedStorageProofParams,
 };
 use bp_test_utils::prepare_parachain_heads_proof;
+<<<<<<< HEAD
 use bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+=======
+>>>>>>> ada12be (Bridges small nits/improvements (#7383))
 use codec::Encode;
 use pallet_bridge_grandpa::BridgedHeader;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockNumber};
