@@ -401,10 +401,14 @@ impl CreateCmd {
 fn parse_properties(raw: &String, props: &mut sc_chain_spec::Properties) -> Result<(), String> {
 	for pair in raw.split(',') {
 		let mut iter = pair.splitn(2, '=');
-		let key = iter.next().ok_or("Invalid chain property key")?.trim().to_owned();
+		let key = iter
+			.next()
+			.ok_or_else(|| format!("Invalid chain property key: {pair}"))?
+			.trim()
+			.to_owned();
 		let value_str = iter
 			.next()
-			.ok_or(format!("Invalid chain property value for key: {key}"))?
+			.ok_or_else(|| format!("Invalid chain property value for key: {key}"))?
 			.trim();
 
 		// Try to parse as bool, number, or fallback to String
