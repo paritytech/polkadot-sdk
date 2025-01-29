@@ -323,7 +323,7 @@ mod benchmarks {
 	/// Benchmark `burn` extrinsic with the worst possible condition - burn kills the account.
 	#[benchmark]
 	fn burn_allow_death() {
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit
@@ -342,7 +342,7 @@ mod benchmarks {
 	// Benchmark `burn` extrinsic with the case where account is kept alive.
 	#[benchmark]
 	fn burn_keep_alive() {
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit
