@@ -1876,8 +1876,8 @@ pub mod pallet {
 			min_join_bond: BalanceOf<T>,
 			min_create_bond: BalanceOf<T>,
 			max_pools: Option<u32>,
-			max_members_per_pool: Option<u32>,
 			max_members: Option<u32>,
+			max_members_per_pool: Option<u32>,
 			global_max_commission: Option<Perbill>,
 		},
 	}
