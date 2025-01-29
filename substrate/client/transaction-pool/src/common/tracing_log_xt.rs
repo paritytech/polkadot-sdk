@@ -20,8 +20,8 @@ macro_rules! log_xt {
             tracing::event!(
                 $level,
                 target = $target,
-                message = $text_with_format,
-                tx_hash = format!("{:?}", tx)
+                tx_hash = format!("{:?}", tx),
+                $text_with_format,
             );
         }
     };
@@ -30,8 +30,8 @@ macro_rules! log_xt {
             tracing::event!(
                 $level,
                 target = $target,
-                message = $text_with_format,
                 tx_hash = format!("{:?}", tx),
+                $text_with_format,
                 $($arg),*
             );
         }
@@ -41,9 +41,9 @@ macro_rules! log_xt {
             tracing::event!(
                 $level,
                 target = $target,
-                message = $text_with_format,
                 tx_hash = format!("{:?}", tx.0),
-                some_value = format!("{:?}", tx.1)
+                $text_with_format,
+                tx.1
             );
         }
     };

@@ -225,7 +225,7 @@ where
 				log_xt_trace!(
 					target: LOG_TARGET,
 					xts.clone(),
-					"[{:?}] dropped_watcher: finalized xt removed"
+					"dropped_watcher: finalized xt removed"
 				);
 				xts.iter().for_each(|xt| {
 					self.ready_transaction_views.remove(xt);

@@ -581,7 +581,7 @@ where
 			count = finalized_xts.len(),
 			"purge_finalized_transactions"
 		);
-		log_xt_trace!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
+		log_xt_trace!(target: LOG_TARGET, finalized_xts, "purged finalized transactions");
 		let mut transactions = self.transactions.write();
 		finalized_xts.iter().for_each(|t| {
 			transactions.remove(t);
