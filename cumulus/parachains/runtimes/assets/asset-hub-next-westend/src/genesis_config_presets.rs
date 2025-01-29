@@ -34,10 +34,9 @@ fn asset_hub_next_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
+	dev_stakers: Option<(u32, u32)>,
 	id: ParaId,
 ) -> serde_json::Value {
-	let dev_stakers = core::option_env!("AUTHORITIES").zip(core::option_env!("NOMINATORS"));
-
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
@@ -80,6 +79,9 @@ mod preset_names {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
+	let maybe_dev_stakers = core::option_env!("VALIDATORS")
+		.map(|x| str::parse::<u32>(x).unwrap())
+		.zip(core::option_env!("NOMINATORS").map(|x| str::parse::<u32>(x).unwrap()));
 	let patch = match id.as_ref() {
 		PRESET_GENESIS => asset_hub_next_westend_genesis(
 			// initial collators.
@@ -107,6 +109,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			Vec::new(),
 			ASSET_HUB_NEXT_WESTEND_ED * 4096,
+			None,
 			1100.into(),
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_next_westend_genesis(
@@ -117,6 +120,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			WND * 1_000_000,
+			maybe_dev_stakers,
 			1100.into(),
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_next_westend_genesis(
@@ -129,6 +133,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				Sr25519Keyring::BobStash.to_account_id(),
 			],
 			WND * 1_000_000,
+			maybe_dev_stakers,
 			1100.into(),
 		),
 		_ => return None,
