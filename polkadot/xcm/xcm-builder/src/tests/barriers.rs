@@ -950,7 +950,7 @@ fn deny_top_level_instructions_with_xcm_works() {
 
 	// ok
 	assert_should_execute(vec![ClearTransactStatus], Location::parent(), Ok(()));
-	// ok top-level contains `ClearOrigin`
+	// err top-level contains `ClearOrigin`
 	assert_should_execute(
 		vec![ClearOrigin],
 		Location::parent(),
