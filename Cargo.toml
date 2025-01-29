@@ -469,8 +469,6 @@ members = [
 	"substrate/primitives/crypto/ec-utils",
 	"substrate/primitives/crypto/hashing",
 	"substrate/primitives/crypto/hashing/proc-macro",
-	"substrate/primitives/crypto/pubkeycrypto",
-	"substrate/primitives/crypto/pubkeycrypto/proc-macro",
 	"substrate/primitives/database",
 	"substrate/primitives/debug-derive",
 	"substrate/primitives/externalities",

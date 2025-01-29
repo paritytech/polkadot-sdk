@@ -1236,18 +1236,14 @@ pub trait Crypto {
 			.flatten()
 	}
 
-	/// Generate an `(ecdsa,bls12-381)` key for the given key type using an optional `seed` and
+	/// Generate combination `ecdsa & bls12-381` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_generate(
-		&mut self,
-		id: KeyTypeId,
-		seed: Option<Vec<u8>>,
-	) -> ecdsa_bls381::Public {
+	fn ecdsa_bls381_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa_bls381::Public {
 		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")

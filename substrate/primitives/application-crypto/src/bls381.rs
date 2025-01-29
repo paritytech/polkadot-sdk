@@ -21,7 +21,7 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 
 pub use sp_core::bls::bls381::*;
-use sp_core::crypto::ProofOfPossessionVerifier;
+use sp_core::crypto::{ProofOfPossessionVerifier, CryptoType};
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BLS381);
@@ -60,7 +60,7 @@ impl RuntimePublic for Public {
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
 		let pop = AppSignature::from(pop.clone());
 		let pub_key = AppPublic::from(self.clone());
-		AppPair::verify_proof_of_possession(&pop, &pub_key)
+		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&pop, &pub_key)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

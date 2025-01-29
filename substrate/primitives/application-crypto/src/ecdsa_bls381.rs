@@ -23,8 +23,8 @@ use alloc::vec::Vec;
 pub use sp_core::paired_crypto::ecdsa_bls381::*;
 use sp_core::{
 	bls381,
-	crypto::{ProofOfPossessionVerifier, POP_CONTEXT_TAG},
-	ecdsa, ecdsa_bls381,
+	crypto::{ProofOfPossessionVerifier, POP_CONTEXT_TAG, CryptoType},
+	ecdsa, ecdsa_bls381, testing::{ECDSA_BLS381, ECDSA, BLS381},
 };
 
 mod app {
@@ -58,7 +58,7 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		if key_type != sp_core::testing::ECDSA_BLS381 {
+		if key_type != ECDSA_BLS381 {
 			return None
 		}
 
@@ -78,7 +78,7 @@ impl RuntimePublic for Public {
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
 		let pop = AppSignature::from(pop.clone());
 		let pub_key = AppPublic::from(self.clone());
-		AppPair::verify_proof_of_possession(&pop, &pub_key)
+		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&pop, &pub_key)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
@@ -103,7 +103,7 @@ fn generate_ecdsa_pop(
 ) -> Option<ecdsa::Signature> {
 	let ecdsa_statement = [POP_CONTEXT_TAG, ecdsa_pub_as_bytes.as_slice()].concat();
 	let ecdsa_pub = ecdsa::Public::from_raw(ecdsa_pub_as_bytes);
-	sp_io::crypto::ecdsa_sign(sp_core::testing::ECDSA, &ecdsa_pub, ecdsa_statement.as_slice())
+	sp_io::crypto::ecdsa_sign(ECDSA, &ecdsa_pub, ecdsa_statement.as_slice())
 }
 
 /// Helper: Generate BLS381 proof of possession
@@ -111,7 +111,7 @@ fn generate_bls381_pop(
 	bls381_pub_as_bytes: [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE],
 ) -> Option<bls381::Signature> {
 	let bls381_pub = bls381::Public::from_raw(bls381_pub_as_bytes);
-	sp_io::crypto::bls381_generate_pop(sp_core::testing::BLS381, &bls381_pub)
+	sp_io::crypto::bls381_generate_pop(BLS381, &bls381_pub)
 }
 
 /// Helper: Combine ECDSA and BLS381 pops into a single raw pop
@@ -124,3 +124,38 @@ fn combine_pop(
 	combined_pop_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..].copy_from_slice(bls381_pop.as_ref());
 	Some(combined_pop_raw)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sp_core::ecdsa;
+    use sp_core::bls381;
+    use sp_core::crypto::Pair;
+
+    /// Helper function to generate test public keys for ECDSA and BLS381
+    fn generate_test_keys() -> ([u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE], [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE]) {
+        let ecdsa_pair = ecdsa::Pair::generate().0;
+        let bls381_pair = bls381::Pair::generate().0;
+
+        let ecdsa_pub = ecdsa_pair.public();
+        let bls381_pub = bls381_pair.public();
+
+        (
+            ecdsa_pub.to_raw_vec().try_into().unwrap(),
+            bls381_pub.to_raw_vec().try_into().unwrap(),
+        )
+    }
+
+    #[test]
+    fn test_split_pub_key_bytes() {
+        let (ecdsa_pub, bls381_pub) = generate_test_keys();
+        let mut combined_pub_key = Vec::new();
+        combined_pub_key.extend_from_slice(&ecdsa_pub);
+        combined_pub_key.extend_from_slice(&bls381_pub);
+
+        let result = split_pub_key_bytes(&combined_pub_key).unwrap();
+        assert_eq!(result.0, ecdsa_pub, "ECDSA public key does not match");
+        assert_eq!(result.1, bls381_pub, "BLS381 public key does not match");
+    }
+}
+

@@ -353,6 +353,13 @@ pub trait Keystore: Send + Sync {
 		msg: &[u8],
 	) -> Result<Option<ecdsa_bls381::Signature>, Error>;
 
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_pop(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls381::Public,
+	) -> Result<Option<ecdsa_bls381::Signature>, Error>;
+
 	/// Hashes the `message` using keccak256 and then signs it using ECDSA
 	/// algorithm. It does not affect the behavior of BLS12-381 component. It generates
 	/// BLS12-381 Signature according to IETF standard.
@@ -623,6 +630,15 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		seed: Option<&str>,
 	) -> Result<ecdsa_bls381::Public, Error> {
 		(**self).ecdsa_bls381_generate_new(key_type, seed)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_pop(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls381::Public,
+	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
+		(**self).ecdsa_bls381_generate_pop(key_type, public)
 	}
 
 	#[cfg(feature = "bls-experimental")]

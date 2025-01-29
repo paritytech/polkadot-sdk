@@ -20,7 +20,7 @@
 use parking_lot::RwLock;
 use sp_application_crypto::{AppCrypto, AppPair, IsWrappedBy};
 use sp_core::{
-	crypto::{ByteArray, ExposeSecret, KeyTypeId, Pair as CorePair, SecretString, VrfSecret},
+	crypto::{ByteArray, ExposeSecret, KeyTypeId, Pair as CorePair, SecretString, VrfSecret, ProofOfPossessionGenerator},
 	ecdsa, ed25519, sr25519,
 };
 use sp_keystore::{Error as TraitError, Keystore, KeystorePtr};
@@ -139,6 +139,19 @@ impl LocalKeystore {
 			.key_pair_by_type::<T>(public, key_type)?
 			.map(|pair| pair.vrf_pre_output(input));
 		Ok(pre_output)
+	}
+
+	fn generate_pop<T: CorePair + ProofOfPossessionGenerator>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public,
+	) -> std::result::Result<Option<T::Signature>, TraitError> {
+		let pop = self
+			.0
+			.read()
+			.key_pair_by_type::<T>(public, key_type)?
+			.map(|mut pair| pair.generate_proof_of_possession());
+		Ok(pop)
 	}
 }
 
@@ -357,8 +370,24 @@ impl Keystore for LocalKeystore {
 			self.sign::<bls381::Pair>(key_type, public, msg)
 		}
 
+		fn bls381_generate_pop(
+			&self,
+			key_type: KeyTypeId,
+			public: &bls381::Public
+		) -> std::result::Result<Option<bls381::Signature>, TraitError> {
+			self.generate_pop::<bls381::Pair>(key_type, public)
+		}
+
 		fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
 			self.public_keys::<ecdsa_bls381::Pair>(key_type)
+		}
+
+		fn ecdsa_bls381_generate_pop(
+			&self,
+			key_type: KeyTypeId,
+			public: &ecdsa_bls381::Public
+		) -> std::result::Result<Option<ecdsa_bls381::Signature>, TraitError> {
+			self.generate_pop::<ecdsa_bls381::Pair>(key_type, public)
 		}
 
 		/// Generate a new pair of paired-keys compatible with the '(ecdsa,bls381)' signature scheme.
@@ -369,7 +398,20 @@ impl Keystore for LocalKeystore {
 			key_type: KeyTypeId,
 			seed: Option<&str>,
 		) -> std::result::Result<ecdsa_bls381::Public, TraitError> {
-			self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)
+			let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
+
+			let s = self
+				.0
+				.read()
+				.additional
+				.get(&(key_type, pubkey.to_vec()))
+				.map(|s| s.to_string())
+				.expect("Can retrieve seed");
+
+			self.generate_new::<ecdsa::Pair>(sp_core::testing::ECDSA, Some(&*s)).expect("seed slice is valid");
+			self.generate_new::<bls381::Pair>(sp_core::testing::BLS381, Some(&*s)).expect("seed slice is valid");
+
+			Ok(pubkey)
 		}
 
 		fn ecdsa_bls381_sign(
@@ -817,4 +859,60 @@ mod tests {
 
 		assert_eq!(0o100600, permissions.mode());
 	}
+
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_with_none_works() {
+		use sp_core::testing::{ECDSA, BLS381, ECDSA_BLS381};
+
+		let store = LocalKeystore::in_memory();
+		let ecdsa_bls381_key = store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).expect("Cant generate key");
+
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA);
+		let bls381_keys = store.bls381_public_keys(BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
+
+		let ecdsa_key = ecdsa_keys[0];
+		let bls381_key = bls381_keys[0];
+
+		let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
+		combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
+		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
+
+		assert_eq!(combined_key, ecdsa_bls381_key);
+	}
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_with_seed_works() {
+		use sp_core::testing::{ECDSA, BLS381, ECDSA_BLS381};
+
+		let store = LocalKeystore::in_memory();
+		let ecdsa_bls381_key = store.ecdsa_bls381_generate_new(ECDSA_BLS381, Some("//Alice")).expect("Cant generate key");
+
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA);
+		let bls381_keys = store.bls381_public_keys(BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
+
+		let ecdsa_key = ecdsa_keys[0];
+		let bls381_key = bls381_keys[0];
+
+		let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
+		combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
+		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
+
+		assert_eq!(combined_key, ecdsa_bls381_key);
+	}
+
 }
