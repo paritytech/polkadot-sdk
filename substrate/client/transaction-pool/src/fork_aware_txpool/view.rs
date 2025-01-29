@@ -489,7 +489,7 @@ where
 				invalid = revalidation_result.invalid_hashes.len(),
 				revalidated = revalidated_len,
 				at_hash = ?self.at.hash,
-				took = ?start.elapsed(),
+				duration = ?start.elapsed(),
 				"view::finish_revalidation: applying revalidation result"
 			);
 		}
