@@ -24,7 +24,7 @@ use frame_support::{
 		BalanceStatus::{Free, Reserved},
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Hooks, InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
+		InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
 		ReservableCurrency, WithdrawReasons,
 	},
 	StorageNoopGuard,
@@ -1133,7 +1133,9 @@ fn operations_on_dead_account_should_not_change_state() {
 
 #[test]
 #[should_panic = "The existential deposit must be greater than zero!"]
+#[cfg(not(feature = "insecure_zero_ed"))]
 fn zero_ed_is_prohibited() {
+	use frame_support::traits::Hooks;
 	// These functions all use `mutate_account` which may introduce a storage change when
 	// the account never existed to begin with, and shouldn't exist in the end.
 	ExtBuilder::default().existential_deposit(0).build_and_execute_with(|| {
