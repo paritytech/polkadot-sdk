@@ -474,7 +474,7 @@ impl<C, P> TransactionPoolAdapter<C, P> {
 /// Get transactions for propagation.
 ///
 /// Function extracted to simplify the test and prevent creating `ServiceFactory`.
-fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, B::Extrinsic)>
+fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, Arc<B::Extrinsic>)>
 where
 	Pool: TransactionPool<Block = B, Hash = H, Error = E>,
 	B: BlockT,
@@ -485,7 +485,7 @@ where
 		.filter(|t| t.is_propagable())
 		.map(|t| {
 			let hash = t.hash().clone();
-			let ex: B::Extrinsic = (**t.data()).clone();
+			let ex = t.data().clone();
 			(hash, ex)
 		})
 		.collect()
@@ -506,7 +506,7 @@ where
 	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
 	E: 'static + IntoPoolError + From<sc_transaction_pool_api::error::Error>,
 {
-	fn transactions(&self) -> Vec<(H, B::Extrinsic)> {
+	fn transactions(&self) -> Vec<(H, Arc<B::Extrinsic>)> {
 		transactions_to_propagate(&*self.pool)
 	}
 
@@ -559,10 +559,10 @@ where
 		self.pool.on_broadcasted(propagations)
 	}
 
-	fn transaction(&self, hash: &H) -> Option<B::Extrinsic> {
+	fn transaction(&self, hash: &H) -> Option<Arc<B::Extrinsic>> {
 		self.pool.ready_transaction(hash).and_then(
 			// Only propagable transactions should be resolved for network service.
-			|tx| if tx.is_propagable() { Some((**tx.data()).clone()) } else { None },
+			|tx| tx.is_propagable().then(|| tx.data().clone()),
 		)
 	}
 }
@@ -614,6 +614,6 @@ mod tests {
 
 		// then
 		assert_eq!(transactions.len(), 1);
-		assert!(TransferData::try_from(&transactions[0].1).is_ok());
+		assert!(TransferData::try_from(&*transactions[0].1).is_ok());
 	}
 }
