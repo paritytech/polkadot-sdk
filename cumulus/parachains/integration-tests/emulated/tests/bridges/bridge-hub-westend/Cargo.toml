@@ -28,7 +28,6 @@ pallet-xcm.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 pallet-bridge-messages.workspace = true
-pallet-xcm-bridge-hub.workspace = true
 cumulus-pallet-xcmp-queue.workspace = true
 emulated-integration-tests-common.workspace = true
 parachains-common.workspace = true
