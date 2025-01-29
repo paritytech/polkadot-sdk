@@ -6,8 +6,14 @@ import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
 import { account, assert, walletClient } from "./utils";
 
-const ahClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8000")));
-const AHApi = ahClient.getTypedApi(wnd_ah);
+const ahProvider = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8000")));
+const ahApi = ahProvider.getTypedApi(wnd_ah);
+
+ahApi.query.ParachainSystem.UpwardMessages.watchValue().forEach((upwardMessages) => {
+	for (const upwardMessage of upwardMessages) {
+		console.log(`\n===== Upward message sent =====\nHash: ${upwardMessage.asHex()}\n`);
+	}
+});
 
 const XcmExecuteAbi = parseAbi(["constructor()"]);
 const hash = await walletClient.deployContract({
