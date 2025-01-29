@@ -469,7 +469,7 @@ impl AvailabilityStoreSubsystem {
 			keep_finalized_for: Duration::from_secs(config.keep_finalized_for as u64 * 3600),
 			pruning_interval: PRUNING_INTERVAL,
 		};
-		
+
 		Self::with_pruning_config_and_clock(
 			db,
 			config,

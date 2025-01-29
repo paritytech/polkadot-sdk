@@ -90,6 +90,7 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 pub use polkadot_primitives::{Block, BlockId, BlockNumber, CollatorPair, Hash, Id as ParaId};
+use sc_chain_spec::ChainType;
 pub use sc_client_api::{Backend, CallExecutor};
 pub use sc_consensus::{BlockImport, LongestChain};
 pub use sc_executor::NativeExecutionDispatch;
@@ -99,7 +100,6 @@ pub use sc_service::{
 	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, TFullBackend,
 	TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
-use sc_chain_spec::ChainType;
 pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_consensus::{Proposal, SelectChain};
 use sp_consensus_beefy::ecdsa_crypto;
@@ -128,6 +128,9 @@ pub type FullClient = sc_service::TFullClient<
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
+
+/// The number of hours to keep finalized data in the availability store for live networks.
+const KEEP_FINALIZED_FOR_LIVE_NETWORKS: u32 = 25;
 
 /// Provides the header and block number for a hash.
 ///
@@ -981,13 +984,11 @@ pub fn new_full<
 		let availability_config = AvailabilityConfig {
 			col_data: parachains_db::REAL_COLUMNS.col_availability_data,
 			col_meta: parachains_db::REAL_COLUMNS.col_availability_meta,
-			keep_finalized_for: keep_finalized_for.unwrap_or_else(|| {
-				if matches!(config.chain_spec.chain_type(), ChainType::Live) {
-					25
-				} else {
-					1
-				}
-			}),
+			keep_finalized_for: if matches!(config.chain_spec.chain_type(), ChainType::Live) {
+				KEEP_FINALIZED_FOR_LIVE_NETWORKS
+			} else {
+				keep_finalized_for.unwrap_or(1)
+			},
 		};
 
 		Some(ExtendedOverseerGenArgs {
