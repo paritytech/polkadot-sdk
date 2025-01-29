@@ -36,6 +36,8 @@ fn asset_hub_next_westend_genesis(
 	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
+	let dev_stakers = std::option_env!("AUTHORITIES").zip(std::option_env!("NOMINATORS"));
+
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
@@ -58,6 +60,15 @@ fn asset_hub_next_westend_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+		staking: StakingConfig {
+			// we wish to elect 500 validators, maximum is set to 1000 in the runtime configs.
+			validator_count: 500,
+			// smallest validator set we accept, 50 for now?
+			minimum_validator_count: 50,
+			// initial stakers
+			dev_stakers,
+			..Default::default()
+		}
 	})
 }
 
