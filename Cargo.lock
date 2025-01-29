@@ -2779,7 +2779,6 @@ dependencies = [
  "bp-relayers 0.7.0",
  "bp-runtime 0.7.0",
  "bp-test-utils 0.7.0",
- "bp-xcm-bridge-hub 0.2.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "frame-support 28.0.0",
