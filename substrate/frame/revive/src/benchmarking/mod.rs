@@ -927,7 +927,11 @@ mod benchmarks {
 		digest.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
 		digest.push(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
 
-		frame_system::Pallet::<T>::initialize(&Default::default(), &Default::default(), &digest);
+		frame_system::Pallet::<T>::initialize(
+			&BlockNumberFor::<T>::from(1u32),
+			&Default::default(),
+			&digest,
+		);
 
 		let result;
 		#[block]
