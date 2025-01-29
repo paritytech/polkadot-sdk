@@ -7533,10 +7533,20 @@ mod chill {
 			assert_ok!(Pools::chill(RuntimeOrigin::signed(900), 1));
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![31]));
 
+			// Check that chill now emits an event
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominatorChilled {
+				pool_id: 1,
+				caller: 900,
+			}));
+
 			// nominator can chill and re-nominate
 			assert_ok!(Pools::chill(RuntimeOrigin::signed(901), 1));
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(901), 1, vec![31]));
 
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominatorChilled {
+				pool_id: 1,
+				caller: 901,
+			}));
 			// if `depositor` stake is less than the `MinimumNominatorBond`, then this call
 			// becomes permissionless;
 			StakingMinBond::set(20);
