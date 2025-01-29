@@ -474,7 +474,9 @@ async fn activate_leaf(
 		}
 	}
 
-	for (hash, number) in ancestry_iter.take(requested_len) {
+	for (hash, number) in
+		ancestry_iter.take(requested_len).collect::<VecDeque<_>>().into_iter().rev()
+	{
 		let msg = match next_overseer_message.take() {
 			Some(msg) => msg,
 			None => virtual_overseer.recv().await,
@@ -575,6 +577,23 @@ async fn activate_leaf(
 			);
 			test_state.per_session_cache_state.has_cached_minimum_backing_votes = true;
 		}
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ChainApi(
+				ChainApiMessage::BlockHeader(_hash, tx)
+			) if _hash == hash => {
+				let header = Header {
+					parent_hash: get_parent_hash(hash),
+					number,
+					state_root: Hash::zero(),
+					extrinsics_root: Hash::zero(),
+					digest: Default::default(),
+				};
+
+				tx.send(Ok(Some(header))).unwrap();
+			}
+		);
 	}
 }
 
@@ -1899,6 +1918,20 @@ fn backing_doesnt_second_invalid() {
 #[test]
 fn backing_second_after_first_fails_works() {
 	let mut test_state = TestState::default();
+
+	// The test will generate two statements for a single relay parent. We need a longer claim
+	// queue.
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		[test_state.chain_ids[0], test_state.chain_ids[0]].into_iter().collect(),
+	);
+	claim_queue.insert(
+		CoreIndex(1),
+		[test_state.chain_ids[1], test_state.chain_ids[1]].into_iter().collect(),
+	);
+	test_state.claim_queue = claim_queue;
+
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
@@ -2879,8 +2912,7 @@ fn validator_ignores_statements_from_disabled_validators() {
 	});
 }
 
-// Test that `seconding_sanity_check` works when a candidate is allowed
-// for all leaves.
+// Test that `seconding_sanity_check` works when a candidate is allowed for all leaves.
 #[test]
 fn seconding_sanity_check_allowed_on_all() {
 	let mut test_state = TestState::default();

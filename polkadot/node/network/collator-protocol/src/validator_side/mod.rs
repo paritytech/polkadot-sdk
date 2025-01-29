@@ -63,11 +63,8 @@ use crate::error::{Error, FetchError, Result, SecondingError};
 
 use self::collation::BlockedCollationId;
 
-use self::claim_queue_state::ClaimQueueState;
-
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
-mod claim_queue_state;
 mod collation;
 mod metrics;
 
@@ -341,7 +338,7 @@ impl PeerData {
 #[derive(Debug)]
 struct GroupAssignments {
 	/// Current assignments.
-	current: Vec<ParaId>,
+	current: VecDeque<ParaId>,
 }
 
 struct PerRelayParent {
@@ -411,57 +408,6 @@ struct State {
 	reputation: ReputationAggregator,
 }
 
-impl State {
-	// Returns the number of seconded and pending collations for a specific `ParaId`. Pending
-	// collations are:
-	// 1. Collations being fetched from a collator.
-	// 2. Collations waiting for validation from backing subsystem.
-	// 3. Collations blocked from seconding due to parent not being known by backing subsystem.
-	fn seconded_and_pending_for_para(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
-		let seconded = self
-			.per_relay_parent
-			.get(relay_parent)
-			.map_or(0, |per_relay_parent| per_relay_parent.collations.seconded_for_para(para_id));
-
-		let pending_fetch = self.per_relay_parent.get(relay_parent).map_or(0, |rp_state| {
-			match rp_state.collations.status {
-				CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => 1,
-				_ => 0,
-			}
-		});
-
-		let waiting_for_validation = self
-			.fetched_candidates
-			.keys()
-			.filter(|fc| fc.relay_parent == *relay_parent && fc.para_id == *para_id)
-			.count();
-
-		let blocked_from_seconding =
-			self.blocked_from_seconding.values().fold(0, |acc, blocked_collations| {
-				acc + blocked_collations
-					.iter()
-					.filter(|pc| {
-						pc.candidate_receipt.descriptor.para_id() == *para_id &&
-							pc.candidate_receipt.descriptor.relay_parent() == *relay_parent
-					})
-					.count()
-			});
-
-		gum::trace!(
-			target: LOG_TARGET,
-			?relay_parent,
-			?para_id,
-			seconded,
-			pending_fetch,
-			waiting_for_validation,
-			blocked_from_seconding,
-			"Seconded and pending collations for para",
-		);
-
-		seconded + pending_fetch + waiting_for_validation + blocked_from_seconding
-	}
-}
-
 fn is_relay_parent_in_implicit_view(
 	relay_parent: &Hash,
 	implicit_view: &ImplicitView,
@@ -528,7 +474,7 @@ where
 		}
 	}
 
-	let assignment = GroupAssignments { current: assigned_paras.into_iter().collect() };
+	let assignment = GroupAssignments { current: assigned_paras };
 	let collations = Collations::new(&assignment.current);
 
 	Ok(Some(PerRelayParent {
@@ -655,20 +601,37 @@ async fn notify_collation_seconded(
 /// A peer's view has changed. A number of things should be done:
 ///  - Ongoing collation requests have to be canceled.
 ///  - Advertisements by this peer that are no longer relevant have to be removed.
-fn handle_peer_view_change(state: &mut State, peer_id: PeerId, view: View) {
+async fn handle_peer_view_change<Sender>(
+	sender: &mut Sender,
+	state: &mut State,
+	peer_id: PeerId,
+	view: View,
+) where
+	Sender: CollatorProtocolSenderTrait,
+{
 	let peer_data = match state.peer_data.get_mut(&peer_id) {
 		Some(peer_data) => peer_data,
 		None => return,
 	};
 
 	peer_data.update_view(&state.implicit_view, &state.active_leaves, view);
+
+	let mut removed = HashSet::new();
 	state.collation_requests_cancel_handles.retain(|pc, handle| {
 		let keep = pc.peer_id != peer_id || peer_data.has_advertised(&pc.relay_parent, None);
 		if !keep {
 			handle.cancel();
+			if let Some(prospective_candidate) = pc.prospective_candidate {
+				removed.insert(prospective_candidate.candidate_hash);
+			}
 		}
 		keep
 	});
+
+	// Drop claims for all cancelled fetches
+	if !removed.is_empty() {
+		sender.send_message(CandidateBackingMessage::DropClaims(removed)).await;
+	}
 }
 
 /// Request a collation from the network.
@@ -739,7 +702,7 @@ async fn request_collation(
 
 	let maybe_candidate_hash =
 		prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
-	per_relay_parent.collations.status = CollationStatus::Fetching(para_id);
+	per_relay_parent.collations.status = CollationStatus::Fetching;
 	per_relay_parent
 		.collations
 		.fetching_from
@@ -1050,60 +1013,35 @@ async fn second_unblocked_collations<Context>(
 	}
 }
 
-fn ensure_seconding_limit_is_respected(
+// Fallback for checking that the seconding limit is respected for candidates advertised over
+// collator protocol V1. Since we don't know the hash of the candidate we can't claim a slot for it
+// at the claim queue. The best we can do is to check if there is a free slot for the para id of the
+// candidate. This is not ideal since it creates a possibility for a race condition but worst case
+// we can accept one extra candidate per relay parent.
+async fn ensure_seconding_limit_is_respected<Sender>(
+	sender: &mut Sender,
 	relay_parent: &Hash,
 	para_id: ParaId,
-	state: &State,
-) -> std::result::Result<(), AdvertisementError> {
-	let paths = state.implicit_view.paths_via_relay_parent(relay_parent);
-
+) -> std::result::Result<(), AdvertisementError>
+where
+	Sender: CollatorProtocolSenderTrait,
+{
 	gum::trace!(
 		target: LOG_TARGET,
 		?relay_parent,
 		?para_id,
-		?paths,
 		"Checking seconding limit",
 	);
 
-	let mut has_claim_at_some_path = false;
-	for path in paths {
-		let mut cq_state = ClaimQueueState::new();
-		for ancestor in &path {
-			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
-			cq_state.add_leaf(
-				&ancestor,
-				&state
-					.per_relay_parent
-					.get(ancestor)
-					.ok_or(AdvertisementError::RelayParentUnknown)?
-					.assignment
-					.current,
-			);
-			for _ in 0..seconded_and_pending {
-				cq_state.claim_at(ancestor, &para_id);
-			}
-		}
-
-		if cq_state.can_claim_at(relay_parent, &para_id) {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?para_id,
-				?path,
-				"Seconding limit respected at path",
-			);
-			has_claim_at_some_path = true;
-			break
-		}
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(CandidateBackingMessage::CanClaim(*relay_parent, para_id, tx))
+		.await;
+	let can_claim_slot = rx.await.map_err(|_| AdvertisementError::SecondedLimitReached)?;
+	if !can_claim_slot {
+		return Err(AdvertisementError::SecondedLimitReached)
 	}
-
-	// If there is a place in the claim queue for the candidate at at least one path we will accept
-	// it.
-	if has_claim_at_some_path {
-		Ok(())
-	} else {
-		Err(AdvertisementError::SecondedLimitReached)
-	}
+	return Ok(())
 }
 
 async fn handle_advertisement<Sender>(
@@ -1150,12 +1088,9 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	ensure_seconding_limit_is_respected(&relay_parent, para_id, state)?;
-
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
-		// Check if backing subsystem allows to second this candidate.
-		//
-		// This is also only important when async backing or elastic scaling is enabled.
+		// Check if backing subsystem allows to second this candidate. If `CanSecond` returns true a
+		// slot has been claimed for the candidate in backing subsystem.
 		let can_second = can_second(
 			sender,
 			collator_para_id,
@@ -1166,10 +1101,19 @@ where
 		.await;
 
 		if !can_second {
+			// no need to release the claim here because the backing system won't make one if it
+			// rejects the candidate
 			return Err(AdvertisementError::BlockedByBacking)
 		}
+	} else {
+		// This check is here only to provide some spam protection against candidates sent via
+		// protocol version 1. For 2 and above `can_second` ensures there is a free slot in the
+		// claim queue for the candidate.
+		ensure_seconding_limit_is_respected(sender, &relay_parent, para_id).await?;
 	}
 
+	// For V1 no claim was made which is fine because the backing system will try to make one when
+	// asked to second the candidate. If there is no claim for the candidate it won't be seconded.
 	let result = enqueue_collation(
 		sender,
 		state,
@@ -1182,6 +1126,13 @@ where
 	.await;
 
 	if let Err(fetch_error) = result {
+		// Release the claim if we can't fetch it
+		if let Some(candidate_hash) = candidate_hash {
+			sender
+				.send_message(CandidateBackingMessage::DropClaims(HashSet::from([candidate_hash])))
+				.await;
+		}
+
 		gum::debug!(
 			target: LOG_TARGET,
 			relay_parent = ?relay_parent,
@@ -1242,7 +1193,7 @@ where
 		PendingCollation::new(relay_parent, para_id, &peer_id, prospective_candidate);
 
 	match collations.status {
-		CollationStatus::Fetching(_) | CollationStatus::WaitingOnValidation => {
+		CollationStatus::Fetching | CollationStatus::WaitingOnValidation => {
 			gum::trace!(
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
@@ -1340,6 +1291,7 @@ where
 		}
 	}
 
+	let mut removed_collation_reqs = HashSet::new();
 	for (removed, _) in removed {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -1363,9 +1315,18 @@ where
 				let keep = pc.relay_parent != removed;
 				if !keep {
 					handle.cancel();
+					if let Some(candidate_hash) =
+						pc.prospective_candidate.map(|pc| pc.candidate_hash)
+					{
+						// these are collations we haven't fetched but have claims for. They need to
+						// be released.
+						removed_collation_reqs.insert(candidate_hash);
+					}
 				}
 				keep
 			});
+
+			// These collations are pending validation. Their claims will be handled in backing.
 			state.fetched_candidates.retain(|k, _| k.relay_parent != removed);
 		}
 	}
@@ -1373,9 +1334,17 @@ where
 	// Remove blocked seconding requests that left the view.
 	state.blocked_from_seconding.retain(|_, collations| {
 		collations.retain(|collation| {
-			state
+			let keep = state
 				.per_relay_parent
-				.contains_key(&collation.candidate_receipt.descriptor.relay_parent())
+				.contains_key(&collation.candidate_receipt.descriptor.relay_parent());
+
+			if !keep {
+				// We have got claims for `blocked_from_seconding` collations. They need to be
+				// released.
+				removed_collation_reqs.insert(collation.candidate_receipt.hash());
+			}
+
+			keep
 		});
 
 		!collations.is_empty()
@@ -1399,6 +1368,13 @@ where
 				disconnect_peer(sender, *peer_id).await;
 			}
 		}
+	}
+
+	// Drop claims for all unneeded candidates
+	if !removed_collation_reqs.is_empty() {
+		sender
+			.send_message(CandidateBackingMessage::DropClaims(removed_collation_reqs))
+			.await;
 	}
 
 	Ok(())
@@ -1445,7 +1421,7 @@ async fn handle_network_msg<Context>(
 			// impossible!
 		},
 		PeerViewChange(peer_id, view) => {
-			handle_peer_view_change(state, peer_id, view);
+			handle_peer_view_change(ctx.sender(), state, peer_id, view).await;
 		},
 		OurViewChange(view) => {
 			handle_our_view_change(ctx.sender(), state, keystore, view).await?;
@@ -1550,7 +1526,7 @@ async fn process_msg<Context>(
 				)
 				.await;
 
-				// If async backing is enabled, make an attempt to fetch next collation.
+				// try to fetch next collation.
 				let maybe_candidate_hash =
 					prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
 				dequeue_next_collation_and_fetch(
@@ -1569,11 +1545,23 @@ async fn process_msg<Context>(
 			}
 		},
 		Invalid(parent, candidate_receipt) => {
+			// We don't need to release the claim for the invalid candidate. This was done by the
+			// backing subsystem.
+
 			// Remove collations which were blocked from seconding and had this candidate as parent.
-			state.blocked_from_seconding.remove(&BlockedCollationId {
-				para_id: candidate_receipt.descriptor.para_id(),
-				parent_head_data_hash: candidate_receipt.descriptor.para_head(),
-			});
+			if let Some(removed_blocked) =
+				state.blocked_from_seconding.remove(&BlockedCollationId {
+					para_id: candidate_receipt.descriptor.para_id(),
+					parent_head_data_hash: candidate_receipt.descriptor.para_head(),
+				}) {
+				// We need to remove any claim from made for `blocked_from_seconding`
+				// collations.
+				let to_release = removed_blocked
+					.into_iter()
+					.map(|collation| collation.candidate_receipt.hash())
+					.collect::<HashSet<_>>();
+				ctx.send_message(CandidateBackingMessage::DropClaims(to_release)).await;
+			}
 
 			let fetched_collation = FetchedCollation::from(&candidate_receipt);
 			let candidate_hash = fetched_collation.candidate_hash;
@@ -1667,6 +1655,7 @@ async fn run_inner<Context>(
 			},
 			resp = state.collation_requests.select_next_some() => {
 				let relay_parent = resp.0.pending_collation.relay_parent;
+				let maybe_candidate_hash = resp.0.pending_collation.prospective_candidate.map(|c| c.candidate_hash);
 				let res = match handle_collation_fetch_response(
 					&mut state,
 					resp,
@@ -1675,6 +1664,11 @@ async fn run_inner<Context>(
 				).await {
 					Err(Some((peer_id, rep))) => {
 						modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
+
+						if let Some(candidate_hash) = maybe_candidate_hash {
+							ctx.send_message(CandidateBackingMessage::DropClaims(HashSet::from([candidate_hash]))).await;
+						}
+
 						// Reset the status for the relay parent
 						state.per_relay_parent.get_mut(&relay_parent).map(|rp| {
 							rp.collations.status.back_to_waiting();
@@ -1682,6 +1676,10 @@ async fn run_inner<Context>(
 						continue
 					},
 					Err(None) => {
+						if let Some(candidate_hash) = maybe_candidate_hash {
+							ctx.send_message(CandidateBackingMessage::DropClaims(HashSet::from([candidate_hash]))).await;
+						}
+
 						// Reset the status for the relay parent
 						state.per_relay_parent.get_mut(&relay_parent).map(|rp| {
 							rp.collations.status.back_to_waiting();
@@ -1710,6 +1708,11 @@ async fn run_inner<Context>(
 						}
 						let maybe_candidate_hash =
 						pending_collation.prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
+
+						if let Some(candidate_hash) = maybe_candidate_hash {
+							ctx.send_message(CandidateBackingMessage::DropClaims(HashSet::from([candidate_hash]))).await;
+						}
+
 						dequeue_next_collation_and_fetch(
 							&mut ctx,
 							&mut state,
@@ -1741,6 +1744,10 @@ async fn run_inner<Context>(
 					?collator_id,
 					"Timeout hit - already seconded?"
 				);
+
+				// We are not releasing a claim here since a timeout is handled in `run_inner`,
+				// `state.collation_requests.select_next_some()`.
+
 				dequeue_next_collation_and_fetch(
 					&mut ctx,
 					&mut state,
@@ -1755,6 +1762,26 @@ async fn run_inner<Context>(
 	Ok(())
 }
 
+async fn get_claimed_slots<Sender>(sender: &mut Sender, relay_parent: Hash) -> VecDeque<ParaId>
+where
+	Sender: CollatorProtocolSenderTrait,
+{
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(CandidateBackingMessage::ClaimedSlots(relay_parent, tx))
+		.await;
+
+	rx.await.unwrap_or_else(|err| {
+		gum::warn!(
+			target: LOG_TARGET,
+			?err,
+			"GetClaimedSlots-request responder was dropped",
+		);
+
+		VecDeque::new()
+	})
+}
+
 /// Dequeue another collation and fetch.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn dequeue_next_collation_and_fetch<Context>(
@@ -1764,7 +1791,9 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	// The collator we tried to fetch from last, optionally which candidate.
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
-	while let Some((next, id)) = get_next_collation_to_fetch(&previous_fetch, relay_parent, state) {
+	while let Some((next, id)) =
+		get_next_collation_to_fetch(ctx.sender(), &previous_fetch, relay_parent, state).await
+	{
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
@@ -1780,6 +1809,12 @@ async fn dequeue_next_collation_and_fetch<Context>(
 				error = %err,
 				"Failed to request a collation, dequeueing next one",
 			);
+			if let Some(pc) = next.prospective_candidate {
+				ctx.send_message(CandidateBackingMessage::DropClaims(HashSet::from([
+					pc.candidate_hash
+				])))
+				.await;
+			}
 		} else {
 			break
 		}
@@ -2134,74 +2169,14 @@ async fn handle_collation_fetch_response(
 	result
 }
 
-// Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
-// order in the claim queue so the earlier an element is located in the `Vec` the higher its
-// priority is.
-fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<Vec<ParaId>> {
-	let relay_parent_state = state
-		.per_relay_parent
-		.get(relay_parent)
-		.ok_or(Error::RelayParentStateNotFound)?;
-	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
-	let paths = state.implicit_view.paths_via_relay_parent(relay_parent);
-
-	let mut claim_queue_states = Vec::new();
-	for path in paths {
-		let mut cq_state = ClaimQueueState::new();
-		for ancestor in &path {
-			cq_state.add_leaf(
-				&ancestor,
-				&state
-					.per_relay_parent
-					.get(&ancestor)
-					.ok_or(Error::RelayParentStateNotFound)?
-					.assignment
-					.current,
-			);
-
-			for para_id in &scheduled_paras {
-				let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
-				for _ in 0..seconded_and_pending {
-					cq_state.claim_at(&ancestor, &para_id);
-				}
-			}
-		}
-		claim_queue_states.push(cq_state);
-	}
-
-	// From the claim queue state for each leaf we have to return a combined single one. Go for a
-	// simple solution and return the longest one. In theory we always prefer the earliest entries
-	// in the claim queue so there is a good chance that the longest path is the one with
-	// unsatisfied entries in the beginning. This is not guaranteed as we might have fetched 2nd or
-	// 3rd spot from the claim queue but it should be good enough.
-	let unfulfilled_entries = claim_queue_states
-		.iter_mut()
-		.map(|cq| cq.unclaimed_at(relay_parent))
-		.max_by(|a, b| a.len().cmp(&b.len()))
-		.unwrap_or_default();
-
-	Ok(unfulfilled_entries)
-}
-
 /// Returns the next collation to fetch from the `waiting_queue` and reset the status back to
 /// `Waiting`.
-fn get_next_collation_to_fetch(
+async fn get_next_collation_to_fetch(
+	sender: &mut impl overseer::CollatorProtocolSenderTrait,
 	finished_one: &(CollatorId, Option<CandidateHash>),
 	relay_parent: Hash,
 	state: &mut State,
 ) -> Option<(PendingCollation, CollatorId)> {
-	let unfulfilled_entries = match unfulfilled_claim_queue_entries(&relay_parent, &state) {
-		Ok(entries) => entries,
-		Err(err) => {
-			gum::error!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?err,
-				"Failed to get unfulfilled claim queue entries"
-			);
-			return None
-		},
-	};
 	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(rp_state) => rp_state,
 		None => {
@@ -2230,8 +2205,11 @@ fn get_next_collation_to_fetch(
 			return None
 		}
 	}
+
+	let unfulfilled_entries = get_claimed_slots(sender, relay_parent).await;
+
 	rp_state.collations.status.back_to_waiting();
-	rp_state.collations.pick_a_collation_to_fetch(unfulfilled_entries)
+	rp_state.collations.pick_a_collation_to_fetch(&unfulfilled_entries)
 }
 
 // Sanity check the candidate descriptor version.

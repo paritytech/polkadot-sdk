@@ -66,7 +66,7 @@
 #![deny(unused_crate_dependencies)]
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{HashMap, HashSet, VecDeque},
 	sync::Arc,
 };
 
@@ -87,11 +87,11 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::{
 	messages::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
-		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
-		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecKind,
-		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
-		StoreAvailableDataError,
+		CandidateBackingMessage, CandidateValidationMessage, ChainApiMessage,
+		CollatorProtocolMessage, HypotheticalCandidate, HypotheticalMembershipRequest,
+		IntroduceSecondedCandidateRequest, ProspectiveParachainsMessage, ProvisionableData,
+		ProvisionerMessage, PvfExecKind, RuntimeApiMessage, RuntimeApiRequest,
+		StatementDistributionMessage, StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
 	SubsystemError,
@@ -99,6 +99,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::View as ImplicitView,
+	claim_queue_state::PerLeafClaimQueueState,
 	request_claim_queue, request_disabled_validators, request_session_executor_params,
 	request_session_index_for_child, request_validator_groups, request_validators,
 	runtime::{self, request_min_backing_votes, ClaimQueueSnapshot},
@@ -241,6 +242,7 @@ struct PerRelayParentState {
 	n_cores: u32,
 	/// Claim queue state. If the runtime API is not available, it'll be populated with info from
 	/// availability cores.
+	// TODO: remove this
 	claim_queue: ClaimQueueSnapshot,
 	/// The validator index -> group mapping at this relay parent.
 	validator_to_group: Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
@@ -430,6 +432,8 @@ impl PerSessionCache {
 struct State {
 	/// The utility for managing the implicit and explicit views in a consistent way.
 	implicit_view: ImplicitView,
+	/// The state of the claim queue, per leaf.
+	claim_queue_state: HashMap<CoreIndex, PerLeafClaimQueueState>,
 	/// State tracked for all relay-parents backing work is ongoing for. This includes
 	/// all active leaves.
 	per_relay_parent: HashMap<Hash, PerRelayParentState>,
@@ -455,6 +459,7 @@ impl State {
 	) -> Self {
 		State {
 			implicit_view: ImplicitView::default(),
+			claim_queue_state: HashMap::default(),
 			per_relay_parent: HashMap::default(),
 			per_candidate: HashMap::new(),
 			per_session_cache: PerSessionCache::default(),
@@ -497,13 +502,27 @@ async fn run_iteration<Context>(
 		futures::select!(
 			validated_command = background_validation_rx.next().fuse() => {
 				if let Some((relay_parent, command)) = validated_command {
-					handle_validated_candidate_command(
+					let candidate_hash = command.candidate_hash();
+					match handle_validated_candidate_command(
 						&mut *ctx,
 						state,
 						relay_parent,
 						command,
 						metrics,
-					).await?;
+					).await {
+						Ok(true) => {},
+						Ok(false) => {
+							state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+								cq.release_claims_for_candidate(&candidate_hash);
+							});
+						}
+						Err(e) => {
+							state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+								cq.release_claims_for_candidate(&candidate_hash);
+							});
+							return Err(e)
+						},
+					}
 				} else {
 					panic!("background_validation_tx always alive at this point; qed");
 				}
@@ -942,7 +961,23 @@ async fn handle_communication<Context>(
 ) -> Result<(), Error> {
 	match message {
 		CandidateBackingMessage::Second(_relay_parent, candidate, pvd, pov) => {
-			handle_second_message(ctx, state, candidate, pvd, pov, metrics).await?;
+			let candidate_hash = candidate.hash();
+			match handle_second_message(ctx, state, candidate_hash, candidate, pvd, pov, metrics)
+				.await
+			{
+				Ok(true) => {},
+				Ok(false) => {
+					state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+						cq.release_claims_for_candidate(&candidate_hash);
+					});
+				},
+				Err(e) => {
+					state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+						cq.release_claims_for_candidate(&candidate_hash);
+					});
+					return Err(e)
+				},
+			}
 		},
 		CandidateBackingMessage::Statement(relay_parent, statement) => {
 			handle_statement_message(ctx, state, relay_parent, statement, metrics).await?;
@@ -951,6 +986,17 @@ async fn handle_communication<Context>(
 			handle_get_backable_candidates_message(state, requested_candidates, tx, metrics)?,
 		CandidateBackingMessage::CanSecond(request, tx) =>
 			handle_can_second_request(ctx, state, request, tx).await,
+		CandidateBackingMessage::DropClaims(claims) =>
+			for candidate_hash in claims {
+				state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+					cq.release_claims_for_candidate(&candidate_hash);
+				});
+			},
+		CandidateBackingMessage::PendingSlots(relay_parent, tx) => {
+			handle_pending_slots(&relay_parent, state, tx)?;
+		},
+		CandidateBackingMessage::CanClaim(relay_parent, para_id, tx) =>
+			handle_can_claim(&relay_parent, &para_id, state, tx)?,
 	}
 
 	Ok(())
@@ -972,7 +1018,10 @@ async fn handle_active_leaves_update<Context>(
 	};
 
 	for deactivated in update.deactivated {
-		state.implicit_view.deactivate_leaf(deactivated);
+		let removed = state.implicit_view.deactivate_leaf(deactivated);
+		state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+			cq.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().copied()));
+		});
 	}
 
 	// clean up `per_relay_parent` according to ancestry
@@ -1025,7 +1074,7 @@ async fn handle_active_leaves_update<Context>(
 	};
 
 	// add entries in `per_relay_parent`. for all new relay-parents.
-	for maybe_new in fresh_relay_parents {
+	for maybe_new in fresh_relay_parents.into_iter().rev() {
 		if state.per_relay_parent.contains_key(&maybe_new) {
 			continue
 		}
@@ -1040,7 +1089,41 @@ async fn handle_active_leaves_update<Context>(
 		)
 		.await?;
 
+		// get the ancestor of the relay block
+		let parent_hash = {
+			let (tx, rx) = oneshot::channel();
+
+			ctx.send_message(ChainApiMessage::BlockHeader(maybe_new, tx)).await;
+
+			match rx.await.map_err(Error::BlockHeader)?.map_err(Error::ChainApi)? {
+				Some(b) => b.parent_hash,
+				None => {
+					gum::warn!(
+						target: LOG_TARGET,
+						relay_parent = ?maybe_new,
+						"Failed to get block header for relay parent"
+					);
+					return Err(Error::MissingBlockHeader(maybe_new))
+				},
+			}
+		};
+
 		if let Some(per) = per {
+			gum::trace!(
+				target: LOG_TARGET,
+				?maybe_new,
+				?parent_hash,
+				"Inserting new leaf in claim queue state"
+			);
+
+			for (core_idx, cq) in &per.claim_queue.0 {
+				state.claim_queue_state.entry(*core_idx).or_default().add_leaf(
+					&maybe_new,
+					cq,
+					&parent_hash,
+				)
+			}
+
 			state.per_relay_parent.insert(maybe_new, per);
 		}
 	}
@@ -1258,6 +1341,7 @@ async fn seconding_sanity_check<Context>(
 	ctx: &mut Context,
 	implicit_view: &ImplicitView,
 	hypothetical_candidate: HypotheticalCandidate,
+	claim_queue_state: &mut PerLeafClaimQueueState,
 ) -> SecondingAllowed {
 	let mut leaves_for_seconding = Vec::new();
 	let mut responses = FuturesOrdered::<BoxFuture<'_, Result<_, oneshot::Canceled>>>::new();
@@ -1267,11 +1351,39 @@ async fn seconding_sanity_check<Context>(
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
 	for head in implicit_view.leaves() {
-		// Check that the candidate relay parent is allowed for para, skip the
-		// leaf otherwise.
+		gum::trace!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			leaf_hash = ?head,
+			"Checking leaf for seconding",
+		);
+		// Check that the candidate relay parent is allowed for para, skip the leaf otherwise.
 		let allowed_parents_for_para =
 			implicit_view.known_allowed_relay_parents_under(head, Some(candidate_para));
 		if !allowed_parents_for_para.unwrap_or_default().contains(&candidate_relay_parent) {
+			gum::trace!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				leaf_hash = ?head,
+				"seconding_sanity_check: skipping leaf because relay parent is not allowed for para",
+			);
+			continue
+		}
+
+		// Check if there is a slot in the claim queue
+		if !claim_queue_state.has_free_slot_at_leaf_for(
+			head,
+			&candidate_relay_parent,
+			&candidate_para,
+			&candidate_hash,
+		) {
+			gum::trace!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				leaf_hash = ?head,
+				"seconding_sanity_check: skipping leaf because there is no free claim queue slot for the candidate",
+			);
+
 			continue
 		}
 
@@ -1339,7 +1451,7 @@ async fn seconding_sanity_check<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn handle_can_second_request<Context>(
 	ctx: &mut Context,
-	state: &State,
+	state: &mut State,
 	request: CanSecondRequest,
 	tx: oneshot::Sender<bool>,
 ) {
@@ -1352,12 +1464,54 @@ async fn handle_can_second_request<Context>(
 			candidate_relay_parent: relay_parent,
 		};
 
+		let candidate_hash = hypothetical_candidate.candidate_hash();
+		let candidate_relay_parent = hypothetical_candidate.relay_parent();
+		let candidate_para_id = hypothetical_candidate.candidate_para();
+
+		let cq_state = if let Some(core_index) = state
+			.per_relay_parent
+			.get(&relay_parent)
+			.and_then(|rp_state| rp_state.assigned_core)
+			.and_then(|assigned_core| state.claim_queue_state.get_mut(&assigned_core))
+		{
+			core_index
+		} else {
+			let _ = tx.send(false);
+			return
+		};
+
 		let result =
-			seconding_sanity_check(ctx, &state.implicit_view, hypothetical_candidate).await;
+			seconding_sanity_check(ctx, &state.implicit_view, hypothetical_candidate, cq_state)
+				.await;
 
 		match result {
 			SecondingAllowed::No => false,
-			SecondingAllowed::Yes(leaves) => !leaves.is_empty(),
+			SecondingAllowed::Yes(leaves) => {
+				// Make a pending claim for the leaves in the result.`seconding_sanity_check` makes
+				// an explicit check for each leaf so this claim should always succeed. Note that we
+				// only make claims at the leaves at which we can second the candidate. Calling
+				// `claim_pending_slot` here might make unnecessary claims.
+				for leaf in leaves.iter() {
+					let res = cq_state.claim_pending_slot_at_leaf(
+						&leaf,
+						&candidate_hash,
+						&candidate_relay_parent,
+						&candidate_para_id,
+					);
+
+					if !res {
+						gum::warn!(
+							target: LOG_TARGET,
+							?candidate_hash,
+							?candidate_relay_parent,
+							?candidate_para_id,
+							?leaf,
+							"Failed to claim slot for candidate at leaf during can_second check. This should never happen.",
+						);
+					}
+				}
+				!leaves.is_empty()
+			},
 		}
 	} else {
 		// Relay parent is unknown or async backing is disabled.
@@ -1374,7 +1528,7 @@ async fn handle_validated_candidate_command<Context>(
 	relay_parent: Hash,
 	command: ValidatedCandidateCommand,
 	metrics: &Metrics,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
 	match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(rp_state) => {
 			let candidate_hash = command.candidate_hash();
@@ -1389,8 +1543,17 @@ async fn handle_validated_candidate_command<Context>(
 							persisted_validation_data,
 						} = outputs;
 
+						let cq_state = if let Some(cq) = rp_state
+							.assigned_core
+							.and_then(|core_idx| state.claim_queue_state.get_mut(&core_idx))
+						{
+							cq
+						} else {
+							return Ok(false)
+						};
+
 						if rp_state.issued_statements.contains(&candidate_hash) {
-							return Ok(())
+							return Ok(true)
 						}
 
 						let receipt = CommittedCandidateReceipt {
@@ -1410,10 +1573,11 @@ async fn handle_validated_candidate_command<Context>(
 							ctx,
 							&state.implicit_view,
 							hypothetical_candidate,
+							cq_state,
 						)
 						.await
 						{
-							return Ok(())
+							return Ok(false)
 						};
 
 						let statement =
@@ -1448,7 +1612,7 @@ async fn handle_validated_candidate_command<Context>(
 							))
 							.await;
 
-							return Ok(())
+							return Ok(false)
 						}
 
 						if let Some(stmt) = res? {
@@ -1479,6 +1643,7 @@ async fn handle_validated_candidate_command<Context>(
 							candidate,
 						))
 						.await;
+						return Ok(false)
 					},
 				},
 				ValidatedCandidateCommand::Attest(res) => {
@@ -1534,6 +1699,7 @@ async fn handle_validated_candidate_command<Context>(
 							"AttestNoPoV was triggered without fallback being available."
 						);
 						debug_assert!(false);
+						return Ok(false);
 					}
 				},
 			}
@@ -1544,7 +1710,7 @@ async fn handle_validated_candidate_command<Context>(
 		},
 	}
 
-	Ok(())
+	Ok(true)
 }
 
 fn sign_statement(
@@ -1764,9 +1930,9 @@ async fn background_validate_and_make_available<Context>(
 		impl overseer::CandidateBackingSenderTrait,
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Send + 'static + Sync,
 	>,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
 	let candidate_hash = params.candidate.hash();
-	let Some(core_index) = rp_state.assigned_core else { return Ok(()) };
+	let Some(core_index) = rp_state.assigned_core else { return Ok(false) };
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
@@ -1793,7 +1959,7 @@ async fn background_validate_and_make_available<Context>(
 			.map_err(|_| Error::FailedToSpawnBackgroundTask)?;
 	}
 
-	Ok(())
+	Ok(true)
 }
 
 /// Kick off validation work and distribute the result as a signed statement.
@@ -1804,23 +1970,23 @@ async fn kick_off_validation_work<Context>(
 	persisted_validation_data: PersistedValidationData,
 	background_validation_tx: &mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	attesting: AttestingData,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
 	// Do nothing if the local validator is disabled or not a validator at all
 	match rp_state.table_context.local_validator_is_disabled() {
 		Some(true) => {
 			gum::info!(target: LOG_TARGET, "We are disabled - don't kick off validation");
-			return Ok(())
+			return Ok(false)
 		},
 		Some(false) => {}, // we are not disabled - move on
 		None => {
 			gum::debug!(target: LOG_TARGET, "We are not a validator - don't kick off validation");
-			return Ok(())
+			return Ok(false)
 		},
 	}
 
 	let candidate_hash = attesting.candidate.hash();
 	if rp_state.issued_statements.contains(&candidate_hash) {
-		return Ok(())
+		return Ok(true)
 	}
 
 	gum::debug!(
@@ -1887,6 +2053,8 @@ async fn maybe_validate_and_import<Context>(
 		return Ok(())
 	}
 
+	claim_slot_for_seconded_statement(&statement, rp_state, &mut state.claim_queue_state)?;
+
 	let res = import_statement(ctx, rp_state, &mut state.per_candidate, &statement).await;
 
 	// if we get an Error::RejectedByProspectiveParachains,
@@ -1911,6 +2079,7 @@ async fn maybe_validate_and_import<Context>(
 
 		let candidate_hash = summary.candidate;
 
+		// Only validate candidates originating from our validator group
 		if Some(summary.group_id) != rp_state.assigned_core {
 			return Ok(())
 		}
@@ -1978,12 +2147,11 @@ async fn validate_and_second<Context>(
 	ctx: &mut Context,
 	rp_state: &mut PerRelayParentState,
 	persisted_validation_data: PersistedValidationData,
+	candidate_hash: CandidateHash,
 	candidate: &CandidateReceipt,
 	pov: Arc<PoV>,
 	background_validation_tx: &mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
-) -> Result<(), Error> {
-	let candidate_hash = candidate.hash();
-
+) -> Result<bool, Error> {
 	gum::debug!(
 		target: LOG_TARGET,
 		candidate_hash = ?candidate_hash,
@@ -2008,24 +2176,53 @@ async fn validate_and_second<Context>(
 			make_command: ValidatedCandidateCommand::Second,
 		},
 	)
-	.await?;
-
-	Ok(())
+	.await
 }
 
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn handle_second_message<Context>(
 	ctx: &mut Context,
 	state: &mut State,
+	candidate_hash: CandidateHash,
 	candidate: CandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
 	pov: PoV,
 	metrics: &Metrics,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
 	let _timer = metrics.time_process_second();
 
-	let candidate_hash = candidate.hash();
 	let relay_parent = candidate.descriptor().relay_parent();
+
+	let claim_queue_for_core =
+		match get_claim_queue_state_for_the_assigned_core(&relay_parent, state) {
+			Ok(cq_state) => cq_state,
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?relay_parent,
+					?err,
+					"Can't second candidate due to claim queue state error",
+				);
+				return Ok(false)
+			},
+		};
+
+	// `claim_seconded_slot` will upgrade any pending claims to seconded (if collator protocol V2+
+	// was used) or make a new claim (if collator protocol V1 was used).
+	if !claim_queue_for_core.claim_seconded_slot(
+		&candidate_hash,
+		&candidate.descriptor.relay_parent(),
+		&candidate.descriptor.para_id(),
+	) {
+		gum::warn!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			"Can't second candidate because there is no free slot in claim queue",
+		);
+
+		return Ok(false)
+	}
 
 	if candidate.descriptor().persisted_validation_data_hash() != persisted_validation_data.hash() {
 		gum::warn!(
@@ -2034,7 +2231,7 @@ async fn handle_second_message<Context>(
 			"Candidate backing was asked to second candidate with wrong PVD",
 		);
 
-		return Ok(())
+		return Ok(false)
 	}
 
 	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
@@ -2046,7 +2243,7 @@ async fn handle_second_message<Context>(
 				"We were asked to second a candidate outside of our view."
 			);
 
-			return Ok(())
+			return Ok(false)
 		},
 		Some(r) => r,
 	};
@@ -2055,7 +2252,7 @@ async fn handle_second_message<Context>(
 	// validator but defensively use `unwrap_or(false)` to continue processing in this case.
 	if rp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
 		gum::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
-		return Ok(())
+		return Ok(false)
 	}
 
 	let assigned_paras = rp_state.assigned_core.and_then(|core| rp_state.claim_queue.0.get(&core));
@@ -2069,7 +2266,7 @@ async fn handle_second_message<Context>(
 			collation = ?candidate.descriptor().para_id(),
 			"Subsystem asked to second for para outside of our assignment",
 		);
-		return Ok(());
+		return Ok(false);
 	}
 
 	gum::debug!(
@@ -2090,18 +2287,19 @@ async fn handle_second_message<Context>(
 	if !rp_state.issued_statements.contains(&candidate_hash) {
 		let pov = Arc::new(pov);
 
-		validate_and_second(
+		return validate_and_second(
 			ctx,
 			rp_state,
 			persisted_validation_data,
+			candidate_hash,
 			&candidate,
 			pov,
 			&state.background_validation_tx,
 		)
-		.await?;
+		.await;
 	}
 
-	Ok(())
+	Ok(true)
 }
 
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
@@ -2174,4 +2372,132 @@ fn handle_get_backable_candidates_message(
 
 	tx.send(backed).map_err(|data| Error::Send(data))?;
 	Ok(())
+}
+
+fn handle_pending_slots(
+	relay_parent: &Hash,
+	state: &mut State,
+	tx: oneshot::Sender<VecDeque<ParaId>>,
+) -> Result<(), Error> {
+	let maybe_assigned_core = state
+		.per_relay_parent
+		.get(&relay_parent)
+		.and_then(|rp_state: &PerRelayParentState| rp_state.assigned_core);
+
+	let res = if let Some(core_index) = maybe_assigned_core {
+		state
+			.claim_queue_state
+			.get_mut(&core_index)
+			.map(|cq_state| cq_state.get_pending_slots_at(relay_parent))
+			.unwrap_or_default()
+	} else {
+		VecDeque::new()
+	};
+
+	tx.send(res).map_err(|_| Error::SendClaimedSlots)
+}
+
+fn handle_can_claim(
+	relay_parent: &Hash,
+	para_id: &ParaId,
+	state: &mut State,
+	tx: oneshot::Sender<bool>,
+) -> Result<(), Error> {
+	let maybe_assigned_core = state
+		.per_relay_parent
+		.get(&relay_parent)
+		.and_then(|rp_state: &PerRelayParentState| rp_state.assigned_core);
+
+	let res = if let Some(core_index) = maybe_assigned_core {
+		state
+			.claim_queue_state
+			.get_mut(&core_index)
+			.map(|cq_state| cq_state.has_free_slot_for_para_id(relay_parent, para_id))
+			.unwrap_or_default()
+	} else {
+		false
+	};
+
+	tx.send(res).map_err(|_| Error::SendClaimedSlots)
+}
+
+fn claim_slot_for_seconded_statement(
+	statement: &SignedFullStatementWithPVD,
+	rp_state: &mut PerRelayParentState,
+	claim_queue_state: &mut HashMap<CoreIndex, PerLeafClaimQueueState>,
+) -> Result<(), Error> {
+	if let StatementWithPVD::Seconded(candidate, _) = statement.payload() {
+		let candidate_hash = statement.payload().candidate_hash();
+
+		let core = core_index_from_statement(
+			&rp_state.validator_to_group,
+			&rp_state.group_rotation_info,
+			rp_state.n_cores,
+			&rp_state.claim_queue,
+			statement,
+		)
+		.ok_or(Error::CoreIndexUnavailable)?;
+
+		// claim a seconded slot at all possible paths
+		if !claim_queue_state
+			.get_mut(&core)
+			.map(|claim_queue_state| {
+				claim_queue_state.claim_seconded_slot(
+					&candidate_hash,
+					&candidate.descriptor.relay_parent(),
+					&candidate.descriptor.para_id(),
+				)
+			})
+			.unwrap_or(false)
+		{
+			gum::debug!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				relay_parent=?candidate.descriptor.relay_parent(),
+				para_id=?candidate.descriptor.para_id(),
+				assigned_core=?rp_state.assigned_core,
+				candidate_core=?candidate.descriptor.core_index(),
+				"Failed to claim slot for candidate"
+			);
+			return Err(Error::NoFreeSlotInClaimQueue)
+		}
+	}
+
+	return Ok(())
+}
+
+#[derive(thiserror::Error, Debug)]
+enum GetClaimQueueStateError {
+	#[error("can't find relay parent state for relay parent {0}")]
+	RelayParentNotKnown(Hash),
+	#[error("no core assigned")]
+	NoCoreAssigned,
+	#[error("can't find claim queue state for {0:?}")]
+	NoClaimQueueState(CoreIndex),
+}
+
+fn get_claim_queue_state_for_the_assigned_core<'a>(
+	relay_parent: &Hash,
+	state: &'a mut State,
+) -> Result<&'a mut PerLeafClaimQueueState, GetClaimQueueStateError> {
+	let rp_state = if let Some(rp_state) = state.per_relay_parent.get(&relay_parent) {
+		rp_state
+	} else {
+		return Err(GetClaimQueueStateError::RelayParentNotKnown(*relay_parent))
+	};
+
+	let assigned_core_idx = if let Some(core) = rp_state.assigned_core {
+		core
+	} else {
+		return Err(GetClaimQueueStateError::NoCoreAssigned)
+	};
+
+	let claim_queue_for_core = if let Some(cq) = state.claim_queue_state.get_mut(&assigned_core_idx)
+	{
+		cq
+	} else {
+		return Err(GetClaimQueueStateError::NoClaimQueueState(assigned_core_idx))
+	};
+
+	Ok(claim_queue_for_core)
 }
