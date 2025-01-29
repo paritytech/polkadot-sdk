@@ -459,7 +459,6 @@ where
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		Deny::deny_execution(origin, message, max_weight, properties)?;
-
 		Allow::should_execute(origin, message, max_weight, properties)
 	}
 }

@@ -897,4 +897,13 @@ fn test_deny_hardcoded_nested_xcm() {
 	}]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_err());
+
+	let nested_xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+		assets: Wild(All),
+		dest: Here.into_location(),
+		xcm: vec![].into(),
+	}]);
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(nested_xcm.clone())]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
 }
