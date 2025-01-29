@@ -19,7 +19,8 @@
 
 use crate::{
 	test_cases::{bridges_prelude::*, helpers, run_test},
-	test_data, test_data::XcmAsPlainPayload,
+	test_data,
+	test_data::XcmAsPlainPayload,
 };
 
 use alloc::{boxed::Box, vec};

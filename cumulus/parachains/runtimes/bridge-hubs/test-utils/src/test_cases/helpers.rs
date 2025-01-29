@@ -388,8 +388,7 @@ fn execute_and_verify_calls<Runtime: frame_system::Config>(
 }
 
 pub(crate) mod for_pallet_xcm_bridge_hub {
-	use super::*;
-	use super::super::for_pallet_xcm_bridge_hub::*;
+	use super::{super::for_pallet_xcm_bridge_hub::*, *};
 
 	/// Helper function to open the bridge/lane for `source` and `destination` while ensuring all
 	/// required balances are placed into the SA of the source.
@@ -418,7 +417,7 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 		assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 			locations.bridge_id()
 		)
-			.is_none());
+		.is_none());
 
 		// SA of source location needs to have some required balance
 		if !<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::AllowWithoutBridgeDeposit::contains(&source) {
@@ -441,8 +440,9 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 				buy_execution_fee_amount.into();
 			let source_account_id =
 				LocationToAccountId::convert_location(&source).expect("valid location");
-			let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
-				.expect("mint_into passes");
+			let _ =
+				<pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
+					.expect("mint_into passes");
 			Some(buy_execution_fee)
 		} else {
 			None
@@ -455,7 +455,7 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 		let bridge = pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 			locations.bridge_id(),
 		)
-			.expect("opened bridge");
+		.expect("opened bridge");
 
 		// check state
 		assert_ok!(
@@ -473,12 +473,12 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 		maybe_paid_execution: Option<Asset>,
 	) where
 		Runtime: frame_system::Config
-		+ pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>
-		+ cumulus_pallet_parachain_system::Config
-		+ pallet_xcm::Config,
+			+ pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>
+			+ cumulus_pallet_parachain_system::Config
+			+ pallet_xcm::Config,
 		XcmOverBridgePalletInstance: 'static,
 		<Runtime as frame_system::Config>::RuntimeCall:
-		GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
+			GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
 	{
 		// open bridge with `Transact` call
 		let open_bridge_call = RuntimeCallOf::<Runtime>::from(BridgeXcmOverBridgeCall::<
@@ -543,7 +543,7 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 		assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 			locations.bridge_id()
 		)
-			.is_some());
+		.is_some());
 
 		// required balance: ED + fee + BridgeDeposit
 		let maybe_paid_execution = if is_paid_xcm_execution {
@@ -555,8 +555,9 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 				buy_execution_fee_amount.into();
 			let source_account_id =
 				LocationToAccountId::convert_location(&expected_source).expect("valid location");
-			let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
-				.expect("mint_into passes");
+			let _ =
+				<pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
+					.expect("mint_into passes");
 			Some(buy_execution_fee)
 		} else {
 			None
@@ -585,7 +586,7 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 		assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 			locations.bridge_id()
 		)
-			.is_none());
+		.is_none());
 
 		// check state
 		assert_ok!(
