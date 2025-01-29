@@ -327,6 +327,8 @@ pub enum RuntimeCosts {
 	BlockNumber,
 	/// Weight of calling `seal_block_hash`.
 	BlockHash,
+	/// Weight of calling `seal_block_author`.
+	BlockAuthor,
 	/// Weight of calling `seal_gas_price`.
 	GasPrice,
 	/// Weight of calling `seal_base_fee`.
@@ -483,6 +485,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
+			BlockAuthor => T::WeightInfo::seal_block_author(),
 			GasPrice => T::WeightInfo::seal_gas_price(),
 			BaseFee => T::WeightInfo::seal_base_fee(),
 			Now => T::WeightInfo::seal_now(),
@@ -567,6 +570,11 @@ impl CallType {
 /// the beginning of the API entry point.
 fn already_charged(_: u32) -> Option<RuntimeCosts> {
 	None
+}
+
+/// Helper to extract two `u32` values from a given `u64` register.
+fn extract_hi_lo(reg: u64) -> (u32, u32) {
+	((reg >> 32) as u32, reg as u32)
 }
 
 /// Can only be used for one call.
@@ -1199,17 +1207,18 @@ pub mod env {
 	fn call(
 		&mut self,
 		memory: &mut M,
-		flags: u32,
-		callee_ptr: u32,
+		flags_and_callee: u64,
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_ptr: u32,
-		value_ptr: u32,
-		input_data_ptr: u32,
-		input_data_len: u32,
-		output_ptr: u32,
-		output_len_ptr: u32,
+		deposit_and_value: u64,
+		input_data: u64,
+		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		let (flags, callee_ptr) = extract_hi_lo(flags_and_callee);
+		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
@@ -1230,16 +1239,17 @@ pub mod env {
 	fn delegate_call(
 		&mut self,
 		memory: &mut M,
-		flags: u32,
-		address_ptr: u32,
+		flags_and_callee: u64,
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit_ptr: u32,
-		input_data_ptr: u32,
-		input_data_len: u32,
-		output_ptr: u32,
-		output_len_ptr: u32,
+		input_data: u64,
+		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		let (flags, address_ptr) = extract_hi_lo(flags_and_callee);
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
@@ -1261,18 +1271,24 @@ pub mod env {
 	fn instantiate(
 		&mut self,
 		memory: &mut M,
-		code_hash_ptr: u32,
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_ptr: u32,
-		value_ptr: u32,
-		input_data_ptr: u32,
-		input_data_len: u32,
-		address_ptr: u32,
-		output_ptr: u32,
-		output_len_ptr: u32,
-		salt_ptr: u32,
+		deposit_and_value: u64,
+		input_data: u64,
+		output_data: u64,
+		address_and_salt: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
+		let (input_data_len, code_hash_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let (address_ptr, salt_ptr) = extract_hi_lo(address_and_salt);
+		let Some(input_data_ptr) = code_hash_ptr.checked_add(32) else {
+			return Err(Error::<E::T>::OutOfBounds.into());
+		};
+		let Some(input_data_len) = input_data_len.checked_sub(32) else {
+			return Err(Error::<E::T>::OutOfBounds.into());
+		};
+
 		self.instantiate(
 			memory,
 			code_hash_ptr,
@@ -1671,6 +1687,25 @@ pub mod env {
 			memory,
 			out_ptr,
 			&block_hash.as_bytes(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Stores the current block author into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::block_author`].
+	#[stable]
+	fn block_author(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BlockAuthor)?;
+		let block_author = self
+			.ext
+			.block_author()
+			.map(|account| <E::T as Config>::AddressMapper::to_address(&account))
+			.unwrap_or(H160::zero());
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&block_author.as_bytes(),
 			false,
 			already_charged,
 		)?)
