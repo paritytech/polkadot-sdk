@@ -21,11 +21,7 @@
 
 mod chain_spec;
 
-use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig};
-
-// The current node version, which takes the basic SemVer form `<major>.<minor>.<patch>`.
-// It should correspond to the latest `polkadot` version of a stable release.
-const NODE_VERSION: &'static str = "1.17.0";
+use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
 
 struct CliConfig;
 

@@ -22,15 +22,11 @@
 #![warn(unused_extern_crates)]
 
 use polkadot_omni_node_lib::{
-	chain_spec::DiskChainSpecLoader, run, runtime::DefaultRuntimeResolver, CliConfig as CliConfigT,
-	RunConfig,
+	chain_spec::DiskChainSpecLoader, nodes::NODE_VERSION, run, runtime::DefaultRuntimeResolver,
+	CliConfig as CliConfigT, RunConfig,
 };
 
 struct CliConfig;
-
-// The current node version, which takes the basic SemVer form `<major>.<minor>.<patch>`.
-// It should correspond to the latest `polkadot` version of a stable release.
-const NODE_VERSION: &'static str = "1.17.0";
 
 impl CliConfigT for CliConfig {
 	fn impl_version() -> String {
