@@ -36,7 +36,7 @@ fn asset_hub_next_westend_genesis(
 	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
-	let dev_stakers = std::option_env!("AUTHORITIES").zip(std::option_env!("NOMINATORS"));
+	let dev_stakers = core::option_env!("AUTHORITIES").zip(core::option_env!("NOMINATORS"));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {

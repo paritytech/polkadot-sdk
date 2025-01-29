@@ -18,7 +18,7 @@ use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder},
-	onchain, NposSolver, SequentialPhragmen,
+	onchain, ElectionDataProvider, NposSolver, SequentialPhragmen,
 };
 use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
@@ -41,6 +41,23 @@ frame_election_provider_support::generate_solution_type!(
 		MaxVoters = ConstU32<22_500>, // TODO: this should be made more accurate, as it improves the `MaxEncodedLen` estimate of this type.
 	>(16)
 );
+
+impl multi_block::unsigned::miner::MinerConfig for Runtime {
+	type AccountId = AccountId;
+	type Hash = Hash;
+	type MaxBackersPerWinner = <Self as multi_block::verifier::Config>::MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal =
+		<Self as multi_block::verifier::Config>::MaxBackersPerWinnerFinal;
+	type MaxWinnersPerPage = <Self as multi_block::verifier::Config>::MaxWinnersPerPage;
+	type MaxVotesPerVoter =
+		<<Self as multi_block::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
+	type MaxLength = MinerMaxLength;
+	type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
+	type Pages = Pages;
+	type Solution = NposCompactSolution16;
+	type VoterSnapshotPerBlock = <Runtime as multi_block::Config>::VoterSnapshotPerBlock;
+	type TargetSnapshotPerBlock = <Runtime as multi_block::Config>::TargetSnapshotPerBlock;
+}
 
 parameter_types! {
 	pub MaxWinnersPerPage: u32 = 64;
@@ -69,7 +86,7 @@ impl multi_block::Config for Runtime {
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type SignedValidationPhase = SignedValidationPhase;
-	type Solution = NposCompactSolution16;
+	type MinerConfig = Self;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type WeightInfo = ();
@@ -122,8 +139,6 @@ impl multi_block::unsigned::Config for Runtime {
 	type WeightInfo = ();
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
-	type MinerMaxLength = MinerMaxLength;
-	type MinerMaxWeight = MinerMaxWeight;
 	type OffchainRepeat = ConstU32<5>;
 }
 
