@@ -138,14 +138,14 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 			.wait_log_line_count_with_timeout(
 				"Candidate core index is invalid: The core index in commitments doesn't match the one in descriptor",
 				false,
-				1 as usize,
+				1_usize,
 				// Since we have this check after the para throughput check, all validators
 				// should have already detected the malicious collator, and all expected logs
 				// should have already appeared, so there is no need to wait more than 1 second.
-				1 as u64,
+				1_u64,
 			)
 			.await
-			.expect(&format!("Expected log not found for {}", validator_name));
+			.unwrap_or_else(|error| panic!("Expected log not found for {}: {:?}", validator_name, error));
 	}
 
 	log::info!("Test finished successfully");
