@@ -541,7 +541,13 @@ impl<Inner: ShouldExecute> ShouldExecute for DenyInstructionsWithXcm<Inner> {
 					let _ = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > xcm_executor::RECURSION_LIMIT {
-								return Err(ProcessMessageError::StackLimitReached)
+								log::error!(
+									target: "xcm::barriers",
+									"Recursion limit exceeded for origin: {:?} and xcm: {:?}, recursion count {}",
+									origin, nested_xcm, count
+								);
+
+								return Err(ProcessMessageError::StackLimitReached);
 							}
 							*count = count.saturating_add(1);
 							Ok(())
@@ -621,6 +627,12 @@ where
 					let _ = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > xcm_executor::RECURSION_LIMIT {
+								log::error!(
+									target: "xcm::barriers",
+									"Recursion limit exceeded for origin: {:?} and xcm: {:?}, recursion count {}",
+									origin, nested_xcm, count
+								);
+
 								return Err(ProcessMessageError::StackLimitReached)
 							}
 							*count = count.saturating_add(1);
@@ -643,5 +655,78 @@ where
 		)?;
 
 		Allow::should_execute(origin, message, max_weight, properties)
+	}
+}
+
+pub struct DenyFirstInstructionsWithXcm<Inner>(PhantomData<Inner>);
+
+impl<Inner: ShouldExecute> ShouldExecute for DenyFirstInstructionsWithXcm<Inner> {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		message: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Inner::should_execute(origin, message, max_weight, properties)
+			.inspect_err(|e| {
+				log::warn!(
+					target: "xcm::barriers",
+					"`DenyFirstInstructionsWithXcm::Inner` rejected top-level origin: {:?} and xcm: {:?} with error: {:?}",
+							origin,message,e
+				);
+			})?;
+
+		message.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				SetAppendix(nested_xcm) |
+				SetErrorHandler(nested_xcm) |
+				ExecuteWithOrigin { xcm: nested_xcm, .. } => {
+					log::trace!(
+						target: "xcm::barriers",
+						"Processing nested origin: {:?} and xcm: {:?}",
+						origin, nested_xcm
+					);
+
+					let _ = Inner::should_execute(origin, nested_xcm.inner_mut(), max_weight, properties)
+						.inspect_err(|e| {
+							log::warn!(
+								target: "xcm::barriers",
+								"`DenyFirstInstructionsWithXcm::Inner` rejected nested origin: {:?} and xcm: {:?} with error: {:?}",
+										origin,nested_xcm,e
+							);
+						});
+
+					let _ = recursion_count::using_once(&mut 1, || {
+						recursion_count::with(|count| {
+							if *count > xcm_executor::RECURSION_LIMIT {
+								log::error!(
+									target: "xcm::barriers",
+									"Recursion limit exceeded for origin: {:?} and xcm: {:?}, recursion count {}",
+									origin, nested_xcm, count
+								);
+
+								return Err(ProcessMessageError::StackLimitReached)
+							}
+							*count = count.saturating_add(1);
+							Ok(())
+						}).unwrap_or(Ok(()))?;
+
+						sp_core::defer! {
+							recursion_count::with(|count| {
+								*count = count.saturating_sub(1);
+							});
+						}
+
+						Self::should_execute(origin, nested_xcm.inner_mut(), max_weight, properties)
+					})?;
+
+					Ok(ControlFlow::Continue(()))
+				},
+				_ => Ok(ControlFlow::Continue(())),
+			}
+		)?;
+
+		Ok(())
 	}
 }
