@@ -1865,6 +1865,24 @@ pub mod pallet {
 		MinBalanceDeficitAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
 		/// Claimed excess frozen ED of af the reward pool.
 		MinBalanceExcessAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
+		/// A pool member's claim permission has been updated.
+		MemberClaimPermissionUpdated {
+			member: T::AccountId,
+			permission: ClaimPermission,
+		},
+		/// A pool's metadata was updated.
+		MetadataUpdated { pool_id: PoolId, caller: T::AccountId },
+		/// A pool's nominator was chilled.
+		PoolNominatorChilled { pool_id: PoolId, caller: T::AccountId },
+		/// Global parameters regulating nomination pools have been updated.
+		GlobalNomPoolParamsUpdated {
+			min_join_bond: BalanceOf<T>,
+			min_create_bond: BalanceOf<T>,
+			max_pools: Option<u32>,
+			max_members_per_pool: Option<u32>,
+			max_members: Option<u32>,
+			global_max_commission: Option<Perbill>,
+		}
 	}
 
 	#[pallet::error]
@@ -2603,6 +2621,8 @@ pub mod pallet {
 
 			Metadata::<T>::mutate(pool_id, |pool_meta| *pool_meta = metadata);
 
+			Self::deposit_event(Event::<T>::MetadataUpdated { pool_id, caller: who });
+
 			Ok(())
 		}
 
@@ -2628,8 +2648,6 @@ pub mod pallet {
 			max_members_per_pool: ConfigOp<u32>,
 			global_max_commission: ConfigOp<Perbill>,
 		) -> DispatchResult {
-			// No event?
-
 			T::AdminOrigin::ensure_origin(origin)?;
 
 			macro_rules! config_op_exp {
@@ -2648,6 +2666,16 @@ pub mod pallet {
 			config_op_exp!(MaxPoolMembers::<T>, max_members);
 			config_op_exp!(MaxPoolMembersPerPool::<T>, max_members_per_pool);
 			config_op_exp!(GlobalMaxCommission::<T>, global_max_commission);
+
+			Self::deposit_event(Event::<T>::GlobalNomPoolParamsUpdated {
+				min_join_bond: MinJoinBond::<T>::get(),
+				min_create_bond: MinCreateBond::<T>::get(),
+				max_pools: MaxPools::<T>::get(),
+				max_members: MaxPoolMembers::<T>::get(),
+				max_members_per_pool: MaxPoolMembersPerPool::<T>::get(),
+				global_max_commission: GlobalMaxCommission::<T>::get(),
+			});
+
 			Ok(())
 		}
 
@@ -2716,7 +2744,7 @@ pub mod pallet {
 		/// account).
 		///
 		/// # Conditions for a permissionless dispatch:
-		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise  pool members
+		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise pool members
 		///   are unable to unbond.
 		///
 		/// # Conditions for permissioned dispatch:
@@ -2741,7 +2769,12 @@ pub mod pallet {
 				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
 			}
 
-			T::StakeAdapter::chill(Pool::from(bonded_pool.bonded_account()))
+			let chill_res = T::StakeAdapter::chill(Pool::from(bonded_pool.bonded_account()));
+			if let Ok(()) = chill_res {
+				Self::deposit_event(Event::<T>::PoolNominatorChilled { pool_id, caller: who });
+			}
+
+			chill_res
 		}
 
 		/// `origin` bonds funds from `extra` for some pool member `member` into their respective
@@ -2796,9 +2829,11 @@ pub mod pallet {
 				Error::<T>::NotMigrated
 			);
 
-			ClaimPermissions::<T>::mutate(who, |source| {
+			ClaimPermissions::<T>::mutate(who.clone(), |source| {
 				*source = permission;
 			});
+
+			Self::deposit_event(Event::<T>::MemberClaimPermissionUpdated { member: who, permission });
 
 			Ok(())
 		}
