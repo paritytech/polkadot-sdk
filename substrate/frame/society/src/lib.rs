@@ -260,7 +260,6 @@ pub mod migrations;
 extern crate alloc;
 
 use alloc::vec::Vec;
-
 use frame::prelude::*;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
@@ -269,6 +268,7 @@ use rand_chacha::{
 use scale_info::TypeInfo;
 
 pub use weights::WeightInfo;
+use frame::runtime::prelude::storage::KeyLenOf;
 
 pub use pallet::*;
 

@@ -204,15 +204,15 @@ pub mod prelude {
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
 		defensive, defensive_assert, impl_ensure_origin_with_arg_ignoring_arg,
-		storage::KeyLenOf,
+		// storage::KeyLenOf,
 		traits::{
 			BalanceStatus, Contains, Currency, Defensive, DefensiveOption, EitherOf, EnsureOrigin,
 			EnsureOriginWithArg, EstimateNextSessionRotation, ExistenceRequirement::AllowDeath,
 			Imbalance, Instance, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OnUnbalanced,
 			OneSessionHandler, Randomness, RankedMembers, RankedMembersSwapHandler,
-			ReservableCurrency, StorageVersion, UncheckedOnRuntimeUpgrade,
+			ReservableCurrency, StorageVersion,
 		},
-		PalletId, migrations::VersionedMigration,
+		PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -261,6 +261,10 @@ pub mod prelude {
 #[cfg(any(feature = "try-runtime", test))]
 pub mod try_runtime {
 	pub use sp_runtime::TryRuntimeError;
+}
+
+pub mod migration_prelude {
+	pub use frame_support::{traits::UncheckedOnRuntimeUpgrade, migrations::VersionedMigration};
 }
 
 /// Prelude to be included in the `benchmarking.rs` of a pallet.

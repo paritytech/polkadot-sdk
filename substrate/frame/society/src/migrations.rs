@@ -20,9 +20,14 @@
 use super::*;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame::try_runtime::TryRuntimeError;
+
 use frame::testing_prelude::*;
 use frame::runtime::prelude::storage::unhashed;
+use frame::migration_prelude::VersionedMigration;
+use frame::traits::UncheckedOnRuntimeUpgrade;
+
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 /// The log target.
 const TARGET: &'static str = "runtime::society::migration";
