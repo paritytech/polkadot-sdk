@@ -946,35 +946,17 @@ pub mod pallet_prelude {
 /// ```
 /// #[frame_support::pallet]    // <- the macro
 /// mod pallet {
-///     #[pallet::pallet]
-///     pub struct Pallet<T>(_);
-
-///     #[pallet::config]
-///     pub trait Config: frame_system::Config {
-///         type WeightInfo: WeightData;
-///     }
-
-///     #[pallet::call]
-///     impl<T: Config> Pallet<T> {
-///         #[pallet::call(weight = <T as Config>::WeightInfo::some_call())]
-///         pub fn some_call(origin: OriginFor<T>) -> DispatchResult {
-///             Ok(())
-///         }
-///     }
-/// }
-/// ```
-/// The `weight` attribute links directly to the `WeightInfo` implementation,
-/// enabling flexible and reusable weight specifications.
-/// 
-/// Specifies the weight of a dispatchable function.
+/// 	#[pallet::pallet]
+/// 	pub struct Pallet<T>(_);
 ///
-/// This attribute can be used to define the computational cost of a call,
-/// either as a fixed value or by linking to a pallet's `Config` trait:
+/// 	#[pallet::config]
+/// 	pub trait Config: frame_system::Config {}
 ///
-/// ```
-/// #[pallet::weight(<T as Config>::WeightInfo::some_call())]
-/// pub fn some_call(origin: OriginFor<T>) -> DispatchResult {
-///     Ok(())
+/// 	#[pallet::call]
+/// 	impl<T: Config> Pallet<T> {
+/// 	}
+///
+/// 	/* ... */
 /// }
 /// ```
 ///
@@ -1130,22 +1112,36 @@ pub mod pallet_macros {
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {
+    ///         /// Type for specifying dispatchable weights.
+    ///         type WeightInfo: WeightInfo;
+    ///     }
+	///
 	/// 	#[pallet::call]
 	/// 	impl<T: Config> Pallet<T> {
-	/// 		#[pallet::weight({0})] // <- set actual weight here
+	/// 		#[pallet::weight(<T as Config>::WeightInfo::do_something())] 
 	/// 		#[pallet::call_index(0)]
-	/// 		pub fn something(
-	/// 			_: OriginFor<T>,
+	/// 		pub fn do_something(
+	/// 			origin: OriginFor<T>,
 	/// 			foo: u32,
 	/// 		) -> DispatchResult {
-	/// 			unimplemented!()
+	/// 			Ok(())
 	/// 		}
 	/// 	}
-	/// #
-	/// # 	#[pallet::config]
-	/// # 	pub trait Config: frame_system::Config {}
 	/// }
-	/// ```
+	///
+	/// /// The `WeightInfo` trait defines weight functions for dispatchable calls.
+    /// pub trait WeightInfo {
+    ///     fn do_something() -> Weight;
+    /// }
+    /// ```
+    /// In this example:
+    ///
+    /// - The `WeightInfo` trait defines a function `do_something` that returns the weight for the corresponding dispatchable.
+    /// - The `Config` trait includes an associated type `WeightInfo` that implements the `WeightInfo` trait.
+    /// - The `#[pallet::weight(<T as Config>::WeightInfo::do_something())]` attribute assigns the weight to the `do_something` dispatchable function.
+    ///
 	pub use frame_support_procedural::weight;
 
 	/// Allows whitelisting a storage item from decoding during try-runtime checks.
@@ -2156,14 +2152,29 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet(dev_mode)]
 	/// mod pallet {
+	/// # 	use frame_support::pallet_prelude::*;
+	/// # 	use frame_system::pallet_prelude::*;
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
-	/// 	#[pallet::call] // <- automatically generated
-	/// 	impl<T: Config> Pallet<T> {} // <- automatically generated
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {}
+	/// 	#[pallet::call]
+	/// 	impl<T: Config> Pallet<T> {
+	/// 		#[pallet::weight(<T as Config>::WeightInfo::do_something())] 
+	/// 		#[pallet::call_index(1)]
+	/// 		pub fn do_something(
+	/// 			origin: OriginFor<T>,
+	/// 			foo: u32,
+	/// 		) -> DispatchResult {
+	/// 			Ok(())
+	/// 		}
+	/// 	}
+	/// #
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {
+    ///         /// Type for specifying dispatchable weights.
+    ///         type WeightInfo: WeightInfo;
+    ///     }
 	/// }
 	/// ```
 	///
