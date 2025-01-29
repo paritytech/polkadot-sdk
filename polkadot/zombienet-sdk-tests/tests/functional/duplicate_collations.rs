@@ -50,7 +50,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 				// type.
 				.with_node(|node| node.with_name("validator-0"));
 
-			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..3).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
 			p.with_id(2000)
