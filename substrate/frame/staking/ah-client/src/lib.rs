@@ -22,17 +22,25 @@
 pub use pallet::*;
 extern crate alloc;
 
+use sp_runtime::traits::Convert;
+use sp_staking::Exposure;
+
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use crate::BalanceOf;
+	use crate::{BalanceOf, Convert, Exposure};
 	use alloc::vec::Vec;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
-	use sp_staking::{Exposure, SessionIndex};
+	use pallet_staking::ExposureOf;
+	use sp_runtime::Perbill;
+	use sp_staking::{
+		offence::{OffenceDetails, OnOffenceHandler},
+		SessionIndex,
+	};
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 	#[pallet::pallet]
@@ -118,6 +126,45 @@ pub mod pallet {
 
 		fn start_session(_: u32) {
 			// call start_session from rc-client and pass active valdiator set somehow(tm)
+			todo!()
+		}
+	}
+
+	impl<T> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T>
+	where
+		T: Config + pallet_authorship::Config + pallet_session::Config,
+	{
+		fn note_author(author: T::AccountId) {
+			// save the account id in a storage item
+			todo!()
+		}
+	}
+
+	impl<T: Config>
+		OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight>
+		for Pallet<T>
+	where
+		T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
+		T: pallet_session::historical::Config<
+			FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+			FullIdentificationOf = ExposureOf<T>,
+		>,
+		T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
+		T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
+		T::ValidatorIdOf: Convert<
+			<T as frame_system::Config>::AccountId,
+			Option<<T as frame_system::Config>::AccountId>,
+		>,
+	{
+		fn on_offence(
+			offenders: &[OffenceDetails<
+				T::AccountId,
+				pallet_session::historical::IdentificationTuple<T>,
+			>],
+			slash_fraction: &[Perbill],
+			slash_session: SessionIndex,
+		) -> Weight {
+			// send the offender immediately over xcm
 			todo!()
 		}
 	}
