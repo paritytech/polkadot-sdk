@@ -336,7 +336,11 @@ mod benchmarks {
 		#[extrinsic_call]
 		burn(RawOrigin::Signed(caller.clone()), burn_amount, false);
 
-		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		if cfg!(feature = "insecure_zero_ed") {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), balance - burn_amount);
+		} else {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		}
 	}
 
 	// Benchmark `burn` extrinsic with the case where account is kept alive.
