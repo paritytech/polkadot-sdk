@@ -112,7 +112,7 @@ std = [
 	"sp-storage/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",
-	"sp-crypto-hashing?/std",
+	"sp-crypto-hashing/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

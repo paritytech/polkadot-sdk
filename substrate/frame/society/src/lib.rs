@@ -269,6 +269,7 @@ use scale_info::TypeInfo;
 
 pub use weights::WeightInfo;
 use frame::runtime::prelude::storage::KeyLenOf;
+use frame::traits::Currency;
 
 pub use pallet::*;
 

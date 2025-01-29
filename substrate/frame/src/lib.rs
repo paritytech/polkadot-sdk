@@ -204,9 +204,8 @@ pub mod prelude {
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
 		defensive, defensive_assert, impl_ensure_origin_with_arg_ignoring_arg,
-		// storage::KeyLenOf,
 		traits::{
-			BalanceStatus, Contains, Currency, Defensive, DefensiveOption, EitherOf, EnsureOrigin,
+			BalanceStatus, Contains, Defensive, DefensiveOption, EitherOf, EnsureOrigin,
 			EnsureOriginWithArg, EstimateNextSessionRotation, ExistenceRequirement::AllowDeath,
 			Imbalance, Instance, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OnUnbalanced,
 			OneSessionHandler, Randomness, RankedMembers, RankedMembersSwapHandler,
