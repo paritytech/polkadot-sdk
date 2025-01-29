@@ -772,7 +772,12 @@ fn deny_instructions_with_xcm_works() {
 	// dummy filter which denies `ClearOrigin`
 	struct DenyClearOrigin;
 	impl ShouldExecute for DenyClearOrigin {
-		fn should_execute<RuntimeCall>(_: &Location, message: &mut [Instruction<RuntimeCall>], _: Weight, _: &mut Properties) -> Result<(), ProcessMessageError> {
+		fn should_execute<RuntimeCall>(
+			_: &Location,
+			message: &mut [Instruction<RuntimeCall>],
+			_: Weight,
+			_: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
 			message.matcher().match_next_inst_while(
 				|_| true,
 				|inst| match inst {
@@ -784,7 +789,8 @@ fn deny_instructions_with_xcm_works() {
 		}
 	}
 
-	// closure for (xcm, origin) testing with `DenyInstructionsWithXcm` which denies `ClearOrigin` instruction
+	// closure for (xcm, origin) testing with `DenyInstructionsWithXcm` which denies `ClearOrigin`
+	// instruction
 	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
 			DenyInstructionsWithXcm::<DenyClearOrigin>::should_execute(
@@ -798,17 +804,9 @@ fn deny_instructions_with_xcm_works() {
 	};
 
 	// ok
-	assert_should_execute(
-		vec![ClearTransactStatus],
-		Location::parent(),
-		Ok(()),
-	);
+	assert_should_execute(vec![ClearTransactStatus], Location::parent(), Ok(()));
 	// ok top-level contains `ClearOrigin`
-	assert_should_execute(
-		vec![ClearOrigin],
-		Location::parent(),
-		Ok(()),
-	);
+	assert_should_execute(vec![ClearOrigin], Location::parent(), Ok(()));
 	// ok - SetAppendix with XCM without ClearOrigin
 	assert_should_execute(
 		vec![SetAppendix(Xcm(vec![ClearTransactStatus]))],
@@ -817,11 +815,7 @@ fn deny_instructions_with_xcm_works() {
 	);
 
 	// invalid - empty XCM
-	assert_should_execute(
-		vec![],
-		Location::parent(),
-		Err(ProcessMessageError::BadFormat),
-	);
+	assert_should_execute(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
 	// invalid - SetAppendix with empty XCM
 	assert_should_execute(
 		vec![SetAppendix(Xcm(vec![]))],
@@ -836,30 +830,71 @@ fn deny_instructions_with_xcm_works() {
 	);
 	// invalid nested SetAppendix contains `ClearOrigin`
 	assert_should_execute(
-		vec![SetAppendix(Xcm(vec![
-			SetAppendix(Xcm(vec![
-				SetAppendix(Xcm(vec![
-					SetAppendix(Xcm(vec![
-						SetAppendix(Xcm(vec![
-							SetAppendix(Xcm(vec![
-								SetAppendix(Xcm(vec![
-									SetAppendix(Xcm(vec![
-										SetAppendix(Xcm(vec![
-											SetAppendix(Xcm(vec![
-												SetAppendix(Xcm(vec![
-													SetAppendix(Xcm(vec![ClearOrigin]))
-												]))
-											]))
-										]))
-									]))
-								]))
-							]))
-						]))
-					]))
-				]))
-			]))
-		]))],
+		vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
+			Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+				SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+					SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))])),
+				]))]))])),
+			]))]))]))]),
+		)]))]))]))],
 		Location::parent(),
 		Err(ProcessMessageError::StackLimitReached),
 	);
+}
+
+#[test]
+fn test_deny_hardcoded_nested_xcm() {
+	use crate::barriers::HardcodedDenyThenTry;
+
+	struct AllowAll;
+	impl ShouldExecute for AllowAll {
+		fn should_execute<RuntimeCall>(
+			_origin: &Location,
+			_instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			Ok(())
+		}
+	}
+
+	type Barrier = HardcodedDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	let nested_xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+		assets: Wild(All),
+		dest: Location::parent(),
+		xcm: vec![].into(),
+	}]);
+	let origin = Here.into_location();
+	let max_weight = Weight::from_parts(10, 10);
+	let mut properties = props(Weight::zero());
+
+	let result = Barrier::should_execute(
+		&origin,
+		nested_xcm.clone().inner_mut(),
+		max_weight,
+		&mut properties,
+	);
+	assert!(result.is_err());
+
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(nested_xcm.clone())]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	let mut message = Xcm::<Instruction<()>>(vec![SetErrorHandler(nested_xcm.clone())]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
+		xcm: nested_xcm.clone(),
+		descendant_origin: None,
+	}]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
+		xcm: vec![SetErrorHandler(vec![SetAppendix(nested_xcm.clone())].into())].into(),
+		descendant_origin: None,
+	}]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
 }
