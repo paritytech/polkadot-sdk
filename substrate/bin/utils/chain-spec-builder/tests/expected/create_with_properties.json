@@ -8,6 +8,7 @@
   "properties": {
     "tokenDecimals": 6,
     "tokenSymbol": "TEST",
+    "ss58Prefix": 42,
     "isEthereum": false
   },
   "codeSubstitutes": {},

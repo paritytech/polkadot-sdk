@@ -244,7 +244,11 @@ fn test_create_with_properties() {
 			"-r",
 			DUMMY_PATH,
 			"--properties",
-			"tokenSymbol=TEST,tokenDecimals=6,isEthereum=false",
+			"tokenSymbol=TEST,tokenDecimals=6",
+			"--properties",
+			"isEthereum=false",
+			"--properties",
+			"ss58Prefix=42",
 			"default",
 		],
 	);
