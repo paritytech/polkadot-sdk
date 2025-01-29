@@ -7,6 +7,6 @@ crates:
 - name: cumulus-pallet-xcmp-queue
   bump: patch
 - name: pallet-xcm-bridge-hub
-  bump: patch
+  bump: minor
 - name: bridge-hub-test-utils
-  bump: patch
+  bump: minor
