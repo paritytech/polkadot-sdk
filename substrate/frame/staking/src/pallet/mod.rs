@@ -17,15 +17,16 @@
 
 //! Staking FRAME Pallet.
 
-use alloc::vec::Vec;
+use alloc::{format, vec::Vec};
 use codec::Codec;
 use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
 use frame_support::{
+	assert_ok,
 	pallet_prelude::*,
 	traits::{
 		fungible::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
-			Mutate as FunMutate,
+			Inspect, Mutate, Mutate as FunMutate,
 		},
 		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, OnUnbalanced, UnixTime,
@@ -34,6 +35,12 @@ use frame_support::{
 	BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+use rand::seq::SliceRandom;
+use rand_chacha::{
+	rand_core::{RngCore, SeedableRng},
+	ChaChaRng,
+};
+use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent, Saturating,
@@ -795,6 +802,39 @@ pub mod pallet {
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
+		/// Create the given number of validators and nominators.
+		///
+		/// These account need not be in the endowment list of balances, and are auto-topped up
+		/// here.
+		///
+		/// Useful for testing genesis config.
+		pub dev_stakers: Option<(u32, u32)>,
+	}
+
+	impl<T: Config> GenesisConfig<T> {
+		fn generate_endowed_bonded_account(
+			derivation: &str,
+			rng: &mut ChaChaRng,
+			min_validator_bond: BalanceOf<T>,
+		) -> T::AccountId {
+			let pair: SrPair = Pair::from_string(&derivation, None)
+				.expect(&format!("Failed to parse derivation string: {derivation}"));
+			let who = T::AccountId::decode(&mut &pair.public().encode()[..])
+				.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
+
+			let stake = BalanceOf::<T>::from(rng.next_u64())
+				.max(T::Currency::minimum_balance())
+				.max(min_validator_bond);
+			let two: BalanceOf<T> = 2u64.into();
+
+			assert_ok!(T::Currency::mint_into(&who, stake * two));
+			assert_ok!(<Pallet<T>>::bond(
+				T::RuntimeOrigin::from(Some(who.clone()).into()),
+				stake,
+				RewardDestination::Staked,
+			));
+			who
+		}
 	}
 
 	#[pallet::genesis_build]
@@ -827,12 +867,12 @@ pub mod pallet {
 					asset::free_to_stake::<T>(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
-				frame_support::assert_ok!(<Pallet<T>>::bond(
+				assert_ok!(<Pallet<T>>::bond(
 					T::RuntimeOrigin::from(Some(stash.clone()).into()),
 					balance,
 					RewardDestination::Staked,
 				));
-				frame_support::assert_ok!(match status {
+				assert_ok!(match status {
 					crate::StakerStatus::Validator => <Pallet<T>>::validate(
 						T::RuntimeOrigin::from(Some(stash.clone()).into()),
 						Default::default(),
@@ -856,6 +896,58 @@ pub mod pallet {
 				Nominators::<T>::count() + Validators::<T>::count(),
 				"not all genesis stakers were inserted into sorted list provider, something is wrong."
 			);
+
+			// now generate the dev stakers, after all else is setup
+			if let Some((validators, nominators)) = self.dev_stakers {
+				crate::log!(
+					debug,
+					"generating dev stakers: validators: {}, nominators: {}",
+					validators,
+					nominators
+				);
+				let base_derivation = "//staker//{}";
+
+				// it is okay for the randomness to be the same on every call. If we want different,
+				// we can make `base_derivation` configurable.
+				let mut rng =
+					ChaChaRng::from_seed(base_derivation.using_encoded(sp_core::blake2_256));
+
+				let validators = (0..validators)
+					.map(|index| {
+						let derivation =
+							base_derivation.replace("{}", &format!("validator{}", index));
+						let who = Self::generate_endowed_bonded_account(
+							&derivation,
+							&mut rng,
+							self.min_validator_bond,
+						);
+						assert_ok!(<Pallet<T>>::validate(
+							T::RuntimeOrigin::from(Some(who.clone()).into()),
+							Default::default(),
+						));
+						who
+					})
+					.collect::<Vec<_>>();
+
+				(0..nominators).for_each(|index| {
+					let derivation = base_derivation.replace("{}", &format!("nominator{}", index));
+					let who = Self::generate_endowed_bonded_account(
+						&derivation,
+						&mut rng,
+						self.min_validator_bond,
+					);
+
+					let random_nominations = validators
+						.choose_multiple(&mut rng, MaxNominationsOf::<T>::get() as usize)
+						.map(|v| v.clone())
+						.collect::<Vec<_>>();
+
+					assert_ok!(<Pallet<T>>::nominate(
+						T::RuntimeOrigin::from(Some(who.clone()).into()),
+						random_nominations.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
+					));
+				})
+			}
 		}
 	}
 
