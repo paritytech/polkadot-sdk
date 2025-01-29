@@ -13,4 +13,6 @@ doc:
 
 crates:
   - name: sc-network
-    bump: patch
+    bump: major
+  - name: sc-network-types
+    bump: major
