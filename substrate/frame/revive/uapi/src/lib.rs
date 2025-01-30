@@ -131,3 +131,14 @@ impl ReturnCode {
 }
 
 type Result = core::result::Result<(), ReturnErrorCode>;
+
+/// Helper to pack two `u32` values into a `u64` register.
+///
+/// Pointers to PVM memory are always 32 bit in size. Thus contracts can pack two
+/// pointers into a single register when calling a syscall API method.
+///
+/// This is done in syscall API methods where the number of arguments is exceeding
+/// the available registers.
+pub fn pack_hi_lo(hi: u32, lo: u32) -> u64 {
+	((hi as u64) << 32) | lo as u64
+}

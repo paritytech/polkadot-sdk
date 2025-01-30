@@ -66,6 +66,23 @@ impl<T: OffchainStorage + 'static> OffchainApiServer for Offchain<T> {
 		Ok(())
 	}
 
+	fn clear_local_storage(
+		&self,
+		ext: &Extensions,
+		kind: StorageKind,
+		key: Bytes,
+	) -> Result<(), Error> {
+		check_if_safe(ext)?;
+
+		let prefix = match kind {
+			StorageKind::PERSISTENT => sp_offchain::STORAGE_PREFIX,
+			StorageKind::LOCAL => return Err(Error::UnavailableStorageKind),
+		};
+		self.storage.write().remove(prefix, &key);
+
+		Ok(())
+	}
+
 	fn get_local_storage(
 		&self,
 		ext: &Extensions,

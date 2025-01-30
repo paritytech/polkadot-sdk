@@ -72,6 +72,12 @@ pub trait GasEncoder<Balance>: private::Sealed {
 	/// Decodes the weight and deposit from the encoded gas value.
 	/// Returns `None` if the gas value is invalid
 	fn decode(gas: U256) -> Option<(Weight, Balance)>;
+
+	/// Returns the encoded values of the specified weight and deposit.
+	fn as_encoded_values(weight: Weight, deposit: Balance) -> (Weight, Balance) {
+		let encoded = Self::encode(U256::zero(), weight, deposit);
+		Self::decode(encoded).expect("encoded values should be decodable; qed")
+	}
 }
 
 impl<Balance> GasEncoder<Balance> for ()
@@ -148,6 +154,11 @@ mod test {
 
 		assert!(decoded_deposit >= deposit);
 		assert!(deposit * 2 >= decoded_deposit);
+
+		assert_eq!(
+			(decoded_weight, decoded_deposit),
+			<() as GasEncoder<u64>>::as_encoded_values(weight, deposit)
+		);
 	}
 
 	#[test]

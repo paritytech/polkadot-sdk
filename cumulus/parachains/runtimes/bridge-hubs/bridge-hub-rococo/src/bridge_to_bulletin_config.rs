@@ -203,6 +203,7 @@ mod tests {
 			with_bridged_chain_messages_instance: WithRococoBulletinMessagesInstance,
 			this_chain: bp_bridge_hub_rococo::BridgeHubRococo,
 			bridged_chain: bp_polkadot_bulletin::PolkadotBulletin,
+			expected_payload_type: XcmAsPlainPayload,
 		);
 
 		// we can't use `assert_complete_bridge_constants` here, because there's a trick with

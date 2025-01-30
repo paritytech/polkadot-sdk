@@ -166,6 +166,7 @@ pub fn new_test_ext() -> TestExternalities {
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10_000_000), (2, 10_000_000), (3, 10_000_000)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

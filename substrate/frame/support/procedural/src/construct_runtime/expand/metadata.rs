@@ -18,7 +18,6 @@
 use crate::construct_runtime::{parse::PalletPath, Pallet};
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::str::FromStr;
 use syn::Ident;
 
 pub fn expand_runtime_metadata(
@@ -51,14 +50,7 @@ pub fn expand_runtime_metadata(
 			let errors = expand_pallet_metadata_errors(runtime, decl);
 			let associated_types = expand_pallet_metadata_associated_types(runtime, decl);
 			let docs = expand_pallet_metadata_docs(runtime, decl);
-			let attr = decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			});
+			let attr = decl.get_attributes();
 			let deprecation_info = expand_pallet_metadata_deprecation(runtime, decl);
 			quote! {
 				#attr
@@ -77,6 +69,20 @@ pub fn expand_runtime_metadata(
 			}
 		})
 		.collect::<Vec<_>>();
+
+	let view_functions = pallet_declarations.iter().map(|decl| {
+		let name = &decl.name;
+		let path = &decl.path;
+		let instance = decl.instance.as_ref().into_iter();
+		let attr = decl.get_attributes();
+
+		quote! {
+			#attr
+			#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_view_functions_metadata(
+				::core::stringify!(#name)
+			)
+		}
+	});
 
 	quote! {
 		impl #runtime {
@@ -149,6 +155,10 @@ pub fn expand_runtime_metadata(
 							>(),
 						event_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeEvent>(),
 						error_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeError>(),
+					},
+					view_functions: #scrate::__private::metadata_ir::RuntimeViewFunctionsIR {
+						ty: #scrate::__private::scale_info::meta_type::<RuntimeViewFunction>(),
+						groups: #scrate::__private::sp_std::vec![ #(#view_functions),* ],
 					}
 				}
 			}

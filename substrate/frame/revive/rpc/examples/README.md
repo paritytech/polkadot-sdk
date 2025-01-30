@@ -42,7 +42,7 @@ RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc -- --dev
 Run one of the examples from the `examples` directory to send a transaction to the node:
 
 ```bash
-RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc --features example --example deploy
+RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc --example deploy
 ```
 
 ## JS examples

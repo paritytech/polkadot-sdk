@@ -24,7 +24,7 @@ extern crate alloc;
 pub use bp_test_utils::test_header;
 pub use parachains_runtimes_test_utils::*;
 use sp_runtime::Perbill;
-pub use test_cases::helpers::{
+pub use test_cases::helpers::for_pallet_xcm_bridge_hub::{
 	ensure_opened_bridge, open_bridge_with_extrinsic, open_bridge_with_storage,
 };
 

@@ -42,9 +42,9 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	async_backing, slashing, vstaging,
+	async_backing, slashing,
 	vstaging::{
-		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
+		self, async_backing::Constraints, BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 	},
 	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
@@ -772,6 +772,9 @@ pub enum RuntimeApiRequest {
 	/// Get the candidates pending availability for a particular parachain
 	/// `V11`
 	CandidatesPendingAvailability(ParaId, RuntimeApiSender<Vec<CommittedCandidateReceipt>>),
+	/// Get the backing constraints for a particular parachain.
+	/// `V12`
+	BackingConstraints(ParaId, RuntimeApiSender<Option<Constraints>>),
 }
 
 impl RuntimeApiRequest {
@@ -812,6 +815,9 @@ impl RuntimeApiRequest {
 
 	/// `candidates_pending_availability`
 	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
+
+	/// `backing_constraints`
+	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 12;
 }
 
 /// A message to the Runtime API subsystem.

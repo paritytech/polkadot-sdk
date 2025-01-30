@@ -471,6 +471,7 @@ impl ExtBuilder {
 				// This allows us to have a total_payout different from 0.
 				(999, 1_000_000_000_000),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 

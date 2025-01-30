@@ -16,7 +16,10 @@
 
 //! Generating test data for bridges with remote parachains.
 
-use super::{from_grandpa_chain::make_complex_bridged_grandpa_header_proof, prepare_inbound_xcm};
+use super::{
+	from_grandpa_chain::make_complex_bridged_grandpa_header_proof, prepare_inbound_xcm,
+	XcmAsPlainPayload,
+};
 
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
@@ -28,7 +31,6 @@ use bp_runtime::{
 	AccountIdOf, BlockNumberOf, Chain, HeaderOf, Parachain, UnverifiedStorageProofParams,
 };
 use bp_test_utils::prepare_parachain_heads_proof;
-use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use codec::Encode;
 use pallet_bridge_grandpa::BridgedHeader;
 use sp_runtime::traits::Header as HeaderT;

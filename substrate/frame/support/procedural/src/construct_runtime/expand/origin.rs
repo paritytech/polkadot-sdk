@@ -18,7 +18,6 @@
 use crate::construct_runtime::{Pallet, SYSTEM_PALLET_NAME};
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::str::FromStr;
 use syn::{Generics, Ident};
 
 pub fn expand_outer_origin(
@@ -335,14 +334,7 @@ fn expand_origin_caller_variant(
 	let part_is_generic = !generics.params.is_empty();
 	let variant_name = &pallet.name;
 	let path = &pallet.path;
-	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-			.expect("was successfully parsed before; qed");
-		quote! {
-			#acc
-			#attr
-		}
-	});
+	let attr = pallet.get_attributes();
 
 	match instance {
 		Some(inst) if part_is_generic => quote! {
@@ -387,14 +379,7 @@ fn expand_origin_pallet_conversions(
 	};
 
 	let doc_string = get_intra_doc_string(" Convert to runtime origin using", &path.module_name());
-	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-			.expect("was successfully parsed before; qed");
-		quote! {
-			#acc
-			#attr
-		}
-	});
+	let attr = pallet.get_attributes();
 
 	quote! {
 		#attr

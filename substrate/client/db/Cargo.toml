@@ -43,7 +43,6 @@ array-bytes = { workspace = true, default-features = true }
 criterion = { workspace = true, default-features = true }
 kitchensink-runtime = { workspace = true }
 kvdb-rocksdb = { workspace = true }
-quickcheck = { workspace = true }
 rand = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }

@@ -31,7 +31,6 @@ ethabi = { workspace = true }
 [dev-dependencies]
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-wasm-bindgen-test = { workspace = true }
 
 [features]
 default = ["std"]

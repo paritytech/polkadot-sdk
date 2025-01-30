@@ -24,7 +24,7 @@ use frame_support::{
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use xcm::prelude::*;
-use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecute};
+use xcm_executor::traits::{CheckSuspension, DenyExecution, OnResponse, Properties, ShouldExecute};
 
 /// Execution barrier that just takes `max_weight` from `properties.weight_credit`.
 ///
@@ -444,12 +444,12 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 /// If it passes the Deny, and matches one of the Allow cases then it is let through.
 pub struct DenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
 where
-	Deny: ShouldExecute,
+	Deny: DenyExecution,
 	Allow: ShouldExecute;
 
 impl<Deny, Allow> ShouldExecute for DenyThenTry<Deny, Allow>
 where
-	Deny: ShouldExecute,
+	Deny: DenyExecution,
 	Allow: ShouldExecute,
 {
 	fn should_execute<RuntimeCall>(
@@ -458,15 +458,15 @@ where
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Deny::should_execute(origin, message, max_weight, properties)?;
+		Deny::deny_execution(origin, message, max_weight, properties)?;
 		Allow::should_execute(origin, message, max_weight, properties)
 	}
 }
 
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
-impl ShouldExecute for DenyReserveTransferToRelayChain {
-	fn should_execute<RuntimeCall>(
+impl DenyExecution for DenyReserveTransferToRelayChain {
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
@@ -490,7 +490,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
 					log::warn!(
-						target: "xcm::barrier",
+						target: "xcm::barriers",
 						"Unexpected ReserveAssetDeposited from the Relay Chain",
 					);
 					Ok(ControlFlow::Continue(()))
@@ -499,8 +499,6 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		)?;
-
-		// Permit everything else
 		Ok(())
 	}
 }

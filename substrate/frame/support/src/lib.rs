@@ -87,6 +87,7 @@ pub mod storage;
 #[cfg(test)]
 mod tests;
 pub mod traits;
+pub mod view_functions;
 pub mod weights;
 #[doc(hidden)]
 pub mod unsigned {

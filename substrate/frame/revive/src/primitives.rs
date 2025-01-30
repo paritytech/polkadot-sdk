@@ -108,6 +108,14 @@ pub enum EthTransactError {
 	Message(String),
 }
 
+/// Precision used for converting between Native and EVM balances.
+pub enum ConversionPrecision {
+	/// Exact conversion without any rounding.
+	Exact,
+	/// Conversion that rounds up to the nearest whole number.
+	RoundUp,
+}
+
 /// Result type of a `bare_code_upload` call.
 pub type CodeUploadResult<Balance> = Result<CodeUploadReturnValue<Balance>, DispatchError>;
 

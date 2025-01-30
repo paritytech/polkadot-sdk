@@ -19,7 +19,7 @@ use crate::{
 	client::{connect, Client},
 	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
 	EthRpcServer, EthRpcServerImpl, ReceiptProvider, SystemHealthRpcServer,
-	SystemHealthRpcServerImpl,
+	SystemHealthRpcServerImpl, LOG_TARGET,
 };
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
@@ -52,7 +52,7 @@ pub struct CliCommand {
 	/// The database used to store Ethereum transaction hashes.
 	/// This is only useful if the node needs to act as an archive node and respond to Ethereum RPC
 	/// queries for transactions that are not in the in memory cache.
-	#[clap(long)]
+	#[clap(long, env = "DATABASE_URL")]
 	pub database_url: Option<String>,
 
 	/// If true, we will only read from the database and not write to it.
@@ -148,6 +148,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 				Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
 			let receipt_provider: Arc<dyn ReceiptProvider> =
 				if let Some(database_url) = database_url.as_ref() {
+					log::info!(target: LOG_TARGET, "🔗 Connecting to provided database");
 					Arc::new((
 						CacheReceiptProvider::default(),
 						DBReceiptProvider::new(
@@ -158,6 +159,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 						.await?,
 					))
 				} else {
+					log::info!(target: LOG_TARGET, "🔌 No database provided, using in-memory cache");
 					Arc::new(CacheReceiptProvider::default())
 				};
 

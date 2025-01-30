@@ -214,7 +214,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let Some(block) = self.client.block_by_hash(&block_hash).await? else {
 			return Ok(None);
 		};
-		let block = self.client.evm_block(block, hydrated_transactions).await?;
+		let block = self.client.evm_block(block, hydrated_transactions).await;
 		Ok(Some(block))
 	}
 
@@ -254,7 +254,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
 			return Ok(None);
 		};
-		let block = self.client.evm_block(block, hydrated_transactions).await?;
+		let block = self.client.evm_block(block, hydrated_transactions).await;
 		Ok(Some(block))
 	}
 

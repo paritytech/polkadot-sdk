@@ -37,7 +37,7 @@ pub struct CliCommand {
 	pub oldest_block: Option<SubstrateBlockNumber>,
 
 	/// The database used to store Ethereum transaction hashes.
-	#[clap(long)]
+	#[clap(long, env = "DATABASE_URL")]
 	pub database_url: String,
 
 	#[allow(missing_docs)]
