@@ -495,9 +495,11 @@ where
 				},
 				PaymentType::Credits => {
 					// Charge the sending account the spot price in credits.
-					let credits = Credits::<T>::get(&sender);
-					ensure!(spot_price <= credits, Error::<T>::InsufficientCredits);
-					Credits::<T>::insert(&sender, credits.saturating_sub(spot_price));
+					Credits::<T>::try_mutate(&sender, |credits| -> DispatchResult {
+						ensure!(spot_price <= *credits, Error::<T>::InsufficientCredits);
+						*credits = credits.saturating_sub(spot_price);
+						Ok(())
+					})?;
 				},
 			}
 
