@@ -468,7 +468,7 @@ where
 /// within `SetAppendix(xcm)`, `SetErrorHandler(xcm)`, or `ExecuteWithOrigin { xcm, ... }`,
 /// recursively using `DenyInstructionsWithXcm`.
 ///
-/// If the message passes the deny filter, it is then evaluated against the allow condition.
+/// If the message passes the deny filters, it is then evaluated against the allow condition.
 ///
 /// Note: Ensures that restricted instructions are blocked at any depth with the XCM, enforcing
 /// stricter execution policies.
@@ -552,6 +552,7 @@ environmental::environmental!(recursion_count: u8);
 ///
 /// Note: The nested XCM is checked recursively!
 pub struct DenyInstructionsWithXcm<Inner>(PhantomData<Inner>);
+
 impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 	fn deny_execution<RuntimeCall>(
 		origin: &Location,
@@ -570,7 +571,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 						.inspect_err(|e| {
 							log::warn!(
 								target: "xcm::barriers",
-								"DenyInstructionsWithXcm::Inner denied execution: origin: {:?}, nested_xcm: {:?}, error: {:?}",
+								"DenyInstructionsWithXcm::Inner denied execution, origin: {:?}, nested_xcm: {:?}, error: {:?}",
 								origin, nested_xcm, e
 							);
 						})?;
@@ -582,7 +583,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 							if *count > xcm_executor::RECURSION_LIMIT {
 								log::error!(
 									target: "xcm::barriers",
-									"Recursion limit exceeded: origin: {:?}, nested_xcm: {:?}, count: {count}",
+									"Recursion limit exceeded, origin: {:?}, nested_xcm: {:?}, count: {count}",
 									origin, nested_xcm
 								);
 
@@ -637,7 +638,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyFirstInstructionsWithXcm<Inner>
 			.inspect_err(|e| {
 				log::warn!(
 					target: "xcm::barriers",
-					"DenyFirstInstructionsWithXcm::Inner denied execution: origin: {:?}, instructions: {:?}, error: {:?}",
+					"DenyFirstInstructionsWithXcm::Inner denied execution, origin: {:?}, instructions: {:?}, error: {:?}",
 					origin, instructions, e
 				);
 			})?;
