@@ -1,5 +1,5 @@
 use super::EthereumLocationsConverterFor;
-use crate::inbound::{
+use crate::{
 	mock::*, Command, ConvertMessage, Destination, MessageV1, VersionedMessage, H160,
 };
 use frame_support::assert_ok;

@@ -4,7 +4,7 @@
 
 use crate::{weights::WeightInfo, Config, Error, Junction::AccountId32, Location};
 use frame_support::weights::WeightToFee;
-use snowbridge_router_primitives::inbound::v2::{ConvertMessage, Message};
+use snowbridge_inbound_router_primitives::v2::{ConvertMessage, Message};
 use sp_core::H256;
 use sp_runtime::DispatchError;
 use xcm::latest::Xcm;

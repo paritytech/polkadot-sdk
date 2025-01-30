@@ -1,4 +1,4 @@
-use crate::inbound::{MessageToXcm, TokenId};
+use crate::{MessageToXcm, TokenId};
 use frame_support::parameter_types;
 use sp_runtime::{
 	traits::{IdentifyAccount, MaybeEquivalence, Verify},

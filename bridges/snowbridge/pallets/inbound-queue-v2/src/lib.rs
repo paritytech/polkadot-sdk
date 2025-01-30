@@ -56,7 +56,7 @@ use snowbridge_core::{
 	sparse_bitmap::SparseBitmap,
 	BasicOperatingMode,
 };
-use snowbridge_router_primitives::inbound::v2::{
+use snowbridge_inbound_router_primitives::v2::{
 	ConvertMessage, ConvertMessageError, Message as MessageV2,
 };
 use sp_core::H160;

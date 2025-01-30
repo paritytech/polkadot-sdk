@@ -23,7 +23,7 @@ use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
 use hex_literal::hex;
 use penpal_emulated_chain::PARA_ID_B;
 use snowbridge_core::{AssetMetadata, TokenIdOf};
-use snowbridge_router_primitives::inbound::{
+use snowbridge_router_primitives::{
 	v2::{
 		Asset::{ForeignTokenERC20, NativeTokenERC20},
 		Message,

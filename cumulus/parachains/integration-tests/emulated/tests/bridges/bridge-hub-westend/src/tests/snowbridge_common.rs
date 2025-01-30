@@ -25,7 +25,7 @@ use rococo_westend_system_emulated_network::penpal_emulated_chain::{
 	PenpalAssetOwner,
 };
 use snowbridge_core::AssetMetadata;
-use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
+use snowbridge_router_primitives::EthereumLocationsConverterFor;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
 

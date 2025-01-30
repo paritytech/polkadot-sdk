@@ -7,7 +7,7 @@ use alloy_core::{
 	sol,
 	sol_types::{SolEvent, SolType},
 };
-use snowbridge_router_primitives::inbound::v2::{
+use snowbridge_inbound_router_primitives::v2::{
 	Asset::{ForeignTokenERC20, NativeTokenERC20},
 	Message as MessageV2,
 };

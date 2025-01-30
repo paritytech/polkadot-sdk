@@ -1253,8 +1253,8 @@ pub use snowbridge_pallet_system_v2;
 pub use snowbridge_pallet_system_frontend;
 
 /// Snowbridge Router Primitives.
-#[cfg(feature = "snowbridge-router-primitives")]
-pub use snowbridge_router_primitives;
+#[cfg(feature = "snowbridge-inbound-router-primitives")]
+pub use snowbridge_inbound_router_primitives;
 
 /// Snowbridge Runtime Common.
 #[cfg(feature = "snowbridge-runtime-common")]

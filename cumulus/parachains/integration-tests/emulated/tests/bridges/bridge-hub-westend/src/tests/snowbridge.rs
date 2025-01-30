@@ -26,7 +26,7 @@ use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::ge
 use snowbridge_core::{inbound::InboundQueueFixture, AssetMetadata, TokenIdOf};
 use snowbridge_outbound_primitives::OperatingMode;
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
-use snowbridge_router_primitives::inbound::{
+use snowbridge_router_primitives::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
 	EthereumLocationsConverterFor,
 };

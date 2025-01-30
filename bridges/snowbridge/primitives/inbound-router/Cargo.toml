@@ -1,6 +1,6 @@
 [package]
-name = "snowbridge-router-primitives"
-description = "Snowbridge Router Primitives"
+name = "snowbridge-inbound-router-primitives"
+description = "Snowbridge Inbound Router Primitives"
 version = "0.9.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
@@ -38,27 +38,27 @@ hex-literal = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"alloy-core/std",
-	"codec/std",
-	"frame-support/std",
-	"frame-system/std",
-	"log/std",
-	"scale-info/std",
-	"snowbridge-core/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"xcm-builder/std",
-	"xcm-executor/std",
-	"xcm/std",
+    "alloy-core/std",
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "log/std",
+    "scale-info/std",
+    "snowbridge-core/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "xcm-builder/std",
+    "xcm-executor/std",
+    "xcm/std",
 ]
 runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"snowbridge-core/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "snowbridge-core/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
+    "xcm-builder/runtime-benchmarks",
+    "xcm-executor/runtime-benchmarks",
+    "xcm/runtime-benchmarks",
 ]

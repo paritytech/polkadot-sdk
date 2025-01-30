@@ -66,7 +66,11 @@ sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 
 # num-traits feature needed for dex integer sq root:
-primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+primitive-types = { features = [
+	"codec",
+	"num-traits",
+	"scale-info",
+], workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
@@ -104,7 +108,7 @@ bp-bridge-hub-westend = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
 snowbridge-outbound-router-primitives = { workspace = true }
 snowbridge-pallet-system-frontend = { workspace = true }
-snowbridge-router-primitives = { workspace = true }
+snowbridge-inbound-router-primitives = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
@@ -153,7 +157,7 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"snowbridge-pallet-system-frontend/runtime-benchmarks",
-	"snowbridge-router-primitives/runtime-benchmarks",
+	"snowbridge-inbound-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -260,7 +264,7 @@ std = [
 	"serde_json/std",
 	"snowbridge-outbound-router-primitives/std",
 	"snowbridge-pallet-system-frontend/std",
-	"snowbridge-router-primitives/std",
+	"snowbridge-inbound-router-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

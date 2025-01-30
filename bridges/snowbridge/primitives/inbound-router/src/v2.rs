@@ -16,7 +16,7 @@ use xcm::{
 	MAX_XCM_DECODE_DEPTH,
 };
 
-const LOG_TARGET: &str = "snowbridge-router-primitives";
+const LOG_TARGET: &str = "snowbridge-inbound-router-primitives";
 
 /// The ethereum side sends messages which are transcoded into XCM on BH. These messages are
 /// self-contained, in that they can be transcoded using only information in the message.
@@ -240,7 +240,7 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::inbound::v2::{
+	use crate::v2::{
 		Asset::{ForeignTokenERC20, NativeTokenERC20},
 		ConvertMessage, ConvertMessageError, Message, MessageToXcm, XcmAsset,
 	};
@@ -342,9 +342,11 @@ mod tests {
 		let mut reserve_deposited_found = 0;
 		let mut withdraw_assets_found = 0;
 		while let Some(instruction) = instructions.next() {
-			if let SetAssetClaimer { ref location } = instruction {
-				assert_eq!(Location::new(0, [claimer_account]), location.clone());
-				asset_claimer_found = true;
+			if let SetHints { ref hints } = instruction {
+				if let Some(AssetClaimer { ref location }) = hints.clone().into_iter().next() {
+					assert_eq!(Location::new(0, [claimer_account]), location.clone());
+					asset_claimer_found = true;
+				}
 			}
 			if let DescendOrigin(ref location) = instruction {
 				descend_origin_found = descend_origin_found + 1;
@@ -568,9 +570,11 @@ mod tests {
 
 		let mut found = false;
 		while let Some(instruction) = result_instructions.next() {
-			if let SetAssetClaimer { .. } = instruction {
-				found = true;
-				break;
+			if let SetHints { ref hints } = instruction {
+				if let Some(AssetClaimer { .. }) = hints.clone().into_iter().next() {
+					found = true;
+					break;
+				}
 			}
 		}
 		// SetAssetClaimer should not be in the message.

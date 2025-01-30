@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Converts messages from Ethereum to XCM messages
 
-use crate::inbound::{CallIndex, EthereumLocationsConverterFor};
+use crate::{CallIndex, EthereumLocationsConverterFor};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
@@ -456,7 +456,7 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::inbound::{CallIndex, EthereumLocationsConverterFor};
+	use crate::{CallIndex, EthereumLocationsConverterFor};
 	use frame_support::{assert_ok, parameter_types};
 	use hex_literal::hex;
 	use xcm::prelude::*;
