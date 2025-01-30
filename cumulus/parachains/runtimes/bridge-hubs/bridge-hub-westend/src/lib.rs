@@ -101,7 +101,7 @@ use parachains_common::{
 use snowbridge_core::{AgentId, PricingParameters};
 use snowbridge_outbound_primitives::{
 	v1::{Command, Fee},
-	v2::InboundMessage,
+	v2::OutboundMessage,
 	DryRunError,
 };
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
@@ -919,7 +919,7 @@ impl_runtime_apis! {
 		fn prove_message(leaf_index: u64) -> Option<snowbridge_merkle_tree::MerkleProof> {
 			snowbridge_pallet_outbound_queue_v2::api::prove_message::<Runtime>(leaf_index)
 		}
-		fn dry_run(xcm: Xcm<()>) -> Result<(InboundMessage,Balance),DryRunError> {
+		fn dry_run(xcm: Xcm<()>) -> Result<(OutboundMessage,Balance),DryRunError> {
 			snowbridge_pallet_outbound_queue_v2::api::dry_run::<Runtime>(xcm)
 		}
 	}

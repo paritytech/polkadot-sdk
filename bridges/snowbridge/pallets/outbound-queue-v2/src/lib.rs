@@ -79,8 +79,8 @@ use snowbridge_core::{
 };
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_primitives::v2::{
-	abi::{CommandWrapper, InboundMessageWrapper},
-	GasMeter, InboundCommandWrapper, InboundMessage, Message,
+	abi::{CommandWrapper, OutboundMessageWrapper},
+	GasMeter, Message, OutboundCommandWrapper, OutboundMessage,
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
@@ -201,7 +201,7 @@ pub mod pallet {
 	/// Inspired by the `frame_system::Pallet::Events` storage value
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(super) type Messages<T: Config> = StorageValue<_, Vec<InboundMessage>, ValueQuery>;
+	pub(super) type Messages<T: Config> = StorageValue<_, Vec<OutboundMessage>, ValueQuery>;
 
 	/// Hashes of the ABI-encoded messages in the [`Messages`] storage value. Used to generate a
 	/// merkle root during `on_finalize`. This storage value is killed in
@@ -336,11 +336,11 @@ pub mod pallet {
 			// b. Convert to committed hash and save into MessageLeaves
 			// c. Save nonce&fee into PendingOrders
 			let message: Message = Message::decode(&mut message).map_err(|_| Corrupt)?;
-			let commands: Vec<InboundCommandWrapper> = message
+			let commands: Vec<OutboundCommandWrapper> = message
 				.commands
 				.clone()
 				.into_iter()
-				.map(|command| InboundCommandWrapper {
+				.map(|command| OutboundCommandWrapper {
 					kind: command.index(),
 					gas: T::GasMeter::maximum_dispatch_gas_used_at_most(&command),
 					payload: command.abi_encode(),
@@ -356,7 +356,7 @@ pub mod pallet {
 					payload: Bytes::from(command.payload),
 				})
 				.collect();
-			let committed_message = InboundMessageWrapper {
+			let committed_message = OutboundMessageWrapper {
 				origin: FixedBytes::from(message.origin.as_fixed_bytes()),
 				nonce,
 				commands: abi_commands,
@@ -365,7 +365,7 @@ pub mod pallet {
 				<T as Config>::Hashing::hash(&committed_message.abi_encode());
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
 
-			let inbound_message = InboundMessage {
+			let inbound_message = OutboundMessage {
 				origin: message.origin,
 				nonce,
 				commands: commands.try_into().map_err(|_| Corrupt)?,

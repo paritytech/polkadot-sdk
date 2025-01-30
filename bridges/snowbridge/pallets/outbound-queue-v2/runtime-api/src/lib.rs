@@ -4,7 +4,7 @@
 
 use frame_support::traits::tokens::Balance as BalanceT;
 use snowbridge_merkle_tree::MerkleProof;
-use snowbridge_outbound_primitives::{v2::InboundMessage, DryRunError};
+use snowbridge_outbound_primitives::{v2::OutboundMessage, DryRunError};
 use xcm::prelude::Xcm;
 
 sp_api::decl_runtime_apis! {
@@ -15,6 +15,6 @@ sp_api::decl_runtime_apis! {
 		/// `sp_runtime::generic::DigestItem::Other`
 		fn prove_message(leaf_index: u64) -> Option<MerkleProof>;
 
-		fn dry_run(xcm: Xcm<()>) -> Result<(InboundMessage,Balance),DryRunError>;
+		fn dry_run(xcm: Xcm<()>) -> Result<(OutboundMessage,Balance),DryRunError>;
 	}
 }

@@ -13,7 +13,7 @@ use frame_support::{
 use codec::Encode;
 use snowbridge_core::{ChannelId, ParaId};
 use snowbridge_outbound_primitives::{
-	v2::{abi::InboundMessageWrapper, primary_governance_origin, Command, SendMessage},
+	v2::{abi::OutboundMessageWrapper, primary_governance_origin, Command, SendMessage},
 	SendError,
 };
 use sp_core::{hexdisplay::HexDisplay, H256};
@@ -262,7 +262,7 @@ fn encode_mock_message() {
 		.collect();
 
 	// print the abi-encoded message and decode with solidity test
-	let committed_message = InboundMessageWrapper {
+	let committed_message = OutboundMessageWrapper {
 		origin: FixedBytes::from(message.origin.as_fixed_bytes()),
 		nonce: 1,
 		commands,

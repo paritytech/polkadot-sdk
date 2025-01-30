@@ -25,7 +25,7 @@ pub mod abi {
 	use alloy_core::sol;
 
 	sol! {
-		struct InboundMessageWrapper {
+		struct OutboundMessageWrapper {
 			// origin
 			bytes32 origin;
 			// Message nonce
@@ -101,20 +101,20 @@ pub mod abi {
 }
 
 #[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
-pub struct InboundCommandWrapper {
+pub struct OutboundCommandWrapper {
 	pub kind: u8,
 	pub gas: u64,
 	pub payload: Vec<u8>,
 }
 
 #[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
-pub struct InboundMessage {
+pub struct OutboundMessage {
 	/// Origin
 	pub origin: H256,
 	/// Nonce
 	pub nonce: u64,
 	/// Commands
-	pub commands: BoundedVec<InboundCommandWrapper, ConstU32<MAX_COMMANDS>>,
+	pub commands: BoundedVec<OutboundCommandWrapper, ConstU32<MAX_COMMANDS>>,
 }
 
 pub const MAX_COMMANDS: u32 = 8;
