@@ -5,10 +5,10 @@
 //! # Overview
 //!
 //! Receives messages emitted by the Gateway contract on Ethereum, whereupon they are verified,
-//! translated to XCM, and finally sent to their final destination parachain.
+//! translated to XCM, and finally sent to AssetHub for further processing.
 //!
-//! The message relayers are rewarded using native currency from the sovereign account of the
-//! destination parachain.
+//! Message relayers are rewarded in wrapped Ether that is included within the message. This
+//! wrapped Ether is derived from Ether that the message origin has locked up on Ethereum.
 //!
 //! # Extrinsics
 //!
