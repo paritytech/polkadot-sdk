@@ -135,7 +135,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
 
-		/// Reward leger
+		/// Reward ledger
 		type RewardLedger: RewardLedger<<Self as frame_system::Config>::AccountId, Self::Balance>;
 
 		type ConvertAssetId: MaybeEquivalence<TokenId, Location>;
