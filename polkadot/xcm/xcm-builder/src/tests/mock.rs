@@ -16,11 +16,7 @@
 
 //! Mock implementations to test XCM builder configuration types.
 
-use crate::{
-	barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId},
-	test_utils::*,
-	EnsureDecodableXcm,
-};
+use crate::{barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId}, test_utils::*, CreateMatcher, EnsureDecodableXcm, MatchXcm};
 pub use crate::{
 	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
@@ -33,7 +29,7 @@ pub use core::{
 	fmt::Debug,
 	ops::ControlFlow,
 };
-use frame_support::traits::{ContainsPair, Everything};
+use frame_support::traits::{ContainsPair, Everything, ProcessMessageError};
 pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure, parameter_types,
@@ -49,6 +45,7 @@ pub use xcm_executor::{
 	},
 	AssetsInHolding, Config,
 };
+use xcm_executor::traits::ShouldExecute;
 
 #[derive(Debug)]
 pub enum TestOrigin {
@@ -772,4 +769,38 @@ pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {
 
 pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
+}
+
+// Dummy Barriers
+// Dummy filter to allow all
+pub struct AllowAll;
+impl ShouldExecute for AllowAll {
+	fn should_execute<RuntimeCall>(
+		_: &Location,
+		_: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Ok(())
+	}
+}
+
+// Dummy filter which denies `ClearOrigin`
+pub struct DenyClearOrigin;
+impl DenyExecution for DenyClearOrigin {
+	fn deny_execution<RuntimeCall>(
+		_: &Location,
+		message: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		message.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				ClearOrigin => Err(ProcessMessageError::Unsupported),
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
+		Ok(())
+	}
 }

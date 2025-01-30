@@ -769,26 +769,6 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 fn deny_instructions_with_xcm_works() {
 	frame_support::__private::sp_tracing::try_init_simple();
 
-	// dummy filter which denies `ClearOrigin`
-	struct DenyClearOrigin;
-	impl DenyExecution for DenyClearOrigin {
-		fn deny_execution<RuntimeCall>(
-			_: &Location,
-			message: &mut [Instruction<RuntimeCall>],
-			_: Weight,
-			_: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			message.matcher().match_next_inst_while(
-				|_| true,
-				|inst| match inst {
-					ClearOrigin => Err(ProcessMessageError::Unsupported),
-					_ => Ok(ControlFlow::Continue(())),
-				},
-			)?;
-			Ok(())
-		}
-	}
-
 	// closure for (xcm, origin) testing with `DenyInstructionsWithXcm` which denies `ClearOrigin`
 	// instruction
 	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
@@ -843,22 +823,10 @@ fn deny_instructions_with_xcm_works() {
 }
 
 #[test]
-fn deny_and_try_hardcoded_nested_xcm_works() {
+fn nested_deny_and_try_xcm_works() {
 	use crate::barriers::NestedDenyThenTry;
 
 	frame_support::__private::sp_tracing::try_init_simple();
-
-	struct AllowAll;
-	impl ShouldExecute for AllowAll {
-		fn should_execute<RuntimeCall>(
-			_: &Location,
-			_: &mut [Instruction<RuntimeCall>],
-			_: Weight,
-			_: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			Ok(())
-		}
-	}
 
 	type Barrier = NestedDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
 	let nested_xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
@@ -911,42 +879,10 @@ fn deny_and_try_hardcoded_nested_xcm_works() {
 }
 
 #[test]
-fn deny_then_try_instructions_with_xcm_works() {
+fn nested_deny_then_try_instructions_with_xcm_works() {
 	use crate::barriers::NestedDenyThenTry;
 
 	frame_support::__private::sp_tracing::try_init_simple();
-
-	struct AllowAll;
-	impl ShouldExecute for AllowAll {
-		fn should_execute<RuntimeCall>(
-			_: &Location,
-			_: &mut [Instruction<RuntimeCall>],
-			_: Weight,
-			_: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			Ok(())
-		}
-	}
-
-	// dummy filter which denies `ClearOrigin`
-	struct DenyClearOrigin;
-	impl DenyExecution for DenyClearOrigin {
-		fn deny_execution<RuntimeCall>(
-			_: &Location,
-			message: &mut [Instruction<RuntimeCall>],
-			_: Weight,
-			_: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			message.matcher().match_next_inst_while(
-				|_| true,
-				|inst| match inst {
-					ClearOrigin => Err(ProcessMessageError::Unsupported),
-					_ => Ok(ControlFlow::Continue(())),
-				},
-			)?;
-			Ok(())
-		}
-	}
 
 	// closure for (xcm, origin) testing with `HardcodedDenyThenTry` which denies `ClearOrigin`
 	// instruction
@@ -1007,28 +943,8 @@ fn deny_then_try_instructions_with_xcm_works() {
 }
 
 #[test]
-fn deny_top_level_instructions_with_xcm_works() {
+fn deny_first_instructions_with_xcm_works() {
 	frame_support::__private::sp_tracing::try_init_simple();
-
-	// dummy filter which denies `ClearOrigin`
-	struct DenyClearOrigin;
-	impl DenyExecution for DenyClearOrigin {
-		fn deny_execution<RuntimeCall>(
-			_: &Location,
-			message: &mut [Instruction<RuntimeCall>],
-			_: Weight,
-			_: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			message.matcher().match_next_inst_while(
-				|_| true,
-				|inst| match inst {
-					ClearOrigin => Err(ProcessMessageError::Unsupported),
-					_ => Ok(ControlFlow::Continue(())),
-				},
-			)?;
-			Ok(())
-		}
-	}
 
 	// closure for (xcm, origin) testing with `DenyFirstInstructionsWithXcm` which denies
 	// `ClearOrigin` instruction
