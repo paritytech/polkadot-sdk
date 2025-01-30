@@ -1153,7 +1153,7 @@ construct_runtime!(
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
 		// Snowbridge
-		SnowbridgeSystemFrontend: snowbridge_system_frontend = 80,
+		SnowbridgeSystemFrontend: snowbridge_pallet_system_frontend = 80,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
@@ -1454,8 +1454,8 @@ mod benches {
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
-		[snowbridge_system_frontend, SnowbridgeSystemFrontend]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[snowbridge_pallet_system_frontend, SnowbridgeSystemFrontend]
 	);
 }
 

@@ -13,17 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	imports::*,
-	tests::{snowbridge::WETH, snowbridge_common::*},
-};
+use crate::{imports::*, tests::snowbridge_common::*};
 use emulated_integration_tests_common::{impls::Decode, PenpalBTeleportableAssetLocation};
 use frame_support::pallet_prelude::TypeInfo;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
 use snowbridge_core::AssetMetadata;
 use snowbridge_outbound_primitives::TransactInfo;
 use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
-use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
 
@@ -244,8 +240,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 
 #[test]
 fn transact_with_agent() {
-	let weth_asset_location: Location =
-		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
+	let weth_asset_location: Location = weth_location();
 
 	fund_on_bh();
 

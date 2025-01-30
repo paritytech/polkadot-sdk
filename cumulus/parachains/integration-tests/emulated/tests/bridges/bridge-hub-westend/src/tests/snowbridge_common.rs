@@ -13,11 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	create_pool_with_native_on,
-	imports::*,
-	tests::snowbridge::{CHAIN_ID, WETH},
-};
+use crate::{create_pool_with_native_on, imports::*};
 use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
 use emulated_integration_tests_common::PenpalBTeleportableAssetLocation;
 use frame_support::traits::fungibles::Mutate;
@@ -33,6 +29,8 @@ use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
 
+pub const CHAIN_ID: u64 = 11155111;
+pub const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
 pub const INITIAL_FUND: u128 = 50_000_000_000_000;
 pub const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 pub const AGENT_ADDRESS: [u8; 20] = hex!("90A987B944Cb1dCcE5564e5FDeCD7a54D3de27Fe");

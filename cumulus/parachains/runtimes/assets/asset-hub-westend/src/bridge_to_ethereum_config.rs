@@ -47,7 +47,7 @@ pub mod benchmark_helpers {
 		}
 	}
 
-	impl snowbridge_system_frontend::BenchmarkHelper<RuntimeOrigin> for () {
+	impl snowbridge_pallet_system_frontend::BenchmarkHelper<RuntimeOrigin> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
 		}
@@ -68,7 +68,7 @@ parameter_types! {
 	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
 }
 
-impl snowbridge_system_frontend::Config for Runtime {
+impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
