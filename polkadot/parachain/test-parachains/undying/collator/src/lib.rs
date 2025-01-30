@@ -391,10 +391,9 @@ impl Collator {
 					let scheduled_cores: Vec<CoreIndex> = claim_queue
 						.iter()
 						.filter_map(move |(core_index, paras)| {
-							Some((*core_index, *paras.get(claim_queue_offset.0 as usize)?))
-						})
-						.filter_map(|(core_index, core_para_id)| {
-							(core_para_id == para_id).then_some(core_index)
+							paras.get(claim_queue_offset.0 as usize).and_then(|core_para_id| {
+								(core_para_id == &para_id).then_some(*core_index)
+							})
 						})
 						.collect();
 
