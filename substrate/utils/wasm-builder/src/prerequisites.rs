@@ -192,12 +192,19 @@ impl<'a> DummyCrate<'a> {
 		sysroot_cmd.output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
 	}
 
-	pub(crate) fn get_toolchain(&self) -> Option<String> {
+	fn get_toolchain(&self) -> Option<String> {
 		let sysroot = self.get_sysroot()?;
 		Path::new(sysroot.trim())
 			.file_name()
 			.and_then(|s| s.to_str())
 			.map(|s| s.to_string())
+	}
+
+	pub(crate) fn is_target_installed(&self, target: &str) -> Option<bool> {
+		let sysroot = self.get_sysroot()?;
+		let target_libdir_path =
+			Path::new(sysroot.trim()).join("lib").join("rustlib").join(target).join("lib");
+		Some(target_libdir_path.exists())
 	}
 
 	fn try_build(&self) -> Result<(), Option<String>> {

@@ -343,20 +343,10 @@ impl CargoCommand {
 		})
 	}
 
-	fn is_target_installed(toolchain: &str, target: &str) -> bool {
-		Command::new("rustup")
-			.args(&["target", "list", "--toolchain", toolchain, "--installed"])
-			.output()
-			.map_or(false, |o| String::from_utf8_lossy(&o.stdout).contains(target))
-	}
-
 	/// Returns whether the `wasm32v1-none` target is installed in this version of the toolchain.
 	fn is_wasm32v1_none_target_installed(&self) -> bool {
 		let dummy_crate = DummyCrate::new(self, RuntimeTarget::Wasm, true);
-		let Some(toolchain) = dummy_crate.get_toolchain() else {
-			return false;
-		};
-		Self::is_target_installed(&toolchain, "wasm32v1-none")
+		dummy_crate.is_target_installed("wasm32v1-none").unwrap_or(false)
 	}
 
 	/// Returns whether the `wasm32v1-none` target is available in this version of the toolchain.
