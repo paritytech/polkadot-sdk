@@ -196,6 +196,7 @@ pub mod pallet {
 	/// `on_initialize`, so will not end up bloating state.
 	///
 	/// Is never read in the runtime, only by offchain message relayers.
+	/// Because of this, it will never go into the PoV of a block.
 	///
 	/// Inspired by the `frame_system::Pallet::Events` storage value
 	#[pallet::storage]
