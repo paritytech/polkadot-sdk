@@ -114,7 +114,7 @@ where
 		Ok(fee_amount)
 	}
 
-	/// Convert the xcm for into the Message which will be executed
+	/// Convert the xcm into the Message which will be executed
 	/// on Ethereum Gateway contract, we expect an input of the form:
 	/// # WithdrawAsset(WETH)
 	/// # PayFees(WETH)
