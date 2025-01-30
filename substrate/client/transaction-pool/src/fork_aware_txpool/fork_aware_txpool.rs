@@ -542,7 +542,7 @@ where
 		debug!(
 			target: LOG_TARGET,
 			?at,
-			allowed_delay = ?timeout,
+			?timeout,
 			"fatp::ready_at_with_timeout"
 		);
 		let timeout = futures_timer::Delay::new(timeout);
@@ -687,7 +687,7 @@ where
 		debug!(
 			target: LOG_TARGET,
 			count = xts.len(),
-			views = self.active_views_count(),
+			active_views_count = self.active_views_count(),
 			"fatp::submit_at"
 		);
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "fatp::submit_at");
@@ -784,7 +784,7 @@ where
 		trace!(
 			target: LOG_TARGET,
 			tx_hash = ?self.tx_hash(&xt),
-			views = self.active_views_count(),
+			active_views_count = self.active_views_count(),
 			"fatp::submit_one"
 		);
 		match self.submit_at(_at, source, vec![xt]).await {
@@ -894,7 +894,7 @@ where
 		trace!(
 			target: LOG_TARGET,
 			?tx_hash,
-			result_is_some = result.is_some(),
+			is_ready = result.is_some(),
 			?most_recent_view,
 			"ready_transaction"
 		);
@@ -954,7 +954,7 @@ where
 	) -> Result<Self::Hash, Self::Error> {
 		debug!(
 			target: LOG_TARGET,
-			views = self.active_views_count(),
+			active_views_count = self.active_views_count(),
 			"fatp::submit_local"
 		);
 		let xt = Arc::from(xt);
@@ -1402,7 +1402,7 @@ where
 			target: LOG_TARGET,
 			?finalized_number,
 			?tree_route,
-			views_count = self.active_views_count(),
+			active_views_count = self.active_views_count(),
 			"handle_finalized"
 		);
 		let finalized_xts = self.view_store.handle_finalized(finalized_hash, tree_route).await;
@@ -1431,7 +1431,7 @@ where
 		self.ready_poll.lock().remove_cancelled();
 		trace!(
 			target: LOG_TARGET,
-			views_count = self.active_views_count(),
+			active_views_count = self.active_views_count(),
 			"handle_finalized after"
 		);
 	}
