@@ -18,6 +18,7 @@
 
 use crate::{
 	barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId},
+	matcher::{CreateMatcher, MatchXcm},
 	test_utils::*,
 	EnsureDecodableXcm,
 };
