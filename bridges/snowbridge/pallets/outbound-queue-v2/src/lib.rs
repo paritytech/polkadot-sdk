@@ -193,7 +193,7 @@ pub mod pallet {
 	}
 
 	/// Messages to be committed in the current block. This storage value is killed in
-	/// `on_initialize`, so should never go into block PoV.
+	/// `on_initialize`, so will not end up bloating state.
 	///
 	/// Is never read in the runtime, only by offchain message relayers.
 	///
