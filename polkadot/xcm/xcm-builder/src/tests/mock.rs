@@ -41,12 +41,11 @@ pub use frame_support::{
 	traits::{Contains, Get, IsInVec},
 };
 pub use xcm::latest::{prelude::*, QueryId, Weight};
-use xcm_executor::traits::ShouldExecute;
 pub use xcm_executor::{
 	traits::{
 		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
 		FeeManager, FeeReason, LockError, OnResponse, Properties, QueryHandler,
-		QueryResponseStatus, TransactAsset,
+		QueryResponseStatus, ShouldExecute, TransactAsset,
 	},
 	AssetsInHolding, Config,
 };
