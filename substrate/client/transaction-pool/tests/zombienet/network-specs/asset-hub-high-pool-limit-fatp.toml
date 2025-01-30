@@ -7,7 +7,7 @@ chain = "rococo-local"
 
 [[relaychain.nodes]]
 name = "alice"
-ws_port = 9944
+rpc_port = 9944
 validator = true
 
 [[relaychain.nodes]]
@@ -16,11 +16,10 @@ validator = true
 
 [[parachains]]
 id = 2000
+chain = "asset-hub-rococo-local"
 default_command = "polkadot-parachain"
 default_image = "parity/polkadot-parachain:latest"
-# run charlie as parachain collatorid = 2000
 cumulus_based = true
-genesis_wasm_path = "target/release/asset-hub-rococo-runtime/asset_hub_rococo_runtime.wasm"
 default_args = [
 	"--force-authoring",
 	"--pool-kbytes 2048000",
@@ -37,25 +36,29 @@ default_args = [
 	"-lsync=trace",
 	"-ltxpool=trace",
 ]
-
+devAccounts = [
+	20000,
+	1000000000000000000,
+	"//Sender//{}"
+]
 
 [[parachains.collators]]
 name = "charlie"
 validator = false
-ws_port = 9933
+rpc_port = 9933
 
 
 [[parachains.collators]]
 name = "dave"
 validator = true
-ws_port = 9934
+rpc_port = 9934
 
 [[parachains.collators]]
 name = "eve"
 validator = true
-ws_port = 9935
+rpc_port = 9935
 
 [[parachains.collators]]
 name = "ferdie"
 validator = true
-ws_port = 9936
+rpc_port = 9936

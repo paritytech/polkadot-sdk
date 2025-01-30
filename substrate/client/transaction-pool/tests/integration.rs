@@ -28,9 +28,9 @@ use zombienet_sdk::NetworkConfigExt;
 #[tokio::test(flavor = "multi_thread")]
 // TODO: continue this scenario
 async fn send_future_and_then_ready() {
-    let _ = env_logger::try_init_from_env(
-                env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-     );
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
 	let net = NetworkSpawner::init_from_asset_hub_fatp_low_pool_limit_spec().await.unwrap();
 	tokio::time::sleep(Duration::from_secs(1400)).await;
 }

@@ -21,7 +21,7 @@ validator = true
 id = 2000
 cumulus_based = true
 chain = "asset-hub-rococo-local"
-# default_chain = "./tests/zombienet/network-specs/asset-hub-rococo-local-20k.json"
+# default_chain_spec_path = "./tests/zombienet/network-specs/chain_spec.json"
 default_image = "parity/polkadot-parachain:latest"
 default_command = "polkadot-parachain"
 default_args = [
@@ -40,13 +40,12 @@ default_args = [
 	"-lsync=trace",
 	"-ltxpool=debug",
 ]
-#genesis_overrides = "{\"genesis\" : { \"runtimeGenesis\" : { \"patch\": \"balances\": { \"balances\": [[\"5H6xHTXGMkafYD2ZBc9FxjjST1ipWPyJhUXNcmpopsstRM3R\", 200000000]]}}}}"
 [parachains.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
- 	20000,
- 	1000000000000000000,
-         "//Sender//{}"
- ]
+	20000,
+	1000000000000000000,
+	"//Sender//{}"
+]
 
 # run charlie as parachain collator
 [[parachains.collators]]

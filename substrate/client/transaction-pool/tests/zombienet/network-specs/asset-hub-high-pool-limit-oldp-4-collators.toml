@@ -1,13 +1,11 @@
 [relaychain]
-# single-state
-# fork-aware
 default_image = "parity/polkadot:latest"
 default_command = "polkadot"
 chain = "rococo-local"
 
 [[relaychain.nodes]]
 name = "alice"
-ws_port = 9944
+rpc_port = 9944
 validator = true
 
 [[relaychain.nodes]]
@@ -17,7 +15,7 @@ validator = true
 [[parachains]]
 id = 2000
 cumulus_based = true
-chain = "tests/zombienet/chain-specs/asset-hub-rococo-local-20k.json"
+chain = "asset-hub-rococo-local"
 default_image = "parity/polkadot-parachain:latest"
 default_command = "polkadot-parachain"
 default_args = [
@@ -40,22 +38,22 @@ default_args = [
 [[parachains.collators]]
 name = "charlie"
 validator = false
-ws_port = 9933
+rpc_port = 9933
 
 
 [[parachains.collators]]
 name = "dave"
 validator = true
-ws_port = 9934
+rpc_port = 9934
 
 
 [[parachains.collators]]
 name = "eve"
 validator = true
-ws_port = 9935
+rpc_port = 9935
 
 
 [[parachains.collators]]
 name = "ferdie"
 validator = true
-ws_port = 9936
+rpc_port = 9936

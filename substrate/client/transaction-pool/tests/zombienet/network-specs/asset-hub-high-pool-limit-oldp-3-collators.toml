@@ -17,7 +17,7 @@ validator = true
 [[parachains]]
 id = 2000
 cumulus_based = true
-chain = "tests/zombienet/chain-specs/asset-hub-rococo-local-20k.json"
+chain = "asset-hub-rococo-local"
 default_image = "parity/polkadot-parachain:latest"
 default_command = "polkadot-parachain"
 default_args = [
