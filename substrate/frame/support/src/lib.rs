@@ -1112,8 +1112,8 @@ pub mod pallet_macros {
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
-	/// # 	#[pallet::config]
-	/// # 	pub trait Config: frame_system::Config {
+	///  	#[pallet::config]
+	///  	pub trait Config: frame_system::Config {
     ///         /// Type for specifying dispatchable weights.
     ///         type WeightInfo: WeightInfo;
     ///     }
@@ -2160,8 +2160,8 @@ pub mod pallet_macros {
 	///
 	/// 	#[pallet::call]
 	/// 	impl<T: Config> Pallet<T> {
-	/// 		#[pallet::weight(<T as Config>::WeightInfo::do_something())] 
 	/// 		#[pallet::call_index(1)]
+	/// 		#[pallet::call(weight = <T as Config>::WeightInfo::do_something())] 
 	/// 		pub fn do_something(
 	/// 			origin: OriginFor<T>,
 	/// 			foo: u32,
