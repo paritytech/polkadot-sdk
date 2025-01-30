@@ -92,7 +92,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A `CreateAgent` message was sent to Bridge Hub
 		CreateAgent { location: Location },
-		/// Register Polkadot-native token was sent to BH
+		/// A message to register a Polkadot-native token was sent to Bridge Hub
 		RegisterToken {
 			/// Location of Polkadot-native token
 			location: Location,
