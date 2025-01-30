@@ -101,9 +101,13 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Convert versioned location failure
 		UnsupportedLocationVersion,
+		/// Check location failure, should start from the dispatch origin as owner
 		OwnerCheck,
+		/// Send xcm message failure
 		Send,
+		/// Withdraw fee asset failure
 		FundsUnavailable,
 	}
 
@@ -143,7 +147,7 @@ pub mod pallet {
 
 		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
 		/// - `origin`: Must be `Location` from a sibling parachain
-		/// - `asset_id`: Location of the asset (should be starts from the dispatch origin)
+		/// - `asset_id`: Location of the asset (should starts from the dispatch origin)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::register_token())]
