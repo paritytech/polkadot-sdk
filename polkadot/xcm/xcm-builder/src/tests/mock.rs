@@ -16,7 +16,11 @@
 
 //! Mock implementations to test XCM builder configuration types.
 
-use crate::{barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId}, test_utils::*, CreateMatcher, EnsureDecodableXcm, MatchXcm};
+use crate::{
+	barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId},
+	test_utils::*,
+	CreateMatcher, EnsureDecodableXcm, MatchXcm,
+};
 pub use crate::{
 	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
@@ -37,6 +41,7 @@ pub use frame_support::{
 	traits::{Contains, Get, IsInVec},
 };
 pub use xcm::latest::{prelude::*, QueryId, Weight};
+use xcm_executor::traits::ShouldExecute;
 pub use xcm_executor::{
 	traits::{
 		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
@@ -45,7 +50,6 @@ pub use xcm_executor::{
 	},
 	AssetsInHolding, Config,
 };
-use xcm_executor::traits::ShouldExecute;
 
 #[derive(Debug)]
 pub enum TestOrigin {
