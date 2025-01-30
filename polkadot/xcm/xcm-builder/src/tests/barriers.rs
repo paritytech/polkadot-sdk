@@ -844,7 +844,7 @@ fn deny_instructions_with_xcm_works() {
 
 #[test]
 fn deny_and_try_hardcoded_nested_xcm_works() {
-	use crate::barriers::HardcodedDenyThenTry;
+	use crate::barriers::NestedDenyThenTry;
 
 	frame_support::__private::sp_tracing::try_init_simple();
 
@@ -860,7 +860,7 @@ fn deny_and_try_hardcoded_nested_xcm_works() {
 		}
 	}
 
-	type Barrier = HardcodedDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	type Barrier = NestedDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
 	let nested_xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
 		dest: Location::parent(),
@@ -912,7 +912,7 @@ fn deny_and_try_hardcoded_nested_xcm_works() {
 
 #[test]
 fn deny_then_try_instructions_with_xcm_works() {
-	use crate::barriers::HardcodedDenyThenTry;
+	use crate::barriers::NestedDenyThenTry;
 
 	frame_support::__private::sp_tracing::try_init_simple();
 
@@ -951,7 +951,7 @@ fn deny_then_try_instructions_with_xcm_works() {
 	// closure for (xcm, origin) testing with `HardcodedDenyThenTry` which denies `ClearOrigin`
 	// instruction
 	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
-		type Barrier = HardcodedDenyThenTry<DenyClearOrigin, AllowAll>;
+		type Barrier = NestedDenyThenTry<DenyClearOrigin, AllowAll>;
 		assert_eq!(
 			Barrier::should_execute(
 				&origin,
