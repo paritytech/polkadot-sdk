@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{common::log_xt::log_xt_trace, LOG_TARGET};
+use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
 use futures::{channel::mpsc::Receiver, Future};
 use indexmap::IndexMap;
 use sc_transaction_pool_api::error;
@@ -395,7 +395,7 @@ impl<B: ChainApi> Pool<B> {
 
 		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect::<Vec<_>>();
 		log::debug!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}, reverification took: {:?}", &at, reverified_transactions.len(), now.elapsed());
-		log_xt_trace!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}] Resubmitting transaction: {:?}");
+		log_xt_trace!(data: tuple, target: LOG_TARGET, &reverified_transactions, "Resubmitting transaction: {:?}");
 
 		// And finally - submit reverified transactions back to the pool
 		self.validated_pool.resubmit_pruned(

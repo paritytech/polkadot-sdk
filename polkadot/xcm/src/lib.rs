@@ -25,7 +25,7 @@
 extern crate alloc;
 
 use codec::{Decode, DecodeLimit, Encode, Error as CodecError, Input, MaxEncodedLen};
-use derivative::Derivative;
+use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
@@ -96,13 +96,7 @@ macro_rules! versioned_type {
 		$(#[$index6:meta])+
 		V6($v6:ty),
 	}) => {
-		#[derive(Derivative, Encode, Decode, TypeInfo)]
-		#[derivative(
-			Clone(bound = ""),
-			Eq(bound = ""),
-			PartialEq(bound = ""),
-			Debug(bound = "")
-		)]
+		#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
 		#[scale_info(replace_segment("staging_xcm", "xcm"))]
@@ -347,8 +341,8 @@ versioned_type! {
 }
 
 /// A single XCM message, together with its version code.
-#[derive(Derivative, Encode, Decode, TypeInfo)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]

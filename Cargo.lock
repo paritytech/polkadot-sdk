@@ -5103,7 +5103,7 @@ version = "1.0.0"
 dependencies = [
  "cumulus-primitives-proof-size-hostfunction 0.2.0",
  "cumulus-primitives-storage-weight-reclaim 1.0.0",
- "derivative",
+ "derive-where",
  "docify",
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
@@ -23851,6 +23851,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "tracing",
 ]
 
 [[package]]
@@ -28292,7 +28293,7 @@ version = "7.0.0"
 dependencies = [
  "array-bytes",
  "bounded-collections",
- "derivative",
+ "derive-where",
  "educe",
  "environmental",
  "frame-support 28.0.0",
@@ -29559,6 +29560,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
+ "polkadot-primitives 7.0.0",
  "sp-io 30.0.0",
  "substrate-wasm-builder 17.0.0",
  "tiny-keccak",
@@ -29574,6 +29576,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-cli",
+ "polkadot-erasure-coding",
  "polkadot-node-core-pvf",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -29582,6 +29585,7 @@ dependencies = [
  "polkadot-service",
  "polkadot-test-service",
  "sc-cli",
+ "sc-client-api",
  "sc-service",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
