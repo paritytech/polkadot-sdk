@@ -363,6 +363,7 @@ members = [
 	"substrate/frame/examples/single-block-migrations",
 	"substrate/frame/examples/split",
 	"substrate/frame/examples/tasks",
+	"substrate/frame/examples/view-functions",
 	"substrate/frame/executive",
 	"substrate/frame/fast-unstake",
 	"substrate/frame/glutton",
@@ -739,9 +740,8 @@ cumulus-test-relay-sproof-builder = { path = "cumulus/test/relay-sproof-builder"
 cumulus-test-runtime = { path = "cumulus/test/runtime" }
 cumulus-test-service = { path = "cumulus/test/service" }
 curve25519-dalek = { version = "4.1.3" }
-derivative = { version = "2.2.0", default-features = false }
 derive-syn-parse = { version = "0.2.0" }
-derive_builder = { version = "0.20.2", default-features = false }
+derive-where = { version = "1.2.7" }
 derive_more = { version = "0.99.17", default-features = false }
 digest = { version = "0.10.3", default-features = false }
 directories = { version = "5.0.1" }
@@ -942,6 +942,7 @@ pallet-example-offchain-worker = { path = "substrate/frame/examples/offchain-wor
 pallet-example-single-block-migrations = { path = "substrate/frame/examples/single-block-migrations", default-features = false }
 pallet-example-split = { path = "substrate/frame/examples/split", default-features = false }
 pallet-example-tasks = { path = "substrate/frame/examples/tasks", default-features = false }
+pallet-example-view-functions = { path = "substrate/frame/examples/view-functions", default-features = false }
 pallet-examples = { path = "substrate/frame/examples" }
 pallet-fast-unstake = { path = "substrate/frame/fast-unstake", default-features = false }
 pallet-glutton = { path = "substrate/frame/glutton", default-features = false }
