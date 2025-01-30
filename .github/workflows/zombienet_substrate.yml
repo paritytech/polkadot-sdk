@@ -1,0 +1,45 @@
+name: Zombienet Substrate
+
+on:
+  workflow_run:
+    workflows: [Build and push images]
+    types: [completed]
+  merge_group:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/zombienet-reusable-preflight.yml
+
+  zombienet-substrate-0000-block-building:
+    needs: [preflight]
+    # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
+    if: ${{ needs.preflight.outputs.changes_substrate && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+    env:
+      FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
+      LOCAL_DIR: "./substrate/zombienet"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: build-linux-substrate-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+
+      - name: script
+        run: |
+          DEBUG=${{ needs.preflight.outputs.DEBUG }} zombie -p native ${LOCAL_DIR}/0000-block-building/block-building.zndsl
+
+      - name: upload logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: zombienet-logs-scale-net
+          path: |
+            /tmp/zombie*/logs/*

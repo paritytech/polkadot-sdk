@@ -8,8 +8,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic,pallet_nomination_pools,pallet_remark,pallet_transaction_storage",
     "uri": null,
-    "old_package": "staging-node-cli",
-    "old_bin": "substrate-node",
     "is_relay": false
   },
   {
@@ -21,8 +19,6 @@
     "bench_flags": "",
     "bench_features": "runtime-benchmarks",
     "uri": "wss://try-runtime-westend.polkadot.io:443",
-    "old_package": "polkadot",
-    "old_bin": "polkadot",
     "is_relay": true
   },
   {
@@ -34,8 +30,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "",
     "uri": "wss://try-runtime-rococo.polkadot.io:443",
-    "old_package": "polkadot",
-    "old_bin": "polkadot",
     "is_relay": true
   },
   {
@@ -47,8 +41,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "",
     "uri": "wss://westend-asset-hub-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -60,8 +52,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "",
     "uri": "wss://rococo-asset-hub-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -73,8 +63,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "",
     "uri": "wss://rococo-bridge-hub-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -86,8 +74,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "",
     "uri": "wss://westend-bridge-hub-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -99,8 +85,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "",
     "uri": "wss://westend-collectives-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -112,8 +96,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm",
     "uri": "wss://rococo-contracts-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -125,8 +107,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic",
     "uri": "wss://rococo-coretime-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -138,8 +118,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic",
     "uri": "wss://westend-coretime-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -151,8 +129,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "--genesis-builder-policy=none",
     "uri": null,
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -164,8 +140,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic",
     "uri": "wss://rococo-people-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   },
   {
@@ -177,8 +151,6 @@
     "bench_features": "runtime-benchmarks",
     "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic",
     "uri": "wss://westend-people-rpc.polkadot.io:443",
-    "old_package": "polkadot-parachain-bin",
-    "old_bin": "polkadot-parachain",
     "is_relay": false
   }
 ]

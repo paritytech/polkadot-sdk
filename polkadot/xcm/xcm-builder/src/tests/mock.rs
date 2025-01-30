@@ -31,6 +31,7 @@ pub use codec::{Decode, Encode};
 pub use core::{
 	cell::{Cell, RefCell},
 	fmt::Debug,
+	ops::ControlFlow,
 };
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
@@ -40,11 +41,11 @@ pub use frame_support::{
 	traits::{Contains, Get, IsInVec},
 };
 pub use xcm::latest::{prelude::*, QueryId, Weight};
-use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
 pub use xcm_executor::{
 	traits::{
-		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, Enact, ExportXcm, FeeManager,
-		FeeReason, LockError, OnResponse, TransactAsset,
+		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
+		FeeManager, FeeReason, LockError, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, TransactAsset,
 	},
 	AssetsInHolding, Config,
 };
