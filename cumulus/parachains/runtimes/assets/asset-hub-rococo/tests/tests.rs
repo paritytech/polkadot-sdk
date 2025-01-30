@@ -1077,8 +1077,10 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 
 mod asset_hub_rococo_tests {
 	use super::*;
-	use asset_hub_rococo_runtime::{PolkadotXcm, ToWestendXcmRouterInstance};
-	use asset_hub_rococo_runtime::bridge_to_westend_config::WestendGlobalConsensusNetwork;
+	use asset_hub_rococo_runtime::{
+		bridge_to_westend_config::WestendGlobalConsensusNetwork, PolkadotXcm,
+		ToWestendXcmRouterInstance,
+	};
 	use xcm_executor::traits::ConvertLocation;
 
 	fn bridging_to_asset_hub_westend() -> TestBridgingConfig {
@@ -1109,10 +1111,8 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location = Location::new(
-			2,
-			[GlobalConsensus(WestendGlobalConsensusNetwork::get())],
-		);
+		let foreign_asset_id_location =
+			Location::new(2, [GlobalConsensus(WestendGlobalConsensusNetwork::get())]);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
@@ -1185,10 +1185,8 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location = Location::new(
-			2,
-			[Junction::GlobalConsensus(WestendGlobalConsensusNetwork::get())],
-		);
+		let foreign_asset_id_location =
+			Location::new(2, [Junction::GlobalConsensus(WestendGlobalConsensusNetwork::get())]);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
@@ -1541,14 +1539,20 @@ fn xcm_payment_api_works() {
 }
 
 mod bridge_to_westend_tests {
-	use super::{collator_session_keys, slot_durations, ExtBuilder, AccountId, RuntimeHelper};
-	use asset_hub_rococo_runtime::{Runtime, RuntimeOrigin, RuntimeCall, RuntimeEvent, PolkadotXcm, ParachainSystem, AllPalletsWithoutSystem, ExistentialDeposit};
-	use asset_hub_rococo_runtime::xcm_config::{TokenLocation, LocationToAccountId, RelayNetwork, XcmConfig, bridging};
-	use asset_hub_rococo_runtime::bridge_common_config::DeliveryRewardInBalance;
-	use asset_hub_rococo_runtime::bridge_to_westend_config::{WithAssetHubWestendMessagesInstance, WestendGlobalConsensusNetwork, XcmOverAssetHubWestendInstance, AssetHubWestendLocation};
-	use codec::{Decode, Encode};
+	use super::{collator_session_keys, slot_durations, AccountId, ExtBuilder, RuntimeHelper};
+	use asset_hub_rococo_runtime::{
+		bridge_common_config::DeliveryRewardInBalance,
+		bridge_to_westend_config::{
+			AssetHubWestendLocation, WestendGlobalConsensusNetwork,
+			WithAssetHubWestendMessagesInstance, XcmOverAssetHubWestendInstance,
+		},
+		xcm_config::{bridging, LocationToAccountId, RelayNetwork, TokenLocation, XcmConfig},
+		AllPalletsWithoutSystem, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime,
+		RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	};
 	use bp_runtime::RangeInclusiveExt;
 	use bridge_hub_test_utils::mock_open_hrmp_channel;
+	use codec::{Decode, Encode};
 	use frame_support::traits::{ConstU8, ProcessMessageError};
 	use xcm::latest::prelude::*;
 	use xcm_builder::{CreateMatcher, MatchXcm};
@@ -1712,7 +1716,8 @@ mod bridge_to_westend_tests {
 			// The source is `here` as the local chain, e.g., AssetHub itself can open its lanes.
 			Location::here(),
 			BridgedUniversalLocation::get(),
-			// This should represent `RuntimeOrigin::root()` which represents `Location::here()` for `OpenBridgeOrigin`
+			// This should represent `RuntimeOrigin::root()` which represents `Location::here()`
+			// for `OpenBridgeOrigin`
 			(Location::parent(), OriginKind::Superuser),
 			false,
 		)
@@ -1733,21 +1738,16 @@ mod bridge_to_westend_tests {
 				let bridged_universal_destination = bridged_destination.interior().clone();
 
 				// Common setup
-				frame_support::assert_ok!(
-					PolkadotXcm::force_xcm_version(
-						RuntimeOrigin::root(),
-						Box::new(bridging::to_westend::AssetHubWestend::get()),
-						XCM_VERSION,
-					)
-				);
+				frame_support::assert_ok!(PolkadotXcm::force_xcm_version(
+					RuntimeOrigin::root(),
+					Box::new(bridging::to_westend::AssetHubWestend::get()),
+					XCM_VERSION,
+				));
 
 				// Setup for `ExportMessage` to the `BridgeHub`
 				let mut alice = [0u8; 32];
 				alice[0] = 1;
-				let included_head = RuntimeHelper::run_to_block(
-					2,
-					AccountId::from(alice),
-				);
+				let included_head = RuntimeHelper::run_to_block(2, AccountId::from(alice));
 				mock_open_hrmp_channel::<Runtime, ParachainSystem>(
 					runtime_para_id.into(),
 					sibling_bridge_hub_para_id.into(),
@@ -1755,43 +1755,55 @@ mod bridge_to_westend_tests {
 					&alice,
 					&slot_durations(),
 				);
-				frame_support::assert_ok!(
-					PolkadotXcm::force_xcm_version(
-						RuntimeOrigin::root(),
-						Box::new(bridging::SiblingBridgeHub::get()),
-						XCM_VERSION,
-					)
-				);
+				frame_support::assert_ok!(PolkadotXcm::force_xcm_version(
+					RuntimeOrigin::root(),
+					Box::new(bridging::SiblingBridgeHub::get()),
+					XCM_VERSION,
+				));
 
 				// check no bridge/lane exists
-				assert_eq!(0, pallet_bridge_messages::OutboundLanes::<Runtime, WithAssetHubWestendMessagesInstance>::iter().count());
+				assert_eq!(
+					0,
+					pallet_bridge_messages::OutboundLanes::<
+						Runtime,
+						WithAssetHubWestendMessagesInstance,
+					>::iter()
+					.count()
+				);
 
 				// send to the `bridged_destination`
-				frame_support::assert_ok!(
-					PolkadotXcm::send_xcm(
-						Here,
-						bridged_destination.clone(),
-						Xcm::<()>::default()
-					)
-				);
+				frame_support::assert_ok!(PolkadotXcm::send_xcm(
+					Here,
+					bridged_destination.clone(),
+					Xcm::<()>::default()
+				));
 
 				// check HRMP message contains `ExportMessage`.
-				assert!(
-					asset_test_utils::RuntimeHelper::<cumulus_pallet_xcmp_queue::Pallet<Runtime>, AllPalletsWithoutSystem>::take_xcm(sibling_bridge_hub_para_id.into())
-						.map(|m| {
-							let mut m: Xcm<()> = m.try_into().expect("valid XCM version");
-							m.0.matcher()
-								.skip_inst_while(|inst| !matches!(inst, ExportMessage { .. }))
-								.expect("no instruction ExportMessage?")
-								.match_next_inst(|instr| match instr {
-									ExportMessage { ref network, ..} => {
-										assert_eq!(network, &bridged_destination.interior.global_consensus().expect("valid NetworkId"));
-										Ok(())
-									},
-									_ => Err(ProcessMessageError::BadFormat),
-								}).is_ok()
-						}).unwrap_or(false)
-				);
+				assert!(asset_test_utils::RuntimeHelper::<
+					cumulus_pallet_xcmp_queue::Pallet<Runtime>,
+					AllPalletsWithoutSystem,
+				>::take_xcm(sibling_bridge_hub_para_id.into())
+				.map(|m| {
+					let mut m: Xcm<()> = m.try_into().expect("valid XCM version");
+					m.0.matcher()
+						.skip_inst_while(|inst| !matches!(inst, ExportMessage { .. }))
+						.expect("no instruction ExportMessage?")
+						.match_next_inst(|instr| match instr {
+							ExportMessage { ref network, .. } => {
+								assert_eq!(
+									network,
+									&bridged_destination
+										.interior
+										.global_consensus()
+										.expect("valid NetworkId")
+								);
+								Ok(())
+							},
+							_ => Err(ProcessMessageError::BadFormat),
+						})
+						.is_ok()
+				})
+				.unwrap_or(false));
 
 				// open permissionless lane between this AH and bridged AH
 				let (_, lane_id) = bridge_hub_test_utils::ensure_opened_xcm_bridge::<
@@ -1803,35 +1815,53 @@ mod bridge_to_westend_tests {
 					Here.into(),
 					bridged_universal_destination,
 					false,
-					|locations, maybe_paid_execution| bridge_hub_test_utils::open_xcm_bridge_with_extrinsic::<
-						Runtime,
-						XcmOverAssetHubWestendInstance,
-					>(
-						// This should represent `RuntimeOrigin::root()` which represents `Location::here()` for `OpenBridgeOrigin`
-						(Location::parent(), OriginKind::Superuser),
-						locations.bridge_destination_universal_location().clone(),
-						maybe_paid_execution
-					)
+					|locations, maybe_paid_execution| {
+						bridge_hub_test_utils::open_xcm_bridge_with_extrinsic::<
+							Runtime,
+							XcmOverAssetHubWestendInstance,
+						>(
+							// This should represent `RuntimeOrigin::root()` which represents
+							// `Location::here()` for `OpenBridgeOrigin`
+							(Location::parent(), OriginKind::Superuser),
+							locations.bridge_destination_universal_location().clone(),
+							maybe_paid_execution,
+						)
+					},
 				);
 				// lane created
-				assert_eq!(1, pallet_bridge_messages::OutboundLanes::<Runtime, WithAssetHubWestendMessagesInstance>::iter().count());
+				assert_eq!(
+					1,
+					pallet_bridge_messages::OutboundLanes::<
+						Runtime,
+						WithAssetHubWestendMessagesInstance,
+					>::iter()
+					.count()
+				);
 
 				// send to the `bridged_destination` again
-				frame_support::assert_ok!(
-					PolkadotXcm::send_xcm(
-						Here,
-						bridged_destination.clone(),
-						Xcm::<()>::default()
-					)
-				);
+				frame_support::assert_ok!(PolkadotXcm::send_xcm(
+					Here,
+					bridged_destination.clone(),
+					Xcm::<()>::default()
+				));
 
 				// messages pallet holds outbound message for expected lane_id
-				assert_eq!(1, pallet_bridge_messages::OutboundLanes::<Runtime, WithAssetHubWestendMessagesInstance>::get(lane_id).map(|d| d.queued_messages().saturating_len()).unwrap_or(0));
+				assert_eq!(
+					1,
+					pallet_bridge_messages::OutboundLanes::<
+						Runtime,
+						WithAssetHubWestendMessagesInstance,
+					>::get(lane_id)
+					.map(|d| d.queued_messages().saturating_len())
+					.unwrap_or(0)
+				);
 
 				// no hrmp message was fired
-				assert!(
-					asset_test_utils::RuntimeHelper::<cumulus_pallet_xcmp_queue::Pallet<Runtime>, AllPalletsWithoutSystem>::take_xcm(sibling_bridge_hub_para_id.into()).is_none()
-				);
+				assert!(asset_test_utils::RuntimeHelper::<
+					cumulus_pallet_xcmp_queue::Pallet<Runtime>,
+					AllPalletsWithoutSystem,
+				>::take_xcm(sibling_bridge_hub_para_id.into())
+				.is_none());
 			});
 	}
 }

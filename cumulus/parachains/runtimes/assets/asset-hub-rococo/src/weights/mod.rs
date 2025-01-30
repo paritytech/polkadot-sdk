@@ -59,18 +59,17 @@ use ::pallet_bridge_relayers::WeightInfoExt as _;
 
 use crate::{Runtime, Weight};
 
-impl MessagesWeightInfoExt
-for pallet_bridge_messages::WeightInfo<Runtime>
-{
-    fn expected_extra_storage_proof_size() -> u32 {
-        bp_bridge_hub_westend::EXTRA_STORAGE_PROOF_SIZE
-    }
+impl MessagesWeightInfoExt for pallet_bridge_messages::WeightInfo<Runtime> {
+	fn expected_extra_storage_proof_size() -> u32 {
+		bp_bridge_hub_westend::EXTRA_STORAGE_PROOF_SIZE
+	}
 
-    fn receive_messages_proof_overhead_from_runtime() -> Weight {
-        pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_proof_overhead_from_runtime()
-    }
+	fn receive_messages_proof_overhead_from_runtime() -> Weight {
+		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_proof_overhead_from_runtime(
+		)
+	}
 
-    fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
-        pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_delivery_proof_overhead_from_runtime()
-    }
+	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
+		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_delivery_proof_overhead_from_runtime()
+	}
 }

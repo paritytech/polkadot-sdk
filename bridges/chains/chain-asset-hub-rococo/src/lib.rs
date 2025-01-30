@@ -29,11 +29,11 @@ use bp_messages::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
+pub use bp_xcm_bridge_router::XcmBridgeHubCall;
 use frame_support::{
 	dispatch::DispatchClass,
 	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
 };
-pub use bp_xcm_bridge_router::XcmBridgeHubCall;
 use xcm::latest::prelude::*;
 
 /// `AssetHubRococo` Runtime `Call` enum.

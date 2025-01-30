@@ -16,18 +16,23 @@
 
 //! Bridge definitions used on BridgeHubRococo for bridging to BridgeHubWestend.
 
-use crate::{bridge_common_config::{
-	DeliveryRewardInBalance,
-	BridgeRelayersInstance,
-}, weights, xcm_config, xcm_config::UniversalLocation, AccountId, Balance, Balances, PolkadotXcm, Runtime, RuntimeEvent, RuntimeHoldReason, XcmOverAssetHubWestend, ToWestendOverAssetHubWestendXcmRouter};
+use crate::{
+	bridge_common_config::{BridgeRelayersInstance, DeliveryRewardInBalance},
+	weights, xcm_config,
+	xcm_config::UniversalLocation,
+	AccountId, Balance, Balances, PolkadotXcm, Runtime, RuntimeEvent, RuntimeHoldReason,
+	ToWestendOverAssetHubWestendXcmRouter, XcmOverAssetHubWestend,
+};
 use alloc::{vec, vec::Vec};
 use bp_messages::HashedLaneId;
 use bp_runtime::HashOf;
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
 use pallet_xcm_bridge::XcmAsPlainPayload;
 
-use frame_support::parameter_types;
-use frame_support::traits::{EitherOf, Equals};
+use frame_support::{
+	parameter_types,
+	traits::{EitherOf, Equals},
+};
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
@@ -35,17 +40,22 @@ use pallet_bridge_relayers::extension::{
 };
 use pallet_xcm::EnsureXcm;
 use pallet_xcm_bridge::congestion::{
-	BlobDispatcherWithChannelStatus, UpdateBridgeStatusXcmChannelManager, HereOrLocalConsensusXcmChannelManager,
+	BlobDispatcherWithChannelStatus, HereOrLocalConsensusXcmChannelManager,
+	UpdateBridgeStatusXcmChannelManager,
 };
-use parachains_common::xcm_config::{AllSiblingSystemParachains, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains};
+use parachains_common::xcm_config::{
+	AllSiblingSystemParachains, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::Convert;
 use testnet_parachains_constants::rococo::currency::UNITS as ROC;
 use xcm::{
 	latest::{prelude::*, WESTEND_GENESIS_HASH},
-	prelude::{NetworkId},
+	prelude::NetworkId,
 };
-use xcm_builder::{BridgeBlobDispatcher, ParentIsPreset, SiblingParachainConvertsVia, LocalExporter};
+use xcm_builder::{
+	BridgeBlobDispatcher, LocalExporter, ParentIsPreset, SiblingParachainConvertsVia,
+};
 
 parameter_types! {
 	pub const HereLocation: Location = Location::here();
@@ -113,9 +123,7 @@ impl pallet_bridge_messages::Config<WithAssetHubWestendMessagesInstance> for Run
 /// TODO: doc + FAIL-CI - implement storage for synced proofs from BridgeHub
 pub struct ParachainHeaderProofs<C>(core::marker::PhantomData<C>);
 impl<C: bp_runtime::Chain> bp_header_chain::HeaderChain<C> for ParachainHeaderProofs<C> {
-	fn finalized_header_state_root(
-		_header_hash: HashOf<C>,
-	) -> Option<HashOf<C>> {
+	fn finalized_header_state_root(_header_hash: HashOf<C>) -> Option<HashOf<C>> {
 		todo!("TODO: FAIL-CI - implement storage for synced proofs from BridgeHub")
 	}
 }
@@ -130,7 +138,7 @@ impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 				origin_kind: OriginKind::Xcm,
 				call: encoded_call.into(),
 				// TODO: FAIL-CI - add some test for this or remove TODO
-				fallback_max_weight: Some(Weight::from_parts(200_000_000, 6144))
+				fallback_max_weight: Some(Weight::from_parts(200_000_000, 6144)),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		])
@@ -150,13 +158,14 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 
 	// TODO: FAIL-CI: we need to setup some price or configure per location?
 	type MessageExportPrice = ();
-	type DestinationVersion =
-		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, AssetHubWestendLocation>;
+	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, AssetHubWestendLocation>;
 
 	type ForceOrigin = EnsureRoot<AccountId>;
-	// We allow creating bridges for the runtime itself and for other local consensus chains (relay, paras).
+	// We allow creating bridges for the runtime itself and for other local consensus chains (relay,
+	// paras).
 	type OpenBridgeOrigin = EitherOf<
-		// We want to translate `RuntimeOrigin::root()` to the `Location::here()`, e.g. for governance calls.
+		// We want to translate `RuntimeOrigin::root()` to the `Location::here()`, e.g. for
+		// governance calls.
 		EnsureRootWithSuccess<AccountId, HereLocation>,
 		// For relay or sibling chains
 		EnsureXcm<ParentRelayOrSiblingParachains>,
@@ -169,7 +178,8 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	// Do not require deposit from system parachains (including itself) or relay chain
-	type AllowWithoutBridgeDeposit = (RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>, Equals<HereLocation>);
+	type AllowWithoutBridgeDeposit =
+		(RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>, Equals<HereLocation>);
 
 	// This pallet is deployed on AH, so we expect a remote router with `ExportMessage`. We handle
 	// congestion with XCM using `udpate_bridge_status` sent to the sending chain. (congestion with
@@ -178,7 +188,8 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 		pallet_xcm_bridge::BridgeId,
 		// handles congestion for local chain router for local AH's bridges
 		ToWestendOverAssetHubWestendXcmRouter,
-		// handles congestion for other local chains with XCM using `update_bridge_status` sent to the sending chain.
+		// handles congestion for other local chains with XCM using `update_bridge_status` sent to
+		// the sending chain.
 		UpdateBridgeStatusXcmChannelManager<
 			Runtime,
 			XcmOverAssetHubWestendInstance,
@@ -203,12 +214,13 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 	type CongestionLimits = ();
 }
 
-/// XCM router instance to the local `pallet_xcm_bridge_hub::<XcmOverAssetHubWestendInstance>` with direct bridging capabilities for `Westend` global
-/// consensus with dynamic fees and back-pressure.
+/// XCM router instance to the local `pallet_xcm_bridge_hub::<XcmOverAssetHubWestendInstance>` with
+/// direct bridging capabilities for `Westend` global consensus with dynamic fees and back-pressure.
 pub type ToWestendOverAssetHubWestendXcmRouterInstance = pallet_xcm_bridge_router::Instance4;
 impl pallet_xcm_bridge_router::Config<ToWestendOverAssetHubWestendXcmRouterInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_xcm_bridge_router_to_westend_over_asset_hub_westend::WeightInfo<Runtime>;
+	type WeightInfo =
+		weights::pallet_xcm_bridge_router_to_westend_over_asset_hub_westend::WeightInfo<Runtime>;
 
 	type DestinationVersion = PolkadotXcm;
 
@@ -222,8 +234,10 @@ impl pallet_xcm_bridge_router::Config<ToWestendOverAssetHubWestendXcmRouterInsta
 
 	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on
 	// the BH.
-	type BridgeIdResolver = pallet_xcm_bridge_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
-	// We don't expect here `update_bridge_status` calls, but let's allow just for root (governance, ...).
+	type BridgeIdResolver =
+		pallet_xcm_bridge_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
+	// We don't expect here `update_bridge_status` calls, but let's allow just for root (governance,
+	// ...).
 	type UpdateBridgeStatusOrigin = EnsureRoot<AccountId>;
 
 	// TODO: FAIL-CI - fix/add new constants
@@ -279,15 +293,14 @@ mod tests {
 			expected_payload_type: XcmAsPlainPayload,
 		);
 
-		assert_standalone_messages_bridge_constants::<
-			Runtime,
-			WithAssetHubWestendMessagesInstance,
-		>(AssertCompleteBridgeConstants {
-			this_chain_constants: AssertChainConstants {
-				block_length: bp_bridge_hub_rococo::BlockLength::get(),
-				block_weights: bp_bridge_hub_rococo::BlockWeightsForAsyncBacking::get(),
+		assert_standalone_messages_bridge_constants::<Runtime, WithAssetHubWestendMessagesInstance>(
+			AssertCompleteBridgeConstants {
+				this_chain_constants: AssertChainConstants {
+					block_length: bp_bridge_hub_rococo::BlockLength::get(),
+					block_weights: bp_bridge_hub_rococo::BlockWeightsForAsyncBacking::get(),
+				},
 			},
-		});
+		);
 
 		pallet_bridge_relayers::extension::per_message::ensure_priority_boost_is_sane::<
 			Runtime,

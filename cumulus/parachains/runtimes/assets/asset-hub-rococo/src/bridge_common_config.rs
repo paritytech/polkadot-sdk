@@ -30,11 +30,8 @@ pub type BridgeRelayersInstance = pallet_bridge_relayers::Instance1;
 impl pallet_bridge_relayers::Config<BridgeRelayersInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
-	type PaymentProcedure = pallet_bridge_relayers::PayRewardFromAccount<
-		Balances,
-		AccountId,
-		Self::LaneId,
-	>;
+	type PaymentProcedure =
+		pallet_bridge_relayers::PayRewardFromAccount<Balances, AccountId, Self::LaneId>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
 		BlockNumber,

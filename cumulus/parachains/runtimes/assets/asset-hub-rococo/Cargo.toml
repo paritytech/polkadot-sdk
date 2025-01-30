@@ -93,10 +93,6 @@ parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
 
 # Bridges
-pallet-bridge-messages = { workspace = true }
-pallet-bridge-relayers = { workspace = true }
-pallet-xcm-bridge = { workspace = true }
-pallet-xcm-bridge-router = { workspace = true }
 bp-asset-hub-rococo = { workspace = true }
 bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
@@ -105,15 +101,19 @@ bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
 bridge-hub-common = { workspace = true }
+pallet-bridge-messages = { workspace = true }
+pallet-bridge-relayers = { workspace = true }
+pallet-xcm-bridge = { workspace = true }
+pallet-xcm-bridge-router = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
 bp-xcm-bridge = { workspace = true }
-parachains-runtimes-test-utils = { workspace = true, default-features = true }
 bridge-hub-test-utils = { workspace = true, default-features = true }
 bridge-runtime-common = { features = ["integrity-test"], workspace = true }
 pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

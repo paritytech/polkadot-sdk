@@ -14,11 +14,11 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee, CollatorSelection,
-	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
-	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToWestendOverAssetHubWestendXcmRouter,
-	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
-	XcmOverAssetHubWestend,
+	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
+	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
+	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	ToWestendOverAssetHubWestendXcmRouter, ToWestendXcmRouter, TransactionByteFee,
+	TrustBackedAssetsInstance, Uniques, WeightToFee, XcmOverAssetHubWestend, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -482,10 +482,11 @@ pub type XcmRouter = WithUniqueTopic<(
 	// when a permissionless lane is created between the origin and destination.
 	//
 	// Note: `ToWestendOverAssetHubWestendXcmRouter` must come before `ToWestendXcmRouter`
-	// because it checks if the lane is created dynamically, whereas `ToWestendXcmRouter` has a static configuration.
+	// because it checks if the lane is created dynamically, whereas `ToWestendXcmRouter` has a
+	// static configuration.
 	ToWestendOverAssetHubWestendXcmRouter,
-	// Router which wraps (`ExportMessage`) and sends xcm to BridgeHub to be delivered to the Westend
-	// GlobalConsensus
+	// Router which wraps (`ExportMessage`) and sends xcm to BridgeHub to be delivered to the
+	// Westend GlobalConsensus
 	ToWestendXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
 	// GlobalConsensus
