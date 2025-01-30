@@ -51,7 +51,6 @@ chrono = { workspace = true }
 cmd_lib = { workspace = true }
 criterion = { workspace = true, default-features = true }
 cumulus-client-cli = { workspace = true, default-features = true }
-derive_builder = { workspace = true, features = ["alloc"] }
 env_logger = { workspace = true }
 log = { workspace = true }
 polkadot-cli = { workspace = true, default-features = true }
@@ -63,7 +62,6 @@ substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-which = { workspace = true }
 zombienet-configuration = { workspace = true }
 zombienet-sdk = { workspace = true }
 
