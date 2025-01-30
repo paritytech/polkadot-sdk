@@ -2877,6 +2877,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue 0.7.0",
  "emulated-integration-tests-common",
  "frame-support 28.0.0",
+ "hex",
  "hex-literal",
  "log",
  "pallet-asset-conversion 10.0.0",
@@ -2887,6 +2888,7 @@ dependencies = [
  "pallet-xcm 7.0.0",
  "parachains-common 7.0.0",
  "parity-scale-codec",
+ "penpal-emulated-chain",
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core 0.2.0",
@@ -2974,6 +2976,7 @@ dependencies = [
  "serde_json",
  "snowbridge-beacon-primitives 0.2.0",
  "snowbridge-core 0.2.0",
+ "snowbridge-inbound-queue-v2-runtime-api",
  "snowbridge-merkle-tree",
  "snowbridge-outbound-primitives",
  "snowbridge-outbound-queue-runtime-api 0.2.0",
@@ -2981,6 +2984,7 @@ dependencies = [
  "snowbridge-outbound-router-primitives",
  "snowbridge-pallet-ethereum-client 0.2.0",
  "snowbridge-pallet-inbound-queue 0.2.0",
+ "snowbridge-pallet-inbound-queue-v2",
  "snowbridge-pallet-outbound-queue 0.2.0",
  "snowbridge-pallet-outbound-queue-v2",
  "snowbridge-pallet-system 0.2.0",
@@ -24969,6 +24973,7 @@ dependencies = [
  "frame-system 28.0.0",
  "hex",
  "hex-literal",
+ "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
  "scale-info",
@@ -25048,6 +25053,18 @@ dependencies = [
  "sp-io 38.0.0",
  "sp-runtime 39.0.2",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "snowbridge-inbound-queue-v2-runtime-api"
+version = "0.2.0"
+dependencies = [
+ "frame-support 28.0.0",
+ "snowbridge-core 0.2.0",
+ "snowbridge-router-primitives 0.9.0",
+ "sp-api 26.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.0",
 ]
 
 [[package]]
@@ -25332,6 +25349,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-pallet-inbound-queue-fixtures-v2"
+version = "0.10.0"
+dependencies = [
+ "hex-literal",
+ "snowbridge-beacon-primitives 0.2.0",
+ "snowbridge-core 0.2.0",
+ "sp-core 28.0.0",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "snowbridge-pallet-inbound-queue-v2"
+version = "0.2.0"
+dependencies = [
+ "alloy-core",
+ "frame-benchmarking 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "hex",
+ "hex-literal",
+ "log",
+ "pallet-balances 28.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "snowbridge-beacon-primitives 0.2.0",
+ "snowbridge-core 0.2.0",
+ "snowbridge-pallet-ethereum-client 0.2.0",
+ "snowbridge-pallet-inbound-queue-fixtures-v2",
+ "snowbridge-router-primitives 0.9.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.0",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
 name = "snowbridge-pallet-outbound-queue"
 version = "0.2.0"
 dependencies = [
@@ -25507,7 +25565,10 @@ dependencies = [
 name = "snowbridge-router-primitives"
 version = "0.9.0"
 dependencies = [
+ "alloy-core",
  "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "hex",
  "hex-literal",
  "log",
  "parity-scale-codec",
@@ -25518,6 +25579,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "staging-xcm 7.0.0",
+ "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
 

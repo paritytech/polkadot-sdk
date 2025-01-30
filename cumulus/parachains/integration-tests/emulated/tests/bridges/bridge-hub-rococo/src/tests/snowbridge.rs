@@ -26,7 +26,8 @@ use snowbridge_pallet_inbound_queue_fixtures::{
 };
 use snowbridge_pallet_system;
 use snowbridge_router_primitives::inbound::{
-	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
+	v1::{Command, Destination, MessageV1, VersionedMessage},
+	EthereumLocationsConverterFor,
 };
 use sp_core::H256;
 use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};

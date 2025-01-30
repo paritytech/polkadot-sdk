@@ -48,6 +48,7 @@ pub mod xcm;
 
 pub mod snowbridge_pallet_ethereum_client;
 pub mod snowbridge_pallet_inbound_queue;
+pub mod snowbridge_pallet_inbound_queue_v2;
 pub mod snowbridge_pallet_outbound_queue;
 pub mod snowbridge_pallet_outbound_queue_v2;
 pub mod snowbridge_pallet_system;

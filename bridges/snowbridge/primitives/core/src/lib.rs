@@ -8,12 +8,14 @@
 #[cfg(test)]
 mod tests;
 
+pub mod fees;
 pub mod inbound;
 pub mod location;
 pub mod operating_mode;
 pub mod pricing;
 pub mod reward;
 pub mod ringbuffer;
+pub mod sparse_bitmap;
 
 pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
 pub use polkadot_parachain_primitives::primitives::{

@@ -42,15 +42,16 @@ use bridge_runtime_common::extensions::{
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
+use frame_support::traits::Contains;
+use snowbridge_router_primitives::inbound::v2::Message;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, DispatchError,
 };
-
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -269,6 +270,22 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
+pub struct BaseFilter;
+impl Contains<RuntimeCall> for BaseFilter {
+	fn contains(call: &RuntimeCall) -> bool {
+		// Disallow these Snowbridge system calls.
+		if matches!(
+			call,
+			RuntimeCall::EthereumSystem(snowbridge_pallet_system::Call::create_agent { .. })
+		) || matches!(
+			call,
+			RuntimeCall::EthereumSystem(snowbridge_pallet_system::Call::create_channel { .. })
+		) {
+			return false;
+		}
+		return true;
+	}
+}
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -301,6 +318,7 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type BaseCallFilter = BaseFilter;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -574,12 +592,15 @@ construct_runtime!(
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1> = 44,
 		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::<Instance1> = 45,
 
-		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
-		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
-		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
-		EthereumSystem: snowbridge_pallet_system = 83,
-		EthereumOutboundQueueV2: snowbridge_pallet_outbound_queue_v2 = 84,
-		EthereumSystemV2: snowbridge_pallet_system_v2 = 85,
+		EthereumSystem: snowbridge_pallet_system = 80,
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 81,
+		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 82,
+		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 83,
+
+		EthereumSystemV2: snowbridge_pallet_system_v2 = 90,
+		EthereumInboundQueueV2: snowbridge_pallet_inbound_queue_v2 = 91,
+		EthereumOutboundQueueV2: snowbridge_pallet_outbound_queue_v2 = 92,
+
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -633,13 +654,16 @@ mod benches {
 		[pallet_bridge_grandpa, RococoFinality]
 		[pallet_bridge_parachains, WithinRococo]
 		[pallet_bridge_messages, WestendToRococo]
-		// Ethereum Bridge
+		// Ethereum Bridge V1
+		[snowbridge_pallet_system, EthereumSystem]
+		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
-		[snowbridge_pallet_system, EthereumSystem]
+		// Ethereum Bridge V2
 		[snowbridge_pallet_system_v2, EthereumSystemV2]
-		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
+		[snowbridge_pallet_inbound_queue_v2, EthereumInboundQueueV2]
 		[snowbridge_pallet_outbound_queue_v2, EthereumOutboundQueueV2]
+
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
 	);
 }
@@ -926,6 +950,12 @@ impl_runtime_apis! {
 		}
 		fn dry_run(xcm: Xcm<()>) -> Result<(OutboundMessage,Balance),DryRunError> {
 			snowbridge_pallet_outbound_queue_v2::api::dry_run::<Runtime>(xcm)
+		}
+	}
+
+	impl snowbridge_inbound_queue_v2_runtime_api::InboundQueueApiV2<Block, Balance> for Runtime {
+		fn dry_run(message: Message) -> Result<(Xcm<()>, Balance), DispatchError> {
+			snowbridge_pallet_inbound_queue_v2::api::dry_run::<Runtime>(message)
 		}
 	}
 
