@@ -18,11 +18,13 @@
 
 extern crate alloc;
 
+#[cfg(not(any(test, feature = "runtime-benchmarks")))]
+use frame_support::traits::ContainsPair;
 use alloc::{vec, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	ensure,
-	traits::{ContainsPair, Defensive, Get},
+	traits::{Defensive, Get},
 };
 use sp_core::defer;
 use sp_weights::Weight;
