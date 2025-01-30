@@ -763,10 +763,10 @@ impl<T: Config> Pallet<T> {
 	) {
 		// Only calculate if unbonding queue params have been set.
 		if let Some(params) = <UnbondingQueueParams<T>>::get() {
-			let undonding_period_upper_bound = params.unbond_period_upper_bound;
+			let undonding_period_upper_bound = T::BondingDuration::get();
 
 			// Determine the total stake from lowest third of validators and persist for the era.
-			let eras_to_check: EraIndex = Perbill::from_percent(33) * undonding_period_upper_bound;
+			let eras_to_check: EraIndex = Perbill::from_percent(33) * unbonding_period_upper_bound;
 
 			// Sort exposure total stake by lowest first, and truncate to lowest third.
 			exposures.sort_by(|(_, a), (_, b)| b.cmp(&a));
@@ -784,7 +784,7 @@ impl<T: Config> Pallet<T> {
 
 			// Remove stale entry from `EraLowestThirdTotalStake`.
 			<EraLowestThirdTotalStake<T>>::remove(
-				new_planned_era.saturating_sub(undonding_period_upper_bound),
+				new_planned_era.saturating_sub(unbonding_period_upper_bound),
 			);
 		}
 	}
@@ -837,9 +837,9 @@ impl<T: Config> Pallet<T> {
 		let mut eras_checked = 0;
 		let mut current_era = from_era;
 		let mut lowest_stake: BalanceOf<T> = Zero::zero();
-		let last_era = from_era.saturating_sub(params.unbond_period_upper_bound);
+		let last_era = from_era.saturating_sub(T::BondingDuration::get());
 
-		while current_era >= last_era || eras_checked <= params.unbond_period_upper_bound {
+		while current_era >= last_era || eras_checked <= T::BondingDuration::get() {
 			if let Some(lowest_third_total_stake) = <EraLowestThirdTotalStake<T>>::get(current_era)
 			{
 				if eras_checked == 0 || lowest_third_total_stake < lowest_stake {
@@ -858,9 +858,9 @@ impl<T: Config> Pallet<T> {
 	// upper bound period in blocks.
 	pub(crate) fn get_unbond_eras_delta(
 		unbond_stake: BalanceOf<T>,
-		params: UnbondingQueueConfig,
+		//params: UnbondingQueueConfig,
 	) -> EraIndex {
-		let upper_bound_usize: usize = params.unbond_period_upper_bound.saturated_into();
+		let upper_bound_usize: usize = T::BondingDuration::get().saturated_into();
 		let unbond_stake_usize: usize = unbond_stake.saturated_into();
 
 		// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
@@ -881,9 +881,9 @@ impl<T: Config> Pallet<T> {
 
 			let new_back_of_unbonding_queue_era: EraIndex =
 				(era.max(params.back_of_unbonding_queue_era) + unbonding_eras_delta)
-					.min(params.unbond_period_upper_bound);
+					.min(T::BondingDuration::get());
 
-			let unbonding_era: EraIndex = params.unbond_period_upper_bound.min(
+			let unbonding_era: EraIndex = T::BondingDuration::get().min(
 				new_back_of_unbonding_queue_era
 					.defensive_saturating_sub(era)
 					.max(params.unbond_period_lower_bound),
@@ -1879,6 +1879,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	// `max_bonding_duration` or create new function.
 	fn bonding_duration() -> EraIndex {
 		T::BondingDuration::get()
+	}
+
+	fn max_bonding_duration(value: Self::Balance) -> EraIndex {
+		get_unbond_eras_delta(value)
 	}
 
 	fn current_era() -> EraIndex {

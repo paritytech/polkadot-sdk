@@ -1024,10 +1024,9 @@ mod benchmarks {
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(UnbondingQueueParams::<T>::get(), Some(UnbondingQueueConfig {
-			min_slashable_share: Perbill::from_percent(100);
-			unbond_period_lower_bound: u32::MAX;
-			unbond_period_upper_bound: u32::MAX;
-			back_of_unbonding_queue_era: u32::MAX;
+			min_slashable_share: Perbill::from_percent(100),
+			unbond_period_lower_bound: u32::MAX,
+			back_of_unbonding_queue_era: u32::MAX,
 		}));
 	}
 

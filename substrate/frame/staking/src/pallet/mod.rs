@@ -1300,7 +1300,7 @@ pub mod pallet {
 
 				// Note: in case there is no current era it is fine to bond one era more.
 				let current_era = CurrentEra::<T>::get()
-					.unwrap_or(0)
+					.unwrap_or(0);
 
 				// Calculate unbonding era based on unbonding queue mechanism.
 				let era: EraIndex = Self::process_unbond_queue_request(current_era, value);

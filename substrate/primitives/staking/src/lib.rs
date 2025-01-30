@@ -200,6 +200,8 @@ pub trait StakingInterface {
 	/// Number of eras that staked funds must remain bonded for.
 	fn bonding_duration() -> EraIndex;
 
+	fn max_bonding_duration(value: Self::Balance) -> EraIndex;
+
 	/// The current era index.
 	///
 	/// This should be the latest planned era that the staking system knows about.

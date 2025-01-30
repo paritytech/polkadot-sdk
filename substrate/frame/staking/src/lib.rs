@@ -390,8 +390,6 @@ pub struct UnbondingQueueConfig {
 	pub min_slashable_share: Perbill,
 	/// The minimum unbonding time for an active stake.
 	pub unbond_period_lower_bound: EraIndex,
-	/// The maximum possible unbonding time for an active stake.
-	pub unbond_period_upper_bound: EraIndex,
 	// The era when all the existing unbonders have unbonded.
 	pub back_of_unbonding_queue_era: EraIndex,
 }
@@ -401,7 +399,6 @@ impl Default for UnbondingQueueConfig {
 		Self {
 			min_slashable_share: Zero::zero(),
 			unbond_period_lower_bound: Zero::zero(),
-			unbond_period_upper_bound: Zero::zero(),
 			back_of_unbonding_queue_era: Zero::zero(),
 		}
 	}

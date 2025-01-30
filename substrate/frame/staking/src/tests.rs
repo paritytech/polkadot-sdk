@@ -59,7 +59,6 @@ fn set_staking_configs_works() {
 			ConfigOp::Set(UnbondingQueueConfig {
 				min_slashable_share: Perbill::from_percent(50),
 				unbond_period_lower_bound: 2,
-				unbond_period_upper_bound: 28,
 				back_of_unbonding_queue_era: Zero::zero(),
 			})
 		));
@@ -75,7 +74,6 @@ fn set_staking_configs_works() {
 			Some(UnbondingQueueConfig {
 				min_slashable_share: Perbill::from_percent(50),
 				unbond_period_lower_bound: 2,
-				unbond_period_upper_bound: 28,
 				back_of_unbonding_queue_era: Zero::zero(),
 			})
 		);
@@ -9128,7 +9126,6 @@ mod unbonding_queue {
 				ConfigOp::Set(UnbondingQueueConfig {
 					min_slashable_share: Perbill::from_percent(50),
 					unbond_period_lower_bound: 2,
-					unbond_period_upper_bound: 28,
 					back_of_unbonding_queue_era: Zero::zero(),
 				})
 			));
@@ -9144,7 +9141,6 @@ mod unbonding_queue {
 				UnbondingQueueConfig {
 					min_slashable_share: Perbill::from_percent(50),
 					unbond_period_lower_bound: 2,
-					unbond_period_upper_bound: 28,
 					back_of_unbonding_queue_era: Zero::zero(),
 				}
 			);
@@ -9155,7 +9151,7 @@ mod unbonding_queue {
 
 			let unbonding_queue_params = UnbondingQueueParams::<Test>::get().unwrap();
 			// Populate some `EraLowestThirdTotalStake` entries to test the function.
-			for i in current_era + 1..unbonding_queue_params.unbond_period_upper_bound {
+			for i in current_era + 1..<Test as Config>::BoundingDuration::get() {
 				// TODO: Nominators to bond more to validators to mix up validator stakes each era.
 
 				mock::start_active_era(i);
