@@ -12143,6 +12143,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-assets-vesting"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "pallet-assets 29.1.0",
+ "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-atomic-swap"
 version = "28.0.0"
 dependencies = [
