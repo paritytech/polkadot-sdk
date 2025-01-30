@@ -708,12 +708,12 @@ fn deny_then_try_works() {
 }
 
 #[test]
-fn nested_deny_and_try_xcm_works() {
-	use crate::barriers::NestedDenyThenTry;
+fn recursive_deny_and_try_xcm_works() {
+	use crate::barriers::RecursiveDenyThenTry;
 
 	frame_support::__private::sp_tracing::try_init_simple();
 
-	type Barrier = NestedDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	type Barrier = RecursiveDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
 	let nested_xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
 		dest: Location::parent(),
@@ -764,10 +764,10 @@ fn nested_deny_and_try_xcm_works() {
 }
 
 #[test]
-fn nested_deny_then_try_instructions_with_xcm_works() {
-	use crate::barriers::NestedDenyThenTry;
+fn recursive_deny_then_try_instructions_with_xcm_works() {
+	use crate::barriers::RecursiveDenyThenTry;
 
-	type Barrier = NestedDenyThenTry<DenyClearOrigin, AllowAll>;
+	type Barrier = RecursiveDenyThenTry<DenyClearOrigin, AllowAll>;
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
 }
 

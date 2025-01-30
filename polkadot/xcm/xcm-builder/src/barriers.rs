@@ -464,28 +464,43 @@ where
 }
 
 // TBD:
-/// Nested version of `DenyThenTry` for those three instructions (SetAppendix(xcm),
-/// SetErrorHandler(xcm), and ExecuteWithOrigin { xcm, ... }) using recursive
-/// `DenyInstructionsWithXcm`.
-pub struct NestedDenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
+/// Denies execution if the XCM contains any of the denied instructions, even if nested
+/// within `SetAppendix(xcm)`, `SetErrorHandler(xcm)`, or `ExecuteWithOrigin { xcm, ... }`,
+/// recursively using `DenyInstructionsWithXcm`.
+///
+/// If the message passes the deny filter, it is then evaluated against the allow condition.
+///
+/// Note: Ensures that restricted instructions are blocked at any depth with the XCM, enforcing
+/// stricter execution policies.
+pub struct RecursiveDenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
 where
 	Deny: DenyExecution,
 	Allow: ShouldExecute;
 
-impl<Deny, Allow> ShouldExecute for NestedDenyThenTry<Deny, Allow>
+impl<Deny, Allow> ShouldExecute for RecursiveDenyThenTry<Deny, Allow>
 where
 	Deny: DenyExecution,
 	Allow: ShouldExecute,
 {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
-		message: &mut [Instruction<RuntimeCall>],
+		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Deny::deny_execution(origin, message, max_weight, properties)?;
-		DenyInstructionsWithXcm::<Deny>::deny_execution(origin, message, max_weight, properties)?;
-		Allow::should_execute(origin, message, max_weight, properties)
+		// Apply the base deny filter
+		Deny::deny_execution(origin, instructions, max_weight, properties)?;
+
+		// Recursively apply denial for nested XCM instructions
+		DenyInstructionsWithXcm::<Deny>::deny_execution(
+			origin,
+			instructions,
+			max_weight,
+			properties,
+		)?;
+
+		// If neither deny check fails, apply the allow filter
+		Allow::should_execute(origin, instructions, max_weight, properties)
 	}
 }
 
@@ -540,11 +555,11 @@ pub struct DenyInstructionsWithXcm<Inner>(PhantomData<Inner>);
 impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 	fn deny_execution<RuntimeCall>(
 		origin: &Location,
-		message: &mut [Instruction<RuntimeCall>],
+		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		message.matcher().match_next_inst_while(
+		instructions.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
 				SetAppendix(nested_xcm) |
@@ -555,10 +570,8 @@ impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 						.inspect_err(|e| {
 							log::warn!(
 								target: "xcm::barriers",
-								"`DenyInstructionsWithXcm::Inner::deny_execution` did not pass for origin: {:?} and nested_xcm: {:?} with error: {:?}",
-								origin,
-								nested_xcm,
-								e
+								"DenyInstructionsWithXcm::Inner denied execution: origin: {:?}, instructions: {:?}, error: {:?}",
+								origin, instructions, e
 							);
 						})?;
 
@@ -569,8 +582,8 @@ impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 							if *count > xcm_executor::RECURSION_LIMIT {
 								log::error!(
 									target: "xcm::barriers",
-									"Recursion limit exceeded for origin: {:?} and xcm: {:?}, recursion count {}",
-									origin, nested_xcm, count
+									"Recursion limit exceeded: origin: {:?}, nested_xcm: {:?}, count: {count}",
+									origin, nested_xcm
 								);
 
 								return Err(ProcessMessageError::StackLimitReached);
@@ -605,25 +618,36 @@ impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 }
 
 // TBD:
-/// Check nested XCM from top-level, then using recursive `DenyFInstructionsWithXcm`.
+/// Denies execution if the XCM contains restricted instructions, first checking at the stop level
+/// and then recursively using `DenyInstructionsWithXcm`.
+///
+/// Note: Ensures that restricted instructions are blocked at the top level and within nested XCM,
+/// enforcing stricter execution policies.
 pub struct DenyFirstInstructionsWithXcm<Inner>(PhantomData<Inner>);
 
 impl<Inner: DenyExecution> DenyExecution for DenyFirstInstructionsWithXcm<Inner> {
 	fn deny_execution<RuntimeCall>(
 		origin: &Location,
-		message: &mut [Instruction<RuntimeCall>],
+		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Inner::deny_execution(origin, message, max_weight, properties)
+		// First, check if the top-level message should be denied.
+		Inner::deny_execution(origin, instructions, max_weight, properties)
 			.inspect_err(|e| {
 				log::warn!(
 					target: "xcm::barriers",
-					"`DenyFirstInstructionsWithXcm::Inner` rejected top-level origin: {:?} and xcm: {:?} with error: {:?}",
-							origin,message,e
+					"DenyFirstInstructionsWithXcm::Inner denied execution: origin: {:?}, instructions: {:?}, error: {:?}",
+					origin, instructions, e
 				);
 			})?;
 
-		DenyInstructionsWithXcm::<Inner>::deny_execution(origin, message, max_weight, properties)
+		// If the top-level check passes, check nested instructions recursively.
+		DenyInstructionsWithXcm::<Inner>::deny_execution(
+			origin,
+			instructions,
+			max_weight,
+			properties,
+		)
 	}
 }
