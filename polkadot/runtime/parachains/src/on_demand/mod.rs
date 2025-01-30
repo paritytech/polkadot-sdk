@@ -424,8 +424,8 @@ where
 	/// - `who`: Credit receiver.
 	/// - `amount`: The amount of new credits the account will receive.
 	pub fn credit_account(who: T::AccountId, amount: BalanceOf<T>) {
-		Credits::<T>::mutate(who, |maybe_credits| {
-			let credits = maybe_credits.saturating_add(amount);
+		Credits::<T>::mutate(who, |old_credits| {
+			let credits = old_credits.saturating_add(amount);
 			credits
 		});
 	}
