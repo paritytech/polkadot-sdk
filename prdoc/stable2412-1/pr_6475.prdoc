@@ -1,8 +1,0 @@
-title: Fix staking benchmark
-doc:
-- audience: Runtime Dev
-  description: 'Fix staking benchmark, error was introduced when migrating to v2:
-    https://github.com/paritytech/polkadot-sdk/pull/6025'
-crates:
-- name: pallet-staking
-  bump: patch
