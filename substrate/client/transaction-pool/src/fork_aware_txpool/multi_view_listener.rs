@@ -522,7 +522,7 @@ where
 			Controller<ExternalWatcherCommand<ChainApi>>,
 		>::default()));
 
-		let (tx, rx) = mpsc::tracing_unbounded("txpool-multi-view-listener-task-controller", 32);
+		let (tx, rx) = mpsc::tracing_unbounded("txpool-multi-view-listener-task-controller", 512);
 		let task = Self::task(external_controllers.clone(), rx);
 
 		(Self { external_controllers, controller: tx }, task.boxed())
@@ -560,11 +560,6 @@ where
 				loop {
 					tokio::select! {
 						cmd = ctx.command_receiver.next() => {
-							//todo: remove this debug
-							log::trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}",
-								ctx.tx_hash,
-								ctx.known_views.iter().collect::<Vec<_>>()
-							);
 							match cmd? {
 								ExternalWatcherCommand::ViewTransactionStatus(view_hash, status) => {
 									if let Some(new_status) = ctx.handle_view_transaction_status(view_hash, status) {
@@ -610,7 +605,6 @@ where
 			.unbounded_send(ControllerCommand::AddViewStream(block_hash, stream))
 		{
 			trace!(target: LOG_TARGET, "add_view_aggregated_stream ({:?}): send message failed: {:?}", block_hash, e);
-			//todo: handle fail (critical)?
 		}
 	}
 

@@ -285,12 +285,7 @@ where
 					let view = view.clone();
 					let xt = xt.clone();
 					let source = source.clone();
-					async move {
-						view.submit_many(std::iter::once((source, xt)))
-							.await
-							.pop()
-							.expect("There is exactly one result. qed.")
-					}
+					async move { view.submit_one(source, xt).await }
 				})
 				.collect::<Vec<_>>()
 		};
@@ -705,12 +700,7 @@ where
 		xt: ExtrinsicFor<ChainApi>,
 		xt_hash: ExtrinsicHash<ChainApi>,
 	) {
-		if let Err(e) = view
-			.submit_many(std::iter::once((source, xt)))
-			.await
-			.pop()
-			.expect("There is exactly one result, qed.")
-		{
+		if let Err(e) = view.submit_one(source, xt).await {
 			log::trace!(
 				target:LOG_TARGET,
 				"[{:?}] replace_transaction: submit to {} failed {}",

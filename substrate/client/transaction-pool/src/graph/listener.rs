@@ -130,7 +130,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	}
 
 	/// Sends given event to the `aggregated_stream_sink`.
-	fn send_to_aggregated_stram_sink(
+	fn send_to_aggregated_stream_sink(
 		&mut self,
 		tx: &H,
 		status: TransactionStatus<H, BlockHash<C>>,
@@ -151,7 +151,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		}
 
 		self.send_to_dropped_stream_sink(tx, TransactionStatus::Ready);
-		self.send_to_aggregated_stram_sink(tx, TransactionStatus::Ready);
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::Ready);
 	}
 
 	/// New transaction was added to the future pool.
@@ -160,7 +160,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		self.fire(tx, |watcher| watcher.future());
 
 		self.send_to_dropped_stream_sink(tx, TransactionStatus::Future);
-		self.send_to_aggregated_stram_sink(tx, TransactionStatus::Future);
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::Future);
 	}
 
 	/// Transaction was dropped from the pool because of enforcing the limit.
@@ -202,14 +202,14 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		let tx_index = txs.len() - 1;
 
 		self.fire(tx, |watcher| watcher.in_block(block_hash, tx_index));
-		self.send_to_aggregated_stram_sink(tx, TransactionStatus::InBlock((block_hash, tx_index)));
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::InBlock((block_hash, tx_index)));
 
 		while self.finality_watchers.len() > MAX_FINALITY_WATCHERS {
 			if let Some((hash, txs)) = self.finality_watchers.pop_front() {
 				for tx in txs {
 					self.fire(&tx, |watcher| watcher.finality_timeout(hash));
 					//todo: do we need this? [related issue: #5482]
-					self.send_to_aggregated_stram_sink(
+					self.send_to_aggregated_stream_sink(
 						&tx,
 						TransactionStatus::FinalityTimeout(hash),
 					);

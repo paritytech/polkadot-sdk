@@ -154,6 +154,18 @@ where
 		}
 	}
 
+	/// Imports single unvalidated extrinsic into the view.
+	pub(super) async fn submit_one(
+		&self,
+		source: TimedTransactionSource,
+		xt: ExtrinsicFor<ChainApi>,
+	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
+		self.submit_many(std::iter::once((source, xt)))
+			.await
+			.pop()
+			.expect("There is exactly one result, qed.")
+	}
+
 	/// Imports many unvalidated extrinsics into the view.
 	pub(super) async fn submit_many(
 		&self,
