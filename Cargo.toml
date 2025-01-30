@@ -389,7 +389,6 @@ members = [
 	"substrate/frame/nomination-pools/fuzzer",
 	"substrate/frame/nomination-pools/runtime-api",
 	"substrate/frame/nomination-pools/test-delegate-stake",
-	"substrate/frame/nomination-pools/test-transfer-stake",
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
 	"substrate/frame/paged-list",
@@ -539,6 +538,7 @@ members = [
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
+	"templates/parachain",
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
@@ -1036,7 +1036,6 @@ people-rococo-runtime = { path = "cumulus/parachains/runtimes/people/people-roco
 people-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend" }
 people-westend-runtime = { path = "cumulus/parachains/runtimes/people/people-westend" }
 pin-project = { version = "1.1.3" }
-platforms = { version = "3.4" }
 polkadot-approval-distribution = { path = "polkadot/node/network/approval-distribution", default-features = false }
 polkadot-availability-bitfield-distribution = { path = "polkadot/node/network/bitfield-distribution", default-features = false }
 polkadot-availability-distribution = { path = "polkadot/node/network/availability-distribution", default-features = false }
@@ -1209,7 +1208,6 @@ schnorrkel = { version = "0.11.4", default-features = false }
 seccompiler = { version = "0.4.0" }
 secp256k1 = { version = "0.28.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
-separator = { version = "0.4.1" }
 serde = { version = "1.0.214", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
@@ -1372,7 +1370,6 @@ void = { version = "1.0.2" }
 w3f-bls = { version = "0.1.3", default-features = false }
 wait-timeout = { version = "0.2" }
 walkdir = { version = "2.5.0" }
-wasm-bindgen-test = { version = "0.3.19" }
 wasm-instrument = { version = "0.4", default-features = false }
 wasm-opt = { version = "0.116" }
 wasm-timer = { version = "0.2.5" }

@@ -17,15 +17,15 @@
 
 use crate::{
 	address::{self, AddressMapper},
-	debug::{CallInterceptor, CallSpan, Tracing},
 	gas::GasMeter,
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
+	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, Error, Event,
-	ImmutableData, ImmutableDataOf, Pallet as Contracts,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
+	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -773,7 +773,25 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_from_origin(&origin, &origin, &dest, value)
+			if_tracing(|t| {
+				let address =
+					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default();
+				let dest = T::AddressMapper::to_address(&dest);
+				t.enter_child_span(address, dest, false, false, value, &input_data, Weight::zero());
+			});
+
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
+			match result {
+				Ok(ref output) => {
+					if_tracing(|t| {
+						t.exit_child_span(&output, Weight::zero());
+					});
+				},
+				Err(e) => {
+					if_tracing(|t| t.exit_child_span_with_error(e.error.into(), Weight::zero()));
+				},
+			}
+			result
 		}
 	}
 
@@ -1018,6 +1036,7 @@ where
 	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
+		let is_delegate_call = frame.delegate.is_some();
 		let delegated_code_hash =
 			if frame.delegate.is_some() { Some(*executable.code_hash()) } else { None };
 
@@ -1038,6 +1057,9 @@ where
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
 			let frame = top_frame_mut!(self);
+			let read_only = frame.read_only;
+			let value_transferred = frame.value_transferred;
+			let account_id = &frame.account_id.clone();
 
 			// We need to charge the storage deposit before the initial transfer so that
 			// it can create the account in case the initial transfer is < ed.
@@ -1045,10 +1067,11 @@ where
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
+
 				frame.nested_storage.charge_instantiate(
 					origin,
-					&frame.account_id,
-					frame.contract_info.get(&frame.account_id),
+					&account_id,
+					frame.contract_info.get(&account_id),
 					executable.code_info(),
 					self.skip_transfer,
 				)?;
@@ -1069,15 +1092,34 @@ where
 				)?;
 			}
 
-			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
+			let contract_address = T::AddressMapper::to_address(account_id);
+			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
 
-			let call_span = T::Debug::new_call_span(&contract_address, entry_point, &input_data);
+			if_tracing(|tracer| {
+				tracer.enter_child_span(
+					maybe_caller_address.unwrap_or_default(),
+					contract_address,
+					is_delegate_call,
+					read_only,
+					value_transferred,
+					&input_data,
+					frame.nested_gas.gas_left(),
+				);
+			});
 
-			let output = T::Debug::intercept_call(&contract_address, entry_point, &input_data)
-				.unwrap_or_else(|| executable.execute(self, entry_point, input_data))
-				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
+			let output = executable.execute(self, entry_point, input_data).map_err(|e| {
+				if_tracing(|tracer| {
+					tracer.exit_child_span_with_error(
+						e.error,
+						top_frame_mut!(self).nested_gas.gas_consumed(),
+					);
+				});
+				ExecError { error: e.error, origin: ErrorOrigin::Callee }
+			})?;
 
-			call_span.after_call(&output);
+			if_tracing(|tracer| {
+				tracer.exit_child_span(&output, top_frame_mut!(self).nested_gas.gas_consumed());
+			});
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
@@ -1231,7 +1273,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 	) -> ExecResult {
-		let value = crate::Pallet::<T>::convert_evm_to_native(value)?;
+		let value = crate::Pallet::<T>::convert_evm_to_native(value, ConversionPrecision::Exact)?;
 		if value.is_zero() {
 			return Ok(Default::default());
 		}
@@ -1353,7 +1395,7 @@ where
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: U256,
-		dest: &H160,
+		dest_addr: &H160,
 		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
@@ -1369,7 +1411,7 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
-			let dest = T::AddressMapper::to_account_id(dest);
+			let dest = T::AddressMapper::to_account_id(dest_addr);
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
 			}
@@ -1661,11 +1703,11 @@ where
 	}
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
-		Contracts::<Self::T>::deposit_event(Event::ContractEmitted {
-			contract: T::AddressMapper::to_address(self.account_id()),
-			data,
-			topics,
+		let contract = T::AddressMapper::to_address(self.account_id());
+		if_tracing(|tracer| {
+			tracer.log_event(contract, &topics, &data);
 		});
+		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}
 
 	fn block_number(&self) -> U256 {
