@@ -178,7 +178,9 @@ where
 		// required.
 		if let Some(bridge_id) = T::BridgeIdResolver::resolve_for(network, remote_location) {
 			if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
-				fees = fees.map(|f| Pallet::<T, I>::calculate_dynamic_fee(&bridge_state, f));
+				if let Some(f) = fees {
+					fees = Some(Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, f));
+				}
 			}
 		}
 
@@ -218,7 +220,7 @@ impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter
 						let mut dynamic_fees = sp_std::vec::Vec::with_capacity(fees.len());
 						for fee in fees.into_inner() {
 							dynamic_fees
-								.push(Pallet::<T, I>::calculate_dynamic_fee(&bridge_state, fee));
+								.push(Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, fee));
 						}
 						fees = Assets::from(dynamic_fees);
 					}
