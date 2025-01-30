@@ -90,7 +90,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// An CreateAgent message was sent to BH
+		/// A `CreateAgent` message was sent to Bridge Hub
 		CreateAgent { location: Location },
 		/// Register Polkadot-native token was sent to BH
 		RegisterToken {
