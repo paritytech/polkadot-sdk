@@ -154,7 +154,7 @@ pub mod pallet {
 			message: Message,
 		},
 		/// Message will be committed at the end of current block. From now on, to track the
-		/// progress the message, use the `nonce` of `id`.
+		/// progress the message, use the `nonce` or the `id`.
 		MessageAccepted {
 			/// ID of the message
 			id: H256,
