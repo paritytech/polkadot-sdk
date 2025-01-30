@@ -765,8 +765,6 @@ fn recursive_deny_and_try_xcm_works() {
 
 #[test]
 fn recursive_deny_then_try_instructions_with_xcm_works() {
-	use crate::barriers::RecursiveDenyThenTry;
-
 	type Barrier = RecursiveDenyThenTry<DenyClearOrigin, AllowAll>;
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
 }
@@ -847,8 +845,6 @@ fn deny_instructions_with_xcm_works() {
 
 #[test]
 fn deny_first_instructions_with_xcm_works() {
-	use crate::barriers::DenyFirstInstructionsWithXcm;
-
 	impl<Inner: DenyExecution> ShouldExecute for DenyFirstInstructionsWithXcm<Inner> {
 		fn should_execute<RuntimeCall>(
 			origin: &Location,
