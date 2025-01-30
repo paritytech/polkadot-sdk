@@ -4933,9 +4933,20 @@ mod nominate {
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]));
 			assert_eq!(Nominations::get().unwrap(), vec![21]);
 
+			// Check event
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominationMade {
+				pool_id: 1,
+				caller: 900,
+			}));
+
 			// Nominator can nominate
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(901), 1, vec![31]));
 			assert_eq!(Nominations::get().unwrap(), vec![31]);
+
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominationMade {
+				pool_id: 1,
+				caller: 901,
+			}));
 
 			// Can't nominate for a pool that doesn't exist
 			assert_noop!(
