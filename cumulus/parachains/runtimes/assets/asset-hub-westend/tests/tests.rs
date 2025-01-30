@@ -1273,7 +1273,7 @@ fn test_report_bridge_status_call_compatibility() {
 	// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
 	assert_eq!(
 		RuntimeCall::ToRococoXcmRouter(pallet_xcm_bridge_router::Call::update_bridge_status {
-			bridge_id: bridge_id.clone(),
+			bridge_id,
 			is_congested: true,
 		})
 		.encode(),

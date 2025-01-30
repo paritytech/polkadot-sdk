@@ -1266,7 +1266,7 @@ mod asset_hub_rococo_tests {
 		// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
 		assert_eq!(
 			RuntimeCall::ToWestendXcmRouter(pallet_xcm_bridge_router::Call::update_bridge_status {
-				bridge_id: bridge_id.clone(),
+				bridge_id,
 				is_congested: true,
 			})
 			.encode(),
