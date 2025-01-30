@@ -1869,6 +1869,9 @@ pub mod pallet {
 		MemberClaimPermissionUpdated { member: T::AccountId, permission: ClaimPermission },
 		/// A pool's metadata was updated.
 		MetadataUpdated { pool_id: PoolId, caller: T::AccountId },
+		/// A pool's nominating account (or the pool's root account) has nominated a validator set on behalf of the
+		/// pool.
+		PoolNominationMade { pool_id: PoolId, caller: T::AccountId },
 		/// A pool's nominator was chilled.
 		PoolNominatorChilled { pool_id: PoolId, caller: T::AccountId },
 		/// Global parameters regulating nomination pools have been updated.
@@ -2553,7 +2556,12 @@ pub mod pallet {
 				Error::<T>::MinimumBondNotMet
 			);
 
-			T::StakeAdapter::nominate(Pool::from(bonded_pool.bonded_account()), validators)
+			let nominate_res = T::StakeAdapter::nominate(Pool::from(bonded_pool.bonded_account()), validators);
+			if let Ok(_) = nominate_res {
+				Self::deposit_event(Event::<T>::PoolNominationMade { pool_id, caller: who })
+			}
+
+			return nominate_res
 		}
 
 		/// Set a new state for the pool.
