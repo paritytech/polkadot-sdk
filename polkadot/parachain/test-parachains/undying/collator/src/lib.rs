@@ -194,13 +194,18 @@ impl Collator {
 		let graveyard_size = ((pov_size / std::mem::size_of::<u8>()) as f64).sqrt().ceil() as usize;
 
 		log::info!(
+			target: LOG_TARGET,
 			"PoV target size: {} bytes. Graveyard size: ({} x {})",
 			pov_size,
 			graveyard_size,
-			graveyard_size
+			graveyard_size,
 		);
 
-		log::info!("PVF time complexity: {}", pvf_complexity);
+		log::info!(
+			target: LOG_TARGET,
+			"PVF time complexity: {}",
+			pvf_complexity,
+		);
 
 		Self {
 			state: Arc::new(Mutex::new(State::genesis(graveyard_size, pvf_complexity))),
@@ -251,7 +256,11 @@ impl Collator {
 		Box::new(move |relay_parent, validation_data| {
 			let parent = match HeadData::decode(&mut &validation_data.parent_head.0[..]) {
 				Err(err) => {
-					log::error!("Requested to build on top of malformed head-data: {:?}", err);
+					log::error!(
+						target: LOG_TARGET,
+						"Requested to build on top of malformed head-data: {:?}",
+						err,
+					);
 					return futures::future::ready(None).boxed()
 				},
 				Ok(p) => p,
@@ -260,13 +269,19 @@ impl Collator {
 			let (block_data, head_data, upward_messages) =
 				match state.lock().unwrap().advance(parent.clone()) {
 					Err(err) => {
-						log::error!("Unable to build on top of {:?}: {:?}", parent, err);
+						log::error!(
+							target: LOG_TARGET,
+							"Unable to build on top of {:?}: {:?}",
+							parent,
+							err,
+						);
 						return futures::future::ready(None).boxed()
 					},
 					Ok(x) => x,
 				};
 
 			log::info!(
+				target: LOG_TARGET,
 				"created a new collation on relay-parent({}): {:?}",
 				relay_parent,
 				head_data,
@@ -285,10 +300,15 @@ impl Collator {
 				hrmp_watermark: validation_data.relay_parent_number,
 			};
 
-			log::info!("Raw PoV size for collation: {} bytes", pov.block_data.0.len(),);
+			log::info!(
+				target: LOG_TARGET,
+				"Raw PoV size for collation: {} bytes",
+				pov.block_data.0.len(),
+			);
 			let compressed_pov = maybe_compress_pov(pov);
 
 			log::info!(
+				target: LOG_TARGET,
 				"Compressed PoV size for collation: {} bytes",
 				compressed_pov.block_data.0.len(),
 			);
@@ -305,8 +325,9 @@ impl Collator {
 							Statement::Seconded(s) if s.descriptor.pov_hash() == compressed_pov.hash(),
 						) {
 							log::error!(
+								target: LOG_TARGET,
 								"Seconded statement should match our collation: {:?}",
-								res.statement.payload()
+								res.statement.payload(),
 							);
 						}
 
@@ -380,7 +401,7 @@ impl Collator {
 						Err(error) => {
 							log::error!(
 								target: LOG_TARGET,
-								"Failed to query claim queue runtime API: {error:?}"
+								"Failed to query claim queue runtime API: {error:?}",
 							);
 							continue;
 						},
@@ -400,7 +421,7 @@ impl Collator {
 					if scheduled_cores.is_empty() {
 						log::info!(
 							target: LOG_TARGET,
-							"Scheduled cores is empty."
+							"Scheduled cores is empty.",
 						);
 						continue;
 					}
@@ -409,7 +430,7 @@ impl Collator {
 						log::info!(
 							target: LOG_TARGET,
 							"Malus collator configured with duplicate collations, but only 1 core assigned. \
-							Collator will not do anything malicious."
+							Collator will not do anything malicious.",
 						);
 					}
 
@@ -423,14 +444,14 @@ impl Collator {
 						Ok(None) => {
 							log::info!(
 								target: LOG_TARGET,
-								"Persisted validation data is None."
+								"Persisted validation data is None.",
 							);
 							continue;
 						},
 						Err(error) => {
 							log::error!(
 								target: LOG_TARGET,
-								"Failed to query persisted validation data runtime API: {error:?}"
+								"Failed to query persisted validation data runtime API: {error:?}",
 							);
 							continue;
 						},
@@ -443,7 +464,7 @@ impl Collator {
 							None => {
 								log::info!(
 									target: LOG_TARGET,
-									"Collation result is None."
+									"Collation result is None.",
 								);
 								continue;
 							},
@@ -460,14 +481,14 @@ impl Collator {
 						Ok(None) => {
 							log::info!(
 								target: LOG_TARGET,
-								"Validation code hash is None."
+								"Validation code hash is None.",
 							);
 							continue;
 						},
 						Err(error) => {
 							log::error!(
 								target: LOG_TARGET,
-								"Failed to query validation code hash runtime API: {error:?}"
+								"Failed to query validation code hash runtime API: {error:?}",
 							);
 							continue;
 						},
@@ -480,7 +501,7 @@ impl Collator {
 							Err(error) => {
 								log::error!(
 									target: LOG_TARGET,
-									"Failed to query session index for child runtime API: {error:?}"
+									"Failed to query session index for child runtime API: {error:?}",
 								);
 								continue;
 							},
@@ -522,14 +543,14 @@ impl Collator {
 							Ok(None) => {
 								log::info!(
 									target: LOG_TARGET,
-									"Session info is None."
+									"Session info is None.",
 								);
 								continue;
 							},
 							Err(error) => {
 								log::error!(
 									target: LOG_TARGET,
-									"Failed to query session info runtime API: {error:?}"
+									"Failed to query session info runtime API: {error:?}",
 								);
 								continue;
 							},
@@ -547,7 +568,7 @@ impl Collator {
 						Err(error) => {
 							log::error!(
 								target: LOG_TARGET,
-								"Failed to obtain chunks v1: {error:?}"
+								"Failed to obtain chunks v1: {error:?}",
 							);
 							continue;
 						},
