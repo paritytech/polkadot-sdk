@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Config, XcmExecutor, XcmError};
+use crate::{Config, XcmError, XcmExecutor};
 
 pub trait Execute {
 	fn execute<C: Config>(&self, executor: &mut XcmExecutor<C>) -> Result<(), XcmError>;

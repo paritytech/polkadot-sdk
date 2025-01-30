@@ -15,10 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::ExecuteInstruction;
-use crate::{config, XcmExecutor, Weight, traits::{ProcessTransaction, WeightTrader}};
-use xcm::latest::instructions::*;
-use xcm::latest::Error as XcmError;
+use crate::{
+	config,
+	traits::{ProcessTransaction, WeightTrader},
+	Weight, XcmExecutor,
+};
 use frame_support::ensure;
+use xcm::latest::{instructions::*, Error as XcmError};
 
 impl<Config: config::Config> ExecuteInstruction<Config> for BuyExecution {
 	fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {
@@ -37,12 +40,11 @@ impl<Config: config::Config> ExecuteInstruction<Config> for BuyExecution {
 			asset_used_in_buy_execution = ?executor.asset_used_in_buy_execution
 		);
 		// pay for `weight` using up to `fees` of the holding register.
-		let max_fee =
-			executor.holding.try_take(fees.clone().into()).map_err(|e| {
-				tracing::error!(target: "xcm::process_instruction::buy_execution", ?e, ?fees,
+		let max_fee = executor.holding.try_take(fees.clone().into()).map_err(|e| {
+			tracing::error!(target: "xcm::process_instruction::buy_execution", ?e, ?fees,
 					"Failed to take fees from holding");
-				XcmError::NotHoldingFees
-			})?;
+			XcmError::NotHoldingFees
+		})?;
 		let result = Config::TransactionalProcessor::process(|| {
 			let unspent = executor.trader.buy_weight(weight, max_fee, &executor.context)?;
 			executor.holding.subsume_assets(unspent);
@@ -79,7 +81,9 @@ impl<Config: config::Config> ExecuteInstruction<Config> for PayFees {
 		// Pay for execution fees.
 		let result = Config::TransactionalProcessor::process(|| {
 			let unspent =
-				executor.trader.buy_weight(executor.message_weight, max_fee, &executor.context)?;
+				executor
+					.trader
+					.buy_weight(executor.message_weight, max_fee, &executor.context)?;
 			// Move unspent to the `fees` register.
 			executor.fees.subsume_assets(unspent);
 			Ok(())

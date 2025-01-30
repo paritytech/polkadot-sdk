@@ -20,8 +20,7 @@ use frame_support::{
 	ensure,
 	traits::{Contains, ContainsPair, Get},
 };
-use xcm::latest::instructions::*;
-use xcm::latest::Error as XcmError;
+use xcm::latest::{instructions::*, Error as XcmError};
 
 impl<Config: config::Config> ExecuteInstruction<Config> for DescendOrigin {
 	fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {

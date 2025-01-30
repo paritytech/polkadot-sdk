@@ -601,7 +601,10 @@ fn basic_subscription_works() {
 			take_sent_xcm(),
 			vec![(
 				remote.clone(),
-				Xcm::new(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]),
+				Xcm::new(vec![SubscribeVersion {
+					query_id: 0,
+					max_response_weight: Weight::zero()
+				}]),
 			),]
 		);
 
@@ -956,7 +959,10 @@ fn auto_subscription_works() {
 			take_sent_xcm(),
 			vec![(
 				remote_v4.clone(),
-				Xcm::new(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]),
+				Xcm::new(vec![SubscribeVersion {
+					query_id: 0,
+					max_response_weight: Weight::zero()
+				}]),
 			)]
 		);
 
@@ -998,7 +1004,10 @@ fn auto_subscription_works() {
 			take_sent_xcm(),
 			vec![(
 				remote_v3.clone(),
-				Xcm::new(vec![SubscribeVersion { query_id: 1, max_response_weight: Weight::zero() }]),
+				Xcm::new(vec![SubscribeVersion {
+					query_id: 1,
+					max_response_weight: Weight::zero()
+				}]),
 			)]
 		);
 

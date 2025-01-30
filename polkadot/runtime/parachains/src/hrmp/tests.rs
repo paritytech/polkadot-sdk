@@ -1088,16 +1088,20 @@ fn hrmp_notifications_works() {
 		assert_notification_for(
 			5,
 			para_b,
-			VersionedXcm::from(Xcm::new(vec![HrmpChannelAccepted { recipient: u32::from(para_a) }]))
-				.into_version(previous_version)
-				.expect("compatible")
-				.encode(),
+			VersionedXcm::from(Xcm::new(vec![HrmpChannelAccepted {
+				recipient: u32::from(para_a),
+			}]))
+			.into_version(previous_version)
+			.expect("compatible")
+			.encode(),
 		);
 		assert_notification_for(
 			5,
 			para_a,
-			VersionedXcm::from(Xcm::new(vec![HrmpChannelAccepted { recipient: u32::from(para_b) }]))
-				.encode(),
+			VersionedXcm::from(Xcm::new(vec![HrmpChannelAccepted {
+				recipient: u32::from(para_b),
+			}]))
+			.encode(),
 		);
 		let _ = Dmp::prune_dmq(para_a, 1000);
 		let _ = Dmp::prune_dmq(para_b, 1000);

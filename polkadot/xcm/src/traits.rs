@@ -14,10 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::latest::{prelude::*, Error, Result};
 use alloc::fmt::Debug;
 use core::result;
-use crate::latest::prelude::*;
-use crate::latest::{Result, Error};
 
 pub trait IntoInstruction<Instruction> {
 	fn into_instruction(self) -> Instruction;
@@ -114,12 +113,20 @@ impl Reanchorable for AssetId {
 
 	/// Mutate the asset to represent the same value from the perspective of a new `target`
 	/// location. The local chain's location is provided in `context`.
-	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> result::Result<(), ()> {
+	fn reanchor(
+		&mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> result::Result<(), ()> {
 		self.0.reanchor(target, context)?;
 		Ok(())
 	}
 
-	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> result::Result<Self, ()> {
+	fn reanchored(
+		mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> result::Result<Self, ()> {
 		match self.reanchor(target, context) {
 			Ok(()) => Ok(self),
 			Err(()) => Err(()),
@@ -134,7 +141,11 @@ impl Reanchorable for Location {
 	/// The context of `self` is provided as `context`.
 	///
 	/// Does not modify `self` in case of overflow.
-	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> result::Result<(), ()> {
+	fn reanchor(
+		&mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> result::Result<(), ()> {
 		// TODO: https://github.com/paritytech/polkadot/issues/4489 Optimize this.
 
 		// 1. Use our `context` to figure out how the `target` would address us.
@@ -155,7 +166,11 @@ impl Reanchorable for Location {
 	/// of `target`. The context of `self` is provided as `context`.
 	///
 	/// Returns the original `self` in case of overflow.
-	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> result::Result<Self, Self> {
+	fn reanchored(
+		mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> result::Result<Self, Self> {
 		match self.reanchor(target, context) {
 			Ok(()) => Ok(self),
 			Err(()) => Err(self),
@@ -168,13 +183,21 @@ impl Reanchorable for Asset {
 
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
 	/// relative to a `target` context. The local context is provided as `context`.
-	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> result::Result<(), ()> {
+	fn reanchor(
+		&mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> result::Result<(), ()> {
 		self.id.reanchor(target, context)
 	}
 
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
 	/// relative to a `target` context. The local context is provided as `context`.
-	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> result::Result<Self, ()> {
+	fn reanchored(
+		mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> result::Result<Self, ()> {
 		self.id.reanchor(target, context)?;
 		Ok(self)
 	}
@@ -183,13 +206,21 @@ impl Reanchorable for Asset {
 impl Reanchorable for Assets {
 	type Error = ();
 
-	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> result::Result<(), ()> {
+	fn reanchor(
+		&mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> result::Result<(), ()> {
 		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))?;
 		self.0.sort();
 		Ok(())
 	}
 
-	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> result::Result<Self, ()> {
+	fn reanchored(
+		mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> result::Result<Self, ()> {
 		match self.reanchor(target, context) {
 			Ok(()) => Ok(self),
 			Err(()) => Err(()),

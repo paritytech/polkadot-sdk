@@ -15,9 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::ExecuteInstruction;
-use crate::{config, XcmExecutor, FeeReason, Response};
-use xcm::latest::instructions::*;
-use xcm::latest::Error as XcmError;
+use crate::{config, FeeReason, Response, XcmExecutor};
+use xcm::latest::{instructions::*, Error as XcmError};
 
 impl<Config: config::Config> ExecuteInstruction<Config> for ReportError {
 	fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {
@@ -39,8 +38,11 @@ impl<Config: config::Config> ExecuteInstruction<Config> for ReportHolding {
 		let ReportHolding { response_info, assets } = self;
 		// Note that we pass `None` as `maybe_failed_bin` since no assets were ever removed
 		// from Holding.
-		let assets =
-		XcmExecutor::<Config>::reanchored(executor.holding.min(&assets), &response_info.destination, None);
+		let assets = XcmExecutor::<Config>::reanchored(
+			executor.holding.min(&assets),
+			&response_info.destination,
+			None,
+		);
 		executor.respond(
 			executor.cloned_origin(),
 			Response::Assets(assets),

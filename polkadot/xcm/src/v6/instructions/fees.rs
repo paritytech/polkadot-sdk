@@ -25,9 +25,9 @@ use crate::v6::{Asset, Location, WeightLimit};
 /// picoseconds of execution time, paying for this with up to `fees` from the Holding Register.
 ///
 /// - `fees`: The asset(s) to remove from the Holding Register to pay for fees.
-/// - `weight_limit`: The maximum amount of weight to purchase; this must be at least the
-///   expected maximum weight of the total XCM to be executed for the
-///   `AllowTopLevelPaidExecutionFrom` barrier to allow the XCM be executed.
+/// - `weight_limit`: The maximum amount of weight to purchase; this must be at least the expected
+///   maximum weight of the total XCM to be executed for the `AllowTopLevelPaidExecutionFrom`
+///   barrier to allow the XCM be executed.
 ///
 /// Kind: *Command*
 ///

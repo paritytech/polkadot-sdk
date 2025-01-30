@@ -26,9 +26,9 @@ use crate::v6::{QueryId, Weight};
 /// responses when they happen.
 ///
 /// - `query_id`: An identifier that will be replicated into the returned XCM message.
-/// - `max_response_weight`: The maximum amount of weight that the `QueryResponse` item which
-///   is sent as a reply may take to execute. NOTE: If this is unexpectedly large then the
-///   response may not execute at all.
+/// - `max_response_weight`: The maximum amount of weight that the `QueryResponse` item which is
+///   sent as a reply may take to execute. NOTE: If this is unexpectedly large then the response may
+///   not execute at all.
 ///
 /// Kind: *Command*
 ///

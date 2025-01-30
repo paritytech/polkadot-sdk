@@ -300,7 +300,8 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 				network: remote_network,
 				destination: remote_location,
 				xcm: xcm.clone(),
-			}.into(),
+			}
+			.into(),
 		]);
 		if let Some(forward_id) = maybe_forward_id {
 			message.0.push(SetTopic(forward_id).into());
@@ -394,7 +395,8 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 				SetAppendix(Xcm::new(vec![DepositAsset {
 					assets: AllCounted(1).into(),
 					beneficiary: local_from_bridge,
-				}.into()])),
+				}
+				.into()])),
 				export_instruction,
 			]
 		} else {

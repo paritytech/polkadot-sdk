@@ -16,9 +16,9 @@
 
 //! Query related instructions.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use alloc::vec::Vec;
 
 use crate::v6::{Location, QueryResponseInfo, Response, Weight};
 
@@ -27,9 +27,9 @@ use crate::v6::{Location, QueryResponseInfo, Response, Weight};
 /// - `query_id`: The identifier of the query that resulted in this message being sent.
 /// - `response`: The message content.
 /// - `max_weight`: The maximum weight that handling this response should take.
-/// - `querier`: The location responsible for the initiation of the response, if there is one.
-///   In general this will tend to be the same location as the receiver of this message. NOTE:
-///   As usual, this is interpreted from the perspective of the receiving consensus system.
+/// - `querier`: The location responsible for the initiation of the response, if there is one. In
+///   general this will tend to be the same location as the receiver of this message. NOTE: As
+///   usual, this is interpreted from the perspective of the receiving consensus system.
 ///
 /// Safety: Since this is information only, there are no immediate concerns. However, it should
 /// be remembered that even if the Origin behaves reasonably, it can always be asked to make

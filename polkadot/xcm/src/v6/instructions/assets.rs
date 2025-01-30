@@ -16,9 +16,9 @@
 
 //! Asset related instructions.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use alloc::vec::Vec;
 
 use crate::v6::{Asset, AssetFilter, AssetTransferFilter, Assets, Location, Xcm};
 
@@ -86,10 +86,9 @@ pub struct TransferAsset {
 ///
 /// - `assets`: The asset(s) to be withdrawn.
 /// - `dest`: The location whose sovereign account will own the assets and thus the effective
-///   beneficiary for the assets and the notification target for the reserve asset deposit
-///   message.
-/// - `xcm`: The instructions that should follow the `ReserveAssetDeposited` instruction, which
-///   is sent onwards to `dest`.
+///   beneficiary for the assets and the notification target for the reserve asset deposit message.
+/// - `xcm`: The instructions that should follow the `ReserveAssetDeposited` instruction, which is
+///   sent onwards to `dest`.
 ///
 /// Safety: No concerns.
 ///
@@ -126,10 +125,9 @@ pub struct DepositAsset {
 ///
 /// - `assets`: The asset(s) to remove from holding.
 /// - `dest`: The location whose sovereign account will own the assets and thus the effective
-///   beneficiary for the assets and the notification target for the reserve asset deposit
-///   message.
-/// - `xcm`: The orders that should follow the `ReserveAssetDeposited` instruction which is
-///   sent onwards to `dest`.
+///   beneficiary for the assets and the notification target for the reserve asset deposit message.
+/// - `xcm`: The orders that should follow the `ReserveAssetDeposited` instruction which is sent
+///   onwards to `dest`.
 ///
 /// Kind: *Command*
 ///
@@ -149,9 +147,9 @@ pub struct DepositReserveAsset {
 ///
 /// - `give`: The maximum amount of assets to remove from holding.
 /// - `want`: The minimum amount of assets which `give` should be exchanged for.
-/// - `maximal`: If `true`, then prefer to give as much as possible up to the limit of `give`
-///   and receive accordingly more. If `false`, then prefer to give as little as possible in
-///   order to receive as little as possible while receiving at least `want`.
+/// - `maximal`: If `true`, then prefer to give as much as possible up to the limit of `give` and
+///   receive accordingly more. If `false`, then prefer to give as little as possible in order to
+///   receive as little as possible while receiving at least `want`.
 ///
 /// Kind: *Command*
 ///
@@ -167,12 +165,11 @@ pub struct ExchangeAsset {
 /// reserve location.
 ///
 /// - `assets`: The asset(s) to remove from holding.
-/// - `reserve`: A valid location that acts as a reserve for all asset(s) in `assets`. The
-///   sovereign account of this consensus system *on the reserve location* will have
-///   appropriate assets withdrawn and `effects` will be executed on them. There will typically
-///   be only one valid location on any given asset/chain combination.
-/// - `xcm`: The instructions to execute on the assets once withdrawn *on the reserve
-///   location*.
+/// - `reserve`: A valid location that acts as a reserve for all asset(s) in `assets`. The sovereign
+///   account of this consensus system *on the reserve location* will have appropriate assets
+///   withdrawn and `effects` will be executed on them. There will typically be only one valid
+///   location on any given asset/chain combination.
+/// - `xcm`: The instructions to execute on the assets once withdrawn *on the reserve location*.
 ///
 /// Kind: *Command*
 ///
@@ -189,8 +186,7 @@ pub struct InitiateReserveWithdraw {
 ///
 /// - `assets`: The asset(s) to remove from holding.
 /// - `dest`: A valid location that respects teleports coming from this location.
-/// - `xcm`: The instructions to execute on the assets once arrived *on the destination
-///   location*.
+/// - `xcm`: The instructions to execute on the assets once arrived *on the destination location*.
 ///
 /// NOTE: The `dest` location *MUST* respect this origin as a valid teleportation origin for
 /// all `assets`. If it does not, then the assets may be lost.
@@ -209,8 +205,7 @@ pub struct InitiateTeleport {
 ///
 /// - `assets`: The assets which are to be claimed. This must match exactly with the assets
 ///   claimable by the origin of the ticket.
-/// - `ticket`: The ticket of the asset; this is an abstract identifier to help locate the
-///   asset.
+/// - `ticket`: The ticket of the asset; this is an abstract identifier to help locate the asset.
 ///
 /// Kind: *Command*
 ///
@@ -241,8 +236,8 @@ pub struct BurnAsset(pub Assets);
 /// If the locking is successful, then a `NoteUnlockable` instruction is sent to `unlocker`.
 ///
 /// - `asset`: The asset(s) which should be locked.
-/// - `unlocker`: The value which the Origin must be for a corresponding `UnlockAsset`
-///   instruction to work.
+/// - `unlocker`: The value which the Origin must be for a corresponding `UnlockAsset` instruction
+///   to work.
 ///
 /// Kind: *Command*.
 ///
@@ -274,8 +269,8 @@ pub struct UnlockAsset {
 /// only be unlocked with the receipt of the `UnlockAsset` instruction from this chain.
 ///
 /// - `asset`: The asset(s) which are now unlockable from this origin.
-/// - `owner`: The owner of the asset on the chain in which it was locked. This may be a
-///   location specific to the origin network.
+/// - `owner`: The owner of the asset on the chain in which it was locked. This may be a location
+///   specific to the origin network.
 ///
 /// Safety: `origin` must be trusted to have locked the corresponding `asset`
 /// prior as a consequence of sending this message.
@@ -312,15 +307,15 @@ pub struct RequestUnlock {
 /// Assets in the holding register are matched using the given list of `AssetTransferFilter`s,
 /// they are then transferred based on their specified transfer type:
 ///
-/// - teleport: burn local assets and append a `ReceiveTeleportedAsset` XCM instruction to the
-///   XCM program to be sent onward to the `destination` location,
+/// - teleport: burn local assets and append a `ReceiveTeleportedAsset` XCM instruction to the XCM
+///   program to be sent onward to the `destination` location,
 ///
 /// - reserve deposit: place assets under the ownership of `destination` within this consensus
-///   system (i.e. its sovereign account), and append a `ReserveAssetDeposited` XCM instruction
-///   to the XCM program to be sent onward to the `destination` location,
+///   system (i.e. its sovereign account), and append a `ReserveAssetDeposited` XCM instruction to
+///   the XCM program to be sent onward to the `destination` location,
 ///
-/// - reserve withdraw: burn local assets and append a `WithdrawAsset` XCM instruction to the
-///   XCM program to be sent onward to the `destination` location,
+/// - reserve withdraw: burn local assets and append a `WithdrawAsset` XCM instruction to the XCM
+///   program to be sent onward to the `destination` location,
 ///
 /// The onward XCM is then appended a `ClearOrigin` to allow safe execution of any following
 /// custom XCM instructions provided in `remote_xcm`.
@@ -337,18 +332,17 @@ pub struct RequestUnlock {
 ///   `asset_xfer_filter` in the holding register will be transferred first in the remote XCM
 ///   program, followed by a `PayFees(fee)`, then rest of transfers follow. This guarantees
 ///   `remote_xcm` will successfully pass a `AllowTopLevelPaidExecutionFrom` barrier. If set to
-///   `None`, a `UnpaidExecution` instruction is appended instead. Please note that these
-///   assets are **reserved** for fees, they are sent to the fees register rather than holding.
-///   Best practice is to only add here enough to cover fees, and transfer the rest through the
-///   `assets` parameter.
-/// - `preserve_origin`: Specifies whether the original origin should be preserved or cleared,
-///   using the instructions `AliasOrigin` or `ClearOrigin` respectively.
+///   `None`, a `UnpaidExecution` instruction is appended instead. Please note that these assets are
+///   **reserved** for fees, they are sent to the fees register rather than holding. Best practice
+///   is to only add here enough to cover fees, and transfer the rest through the `assets`
+///   parameter.
+/// - `preserve_origin`: Specifies whether the original origin should be preserved or cleared, using
+///   the instructions `AliasOrigin` or `ClearOrigin` respectively.
 /// - `assets`: List of asset filters matched against existing assets in holding. These are
-///   transferred over to `destination` using the specified transfer type, and deposited to
-///   holding on `destination`.
-/// - `remote_xcm`: Custom instructions that will be executed on the `destination` chain. Note
-///   that these instructions will be executed after a `ClearOrigin` so their origin will be
-///   `None`.
+///   transferred over to `destination` using the specified transfer type, and deposited to holding
+///   on `destination`.
+/// - `remote_xcm`: Custom instructions that will be executed on the `destination` chain. Note that
+///   these instructions will be executed after a `ClearOrigin` so their origin will be `None`.
 ///
 /// Safety: No concerns.
 ///

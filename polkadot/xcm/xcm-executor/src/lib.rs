@@ -18,18 +18,20 @@
 
 extern crate alloc;
 
-#[cfg(not(any(test, feature = "runtime-benchmarks")))]
-use frame_support::traits::ContainsPair;
 use alloc::{vec, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData};
+#[cfg(not(any(test, feature = "runtime-benchmarks")))]
+use frame_support::traits::ContainsPair;
 use frame_support::{
 	ensure,
 	traits::{Defensive, Get},
 };
 use sp_core::defer;
 use sp_weights::Weight;
-use xcm::latest::{prelude::*, AssetTransferFilter, ExecuteXcm, SendXcm};
-use xcm::traits::validate_send;
+use xcm::{
+	latest::{prelude::*, AssetTransferFilter, ExecuteXcm, SendXcm},
+	traits::validate_send,
+};
 
 pub mod traits;
 use traits::{
@@ -483,8 +485,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				if !self.holding.contains_asset(&(w.id.clone(), 1).into())
-					&& self.ensure_can_subsume_assets(1).is_err()
+				if !self.holding.contains_asset(&(w.id.clone(), 1).into()) &&
+					self.ensure_can_subsume_assets(1).is_err()
 				{
 					let _ = self
 						.trader
@@ -821,11 +823,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						});
 					}
 				},
-				Err(ref mut error) => {
+				Err(ref mut error) =>
 					if let Ok(x) = Config::Weigher::instr_weight(&mut instr) {
 						error.weight.saturating_accrue(x)
-					}
-				},
+					},
 			}
 		}
 		result
@@ -1058,7 +1059,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// 		}
 		// 		// Process instructions.
 		// 		let result = self.process(xcm).map_err(|error| {
-		// 			tracing::error!(target: "xcm::execute", ?error, actual_origin = ?self.context.origin, original_origin = ?previous_origin, "ExecuteWithOrigin inner xcm failure");
+		// 			tracing::error!(target: "xcm::execute", ?error, actual_origin = ?self.context.origin,
+		// original_origin = ?previous_origin, "ExecuteWithOrigin inner xcm failure");
 		// 			error.xcm_error
 		// 		});
 		// 		// Reset origin to previous one.
@@ -1093,15 +1095,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// 			let mut assets = self.holding.saturating_take(assets);
 		// 			// When not using `PayFees`, nor `JIT_WITHDRAW`, delivery fees are paid from
 		// 			// transferred assets.
-		// 			let maybe_delivery_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
-		// 				// Deduct and return the part of `assets` that shall be used for delivery fees.
-		// 				self.take_delivery_fee_from_assets(&mut assets, &dest, FeeReason::DepositReserveAsset, &xcm)?
-		// 			} else {
+		// 			let maybe_delivery_fee_from_assets = if self.fees.is_empty() &&
+		// !self.fees_mode.jit_withdraw { 				// Deduct and return the part of `assets` that shall
+		// be used for delivery fees. 				self.take_delivery_fee_from_assets(&mut assets, &dest,
+		// FeeReason::DepositReserveAsset, &xcm)? 			} else {
 		// 				None
 		// 			};
 		// 			let mut message = Vec::with_capacity(xcm.len() + 2);
-		// 			tracing::trace!(target: "xcm::DepositReserveAsset", ?assets, "Assets except delivery fee");
-		// 			Self::do_reserve_deposit_assets(
+		// 			tracing::trace!(target: "xcm::DepositReserveAsset", ?assets, "Assets except delivery
+		// fee"); 			Self::do_reserve_deposit_assets(
 		// 				assets,
 		// 				&dest,
 		// 				&mut message,
@@ -1129,10 +1131,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// 			let mut assets = self.holding.saturating_take(assets);
 		// 			// When not using `PayFees`, nor `JIT_WITHDRAW`, delivery fees are paid from
 		// 			// transferred assets.
-		// 			let maybe_delivery_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
-		// 				// Deduct and return the part of `assets` that shall be used for delivery fees.
-		// 				self.take_delivery_fee_from_assets(&mut assets, &reserve, FeeReason::InitiateReserveWithdraw, &xcm)?
-		// 			} else {
+		// 			let maybe_delivery_fee_from_assets = if self.fees.is_empty() &&
+		// !self.fees_mode.jit_withdraw { 				// Deduct and return the part of `assets` that shall
+		// be used for delivery fees. 				self.take_delivery_fee_from_assets(&mut assets,
+		// &reserve, FeeReason::InitiateReserveWithdraw, &xcm)? 			} else {
 		// 				None
 		// 			};
 		// 			let mut message = Vec::with_capacity(xcm.len() + 2);
@@ -1164,10 +1166,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// 			let mut assets = self.holding.saturating_take(assets);
 		// 			// When not using `PayFees`, nor `JIT_WITHDRAW`, delivery fees are paid from
 		// 			// transferred assets.
-		// 			let maybe_delivery_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
-		// 				// Deduct and return the part of `assets` that shall be used for delivery fees.
-		// 				self.take_delivery_fee_from_assets(&mut assets, &dest, FeeReason::InitiateTeleport, &xcm)?
-		// 			} else {
+		// 			let maybe_delivery_fee_from_assets = if self.fees.is_empty() &&
+		// !self.fees_mode.jit_withdraw { 				// Deduct and return the part of `assets` that shall
+		// be used for delivery fees. 				self.take_delivery_fee_from_assets(&mut assets, &dest,
+		// FeeReason::InitiateTeleport, &xcm)? 			} else {
 		// 				None
 		// 			};
 		// 			let mut message = Vec::with_capacity(xcm.len() + 2);
@@ -1441,8 +1443,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// 	},
 		// 	ExpectAsset(assets) =>
 		// 		self.holding.ensure_contains(&assets).map_err(|e| {
-		// 			tracing::error!(target: "xcm::process_instruction::expect_asset", ?e, ?assets, "assets not contained in holding");
-		// 			XcmError::ExpectationFalse
+		// 			tracing::error!(target: "xcm::process_instruction::expect_asset", ?e, ?assets, "assets
+		// not contained in holding"); 			XcmError::ExpectationFalse
 		// 		}),
 		// 	ExpectOrigin(origin) => {
 		// 		ensure!(self.context.origin == origin, XcmError::ExpectationFalse);
@@ -1566,8 +1568,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// 			let lock_ticket =
 		// 				Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
 		// 			let owner = origin.reanchored(&unlocker, &context).map_err(|e| {
-		// 				tracing::error!(target: "xcm::xcm_executor::process_instruction", ?e, ?unlocker, ?context, "Failed to re-anchor origin");
-		// 				XcmError::ReanchorFailed
+		// 				tracing::error!(target: "xcm::xcm_executor::process_instruction", ?e, ?unlocker,
+		// ?context, "Failed to re-anchor origin"); 				XcmError::ReanchorFailed
 		// 			})?;
 		// 			let msg = Xcm::<()>::new(vec![NoteUnlockable { asset: remote_asset, owner }]);
 		// 			let (ticket, price) = validate_send::<Config::XcmSender>(unlocker, msg)?;
@@ -1756,9 +1758,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let to_weigh = assets.clone();
 		let to_weigh_reanchored = Self::reanchored(to_weigh, &destination, None);
 		let remote_instruction = match reason {
-			FeeReason::DepositReserveAsset => {
-				Instruction::ReserveAssetDeposited(to_weigh_reanchored)
-			},
+			FeeReason::DepositReserveAsset =>
+				Instruction::ReserveAssetDeposited(to_weigh_reanchored),
 			FeeReason::InitiateReserveWithdraw => Instruction::WithdrawAsset(to_weigh_reanchored),
 			FeeReason::InitiateTeleport => Instruction::ReceiveTeleportedAsset(to_weigh_reanchored),
 			_ => {

@@ -15,18 +15,20 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::ExecuteInstruction;
-use alloc::{vec, vec::Vec};
-use crate::traits::{
-	AssetExchange, AssetLock, ClaimAssets, Enact, FeeReason,
-	ProcessTransaction, TransactAsset,
+use crate::{
+	config,
+	traits::{
+		AssetExchange, AssetLock, ClaimAssets, Enact, FeeReason, ProcessTransaction, TransactAsset,
+	},
+	validate_send, AssetTransferFilter, WeightLimit, XcmExecutor,
 };
-use crate::{config, validate_send, AssetTransferFilter, WeightLimit, XcmExecutor};
+use alloc::{vec, vec::Vec};
 use frame_support::{
 	ensure,
 	traits::{ContainsPair, Get},
 };
 use xcm::{
-	latest::{Instruction, instructions::*, Error as XcmError, Reanchorable, Xcm},
+	latest::{instructions::*, Error as XcmError, Instruction, Reanchorable, Xcm},
 	traits::{IntoInstruction, SendXcm},
 };
 
@@ -95,10 +97,8 @@ impl<Config: config::Config> ExecuteInstruction<Config> for TransferReserveAsset
 			}
 			let reanchor_context = Config::UniversalLocation::get();
 			assets.reanchor(&dest, &reanchor_context).map_err(|()| XcmError::LocationFull)?;
-			let mut message = vec![
-				Instruction::ReserveAssetDeposited(assets),
-				Instruction::ClearOrigin,
-			];
+			let mut message =
+				vec![Instruction::ReserveAssetDeposited(assets), Instruction::ClearOrigin];
 			message.extend(xcm.0.into_iter());
 			executor.send(dest, Xcm::new(message), FeeReason::TransferReserveAsset)?;
 			Ok(())
@@ -267,7 +267,12 @@ impl<Config: config::Config> ExecuteInstruction<Config> for InitiateTeleport {
 					None
 				};
 			let mut message = Vec::with_capacity(xcm.len() + 2);
-			XcmExecutor::<Config>::do_teleport_assets(assets, &dest, &mut message, &executor.context)?;
+			XcmExecutor::<Config>::do_teleport_assets(
+				assets,
+				&dest,
+				&mut message,
+				&executor.context,
+			)?;
 			// clear origin for subsequent custom instructions
 			message.push(Instruction::ClearOrigin);
 			// append custom instructions
@@ -344,38 +349,36 @@ impl<Config: config::Config> ExecuteInstruction<Config> for InitiateTransfer {
 				message.push(Instruction::PayFees { asset: fees });
 			} else {
 				// unpaid execution
-				message.push(
-					Instruction::UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
-				);
+				message.push(Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				});
 			}
 
 			// add any extra asset transfers
 			for asset_filter in assets {
 				match asset_filter {
-					AssetTransferFilter::Teleport(assets) => {
+					AssetTransferFilter::Teleport(assets) =>
 						XcmExecutor::<Config>::do_teleport_assets(
 							executor.holding.saturating_take(assets),
 							&destination,
 							&mut message,
 							&executor.context,
-						)?
-					},
-					AssetTransferFilter::ReserveDeposit(assets) => {
+						)?,
+					AssetTransferFilter::ReserveDeposit(assets) =>
 						XcmExecutor::<Config>::do_reserve_deposit_assets(
 							executor.holding.saturating_take(assets),
 							&destination,
 							&mut message,
 							Some(&executor.context),
-						)?
-					},
-					AssetTransferFilter::ReserveWithdraw(assets) => {
+						)?,
+					AssetTransferFilter::ReserveWithdraw(assets) =>
 						XcmExecutor::<Config>::do_reserve_withdraw_assets(
 							executor.holding.saturating_take(assets),
 							&mut executor.holding,
 							&destination,
 							&mut message,
-						)?
-					},
+						)?,
 				};
 			}
 			if preserve_origin {
@@ -434,16 +437,16 @@ impl<Config: config::Config> ExecuteInstruction<Config> for LockAsset {
 		let old_holding = executor.holding.clone();
 		let result = Config::TransactionalProcessor::process(|| {
 			let origin = executor.cloned_origin().ok_or(XcmError::BadOrigin)?;
-			let (remote_asset, context) = XcmExecutor::<Config>::try_reanchor(asset.clone(), &unlocker)?;
+			let (remote_asset, context) =
+				XcmExecutor::<Config>::try_reanchor(asset.clone(), &unlocker)?;
 			let lock_ticket =
 				Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
 			let owner = origin.reanchored(&unlocker, &context).map_err(|e| {
 						tracing::error!(target: "xcm::xcm_executor::process_instruction", ?e, ?unlocker, ?context, "Failed to re-anchor origin");
 						XcmError::ReanchorFailed
 					})?;
-			let msg = Xcm::<()>::new(vec![
-				Instruction::NoteUnlockable { asset: remote_asset, owner }
-			]);
+			let msg =
+				Xcm::<()>::new(vec![Instruction::NoteUnlockable { asset: remote_asset, owner }]);
 			let (ticket, price) = validate_send::<Config::XcmSender>(unlocker, msg)?;
 			executor.take_fee(price, FeeReason::LockAsset)?;
 			lock_ticket.enact()?;
@@ -483,9 +486,10 @@ impl<Config: config::Config> ExecuteInstruction<Config> for RequestUnlock {
 		let remote_target = XcmExecutor::<Config>::try_reanchor(origin.clone(), &locker)?.0;
 		let reduce_ticket =
 			Config::AssetLocker::prepare_reduce_unlockable(locker.clone(), asset, origin.clone())?;
-		let msg = Xcm::<()>::new(vec![
-			Instruction::UnlockAsset { asset: remote_asset, target: remote_target }
-		]);
+		let msg = Xcm::<()>::new(vec![Instruction::UnlockAsset {
+			asset: remote_asset,
+			target: remote_target,
+		}]);
 		let (ticket, price) = validate_send::<Config::XcmSender>(locker, msg)?;
 		let old_holding = executor.holding.clone();
 		let result = Config::TransactionalProcessor::process(|| {

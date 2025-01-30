@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use alloc::vec::Vec;
 use codec::{
 	self, decode_vec_with_len, Codec, Compact, Decode, Encode, Error as CodecError,
 	Input as CodecInput,
 };
 use educe::Educe;
 use scale_info::TypeInfo;
-use alloc::vec::Vec;
 
 #[derive(Educe, Default, Encode, TypeInfo)]
 #[educe(Clone, Eq, PartialEq, Debug)]
@@ -146,4 +146,3 @@ impl<Instruction: Codec + TypeInfo> From<XcmBase<Instruction>> for Vec<Instructi
 		c.0
 	}
 }
-

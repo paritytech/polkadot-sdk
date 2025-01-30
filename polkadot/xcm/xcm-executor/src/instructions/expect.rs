@@ -16,9 +16,8 @@
 
 use super::ExecuteInstruction;
 use crate::{config, XcmExecutor};
-use xcm::latest::instructions::*;
-use xcm::latest::Error as XcmError;
 use frame_support::{ensure, traits::PalletsInfoAccess};
+use xcm::latest::{instructions::*, Error as XcmError};
 
 impl<Config: config::Config> ExecuteInstruction<Config> for ExpectAsset {
 	fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {

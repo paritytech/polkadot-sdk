@@ -15,10 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::ExecuteInstruction;
-use crate::{config, XcmExecutor, traits::VersionChangeNotifier};
-use xcm::latest::instructions::*;
-use xcm::latest::Error as XcmError;
+use crate::{config, traits::VersionChangeNotifier, XcmExecutor};
 use frame_support::ensure;
+use xcm::latest::{instructions::*, Error as XcmError};
 
 impl<Config: config::Config> ExecuteInstruction<Config> for SubscribeVersion {
 	fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {
@@ -27,12 +26,7 @@ impl<Config: config::Config> ExecuteInstruction<Config> for SubscribeVersion {
 		// We don't allow derivative origins to subscribe since it would otherwise pose a
 		// DoS risk.
 		ensure!(&executor.original_origin == origin, XcmError::BadOrigin);
-		Config::SubscriptionService::start(
-			origin,
-			query_id,
-			max_response_weight,
-			&executor.context,
-		)
+		Config::SubscriptionService::start(origin, query_id, max_response_weight, &executor.context)
 	}
 }
 

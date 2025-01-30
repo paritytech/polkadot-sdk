@@ -16,12 +16,12 @@
 
 //! Control flow related instructions.
 
-use codec::{Decode, Encode};
-use scale_info::TypeInfo;
 use bounded_collections::BoundedVec;
+use codec::{Decode, Encode};
 use educe::Educe;
+use scale_info::TypeInfo;
 
-use crate::v6::{Xcm, Hint, HintNumVariants};
+use crate::v6::{Hint, HintNumVariants, Xcm};
 
 /// Set the Error Handler Register. This is code that should be called in the case of an error
 /// happening.

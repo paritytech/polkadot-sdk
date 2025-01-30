@@ -30,13 +30,13 @@ use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
 mod xcm;
-pub (crate) use xcm::XcmBase;
+pub(crate) use xcm::XcmBase;
 
+pub mod traits;
 pub mod v3;
 pub mod v4;
 pub mod v5;
 pub mod v6;
-pub mod traits;
 
 pub mod lts {
 	pub use super::v4::*;
@@ -493,7 +493,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v6::Xcm<Cal
 			V4(x) => {
 				let v5: v5::Xcm<Call> = x.try_into()?;
 				v5.try_into()
-			}
+			},
 			V5(x) => x.try_into(),
 			V6(x) => Ok(x),
 		}
@@ -609,10 +609,11 @@ pub type AlwaysLts = AlwaysV4;
 
 pub mod prelude {
 	pub use super::{
-		latest::{prelude::*, SendXcm}, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion,
-		IdentifyVersion, IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset,
-		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
-		VersionedResponse, VersionedXcm, WrapVersion,
+		latest::{prelude::*, SendXcm},
+		AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion, IdentifyVersion,
+		IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset, VersionedAssetId,
+		VersionedAssets, VersionedInteriorLocation, VersionedLocation, VersionedResponse,
+		VersionedXcm, WrapVersion,
 	};
 }
 

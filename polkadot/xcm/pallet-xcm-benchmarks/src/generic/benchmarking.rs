@@ -759,8 +759,11 @@ mod benchmarks {
 		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
 			executor.set_holding(expected_assets_in_holding.into());
 		}
-		let xcm =
-			Xcm::new(vec![ExportMessage { network, destination: destination.clone(), xcm: inner_xcm }]);
+		let xcm = Xcm::new(vec![ExportMessage {
+			network,
+			destination: destination.clone(),
+			xcm: inner_xcm,
+		}]);
 		#[block]
 		{
 			executor.bench_process(xcm)?;

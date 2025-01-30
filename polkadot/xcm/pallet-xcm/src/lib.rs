@@ -1372,8 +1372,8 @@ pub mod pallet {
 		/// the `dest` chain. This is done through the `custom_xcm_on_dest` parameter, which
 		/// contains the instructions to execute on `dest` as a final step.
 		///   This is usually as simple as:
-		///   `Xcm::new(vec![DepositAsset { assets: Wild(AllCounted(assets.len())), beneficiary }])`,
-		///   but could be something more exotic like sending the `assets` even further.
+		///   `Xcm::new(vec![DepositAsset { assets: Wild(AllCounted(assets.len())), beneficiary
+		/// }])`,   but could be something more exotic like sending the `assets` even further.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
 		/// - `dest`: Destination context for the assets. Will typically be `[Parent,
@@ -2444,7 +2444,8 @@ impl<T: Config> Pallet<T> {
 		});
 		// TODO #3735: Correct weight.
 		let instruction = SubscribeVersion { query_id, max_response_weight: Weight::zero() };
-		let (message_id, cost) = send_xcm::<T::XcmRouter>(dest.clone(), Xcm::new(vec![instruction]))?;
+		let (message_id, cost) =
+			send_xcm::<T::XcmRouter>(dest.clone(), Xcm::new(vec![instruction]))?;
 		Self::deposit_event(Event::VersionNotifyRequested { destination: dest, cost, message_id });
 		VersionNotifiers::<T>::insert(XCM_VERSION, &versioned_dest, query_id);
 		let query_status =
@@ -3126,7 +3127,8 @@ impl<T: Config> VersionChangeNotifier for Pallet<T> {
 		let xcm_version = T::AdvertisedXcmVersion::get();
 		let response = Response::Version(xcm_version);
 		let instruction = QueryResponse { query_id, response, max_weight, querier: None };
-		let (message_id, cost) = send_xcm::<T::XcmRouter>(dest.clone(), Xcm::new(vec![instruction]))?;
+		let (message_id, cost) =
+			send_xcm::<T::XcmRouter>(dest.clone(), Xcm::new(vec![instruction]))?;
 		Self::deposit_event(Event::<T>::VersionNotifyStarted {
 			destination: dest.clone(),
 			cost,

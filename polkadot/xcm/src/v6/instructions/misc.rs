@@ -17,11 +17,13 @@
 //! Miscellaneous instructions.
 
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
 use educe::Educe;
+use scale_info::TypeInfo;
 
-use crate::v6::{InteriorLocation, NetworkId, OriginKind, Weight, Xcm};
-use crate::DoubleEncoded;
+use crate::{
+	v6::{InteriorLocation, NetworkId, OriginKind, Weight, Xcm},
+	DoubleEncoded,
+};
 
 /// Apply the encoded transaction `call`, whose dispatch-origin should be `origin` as expressed
 /// by the kind of origin `origin_kind`.
@@ -31,9 +33,9 @@ use crate::DoubleEncoded;
 /// - `origin_kind`: The means of expressing the message origin as a dispatch origin.
 /// - `call`: The encoded transaction to be applied.
 /// - `fallback_max_weight`: Used for compatibility with previous versions. Corresponds to the
-///   `require_weight_at_most` parameter in previous versions. If you don't care about
-///   compatibility you can just put `None`. WARNING: If you do, your XCM might not work with
-///   older versions. Make sure to dry-run and validate.
+///   `require_weight_at_most` parameter in previous versions. If you don't care about compatibility
+///   you can just put `None`. WARNING: If you do, your XCM might not work with older versions. Make
+///   sure to dry-run and validate.
 ///
 /// Safety: No concerns.
 ///

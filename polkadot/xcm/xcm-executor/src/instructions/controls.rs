@@ -16,8 +16,7 @@
 
 use super::ExecuteInstruction;
 use crate::{config, traits::WeightBounds, FeesMode, Hint::AssetClaimer, XcmExecutor};
-use xcm::latest::instructions::*;
-use xcm::latest::Error as XcmError;
+use xcm::latest::{instructions::*, Error as XcmError};
 
 impl<Config: config::Config> ExecuteInstruction<Config> for SetErrorHandler<Config::RuntimeCall> {
 	fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {

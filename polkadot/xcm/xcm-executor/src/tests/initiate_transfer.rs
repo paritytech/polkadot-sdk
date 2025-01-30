@@ -33,8 +33,10 @@ fn clears_origin() {
 	// Make sure the sender has enough funds to withdraw.
 	add_asset(SENDER, (Here, 100u128));
 
-	let xcm_on_dest =
-		Xcm::new(vec![RefundSurplus, DepositAsset { assets: Wild(All), beneficiary: RECIPIENT.into() }]);
+	let xcm_on_dest = Xcm::new(vec![
+		RefundSurplus,
+		DepositAsset { assets: Wild(All), beneficiary: RECIPIENT.into() },
+	]);
 	let assets: Assets = (Here, 90u128).into();
 	let xcm = Xcm::<TestCall>::new(vec![
 		WithdrawAsset((Here, 100u128).into()),
@@ -70,8 +72,10 @@ fn preserves_origin() {
 	// Make sure the sender has enough funds to withdraw.
 	add_asset(SENDER, (Here, 100u128));
 
-	let xcm_on_dest =
-		Xcm::new(vec![RefundSurplus, DepositAsset { assets: Wild(All), beneficiary: RECIPIENT.into() }]);
+	let xcm_on_dest = Xcm::new(vec![
+		RefundSurplus,
+		DepositAsset { assets: Wild(All), beneficiary: RECIPIENT.into() },
+	]);
 	let assets: Assets = (Here, 90u128).into();
 	let xcm = Xcm::<TestCall>::new(vec![
 		WithdrawAsset((Here, 100u128).into()),

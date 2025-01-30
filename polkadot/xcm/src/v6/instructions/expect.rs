@@ -16,9 +16,9 @@
 
 //! Expect related instructions.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use alloc::vec::Vec;
 
 use crate::v6::{Assets, Error, Location, MaybeErrorCode};
 
@@ -62,13 +62,13 @@ pub struct ExpectTransactStatus(pub MaybeErrorCode);
 
 /// Ensure that a particular pallet with a particular version exists.
 ///
-/// - `index: Compact`: The index which identifies the pallet. An error if no pallet exists at
-///   this index.
+/// - `index: Compact`: The index which identifies the pallet. An error if no pallet exists at this
+///   index.
 /// - `name: Vec<u8>`: Name which must be equal to the name of the pallet.
-/// - `module_name: Vec<u8>`: Module name which must be equal to the name of the module in
-///   which the pallet exists.
-/// - `crate_major: Compact`: Version number which must be equal to the major version of the
-///   crate which implements the pallet.
+/// - `module_name: Vec<u8>`: Module name which must be equal to the name of the module in which the
+///   pallet exists.
+/// - `crate_major: Compact`: Version number which must be equal to the major version of the crate
+///   which implements the pallet.
 /// - `min_crate_minor: Compact`: Version number which must be at most the minor version of the
 ///   crate which implements the pallet.
 ///

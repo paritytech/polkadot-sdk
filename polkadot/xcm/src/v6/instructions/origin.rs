@@ -17,12 +17,10 @@
 //! Origin related instructions.
 
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
 use educe::Educe;
+use scale_info::TypeInfo;
 
-use crate::v6::{
-	InteriorLocation, Junction, Location, Xcm,
-};
+use crate::v6::{InteriorLocation, Junction, Location, Xcm};
 
 /// Clear the origin.
 ///
@@ -74,10 +72,10 @@ pub struct AliasOrigin(pub Location);
 /// `xcm` is executed, the original origin (the one active for this instruction) is restored.
 ///
 /// Parameters:
-/// - `descendant_origin`: The origin that will be used during the execution of the inner
-///   `xcm`. If set to `None`, the inner `xcm` is executed with no origin. If set to `Some(o)`,
-///   the inner `xcm` is executed as if there was a `DescendOrigin(o)` executed before it, and
-///   runs the inner xcm with origin: `original_origin.append_with(o)`.
+/// - `descendant_origin`: The origin that will be used during the execution of the inner `xcm`. If
+///   set to `None`, the inner `xcm` is executed with no origin. If set to `Some(o)`, the inner
+///   `xcm` is executed as if there was a `DescendOrigin(o)` executed before it, and runs the inner
+///   xcm with origin: `original_origin.append_with(o)`.
 /// - `xcm`: Inner instructions that will be executed with the origin modified according to
 ///   `descendant_origin`.
 ///

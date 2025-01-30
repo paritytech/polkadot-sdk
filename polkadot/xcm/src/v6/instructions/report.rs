@@ -38,9 +38,9 @@ pub struct ReportError(pub QueryResponseInfo);
 /// A `QueryResponse` message of type `Assets` is sent to the described destination.
 ///
 /// - `response_info`: Information for making the response.
-/// - `assets`: A filter for the assets that should be reported back. The assets reported back
-///   will be, asset-wise, *the lesser of this value and the holding register*. No wildcards
-///   will be used when reporting assets back.
+/// - `assets`: A filter for the assets that should be reported back. The assets reported back will
+///   be, asset-wise, *the lesser of this value and the holding register*. No wildcards will be used
+///   when reporting assets back.
 ///
 /// Kind: *Command*
 ///
@@ -54,8 +54,8 @@ pub struct ReportHolding {
 /// Send a `QueryResponse` message containing the value of the Transact Status Register to some
 /// destination.
 ///
-/// - `query_response_info`: The information needed for constructing and sending the
-///   `QueryResponse` message.
+/// - `query_response_info`: The information needed for constructing and sending the `QueryResponse`
+///   message.
 ///
 /// Safety: No concerns.
 ///

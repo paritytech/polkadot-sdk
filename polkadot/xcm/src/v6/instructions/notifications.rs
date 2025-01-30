@@ -22,8 +22,7 @@ use scale_info::TypeInfo;
 /// A message to notify about a new incoming HRMP channel. This message is meant to be sent by
 /// the relay-chain to a para.
 ///
-/// - `sender`: The sender in the to-be opened channel. Also, the initiator of the channel
-///   opening.
+/// - `sender`: The sender in the to-be opened channel. Also, the initiator of the channel opening.
 /// - `max_message_size`: The maximum size of a message proposed by the sender.
 /// - `max_capacity`: The maximum number of messages that can be queued in the channel.
 ///
