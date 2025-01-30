@@ -80,7 +80,16 @@ pub trait TryAs<T> {
 // Macro that generated versioned wrapper types.
 // NOTE: converting a v4 type into a versioned type will make it v5.
 macro_rules! versioned_type {
-	($(#[$attr:meta])* pub enum $n:ident {
+	(@internal $n:ident, $v3:ty, $v4:ty, $v5:ty,) => {
+		impl MaxEncodedLen for $n {
+			fn max_encoded_len() -> usize {
+				<$v3>::max_encoded_len().max(<$v4>::max_encoded_len().max(<$v5>::max_encoded_len()))
+			}
+		}
+	};
+	(@internal $n:ident, $v3:ty, $v4:ty, $v5:ty, $t:ident) => {
+	};
+	($(#[$attr:meta])* pub enum $n:ident$(<$($gen:ident),*>)? {
 		$(#[$index3:meta])+
 		V3($v3:ty),
 		$(#[$index4:meta])+
@@ -97,9 +106,10 @@ macro_rules! versioned_type {
 		)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
+        $(#[scale_info(bounds(), skip_type_params($($gen)+))])?
 		#[scale_info(replace_segment("staging_xcm", "xcm"))]
 		$(#[$attr])*
-		pub enum $n {
+		pub enum $n<$($($gen),*)?> {
 			$(#[$index3])*
 			V3($v3),
 			$(#[$index4])*
@@ -107,12 +117,14 @@ macro_rules! versioned_type {
 			$(#[$index5])*
 			V5($v5),
 		}
-		impl $n {
+		impl<$($($gen),*)?> $n<$($($gen),*)?>
+		{
 			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
 				<Self as TryAs<T>>::try_as(&self)
 			}
 		}
-		impl TryAs<$v3> for $n {
+		impl<$($($gen),*)?> TryAs<$v3> for $n <$($($gen),*)?>
+		{
 			fn try_as(&self) -> Result<&$v3, ()> {
 				match &self {
 					Self::V3(ref x) => Ok(x),
@@ -120,7 +132,8 @@ macro_rules! versioned_type {
 				}
 			}
 		}
-		impl TryAs<$v4> for $n {
+		impl<$($($gen),*)?> TryAs<$v4> for $n<$($($gen),*)?>
+		{
 			fn try_as(&self) -> Result<&$v4, ()> {
 				match &self {
 					Self::V4(ref x) => Ok(x),
@@ -128,7 +141,8 @@ macro_rules! versioned_type {
 				}
 			}
 		}
-		impl TryAs<$v5> for $n {
+		impl<$($($gen),*)?> TryAs<$v5> for $n<$($($gen),*)?>
+		{
 			fn try_as(&self) -> Result<&$v5, ()> {
 				match &self {
 					Self::V5(ref x) => Ok(x),
@@ -136,29 +150,25 @@ macro_rules! versioned_type {
 				}
 			}
 		}
-		impl IntoVersion for $n {
-			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					3 => Self::V3(self.try_into()?),
-					4 => Self::V4(self.try_into()?),
-					5 => Self::V5(self.try_into()?),
-					_ => return Err(()),
-				})
-			}
-		}
-		impl From<$v3> for $n {
+		impl<$($($gen),*)?> From<$v3> for $n <$($($gen),*)?>
+		{
 			fn from(x: $v3) -> Self {
 				$n::V3(x.into())
 			}
 		}
-		impl<T: Into<$v5>> From<T> for $n {
+		impl<$($($gen,),+)? T: Into<$v5>> From<T> for $n<$($($gen),*)?>
+		{
 			fn from(x: T) -> Self {
 				$n::V5(x.into())
 			}
 		}
-		impl TryFrom<$n> for $v3 {
+		impl<$($($gen),*)?> TryFrom<$n<$($($gen),*)?>> for $v3
+		$(
+			where $($gen: Decode + GetDispatchInfo),*
+		)?
+		{
 			type Error = ();
-			fn try_from(x: $n) -> Result<Self, ()> {
+			fn try_from(x: $n <$($($gen),*)?>) -> Result<Self, ()> {
 				use $n::*;
 				match x {
 					V3(x) => Ok(x),
@@ -170,9 +180,13 @@ macro_rules! versioned_type {
 				}
 			}
 		}
-		impl TryFrom<$n> for $v4 {
+		impl<$($($gen),*)?> TryFrom<$n <$($($gen),*)?>> for $v4
+		$(
+			where $($gen: Decode + GetDispatchInfo),*
+		)?
+		{
 			type Error = ();
-			fn try_from(x: $n) -> Result<Self, ()> {
+			fn try_from(x: $n<$($($gen),*)?>) -> Result<Self, ()> {
 				use $n::*;
 				match x {
 					V3(x) => x.try_into().map_err(|_| ()),
@@ -181,9 +195,10 @@ macro_rules! versioned_type {
 				}
 			}
 		}
-		impl TryFrom<$n> for $v5 {
+		impl<$($($gen),*)?> TryFrom<$n<$($($gen),*)?>> for $v5
+		{
 			type Error = ();
-			fn try_from(x: $n) -> Result<Self, ()> {
+			fn try_from(x: $n<$($($gen),*)?>) -> Result<Self, ()> {
 				use $n::*;
 				match x {
 					V3(x) => {
@@ -195,12 +210,26 @@ macro_rules! versioned_type {
 				}
 			}
 		}
-		impl MaxEncodedLen for $n {
-			fn max_encoded_len() -> usize {
-				<$v3>::max_encoded_len()
+		// internal macro that handles some edge cases
+		versioned_type!(@internal $n, $v3, $v4, $v5, $($($gen),+)?);
+
+		impl<$($($gen),*)?> IntoVersion for $n<$($($gen),*)?>
+		$(
+			where $($gen: Decode + GetDispatchInfo),*
+		)?
+		{
+			fn into_version(self, n: Version) -> Result<Self, ()> {
+				Ok(match n {
+					3 => Self::V3(self.try_into()?),
+					4 => Self::V4(self.try_into()?),
+					5 => Self::V5(self.try_into()?),
+					_ => return Err(()),
+				})
 			}
 		}
-		impl IdentifyVersion for $n {
+
+		impl<$($($gen),*)?> IdentifyVersion for $n<$($($gen),*)?>
+		{
 			fn identify_version(&self) -> Version {
 				use $n::*;
 				match self {
@@ -310,40 +339,21 @@ versioned_type! {
 	}
 }
 
-/// A single XCM message, together with its version code.
-#[derive(Derivative, Encode, Decode, TypeInfo)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
-#[codec(encode_bound())]
-#[codec(decode_bound())]
-#[scale_info(bounds(), skip_type_params(RuntimeCall))]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-pub enum VersionedXcm<RuntimeCall> {
-	#[codec(index = 3)]
-	V3(v3::Xcm<RuntimeCall>),
-	#[codec(index = 4)]
-	V4(v4::Xcm<RuntimeCall>),
-	#[codec(index = 5)]
-	V5(v5::Xcm<RuntimeCall>),
-}
-
-impl<C: Decode + GetDispatchInfo> IntoVersion for VersionedXcm<C> {
-	fn into_version(self, n: Version) -> Result<Self, ()> {
-		Ok(match n {
-			3 => Self::V3(self.try_into()?),
-			4 => Self::V4(self.try_into()?),
-			5 => Self::V5(self.try_into()?),
-			_ => return Err(()),
-		})
+versioned_type! {
+	pub enum VersionedXcm<RuntimeCall> {
+		#[codec(index = 3)]
+		V3(v3::Xcm<RuntimeCall>),
+		#[codec(index = 4)]
+		V4(v4::Xcm<RuntimeCall>),
+		#[codec(index = 5)]
+		V5(v5::Xcm<RuntimeCall>),
 	}
 }
 
-impl<C> IdentifyVersion for VersionedXcm<C> {
-	fn identify_version(&self) -> Version {
-		match self {
-			Self::V3(_) => v3::VERSION,
-			Self::V4(_) => v4::VERSION,
-			Self::V5(_) => v5::VERSION,
-		}
+/// TODO: workaround because `From<v4::Xcm>: v5::Xcm> is not satisfied
+impl<RuntimeCall> From<v4::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
+	fn from(x: v4::Xcm<RuntimeCall>) -> Self {
+		VersionedXcm::V4(x)
 	}
 }
 
@@ -361,66 +371,6 @@ impl<C> VersionedXcm<C> {
 			log::error!(target: "xcm::validate_xcm_nesting", "Decode error: {e:?} for xcm: {self:?}!");
 			()
 		})
-	}
-}
-
-impl<RuntimeCall> From<v3::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
-	fn from(x: v3::Xcm<RuntimeCall>) -> Self {
-		VersionedXcm::V3(x)
-	}
-}
-
-impl<RuntimeCall> From<v4::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
-	fn from(x: v4::Xcm<RuntimeCall>) -> Self {
-		VersionedXcm::V4(x)
-	}
-}
-
-impl<RuntimeCall> From<v5::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
-	fn from(x: v5::Xcm<RuntimeCall>) -> Self {
-		VersionedXcm::V5(x)
-	}
-}
-
-impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v3::Xcm<Call> {
-	type Error = ();
-	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
-		use VersionedXcm::*;
-		match x {
-			V3(x) => Ok(x),
-			V4(x) => x.try_into(),
-			V5(x) => {
-				let v4: v4::Xcm<Call> = x.try_into()?;
-				v4.try_into()
-			},
-		}
-	}
-}
-
-impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v4::Xcm<Call> {
-	type Error = ();
-	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
-		use VersionedXcm::*;
-		match x {
-			V3(x) => x.try_into(),
-			V4(x) => Ok(x),
-			V5(x) => x.try_into(),
-		}
-	}
-}
-
-impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v5::Xcm<Call> {
-	type Error = ();
-	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
-		use VersionedXcm::*;
-		match x {
-			V3(x) => {
-				let v4: v4::Xcm<Call> = x.try_into()?;
-				v4.try_into()
-			},
-			V4(x) => x.try_into(),
-			V5(x) => Ok(x),
-		}
 	}
 }
 
@@ -685,4 +635,26 @@ fn validate_xcm_nesting_works() {
 	))]))
 	.validate_xcm_nesting()
 	.is_err());
+}
+
+#[test]
+fn test_versioned_xcm() {
+	let v3_xcm = VersionedXcm::V3(v3::Xcm(vec![]));
+	let v4_xcm = VersionedXcm::V4(v4::Xcm(vec![]));
+	let v5_xcm = VersionedXcm::V5(v5::Xcm(vec![]));
+
+	// Test conversion between versions
+	let v3_to_v4: Result<v4::Xcm<()>, ()> = v3_xcm.clone().try_into();
+	assert!(v3_to_v4.is_ok());
+
+	let v4_to_v5: Result<v5::Xcm<()>, ()> = v4_xcm.clone().try_into();
+	assert!(v4_to_v5.is_ok());
+
+	let v5_to_v3: Result<v3::Xcm<()>, ()> = v5_xcm.clone().try_into();
+	assert!(v5_to_v3.is_ok());
+
+	// Test identify_version
+	assert_eq!(v3_xcm.identify_version(), v3::VERSION);
+	assert_eq!(v4_xcm.identify_version(), v4::VERSION);
+	assert_eq!(v5_xcm.identify_version(), v5::VERSION);
 }
