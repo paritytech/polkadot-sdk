@@ -709,8 +709,6 @@ fn deny_then_try_works() {
 
 #[test]
 fn recursive_deny_and_try_xcm_works() {
-	use crate::barriers::RecursiveDenyThenTry;
-
 	frame_support::__private::sp_tracing::try_init_simple();
 
 	type Barrier = RecursiveDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
@@ -826,36 +824,36 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
 }
 
+impl<Inner: DenyExecution> ShouldExecute for DenyInstructionsWithXcm<Inner> {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Self::deny_execution(origin, instructions, max_weight, properties)
+	}
+}
+
 #[test]
 fn deny_instructions_with_xcm_works() {
-	impl<Inner: DenyExecution> ShouldExecute for DenyInstructionsWithXcm<Inner> {
-		fn should_execute<RuntimeCall>(
-			origin: &Location,
-			instructions: &mut [Instruction<RuntimeCall>],
-			max_weight: Weight,
-			properties: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			Self::deny_execution(origin, instructions, max_weight, properties)
-		}
-	}
-
 	type Barrier = DenyInstructionsWithXcm<DenyClearOrigin>;
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Ok(()));
 }
 
+impl<Inner: DenyExecution> ShouldExecute for DenyFirstInstructionsWithXcm<Inner> {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Self::deny_execution(origin, instructions, max_weight, properties)
+	}
+}
+
 #[test]
 fn deny_first_instructions_with_xcm_works() {
-	impl<Inner: DenyExecution> ShouldExecute for DenyFirstInstructionsWithXcm<Inner> {
-		fn should_execute<RuntimeCall>(
-			origin: &Location,
-			instructions: &mut [Instruction<RuntimeCall>],
-			max_weight: Weight,
-			properties: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			Self::deny_execution(origin, instructions, max_weight, properties)
-		}
-	}
-
 	type Barrier = DenyFirstInstructionsWithXcm<DenyClearOrigin>;
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
 }
