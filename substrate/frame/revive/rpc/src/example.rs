@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Example utilities
-#![cfg(any(feature = "example", test))]
-
 use crate::{EthRpcClient, ReceiptInfo};
 use anyhow::Context;
 use pallet_revive::evm::{

@@ -312,6 +312,10 @@ pub use pallet_asset_conversion_tx_payment;
 #[cfg(feature = "pallet-asset-rate")]
 pub use pallet_asset_rate;
 
+/// FRAME asset rewards pallet.
+#[cfg(feature = "pallet-asset-rewards")]
+pub use pallet_asset_rewards;
+
 /// pallet to manage transaction payments in assets.
 #[cfg(feature = "pallet-asset-tx-payment")]
 pub use pallet_asset_tx_payment;
@@ -1239,6 +1243,14 @@ pub use snowbridge_pallet_outbound_queue_v2;
 /// Snowbridge System Pallet.
 #[cfg(feature = "snowbridge-pallet-system")]
 pub use snowbridge_pallet_system;
+
+/// Snowbridge System Pallet V2.
+#[cfg(feature = "snowbridge-pallet-system-v2")]
+pub use snowbridge_pallet_system_v2;
+
+/// Snowbridge System Frontend Pallet.
+#[cfg(feature = "snowbridge-pallet-system-frontend")]
+pub use snowbridge_pallet_system_frontend;
 
 /// Snowbridge Router Primitives.
 #[cfg(feature = "snowbridge-router-primitives")]

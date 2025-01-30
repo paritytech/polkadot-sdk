@@ -1,5 +1,5 @@
 [package]
-name = "snowbridge-system-frontend"
+name = "snowbridge-pallet-system-frontend"
 description = "Snowbridge System Frontend Pallet"
 version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]

@@ -212,7 +212,7 @@ mod tests {
 		for token in token_locations {
 			assert!(
 				TokenIdOf::convert_location(&token).is_some(),
-				"Valid token = {token:?} yeilds no TokenId."
+				"Valid token = {token:?} yields no TokenId."
 			);
 		}
 
@@ -226,7 +226,7 @@ mod tests {
 		for token in non_token_locations {
 			assert!(
 				TokenIdOf::convert_location(&token).is_none(),
-				"Invalid token = {token:?} yeilds a TokenId."
+				"Invalid token = {token:?} yields a TokenId."
 			);
 		}
 	}
