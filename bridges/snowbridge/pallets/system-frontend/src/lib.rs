@@ -113,7 +113,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Call create_agent on BH to instantiate a new agent contract representing `origin`.
+		/// Call `create_agent` on Bridge Hub to instantiate a new agent contract representing `origin`.
 		/// - `origin`: Must be `Location` from a sibling parachain
 		/// - `fee`: Fee in Ether
 		#[pallet::call_index(1)]
