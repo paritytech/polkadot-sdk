@@ -570,8 +570,8 @@ impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 						.inspect_err(|e| {
 							log::warn!(
 								target: "xcm::barriers",
-								"DenyInstructionsWithXcm::Inner denied execution: origin: {:?}, instructions: {:?}, error: {:?}",
-								origin, instructions, e
+								"DenyInstructionsWithXcm::Inner denied execution: origin: {:?}, nested_xcm: {:?}, error: {:?}",
+								origin, nested_xcm, e
 							);
 						})?;
 
