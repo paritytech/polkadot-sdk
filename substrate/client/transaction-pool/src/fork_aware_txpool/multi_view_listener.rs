@@ -593,7 +593,7 @@ where
 		)
 	}
 
-	/// Adds an aggreated view's transaction status stream.
+	/// Adds an aggregated view's transaction status stream.
 	///
 	/// This method sends a `AddViewStream` command to the task, from where it is further dispatched
 	/// to the external watcher context for every watched transaction.
