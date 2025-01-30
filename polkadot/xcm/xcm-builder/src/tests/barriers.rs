@@ -761,6 +761,21 @@ fn recursive_deny_and_try_xcm_works() {
 	assert!(result.is_ok());
 }
 
+impl<Deny, Allow> DenyExecution for RecursiveDenyThenTry<Deny, Allow>
+where
+	Deny: DenyExecution,
+	Allow: ShouldExecute,
+{
+	fn deny_execution<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Self::should_execute(origin, instructions, max_weight, properties)
+	}
+}
+
 #[test]
 fn recursive_deny_then_try_instructions_with_xcm_works() {
 	type Barrier = RecursiveDenyThenTry<DenyClearOrigin, AllowAll>;
@@ -824,32 +839,10 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
 }
 
-impl<Inner: DenyExecution> ShouldExecute for DenyInstructionsWithXcm<Inner> {
-	fn should_execute<RuntimeCall>(
-		origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		max_weight: Weight,
-		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		Self::deny_execution(origin, instructions, max_weight, properties)
-	}
-}
-
 #[test]
 fn deny_instructions_with_xcm_works() {
 	type Barrier = DenyInstructionsWithXcm<DenyClearOrigin>;
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Ok(()));
-}
-
-impl<Inner: DenyExecution> ShouldExecute for DenyFirstInstructionsWithXcm<Inner> {
-	fn should_execute<RuntimeCall>(
-		origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		max_weight: Weight,
-		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		Self::deny_execution(origin, instructions, max_weight, properties)
-	}
 }
 
 #[test]
@@ -858,16 +851,16 @@ fn deny_first_instructions_with_xcm_works() {
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
 }
 
-fn assert_deny_nested_instructions_with_xcm<Barrier: ShouldExecute>(
+fn assert_deny_nested_instructions_with_xcm<Barrier: DenyExecution>(
 	top_level_expected_result: Result<(), ProcessMessageError>,
 ) {
 	frame_support::__private::sp_tracing::try_init_simple();
 
 	// closure for (xcm, origin) testing with `Barrier` which denies `ClearOrigin`
 	// instruction
-	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
-			Barrier::should_execute(
+			Barrier::deny_execution(
 				&origin,
 				&mut xcm,
 				Weight::from_parts(10, 10),
@@ -878,32 +871,32 @@ fn assert_deny_nested_instructions_with_xcm<Barrier: ShouldExecute>(
 	};
 
 	// ok
-	assert_should_execute(vec![ClearTransactStatus], Location::parent(), Ok(()));
+	assert_deny_execution(vec![ClearTransactStatus], Location::parent(), Ok(()));
 	// ok/err top-level contains `ClearOrigin`
-	assert_should_execute(vec![ClearOrigin], Location::parent(), top_level_expected_result);
+	assert_deny_execution(vec![ClearOrigin], Location::parent(), top_level_expected_result);
 	// ok - SetAppendix with XCM without ClearOrigin
-	assert_should_execute(
+	assert_deny_execution(
 		vec![SetAppendix(Xcm(vec![ClearTransactStatus]))],
 		Location::parent(),
 		Ok(()),
 	);
 
 	// invalid - empty XCM
-	assert_should_execute(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
+	assert_deny_execution(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
 	// invalid - SetAppendix with empty XCM
-	assert_should_execute(
+	assert_deny_execution(
 		vec![SetAppendix(Xcm(vec![]))],
 		Location::parent(),
 		Err(ProcessMessageError::BadFormat),
 	);
 	// invalid SetAppendix contains `ClearOrigin`
-	assert_should_execute(
+	assert_deny_execution(
 		vec![SetAppendix(Xcm(vec![ClearOrigin]))],
 		Location::parent(),
 		Err(ProcessMessageError::Unsupported),
 	);
 	// invalid nested SetAppendix contains `ClearOrigin`
-	assert_should_execute(
+	assert_deny_execution(
 		vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
 			Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
 				SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
