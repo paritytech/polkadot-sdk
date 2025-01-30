@@ -204,8 +204,8 @@ pub mod prelude {
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
 		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+		NoOpPoll, OnRuntimeUpgrade, OnTimestampSet, OneSessionHandler, RankedMembers,
+		RankedMembersSwapHandler, VariantCount, VariantCountOf,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -223,6 +223,9 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::cryptography::*;
 
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec};
+
 	/// Consensus types needed in runtime construction.
 	pub use super::consensus::*;
 
@@ -235,12 +238,9 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, IsMember, ReduceBy,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
-
-	/// Bounded storage related types.
-	pub use sp_runtime::{BoundedSlice, BoundedVec};
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -365,9 +365,6 @@ pub mod runtime {
 		///
 		/// Consider using the new version of this [`frame_construct_runtime`].
 		pub use frame_support::construct_runtime;
-
-		/// Related to runtime construction.
-		pub use frame_support::{BoundedSlice, BoundedVec};
 
 		/// Macro to amalgamate the runtime into `struct Runtime`.
 		///
@@ -547,6 +544,8 @@ pub mod arithmetic {
 }
 
 /// Consensus types
+///
+/// This is already part of the ['prelude`].
 pub mod consensus {
 	pub use sp_consensus_aura::{
 		ed25519::AuthorityId, AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID,
@@ -583,7 +582,8 @@ pub mod cryptography {
 /// This is already part of the [`prelude`].
 pub mod account {
 	pub use frame_support::traits::{
-		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+		AsEnsureOriginWithArg, ChangeMembers, DisabledValidators, EitherOfDiverse, FindAuthor,
+		InitializeMembers,
 	};
 	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }

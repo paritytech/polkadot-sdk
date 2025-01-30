@@ -42,10 +42,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame::{
-	runtime::prelude::*,
-	traits::{DisabledValidators, FindAuthor, IsMember, OnTimestampSet, OneSessionHandler},
-};
+use frame::prelude::*;
 use log;
 
 #[cfg(feature = "try-runtime")]
