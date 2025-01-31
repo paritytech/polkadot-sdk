@@ -37,7 +37,7 @@ use std::{
 	sync::Arc,
 };
 use tokio_stream::StreamMap;
-use tracing::{debug, trace};
+use tracing::trace;
 
 use super::dropped_watcher::{DroppedReason, DroppedTransaction};
 
@@ -766,6 +766,7 @@ mod tests {
 	use futures::{stream, StreamExt};
 	use sp_core::H256;
 	use tokio::{select, task::JoinHandle};
+	use tracing::debug;
 
 	type MultiViewListener = super::MultiViewListener<TestApi>;
 
