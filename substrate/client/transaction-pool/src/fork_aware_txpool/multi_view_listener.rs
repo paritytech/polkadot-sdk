@@ -21,13 +21,12 @@
 //! aggregated streams of transaction events.
 
 use crate::{
-	common::log_xt::log_xt_trace,
+	common::tracing_log_xt::log_xt_trace,
 	fork_aware_txpool::stream_map_util::next_event,
 	graph::{self, BlockHash, ExtrinsicHash, TransactionStatusEvent},
 	LOG_TARGET,
 };
 use futures::{Future, FutureExt, Stream, StreamExt};
-use log::trace;
 use parking_lot::RwLock;
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
 use sc_utils::mpsc;
@@ -38,6 +37,7 @@ use std::{
 	sync::Arc,
 };
 use tokio_stream::StreamMap;
+use tracing::{debug, trace};
 
 use super::dropped_watcher::{DroppedReason, DroppedTransaction};
 
@@ -325,16 +325,21 @@ where
 	/// Returns `Some` with the `event` to be sent out or `None`.
 	fn handle_view_transaction_status(
 		&mut self,
-		hash: BlockHash<ChainApi>,
+		block_hash: BlockHash<ChainApi>,
 		status: TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
 	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
 		trace!(
-			target: LOG_TARGET, "[{:?}] mvl handle event from {hash:?}: {status:?} views:{:?}", self.tx_hash,
-			self.known_views.iter().collect::<Vec<_>>()
+			target: LOG_TARGET,
+			tx_hash = ?self.tx_hash,
+			?block_hash,
+			?status,
+			views = ?self.known_views.iter().collect::<Vec<_>>(),
+			"mvl handle event"
 		);
+
 		match status {
 			TransactionStatus::Future => {
-				self.views_keeping_tx_valid.insert(hash);
+				self.views_keeping_tx_valid.insert(block_hash);
 				if self.ready_seen || self.future_seen {
 					None
 				} else {
@@ -343,7 +348,7 @@ where
 				}
 			},
 			TransactionStatus::Ready => {
-				self.views_keeping_tx_valid.insert(hash);
+				self.views_keeping_tx_valid.insert(block_hash);
 				if self.ready_seen {
 					None
 				} else {
@@ -352,7 +357,7 @@ where
 				}
 			},
 			TransactionStatus::InBlock((..)) => {
-				self.views_keeping_tx_valid.insert(hash);
+				self.views_keeping_tx_valid.insert(block_hash);
 				if !(self.ready_seen || self.future_seen) {
 					self.ready_seen = true;
 					Some(status)
@@ -383,8 +388,9 @@ where
 		let keys = self.known_views.clone();
 		trace!(
 			target: LOG_TARGET,
-			"[{:?}] got invalidate_transaction: views:{:?}", self.tx_hash,
-			self.known_views.iter().collect::<Vec<_>>()
+			tx_hash = ?self.tx_hash,
+			views = ?self.known_views.iter().collect::<Vec<_>>(),
+			"got invalidate_transaction"
 		);
 		if self.views_keeping_tx_valid.is_disjoint(&keys) {
 			self.terminate = true;
@@ -405,7 +411,13 @@ where
 	/// Inserts a new view's transaction status stream into the stream map. The view is represented
 	/// by `block_hash`.
 	fn add_view(&mut self, block_hash: BlockHash<ChainApi>) {
-		trace!(target: LOG_TARGET, "[{:?}] AddView view: {:?} views:{:?}", self.tx_hash, block_hash, self.known_views.iter().collect::<Vec<_>>());
+		trace!(
+			target: LOG_TARGET,
+			tx_hash = ?self.tx_hash,
+			?block_hash,
+			views = ?self.known_views.iter().collect::<Vec<_>>(),
+			"AddView view"
+		);
 		self.known_views.insert(block_hash);
 	}
 
@@ -416,7 +428,13 @@ where
 	fn remove_view(&mut self, block_hash: BlockHash<ChainApi>) {
 		self.known_views.remove(&block_hash);
 		self.views_keeping_tx_valid.remove(&block_hash);
-		trace!(target: LOG_TARGET, "[{:?}] RemoveView view: {:?} views:{:?}", self.tx_hash, block_hash, self.known_views.iter().collect::<Vec<_>>());
+		trace!(
+			target: LOG_TARGET,
+			tx_hash = ?self.tx_hash,
+			?block_hash,
+			views = ?self.known_views.iter().collect::<Vec<_>>(),
+			"RemoveView view"
+		);
 	}
 }
 
@@ -544,7 +562,11 @@ where
 			return None
 		}
 
-		trace!(target: LOG_TARGET, "[{:?}] create_external_watcher_for_tx", tx_hash);
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			"create_external_watcher_for_tx"
+		);
 
 		let (tx, rx) = mpsc::tracing_unbounded("txpool-multi-view-listener", 128);
 		external_controllers.insert(tx_hash, tx);
@@ -563,13 +585,23 @@ where
 							match cmd? {
 								ExternalWatcherCommand::ViewTransactionStatus(view_hash, status) => {
 									if let Some(new_status) = ctx.handle_view_transaction_status(view_hash, status) {
-										log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
+										trace!(
+											target: LOG_TARGET,
+											tx_hash = ?ctx.tx_hash,
+											?new_status,
+											"mvl sending out"
+										);
 										return Some((new_status, ctx))
 									}
 								},
 								ExternalWatcherCommand::PoolTransactionStatus(request) => {
 									if let Some(new_status) = ctx.handle_pool_transaction_status(request) {
-										log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
+										trace!(
+											target: LOG_TARGET,
+											tx_hash = ?ctx.tx_hash,
+											?new_status,
+											"mvl sending out"
+										);
 										return Some((new_status, ctx))
 									}
 								}
@@ -599,12 +631,17 @@ where
 		block_hash: BlockHash<ChainApi>,
 		stream: ViewStatusStream<ChainApi>,
 	) {
-		log::trace!(target: LOG_TARGET, "mvl::add_view_aggregated_stream ({:?})", block_hash);
-		if let Err(e) = self
+		trace!(target: LOG_TARGET, ?block_hash, "mvl::add_view_aggregated_stream");
+		if let Err(error) = self
 			.controller
 			.unbounded_send(ControllerCommand::AddViewStream(block_hash, stream))
 		{
-			trace!(target: LOG_TARGET, "add_view_aggregated_stream ({:?}): send message failed: {:?}", block_hash, e);
+			trace!(
+				target: LOG_TARGET,
+				?block_hash,
+				%error,
+				"add_view_aggregated_stream: send message failed"
+			);
 		}
 	}
 
@@ -613,11 +650,16 @@ where
 	/// This method sends a `RemoveViewStream` command to the listener's task, from where is further
 	/// dispatched to the external watcher context for every watched transaction.
 	pub(crate) fn remove_view(&self, block_hash: BlockHash<ChainApi>) {
-		log::trace!(target: LOG_TARGET, "mvl::remove_view ({:?})", block_hash);
-		if let Err(e) =
+		trace!(target: LOG_TARGET, ?block_hash, "mvl::remove_view");
+		if let Err(error) =
 			self.controller.unbounded_send(ControllerCommand::RemoveViewStream(block_hash))
 		{
-			log::trace!(target: LOG_TARGET, "remove_view ({:?}): send message failed: {:?}", block_hash, e);
+			trace!(
+				target: LOG_TARGET,
+				?block_hash,
+				%error,
+				"remove_view: send message failed"
+			);
 		}
 	}
 
@@ -629,13 +671,18 @@ where
 	/// The external event will be sent if no view is referencing the transaction as `Ready` or
 	/// `Future`.
 	pub(crate) fn transactions_invalidated(&self, invalid_hashes: &[ExtrinsicHash<ChainApi>]) {
-		log_xt_trace!(target: LOG_TARGET, invalid_hashes, "[{:?}] transaction_invalidated");
+		log_xt_trace!(target: LOG_TARGET, invalid_hashes, "transactions_invalidated");
 		for tx_hash in invalid_hashes {
-			if let Err(e) = self
+			if let Err(error) = self
 				.controller
 				.unbounded_send(ControllerCommand::new_transaction_invalidated(*tx_hash))
 			{
-				log::trace!(target: LOG_TARGET, "invalidate_transaction ({:?}): send message failed: {:?}", tx_hash, e);
+				trace!(
+					target: LOG_TARGET,
+					?tx_hash,
+					%error,
+					"transactions_invalidated: send message failed"
+				);
 			}
 		}
 	}
@@ -649,11 +696,16 @@ where
 		propagated: HashMap<ExtrinsicHash<ChainApi>, Vec<String>>,
 	) {
 		for (tx_hash, peers) in propagated {
-			if let Err(e) = self
+			if let Err(error) = self
 				.controller
 				.unbounded_send(ControllerCommand::new_transaction_broadcasted(tx_hash, peers))
 			{
-				log::trace!(target: LOG_TARGET, "transactions_broadcasted ({:?}): send message failed: {:?}", tx_hash, e);
+				trace!(
+					target: LOG_TARGET,
+					?tx_hash,
+					%error,
+					"transactions_broadcasted: send message failed"
+				);
 			}
 		}
 	}
@@ -664,12 +716,17 @@ where
 	/// the external `Broadcasted` event.
 	pub(crate) fn transaction_dropped(&self, dropped: DroppedTransaction<ExtrinsicHash<ChainApi>>) {
 		let DroppedTransaction { tx_hash, reason } = dropped;
-		trace!(target: LOG_TARGET, "[{:?}] transaction_dropped {:?}", tx_hash, reason);
-		if let Err(e) = self
+		trace!(target: LOG_TARGET, ?tx_hash, ?reason, "transaction_dropped");
+		if let Err(error) = self
 			.controller
 			.unbounded_send(ControllerCommand::new_transaction_dropped(tx_hash, reason))
 		{
-			log::trace!(target: LOG_TARGET, "transactions_dropped ({:?}): send message failed: {:?}", tx_hash, e);
+			trace!(
+				target: LOG_TARGET,
+				?tx_hash,
+				%error,
+				"transaction_dropped: send message failed"
+			);
 		}
 	}
 
@@ -682,12 +739,17 @@ where
 		block: BlockHash<ChainApi>,
 		idx: TxIndex,
 	) {
-		trace!(target: LOG_TARGET, "[{:?}] transaction_finalized", tx_hash);
-		if let Err(e) = self
+		trace!(target: LOG_TARGET, ?tx_hash, "transaction_finalized");
+		if let Err(error) = self
 			.controller
 			.unbounded_send(ControllerCommand::new_transaction_finalized(tx_hash, block, idx))
 		{
-			trace!(target: LOG_TARGET, "[{:?}] transaction_finalized: send message failed: {:?}", tx_hash, e);
+			trace!(
+				target: LOG_TARGET,
+				?tx_hash,
+				%error,
+				"transaction_finalized: send message failed"
+			);
 		};
 	}
 
@@ -746,7 +808,7 @@ mod tests {
 
 		let out = handle.await.unwrap();
 		assert_eq!(out, events);
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 
 		let _ = terminate_listener.send(());
 		let _ = listener_task.await.unwrap();
@@ -786,7 +848,7 @@ mod tests {
 
 		let out = handle.await.unwrap();
 
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 		assert!(out.iter().all(|v| vec![
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
@@ -834,7 +896,7 @@ mod tests {
 		listener.transactions_invalidated(&[tx_hash]);
 
 		let out = handle.await.unwrap();
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 		assert!(out.iter().all(|v| vec![
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
@@ -898,8 +960,8 @@ mod tests {
 		let out_tx0 = handle0.await.unwrap();
 		let out_tx1 = handle1.await.unwrap();
 
-		log::debug!("out_tx0: {:#?}", out_tx0);
-		log::debug!("out_tx1: {:#?}", out_tx1);
+		debug!("out_tx0: {:#?}", out_tx0);
+		debug!("out_tx1: {:#?}", out_tx1);
 		assert!(out_tx0.iter().all(|v| vec![
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
@@ -956,7 +1018,7 @@ mod tests {
 		listener.transactions_invalidated(&[tx_hash]);
 
 		let out = handle.await.unwrap();
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 
 		// invalid shall not be sent
 		assert!(out.iter().all(|v| vec![
@@ -994,7 +1056,7 @@ mod tests {
 		listener.add_view_aggregated_stream(block_hash0, view_stream0.boxed());
 
 		let out = handle.await.unwrap();
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 
 		assert!(out.iter().all(|v| vec![TransactionStatus::Invalid].contains(v)));
 		assert_eq!(out.len(), 1);
