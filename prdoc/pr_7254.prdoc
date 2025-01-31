@@ -1,0 +1,66 @@
+title: deprecate AsyncBackingParams
+doc:
+- audience: Todo
+  description: |-
+    Part of https://github.com/paritytech/polkadot-sdk/issues/5079.
+
+    Removes all usage of the static async backing params, replacing them with dynamically computed equivalent values (based on the claim queue and scheduling lookahead).
+
+    Adds a new runtime API for querying the scheduling lookahead value. If not present, falls back to 3 (the default value that is backwards compatible with values we have on production networks for allowed_ancestry_len)
+
+    Also resolves most of https://github.com/paritytech/polkadot-sdk/issues/4447, removing code that handles async backing not yet being enabled.
+    While doing this, I removed the support for collation protocol version 1 on collators, as it only worked for leaves not supporting async backing (which are none).
+    I also unhooked the legacy v1 statement-distribution (for the same reason as above). That subsystem is basically dead code now, so I had to remove some of its tests as they would no longer pass (since the subsystem no longer sends messages to the legacy variant). I did not remove the entire legacy subsystem yet, as that would pollute this PR too much. We can remove the entire v1 and v2 validation protocols in a follow up PR.
+
+    In another PR: remove test files with names `prospective_parachains` (it'd pollute this PR if we do now)
+
+    TODO:
+    - [ ] add deprecation warnings
+    - [ ] prdoc
+crates:
+- name: cumulus-relay-chain-minimal-node
+  bump: major
+- name: cumulus-relay-chain-rpc-interface
+  bump: major
+- name: polkadot-node-core-candidate-validation
+  bump: major
+- name: polkadot-node-core-prospective-parachains
+  bump: major
+- name: polkadot-node-core-provisioner
+  bump: major
+- name: polkadot-node-core-runtime-api
+  bump: major
+- name: polkadot-collator-protocol
+  bump: major
+- name: polkadot-overseer
+  bump: major
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: polkadot-node-subsystem-util
+  bump: major
+- name: polkadot-primitives
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: cumulus-relay-chain-inprocess-interface
+  bump: major
+- name: cumulus-relay-chain-interface
+  bump: major
+- name: polkadot-statement-distribution
+  bump: major
+- name: polkadot
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: cumulus-client-consensus-common
+  bump: major
+- name: cumulus-client-network
+  bump: major
+- name: cumulus-client-pov-recovery
+  bump: major
