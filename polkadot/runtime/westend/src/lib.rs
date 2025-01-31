@@ -2155,6 +2155,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn async_backing_params() -> polkadot_primitives::AsyncBackingParams {
+			#[allow(deprecated)]
 			parachains_runtime_api_impl::async_backing_params::<Runtime>()
 		}
 

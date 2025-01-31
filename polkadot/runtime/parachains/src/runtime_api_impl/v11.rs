@@ -508,6 +508,7 @@ pub fn backing_state<T: initializer::Config>(
 }
 
 /// Implementation for `AsyncBackingParams` function from the runtime API
+#[deprecated = "AsyncBackingParams are going to be removed and ignored by relay chain validators, in favour of dynamically computed values based on the claim queue assignments"]
 pub fn async_backing_params<T: configuration::Config>() -> AsyncBackingParams {
 	configuration::ActiveConfig::<T>::get().async_backing_params
 }
