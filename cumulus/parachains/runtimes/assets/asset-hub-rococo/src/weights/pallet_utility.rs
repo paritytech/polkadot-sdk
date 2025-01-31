@@ -99,4 +99,7 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 			// Standard Error: 1_745
 			.saturating_add(Weight::from_parts(6_562_902, 0).saturating_mul(c.into()))
 	}
+	fn dispatch_as_checked() -> Weight {
+		0.into()
+	}
 }

@@ -92,6 +92,18 @@ mod benchmark {
 		assert_last_event::<T>(Event::BatchCompleted.into());
 	}
 
+	#[benchmark]
+	fn dispatch_as_checked() {
+		let caller = account("caller", SEED, SEED);
+		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
+		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller).into();
+		let pallets_origin = origin.caller().clone();
+		let pallets_origin = T::PalletsOrigin::from(pallets_origin);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, Box::new(pallets_origin), call);
+	}
+
 	impl_benchmark_test_suite! {
 		Pallet,
 		tests::new_test_ext(),
