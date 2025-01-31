@@ -41,8 +41,6 @@ pub struct MetadataIR<T: Form = MetaForm> {
 	pub apis: Vec<RuntimeApiMetadataIR<T>>,
 	/// The outer enums types as found in the runtime.
 	pub outer_enums: OuterEnumsIR<T>,
-	/// Metadata of view function queries
-	pub view_functions: RuntimeViewFunctionsIR<T>,
 }
 
 /// Metadata of a runtime trait.
@@ -120,83 +118,52 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 	}
 }
 
-/// Metadata of the top level runtime view function dispatch.
+/// Metadata of a pallet view function method.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub struct RuntimeViewFunctionsIR<T: Form = MetaForm> {
-	/// The type implementing the runtime query dispatch.
-	pub ty: T::Type,
-	/// The view function groupings metadata.
-	pub groups: Vec<ViewFunctionGroupIR<T>>,
-}
-
-/// Metadata of a runtime view function group.
-///
-/// For example, view functions associated with a pallet would form a view function group.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub struct ViewFunctionGroupIR<T: Form = MetaForm> {
-	/// Name of the view function group.
+pub struct PalletViewFunctionMethodMetadataIR<T: Form = MetaForm> {
+	/// Method name.
 	pub name: T::String,
-	/// View functions belonging to the group.
-	pub view_functions: Vec<ViewFunctionMetadataIR<T>>,
-	/// View function group documentation.
-	pub docs: Vec<T::String>,
-}
-
-impl IntoPortable for ViewFunctionGroupIR {
-	type Output = ViewFunctionGroupIR<PortableForm>;
-
-	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		ViewFunctionGroupIR {
-			name: self.name.into_portable(registry),
-			view_functions: registry.map_into_portable(self.view_functions),
-			docs: registry.map_into_portable(self.docs),
-		}
-	}
-}
-
-/// Metadata of a runtime view function.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub struct ViewFunctionMetadataIR<T: Form = MetaForm> {
-	/// Query name.
-	pub name: T::String,
-	/// Query id.
+	/// Method id.
 	pub id: [u8; 32],
-	/// Query args.
-	pub args: Vec<ViewFunctionArgMetadataIR<T>>,
-	/// Query output.
+	/// Method parameters.
+	pub inputs: Vec<PalletViewFunctionMethodParamMetadataIR<T>>,
+	/// Method output.
 	pub output: T::Type,
-	/// Query documentation.
+	/// Method documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationStatusIR<T>,
 }
 
-impl IntoPortable for ViewFunctionMetadataIR {
-	type Output = ViewFunctionMetadataIR<PortableForm>;
+impl IntoPortable for PalletViewFunctionMethodMetadataIR {
+	type Output = PalletViewFunctionMethodMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		ViewFunctionMetadataIR {
+		PalletViewFunctionMethodMetadataIR {
 			name: self.name.into_portable(registry),
 			id: self.id,
-			args: registry.map_into_portable(self.args),
+			inputs: registry.map_into_portable(self.inputs),
 			output: registry.register_type(&self.output),
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
 
-/// Metadata of a runtime method argument.
+/// Metadata of a pallet view function method argument.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub struct ViewFunctionArgMetadataIR<T: Form = MetaForm> {
-	/// Query argument name.
+pub struct PalletViewFunctionMethodParamMetadataIR<T: Form = MetaForm> {
+	/// Parameter name.
 	pub name: T::String,
-	/// Query argument type.
+	/// Parameter type.
 	pub ty: T::Type,
 }
 
-impl IntoPortable for ViewFunctionArgMetadataIR {
-	type Output = ViewFunctionArgMetadataIR<PortableForm>;
+impl IntoPortable for PalletViewFunctionMethodParamMetadataIR {
+	type Output = PalletViewFunctionMethodParamMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		ViewFunctionArgMetadataIR {
+		PalletViewFunctionMethodParamMetadataIR {
 			name: self.name.into_portable(registry),
 			ty: registry.register_type(&self.ty),
 		}
@@ -212,6 +179,8 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	pub storage: Option<PalletStorageMetadataIR<T>>,
 	/// Pallet calls metadata.
 	pub calls: Option<PalletCallMetadataIR<T>>,
+	/// Pallet view functions metadata.
+	pub view_functions: Vec<PalletViewFunctionMethodMetadataIR<T>>,
 	/// Pallet event metadata.
 	pub event: Option<PalletEventMetadataIR<T>>,
 	/// Pallet constants metadata.
@@ -237,6 +206,11 @@ impl IntoPortable for PalletMetadataIR {
 			name: self.name.into_portable(registry),
 			storage: self.storage.map(|storage| storage.into_portable(registry)),
 			calls: self.calls.map(|calls| calls.into_portable(registry)),
+			view_functions: self
+				.view_functions
+				.into_iter()
+				.map(|view_functions| view_functions.into_portable(registry))
+				.collect(),
 			event: self.event.map(|event| event.into_portable(registry)),
 			constants: registry.map_into_portable(self.constants),
 			error: self.error.map(|error| error.into_portable(registry)),
