@@ -4,7 +4,7 @@ use super::*;
 use frame_support::ensure;
 use snowbridge_beacon_primitives::ExecutionProof;
 
-use snowbridge_core::inbound::{
+use snowbridge_inbound_queue_primitives::{
 	VerificationError::{self, *},
 	*,
 };

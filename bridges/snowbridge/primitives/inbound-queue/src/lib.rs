@@ -9,6 +9,17 @@ use sp_core::blake2_256;
 use sp_std::marker::PhantomData;
 use xcm::prelude::{AccountKey20, Ethereum, GlobalConsensus, Location};
 use xcm_executor::traits::ConvertLocation;
+use snowbridge_beacon_primitives::BeaconHeader;
+use sp_core::{RuntimeDebug, H256};
+
+pub use snowbridge_verification_primitives::*;
+
+#[derive(Clone, RuntimeDebug)]
+pub struct InboundQueueFixture {
+	pub event: EventProof,
+	pub finalized_header: BeaconHeader,
+	pub block_roots_root: H256,
+}
 
 pub struct EthereumLocationsConverterFor<AccountId>(PhantomData<AccountId>);
 impl<AccountId> ConvertLocation<AccountId> for EthereumLocationsConverterFor<AccountId>

@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-//! Types for representing inbound messages
-
-use codec::{Decode, Encode};
+#![cfg_attr(not(feature = "std"), no_std)]
+use codec::{Encode, Decode};
+use snowbridge_beacon_primitives::ExecutionProof;
 use frame_support::PalletError;
 use scale_info::TypeInfo;
-use snowbridge_beacon_primitives::{BeaconHeader, ExecutionProof};
-use sp_core::{H160, H256};
-use sp_runtime::RuntimeDebug;
-use sp_std::vec::Vec;
+use sp_core::{RuntimeDebug, H160, H256};
+use sp_std::prelude::*;
 
 /// A trait for verifying inbound messages from Ethereum.
 pub trait Verifier {
@@ -30,11 +28,9 @@ pub enum VerificationError {
 	InvalidExecutionProof(#[codec(skip)] &'static str),
 }
 
-pub type MessageNonce = u64;
-
 /// A bridge message from the Gateway contract on Ethereum
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct Message {
+pub struct EventProof {
 	/// Event log emitted by Gateway contract
 	pub event_log: Log,
 	/// Inclusion proof for a transaction receipt containing the event log
@@ -72,11 +68,4 @@ pub struct Proof {
 	pub receipt_proof: (Vec<Vec<u8>>, Vec<Vec<u8>>),
 	// Proof that an execution header was finalized by the beacon chain
 	pub execution_proof: ExecutionProof,
-}
-
-#[derive(Clone, RuntimeDebug)]
-pub struct InboundQueueFixture {
-	pub message: Message,
-	pub finalized_header: BeaconHeader,
-	pub block_roots_root: H256,
 }

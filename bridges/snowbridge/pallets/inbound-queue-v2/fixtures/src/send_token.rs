@@ -13,7 +13,7 @@ use sp_std::vec;
 
 pub fn make_send_token_message() -> InboundQueueFixture {
 	InboundQueueFixture {
-        message: Message {
+        event: EventProof {
             event_log: 	Log {
                 address: hex!("eda338e4dc46038493b885327842fd3e301cab39").into(),
                 topics: vec![

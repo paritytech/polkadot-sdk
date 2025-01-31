@@ -25,7 +25,6 @@
 
 extern crate alloc;
 pub mod api;
-mod envelope;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -40,7 +39,6 @@ mod mock;
 mod test;
 
 use codec::{Decode, Encode};
-use envelope::Envelope;
 use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -49,18 +47,17 @@ use frame_support::{
 	weights::WeightToFee,
 	PalletError,
 };
-use frame_system::{ensure_signed, pallet_prelude::*};
+use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use snowbridge_core::{
-	inbound::{Message, VerificationError, Verifier},
 	sparse_bitmap::SparseBitmap,
 	BasicOperatingMode,
 };
-use snowbridge_inbound_router_primitives::v2::{
-	ConvertMessage, ConvertMessageError, Message as MessageV2,
+use snowbridge_inbound_queue_primitives::{
+	VerificationError, Verifier, EventProof,
+	v2::{Message, ConvertMessage, ConvertMessageError}
 };
 use sp_core::H160;
-use sp_std::vec;
 use types::Nonce;
 pub use weights::WeightInfo;
 use xcm::prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, *};
@@ -80,6 +77,8 @@ pub mod pallet {
 	use super::*;
 
 	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+	use sp_std::prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -196,44 +195,42 @@ pub mod pallet {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
-		pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
+		pub fn submit(origin: OriginFor<T>, event: Box<EventProof>) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 
-			// submit message to verifier for verification
-			T::Verifier::verify(&message.event_log, &message.proof)
+			// submit message for verification
+			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
 			// Decode event log into an Envelope
-			let envelope =
-				Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+			let message =
+				Message::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract
-			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
+			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
 
 			// Verify the message has not been processed
-			ensure!(!Nonce::<T>::get(envelope.nonce.into()), Error::<T>::InvalidNonce);
+			ensure!(!Nonce::<T>::get(message.nonce.into()), Error::<T>::InvalidNonce);
 
 			let origin_account_location = Self::account_to_location(who)?;
 
 			let (xcm, _relayer_reward) =
-				Self::do_convert(envelope.message, origin_account_location.clone())?;
+				Self::do_convert(message.clone(), origin_account_location.clone())?;
 
-			// Todo: Deposit fee(in Ether) to RewardLeger which should cover all of:
-			// T::RewardLeger::deposit(who, relayer_reward.into())?;
+			// TODO: Deposit `_relayer_reward` (ether) to RewardLedger pallet which should cover all of:
+			// T::RewardLedger::deposit(who, relayer_reward.into())?;
 			// a. The submit extrinsic cost on BH
 			// b. The delivery cost to AH
 			// c. The execution cost on AH
 			// d. The execution cost on destination chain(if any)
 			// e. The reward
 
-			// Set nonce flag to true
-			log::info!(target: "snowbridge-inbound-queue:v2","💫 setting nonce to {:?}", envelope.nonce);
-			Nonce::<T>::set(envelope.nonce.into());
+			Nonce::<T>::set(message.nonce.into());
 
 			// Attempt to forward XCM to AH
 			let message_id = Self::send_xcm(xcm, T::AssetHubParaId::get())?;
-			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
+			Self::deposit_event(Event::MessageReceived { nonce: message.nonce, message_id });
 
 			Ok(())
 		}
@@ -266,7 +263,7 @@ pub mod pallet {
 		}
 
 		pub fn do_convert(
-			message: MessageV2,
+			message: Message,
 			origin_account_location: Location,
 		) -> Result<(Xcm<()>, u128), Error<T>> {
 			Ok(T::MessageConverter::convert(message, origin_account_location)

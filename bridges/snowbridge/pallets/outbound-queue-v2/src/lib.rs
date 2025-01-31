@@ -74,10 +74,10 @@ use frame_support::{
 };
 pub use pallet::*;
 use snowbridge_core::{
-	inbound::{Message as DeliveryMessage, VerificationError, Verifier},
 	BasicOperatingMode, RewardLedger, TokenId,
 };
 use snowbridge_merkle_tree::merkle_root;
+use snowbridge_outbound_primitives::{EventProof, VerificationError, Verifier};
 use snowbridge_outbound_primitives::v2::{
 	abi::{CommandWrapper, OutboundMessageWrapper},
 	GasMeter, Message, OutboundCommandWrapper, OutboundMessage,
@@ -262,17 +262,17 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_delivery_proof())]
 		pub fn submit_delivery_proof(
 			origin: OriginFor<T>,
-			message: DeliveryMessage,
+			event: Box<EventProof>,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
-			T::Verifier::verify(&message.event_log, &message.proof)
+			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
 			// Decode event log into an Envelope
-			let envelope = Envelope::<T>::try_from(&message.event_log)
+			let envelope = Envelope::<T>::try_from(&event.event_log)
 				.map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract

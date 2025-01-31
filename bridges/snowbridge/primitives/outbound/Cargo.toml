@@ -30,6 +30,7 @@ alloy-core = { workspace = true, features = ["sol-types"] }
 ethabi = { workspace = true }
 
 snowbridge-core = { workspace = true }
+snowbridge-verification-primitives = { workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
@@ -38,17 +39,18 @@ xcm-executor = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"alloy-core/std",
-	"codec/std",
-	"ethabi/std",
-	"frame-support/std",
-	"frame-system/std",
-	"polkadot-parachain-primitives/std",
-	"scale-info/std",
-	"snowbridge-core/std",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-std/std",
-	"xcm-builder/std",
-	"xcm/std",
+    "alloy-core/std",
+    "codec/std",
+    "ethabi/std",
+    "frame-support/std",
+    "frame-system/std",
+    "polkadot-parachain-primitives/std",
+    "scale-info/std",
+    "snowbridge-core/std",
+    "snowbridge-verification-primitives/std",
+    "sp-arithmetic/std",
+    "sp-core/std",
+    "sp-std/std",
+    "xcm-builder/std",
+    "xcm/std",
 ]

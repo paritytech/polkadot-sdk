@@ -14,6 +14,8 @@ use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160};
 use sp_std::vec::Vec;
 
+pub use snowbridge_verification_primitives::*;
+
 /// The operating mode of Channels and Gateway contract on Ethereum.
 #[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum OperatingMode {

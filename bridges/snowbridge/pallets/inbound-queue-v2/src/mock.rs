@@ -8,11 +8,9 @@ use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
-use snowbridge_core::{
-	inbound::{Log, Proof, VerificationError},
-	TokenId,
-};
-use snowbridge_router_primitives::v2::MessageToXcm;
+use snowbridge_inbound_queue_primitives::{Log, Proof, VerificationError};
+use snowbridge_core::TokenId;
+use snowbridge_inbound_queue_primitives::v2::MessageToXcm;
 use sp_core::H160;
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},

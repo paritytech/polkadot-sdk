@@ -65,7 +65,7 @@ pub fn send_inbound_message(fixture: InboundQueueFixture) -> DispatchResult {
 	.unwrap();
 	EthereumInboundQueue::submit(
 		BridgeHubWestendRuntimeOrigin::signed(BridgeHubWestendSender::get()),
-		fixture.message,
+		fixture.event,
 	)
 }
 

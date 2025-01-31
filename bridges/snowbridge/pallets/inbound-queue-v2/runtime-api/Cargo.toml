@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 frame-support = { workspace = true, default-features = false }
 snowbridge-core = { workspace = true, default-features = false }
-snowbridge-inbound-router-primitives = { workspace = true, default-features = false }
+snowbridge-inbound-queue-primitives = { workspace = true, default-features = false }
 sp-api = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
 xcm = { workspace = true, default-features = false }
@@ -27,7 +27,7 @@ default = ["std"]
 std = [
     "frame-support/std",
     "snowbridge-core/std",
-    "snowbridge-inbound-router-primitives/std",
+    "snowbridge-inbound-queue-primitives/std",
     "sp-api/std",
     "sp-runtime/std",
     "xcm/std",

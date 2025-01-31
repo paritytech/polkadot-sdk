@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-//! Converts messages from Ethereum to XCM messages
+//! Converts messages from Solidity ABI-encoding to XCM
 
 use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
@@ -8,54 +8,17 @@ use frame_support::PalletError;
 use hex;
 use scale_info::TypeInfo;
 use snowbridge_core::TokenId;
-use sp_core::{Get, RuntimeDebug, H160, H256};
+use sp_core::{Get, RuntimeDebug, H160};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::prelude::*;
 use xcm::{
-	prelude::{Asset as XcmAsset, Junction::AccountKey20, *},
+	prelude::{Junction::AccountKey20, *},
 	MAX_XCM_DECODE_DEPTH,
 };
 
-const LOG_TARGET: &str = "snowbridge-inbound-router-primitives";
+use super::message::*;
 
-/// The ethereum side sends messages which are transcoded into XCM on BH. These messages are
-/// self-contained, in that they can be transcoded using only information in the message.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct Message {
-	/// The origin address
-	pub origin: H160,
-	/// The assets
-	pub assets: Vec<Asset>,
-	/// The command originating from the Gateway contract
-	pub xcm: Vec<u8>,
-	/// The claimer in the case that funds get trapped.
-	pub claimer: Option<Vec<u8>>,
-	/// The full value of the assets.
-	pub value: u128,
-	/// Fee in eth to cover the xcm execution on AH.
-	pub execution_fee: u128,
-	/// Relayer reward in eth. Needs to cover all costs of sending a message.
-	pub relayer_fee: u128,
-}
-
-/// An asset that will be transacted on AH. The asset will be reserved/withdrawn and placed into
-/// the holding register. The user needs to provide additional xcm to deposit the asset
-/// in a beneficiary account.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum Asset {
-	NativeTokenERC20 {
-		/// The native token ID
-		token_id: H160,
-		/// The monetary value of the asset
-		value: u128,
-	},
-	ForeignTokenERC20 {
-		/// The foreign token ID
-		token_id: H256,
-		/// The monetary value of the asset
-		value: u128,
-	},
-}
+const LOG_TARGET: &str = "snowbridge-inbound-queue-primitives";
 
 /// Reason why a message conversion failed.
 #[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, RuntimeDebug, PartialEq)]
@@ -152,8 +115,8 @@ where
 
 		// use eth as asset
 		let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-		let fee: XcmAsset = (fee_asset.clone(), message.execution_fee).into();
-		let eth: XcmAsset =
+		let fee: Asset = (fee_asset.clone(), message.execution_fee).into();
+		let eth: Asset =
 			(fee_asset.clone(), message.execution_fee.saturating_add(message.value)).into();
 		let mut instructions = vec![
 			DescendOrigin(PalletInstance(InboundQueuePalletInstance::get()).into()),
@@ -180,7 +143,7 @@ where
 
 		for asset in &message.assets {
 			match asset {
-				Asset::NativeTokenERC20 { token_id, value } => {
+				EthereumAsset::NativeTokenERC20 { token_id, value } => {
 					let token_location: Location = Location::new(
 						2,
 						[
@@ -188,17 +151,17 @@ where
 							AccountKey20 { network: None, key: (*token_id).into() },
 						],
 					);
-					let asset: XcmAsset = (token_location, *value).into();
+					let asset: Asset = (token_location, *value).into();
 					reserve_assets.push(asset);
 				},
-				Asset::ForeignTokenERC20 { token_id, value } => {
+				EthereumAsset::ForeignTokenERC20 { token_id, value } => {
 					let asset_loc = ConvertAssetId::convert(&token_id)
 						.ok_or(ConvertMessageError::InvalidAsset)?;
 					let mut reanchored_asset_loc = asset_loc.clone();
 					reanchored_asset_loc
 						.reanchor(&GlobalAssetHubLocation::get(), &EthereumUniversalLocation::get())
 						.map_err(|_| ConvertMessageError::CannotReanchor)?;
-					let asset: XcmAsset = (reanchored_asset_loc, *value).into();
+					let asset: Asset = (reanchored_asset_loc, *value).into();
 					withdraw_assets.push(asset);
 				},
 			}
@@ -240,10 +203,9 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::v2::{
-		Asset::{ForeignTokenERC20, NativeTokenERC20},
-		ConvertMessage, ConvertMessageError, Message, MessageToXcm, XcmAsset,
-	};
+	use super::*;
+	use crate::v2::message::*;
+
 	use codec::Encode;
 	use frame_support::{assert_err, assert_ok, parameter_types};
 	use hex_literal::hex;
@@ -296,8 +258,8 @@ mod tests {
 			hex!("8b69c7e376e28114618e829a7ec768dbda28357d359ba417a3bd79b11215059d").into();
 		let token_value = 3_000_000_000_000u128;
 		let assets = vec![
-			NativeTokenERC20 { token_id: native_token_id, value: token_value },
-			ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
+			EthereumAsset::NativeTokenERC20 { token_id: native_token_id, value: token_value },
+			EthereumAsset::ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
 		];
 		let instructions = vec![
 			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
@@ -312,6 +274,8 @@ mod tests {
 		let relayer_fee = 5_000_000_000_000u128;
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 0,
 			origin: origin.clone(),
 			assets,
 			xcm: versioned_xcm.encode(),
@@ -367,7 +331,7 @@ mod tests {
 				reserve_deposited_found = reserve_deposited_found + 1;
 				if reserve_deposited_found == 1 {
 					let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-					let fee: XcmAsset = (fee_asset, execution_fee + value).into();
+					let fee: Asset = (fee_asset, execution_fee + value).into();
 					let fee_assets: Assets = fee.into();
 					assert_eq!(fee_assets, reserve_assets.clone());
 				}
@@ -379,7 +343,7 @@ mod tests {
 							AccountKey20 { network: None, key: native_token_id.into() },
 						],
 					);
-					let token: XcmAsset = (token_asset, token_value).into();
+					let token: Asset = (token_asset, token_value).into();
 					let token_assets: Assets = token.into();
 					assert_eq!(token_assets, reserve_assets.clone());
 				}
@@ -387,7 +351,7 @@ mod tests {
 			if let WithdrawAsset(ref withdraw_assets) = instruction {
 				withdraw_assets_found = withdraw_assets_found + 1;
 				let token_asset = Location::new(2, Here);
-				let token: XcmAsset = (token_asset, token_value).into();
+				let token: Asset = (token_asset, token_value).into();
 				let token_assets: Assets = token.into();
 				assert_eq!(token_assets, withdraw_assets.clone());
 			}
@@ -420,8 +384,8 @@ mod tests {
 			hex!("8b69c7e376e28114618e829a7ec768dbda28357d359ba417a3bd79b11215059d").into();
 		let token_value = 3_000_000_000_000u128;
 		let assets = vec![
-			NativeTokenERC20 { token_id: native_token_id, value: token_value },
-			ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
+			EthereumAsset::NativeTokenERC20 { token_id: native_token_id, value: token_value },
+			EthereumAsset::ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
 		];
 		let instructions = vec![
 			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
@@ -436,6 +400,8 @@ mod tests {
 		let relayer_fee = 5_000_000_000_000u128;
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 0,
 			origin: origin.clone(),
 			assets,
 			xcm: versioned_xcm.encode(),
@@ -481,7 +447,7 @@ mod tests {
 		let message_id: H256 =
 			hex!("8b69c7e376e28114618e829a7ec768dbda28357d359ba417a3bd79b11215059d").into();
 		let token_value = 3_000_000_000_000u128;
-		let assets = vec![ForeignTokenERC20 { token_id, value: token_value }];
+		let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
 		let instructions = vec![
 			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
 			SetTopic(message_id.into()),
@@ -495,6 +461,8 @@ mod tests {
 		let relayer_fee = 5_000_000_000_000u128;
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 0,
 			origin,
 			assets,
 			xcm: versioned_xcm.encode(),
@@ -528,7 +496,7 @@ mod tests {
 		let message_id: H256 =
 			hex!("8b69c7e376e28114618e829a7ec768dbda28357d359ba417a3bd79b11215059d").into();
 		let token_value = 3_000_000_000_000u128;
-		let assets = vec![ForeignTokenERC20 { token_id, value: token_value }];
+		let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
 		let instructions = vec![
 			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
 			SetTopic(message_id.into()),
@@ -543,6 +511,8 @@ mod tests {
 		let relayer_fee = 5_000_000_000_000u128;
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 0,
 			origin,
 			assets,
 			xcm: versioned_xcm.encode(),
@@ -612,7 +582,7 @@ mod tests {
 		let token_id: H256 =
 			hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
 		let token_value = 3_000_000_000_000u128;
-		let assets = vec![ForeignTokenERC20 { token_id, value: token_value }];
+		let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
 		// invalid xcm
 		let versioned_xcm = hex!("8b69c7e376e28114618e829a7ec7").to_vec();
 		let claimer_account = AccountId32 { network: None, id: H256::random().into() };
@@ -622,6 +592,8 @@ mod tests {
 		let relayer_fee = 5_000_000_000_000u128;
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 0,
 			origin,
 			assets,
 			xcm: versioned_xcm,

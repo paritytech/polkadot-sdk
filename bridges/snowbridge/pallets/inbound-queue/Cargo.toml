@@ -37,7 +37,7 @@ xcm-executor = { workspace = true }
 snowbridge-beacon-primitives = { workspace = true }
 snowbridge-core = { workspace = true }
 snowbridge-pallet-inbound-queue-fixtures = { optional = true, workspace = true }
-snowbridge-inbound-router-primitives = { workspace = true }
+snowbridge-inbound-queue-primitives = { workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
@@ -60,7 +60,7 @@ std = [
     "snowbridge-beacon-primitives/std",
     "snowbridge-core/std",
     "snowbridge-pallet-inbound-queue-fixtures?/std",
-    "snowbridge-inbound-router-primitives/std",
+    "snowbridge-inbound-queue-primitives/std",
     "sp-core/std",
     "sp-io/std",
     "sp-runtime/std",
@@ -78,7 +78,7 @@ runtime-benchmarks = [
     "snowbridge-core/runtime-benchmarks",
     "snowbridge-pallet-ethereum-client/runtime-benchmarks",
     "snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
-    "snowbridge-inbound-router-primitives/runtime-benchmarks",
+    "snowbridge-inbound-queue-primitives/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
     "xcm-executor/runtime-benchmarks",
     "xcm/runtime-benchmarks",

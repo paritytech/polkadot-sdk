@@ -184,7 +184,7 @@ std = [
     "snowbridge-pallet-system-frontend?/std",
     "snowbridge-pallet-system-v2?/std",
     "snowbridge-pallet-system?/std",
-    "snowbridge-inbound-router-primitives?/std",
+    "snowbridge-inbound-queue-primitives?/std",
     "snowbridge-runtime-common?/std",
     "snowbridge-runtime-test-common?/std",
     "snowbridge-system-runtime-api?/std",
@@ -366,7 +366,7 @@ runtime-benchmarks = [
     "snowbridge-pallet-system-frontend?/runtime-benchmarks",
     "snowbridge-pallet-system-v2?/runtime-benchmarks",
     "snowbridge-pallet-system?/runtime-benchmarks",
-    "snowbridge-inbound-router-primitives?/runtime-benchmarks",
+    "snowbridge-inbound-queue-primitives?/runtime-benchmarks",
     "snowbridge-runtime-common?/runtime-benchmarks",
     "snowbridge-runtime-test-common?/runtime-benchmarks",
     "sp-runtime?/runtime-benchmarks",
@@ -737,7 +737,7 @@ runtime-full = [
     "snowbridge-pallet-system",
     "snowbridge-pallet-system-frontend",
     "snowbridge-pallet-system-v2",
-    "snowbridge-inbound-router-primitives",
+    "snowbridge-inbound-queue-primitives",
     "snowbridge-runtime-common",
     "snowbridge-system-runtime-api",
     "sp-api",
@@ -1918,10 +1918,10 @@ default-features = false
 optional = true
 path = "../bridges/snowbridge/pallets/system-frontend"
 
-[dependencies.snowbridge-inbound-router-primitives]
+[dependencies.snowbridge-inbound-queue-primitives]
 default-features = false
 optional = true
-path = "../bridges/snowbridge/primitives/inbound-router"
+path = "../bridges/snowbridge/primitives/inbound-queue"
 
 [dependencies.snowbridge-runtime-common]
 default-features = false

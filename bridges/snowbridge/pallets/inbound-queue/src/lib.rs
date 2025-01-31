@@ -57,13 +57,14 @@ use xcm::prelude::{
 use xcm_executor::traits::TransactAsset;
 
 use snowbridge_core::{
-	inbound::{Message, VerificationError, Verifier},
 	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
 	StaticLookup,
 };
-use snowbridge_router_primitives::v1::{
-	ConvertMessage, ConvertMessageError, VersionedMessage,
+use snowbridge_inbound_queue_primitives::{
+	EventProof, VerificationError, Verifier,
+	v1::{ConvertMessage, ConvertMessageError, VersionedMessage},
 };
+
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
 pub use weights::WeightInfo;
@@ -205,10 +206,8 @@ pub mod pallet {
 				XcmpSendError::NotApplicable => Error::<T>::Send(SendError::NotApplicable),
 				XcmpSendError::Unroutable => Error::<T>::Send(SendError::NotRoutable),
 				XcmpSendError::Transport(_) => Error::<T>::Send(SendError::Transport),
-				XcmpSendError::DestinationUnsupported =>
-					Error::<T>::Send(SendError::DestinationUnsupported),
-				XcmpSendError::ExceedsMaxMessageSize =>
-					Error::<T>::Send(SendError::ExceedsMaxMessageSize),
+				XcmpSendError::DestinationUnsupported => Error::<T>::Send(SendError::DestinationUnsupported),
+				XcmpSendError::ExceedsMaxMessageSize => Error::<T>::Send(SendError::ExceedsMaxMessageSize),
 				XcmpSendError::MissingArgument => Error::<T>::Send(SendError::MissingArgument),
 				XcmpSendError::Fees => Error::<T>::Send(SendError::Fees),
 			}
@@ -229,17 +228,17 @@ pub mod pallet {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
-		pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
+		pub fn submit(origin: OriginFor<T>, event: EventProof) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
-			T::Verifier::verify(&message.event_log, &message.proof)
+			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
 			// Decode event log into an Envelope
 			let envelope =
-				Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+				Envelope::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
@@ -264,7 +263,7 @@ pub mod pallet {
 			// Reward relayer from the sovereign account of the destination parachain, only if funds
 			// are available
 			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
-			let delivery_cost = Self::calculate_delivery_cost(message.encode().len() as u32);
+			let delivery_cost = Self::calculate_delivery_cost(event.encode().len() as u32);
 			let amount = T::Token::reducible_balance(
 				&sovereign_account,
 				Preservation::Preserve,

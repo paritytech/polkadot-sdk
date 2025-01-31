@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::traits::tokens::Balance as BalanceT;
-use snowbridge_router_primitives::v2::Message;
+use snowbridge_inbound_queue_primitives::v2::Message;
 use sp_runtime::DispatchError;
 use xcm::latest::Xcm;
 

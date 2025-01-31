@@ -104,7 +104,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
-	type MessageConverter = snowbridge_router_primitives::v1::MessageToXcm<
+	type MessageConverter = snowbridge_inbound_queue_primitives::v1::MessageToXcm<
 		CreateAssetCall,
 		CreateAssetDeposit,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V1>,
@@ -137,7 +137,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type AssetHubParaId = ConstU32<1000>;
 	type Token = Balances;
 	type Balance = Balance;
-	type MessageConverter = snowbridge_router_primitives::v2::MessageToXcm<
+	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		EthereumNetwork,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V2>,
 		EthereumSystem,
