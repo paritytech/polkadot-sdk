@@ -6,7 +6,12 @@ title: Add missing events to nomination pool extrinsics
 doc:
   - audience: [Runtime Dev, Runtime User]
     description: |
-      Introduces events to extrinsics from `pallet_nomination_pools` that previous had none.
+      Introduces events to extrinsics from `pallet_nomination_pools` that previous had none:
+        - `set_metadata`
+        - `nominate`
+        - `chill`
+        - `set_configs`
+        - `set_claim_permission`
 
 crates:
 - name: pallet-nomination-pools

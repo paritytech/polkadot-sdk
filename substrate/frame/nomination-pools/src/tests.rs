@@ -5134,16 +5134,14 @@ mod set_configs {
 			assert_eq!(GlobalMaxCommission::<Runtime>::get(), Some(Perbill::from_percent(6)));
 
 			// Check events
-			System::assert_last_event(tests::RuntimeEvent::Pools(
-				Event::GlobalNomPoolParamsUpdated {
-					min_join_bond: 1,
-					min_create_bond: 2,
-					max_pools: Some(3),
-					max_members: Some(4),
-					max_members_per_pool: Some(5),
-					global_max_commission: Some(Perbill::from_percent(6)),
-				},
-			));
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::GlobalParamsUpdated {
+				min_join_bond: 1,
+				min_create_bond: 2,
+				max_pools: Some(3),
+				max_members: Some(4),
+				max_members_per_pool: Some(5),
+				global_max_commission: Some(Perbill::from_percent(6)),
+			}));
 
 			// Noop does nothing
 			assert_ok!(Pools::set_configs(
@@ -5163,16 +5161,14 @@ mod set_configs {
 			assert_eq!(MaxPoolMembersPerPool::<Runtime>::get(), Some(5));
 			assert_eq!(GlobalMaxCommission::<Runtime>::get(), Some(Perbill::from_percent(6)));
 
-			System::assert_last_event(tests::RuntimeEvent::Pools(
-				Event::GlobalNomPoolParamsUpdated {
-					min_join_bond: 1,
-					min_create_bond: 2,
-					max_pools: Some(3),
-					max_members: Some(4),
-					max_members_per_pool: Some(5),
-					global_max_commission: Some(Perbill::from_percent(6)),
-				},
-			));
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::GlobalParamsUpdated {
+				min_join_bond: 1,
+				min_create_bond: 2,
+				max_pools: Some(3),
+				max_members: Some(4),
+				max_members_per_pool: Some(5),
+				global_max_commission: Some(Perbill::from_percent(6)),
+			}));
 
 			// Removing works
 			assert_ok!(Pools::set_configs(
@@ -5191,16 +5187,14 @@ mod set_configs {
 			assert_eq!(MaxPoolMembersPerPool::<Runtime>::get(), None);
 			assert_eq!(GlobalMaxCommission::<Runtime>::get(), None);
 
-			System::assert_last_event(tests::RuntimeEvent::Pools(
-				Event::GlobalNomPoolParamsUpdated {
-					min_join_bond: 0,
-					min_create_bond: 0,
-					max_pools: None,
-					max_members: None,
-					max_members_per_pool: None,
-					global_max_commission: None,
-				},
-			));
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::GlobalParamsUpdated {
+				min_join_bond: 0,
+				min_create_bond: 0,
+				max_pools: None,
+				max_members: None,
+				max_members_per_pool: None,
+				global_max_commission: None,
+			}));
 		});
 	}
 }
