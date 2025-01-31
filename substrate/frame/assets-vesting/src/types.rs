@@ -89,11 +89,11 @@ where
 {
 	/// Instantiate a new `VestingInfo`.
 	pub fn new(
-		locked: Balance,
+		frozen: Balance,
 		per_block: Balance,
 		starting_block: BlockNumber,
 	) -> VestingInfo<Balance, BlockNumber> {
-		VestingInfo { frozen: locked, per_block, starting_block }
+		VestingInfo { frozen, per_block, starting_block }
 	}
 
 	/// Validate parameters for `VestingInfo`. Note that this does not check

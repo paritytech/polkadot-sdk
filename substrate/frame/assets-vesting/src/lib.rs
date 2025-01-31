@@ -48,7 +48,7 @@
 mod benchmarking;
 
 #[cfg(test)]
-mod mocks;
+mod mock;
 #[cfg(test)]
 mod tests;
 
@@ -56,6 +56,7 @@ mod types;
 mod weights;
 
 use frame::{
+	deps::codec::Decode,
 	prelude::*,
 	traits::{
 		fungibles::{Inspect, Mutate, MutateFreeze, VestedTransfer, VestingSchedule},
@@ -95,7 +96,7 @@ pub mod pallet {
 		type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self, I>>;
 
 		/// The overarching freeze reason.
-		type RuntimeFreezeReason: From<FreezeReason>;
+		type RuntimeFreezeReason: From<FreezeReason<I>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -122,6 +123,47 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
 
+	#[pallet::genesis_config]
+	#[derive(DefaultNoBound)]
+	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
+		pub vesting:
+			Vec<(Vec<u8>, T::AccountId, BlockNumberFor<T>, BlockNumberFor<T>, BalanceOf<T, I>)>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
+		fn build(&self) {
+			// Generate initial vesting configuration
+			// * asset - The id of the asset class the vesting is related to.
+			// * who - Account which we are generating vesting configuration for
+			// * begin - Block when the account will start to vest
+			// * length - Number of blocks from `begin` until fully vested
+			// * liquid - Number of units which can be spent before vesting begins
+			for &(ref id, ref who, begin, length, liquid) in self.vesting.iter() {
+				let asset = AssetIdOf::<T, I>::decode(&mut TrailingZeroInput::new(id))
+					.expect("Invalid AssetId encoding");
+				let balance = T::Assets::total_balance(asset.clone(), who);
+				assert!(!balance.is_zero(), "Assets must be init'd before vesting");
+
+				// Total genesis `balance` minus `liquid` equals assets frozen for vesting
+				let frozen = balance.saturating_sub(liquid);
+				let length_as_balance = T::BlockNumberToBalance::convert(length);
+				let per_block = frozen / length_as_balance.max(One::one());
+
+				let vesting_info = VestingInfo::new(frozen, per_block, begin);
+				if !vesting_info.is_valid() {
+					panic!("Invalid VestingInfo params at genesis")
+				};
+
+				Vesting::<T, I>::try_append(asset.clone(), who, vesting_info)
+					.expect("Too many vesting schedules at genesis.");
+
+				T::Freezer::set_freeze(asset, &FreezeReason::<I>::Vesting.into(), who, frozen)
+					.expect("Too many freezes at genesis");
+			}
+		}
+	}
+
 	/// Information regarding the vesting of a given account.
 	#[pallet::storage]
 	pub type Vesting<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
@@ -142,7 +184,7 @@ pub mod pallet {
 
 	/// A reason for the pallet assets vesting placing a freeze on funds.
 	#[pallet::composite_enum]
-	pub enum FreezeReason {
+	pub enum FreezeReason<I: 'static = ()> {
 		// An account is vesting some funds.
 		Vesting,
 	}
@@ -452,7 +494,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			source,
 			target,
 			schedule.locked(),
-			Preservation::Preserve,
+			Preservation::Expendable,
 		)?;
 
 		// We can't let this fail because the currency transfer has already happened.
@@ -510,7 +552,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		T::Freezer::set_freeze(
 			asset.clone(),
-			&FreezeReason::Vesting.into(),
+			&FreezeReason::<I>::Vesting.into(),
 			&who,
 			total_locked_now,
 		)?;

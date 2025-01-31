@@ -22,6 +22,8 @@ scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
 pallet-assets = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets-freezer = { workspace = true }
 
 [features]
 default = ["std"]
@@ -29,14 +31,20 @@ std = [
     "codec/std",
     "frame/std",
     "log/std",
+    "pallet-assets-freezer/std",
     "pallet-assets/std",
+    "pallet-balances/std",
     "scale-info/std",
 ]
 runtime-benchmarks = [
     "frame/runtime-benchmarks",
+    "pallet-assets-freezer/runtime-benchmarks",
     "pallet-assets/runtime-benchmarks",
+    "pallet-balances/runtime-benchmarks",
 ]
 try-runtime = [
     "frame/try-runtime",
+    "pallet-assets-freezer/try-runtime",
     "pallet-assets/try-runtime",
+    "pallet-balances/try-runtime",
 ]
