@@ -1,22 +1,13 @@
 title: deprecate AsyncBackingParams
 doc:
-- audience: Todo
+- audience: [Node Dev, Runtime Dev]
   description: |-
-    Part of https://github.com/paritytech/polkadot-sdk/issues/5079.
-
     Removes all usage of the static async backing params, replacing them with dynamically computed equivalent values (based on the claim queue and scheduling lookahead).
 
     Adds a new runtime API for querying the scheduling lookahead value. If not present, falls back to 3 (the default value that is backwards compatible with values we have on production networks for allowed_ancestry_len)
 
-    Also resolves most of https://github.com/paritytech/polkadot-sdk/issues/4447, removing code that handles async backing not yet being enabled.
-    While doing this, I removed the support for collation protocol version 1 on collators, as it only worked for leaves not supporting async backing (which are none).
-    I also unhooked the legacy v1 statement-distribution (for the same reason as above). That subsystem is basically dead code now, so I had to remove some of its tests as they would no longer pass (since the subsystem no longer sends messages to the legacy variant). I did not remove the entire legacy subsystem yet, as that would pollute this PR too much. We can remove the entire v1 and v2 validation protocols in a follow up PR.
+    Also removes most code that handles async backing not yet being enabled, which includes support for collation protocol version 1 on collators, as it only worked for leaves not supporting async backing (which are none).
 
-    In another PR: remove test files with names `prospective_parachains` (it'd pollute this PR if we do now)
-
-    TODO:
-    - [ ] add deprecation warnings
-    - [ ] prdoc
 crates:
 - name: cumulus-relay-chain-minimal-node
   bump: major
@@ -47,7 +38,7 @@ crates:
 - name: westend-runtime
   bump: major
 - name: cumulus-client-consensus-aura
-  bump: major
+  bump: minor
 - name: cumulus-relay-chain-inprocess-interface
   bump: major
 - name: cumulus-relay-chain-interface
@@ -55,12 +46,12 @@ crates:
 - name: polkadot-statement-distribution
   bump: major
 - name: polkadot
-  bump: major
+  bump: none
 - name: polkadot-service
-  bump: major
+  bump: minor
 - name: cumulus-client-consensus-common
-  bump: major
+  bump: minor
 - name: cumulus-client-network
-  bump: major
+  bump: minor
 - name: cumulus-client-pov-recovery
-  bump: major
+  bump: minor
