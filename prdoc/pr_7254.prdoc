@@ -24,7 +24,7 @@ crates:
 - name: polkadot-collator-protocol
   bump: major
 - name: polkadot-overseer
-  bump: minor
+  bump: major
 - name: polkadot-node-subsystem-types
   bump: major
 - name: polkadot-node-subsystem-util
@@ -34,9 +34,9 @@ crates:
 - name: polkadot-runtime-parachains
   bump: minor
 - name: rococo-runtime
-  bump: major
+  bump: minor
 - name: westend-runtime
-  bump: major
+  bump: minor
 - name: cumulus-client-consensus-aura
   bump: minor
 - name: cumulus-relay-chain-inprocess-interface
