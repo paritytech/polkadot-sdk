@@ -53,6 +53,7 @@ use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `frame_benchmarking_pallet_pov`.
+#[allow(dead_code)]
 pub trait WeightInfo {
 	fn storage_single_value_read() -> Weight;
 	fn storage_single_value_ignored_read() -> Weight;
@@ -483,6 +484,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 }
 
 // For backwards compatibility and tests.
+#[allow(dead_code)]
 impl WeightInfo for () {
 	/// Storage: `Pov::Value` (r:1 w:0)
 	/// Proof: `Pov::Value` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
