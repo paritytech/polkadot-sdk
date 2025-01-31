@@ -39,6 +39,12 @@ fn bridge_hub_rococo_genesis(
 		Option<bp_messages::LegacyLaneId>,
 		Option<pallet_xcm_bridge::Receiver>,
 	)>,
+	opened_bridges_for_bulletin: Vec<(
+		Location,
+		InteriorLocation,
+		Option<bp_messages::LegacyLaneId>,
+		Option<pallet_xcm_bridge::Receiver>,
+	)>,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
@@ -74,12 +80,7 @@ fn bridge_hub_rococo_genesis(
 			owner: bridges_pallet_owner.clone(),
 		},
 		xcm_over_polkadot_bulletin: XcmOverPolkadotBulletinConfig {
-			opened_bridges: vec![(
-				Location::new(1, [Parachain(1004)]),
-				Junctions::from([GlobalConsensus(NetworkId::PolkadotBulletin).into()]),
-				Some(bp_messages::LegacyLaneId([0, 0, 0, 0])),
-				None,
-			)],
+			opened_bridges: opened_bridges_for_bulletin
 		},
 		xcm_over_bridge_hub_westend: XcmOverBridgeHubWestendConfig { opened_bridges },
 		ethereum_system: EthereumSystemConfig { para_id: id, asset_hub_para_id },
@@ -105,6 +106,12 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 				Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
 				None,
 			)],
+			vec![(
+				Location::new(1, [Parachain(1004)]),
+				Junctions::from([GlobalConsensus(NetworkId::PolkadotBulletin).into()]),
+				Some(bp_messages::LegacyLaneId([0, 0, 0, 0])),
+				None,
+			)],
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => bridge_hub_rococo_genesis(
 			// initial collators.
@@ -116,6 +123,7 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 			1013.into(),
 			Some(Sr25519Keyring::Bob.to_account_id()),
 			rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
+			vec![],
 			vec![],
 		),
 		_ => return None,
