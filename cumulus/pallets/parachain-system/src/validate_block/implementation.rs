@@ -181,6 +181,13 @@ where
 			&parachain_head,
 		);
 
+		assert_eq!(
+			parent_header.hash(),
+			*block.header().parent_hash(),
+			"Invalid parent header hash: {:?}",
+			block.header().hash()
+		);
+
 		// Create the db
 		let db = match storage_proof.to_memory_db(Some(parent_header.state_root())) {
 			Ok((db, _)) => db,
