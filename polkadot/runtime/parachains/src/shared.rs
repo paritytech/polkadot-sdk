@@ -87,7 +87,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		state_root: Hash,
 		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
 		number: BlockNumber,
-		max_ancestry_len: usize,
+		max_ancestry_len: u32,
 	) {
 		if self.buffer.iter().any(|info| info.relay_parent == relay_parent) {
 			// Already present.
@@ -292,13 +292,7 @@ impl<T: Config> Pallet<T> {
 		max_ancestry_len: u32,
 	) {
 		AllowedRelayParents::<T>::mutate(|tracker| {
-			tracker.update(
-				relay_parent,
-				state_root,
-				claim_queue,
-				number,
-				max_ancestry_len as usize + 1,
-			)
+			tracker.update(relay_parent, state_root, claim_queue, number, max_ancestry_len + 1)
 		})
 	}
 }

@@ -329,7 +329,7 @@ impl<T: Config> Pallet<T> {
 						})
 						.collect(),
 					parent_number,
-					config.scheduler_params.lookahead as usize,
+					config.scheduler_params.lookahead,
 				);
 			});
 		}

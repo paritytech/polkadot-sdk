@@ -617,6 +617,7 @@ where
 	sender
 		.send_message(ChainApiMessage::Ancestors {
 			hash: relay_parent,
+			// Subtract 1 from the claim queue length, as it includes current `relay_parent`.
 			k: scheduling_lookahead.saturating_sub(1) as usize,
 			response_channel: tx,
 		})

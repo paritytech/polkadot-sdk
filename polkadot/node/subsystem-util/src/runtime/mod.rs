@@ -628,7 +628,8 @@ pub async fn fetch_scheduling_lookahead(
 		gum::trace!(
 			target: LOG_TARGET,
 			?parent,
-			"Querying the scheduling lookahead from the runtime is not supported by the current Runtime API, falling back to default value",
+			"Querying the scheduling lookahead from the runtime is not supported by the current Runtime API, falling back to default value of {}",
+			DEFAULT_SCHEDULING_LOOKAHEAD
 		);
 
 		Ok(DEFAULT_SCHEDULING_LOOKAHEAD)
