@@ -314,6 +314,7 @@ pub struct ChainSpecBuilder<E = NoExtension, EHF = ()> {
 	protocol_id: Option<String>,
 	fork_id: Option<String>,
 	properties: Option<Properties>,
+	code_substitutes: Option<BTreeMap<String, Bytes>>,
 }
 
 impl<E, EHF> ChainSpecBuilder<E, EHF> {
@@ -331,6 +332,7 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 			protocol_id: None,
 			fork_id: None,
 			properties: None,
+			code_substitutes: None,
 		}
 	}
 
@@ -413,6 +415,12 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 		self
 	}
 
+	/// Sets the `code_substitutes`.
+	pub fn with_code_substitutes(mut self, code_substitutes: BTreeMap<String, Bytes>) -> Self {
+		self.code_substitutes = Some(code_substitutes);
+		self
+	}
+
 	/// Builds a [`ChainSpec`] instance using the provided settings.
 	pub fn build(self) -> ChainSpec<E, EHF> {
 		let client_spec = ClientSpec {
@@ -427,7 +435,7 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 			extensions: self.extensions,
 			consensus_engine: (),
 			genesis: Default::default(),
-			code_substitutes: BTreeMap::new(),
+			code_substitutes: self.code_substitutes.unwrap_or_default(),
 		};
 
 		ChainSpec {
