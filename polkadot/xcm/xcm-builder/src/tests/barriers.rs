@@ -761,24 +761,9 @@ fn recursive_deny_and_try_xcm_works() {
 	assert!(result.is_ok());
 }
 
-impl<Deny, Allow> DenyExecution for RecursiveDenyThenTry<Deny, Allow>
-where
-	Deny: DenyExecution,
-	Allow: ShouldExecute,
-{
-	fn deny_execution<RuntimeCall>(
-		origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		max_weight: Weight,
-		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		Self::should_execute(origin, instructions, max_weight, properties)
-	}
-}
-
 #[test]
 fn recursive_deny_then_try_instructions_with_xcm_works() {
-	type Barrier = RecursiveDenyThenTry<DenyClearOrigin, AllowAll>;
+	type Barrier = DenyWrapper<RecursiveDenyThenTry<DenyClearOrigin, AllowAll>>;
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
 }
 

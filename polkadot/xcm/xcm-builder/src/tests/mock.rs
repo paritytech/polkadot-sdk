@@ -794,11 +794,11 @@ pub struct DenyClearOrigin;
 impl DenyExecution for DenyClearOrigin {
 	fn deny_execution<RuntimeCall>(
 		_: &Location,
-		message: &mut [Instruction<RuntimeCall>],
+		instructions: &mut [Instruction<RuntimeCall>],
 		_: Weight,
 		_: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		message.matcher().match_next_inst_while(
+		instructions.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
 				ClearOrigin => Err(ProcessMessageError::Unsupported),
@@ -808,3 +808,19 @@ impl DenyExecution for DenyClearOrigin {
 		Ok(())
 	}
 }
+
+// Dummy filter which wraps `DenyExecution` on `ShouldExecution`
+pub struct DenyWrapper<Deny: ShouldExecute> {
+	internal: Deny,
+}
+impl<Deny: ShouldExecute> DenyExecution for DenyWrapper<Deny> {
+	fn deny_execution<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Self::should_execute(origin, instructions, max_weight, properties)
+	}
+}
+
