@@ -234,7 +234,7 @@ fn impl_view_function_metadata(
 		};
 
 		quote::quote! {
-			#frame_support::__private::metadata_ir::PalletViewFunctionMethodMetadata {
+			#frame_support::__private::metadata_ir::PalletViewFunctionMethodMetadataIR {
 				name: ::core::stringify!(#name),
 				id: <#view_function_struct_ident<#type_use_gen> as #frame_support::view_functions::ViewFunction>::id().into(),
 				inputs: #frame_support::__private::sp_std::vec![ #( #inputs ),* ],
