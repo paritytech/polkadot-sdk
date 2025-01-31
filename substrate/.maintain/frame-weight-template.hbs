@@ -21,6 +21,7 @@ use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `{{pallet}}`.
+#[allow(dead_code)]
 pub trait WeightInfo {
 	{{#each benchmarks as |benchmark|}}
 	fn {{benchmark.name~}}
@@ -79,6 +80,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 }
 
 // For backwards compatibility and tests.
+#[allow(dead_code)]
 impl WeightInfo for () {
 	{{#each benchmarks as |benchmark|}}
 	{{#each benchmark.comments as |comment|}}
