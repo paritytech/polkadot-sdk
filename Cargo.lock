@@ -10258,7 +10258,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "yamux 0.12.1",
- "yamux 0.13.3",
+ "yamux 0.13.4",
 ]
 
 [[package]]
@@ -10431,8 +10431,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ca6ee50a125dc4fc4e9a3ae3640010796d1d07bc517a0ac715fdf0b24a0b6ac"
+source = "git+https://github.com/paritytech/litep2p.git#42dbb9cce9ac51cb7982a2651cd0b533ed3b167d"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10449,7 +10448,6 @@ dependencies = [
  "multiaddr 0.17.1",
  "multihash 0.17.0",
  "network-interface",
- "nohash-hasher",
  "parking_lot 0.12.3",
  "pin-project",
  "prost 0.12.6",
@@ -10464,7 +10462,6 @@ dependencies = [
  "smallvec",
  "snow",
  "socket2 0.5.7",
- "static_assertions",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -10476,6 +10473,7 @@ dependencies = [
  "url",
  "x25519-dalek",
  "x509-parser",
+ "yamux 0.13.4",
  "yasna",
  "zeroize",
 ]
@@ -32091,9 +32089,9 @@ dependencies = [
 
 [[package]]
 name = "yamux"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31b5e376a8b012bee9c423acdbb835fc34d45001cfa3106236a624e4b738028"
+checksum = "17610762a1207ee816c6fadc29220904753648aba0a9ed61c7b8336e80a559c4"
 dependencies = [
  "futures",
  "log",
