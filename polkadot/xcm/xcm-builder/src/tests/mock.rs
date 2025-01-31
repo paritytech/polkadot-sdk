@@ -41,6 +41,7 @@ pub use frame_support::{
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
 };
+use std::marker::PhantomData;
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 pub use xcm_executor::{
 	traits::{
@@ -810,9 +811,7 @@ impl DenyExecution for DenyClearOrigin {
 }
 
 // Dummy filter which wraps `DenyExecution` on `ShouldExecution`
-pub struct DenyWrapper<Deny: ShouldExecute> {
-	internal: Deny,
-}
+pub struct DenyWrapper<Deny: ShouldExecute>(PhantomData<Deny>);
 impl<Deny: ShouldExecute> DenyExecution for DenyWrapper<Deny> {
 	fn deny_execution<RuntimeCall>(
 		origin: &Location,
@@ -820,7 +819,6 @@ impl<Deny: ShouldExecute> DenyExecution for DenyWrapper<Deny> {
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Self::should_execute(origin, instructions, max_weight, properties)
+		Deny::should_execute(origin, instructions, max_weight, properties)
 	}
 }
-

@@ -712,7 +712,7 @@ fn recursive_deny_and_try_xcm_works() {
 	frame_support::__private::sp_tracing::try_init_simple();
 
 	type Barrier = RecursiveDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
-	let nested_xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
 		dest: Location::parent(),
 		xcm: vec![].into(),
@@ -721,42 +721,51 @@ fn recursive_deny_and_try_xcm_works() {
 	let max_weight = Weight::from_parts(10, 10);
 	let mut properties = props(Weight::zero());
 
-	let result = Barrier::should_execute(
-		&origin,
-		nested_xcm.clone().inner_mut(),
-		max_weight,
-		&mut properties,
-	);
+	// Should deny the original XCM
+	let result =
+		Barrier::should_execute(&origin, xcm.clone().inner_mut(), max_weight, &mut properties);
 	assert!(result.is_err());
 
-	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(nested_xcm.clone())]);
+	// Should deny with `SetAppendix`
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
+	let result =
+		Barrier::should_execute(&origin, message.clone().inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should allow with `SetAppendix` for the original `DenyThenTry`
+	type OriginalBarrier = DenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	let result =
+		OriginalBarrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+
+	// Should deny with `SetErrorHandler`
+	let mut message = Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.clone())]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_err());
 
-	let mut message = Xcm::<Instruction<()>>(vec![SetErrorHandler(nested_xcm.clone())]);
-	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
-	assert!(result.is_err());
-
+	// Should deny with `ExecuteWithOrigin`
 	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
-		xcm: nested_xcm.clone(),
+		xcm: xcm.clone(),
 		descendant_origin: None,
 	}]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_err());
 
+	// Should deny with more levels
 	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
-		xcm: vec![SetErrorHandler(vec![SetAppendix(nested_xcm.clone())].into())].into(),
+		xcm: vec![SetErrorHandler(vec![SetAppendix(xcm.clone())].into())].into(),
 		descendant_origin: None,
 	}]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_err());
 
-	let nested_xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+	// Should allow for valid XCM with `SetAppendix`
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
 		dest: Here.into_location(),
 		xcm: vec![].into(),
 	}]);
-	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(nested_xcm.clone())]);
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_ok());
 }
@@ -834,6 +843,67 @@ fn deny_instructions_with_xcm_works() {
 fn deny_first_instructions_with_xcm_works() {
 	type Barrier = DenyFirstInstructionsWithXcm<DenyClearOrigin>;
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
+}
+
+#[test]
+fn compare_deny_filters() {
+	frame_support::__private::sp_tracing::try_init_simple();
+
+	type Denies = (DenyReserveTransferToRelayChain, DenyWrapper<AllowAll>);
+
+	fn assert_barrier<Barrier: ShouldExecute>(
+		top_level_result: Result<(), ProcessMessageError>,
+		nested_result: Result<(), ProcessMessageError>,
+	) {
+		assert_deny_barrier::<DenyWrapper<Barrier>>(top_level_result, nested_result);
+	}
+
+	fn assert_deny_barrier<Barrier: DenyExecution>(
+		top_level_result: Result<(), ProcessMessageError>,
+		nested_result: Result<(), ProcessMessageError>,
+	) {
+		let mut xcm = Xcm::<Instruction<()>>(
+			vec![DepositReserveAsset {
+				assets: Wild(All),
+				dest: Location::parent(),
+				xcm: vec![].into(),
+			}]
+			.into(),
+		);
+		let mut nested_xcm =
+			Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.clone().into())].into());
+		let origin = Here.into_location();
+		let max_weight = Weight::zero();
+		let mut properties = props(Weight::zero());
+
+		let result = Barrier::deny_execution(&origin, xcm.inner_mut(), max_weight, &mut properties);
+		assert_eq!(top_level_result, result);
+
+		let result =
+			Barrier::deny_execution(&origin, nested_xcm.inner_mut(), max_weight, &mut properties);
+		assert_eq!(nested_result, result);
+	}
+
+	// `DenyThenTry`: Top-level=Deny, Nested=Allow, TryAllow=Yes
+	assert_barrier::<DenyThenTry<Denies, AllowAll>>(Err(ProcessMessageError::Unsupported), Ok(()));
+
+	// `RecursiveDenyThenTry`: Top-level=Deny, Nested=Deny, TryAllow=Yes
+	assert_barrier::<RecursiveDenyThenTry<Denies, AllowAll>>(
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// `DenyInstructionsWithXcm`: Top-level=Allow, Nested=Deny, TryAllow=No
+	assert_deny_barrier::<DenyInstructionsWithXcm<Denies>>(
+		Ok(()),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// `DenyFirstInstructionsWithXcm`: Top-level=Deny, Nested=Deny, TryAllow=No
+	assert_deny_barrier::<DenyFirstInstructionsWithXcm<Denies>>(
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
+	);
 }
 
 fn assert_deny_nested_instructions_with_xcm<Barrier: DenyExecution>(
