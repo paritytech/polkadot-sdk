@@ -13,8 +13,8 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 frame-support = { workspace = true }
 sp-core = { workspace = true }

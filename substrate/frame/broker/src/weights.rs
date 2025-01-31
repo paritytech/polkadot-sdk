@@ -77,6 +77,7 @@ pub trait WeightInfo {
 	fn notify_core_count() -> Weight;
 	fn notify_revenue() -> Weight;
 	fn do_tick_base() -> Weight;
+	fn force_reserve() -> Weight;
 	fn swap_leases() -> Weight;
 	fn enable_auto_renew() -> Weight;
 	fn disable_auto_renew() -> Weight;
@@ -486,6 +487,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(18_077_000, 1516)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Broker::SaleInfo` (r:1 w:0)
+	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Reservations` (r:1 w:1)
+	/// Proof: `Broker::Reservations` (`max_values`: Some(1), `max_size`: Some(6011), added: 6506, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Status` (r:1 w:0)
+	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Workplan` (r:0 w:2)
+	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
+	fn force_reserve() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `5253`
+		//  Estimated: `7496`
+		// Minimum execution time: 28_363_000 picoseconds.
+		Weight::from_parts(29_243_000, 7496)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Broker::Leases` (r:1 w:1)
 	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
@@ -943,6 +961,23 @@ impl WeightInfo for () {
 		Weight::from_parts(18_077_000, 1516)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Broker::SaleInfo` (r:1 w:0)
+	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Reservations` (r:1 w:1)
+	/// Proof: `Broker::Reservations` (`max_values`: Some(1), `max_size`: Some(6011), added: 6506, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Status` (r:1 w:0)
+	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Workplan` (r:0 w:2)
+	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
+	fn force_reserve() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `5253`
+		//  Estimated: `7496`
+		// Minimum execution time: 28_363_000 picoseconds.
+		Weight::from_parts(29_243_000, 7496)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Broker::Leases` (r:1 w:1)
 	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)

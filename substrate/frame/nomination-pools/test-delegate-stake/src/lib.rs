@@ -21,7 +21,10 @@ mod mock;
 
 use frame_support::{
 	assert_noop, assert_ok, hypothetically,
-	traits::{fungible::InspectHold, Currency},
+	traits::{
+		fungible::{InspectHold, Mutate},
+		Currency,
+	},
 };
 use mock::*;
 use pallet_nomination_pools::{
@@ -942,8 +945,12 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 fn pool_migration_e2e() {
 	new_test_ext().execute_with(|| {
 		LegacyAdapter::set(true);
-		assert_eq!(Balances::minimum_balance(), 5);
 		assert_eq!(CurrentEra::<T>::get(), None);
+
+		// hack: mint ED to pool so that the deprecated `TransferStake` works correctly with
+		// staking.
+		assert_eq!(Balances::minimum_balance(), 5);
+		assert_ok!(Balances::mint_into(&POOL1_BONDED, 5));
 
 		// create the pool with TransferStake strategy.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
@@ -1050,10 +1057,11 @@ fn pool_migration_e2e() {
 
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
+			// delegated also contains the extra ED that we minted when pool was `TransferStake` .
 			vec![DelegatedStakingEvent::Delegated {
 				agent: POOL1_BONDED,
 				delegator: proxy_delegator_1,
-				amount: 50 + 10 * 3
+				amount: 50 + 10 * 3 + 5
 			}]
 		);
 
@@ -1223,6 +1231,11 @@ fn disable_pool_operations_on_non_migrated() {
 		assert_eq!(Balances::minimum_balance(), 5);
 		assert_eq!(CurrentEra::<T>::get(), None);
 
+		// hack: mint ED to pool so that the deprecated `TransferStake` works correctly with
+		// staking.
+		assert_eq!(Balances::minimum_balance(), 5);
+		assert_ok!(Balances::mint_into(&POOL1_BONDED, 5));
+
 		// create the pool with TransferStake strategy.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
 		assert_eq!(LastPoolId::<Runtime>::get(), 1);
@@ -1331,11 +1344,12 @@ fn disable_pool_operations_on_non_migrated() {
 		assert_ok!(Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1));
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
+			// delegated also contains the extra ED that we minted when pool was `TransferStake` .
 			vec![DelegatedStakingEvent::Delegated {
 				agent: POOL1_BONDED,
 				delegator: DelegatedStaking::generate_proxy_delegator(Agent::from(POOL1_BONDED))
 					.get(),
-				amount: 50 + 10
+				amount: 50 + 10 + 5
 			},]
 		);
 
