@@ -1191,50 +1191,38 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let queue = Queue::<T>::get();
-		let end_index = match queue.iter().position(|&x| x >= now) {
-			Some(end_index) => end_index.saturating_add(1),
-			None => {
-				return;
-			},
-		};
-		if end_index == 0 {
-			return;
-		}
 
-		let mut index = 0;
-		let queue_len = queue.len();
-		for when in queue.iter().skip(index) {
-			if *when < now.saturating_sub(T::MaxStaleTaskAge::get()) {
-				Agenda::<T>::remove(*when);
-			} else {
-				let mut executed = 0;
-				if !Self::service_agenda(weight, &mut executed, now, *when, max) {
+		let mut to_remove = Vec::new();
+		let mut executed = 0;
+
+		for &when in queue.iter() {
+			if when <= now { // Process correctly up to `now`
+				if when < now.saturating_sub(T::MaxStaleTaskAge::get()) {
+					Agenda::<T>::remove(when);
+					to_remove.push(when);
+				} else if !Self::service_agenda(weight, &mut executed, now, when, max) {
 					break;
 				}
-			}
-			index = index.saturating_add(1);
-			if index >= queue_len {
-				break;
+			} else {
+				break; // Stop at the first future block
 			}
 		}
 
+		// Mutate queue to remove processed elements
 		Queue::<T>::mutate(|queue| {
-			let mut iter = queue.iter();
-			let mut to_remove = Vec::new(); // Collect items to remove
-
-			// Iterate and collect items to remove
-			for _ in 0..index {
-				iter.next();
-			}
-			for item in iter {
-				to_remove.push(*item);
-			}
-
-			// Now remove the collected items
-			for item in to_remove {
-				queue.remove(&item);
+			for item in &to_remove {
+				queue.remove(item);
 			}
 		});
+
+
+		// Mutate queue and remove the collected elements
+				Queue::<T>::mutate(|queue| {
+					for item in &to_remove { // Ensure `to_remove` is in scope
+						queue.remove(item);
+					}
+				});
+
 	}
 
 	/// Returns `true` if the agenda was fully completed, `false` if it should be revisited at a
