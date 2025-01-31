@@ -408,7 +408,6 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Ok(self.rpc_client.parachain_host_disabled_validators(at).await?)
 	}
 
-	#[deprecated = "AsyncBackingParams are going to be removed and ignored by relay chain validators, in favour of dynamically computed values based on the claim queue assignments"]
 	async fn async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
 		Ok(self.rpc_client.parachain_host_async_backing_params(at).await?)
 	}
