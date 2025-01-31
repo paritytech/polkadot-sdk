@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use xcm_executor::traits::Properties;
-
 use super::*;
+use xcm_executor::traits::Properties;
 
 fn props(weight_credit: Weight) -> Properties {
 	Properties { weight_credit, message_id: None }
@@ -709,6 +708,75 @@ fn deny_then_try_works() {
 }
 
 #[test]
+fn recursive_deny_and_try_xcm_works() {
+	frame_support::__private::sp_tracing::try_init_simple();
+
+	type Barrier = RecursiveDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+		assets: Wild(All),
+		dest: Location::parent(),
+		xcm: vec![].into(),
+	}]);
+	let origin = Here.into_location();
+	let max_weight = Weight::from_parts(10, 10);
+	let mut properties = props(Weight::zero());
+
+	// Should deny the original XCM
+	let result =
+		Barrier::should_execute(&origin, xcm.clone().inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should deny with `SetAppendix`
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
+	let result =
+		Barrier::should_execute(&origin, message.clone().inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should allow with `SetAppendix` for the original `DenyThenTry`
+	type OriginalBarrier = DenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	let result =
+		OriginalBarrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+
+	// Should deny with `SetErrorHandler`
+	let mut message = Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.clone())]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should deny with `ExecuteWithOrigin`
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
+		xcm: xcm.clone(),
+		descendant_origin: None,
+	}]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should deny with more levels
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
+		xcm: vec![SetErrorHandler(vec![SetAppendix(xcm.clone())].into())].into(),
+		descendant_origin: None,
+	}]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should allow for valid XCM with `SetAppendix`
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+		assets: Wild(All),
+		dest: Here.into_location(),
+		xcm: vec![].into(),
+	}]);
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+}
+
+#[test]
+fn recursive_deny_then_try_instructions_with_xcm_works() {
+	type Barrier = DenyWrapper<RecursiveDenyThenTry<DenyClearOrigin, AllowAll>>;
+	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
+}
+
+#[test]
 fn deny_reserve_transfer_to_relaychain_should_work() {
 	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
@@ -767,33 +835,87 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 
 #[test]
 fn deny_instructions_with_xcm_works() {
+	type Barrier = DenyInstructionsWithXcm<DenyClearOrigin>;
+	assert_deny_nested_instructions_with_xcm::<Barrier>(Ok(()));
+}
+
+#[test]
+fn deny_first_instructions_with_xcm_works() {
+	type Barrier = DenyFirstInstructionsWithXcm<DenyClearOrigin>;
+	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
+}
+
+#[test]
+fn compare_deny_filters() {
 	frame_support::__private::sp_tracing::try_init_simple();
 
-	// dummy filter which denies `ClearOrigin`
-	struct DenyClearOrigin;
-	impl ShouldExecute for DenyClearOrigin {
-		fn should_execute<RuntimeCall>(
-			_: &Location,
-			message: &mut [Instruction<RuntimeCall>],
-			_: Weight,
-			_: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			message.matcher().match_next_inst_while(
-				|_| true,
-				|inst| match inst {
-					ClearOrigin => Err(ProcessMessageError::Unsupported),
-					_ => Ok(ControlFlow::Continue(())),
-				},
-			)?;
-			Ok(())
-		}
+	type Denies = (DenyReserveTransferToRelayChain, DenyWrapper<AllowAll>);
+
+	fn assert_barrier<Barrier: ShouldExecute>(
+		top_level_result: Result<(), ProcessMessageError>,
+		nested_result: Result<(), ProcessMessageError>,
+	) {
+		assert_deny_barrier::<DenyWrapper<Barrier>>(top_level_result, nested_result);
 	}
 
-	// closure for (xcm, origin) testing with `DenyInstructionsWithXcm` which denies `ClearOrigin`
+	fn assert_deny_barrier<Barrier: DenyExecution>(
+		top_level_result: Result<(), ProcessMessageError>,
+		nested_result: Result<(), ProcessMessageError>,
+	) {
+		let mut xcm = Xcm::<Instruction<()>>(
+			vec![DepositReserveAsset {
+				assets: Wild(All),
+				dest: Location::parent(),
+				xcm: vec![].into(),
+			}]
+			.into(),
+		);
+		let mut nested_xcm =
+			Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.clone().into())].into());
+		let origin = Here.into_location();
+		let max_weight = Weight::zero();
+		let mut properties = props(Weight::zero());
+
+		let result = Barrier::deny_execution(&origin, xcm.inner_mut(), max_weight, &mut properties);
+		assert_eq!(top_level_result, result);
+
+		let result =
+			Barrier::deny_execution(&origin, nested_xcm.inner_mut(), max_weight, &mut properties);
+		assert_eq!(nested_result, result);
+	}
+
+	// `DenyThenTry`: Top-level=Deny, Nested=Allow, TryAllow=Yes
+	assert_barrier::<DenyThenTry<Denies, AllowAll>>(Err(ProcessMessageError::Unsupported), Ok(()));
+
+	// `RecursiveDenyThenTry`: Top-level=Deny, Nested=Deny, TryAllow=Yes
+	assert_barrier::<RecursiveDenyThenTry<Denies, AllowAll>>(
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// `DenyInstructionsWithXcm`: Top-level=Allow, Nested=Deny, TryAllow=No
+	assert_deny_barrier::<DenyInstructionsWithXcm<Denies>>(
+		Ok(()),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// `DenyFirstInstructionsWithXcm`: Top-level=Deny, Nested=Deny, TryAllow=No
+	assert_deny_barrier::<DenyFirstInstructionsWithXcm<Denies>>(
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
+	);
+}
+
+fn assert_deny_nested_instructions_with_xcm<Barrier: DenyExecution>(
+	top_level_expected_result: Result<(), ProcessMessageError>,
+) {
+	frame_support::__private::sp_tracing::try_init_simple();
+
+	// closure for (xcm, origin) testing with `Barrier` which denies `ClearOrigin`
 	// instruction
-	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
-			DenyInstructionsWithXcm::<DenyClearOrigin>::should_execute(
+			Barrier::deny_execution(
 				&origin,
 				&mut xcm,
 				Weight::from_parts(10, 10),
@@ -804,32 +926,32 @@ fn deny_instructions_with_xcm_works() {
 	};
 
 	// ok
-	assert_should_execute(vec![ClearTransactStatus], Location::parent(), Ok(()));
-	// ok top-level contains `ClearOrigin`
-	assert_should_execute(vec![ClearOrigin], Location::parent(), Ok(()));
+	assert_deny_execution(vec![ClearTransactStatus], Location::parent(), Ok(()));
+	// ok/err top-level contains `ClearOrigin`
+	assert_deny_execution(vec![ClearOrigin], Location::parent(), top_level_expected_result);
 	// ok - SetAppendix with XCM without ClearOrigin
-	assert_should_execute(
+	assert_deny_execution(
 		vec![SetAppendix(Xcm(vec![ClearTransactStatus]))],
 		Location::parent(),
 		Ok(()),
 	);
 
 	// invalid - empty XCM
-	assert_should_execute(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
+	assert_deny_execution(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
 	// invalid - SetAppendix with empty XCM
-	assert_should_execute(
+	assert_deny_execution(
 		vec![SetAppendix(Xcm(vec![]))],
 		Location::parent(),
 		Err(ProcessMessageError::BadFormat),
 	);
 	// invalid SetAppendix contains `ClearOrigin`
-	assert_should_execute(
+	assert_deny_execution(
 		vec![SetAppendix(Xcm(vec![ClearOrigin]))],
 		Location::parent(),
 		Err(ProcessMessageError::Unsupported),
 	);
 	// invalid nested SetAppendix contains `ClearOrigin`
-	assert_should_execute(
+	assert_deny_execution(
 		vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
 			Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
 				SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![

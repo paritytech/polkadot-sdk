@@ -18,6 +18,7 @@
 
 use crate::{
 	barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId},
+	matcher::{CreateMatcher, MatchXcm},
 	test_utils::*,
 	EnsureDecodableXcm,
 };
@@ -33,19 +34,20 @@ pub use core::{
 	fmt::Debug,
 	ops::ControlFlow,
 };
-use frame_support::traits::{ContainsPair, Everything};
+use frame_support::traits::{ContainsPair, Everything, ProcessMessageError};
 pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure, parameter_types,
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
 };
+use std::marker::PhantomData;
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 pub use xcm_executor::{
 	traits::{
 		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
 		FeeManager, FeeReason, LockError, OnResponse, Properties, QueryHandler,
-		QueryResponseStatus, TransactAsset,
+		QueryResponseStatus, ShouldExecute, TransactAsset,
 	},
 	AssetsInHolding, Config,
 };
@@ -772,4 +774,51 @@ pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {
 
 pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
+}
+
+// Dummy Barriers
+// Dummy filter to allow all
+pub struct AllowAll;
+impl ShouldExecute for AllowAll {
+	fn should_execute<RuntimeCall>(
+		_: &Location,
+		_: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Ok(())
+	}
+}
+
+// Dummy filter which denies `ClearOrigin`
+pub struct DenyClearOrigin;
+impl DenyExecution for DenyClearOrigin {
+	fn deny_execution<RuntimeCall>(
+		_: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		instructions.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				ClearOrigin => Err(ProcessMessageError::Unsupported),
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
+		Ok(())
+	}
+}
+
+// Dummy filter which wraps `DenyExecution` on `ShouldExecution`
+pub struct DenyWrapper<Deny: ShouldExecute>(PhantomData<Deny>);
+impl<Deny: ShouldExecute> DenyExecution for DenyWrapper<Deny> {
+	fn deny_execution<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Deny::should_execute(origin, instructions, max_weight, properties)
+	}
 }
