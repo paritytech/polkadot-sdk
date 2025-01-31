@@ -21,8 +21,6 @@
 use anyhow::anyhow;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig, NetworkConfigExt};
 
-const DEFAULT_BASE_DIR: &'static str = "/tmp/zn-spawner";
-
 const ASSET_HUB_LOW_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
 	"tests/zombienet/network-specs/asset-hub-low-pool-limit-fatp.toml";
 const ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
@@ -65,8 +63,20 @@ impl NetworkSpawner {
 
 	pub async fn init_from_asset_hub_fatp_high_pool_limit_3_collators_spec(
 	) -> Result<Network<LocalFileSystem>> {
-		let net_config = NetworkConfig::load_from_toml(ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH)
-			.map_err(Error::NetworkInit)?;
+		let net_config =
+			NetworkConfig::load_from_toml(ASSET_HUB_HIGH_POOL_LIMIT_OLDP_3_COLLATORS_SPEC_PATH)
+				.map_err(Error::NetworkInit)?;
+		net_config
+			.spawn_native()
+			.await
+			.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))
+	}
+
+	pub async fn init_from_asset_hub_fatp_high_pool_limit_4_collators_spec(
+	) -> Result<Network<LocalFileSystem>> {
+		let net_config =
+			NetworkConfig::load_from_toml(ASSET_HUB_HIGH_POOL_LIMIT_OLDP_4_COLLATORS_SPEC_PATH)
+				.map_err(Error::NetworkInit)?;
 		net_config
 			.spawn_native()
 			.await

@@ -11,6 +11,8 @@ chain = "rococo-local"
 [[relaychain.nodes]]
 name = "alice"
 rpc_port = 9944
+# needed for zombienet/cli
+ws_port = 9934
 validator = true
 
 [[relaychain.nodes]]
@@ -41,10 +43,11 @@ default_args = [
 	"-ltxpool=debug",
 ]
 [parachains.genesis.runtimeGenesis.patch.balances]
+# TODO: fix zombienet/cli to accept such arrays
 devAccounts = [
-	20000,
+	"//Sender//{}",
 	1000000000000000000,
-	"//Sender//{}"
+	20000,
 ]
 
 # run charlie as parachain collator
@@ -57,13 +60,19 @@ rpc_port = 9933
 name = "dave"
 validator = true
 rpc_port = 9934
+# needed for zombienet/cli
+ws_port = 9934
 
 [[parachains.collators]]
 name = "eve"
 validator = true
 rpc_port = 9935
+# needed for zombienet/cli
+ws_port = 9935
 
 [[parachains.collators]]
 name = "ferdie"
 validator = true
-rpc_port = 9935
+rpc_port = 9936
+# needed for zombienet/cli
+ws_port = 9936

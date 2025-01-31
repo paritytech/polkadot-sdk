@@ -6,6 +6,8 @@ chain = "rococo-local"
 [[relaychain.nodes]]
 name = "alice"
 rpc_port = 9944
+# needed for zombienet/cli
+ws_port = 9944
 validator = true
 
 [[relaychain.nodes]]
@@ -39,21 +41,28 @@ default_args = [
 name = "charlie"
 validator = false
 rpc_port = 9933
-
+# needed for zombienet/cli
+ws_port = 9933
 
 [[parachains.collators]]
 name = "dave"
 validator = true
 rpc_port = 9934
+# needed for zombienet/cli
+ws_port = 9934
 
 
 [[parachains.collators]]
 name = "eve"
 validator = true
 rpc_port = 9935
+# needed for zombienet/cli
+ws_port = 9935
 
 
 [[parachains.collators]]
 name = "ferdie"
 validator = true
 rpc_port = 9936
+# needed for zombienet/cli
+ws_port = 9936
