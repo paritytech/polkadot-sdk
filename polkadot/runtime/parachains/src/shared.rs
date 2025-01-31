@@ -99,7 +99,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		self.buffer.push_back(RelayParentInfo { relay_parent, state_root, claim_queue });
 
 		self.latest_number = number;
-		while self.buffer.len() > max_ancestry_len {
+		while self.buffer.len() > (max_ancestry_len as usize) {
 			let _ = self.buffer.pop_front();
 		}
 
