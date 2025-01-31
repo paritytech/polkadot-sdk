@@ -10,7 +10,7 @@ use frame_support::{
 
 use codec::Encode;
 use snowbridge_core::{ParaId, PricingParameters, Rewards};
-use snowbridge_outbound_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v1::{Command, SendMessage},
 	SendError,
 };

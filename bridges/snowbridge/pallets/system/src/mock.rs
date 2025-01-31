@@ -14,7 +14,7 @@ use snowbridge_core::{
 	gwei, meth, sibling_sovereign_account, AgentId, AllowSiblingsOnly, ParaId, PricingParameters,
 	Rewards,
 };
-use snowbridge_outbound_primitives::v1::ConstantGasMeter;
+use snowbridge_outbound_queue_primitives::v1::ConstantGasMeter;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,

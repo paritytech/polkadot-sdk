@@ -22,28 +22,28 @@ xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 
 snowbridge-core = { workspace = true }
-snowbridge-outbound-primitives = { workspace = true }
+snowbridge-outbound-queue-primitives = { workspace = true }
 
 [dev-dependencies]
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"frame-support/std",
-	"log/std",
-	"snowbridge-core/std",
-	"snowbridge-outbound-primitives/std",
-	"sp-arithmetic/std",
-	"sp-std/std",
-	"xcm-builder/std",
-	"xcm-executor/std",
-	"xcm/std",
+    "codec/std",
+    "frame-support/std",
+    "log/std",
+    "snowbridge-core/std",
+    "snowbridge-outbound-queue-primitives/std",
+    "sp-arithmetic/std",
+    "sp-std/std",
+    "xcm-builder/std",
+    "xcm-executor/std",
+    "xcm/std",
 ]
 runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"snowbridge-core/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "snowbridge-core/runtime-benchmarks",
+    "xcm-builder/runtime-benchmarks",
+    "xcm-executor/runtime-benchmarks",
+    "xcm/runtime-benchmarks",
 ]

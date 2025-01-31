@@ -3,7 +3,7 @@ use crate::v2::convert::XcmConverterError;
 use frame_support::{parameter_types, BoundedVec};
 use hex_literal::hex;
 use snowbridge_core::{AgentIdOf, TokenIdOf};
-use snowbridge_outbound_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v2::{Command, Message},
 	SendError, SendMessageFeeProvider,
 };

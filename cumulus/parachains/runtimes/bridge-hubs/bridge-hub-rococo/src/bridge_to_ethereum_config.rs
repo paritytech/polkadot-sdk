@@ -24,7 +24,7 @@ use crate::{
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_outbound_router_primitives::v1::EthereumBlobExporter;
+use snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter;
 use snowbridge_inbound_queue_primitives::v1::MessageToXcm;
 
 use sp_core::H160;

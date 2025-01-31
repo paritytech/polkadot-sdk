@@ -71,7 +71,7 @@ use snowbridge_core::{
 	PricingParameters as PricingParametersRecord, TokenId, TokenIdOf, PRIMARY_GOVERNANCE_CHANNEL,
 	SECONDARY_GOVERNANCE_CHANNEL,
 };
-use snowbridge_outbound_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v1::{Command, Initializer, Message, SendMessage},
 	OperatingMode, SendError,
 };

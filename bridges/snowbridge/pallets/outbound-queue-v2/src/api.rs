@@ -5,11 +5,10 @@
 use crate::{Config, MessageLeaves};
 use frame_support::storage::StorageStreamIter;
 use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
-use snowbridge_outbound_primitives::{
-	v2::{GasMeter, Message, OutboundCommandWrapper, OutboundMessage},
-	DryRunError,
+use snowbridge_outbound_queue_primitives::v2::{
+	GasMeter, Message, OutboundCommandWrapper, OutboundMessage, DryRunError,
+	XcmConverter,
 };
-use snowbridge_outbound_router_primitives::v2::convert::XcmConverter;
 use sp_core::Get;
 use sp_std::{default::Default, vec::Vec};
 use xcm::prelude::Xcm;

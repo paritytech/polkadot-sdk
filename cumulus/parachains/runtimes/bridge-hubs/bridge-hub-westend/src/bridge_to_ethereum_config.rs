@@ -25,10 +25,10 @@ use crate::{
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_outbound_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v1::ConstantGasMeter, v2::ConstantGasMeter as ConstantGasMeterV2,
 };
-use snowbridge_outbound_router_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v1::EthereumBlobExporter, v2::EthereumBlobExporter as EthereumBlobExporterV2,
 };
 use sp_core::H160;

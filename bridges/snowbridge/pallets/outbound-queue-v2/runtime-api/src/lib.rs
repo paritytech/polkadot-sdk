@@ -4,7 +4,7 @@
 
 use frame_support::traits::tokens::Balance as BalanceT;
 use snowbridge_merkle_tree::MerkleProof;
-use snowbridge_outbound_primitives::{v2::OutboundMessage, DryRunError};
+use snowbridge_outbound_queue_primitives::v2::{OutboundMessage, DryRunError};
 use xcm::prelude::Xcm;
 
 sp_api::decl_runtime_apis! {

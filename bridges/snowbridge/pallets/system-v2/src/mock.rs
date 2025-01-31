@@ -9,7 +9,7 @@ use xcm_executor::traits::ConvertLocation;
 
 use crate as snowbridge_system;
 use snowbridge_core::{sibling_sovereign_account, AgentId, ParaId};
-use snowbridge_outbound_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v2::{Message, SendMessage},
 	SendMessageFeeProvider,
 };
@@ -129,11 +129,11 @@ impl SendMessage for MockOkOutboundQueue {
 
 	fn validate(
 		_: &Message,
-	) -> Result<(Self::Ticket, Self::Balance), snowbridge_outbound_primitives::SendError> {
+	) -> Result<(Self::Ticket, Self::Balance), snowbridge_outbound_queue_primitives::SendError> {
 		Ok(((), 1_u128))
 	}
 
-	fn deliver(_: Self::Ticket) -> Result<H256, snowbridge_outbound_primitives::SendError> {
+	fn deliver(_: Self::Ticket) -> Result<H256, snowbridge_outbound_queue_primitives::SendError> {
 		Ok(H256::zero())
 	}
 }

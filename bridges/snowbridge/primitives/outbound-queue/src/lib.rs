@@ -11,8 +11,7 @@ use codec::{Decode, Encode};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-use sp_core::{RuntimeDebug, H160};
-use sp_std::vec::Vec;
+use sp_core::RuntimeDebug;
 
 pub use snowbridge_verification_primitives::*;
 
@@ -44,18 +43,4 @@ pub enum SendError {
 	Halted,
 	/// Invalid Channel
 	InvalidChannel,
-}
-
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-pub enum DryRunError {
-	ConvertLocationFailed,
-	ConvertXcmFailed,
-}
-
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct TransactInfo {
-	pub target: H160,
-	pub data: Vec<u8>,
-	pub gas_limit: u64,
-	pub value: u128,
 }

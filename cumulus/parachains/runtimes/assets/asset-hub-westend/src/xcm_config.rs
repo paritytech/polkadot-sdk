@@ -724,9 +724,9 @@ pub mod bridging {
 		}
 
 		pub type EthereumNetworkExportTableV2 =
-			snowbridge_outbound_router_primitives::v2::XcmFilterExporter<
+			snowbridge_outbound_queue_primitives::v2::XcmFilterExporter<
 				xcm_builder::NetworkExportTable<EthereumBridgeTableV2>,
-				snowbridge_outbound_router_primitives::v2::XcmForSnowbridgeV2,
+				snowbridge_outbound_queue_primitives::v2::XcmForSnowbridgeV2,
 			>;
 
 		pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;

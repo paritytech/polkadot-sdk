@@ -11,7 +11,7 @@ mod tests;
 use codec::FullCodec;
 use core::marker::PhantomData;
 use frame_support::traits::Get;
-use snowbridge_outbound_primitives::SendMessageFeeProvider;
+use snowbridge_outbound_queue_primitives::SendMessageFeeProvider;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_std::fmt::Debug;
 use xcm::prelude::*;

@@ -7,14 +7,14 @@
 //! Messages come either from sibling parachains via XCM, or BridgeHub itself
 //! via the `snowbridge-pallet-system`:
 //!
-//! 1. `snowbridge_outbound_router_primitives::v2::EthereumBlobExporter::deliver`
+//! 1. `snowbridge_outbound_queue_primitives::v2::EthereumBlobExporter::deliver`
 //! 2. `snowbridge_pallet_system::Pallet::send_v2`
 //!
 //! The message submission pipeline works like this:
 //! 1. The message is first validated via the implementation for
-//!    [`snowbridge_outbound_primitives::v2::SendMessage::validate`]
+//!    [`snowbridge_outbound_queue_primitives::v2::SendMessage::validate`]
 //! 2. The message is then enqueued for later processing via the implementation for
-//!    [`snowbridge_outbound_primitives::v2::SendMessage::deliver`]
+//!    [`snowbridge_outbound_queue_primitives::v2::SendMessage::deliver`]
 //! 3. The underlying message queue is implemented by [`Config::MessageQueue`]
 //! 4. The message queue delivers messages back to this pallet via the implementation for
 //!    [`frame_support::traits::ProcessMessage::process_message`]
@@ -77,10 +77,12 @@ use snowbridge_core::{
 	BasicOperatingMode, RewardLedger, TokenId,
 };
 use snowbridge_merkle_tree::merkle_root;
-use snowbridge_outbound_primitives::{EventProof, VerificationError, Verifier};
-use snowbridge_outbound_primitives::v2::{
-	abi::{CommandWrapper, OutboundMessageWrapper},
-	GasMeter, Message, OutboundCommandWrapper, OutboundMessage,
+use snowbridge_outbound_queue_primitives::{
+	EventProof, VerificationError, Verifier,
+	v2::{
+		abi::{CommandWrapper, OutboundMessageWrapper},
+		GasMeter, Message, OutboundCommandWrapper, OutboundMessage,
+	}
 };
 use sp_core::{H160, H256};
 use sp_runtime::{

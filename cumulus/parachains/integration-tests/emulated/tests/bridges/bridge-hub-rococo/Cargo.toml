@@ -46,7 +46,7 @@ testnet-parachains-constants = { features = [
 
 # Snowbridge
 snowbridge-core = { workspace = true }
-snowbridge-outbound-primitives = { workspace = true }
+snowbridge-outbound-queue-primitives = { workspace = true }
 snowbridge-pallet-inbound-queue-fixtures = { workspace = true, default-features = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-system = { workspace = true }

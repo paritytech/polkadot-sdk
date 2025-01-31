@@ -17,7 +17,7 @@ use snowbridge_core::{
 	pricing::{PricingParameters, Rewards},
 	ParaId,
 };
-use snowbridge_outbound_primitives::v2::*;
+use snowbridge_outbound_queue_primitives::v2::*;
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},

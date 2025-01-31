@@ -33,7 +33,7 @@ pub use weights::*;
 use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
 use snowbridge_core::{AgentId, AssetMetadata, TokenId, TokenIdOf};
-use snowbridge_outbound_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v2::{Command, Message, SendMessage},
 	SendError,
 };

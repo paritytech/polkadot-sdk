@@ -6,7 +6,7 @@
 mod tests;
 
 pub mod convert;
-use convert::XcmConverter;
+pub use convert::XcmConverter;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -14,7 +14,7 @@ use frame_support::{
 	traits::{Contains, Get, ProcessMessageError},
 };
 use snowbridge_core::{ParaId, TokenId};
-use snowbridge_outbound_primitives::v2::SendMessage;
+use super::message::SendMessage;
 use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{marker::PhantomData, ops::ControlFlow, prelude::*};

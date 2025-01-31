@@ -12,7 +12,7 @@ use frame_support::{
 
 use codec::Encode;
 use snowbridge_core::{ChannelId, ParaId};
-use snowbridge_outbound_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v2::{abi::OutboundMessageWrapper, primary_governance_origin, Command, SendMessage},
 	SendError,
 };

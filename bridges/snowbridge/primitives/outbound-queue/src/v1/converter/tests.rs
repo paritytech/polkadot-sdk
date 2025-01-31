@@ -1,7 +1,7 @@
 use frame_support::parameter_types;
 use hex_literal::hex;
 use snowbridge_core::AgentIdOf;
-use snowbridge_outbound_primitives::{v1::Fee, SendError, SendMessageFeeProvider};
+use snowbridge_outbound_queue_primitives::{v1::Fee, SendError, SendMessageFeeProvider};
 use sp_std::default::Default;
 use xcm::{
 	latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},

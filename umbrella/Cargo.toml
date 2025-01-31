@@ -171,10 +171,9 @@ std = [
     "snowbridge-core?/std",
     "snowbridge-ethereum?/std",
     "snowbridge-merkle-tree?/std",
-    "snowbridge-outbound-primitives?/std",
+    "snowbridge-outbound-queue-primitives?/std",
     "snowbridge-outbound-queue-runtime-api-v2?/std",
     "snowbridge-outbound-queue-runtime-api?/std",
-    "snowbridge-outbound-router-primitives?/std",
     "snowbridge-pallet-ethereum-client-fixtures?/std",
     "snowbridge-pallet-ethereum-client?/std",
     "snowbridge-pallet-inbound-queue-fixtures?/std",
@@ -725,9 +724,8 @@ runtime-full = [
     "snowbridge-core",
     "snowbridge-ethereum",
     "snowbridge-merkle-tree",
-    "snowbridge-outbound-primitives",
+    "snowbridge-outbound-queue-primitives",
     "snowbridge-outbound-queue-runtime-api",
-    "snowbridge-outbound-router-primitives",
     "snowbridge-pallet-ethereum-client",
     "snowbridge-pallet-ethereum-client-fixtures",
     "snowbridge-pallet-inbound-queue",
@@ -1853,10 +1851,10 @@ default-features = false
 optional = true
 path = "../bridges/snowbridge/primitives/merkle-tree"
 
-[dependencies.snowbridge-outbound-primitives]
+[dependencies.snowbridge-outbound-queue-primitives]
 default-features = false
 optional = true
-path = "../bridges/snowbridge/primitives/outbound"
+path = "../bridges/snowbridge/primitives/outbound-queue"
 
 [dependencies.snowbridge-outbound-queue-runtime-api]
 default-features = false
@@ -1867,11 +1865,6 @@ path = "../bridges/snowbridge/pallets/outbound-queue/runtime-api"
 default-features = false
 optional = true
 path = "../bridges/snowbridge/pallets/outbound-queue-v2/runtime-api"
-
-[dependencies.snowbridge-outbound-router-primitives]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/primitives/outbound-router"
 
 [dependencies.snowbridge-pallet-ethereum-client]
 default-features = false

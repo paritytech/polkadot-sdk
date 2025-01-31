@@ -1,6 +1,6 @@
 [package]
-name = "snowbridge-outbound-primitives"
-description = "Snowbridge outbound primitives"
+name = "snowbridge-outbound-queue-primitives"
+description = "Snowbridge Outbound Queue Primitives"
 version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
@@ -15,16 +15,20 @@ workspace = true
 codec = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
+log = { workspace = true }
 
 polkadot-parachain-primitives = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-std = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 alloy-core = { workspace = true, features = ["sol-types"] }
 ethabi = { workspace = true }
@@ -32,9 +36,9 @@ ethabi = { workspace = true }
 snowbridge-core = { workspace = true }
 snowbridge-verification-primitives = { workspace = true }
 
+
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
-xcm-executor = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -51,6 +55,9 @@ std = [
     "sp-arithmetic/std",
     "sp-core/std",
     "sp-std/std",
+    "sp-io/std",
+    "sp-runtime/std",
     "xcm-builder/std",
+    "xcm-executor/std",
     "xcm/std",
 ]

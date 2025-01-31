@@ -6,7 +6,7 @@ use crate::{Config, MessageLeaves};
 use frame_support::storage::StorageStreamIter;
 use snowbridge_core::PricingParameters;
 use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
-use snowbridge_outbound_primitives::v1::{Command, Fee, GasMeter};
+use snowbridge_outbound_queue_primitives::v1::{Command, Fee, GasMeter};
 use sp_core::Get;
 
 pub fn prove_message<T>(leaf_index: u64) -> Option<MerkleProof>

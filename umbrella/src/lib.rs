@@ -1201,8 +1201,8 @@ pub use snowbridge_ethereum;
 pub use snowbridge_merkle_tree;
 
 /// Snowbridge outbound primitives.
-#[cfg(feature = "snowbridge-outbound-primitives")]
-pub use snowbridge_outbound_primitives;
+#[cfg(feature = "snowbridge-outbound-queue-primitives")]
+pub use snowbridge_outbound_queue_primitives;
 
 /// Snowbridge Outbound Queue Runtime API.
 #[cfg(feature = "snowbridge-outbound-queue-runtime-api")]
@@ -1212,9 +1212,6 @@ pub use snowbridge_outbound_queue_runtime_api;
 #[cfg(feature = "snowbridge-outbound-queue-runtime-api-v2")]
 pub use snowbridge_outbound_queue_runtime_api_v2;
 
-/// Snowbridge Router Primitives.
-#[cfg(feature = "snowbridge-outbound-router-primitives")]
-pub use snowbridge_outbound_router_primitives;
 
 /// Snowbridge Ethereum Client Pallet.
 #[cfg(feature = "snowbridge-pallet-ethereum-client")]

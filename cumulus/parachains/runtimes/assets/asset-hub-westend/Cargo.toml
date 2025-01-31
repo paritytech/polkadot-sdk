@@ -106,9 +106,9 @@ bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
-snowbridge-outbound-router-primitives = { workspace = true }
 snowbridge-pallet-system-frontend = { workspace = true }
 snowbridge-inbound-queue-primitives = { workspace = true }
+snowbridge-outbound-queue-primitives = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
@@ -262,9 +262,9 @@ std = [
 	"primitive-types/std",
 	"scale-info/std",
 	"serde_json/std",
-	"snowbridge-outbound-router-primitives/std",
 	"snowbridge-pallet-system-frontend/std",
 	"snowbridge-inbound-queue-primitives/std",
+	"snowbridge-outbound-queue-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

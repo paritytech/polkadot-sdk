@@ -19,18 +19,18 @@ codec = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 snowbridge-core = { workspace = true }
 snowbridge-merkle-tree = { workspace = true }
-snowbridge-outbound-primitives = { workspace = true }
+snowbridge-outbound-queue-primitives = { workspace = true }
 sp-api = { workspace = true }
 sp-std = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"frame-support/std",
-	"snowbridge-core/std",
-	"snowbridge-merkle-tree/std",
-	"snowbridge-outbound-primitives/std",
-	"sp-api/std",
-	"sp-std/std",
+    "codec/std",
+    "frame-support/std",
+    "snowbridge-core/std",
+    "snowbridge-merkle-tree/std",
+    "snowbridge-outbound-queue-primitives/std",
+    "sp-api/std",
+    "sp-std/std",
 ]

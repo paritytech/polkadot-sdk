@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-//! Implementation for [`snowbridge_outbound_primitives::v1::SendMessage`]
+//! Implementation for [`snowbridge_outbound_queue_primitives::v1::SendMessage`]
 use super::*;
 use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
@@ -11,7 +11,7 @@ use frame_support::{
 };
 use frame_system::unique;
 use snowbridge_core::{ChannelId, PRIMARY_GOVERNANCE_CHANNEL};
-use snowbridge_outbound_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v1::{Fee, Message, QueuedMessage, SendMessage, VersionedQueuedMessage},
 	SendError, SendMessageFeeProvider,
 };

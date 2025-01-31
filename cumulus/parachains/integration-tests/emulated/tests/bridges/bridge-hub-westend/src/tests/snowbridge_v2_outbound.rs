@@ -18,7 +18,7 @@ use emulated_integration_tests_common::{impls::Decode, PenpalBTeleportableAssetL
 use frame_support::pallet_prelude::TypeInfo;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
 use snowbridge_core::AssetMetadata;
-use snowbridge_outbound_primitives::TransactInfo;
+use snowbridge_outbound_queue_primitives::v2::TransactInfo;
 use snowbridge_router_primitives::EthereumLocationsConverterFor;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;

@@ -100,10 +100,9 @@ use parachains_common::{
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use snowbridge_core::{AgentId, PricingParameters};
-use snowbridge_outbound_primitives::{
+use snowbridge_outbound_queue_primitives::{
 	v1::{Command, Fee},
-	v2::OutboundMessage,
-	DryRunError,
+	v2::{OutboundMessage, DryRunError},
 };
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};

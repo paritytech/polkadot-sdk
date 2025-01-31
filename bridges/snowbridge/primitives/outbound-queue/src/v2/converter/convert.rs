@@ -6,10 +6,12 @@ use codec::DecodeAll;
 use core::slice::Iter;
 use frame_support::{ensure, traits::Get, BoundedVec};
 use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
-use snowbridge_outbound_primitives::{
-	v2::{Command, Message},
+
+use crate::v2::{
+	message::{Command, Message},
 	TransactInfo,
 };
+
 use sp_core::H160;
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use snowbridge_outbound_primitives::Log;
+use snowbridge_outbound_queue_primitives::Log;
 
 use sp_core::{RuntimeDebug, H160};
 use sp_std::prelude::*;
