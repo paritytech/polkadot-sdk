@@ -1240,7 +1240,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						// any subsequent fees
 						message.push(PayFees { asset: fees });
 					} else {
-						// unpaid execution
+						// Check if this origin is allowed to send messages that do not
+						// intend to pay for fees.
+						ensure!(
+							Config::FeeManager::is_waived(self.origin_ref(), FeeReason::InitiateTransfer),
+							XcmError::BadOrigin
+						);
+
+						// We push the UnpaidExecution instruction to notify we do not intend to pay
+						// for fees.
+						// The receiving chain must decide based on the origin of the message if they
+						// accept this.
 						message
 							.push(UnpaidExecution { weight_limit: Unlimited, check_origin: None });
 					}

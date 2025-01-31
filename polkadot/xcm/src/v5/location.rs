@@ -534,6 +534,13 @@ impl From<[u8; 32]> for Location {
 	}
 }
 
+impl From<[u8; 20]> for Location {
+	fn from(bytes: [u8; 20]) -> Self {
+		let junction: Junction = bytes.into();
+		junction.into()
+	}
+}
+
 impl From<sp_runtime::AccountId32> for Location {
 	fn from(id: sp_runtime::AccountId32) -> Self {
 		Junction::AccountId32 { network: None, id: id.into() }.into()
