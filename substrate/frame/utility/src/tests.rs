@@ -262,7 +262,7 @@ fn call_foobar(err: bool, start_weight: Weight, end_weight: Option<Weight>) -> R
 	RuntimeCall::Example(ExampleCall::foobar { err, start_weight, end_weight })
 }
 
-fn events() -> Vec<Event> {
+fn utility_events() -> Vec<Event> {
 	System::events()
 		.into_iter()
 		.map(|r| r.event)
@@ -930,24 +930,24 @@ fn dispatch_as_works() {
 		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
 		assert_eq!(Balances::free_balance(666), 100);
 		assert_eq!(Balances::free_balance(777), 0);
-		let call =
-			RuntimeCall::Balances(BalancesCall::transfer_all { dest: 777, keep_alive: false });
 		assert_ok!(Utility::dispatch_as(
 			RuntimeOrigin::root(),
 			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(666))),
-			Box::new(call)
+			Box::new(call_transfer(777, 100))
 		));
 		assert_eq!(Balances::free_balance(666), 0);
 		assert_eq!(Balances::free_balance(777), 100);
 
 		System::reset_events();
-		let call = RuntimeCall::Timestamp(TimestampCall::set { now: 0 });
 		assert_ok!(Utility::dispatch_as(
 			RuntimeOrigin::root(),
 			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(777))),
-			Box::new(call)
+			Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))
 		));
-		assert_eq!(events(), vec![Event::DispatchedAs { result: Err(DispatchError::BadOrigin) }]);
+		assert_eq!(
+			utility_events(),
+			vec![Event::DispatchedAs { result: Err(DispatchError::BadOrigin) }]
+		);
 	})
 }
 
@@ -957,26 +957,21 @@ fn dispatch_as_checked_works() {
 		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
 		assert_eq!(Balances::free_balance(666), 100);
 		assert_eq!(Balances::free_balance(777), 0);
-		let call =
-			RuntimeCall::Balances(BalancesCall::transfer_all { dest: 777, keep_alive: false });
 		assert_ok!(Utility::dispatch_as_checked(
 			RuntimeOrigin::root(),
 			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(666))),
-			Box::new(call)
+			Box::new(call_transfer(777, 100))
 		));
 		assert_eq!(Balances::free_balance(666), 0);
 		assert_eq!(Balances::free_balance(777), 100);
 
-		System::reset_events();
-		let call = RuntimeCall::Timestamp(TimestampCall::set { now: 0 });
 		assert_noop!(
 			Utility::dispatch_as_checked(
 				RuntimeOrigin::root(),
 				Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(777))),
-				Box::new(call)
+				Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))
 			),
 			DispatchError::BadOrigin,
 		);
-		assert!(events().is_empty());
 	});
 }
