@@ -544,6 +544,27 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 	}
 }
 
+enum NestedXcmType<'a, RuntimeCall> {
+	Local(&'a mut RuntimeCall),
+	Remote(&'a mut RuntimeCall),
+	None,
+}
+
+impl<'a, RuntimeCall> From<Instruction<RuntimeCall>> for NestedXcmType<'a, RuntimeCall> {
+	fn from(value: Instruction<RuntimeCall>) -> Self {
+		match value {
+			// Local XCMs
+			ExecuteWithOrigin { mut xcm, .. } | SetAppendix(xcm) | SetErrorHandler(xcm) =>
+				NestedXcmType::Local(&mut xcm),
+			// Remote XCMs
+			DepositReserveAsset { mut xcm, .. } |
+			InitiateReserveWithdraw { xcm, .. } |
+			TransferReserveAsset { xcm, .. } => NestedXcmType::Remote(&mut xcm),
+			_ => NestedXcmType::None,
+		}
+	}
+}
+
 environmental::environmental!(recursion_count: u8);
 
 // TBD:
@@ -552,6 +573,60 @@ environmental::environmental!(recursion_count: u8);
 ///
 /// Note: The nested XCM is checked recursively!
 pub struct DenyInstructionsWithXcm<Inner>(PhantomData<Inner>);
+
+impl<Inner: DenyExecution> DenyInstructionsWithXcm<Inner> {
+	fn deny_recursively<RuntimeCall>(
+		origin: &Location,
+		nested_xcm: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<ControlFlow<()>, ProcessMessageError> {
+		// Check xcm instructions with `Inner` filter
+		let _ = Inner::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
+			.inspect_err(|e| {
+				log::warn!(
+					target: "xcm::barriers",
+					"DenyInstructionsWithXcm::Inner denied execution, origin: {:?}, nested_xcm: {:?}, error: {:?}",
+					origin, nested_xcm, e
+				);
+			})?;
+
+		// Initialize the recursion count only the first time we hit this code in our potential
+		// recursive execution.
+		let _ = recursion_count::using_once(&mut 1, || {
+			recursion_count::with(|count| {
+				if *count > xcm_executor::RECURSION_LIMIT {
+					log::error!(
+						target: "xcm::barriers",
+						"Recursion limit exceeded, origin: {:?}, nested_xcm: {:?}, count: {count}",
+						origin, nested_xcm
+					);
+
+					return Err(ProcessMessageError::StackLimitReached);
+				}
+
+				*count = count.saturating_add(1);
+
+				Ok(())
+			})
+			// This should always return `Some`, but let's play it safe.
+			.unwrap_or(Ok(()))?;
+
+			// Ensure that we always decrement the counter whenever we finish processing the
+			// `DenyInstructionsWithXcm`.
+			sp_core::defer! {
+				recursion_count::with(|count| {
+					*count = count.saturating_sub(1);
+				});
+			}
+
+			// Check recursively with `DenyInstructionsWithXcm`
+			Self::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
+		})?;
+
+		Ok(ControlFlow::Continue(()))
+	}
+}
 
 impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 	fn deny_execution<RuntimeCall>(
@@ -562,54 +637,15 @@ impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 	) -> Result<(), ProcessMessageError> {
 		instructions.matcher().match_next_inst_while(
 			|_| true,
-			|inst| match inst {
-				SetAppendix(nested_xcm) |
-				SetErrorHandler(nested_xcm) |
-				ExecuteWithOrigin { xcm: nested_xcm, .. } => {
-					// Check xcm instructions with `Inner` filter
-					let _ = Inner::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
-						.inspect_err(|e| {
-							log::warn!(
-								target: "xcm::barriers",
-								"DenyInstructionsWithXcm::Inner denied execution, origin: {:?}, nested_xcm: {:?}, error: {:?}",
-								origin, nested_xcm, e
-							);
-						})?;
-
-					// Initialize the recursion count only the first time we hit this code in our
-					// potential recursive execution.
-					let _ = recursion_count::using_once(&mut 1, || {
-						recursion_count::with(|count| {
-							if *count > xcm_executor::RECURSION_LIMIT {
-								log::error!(
-									target: "xcm::barriers",
-									"Recursion limit exceeded, origin: {:?}, nested_xcm: {:?}, count: {count}",
-									origin, nested_xcm
-								);
-
-								return Err(ProcessMessageError::StackLimitReached);
-							}
-							*count = count.saturating_add(1);
-							Ok(())
-						})
-							// This should always return `Some`, but let's play it safe.
-							.unwrap_or(Ok(()))?;
-
-						// Ensure that we always decrement the counter whenever we finish processing
-						// the `DenyInstructionsWithXcm`.
-						sp_core::defer! {
-							recursion_count::with(|count| {
-								*count = count.saturating_sub(1);
-							});
-						}
-
-						// Check recursively with `DenyInstructionsWithXcm`
-						Self::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
-					})?;
-
-					Ok(ControlFlow::Continue(()))
-				},
-				_ => Ok(ControlFlow::Continue(())),
+			|inst| {
+				let nested_xcm_type: NestedXcmType<RuntimeCall> = inst.into();
+				match nested_xcm_type {
+					NestedXcmType::Local(nested_xcm) =>
+						Self::deny_recursively(origin, nested_xcm, max_weight, properties),
+					NestedXcmType::Remote(nested_xcm) =>
+						Self::deny_recursively(origin, nested_xcm, max_weight, properties),
+					NestedXcmType::None => Ok(ControlFlow::Continue(())),
+				}
 			},
 		)?;
 
