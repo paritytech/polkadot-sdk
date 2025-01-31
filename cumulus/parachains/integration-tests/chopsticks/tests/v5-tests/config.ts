@@ -8,8 +8,8 @@ export const CONFIG = {
     ALICE: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
   },
   WS_ADDRESSES: {
-    AH: "ws://localhost:8000",
-    PENPAL: "ws://localhost:8001",
-    RC: "ws://localhost:8002",
+    AH: "wss://westend-asset-hub-rpc.polkadot.io",
+    PENPAL: "wss://westend-penpal-rpc.polkadot.io",
+    RC: "wss://westend-rpc.polkadot.io",
   },
 };
