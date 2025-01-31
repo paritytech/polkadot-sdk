@@ -245,7 +245,7 @@ only downloads finalized authority set changes.
 GRANDPA keeps justifications for each finalized authority set change. Each change is signed by the
 authorities from the previous set. By downloading and verifying these signed hand-offs starting from genesis,
 we arrive at a recent header faster than downloading full header chain. Each `WarpSyncRequest` contains a block
-hash to a to start collecting proofs from. `WarpSyncResponse` contains a sequence of block headers and
+hash to start collecting proofs from. `WarpSyncResponse` contains a sequence of block headers and
 justifications. The proof downloader checks the justifications and continues requesting proofs from the last
 header hash, until it arrives at some recent header.
 
@@ -261,7 +261,7 @@ data. I.e. it is unable to serve bock bodies and headers other than the most rec
 nodes have block history available, a background sync process is started that downloads all the missing blocks.
 It is run in parallel with the keep-up sync and does not interfere with downloading of the recent blocks.
 During this download we also import GRANDPA justifications for blocks with authority set changes, so that
-the warp-synced node has all the data to serve for other nodes nodes that might want to sync from it with
+the warp-synced node has all the data to serve for other nodes that might want to sync from it with
 any method.
 
 # Usage
