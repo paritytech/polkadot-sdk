@@ -30,7 +30,7 @@ use syn::{
 	token::{Comma, Gt, Lt, PathSep},
 	Attribute, Error, Expr, ExprBlock, ExprCall, ExprPath, FnArg, Item, ItemFn, ItemMod, Pat, Path,
 	PathArguments, PathSegment, Result, ReturnType, Signature, Stmt, Token, Type, TypePath,
-	Visibility, WhereClause,
+	Visibility, WhereClause, WherePredicate,
 };
 
 mod keywords {
@@ -482,7 +482,19 @@ pub fn benchmarks(
 	let mod_span = module.span();
 	let where_clause = match syn::parse::<Nothing>(attrs.clone()) {
 		Ok(_) => quote!(),
-		Err(_) => syn::parse::<WhereClause>(attrs)?.predicates.to_token_stream(),
+		Err(_) => {
+			let mut where_clause_predicates = syn::parse::<WhereClause>(attrs)?.predicates;
+
+			// Ensure the where clause contains the Config trait bound
+			if instance {
+				where_clause_predicates.push(syn::parse_str::<WherePredicate>("T: Config<I>")?);
+				where_clause_predicates.push(syn::parse_str::<WherePredicate>("I:'static")?);
+			} else {
+				where_clause_predicates.push(syn::parse_str::<WherePredicate>("T: Config")?);
+			}
+
+			where_clause_predicates.to_token_stream()
+		},
 	};
 	let mod_vis = module.vis;
 	let mod_name = module.ident;
@@ -568,9 +580,13 @@ pub fn benchmarks(
 		false => quote!(T),
 		true => quote!(T, I),
 	};
-	let type_impl_generics = match instance {
-		false => quote!(T: Config),
-		true => quote!(T: Config<I>, I: 'static),
+	let type_impl_generics = if where_clause.is_empty() {
+		match instance {
+			false => quote!(T: Config),
+			true => quote!(T: Config<I>, I: 'static),
+		}
+	} else {
+		type_use_generics.clone()
 	};
 
 	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
@@ -930,9 +946,13 @@ fn expand_benchmark(
 		true => quote!(T, I),
 	};
 
-	let type_impl_generics = match is_instance {
-		false => quote!(T: Config),
-		true => quote!(T: Config<I>, I: 'static),
+	let type_impl_generics = if where_clause.is_empty() {
+		match is_instance {
+			false => quote!(T: Config),
+			true => quote!(T: Config<I>, I: 'static),
+		}
+	} else {
+		type_use_generics.clone()
 	};
 
 	// used in the benchmarking impls
