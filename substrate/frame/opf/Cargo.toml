@@ -63,6 +63,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"getrandom/std",
 	"log/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
