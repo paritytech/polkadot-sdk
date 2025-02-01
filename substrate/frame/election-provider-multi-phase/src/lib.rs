@@ -245,7 +245,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
-use frame_system::{ensure_none, offchain::CreateInherent, pallet_prelude::BlockNumberFor};
+use frame_system::{ensure_none, offchain::CreateInherent, pallet_prelude::BlockNumberFor as SystemBlockNumberFor};
 use scale_info::TypeInfo;
 use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
@@ -259,6 +259,7 @@ use sp_runtime::{
 	},
 	DispatchError, ModuleError, PerThing, Perbill, RuntimeDebug, SaturatedConversion,
 };
+use sp_runtime::traits::BlockNumberProvider;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -285,6 +286,7 @@ use unsigned::VoterOf;
 pub use unsigned::{Miner, MinerConfig};
 pub use weights::WeightInfo;
 
+
 /// The solution type used by this crate.
 pub type SolutionOf<T> = <T as MinerConfig>::Solution;
 
@@ -297,6 +299,9 @@ pub type SolutionAccuracyOf<T> =
 	<SolutionOf<<T as crate::Config>::MinerConfig> as NposSolution>::Accuracy;
 /// The fallback election type.
 pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProviderBase>::Error;
+
+pub type BlockNumberFor<T> =
+<<T as crate::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// Configuration for the benchmarks of the pallet.
 pub trait BenchmarkingConfig {
@@ -709,6 +714,9 @@ pub mod pallet {
 		/// The configuration of benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
 
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
+
 		/// The weight of the pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -738,8 +746,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_now: SystemBlockNumberFor<T>) -> Weight {
+			let now = T::BlockNumberProvider::current_block_number();
 			let next_election = T::DataProvider::next_election_prediction(now).max(now);
 
 			let signed_deadline = T::SignedPhase::get() + T::UnsignedPhase::get();
@@ -816,8 +825,9 @@ pub mod pallet {
 			}
 		}
 
-		fn offchain_worker(now: BlockNumberFor<T>) {
+		fn offchain_worker(_now: SystemBlockNumberFor<T>) {
 			use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
+			let now = T::BlockNumberProvider::current_block_number();
 
 			// Create a lock with the maximum deadline of number of blocks in the unsigned phase.
 			// This should only come useful in an **abrupt** termination of execution, otherwise the
@@ -878,7 +888,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -1436,7 +1446,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Internal logic of the offchain worker, to be executed only when the offchain lock is
 	/// acquired with success.
-	fn do_synchronized_offchain_worker(now: BlockNumberFor<T>) {
+	fn do_synchronized_offchain_worker(_now: BlockNumberFor<T>) {
+		let now = T::BlockNumberProvider::current_block_number();
 		let current_phase = CurrentPhase::<T>::get();
 		log!(trace, "lock for offchain worker acquired. Phase = {:?}", current_phase);
 		match current_phase {
