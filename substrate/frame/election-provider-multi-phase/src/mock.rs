@@ -407,6 +407,7 @@ impl crate::Config for Runtime {
 	type MinerConfig = Self;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
 	type ElectionBounds = ElectionsBounds;
+	type BlockNumberProvider = System;
 }
 
 impl Convert<usize, BalanceOf<Runtime>> for Runtime {

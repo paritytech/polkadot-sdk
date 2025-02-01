@@ -245,7 +245,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
-use frame_system::{ensure_none, offchain::CreateInherent, pallet_prelude::BlockNumberFor as SystemBlockNumberFor};
+use frame_system::{ensure_none, offchain::CreateInherent};
 use scale_info::TypeInfo;
 use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
@@ -577,7 +577,10 @@ pub mod pallet {
 	use super::*;
 	use frame_election_provider_support::{InstantElectionProvider, NposSolver};
 	use frame_support::{pallet_prelude::*, traits::EstimateCallFee};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{
+		ensure_signed, BlockNumberFor as SystemBlockNumberFor,
+		OriginFor,
+	};
 	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
@@ -1446,8 +1449,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Internal logic of the offchain worker, to be executed only when the offchain lock is
 	/// acquired with success.
-	fn do_synchronized_offchain_worker(_now: BlockNumberFor<T>) {
-		let now = T::BlockNumberProvider::current_block_number();
+	fn do_synchronized_offchain_worker(now: BlockNumberFor<T>) {
 		let current_phase = CurrentPhase::<T>::get();
 		log!(trace, "lock for offchain worker acquired. Phase = {:?}", current_phase);
 		match current_phase {

@@ -18,7 +18,7 @@
 //! The unsigned phase, and its miner.
 
 use crate::{
-	helpers, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
+	helpers, BlockNumberFor, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
 	Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot, Snapshot,
 	SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
@@ -32,8 +32,7 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction},
-	pallet_prelude::BlockNumberFor,
+	offchain::{CreateInherent, SubmitTransaction}
 };
 use scale_info::TypeInfo;
 use sp_npos_elections::{
