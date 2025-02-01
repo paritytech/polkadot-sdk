@@ -107,7 +107,7 @@ use frame_support::traits::PalletInfoAccess;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	NetworkId, NonFungible, Response, XCM_VERSION,
 };
 
 use xcm_runtime_apis::{
@@ -1880,7 +1880,7 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 				pub const RandomParaId: ParaId = ParaId::new(43211234);
-				pub const RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
+				pub const RandomParaLocation: Location = Location::new(1, [Junction::Parachain(RandomParaId::get().into())]);
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
