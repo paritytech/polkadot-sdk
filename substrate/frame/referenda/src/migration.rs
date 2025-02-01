@@ -249,6 +249,10 @@ pub mod switch_block_number_provider {
 			in_code_version,
 			on_chain_version
 		);
+		if on_chain_version == 0 {
+			log::error!(target: TARGET, "skipping migration from v0 to switch_block_number_provider.");
+			return weight
+		}
 
 		// Migration logic here
 		v1::ReferendumInfoFor::<T, I>::iter().for_each(|(key, value)| {
@@ -280,8 +284,6 @@ pub mod switch_block_number_provider {
 			}
 		});
 
-		StorageVersion::new(1).put::<Pallet<T, I>>();
-		weight.saturating_accrue(T::DbWeight::get().writes(1));
 		weight
 	}
 }
