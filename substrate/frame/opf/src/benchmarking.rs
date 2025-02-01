@@ -106,7 +106,7 @@ mod benchmarks {
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
 		ensure!(
-			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()) == true,
+			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()),
 			"Project_id not set up correctly."
 		);
 
@@ -138,7 +138,7 @@ mod benchmarks {
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
 		ensure!(
-			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()) == true,
+			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()),
 			"Project_id not set up correctly."
 		);
 
@@ -177,7 +177,7 @@ mod benchmarks {
 		let _pot = setup_pot_account::<T>();
 
 		ensure!(
-			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()) == true,
+			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()),
 			"Project_id not set up correctly."
 		);
 
