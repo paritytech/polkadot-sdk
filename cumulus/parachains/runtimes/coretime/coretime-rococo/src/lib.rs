@@ -974,23 +974,17 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = (
-					cumulus_primitives_utility::ToParentDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						xcm_config::PriceForParentDelivery,
-					>,
+				type DeliveryHelper =
 					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
 						RandomParaId,
 						ParachainSystem,
-					>
-				);
+					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(Parent.into())
+					Some(RandomParaLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -998,9 +992,9 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(RocRelayLocation::get())
 						},
-						Parent.into(),
+						RandomParaLocation::get(),
 					))
 				}
 
@@ -1018,13 +1012,13 @@ impl_runtime_apis! {
 							fun: NonFungible(Index(region_id.into())),
 							id: AssetId(xcm_config::BrokerPalletLocation::get())
 						},
-						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
+						RandomParaLocation::get(),
 					))
 				}
 
 				fn get_asset() -> Asset {
 					Asset {
-						id: AssetId(Location::parent()),
+						id: AssetId(RocRelayLocation::get()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
@@ -1036,27 +1030,21 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 				pub const RandomParaId: ParaId = ParaId::new(43211234);
+				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
-				type DeliveryHelper = (
-					cumulus_primitives_utility::ToParentDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						xcm_config::PriceForParentDelivery,
-					>,
-					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
 						RandomParaId,
 						ParachainSystem,
-					>
-				);
+					>;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(RocRelayLocation::get())
+					Ok(RandomParaLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
@@ -1072,7 +1060,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RocRelayLocation::get(),
+					RandomParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(RocRelayLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
