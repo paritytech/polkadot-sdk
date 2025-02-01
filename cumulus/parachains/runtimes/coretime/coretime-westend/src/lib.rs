@@ -244,7 +244,7 @@ impl pallet_authorship::Config for Runtime {
 parameter_types! {
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const RandomParaId: ParaId = ParaId::new(43211234);
-	pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
+	pub const RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 }
 
 impl pallet_balances::Config for Runtime {

@@ -809,7 +809,7 @@ impl_runtime_apis! {
 				).into());
 
 				pub const RandomParaId: ParaId = ParaId::new(43211234);
-				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
+				pub const RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 			}
 
 			use xcm::latest::prelude::*;
