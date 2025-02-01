@@ -312,7 +312,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `origin`: The sender of the call, on-demand credits will be withdrawn from this account.
-		/// - `max_amount`: The maximum credit to spend from the origin to place an order.
+		/// - `max_amount`: The maximum number of credits to spend from the origin to place an order.
 		/// - `para_id`: A `ParaId` the origin wants to provide blockspace for.
 		///
 		/// Errors:
