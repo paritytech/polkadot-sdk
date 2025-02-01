@@ -195,12 +195,12 @@ pub mod switch_block_number_provider {
 	}
 
 	/// Transforms SystemBlockNumberFor<T> to BlockNumberFor<T,I>
-	pub struct MigrateV1ToV2<BlockConverter, T, I = ()>(
+	pub struct MigrateBlockNumberProvider<BlockConverter, T, I = ()>(
 		PhantomData<(T, I)>,
 		PhantomData<BlockConverter>,
 	);
 	impl<BlockConverter: BlockNumberConversion<T, I>, T: Config<I>, I: 'static> OnRuntimeUpgrade
-		for MigrateV1ToV2<BlockConverter, T, I>
+		for MigrateBlockNumberProvider<BlockConverter, T, I>
 	where
 		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, I>>,
 		T: Config<I>,
@@ -289,7 +289,12 @@ pub mod switch_block_number_provider {
 #[cfg(test)]
 pub mod test {
 	use super::*;
-	use crate::mock::{Test as T, *};
+	use crate::{
+		migration::switch_block_number_provider::{
+			migrate_block_number_provider, BlockNumberConversion,
+		},
+		mock::{Test as T, *},
+	};
 	use core::str::FromStr;
 
 	// create referendum status v0.
@@ -347,6 +352,50 @@ pub mod test {
 				approved_v1,
 				ReferendumInfoOf::<T, ()>::Approved(
 					123,
+					Some(Deposit { who: 1, amount: 10 }),
+					Some(Deposit { who: 2, amount: 20 })
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn migration_v1_to_switch_block_number_provider_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			pub struct MockBlockConverter;
+
+			impl BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, ()>> for MockBlockConverter {
+				fn convert_block_number(block_number: SystemBlockNumberFor<T>) -> BlockNumberFor<T, ()> {
+					block_number as u64
+				}
+			}
+
+			let referendum_ongoing = v1::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0());
+			let referendum_approved = v1::ReferendumInfoOf::<T, ()>::Approved(
+				50, //old block number
+				Some(Deposit { who: 1, amount: 10 }),
+				Some(Deposit { who: 2, amount: 20 }),
+			);
+
+			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
+			v1::ReferendumInfoFor::<T, ()>::insert(1, referendum_ongoing);
+
+			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
+			v1::ReferendumInfoFor::<T, ()>::insert(2, referendum_approved);
+
+			let weight = migrate_block_number_provider::<MockBlockConverter, T, ()>();
+
+			let ongoing_v2 = ReferendumInfoFor::<T, ()>::get(1).unwrap();
+			assert_eq!(
+				ongoing_v2,
+				ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0())
+			);
+
+			let approved_v2 = ReferendumInfoFor::<T, ()>::get(2).unwrap();
+			assert_eq!(
+				approved_v2,
+				ReferendumInfoOf::<T, ()>::Approved(
+					50,
 					Some(Deposit { who: 1, amount: 10 }),
 					Some(Deposit { who: 2, amount: 20 })
 				)
