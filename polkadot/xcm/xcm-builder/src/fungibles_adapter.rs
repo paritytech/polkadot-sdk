@@ -22,7 +22,7 @@ use frame_support::traits::{
 		fungibles,
 		Fortitude::Polite,
 		Precision::Exact,
-		Preservation::{Expendable, Preserve},
+		Preservation::Expendable,
 		Provenance::Minted,
 	},
 	Contains, Get,
