@@ -11,4 +11,4 @@ doc:
 
 crates:
 - name: pallet-referenda
-  bump: minor
+  bump: major

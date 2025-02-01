@@ -194,7 +194,7 @@ pub mod switch_block_number_provider {
 		fn convert_block_number(block_number: Old) -> New;
 	}
 
-	/// Transforms SystemBlockNumberFor<T> to BlockNumberFor<T,I>
+	/// Transforms `SystemBlockNumberFor<T>` to `BlockNumberFor<T,I>`
 	pub struct MigrateBlockNumberProvider<BlockConverter, T, I = ()>(
 		PhantomData<(T, I)>,
 		PhantomData<BlockConverter>,
@@ -368,7 +368,7 @@ pub mod test {
 
 			impl BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, ()>> for MockBlockConverter {
 				fn convert_block_number(block_number: SystemBlockNumberFor<T>) -> BlockNumberFor<T, ()> {
-					block_number as u64
+					block_number as u64 + 10u64
 				}
 			}
 
@@ -384,8 +384,6 @@ pub mod test {
 
 			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
 			v1::ReferendumInfoFor::<T, ()>::insert(2, referendum_approved);
-
-			let weight = migrate_block_number_provider::<MockBlockConverter, T, ()>();
 
 			let ongoing_v2 = ReferendumInfoFor::<T, ()>::get(1).unwrap();
 			assert_eq!(
