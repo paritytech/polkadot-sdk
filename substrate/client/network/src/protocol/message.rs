@@ -94,6 +94,7 @@ pub mod generic {
 		/// Remote method call request.
 		RemoteCallRequest(RemoteCallRequest<Hash>),
 		/// Remote method call response.
+		#[codec(index = 14)]
 		RemoteCallResponse(RemoteCallResponse),
 		/// Remote storage read request.
 		RemoteReadRequest(RemoteReadRequest<Hash>),

@@ -87,7 +87,7 @@ pub mod pallet {
 		#[deprecated = "second"]
 		A,
 		#[deprecated = "first"]
-		#[codec(index = 0)]
+		#[codec(index = 1)]
 		B,
 	}
 

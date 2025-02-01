@@ -209,6 +209,7 @@ pub fn expand_outer_origin(
 			system(#system_path::Origin<#runtime>),
 			#caller_variants
 			#[allow(dead_code)]
+			#[codec(skip)]
 			Void(#scrate::__private::Void)
 		}
 
