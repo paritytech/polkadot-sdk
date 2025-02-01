@@ -169,8 +169,12 @@ fn pallet_metadata() {
 			// ])),
 			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
 				codec::Compact(0),
+				DeprecationStatusIR::Deprecated { note: "second", since: None }
+			),
+			(
+				codec::Compact(1),
 				DeprecationStatusIR::Deprecated { note: "first", since: None }
-			),])),
+			)])),
 			meta.deprecation_info
 		);
 	}
