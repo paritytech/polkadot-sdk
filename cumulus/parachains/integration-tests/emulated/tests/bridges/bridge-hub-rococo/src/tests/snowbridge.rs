@@ -25,7 +25,7 @@ use snowbridge_pallet_inbound_queue_fixtures::{
 	send_token::make_send_token_message, send_token_to_penpal::make_send_token_to_penpal_message,
 };
 use snowbridge_pallet_system;
-use snowbridge_router_primitives::{
+use snowbridge_inbound_queue_primitives::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
 	EthereumLocationsConverterFor,
 };

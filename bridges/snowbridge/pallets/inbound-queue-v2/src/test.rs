@@ -4,7 +4,7 @@ use super::*;
 
 use crate::{mock::*, Error};
 use frame_support::{assert_noop, assert_ok};
-use snowbridge_core::{inbound::Proof, sibling_sovereign_account};
+use snowbridge_inbound_queue_primitives::{EventProof, Proof};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
 
@@ -15,7 +15,7 @@ fn test_submit_with_invalid_gateway() {
 		let origin = RuntimeOrigin::signed(relayer);
 
 		// Submit message
-		let message = Message {
+		let event = EventProof {
 			event_log: mock_event_log_invalid_gateway(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -23,7 +23,7 @@ fn test_submit_with_invalid_gateway() {
 			},
 		};
 		assert_noop!(
-			InboundQueue::submit(origin.clone(), message.clone()),
+			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::InvalidGateway
 		);
 	});
@@ -37,7 +37,7 @@ fn test_submit_happy_path() {
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
-		let message = Message {
+		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -45,10 +45,8 @@ fn test_submit_happy_path() {
 			},
 		};
 
-		let initial_fund = InitialFund::get();
 		assert_eq!(Balances::balance(&relayer), 0);
-
-		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
+		assert_ok!(InboundQueue::submit(origin.clone(), Box::new(event.clone())));
 
 		let events = frame_system::Pallet::<Test>::events();
 		assert!(
@@ -67,7 +65,7 @@ fn test_set_operating_mode() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
-		let message = Message {
+		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -80,7 +78,7 @@ fn test_set_operating_mode() {
 			snowbridge_core::BasicOperatingMode::Halted
 		));
 
-		assert_noop!(InboundQueue::submit(origin, message), Error::<Test>::Halted);
+		assert_noop!(InboundQueue::submit(origin, Box::new(event)), Error::<Test>::Halted);
 	});
 }
 

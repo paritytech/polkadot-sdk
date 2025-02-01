@@ -12,12 +12,14 @@ use frame_support::{
 use hex_literal::hex;
 use snowbridge_core::{
 	gwei,
-	inbound::{Log, Proof, VerificationError, Verifier},
 	meth,
 	pricing::{PricingParameters, Rewards},
 	ParaId,
 };
-use snowbridge_outbound_queue_primitives::v2::*;
+use snowbridge_outbound_queue_primitives::{
+	Log, Proof, VerificationError, Verifier,
+	v2::*
+};
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},

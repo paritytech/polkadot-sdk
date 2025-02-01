@@ -23,12 +23,11 @@ use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use penpal_emulated_chain::PARA_ID_B;
 use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
-use snowbridge_core::{inbound::InboundQueueFixture, AssetMetadata, TokenIdOf};
-use snowbridge_outbound_queue_primitives::OperatingMode;
+use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
-use snowbridge_router_primitives::{
+use snowbridge_inbound_queue_primitives::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
-	EthereumLocationsConverterFor,
+	EthereumLocationsConverterFor, InboundQueueFixture
 };
 use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;

@@ -5,9 +5,7 @@ use super::*;
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use snowbridge_core::ChannelId;
-use snowbridge_inbound_queue_primitives::v1::{
-	Proof,
-};
+use snowbridge_inbound_queue_primitives::Proof;
 use sp_keyring::Sr25519Keyring as Keyring;
 use sp_runtime::DispatchError;
 use sp_std::convert::From;
@@ -132,7 +130,7 @@ fn test_submit_with_invalid_nonce() {
 				execution_proof: mock_execution_proof(),
 			},
 		};
-		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
+		assert_ok!(InboundQueue::submit(origin.clone(), event.clone()));
 
 		let nonce: u64 = <Nonce<Test>>::get(ChannelId::from(hex!(
 			"c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539"
@@ -141,7 +139,7 @@ fn test_submit_with_invalid_nonce() {
 
 		// Submit the same again
 		assert_noop!(
-			InboundQueue::submit(origin.clone(), message.clone()),
+			InboundQueue::submit(origin.clone(), event.clone()),
 			Error::<Test>::InvalidNonce
 		);
 	});

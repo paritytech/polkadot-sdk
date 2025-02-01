@@ -23,9 +23,9 @@ use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
 use hex_literal::hex;
 use penpal_emulated_chain::PARA_ID_B;
 use snowbridge_core::{AssetMetadata, TokenIdOf};
-use snowbridge_router_primitives::{
+use snowbridge_inbound_queue_primitives::{
 	v2::{
-		Asset::{ForeignTokenERC20, NativeTokenERC20},
+		EthereumAsset::{ForeignTokenERC20, NativeTokenERC20},
 		Message,
 	},
 	EthereumLocationsConverterFor,
@@ -129,6 +129,8 @@ fn register_token_v2() {
 		println!("token: {:?}", token);
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 1,
 			origin,
 			assets: vec![],
 			xcm: encoded_xcm,
@@ -200,6 +202,8 @@ fn send_token_v2() {
 		let origin = EthereumGatewayAddress::get();
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 1,
 			origin,
 			assets,
 			xcm: versioned_message_xcm.encode(),
@@ -278,6 +282,8 @@ fn send_weth_v2() {
 		let origin = EthereumGatewayAddress::get();
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 1,
 			origin,
 			assets,
 			xcm: versioned_message_xcm.encode(),
@@ -408,6 +414,8 @@ fn register_and_send_multiple_tokens_v2() {
 		let origin = EthereumGatewayAddress::get();
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 1,
 			origin,
 			assets,
 			xcm: versioned_message_xcm.encode(),
@@ -569,6 +577,8 @@ fn send_token_to_penpal_v2() {
 		let origin = EthereumGatewayAddress::get();
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 1,
 			origin,
 			assets,
 			xcm: versioned_message_xcm.encode(),
@@ -697,6 +707,8 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 		let origin = EthereumGatewayAddress::get();
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 1,
 			origin,
 			assets,
 			xcm: versioned_message_xcm.encode(),
@@ -781,6 +793,8 @@ fn invalid_xcm_traps_funds_on_ah() {
 		let origin = EthereumGatewayAddress::get();
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 1,
 			origin,
 			assets,
 			xcm: instructions.to_vec(),
@@ -843,6 +857,8 @@ fn invalid_claimer_does_not_fail_the_message() {
 		let origin = EthereumGatewayAddress::get();
 
 		let message = Message {
+			gateway: H160::zero(),
+			nonce: 1,
 			origin,
 			assets,
 			xcm: versioned_message_xcm.encode(),

@@ -182,7 +182,6 @@ mod tests {
 	use hex_literal::hex;
 	use sp_core::H160;
 
-	#[ignore]
 	#[test]
 	fn test_decode() {
 		let log = Log{

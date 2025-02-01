@@ -11,9 +11,9 @@ use snowbridge_core::{
 	gwei,
 	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
-use snowbridge_inbound_queue_primitives::v1::{
+use snowbridge_inbound_queue_primitives::{
 	Log, Proof, VerificationError,
-	MessageToXcm
+	v1::MessageToXcm,
 };
 use sp_core::{H160, H256};
 use sp_runtime::{

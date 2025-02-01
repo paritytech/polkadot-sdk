@@ -204,7 +204,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::v2::message::*;
 
 	use codec::Encode;
 	use frame_support::{assert_err, assert_ok, parameter_types};
@@ -212,7 +211,7 @@ mod tests {
 	use snowbridge_core::TokenId;
 	use sp_core::{H160, H256};
 	use sp_runtime::traits::MaybeEquivalence;
-	use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
+	use xcm::opaque::latest::WESTEND_GENESIS_HASH;
 	const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
 	parameter_types! {
 		pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
