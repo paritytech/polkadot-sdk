@@ -385,6 +385,8 @@ pub mod test {
 			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
 			v1::ReferendumInfoFor::<T, ()>::insert(2, referendum_approved);
 
+			migrate_block_number_provider::<MockBlockConverter, T, ()>();
+
 			let ongoing_v2 = ReferendumInfoFor::<T, ()>::get(1).unwrap();
 			assert_eq!(
 				ongoing_v2,
