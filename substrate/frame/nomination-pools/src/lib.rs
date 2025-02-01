@@ -2558,7 +2558,7 @@ pub mod pallet {
 
 			T::StakeAdapter::nominate(Pool::from(bonded_pool.bonded_account()), validators).map(
 				|_| Self::deposit_event(Event::<T>::PoolNominationMade { pool_id, caller: who }),
-			);
+			)
 		}
 
 		/// Set a new state for the pool.
@@ -2774,7 +2774,7 @@ pub mod pallet {
 
 			T::StakeAdapter::chill(Pool::from(bonded_pool.bonded_account())).map(|_| {
 				Self::deposit_event(Event::<T>::PoolNominatorChilled { pool_id, caller: who })
-			});
+			})
 		}
 
 		/// `origin` bonds funds from `extra` for some pool member `member` into their respective
