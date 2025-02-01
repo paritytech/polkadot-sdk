@@ -63,7 +63,10 @@ pub use weights::WeightInfo;
 use xcm::prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, *};
 
 #[cfg(feature = "runtime-benchmarks")]
-use snowbridge_beacon_primitives::BeaconHeader;
+use {
+	snowbridge_beacon_primitives::BeaconHeader,
+	sp_core::H256
+};
 
 pub use pallet::*;
 
@@ -134,7 +137,7 @@ pub mod pallet {
 		/// Account could not be converted to bytes
 		InvalidAccount,
 		/// Message has an invalid envelope.
-		InvalidEnvelope,
+		InvalidMessage,
 		/// Message has an unexpected nonce.
 		InvalidNonce,
 		/// Fee provided is invalid.
@@ -203,9 +206,9 @@ pub mod pallet {
 			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
-			// Decode event log into an Envelope
+			// Decode event log into a bridge message
 			let message =
-				Message::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+				Message::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidMessage)?;
 
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
