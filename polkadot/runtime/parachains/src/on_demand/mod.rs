@@ -311,7 +311,7 @@ pub mod pallet {
 		/// Will charge the owner's on-demand credit account the spot price for the current block.
 		///
 		/// Parameters:
-		/// - `origin`: The sender of the call, funds will be withdrawn from this account.
+		/// - `origin`: The sender of the call, on-demand credits will be withdrawn from this account.
 		/// - `max_amount`: The maximum credit to spend from the origin to place an order.
 		/// - `para_id`: A `ParaId` the origin wants to provide blockspace for.
 		///
