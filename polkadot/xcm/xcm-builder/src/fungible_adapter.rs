@@ -20,11 +20,7 @@ use super::MintLocation;
 use core::{marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
-		fungible,
-		Fortitude::Polite,
-		Precision::Exact,
-		Preservation::Expendable,
-		Provenance::Minted,
+		fungible, Fortitude::Polite, Precision::Exact, Preservation::Expendable, Provenance::Minted,
 	},
 	Get,
 };

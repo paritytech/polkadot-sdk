@@ -19,10 +19,7 @@
 use core::{marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
-		fungibles,
-		Fortitude::Polite,
-		Precision::Exact,
-		Preservation::Expendable,
+		fungibles, Fortitude::Polite, Precision::Exact, Preservation::Expendable,
 		Provenance::Minted,
 	},
 	Contains, Get,
