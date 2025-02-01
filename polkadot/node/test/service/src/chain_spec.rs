@@ -18,7 +18,8 @@
 
 use pallet_staking::Forcing;
 use polkadot_primitives::{
-	AccountId, AssignmentId, SchedulerParams, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
+	node_features, AccountId, AssignmentId, NodeFeatures, SchedulerParams, ValidatorId,
+	MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 use polkadot_service::chain_spec::Extensions;
 use polkadot_test_runtime::BABE_GENESIS_EPOCH_CONFIG;
@@ -110,6 +111,11 @@ fn polkadot_testnet_genesis(
 	const ENDOWMENT: u128 = 1_000_000 * DOTS;
 	const STASH: u128 = 100 * DOTS;
 
+	// Prepare node features with V2 receipts enabled.
+	let mut node_features = NodeFeatures::new();
+	node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
+	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
+
 	serde_json::json!({
 		"balances": {
 			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
@@ -158,6 +164,7 @@ fn polkadot_testnet_genesis(
 				no_show_slots: 10,
 				minimum_validation_upgrade_delay: 5,
 				max_downward_message_size: 1024,
+				node_features,
 				scheduler_params: SchedulerParams {
 					group_rotation_frequency: 20,
 					paras_availability_period: 4,
