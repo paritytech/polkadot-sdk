@@ -181,7 +181,10 @@ fn waived_origin_can_skip_fee_payment() {
 	assert!(matches!(instructions.next().unwrap(), Transact { .. }));
 
 	// We initialize the executor with the WAIVED_CONTRACT_ADDRESS, which is waived.
-	let (mut vm, _) = instantiate_executor(WAIVED_CONTRACT_ADDRESS, xcm.clone());
+	let (mut vm, _) = instantiate_executor(
+		AccountKey20 { key: WAIVED_CONTRACT_ADDRESS, network: None },
+		xcm.clone()
+	);
 
 	// Program executes successfully.
 	let result = vm.bench_process(xcm);
