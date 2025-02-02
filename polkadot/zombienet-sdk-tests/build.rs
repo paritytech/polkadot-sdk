@@ -108,10 +108,10 @@ fn fetch_metadata_file(chain: &str, output_path: &Path) {
 		debug_output!("metadata file to use (from env): {}\n", path_to_use);
 		let metadata_file = PathBuf::from(&path_to_use);
 		fs::copy(metadata_file, output_path).unwrap();
-	} else if let Some(exisiting_wasm) = find_wasm(chain) {
-		debug_output!("exisiting wasm: {:?}", exisiting_wasm);
+	} else if let Some(existing_wasm) = find_wasm(chain) {
+		debug_output!("existing wasm: {:?}", existing_wasm);
 		// generate metadata
-		generate_metadata_file(&exisiting_wasm, output_path);
+		generate_metadata_file(&existing_wasm, output_path);
 	} else {
 		// build runtime
 		let wasm_path = build_wasm(chain);
