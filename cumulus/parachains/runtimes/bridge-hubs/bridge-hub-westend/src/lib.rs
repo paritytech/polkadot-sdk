@@ -591,15 +591,14 @@ construct_runtime!(
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1> = 44,
 		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::<Instance1> = 45,
 
-		EthereumSystem: snowbridge_pallet_system = 80,
-		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 81,
-		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 82,
-		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 83,
+		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
+		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
+		EthereumSystem: snowbridge_pallet_system = 83,
 
 		EthereumSystemV2: snowbridge_pallet_system_v2 = 90,
 		EthereumInboundQueueV2: snowbridge_pallet_inbound_queue_v2 = 91,
 		EthereumOutboundQueueV2: snowbridge_pallet_outbound_queue_v2 = 92,
-
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -953,7 +952,7 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_inbound_queue_v2_runtime_api::InboundQueueApiV2<Block, Balance> for Runtime {
-		fn dry_run(message: Message) -> Result<(Xcm<()>, Balance), DispatchError> {
+		fn convert_message(message: Message) -> Result<(Xcm<()>, Balance), DispatchError> {
 			snowbridge_pallet_inbound_queue_v2::api::dry_run::<Runtime>(message)
 		}
 	}

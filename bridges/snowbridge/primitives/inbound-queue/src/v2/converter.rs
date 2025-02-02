@@ -4,16 +4,13 @@
 
 use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
-use frame_support::PalletError;
 use hex;
-use scale_info::TypeInfo;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::prelude::*;
 use xcm::{
-	prelude::{Junction::AccountKey20, *},
-	MAX_XCM_DECODE_DEPTH,
+	prelude::{Junction::*, *}, MAX_XCM_DECODE_DEPTH
 };
 
 use super::message::*;
@@ -21,7 +18,7 @@ use super::message::*;
 const LOG_TARGET: &str = "snowbridge-inbound-queue-primitives";
 
 /// Reason why a message conversion failed.
-#[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, RuntimeDebug, PartialEq)]
+#[derive(Copy, Clone, Encode, Decode, RuntimeDebug, PartialEq)]
 pub enum ConvertMessageError {
 	/// Invalid foreign ERC-20 token ID
 	InvalidAsset,
@@ -32,8 +29,7 @@ pub enum ConvertMessageError {
 pub trait ConvertMessage {
 	fn convert(
 		message: Message,
-		origin_account: Location,
-	) -> Result<(Xcm<()>, u128), ConvertMessageError>;
+	) -> Result<Xcm<()>, ConvertMessageError>;
 }
 
 pub struct MessageToXcm<
@@ -87,8 +83,7 @@ where
 {
 	fn convert(
 		message: Message,
-		origin_account_location: Location,
-	) -> Result<(Xcm<()>, u128), ConvertMessageError> {
+	) -> Result<Xcm<()>, ConvertMessageError> {
 		let mut message_xcm: Xcm<()> = Xcm::new();
 		if message.xcm.len() > 0 {
 			let xcm_string = hex::encode(message.xcm.clone());
@@ -127,19 +122,31 @@ where
 		let mut reserve_assets = vec![];
 		let mut withdraw_assets = vec![];
 
-		let mut refund_surplus_to = origin_account_location;
-
-		if let Some(claimer) = message.claimer {
-			// If the claimer can be decoded, add it to the message. If the claimer decoding fails,
-			// do not add it to the message, because it will cause the xcm to fail.
-			if let Ok(claimer) = Junction::decode(&mut claimer.as_ref()) {
-				let claimer_location: Location = Location::new(0, [claimer.into()]);
-				refund_surplus_to = claimer_location.clone();
-				instructions.push(SetHints {
-					hints: vec![AssetClaimer { location: claimer_location }].try_into().unwrap(),
-				}); // TODO
+		// Let origin account transact on AH directly to reclaim assets and surplus fees.
+		// This will be possible when AH gets full EVM support
+		let default_claimer = Location::new(0, [
+			AccountKey20 {
+				// Set network to `None` to support future Plaza EVM chainid by default.
+				network: None,
+				// Ethereum account ID
+				key: message.origin.as_fixed_bytes().clone()
 			}
-		}
+		]);
+
+		// Derive an asset claimer, either from the origin location, or if specified in the message
+		// in the message
+		let claimer = message.claimer.map_or(
+			default_claimer.clone(),
+			|claimer_bytes| Location::decode(&mut claimer_bytes.as_ref()).unwrap_or(default_claimer.clone())
+		);
+
+		instructions.push(
+			SetHints {
+				hints: vec![
+					AssetClaimer { location: claimer.clone() }
+				].try_into().expect("checked statically, qed")
+			}
+		);
 
 		for asset in &message.assets {
 			match asset {
@@ -191,13 +198,13 @@ where
 			// Refund excess fees to the claimer, if present, otherwise to the relayer.
 			DepositAsset {
 				assets: Wild(AllOf { id: AssetId(fee_asset.into()), fun: WildFungible }),
-				beneficiary: refund_surplus_to,
+				beneficiary: claimer,
 			},
 		];
 
 		instructions.extend(appendix);
 
-		Ok((instructions.into(), message.relayer_fee))
+		Ok(instructions.into())
 	}
 }
 
@@ -291,11 +298,11 @@ mod tests {
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,
-		>::convert(message, origin_account);
+		>::convert(message);
 
 		assert_ok!(result.clone());
 
-		let (xcm, _) = result.unwrap();
+		let xcm = result.unwrap();
 
 		let mut instructions = xcm.into_iter();
 
@@ -417,11 +424,11 @@ mod tests {
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,
-		>::convert(message, origin_account);
+		>::convert(message);
 
 		assert_ok!(result.clone());
 
-		let (xcm, _) = result.unwrap();
+		let xcm = result.unwrap();
 
 		let mut instructions = xcm.into_iter();
 		let mut commands_found = 0;
@@ -478,7 +485,7 @@ mod tests {
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,
-		>::convert(message, origin_account);
+		>::convert(message);
 
 		assert_err!(result.clone(), ConvertMessageError::InvalidAsset);
 	}
@@ -528,12 +535,12 @@ mod tests {
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,
-		>::convert(message, origin_account.clone());
+		>::convert(message);
 
 		// Invalid claimer does not break the message conversion
 		assert_ok!(result.clone());
 
-		let (xcm, _) = result.unwrap();
+		let xcm = result.unwrap();
 
 		let mut result_instructions = xcm.clone().into_iter();
 
@@ -609,7 +616,7 @@ mod tests {
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,
-		>::convert(message, origin_account.clone());
+		>::convert(message);
 
 		// Invalid xcm does not break the message, allowing funds to be trapped on AH.
 		assert_ok!(result.clone());

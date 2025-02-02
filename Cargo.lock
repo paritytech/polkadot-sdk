@@ -25394,6 +25394,7 @@ dependencies = [
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
+ "tracing",
 ]
 
 [[package]]

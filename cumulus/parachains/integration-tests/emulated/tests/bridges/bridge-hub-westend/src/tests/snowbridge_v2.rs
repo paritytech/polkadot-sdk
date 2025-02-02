@@ -140,8 +140,8 @@ fn register_token_v2() {
 			execution_fee: 1_500_000_000_000u128,
 			relayer_fee: 1_500_000_000_000u128,
 		};
-		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+
+		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -213,8 +213,7 @@ fn send_token_v2() {
 			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -293,8 +292,7 @@ fn send_weth_v2() {
 			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -425,8 +423,7 @@ fn register_and_send_multiple_tokens_v2() {
 			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -588,8 +585,7 @@ fn send_token_to_penpal_v2() {
 			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -718,8 +714,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -804,8 +799,7 @@ fn invalid_xcm_traps_funds_on_ah() {
 			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -869,8 +863,7 @@ fn invalid_claimer_does_not_fail_the_message() {
 			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,

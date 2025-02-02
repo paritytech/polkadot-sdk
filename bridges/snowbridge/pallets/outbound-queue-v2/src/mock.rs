@@ -112,7 +112,7 @@ impl crate::Config for Test {
 	type Balance = u128;
 	type WeightToFee = IdentityFee<u128>;
 	type WeightInfo = ();
-	type RewardLedger = ();
+	type RewardPayment = ();
 	type ConvertAssetId = ();
 	type EthereumNetwork = EthereumNetwork;
 	type WETHAddress = WETHAddress;

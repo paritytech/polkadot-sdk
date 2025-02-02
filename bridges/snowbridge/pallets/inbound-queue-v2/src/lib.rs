@@ -38,19 +38,10 @@ mod mock;
 #[cfg(test)]
 mod test;
 
-use codec::{Decode, Encode};
-use frame_support::{
-	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::Balance,
-	},
-	weights::WeightToFee,
-	PalletError,
-};
 use frame_system::ensure_signed;
-use scale_info::TypeInfo;
 use snowbridge_core::{
 	sparse_bitmap::SparseBitmap,
+	reward::{PaymentProcedure, ether_asset},
 	BasicOperatingMode,
 };
 use snowbridge_inbound_queue_primitives::{
@@ -60,7 +51,7 @@ use snowbridge_inbound_queue_primitives::{
 use sp_core::H160;
 use types::Nonce;
 pub use weights::WeightInfo;
-use xcm::prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, *};
+use xcm::prelude::{Junction::*, Location, SendXcm, ExecuteXcm, *};
 
 #[cfg(feature = "runtime-benchmarks")]
 use {
@@ -73,8 +64,7 @@ pub use pallet::*;
 pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-type BalanceOf<T> =
-	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -98,22 +88,22 @@ pub mod pallet {
 		type Verifier: Verifier;
 		/// XCM message sender.
 		type XcmSender: SendXcm;
+		/// Handler for XCM fees.
+		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
+		/// Relayer Reward Payment
+		type RewardPayment: PaymentProcedure;
+		/// Ethereum NetworkId
+		type EthereumNetwork: Get<NetworkId>;
 		/// Address of the Gateway contract.
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
-		type WeightInfo: WeightInfo;
-		/// Convert a weight value into deductible balance type.
-		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
 		/// AssetHub parachain ID.
 		type AssetHubParaId: Get<u32>;
 		/// Convert a command from Ethereum to an XCM message.
 		type MessageConverter: ConvertMessage;
-		/// Used to burn fees from the origin account (the relayer), which will be teleported to AH.
-		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
-		/// Used for the dry run API implementation.
-		type Balance: Balance + From<u128>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::event]
@@ -128,6 +118,8 @@ pub mod pallet {
 		},
 		/// Set OperatingMode
 		OperatingModeChanged { mode: BasicOperatingMode },
+		/// XCM delivery fees were paid.
+		FeesPaid { paying: Location, fees: Assets },
 	}
 
 	#[pallet::error]
@@ -152,35 +144,40 @@ pub mod pallet {
 		InvalidAccountConversion,
 		/// Pallet is halted
 		Halted,
-		/// Message verification error,
+		/// The operation required fees to be paid which the initiator could not meet.
+		FeesNotMet,
+		/// The desired destination was unreachable, generally because there is a no way of routing
+		/// to it.
+		Unreachable,
+		/// There was some other issue (i.e. not to do with routing) in sending the message.
+		/// Perhaps a lack of space for buffering the message.
+		SendFailure,
+		/// Invalid foreign ERC-20 token ID
+		InvalidAsset,
+		/// Cannot reachor a foreign ERC-20 asset location.
+		CannotReanchor,
+		/// Reward payment Failure
+		RewardPaymentFailed,
+		/// Message verification error
 		Verification(VerificationError),
-		/// XCMP send failure
-		Send(SendError),
-		/// Message conversion error
-		ConvertMessage(ConvertMessageError),
+
 	}
 
-	#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, PalletError)]
-	pub enum SendError {
-		NotApplicable,
-		NotRoutable,
-		Transport,
-		DestinationUnsupported,
-		ExceedsMaxMessageSize,
-		MissingArgument,
-		Fees,
-	}
-
-	impl<T: Config> From<XcmpSendError> for Error<T> {
-		fn from(e: XcmpSendError) -> Self {
+	impl<T: Config> From<SendError> for Error<T> {
+		fn from(e: SendError) -> Self {
 			match e {
-				XcmpSendError::NotApplicable => Error::<T>::Send(SendError::NotApplicable),
-				XcmpSendError::Unroutable => Error::<T>::Send(SendError::NotRoutable),
-				XcmpSendError::Transport(_) => Error::<T>::Send(SendError::Transport),
-				XcmpSendError::DestinationUnsupported => Error::<T>::Send(SendError::DestinationUnsupported),
-				XcmpSendError::ExceedsMaxMessageSize => Error::<T>::Send(SendError::ExceedsMaxMessageSize),
-				XcmpSendError::MissingArgument => Error::<T>::Send(SendError::MissingArgument),
-				XcmpSendError::Fees => Error::<T>::Send(SendError::Fees),
+				SendError::Fees => Error::<T>::FeesNotMet,
+				SendError::NotApplicable => Error::<T>::Unreachable,
+				_ => Error::<T>::SendFailure,
+			}
+		}
+	}
+
+	impl<T: Config> From<ConvertMessageError> for Error<T> {
+		fn from(e: ConvertMessageError) -> Self {
+			match e {
+				ConvertMessageError::InvalidAsset => Error::<T>::InvalidAsset,
+				ConvertMessageError::CannotReanchor => Error::<T>::CannotReanchor,
 			}
 		}
 	}
@@ -194,7 +191,7 @@ pub mod pallet {
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T> where Location: From<<T as frame_system::Config>::AccountId> {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
@@ -210,32 +207,7 @@ pub mod pallet {
 			let message =
 				Message::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidMessage)?;
 
-			// Verify that the message was submitted from the known Gateway contract
-			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
-
-			// Verify the message has not been processed
-			ensure!(!Nonce::<T>::get(message.nonce.into()), Error::<T>::InvalidNonce);
-
-			let origin_account_location = Self::account_to_location(who)?;
-
-			let (xcm, _relayer_reward) =
-				Self::do_convert(message.clone(), origin_account_location.clone())?;
-
-			// TODO: Deposit `_relayer_reward` (ether) to RewardLedger pallet which should cover all of:
-			// T::RewardLedger::deposit(who, relayer_reward.into())?;
-			// a. The submit extrinsic cost on BH
-			// b. The delivery cost to AH
-			// c. The execution cost on AH
-			// d. The execution cost on destination chain(if any)
-			// e. The reward
-
-			Nonce::<T>::set(message.nonce.into());
-
-			// Attempt to forward XCM to AH
-			let message_id = Self::send_xcm(xcm, T::AssetHubParaId::get())?;
-			Self::deposit_event(Event::MessageReceived { nonce: message.nonce, message_id });
-
-			Ok(())
+			Self::process_message(who.into(), message)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
@@ -252,25 +224,51 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
-		pub fn account_to_location(account: AccountIdOf<T>) -> Result<Location, Error<T>> {
-			let account_bytes: [u8; 32] =
-				account.encode().try_into().map_err(|_| Error::<T>::InvalidAccount)?;
-			Ok(Location::new(0, [AccountId32 { network: None, id: account_bytes }]))
+	impl<T: Config> Pallet<T> where Location: From<<T as frame_system::Config>::AccountId> {
+		pub fn process_message(relayer: Location, message: Message) -> DispatchResult {
+			// Verify that the message was submitted from the known Gateway contract
+			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
+
+			// Verify the message has not been processed
+			ensure!(!Nonce::<T>::get(message.nonce.into()), Error::<T>::InvalidNonce);
+
+			let xcm = T::MessageConverter::convert(message.clone())
+				.map_err(|error| Error::<T>::from(error))?;
+
+			// Forward XCM to AH
+			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
+			let message_id = Self::send_xcm(dest.clone(), relayer.clone(), xcm.clone())
+				.map_err(|error| {
+					tracing::error!(target: "snowbridge_pallet_inbound_queue_v2::submit", ?error, ?dest, ?xcm, "XCM send failed with error");
+					Error::<T>::from(error)
+				})?;
+
+			// Pay relayer reward
+			let ether = ether_asset(T::EthereumNetwork::get(), message.relayer_fee);
+			T::RewardPayment::pay_reward(relayer, ether)
+				.map_err(|_| Error::<T>::RewardPaymentFailed)?;
+
+			// Mark message as as received
+			Nonce::<T>::set(message.nonce.into());
+
+			Self::deposit_event(Event::MessageReceived { nonce: message.nonce, message_id });
+
+			Ok(())
 		}
 
-		pub fn send_xcm(xcm: Xcm<()>, dest_para_id: u32) -> Result<XcmHash, Error<T>> {
-			let dest = Location::new(1, [Parachain(dest_para_id)]);
-			let (message_id, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
-			Ok(message_id)
-		}
-
-		pub fn do_convert(
-			message: Message,
-			origin_account_location: Location,
-		) -> Result<(Xcm<()>, u128), Error<T>> {
-			Ok(T::MessageConverter::convert(message, origin_account_location)
-				.map_err(|e| Error::<T>::ConvertMessage(e))?)
+		fn send_xcm(dest: Location, fee_payer: Location, xcm: Xcm<()>) -> Result<XcmHash, SendError> {
+			let (ticket, fee) = validate_send::<T::XcmSender>(dest, xcm)?;
+			T::XcmExecutor::charge_fees(fee_payer.clone(), fee.clone())
+				.map_err(|error| {
+					tracing::error!(
+						target: "snowbridge_pallet_inbound_queue_v2::send_xcm",
+						?error,
+						"Charging fees failed with error",
+					);
+					SendError::Fees
+				})?;
+			Self::deposit_event(Event::FeesPaid { paying: fee_payer, fees: fee });
+			T::XcmSender::deliver(ticket)
 		}
 	}
 }

@@ -3,7 +3,8 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2};
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
+use codec::Encode;
+use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
@@ -115,7 +116,7 @@ impl SendXcm for MockXcmSender {
 	) -> SendResult<Self::Ticket> {
 		if let Some(location) = dest {
 			match location.unpack() {
-				(_, [Parachain(1001)]) => return Err(XcmpSendError::NotApplicable),
+				(_, [Parachain(1001)]) => return Err(SendError::NotApplicable),
 				_ => Ok((xcm.clone().unwrap(), Assets::default())),
 			}
 		} else {
@@ -123,9 +124,35 @@ impl SendXcm for MockXcmSender {
 		}
 	}
 
-	fn deliver(xcm: Self::Ticket) -> core::result::Result<XcmHash, XcmpSendError> {
+	fn deliver(xcm: Self::Ticket) -> core::result::Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 		Ok(hash)
+	}
+}
+
+pub enum Weightless {}
+impl PreparedMessage for Weightless {
+	fn weight_of(&self) -> Weight {
+		unreachable!();
+	}
+}
+
+pub struct MockXcmExecutor;
+impl<C> ExecuteXcm<C> for MockXcmExecutor {
+	type Prepared = Weightless;
+	fn prepare(message: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
+		Err(message)
+	}
+	fn execute(
+		_: impl Into<Location>,
+		_: Self::Prepared,
+		_: &mut XcmHash,
+		_: Weight,
+	) -> Outcome {
+		unreachable!()
+	}
+	fn charge_fees(_: impl Into<Location>, _: Assets) -> xcm::latest::Result {
+		Ok(())
 	}
 }
 
@@ -154,8 +181,9 @@ impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
 	type XcmSender = MockXcmSender;
-	type WeightInfo = ();
-	type WeightToFee = IdentityFee<u128>;
+	type XcmExecutor = MockXcmExecutor;
+	type RewardPayment = ();
+	type EthereumNetwork = EthereumNetwork;
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
 	type MessageConverter = MessageToXcm<
@@ -166,10 +194,9 @@ impl inbound_queue_v2::Config for Test {
 		UniversalLocation,
 		AssetHubFromEthereum,
 	>;
-	type Token = Balances;
-	type Balance = u128;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
+	type WeightInfo = ();
 }
 
 pub fn setup() {

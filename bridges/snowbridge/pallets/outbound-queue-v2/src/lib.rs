@@ -74,7 +74,7 @@ use frame_support::{
 };
 pub use pallet::*;
 use snowbridge_core::{
-	BasicOperatingMode, RewardLedger, TokenId,
+	BasicOperatingMode, PaymentProcedure, ether_asset, TokenId,
 };
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::{
@@ -92,7 +92,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 pub use types::{PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
-use xcm::prelude::{Location, NetworkId};
+use xcm::prelude::{Location, NetworkId, *};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -137,8 +137,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
 
-		/// Reward ledger
-		type RewardLedger: RewardLedger<<Self as frame_system::Config>::AccountId, Self::Balance>;
+		/// Means of paying a relayer
+		type RewardPayment: PaymentProcedure;
 
 		type ConvertAssetId: MaybeEquivalence<TokenId, Location>;
 
@@ -192,6 +192,8 @@ pub mod pallet {
 		InvalidGateway,
 		/// Pending nonce does not exist
 		InvalidPendingNonce,
+		/// Reward payment failed
+		RewardPaymentFailed,
 	}
 
 	/// Messages to be committed in the current block. This storage value is killed in
@@ -230,7 +232,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
-		T::AccountId: AsRef<[u8]>,
+		T::AccountId: AsRef<[u8]>
 	{
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			// Remove storage from previous block
@@ -286,7 +288,10 @@ pub mod pallet {
 
 			// No fee for governance order
 			if !order.fee.is_zero() {
-				T::RewardLedger::deposit(envelope.reward_address, order.fee.into())?;
+				let reward_account_location = envelope.reward_address.into();
+				let ether = ether_asset(T::EthereumNetwork::get(), order.fee);
+				T::RewardPayment::pay_reward(reward_account_location, ether)
+					.map_err(|_| Error::<T>::RewardPaymentFailed)?;
 			}
 
 			<PendingOrders<T>>::remove(nonce);

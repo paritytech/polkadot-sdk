@@ -45,7 +45,6 @@ fn test_submit_happy_path() {
 			},
 		};
 
-		assert_eq!(Balances::balance(&relayer), 0);
 		assert_ok!(InboundQueue::submit(origin.clone(), Box::new(event.clone())));
 
 		let events = frame_system::Pallet::<Test>::events();
