@@ -29,8 +29,11 @@ use sp_runtime::traits::Dispatchable;
 use xcm::prelude::*;
 
 use crate::{
-	traits::{DropAssets, Properties, ShouldExecute, TransactAsset, WeightBounds, WeightTrader, FeeManager},
-	AssetsInHolding, Config, XcmExecutor, FeeReason,
+	traits::{
+		DropAssets, FeeManager, Properties, ShouldExecute, TransactAsset, WeightBounds,
+		WeightTrader,
+	},
+	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
 
 /// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we

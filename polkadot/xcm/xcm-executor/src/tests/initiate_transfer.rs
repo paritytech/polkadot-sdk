@@ -23,8 +23,8 @@
 use codec::Encode;
 use xcm::{latest::AssetTransferFilter, prelude::*};
 
-use crate::ExecutorError;
 use super::mock::*;
+use crate::ExecutorError;
 
 // The sender and recipient we use across these tests.
 const SENDER: [u8; 32] = [0; 32];
@@ -112,17 +112,15 @@ fn user_account_cant_skip_fee_payment() {
 	// Make sure the sender has enough funds to withdraw.
 	add_asset(SENDER, (Here, 100u128));
 
-	let xcm_on_destination = Xcm::builder_unsafe()
-		.refund_surplus()
-		.deposit_asset(All, RECIPIENT)
-		.build();
+	let xcm_on_destination =
+		Xcm::builder_unsafe().refund_surplus().deposit_asset(All, RECIPIENT).build();
 	let asset: Asset = (Here, 90u128).into();
 	let xcm = Xcm::builder()
 		.withdraw_asset((Here, 100u128))
 		.pay_fees((Here, 10u128))
 		.initiate_transfer(
 			Parent,
-			None, // We specify no remote fees.
+			None,  // We specify no remote fees.
 			false, // Preserve origin or not, doesn't matter.
 			vec![AssetTransferFilter::ReserveDeposit(asset.into())],
 			xcm_on_destination,
@@ -136,13 +134,7 @@ fn user_account_cant_skip_fee_payment() {
 	let result = vm.bench_process(xcm);
 	assert_eq!(
 		result,
-		Err(
-			ExecutorError {
-				index: 2,
-				xcm_error: XcmError::BadOrigin,
-				weight: Weight::zero()
-			}
-		)
+		Err(ExecutorError { index: 2, xcm_error: XcmError::BadOrigin, weight: Weight::zero() })
 	);
 }
 
@@ -158,8 +150,8 @@ fn waived_origin_can_skip_fee_payment() {
 	let xcm = Xcm::builder_unsafe()
 		.initiate_transfer(
 			to_another_system_para.clone(),
-			None, // We specify no remote fees.
-			false, // Preserve origin or not, doesn't matter.
+			None,   // We specify no remote fees.
+			false,  // Preserve origin or not, doesn't matter.
 			vec![], // No need for assets.
 			xcm_on_destination,
 		)
@@ -183,7 +175,7 @@ fn waived_origin_can_skip_fee_payment() {
 	// We initialize the executor with the WAIVED_CONTRACT_ADDRESS, which is waived.
 	let (mut vm, _) = instantiate_executor(
 		AccountKey20 { key: WAIVED_CONTRACT_ADDRESS, network: None },
-		xcm.clone()
+		xcm.clone(),
 	);
 
 	// Program executes successfully.
