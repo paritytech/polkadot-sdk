@@ -8,7 +8,6 @@
 #[cfg(test)]
 mod tests;
 
-pub mod fees;
 pub mod location;
 pub mod operating_mode;
 pub mod pricing;
