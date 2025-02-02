@@ -6,8 +6,8 @@ title: Deprecate HandleLifetime Trait and its Implementations in Favor of Direct
 doc:
   - audience: Runtime devs
     description: |
-        This PR deprecates the `HandleLifetime` trait and its implementations (`Consumer`, `Provider`, and `SelfSufficient`) in the Polkadot SDK FRAME crate. 
-        These traits are replaced by direct methods provided by frame-system to simplify and streamline the handling of `Consumer`, `Provider`, and `SelfSufficient` references.
+        This PR adds deprecation notice for the `HandleLifetime` trait and its implementations (`Consumer`, `Provider`, and `SelfSufficient`) in the Polkadot SDK FRAME crate. 
+        These traits are replaced by direct methods provided by frame-system::Pallet<T> to simplify and streamline the handling of `Consumer`, `Provider`, and `SelfSufficient` references.
 
         Key Changes:
             For Consumer (from HandleLifetime):
