@@ -21,12 +21,8 @@
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame_support::{
-	migrations::*,
-	weights::{Weight, WeightMeter},
-};
-use sp_core::ConstU32;
-use sp_runtime::BoundedVec;
+use frame::testing_prelude::*;
+
 
 /// Opaque identifier of a migration.
 pub type MockedIdentifier = BoundedVec<u8, ConstU32<256>>;
@@ -57,7 +53,7 @@ pub fn mocked_id(kind: MockedMigrationKind, steps: u32) -> MockedIdentifier {
 	(b"MockedMigration", kind, steps).encode().try_into().unwrap()
 }
 
-frame_support::parameter_types! {
+parameter_types! {
 	/// The configs for the migrations to run.
 	storage MIGRATIONS: Vec<(MockedMigrationKind, u32)> = vec![];
 }
@@ -138,7 +134,7 @@ impl SteppedMigrations for MockedMigrations {
 	fn nth_post_upgrade(
 		n: u32,
 		_state: Vec<u8>,
-	) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
+	) -> Option<Result<(), frame::try_runtime::TryRuntimeError>> {
 		let (kind, _) = MIGRATIONS::get()[n as usize];
 
 		if let PostUpgradeFail = kind {

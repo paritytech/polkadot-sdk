@@ -19,9 +19,7 @@
 
 use super::*;
 
-use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_system::{Pallet as System, RawOrigin};
-use sp_runtime::traits::One;
+use frame::benchmarking::prelude::*;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -30,7 +28,6 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 #[benchmarks]
 mod benches {
 	use super::*;
-	use frame_support::traits::Hooks;
 
 	#[benchmark]
 	fn onboard_new_mbms() {
