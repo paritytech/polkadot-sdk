@@ -40,7 +40,16 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
-use sp_runtime::traits::{Bounded, Hash};
+use sp_consensus_aura::AURA_ENGINE_ID;
+use sp_consensus_babe::{
+	digests::{PreDigest, PrimaryPreDigest},
+	BABE_ENGINE_ID,
+};
+use sp_consensus_slots::Slot;
+use sp_runtime::{
+	generic::{Digest, DigestItem},
+	traits::{Bounded, Hash},
+};
 
 /// How many runs we do per API benchmark.
 ///
@@ -884,6 +893,59 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().block_number());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_block_author() {
+		build_runtime!(runtime, memory: [[123u8; 20], ]);
+
+		let mut digest = Digest::default();
+
+		// The pre-runtime digest log is unbounded; usually around 3 items but it can vary.
+		// To get safe benchmark results despite that, populate it with a bunch of random logs to
+		// ensure iteration over many items (we just overestimate the cost of the API).
+		for i in 0..16 {
+			digest.push(DigestItem::PreRuntime([i, i, i, i], vec![i; 128]));
+			digest.push(DigestItem::Consensus([i, i, i, i], vec![i; 128]));
+			digest.push(DigestItem::Seal([i, i, i, i], vec![i; 128]));
+			digest.push(DigestItem::Other(vec![i; 128]));
+		}
+
+		// The content of the pre-runtime digest log depends on the configured consensus.
+		// However, mismatching logs are simply ignored. Thus we construct fixtures which will
+		// let the API to return a value in both BABE and AURA consensus.
+
+		// Construct a `Digest` log fixture returning some value in BABE
+		let primary_pre_digest = vec![0; <PrimaryPreDigest as MaxEncodedLen>::max_encoded_len()];
+		let pre_digest =
+			PreDigest::Primary(PrimaryPreDigest::decode(&mut &primary_pre_digest[..]).unwrap());
+		digest.push(DigestItem::PreRuntime(BABE_ENGINE_ID, pre_digest.encode()));
+		digest.push(DigestItem::Seal(BABE_ENGINE_ID, pre_digest.encode()));
+
+		// Construct a `Digest` log fixture returning some value in AURA
+		let slot = Slot::default();
+		digest.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
+		digest.push(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
+
+		frame_system::Pallet::<T>::initialize(
+			&BlockNumberFor::<T>::from(1u32),
+			&Default::default(),
+			&digest,
+		);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_block_author(memory.as_mut_slice(), 0);
+		}
+		assert_ok!(result);
+
+		let block_author = runtime
+			.ext()
+			.block_author()
+			.map(|account| T::AddressMapper::to_address(&account))
+			.unwrap_or(H160::zero());
+		assert_eq!(&memory[..], block_author.as_bytes());
 	}
 
 	#[benchmark(pov_mode = Measured)]
