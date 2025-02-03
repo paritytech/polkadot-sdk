@@ -22,7 +22,7 @@ use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::{
-		traits::{Dispatchable, Get, IdentityLookup, MaybeEquivalence, TryConvert},
+		traits::{Get, IdentityLookup, MaybeEquivalence, TryConvert},
 		BuildStorage, SaturatedConversion,
 	},
 	traits::{
@@ -109,10 +109,6 @@ impl pallet_assets::Config for TestRuntime {
 
 thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = const { RefCell::new(Vec::new()) };
-}
-
-pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
-	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
 
 pub struct TestXcmSender;
