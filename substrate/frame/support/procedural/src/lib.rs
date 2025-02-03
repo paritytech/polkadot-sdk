@@ -34,6 +34,7 @@ mod pallet;
 mod pallet_error;
 mod runtime;
 mod storage_alias;
+mod stored;
 mod transactional;
 mod tt_macro;
 
@@ -298,6 +299,11 @@ pub fn transactional(attr: TokenStream, input: TokenStream) -> TokenStream {
 pub fn require_transactional(attr: TokenStream, input: TokenStream) -> TokenStream {
 	transactional::require_transactional(attr, input)
 		.unwrap_or_else(|e| e.to_compile_error().into())
+}
+
+#[proc_macro_derive(Stored)]
+pub fn derive_stored(input: TokenStream) -> TokenStream {
+	stored::derive_stored(input)
 }
 
 /// Derive [`Clone`] but do not bound any generic.

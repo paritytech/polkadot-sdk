@@ -133,6 +133,8 @@ mod mock;
 mod tests;
 pub mod weights;
 
+mod types;
+
 use core::{cmp, result};
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
@@ -199,6 +201,9 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[pallet::storage]
+	pub type Test<T: Config> = StorageValue<_, types::TestType<T>, ValueQuery>;
 
 	/// The current time for the current block.
 	#[pallet::storage]

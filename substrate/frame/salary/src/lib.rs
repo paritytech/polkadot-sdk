@@ -32,6 +32,8 @@ mod tests;
 mod benchmarking;
 pub mod weights;
 
+mod types;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -143,6 +145,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type Claimant<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, ClaimantStatusOf<T, I>, OptionQuery>;
+
+	#[pallet::storage]
+	pub type Test<T: Config<I>, I: 'static = ()> = StorageValue<_, types::TestType<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
