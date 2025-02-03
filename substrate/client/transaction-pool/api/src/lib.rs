@@ -33,6 +33,7 @@ const LOG_TARGET: &str = "txpool::api";
 
 pub use sp_runtime::transaction_validity::{
 	TransactionLongevity, TransactionPriority, TransactionSource, TransactionTag,
+	TransactionValidityError,
 };
 
 /// Transaction pool status.
@@ -309,7 +310,7 @@ pub trait TransactionPool: Send + Sync {
 	fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
-		invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
+		invalid_tx_errors: &[(TxHash<Self>, Option<TransactionValidityError>)],
 	) -> Vec<Arc<Self::InPoolTransaction>>;
 
 	// *** logging

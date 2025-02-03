@@ -845,7 +845,7 @@ where
 	fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
-		invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
+		invalid_tx_errors: &[(TxHash<Self>, Option<TransactionValidityError>)],
 	) -> Vec<Arc<Self::InPoolTransaction>> {
 		debug!(target: LOG_TARGET, len = ?invalid_tx_errors.len(), "fatp::report_invalid");
 		log_xt_trace!(data: tuple, target:LOG_TARGET, invalid_tx_errors, "fatp::report_invalid {:?}");

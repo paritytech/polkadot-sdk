@@ -35,7 +35,7 @@ use futures::prelude::*;
 use itertools::Itertools;
 use parking_lot::RwLock;
 use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus};
-use sp_blockchain::{ApplyExtrinsicFailed, Error as BlockchainError, TreeRoute};
+use sp_blockchain::TreeRoute;
 use sp_runtime::{
 	generic::BlockId,
 	traits::Block as BlockT,
@@ -721,17 +721,15 @@ where
 	pub(crate) fn report_invalid(
 		&self,
 		at: Option<Block::Hash>,
-		invalid_tx_errors: &[(ExtrinsicHash<ChainApi>, Option<BlockchainError>)],
+		invalid_tx_errors: &[(ExtrinsicHash<ChainApi>, Option<TransactionValidityError>)],
 	) -> Vec<TransactionFor<ChainApi>> {
 		let mut remove_from_view = vec![];
 		let mut remove_from_pool = vec![];
 
 		invalid_tx_errors.iter().for_each(|(hash, e)| match e {
-			Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
-				TransactionValidityError::Invalid(
-					InvalidTransaction::Future | InvalidTransaction::Stale,
-				),
-			))) => {
+			Some(TransactionValidityError::Invalid(
+				InvalidTransaction::Future | InvalidTransaction::Stale,
+			)) => {
 				remove_from_view.push(*hash);
 			},
 			_ => {

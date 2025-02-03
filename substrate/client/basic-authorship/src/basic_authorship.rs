@@ -512,7 +512,13 @@ where
 						target: LOG_TARGET,
 						"[{:?}] Invalid transaction: {} at: {}", pending_tx_hash, e, self.parent_hash
 					);
-					unqueue_invalid.push((pending_tx_hash, Some(e)));
+
+					let error_to_report = match e {
+						ApplyExtrinsicFailed(Validity(e)) => Some(e),
+						_ => None,
+					};
+
+					unqueue_invalid.push((pending_tx_hash, error_to_report));
 				},
 			}
 		};

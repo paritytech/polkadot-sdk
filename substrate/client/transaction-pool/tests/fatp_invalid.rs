@@ -30,7 +30,6 @@ use sc_transaction_pool_api::{
 	error::{Error as TxPoolError, IntoPoolError},
 	MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
-use sp_blockchain::{ApplyExtrinsicFailed, Error as BlockchainError};
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
 use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
@@ -442,9 +441,7 @@ fn fatp_invalid_report_stale_or_future_works_as_expected() {
 	// future/stale are ignored when at is None
 	let xt0_report = (
 		pool.api().hash_and_length(&xt0).0,
-		Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
-			TransactionValidityError::Invalid(InvalidTransaction::Future),
-		))),
+		Some(TransactionValidityError::Invalid(InvalidTransaction::Future)),
 	);
 	let invalid_txs = vec![xt0_report];
 	let result = pool.report_invalid(None, &invalid_txs[..]);
@@ -454,15 +451,11 @@ fn fatp_invalid_report_stale_or_future_works_as_expected() {
 	// future/stale are applied when at is provided
 	let xt0_report = (
 		pool.api().hash_and_length(&xt0).0,
-		Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
-			TransactionValidityError::Invalid(InvalidTransaction::Future),
-		))),
+		Some(TransactionValidityError::Invalid(InvalidTransaction::Future)),
 	);
 	let xt1_report = (
 		pool.api().hash_and_length(&xt1).0,
-		Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
-			TransactionValidityError::Invalid(InvalidTransaction::Stale),
-		))),
+		Some(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 	);
 	let invalid_txs = vec![xt0_report, xt1_report];
 	let result = pool.report_invalid(Some(header01.hash()), &invalid_txs[..]);
@@ -510,15 +503,11 @@ fn fatp_invalid_report_future_dont_remove_from_pool() {
 
 	let xt0_report = (
 		pool.api().hash_and_length(&xt0).0,
-		Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
-			TransactionValidityError::Invalid(InvalidTransaction::Stale),
-		))),
+		Some(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 	);
 	let xt1_report = (
 		pool.api().hash_and_length(&xt1).0,
-		Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
-			TransactionValidityError::Invalid(InvalidTransaction::Future),
-		))),
+		Some(TransactionValidityError::Invalid(InvalidTransaction::Future)),
 	);
 	let invalid_txs = vec![xt0_report, xt1_report];
 	let result = pool.report_invalid(Some(header01.hash()), &invalid_txs[..]);
@@ -562,9 +551,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool() {
 
 	let xt0_report = (
 		pool.api().hash_and_length(&xt0).0,
-		Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
-			TransactionValidityError::Invalid(InvalidTransaction::BadProof),
-		))),
+		Some(TransactionValidityError::Invalid(InvalidTransaction::BadProof)),
 	);
 	let xt1_report = (pool.api().hash_and_length(&xt1).0, None);
 	let invalid_txs = vec![xt0_report, xt1_report];
@@ -608,9 +595,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool_future_subtree_stays() {
 
 	let xt0_report = (
 		pool.api().hash_and_length(&xt0).0,
-		Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
-			TransactionValidityError::Invalid(InvalidTransaction::BadProof),
-		))),
+		Some(TransactionValidityError::Invalid(InvalidTransaction::BadProof)),
 	);
 	let invalid_txs = vec![xt0_report];
 	let result = pool.report_invalid(Some(header01.hash()), &invalid_txs);
@@ -667,9 +652,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool2() {
 
 	let xt0_report = (
 		pool.api().hash_and_length(&xt0).0,
-		Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
-			TransactionValidityError::Invalid(InvalidTransaction::BadProof),
-		))),
+		Some(TransactionValidityError::Invalid(InvalidTransaction::BadProof)),
 	);
 	let xt1_report = (pool.api().hash_and_length(&xt1).0, None);
 	let invalid_txs = vec![xt0_report, xt1_report];
