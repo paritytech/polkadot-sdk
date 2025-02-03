@@ -472,37 +472,7 @@ where
 ///
 /// Note: Ensures that restricted instructions are blocked at any depth with the XCM, enforcing
 /// stricter execution policies.
-pub struct RecursiveDenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
-where
-	Deny: DenyExecution,
-	Allow: ShouldExecute;
-
-impl<Deny, Allow> ShouldExecute for RecursiveDenyThenTry<Deny, Allow>
-where
-	Deny: DenyExecution,
-	Allow: ShouldExecute,
-{
-	fn should_execute<RuntimeCall>(
-		origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		max_weight: Weight,
-		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		// Apply the base deny filter
-		Deny::deny_execution(origin, instructions, max_weight, properties)?;
-
-		// Recursively apply denial for nested XCM instructions
-		DenyNestedXcmInstructions::<Deny>::deny_execution(
-			origin,
-			instructions,
-			max_weight,
-			properties,
-		)?;
-
-		// If neither deny check fails, apply the allow filter
-		Allow::should_execute(origin, instructions, max_weight, properties)
-	}
-}
+pub type DenyNestedLocalInstructionsThenTry<Deny, Allow> = DenyThenTry<DenyNestedLocalInstructions<Deny>, Allow>;
 
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
@@ -553,9 +523,13 @@ environmental::environmental!(recursion_count: u8);
 /// Note: The nested XCM is checked recursively!
 pub struct DenyNestedXcmInstructions<Inner>(PhantomData<Inner>);
 
-
 impl<Inner: DenyExecution> DenyNestedXcmInstructions<Inner> {
-	fn deny_recursively<RuntimeCall>(origin: &Location, nested_xcm: &mut Xcm<RuntimeCall>, max_weight: Weight, properties: &mut Properties) -> Result<Result<ControlFlow<()>, ProcessMessageError>, ProcessMessageError> {
+	fn deny_recursively<RuntimeCall>(
+		origin: &Location,
+		nested_xcm: &mut Xcm<RuntimeCall>,
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<Result<ControlFlow<()>, ProcessMessageError>, ProcessMessageError> {
 		// Check xcm instructions with `Inner` filter
 		let _ = Inner::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
 			.inspect_err(|e| {
@@ -572,26 +546,26 @@ impl<Inner: DenyExecution> DenyNestedXcmInstructions<Inner> {
 			recursion_count::with(|count| {
 				if *count > xcm_executor::RECURSION_LIMIT {
 					log::error!(
-									target: "xcm::barriers",
-									"Recursion limit exceeded, origin: {:?}, nested_xcm: {:?}, count: {count}",
-									origin, nested_xcm
-								);
+						target: "xcm::barriers",
+						"Recursion limit exceeded, origin: {:?}, nested_xcm: {:?}, count: {count}",
+						origin, nested_xcm
+					);
 
 					return Err(ProcessMessageError::StackLimitReached);
 				}
 				*count = count.saturating_add(1);
 				Ok(())
 			})
-				// This should always return `Some`, but let's play it safe.
-				.unwrap_or(Ok(()))?;
+			// This should always return `Some`, but let's play it safe.
+			.unwrap_or(Ok(()))?;
 
 			// Ensure that we always decrement the counter whenever we finish processing
 			// the `DenyNestedXcmInstructions`.
 			sp_core::defer! {
-							recursion_count::with(|count| {
-								*count = count.saturating_sub(1);
-							});
-						}
+				recursion_count::with(|count| {
+					*count = count.saturating_sub(1);
+				});
+			}
 
 			// Check recursively with `DenyNestedXcmInstructions`
 			Self::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
@@ -613,9 +587,8 @@ impl<Inner: DenyExecution> DenyExecution for DenyNestedXcmInstructions<Inner> {
 			|inst| match inst {
 				SetAppendix(nested_xcm) |
 				SetErrorHandler(nested_xcm) |
-				ExecuteWithOrigin { xcm: nested_xcm, .. } => {
-					Self::deny_recursively(origin, nested_xcm, max_weight, properties)?
-				},
+				ExecuteWithOrigin { xcm: nested_xcm, .. } =>
+					Self::deny_recursively(origin, nested_xcm, max_weight, properties)?,
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		)?;

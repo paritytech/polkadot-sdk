@@ -708,10 +708,10 @@ fn deny_then_try_works() {
 }
 
 #[test]
-fn recursive_deny_and_try_xcm_works() {
+fn deny_nested_local_instructions_then_try_works() {
 	frame_support::__private::sp_tracing::try_init_simple();
 
-	type Barrier = RecursiveDenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	type Barrier = DenyNestedLocalInstructionsThenTry<DenyReserveTransferToRelayChain, AllowAll>;
 	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
 		dest: Location::parent(),
@@ -768,12 +768,10 @@ fn recursive_deny_and_try_xcm_works() {
 	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_ok());
-}
 
-#[test]
-fn recursive_deny_then_try_instructions_with_xcm_works() {
-	type Barrier = DenyWrapper<RecursiveDenyThenTry<DenyClearOrigin, AllowAll>>;
-	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
+	// Should deny recursively before allow
+	type BarrierDenyClearOrigin = DenyWrapper<DenyNestedLocalInstructionsThenTry<DenyClearOrigin, AllowAll>>;
+	assert_deny_nested_instructions_with_xcm::<BarrierDenyClearOrigin>(Err(ProcessMessageError::Unsupported));
 }
 
 #[test]
@@ -887,8 +885,8 @@ fn compare_deny_filters() {
 	// `DenyThenTry`: Top-level=Deny, Nested=Allow, TryAllow=Yes
 	assert_barrier::<DenyThenTry<Denies, AllowAll>>(Err(ProcessMessageError::Unsupported), Ok(()));
 
-	// `RecursiveDenyThenTry`: Top-level=Deny, Nested=Deny, TryAllow=Yes
-	assert_barrier::<RecursiveDenyThenTry<Denies, AllowAll>>(
+	// `DenyNestedLocalInstructionsThenTry`: Top-level=Deny, Nested=Deny, TryAllow=Yes
+	assert_barrier::<DenyNestedLocalInstructionsThenTry<Denies, AllowAll>>(
 		Err(ProcessMessageError::Unsupported),
 		Err(ProcessMessageError::Unsupported),
 	);

@@ -44,7 +44,7 @@ pub use barriers::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	AllowUnpaidExecutionFrom, DenyNestedLocalInstructions, DenyNestedXcmInstructions,
 	DenyReserveTransferToRelayChain, DenyThenTry, IsChildSystemParachain, IsParentsOnly,
-	IsSiblingSystemParachain, RecursiveDenyThenTry, RespectSuspension, TakeWeightCredit,
+	IsSiblingSystemParachain, DenyNestedLocalInstructionsThenTry, RespectSuspension, TakeWeightCredit,
 	TrailingSetTopicAsId, WithComputedOrigin,
 };
 
