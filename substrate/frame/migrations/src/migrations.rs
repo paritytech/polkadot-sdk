@@ -20,7 +20,7 @@ use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::{
 	migrations::{SteppedMigration, SteppedMigrationError},
-	traits::{OnGenesis, PalletInfoAccess},
+	traits::{GetStorageVersion, PalletInfoAccess, WriteStorageVersion},
 	weights::WeightMeter,
 };
 use sp_core::{twox_128, Get};
@@ -40,8 +40,7 @@ use sp_runtime::SaturatedConversion;
 /// # Note
 ///
 /// If your pallet does rely of some state in genesis you need to take care of that
-/// separately. This migration only sets the storage version after wiping by running
-/// [`OnGenesis::on_genesis`].
+/// separately. This migration only sets the storage version after wiping.
 pub struct ResetPallet<T, P>(PhantomData<(T, P)>);
 
 impl<T, P> ResetPallet<T, P>
@@ -58,7 +57,7 @@ where
 impl<T, P> SteppedMigration for ResetPallet<T, P>
 where
 	T: Config,
-	P: PalletInfoAccess + OnGenesis,
+	P: PalletInfoAccess + GetStorageVersion,
 {
 	type Cursor = bool;
 	type Identifier = [u8; 16];
@@ -77,7 +76,7 @@ where
 			meter
 				.try_consume(required)
 				.map_err(|_| SteppedMigrationError::InsufficientWeight { required })?;
-			P::on_genesis();
+			P::in_code_storage_version().write_storage_version::<P>();
 			return Ok(None);
 		}
 

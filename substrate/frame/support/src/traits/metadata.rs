@@ -301,7 +301,7 @@ pub trait GetStorageVersion {
 	/// of zero is to prevent developers from forgetting to set
 	/// [`storage_version`](crate::pallet_macros::storage_version) when it is required, like in the
 	/// case that they wish to compare the in-code storage version to the on-chain storage version.
-	type InCodeStorageVersion;
+	type InCodeStorageVersion: WriteStorageVersion;
 
 	#[deprecated(
 		note = "This method has been renamed to `in_code_storage_version` and will be removed after March 2024."
@@ -321,6 +321,24 @@ pub trait GetStorageVersion {
 	fn in_code_storage_version() -> Self::InCodeStorageVersion;
 	/// Returns the storage version of the pallet as last set in the actual on-chain storage.
 	fn on_chain_storage_version() -> StorageVersion;
+}
+
+/// Type that can write the storage version it represents to storage.
+pub trait WriteStorageVersion {
+	/// Write the storage version represented by this type to storage.
+	fn write_storage_version<P: PalletInfoAccess>(&self);
+}
+
+impl WriteStorageVersion for StorageVersion {
+	fn write_storage_version<P: PalletInfoAccess>(&self) {
+		self.put::<P>();
+	}
+}
+
+impl WriteStorageVersion for NoStorageVersionSet {
+	fn write_storage_version<P: PalletInfoAccess>(&self) {
+		StorageVersion::new(0).put::<P>();
+	}
 }
 
 #[cfg(test)]
