@@ -898,8 +898,9 @@ where
 							gas_meter.nested(gas_limit),
 						)
 
-					// For the first frame, charge the gas on its own nested gas meter.
-					// For subsequent frames, charge the parent frame's gas meter.
+					// For the first frame, charge the gas to the frame's nested gas meter
+					// instead of the top-level gas meter, so it's properly associated with
+					// the initial frame when tracing the call.
 					} else if origin_is_caller {
 						let mut nested_gas_meter = gas_meter.nested(gas_limit);
 						(
