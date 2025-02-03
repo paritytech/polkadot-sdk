@@ -1,0 +1,10 @@
+title: 'paras-registrar: Improve error reporting'
+doc:
+- audience: Runtime User
+  description: |-
+    This pr improves the error reporting by paras registrar when an owner wants to access a locked parachain.
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/6745
+crates:
+- name: polkadot-runtime-common
+  bump: patch

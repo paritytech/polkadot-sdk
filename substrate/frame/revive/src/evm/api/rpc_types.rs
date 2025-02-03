@@ -192,7 +192,11 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: Some(tx.to),
 				gas: Some(tx.gas),
-				gas_price: Some(tx.max_fee_per_blob_gas),
+				gas_price: Some(
+					U256::from(crate::GAS_PRICE)
+						.saturating_add(tx.max_priority_fee_per_gas)
+						.max(tx.max_fee_per_blob_gas),
+				),
 				access_list: Some(tx.access_list),
 				blob_versioned_hashes: tx.blob_versioned_hashes,
 				max_fee_per_blob_gas: Some(tx.max_fee_per_blob_gas),
@@ -209,7 +213,11 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: tx.to,
 				gas: Some(tx.gas),
-				gas_price: Some(tx.gas_price),
+				gas_price: Some(
+					U256::from(crate::GAS_PRICE)
+						.saturating_add(tx.max_priority_fee_per_gas)
+						.max(tx.max_fee_per_gas),
+				),
 				access_list: Some(tx.access_list),
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
 				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
