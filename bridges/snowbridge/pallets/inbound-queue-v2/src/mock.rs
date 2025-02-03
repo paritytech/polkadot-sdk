@@ -4,14 +4,13 @@ use super::*;
 
 use crate::{self as inbound_queue_v2};
 use codec::Encode;
-use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
-use snowbridge_inbound_queue_primitives::{Log, Proof, VerificationError};
 use snowbridge_core::TokenId;
-use snowbridge_inbound_queue_primitives::v2::MessageToXcm;
+use snowbridge_inbound_queue_primitives::{v2::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::H160;
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
@@ -19,7 +18,6 @@ use sp_runtime::{
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
-use frame_support::weights::IdentityFee;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -144,12 +142,7 @@ impl<C> ExecuteXcm<C> for MockXcmExecutor {
 	fn prepare(message: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
 		Err(message)
 	}
-	fn execute(
-		_: impl Into<Location>,
-		_: Self::Prepared,
-		_: &mut XcmHash,
-		_: Weight,
-	) -> Outcome {
+	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
 		unreachable!()
 	}
 	fn charge_fees(_: impl Into<Location>, _: Assets) -> xcm::latest::Result {
@@ -269,7 +262,10 @@ pub fn mock_execution_proof() -> ExecutionProof {
 	}
 }
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{
+	traits::Get,
+	weights::{constants::RocksDbWeight, Weight},
+};
 
 /// Weight functions needed for ethereum_beacon_client.
 pub trait WeightInfo {

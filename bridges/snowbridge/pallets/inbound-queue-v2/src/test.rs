@@ -3,11 +3,10 @@
 use super::*;
 
 use crate::{mock::*, Error};
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use snowbridge_inbound_queue_primitives::{EventProof, Proof};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
-use frame_support::assert_err;
 
 #[test]
 fn test_submit_with_invalid_gateway() {
@@ -88,7 +87,10 @@ fn test_using_same_nonce_fails() {
 			"no event emitted."
 		);
 
-		assert_err!(InboundQueue::submit(origin.clone(), Box::new(event.clone())), Error::<Test>::InvalidNonce);
+		assert_err!(
+			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
+			Error::<Test>::InvalidNonce
+		);
 	});
 }
 

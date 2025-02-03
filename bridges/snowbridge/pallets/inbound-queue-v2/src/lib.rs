@@ -36,31 +36,30 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+use crate::weights::WeightInfo;
+use frame_support::{
+	traits::{
+		fungible::{Inspect, Mutate},
+		tokens::Balance,
+	},
+	weights::WeightToFee,
+};
 use frame_system::ensure_signed;
 use snowbridge_core::{
-	reward::{PaymentProcedure, ether_asset},
+	reward::{ether_asset, PaymentProcedure},
+	sparse_bitmap::{SparseBitmap, SparseBitmapImpl},
 	BasicOperatingMode,
 };
 use snowbridge_inbound_queue_primitives::{
-	VerificationError, Verifier, EventProof,
-	v2::{Message, ConvertMessage, ConvertMessageError}
+	v2::{ConvertMessage, ConvertMessageError, Message},
+	EventProof, VerificationError, Verifier,
 };
 use sp_core::H160;
-use xcm::prelude::{Junction::*, Location, SendXcm, ExecuteXcm, *};
-use snowbridge_core::sparse_bitmap::SparseBitmapImpl;
 use sp_io::hashing::blake2_256;
-use frame_support::traits::tokens::Balance;
-use snowbridge_core::sparse_bitmap::SparseBitmap;
-use frame_support::weights::WeightToFee;
-use frame_support::traits::fungible::Inspect;
-use frame_support::traits::fungible::Mutate;
-use crate::weights::WeightInfo;
+use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
 
 #[cfg(feature = "runtime-benchmarks")]
-use {
-	snowbridge_beacon_primitives::BeaconHeader,
-	sp_core::H256
-};
+use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
 
 pub use pallet::*;
 
@@ -68,7 +67,7 @@ pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type BalanceOf<T> =
-<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type Nonce<T> = SparseBitmapImpl<crate::NonceBitmap<T>>;
 #[frame_support::pallet]
@@ -171,7 +170,6 @@ pub mod pallet {
 		RewardPaymentFailed,
 		/// Message verification error
 		Verification(VerificationError),
-
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -203,7 +201,10 @@ pub mod pallet {
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> where Location: From<<T as frame_system::Config>::AccountId> {
+	impl<T: Config> Pallet<T>
+	where
+		Location: From<<T as frame_system::Config>::AccountId>,
+	{
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
@@ -236,7 +237,10 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> where Location: From<<T as frame_system::Config>::AccountId> {
+	impl<T: Config> Pallet<T>
+	where
+		Location: From<<T as frame_system::Config>::AccountId>,
+	{
 		pub fn process_message(relayer: Location, message: Message) -> DispatchResult {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
@@ -244,9 +248,8 @@ pub mod pallet {
 			// Verify the message has not been processed
 			ensure!(!Nonce::<T>::get(message.nonce.into()), Error::<T>::InvalidNonce);
 
-			let topic = blake2_256(
-				format!("snowbridge-inbound-queue:{}", message.nonce).as_bytes()
-			);
+			let topic =
+				blake2_256(format!("snowbridge-inbound-queue:{}", message.nonce).as_bytes());
 
 			let xcm = T::MessageConverter::convert(message.clone(), topic)
 				.map_err(|error| Error::<T>::from(error))?;
@@ -272,17 +275,20 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn send_xcm(dest: Location, fee_payer: Location, xcm: Xcm<()>) -> Result<XcmHash, SendError> {
+		fn send_xcm(
+			dest: Location,
+			fee_payer: Location,
+			xcm: Xcm<()>,
+		) -> Result<XcmHash, SendError> {
 			let (ticket, fee) = validate_send::<T::XcmSender>(dest, xcm)?;
-			T::XcmExecutor::charge_fees(fee_payer.clone(), fee.clone())
-				.map_err(|error| {
-					tracing::error!(
-						target: "snowbridge_pallet_inbound_queue_v2::send_xcm",
-						?error,
-						"Charging fees failed with error",
-					);
-					SendError::Fees
-				})?;
+			T::XcmExecutor::charge_fees(fee_payer.clone(), fee.clone()).map_err(|error| {
+				tracing::error!(
+					target: "snowbridge_pallet_inbound_queue_v2::send_xcm",
+					?error,
+					"Charging fees failed with error",
+				);
+				SendError::Fees
+			})?;
 			Self::deposit_event(Event::FeesPaid { paying: fee_payer, fees: fee });
 			T::XcmSender::deliver(ticket)
 		}
