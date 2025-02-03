@@ -107,7 +107,7 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
+	traits::{BadOrigin, Dispatchable, One, Saturating, Zero, BlockNumberProvider},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
 
@@ -124,6 +124,9 @@ pub type CallOrHashOf<T> =
 
 pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
+
+pub type BlockNumberFor<T> =
+		<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The configuration of the retry mechanism for a given task along with its current state.
 #[derive(Clone, Copy, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -230,7 +233,7 @@ impl<T: WeightInfo> MarginalWeightInfo for T {}
 pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, OriginFor};
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -296,6 +299,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
+
+	type BlockNumberProvider: BlockNumberProvider;
 
 	/// Items to be executed, indexed by the block number that they should be executed on.
 	#[pallet::storage]
@@ -374,9 +379,10 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::max_value());
 			weight_counter.consumed()
@@ -889,8 +895,7 @@ impl<T: Config> Pallet<T> {
 	fn resolve_time(
 		when: DispatchTime<BlockNumberFor<T>>,
 	) -> Result<BlockNumberFor<T>, DispatchError> {
-		let now = frame_system::Pallet::<T>::block_number();
-
+		let now = T::BlockNumberProvider::current_block_number();
 		let when = match when {
 			DispatchTime::At(x) => x,
 			// The current block has already completed it's scheduled tasks, so
@@ -926,11 +931,11 @@ impl<T: Config> Pallet<T> {
 		let mut agenda = Agenda::<T>::get(when);
 		let index = if (agenda.len() as u32) < T::MaxScheduledPerBlock::get() {
 			// will always succeed due to the above check.
-			let _ = agenda.try_push(Some(what));
+			let _ = agenda.try_push(Some(what.clone()));
 			agenda.len() as u32 - 1
 		} else {
 			if let Some(hole_index) = agenda.iter().position(|i| i.is_none()) {
-				agenda[hole_index] = Some(what);
+				agenda[hole_index] = Some(what.clone());
 				hole_index as u32
 			} else {
 				return Err((DispatchError::Exhausted, what))
