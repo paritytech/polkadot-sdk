@@ -22,7 +22,6 @@
 use codec::{Decode, Encode};
 use sc_client_api::StorageProof;
 use sc_network_common::message::RequestId;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 /// Remote call response.
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
@@ -44,17 +43,9 @@ pub struct RemoteReadResponse {
 
 /// Generic types.
 pub mod generic {
-	use super::{RemoteCallResponse, RemoteReadResponse};
 	use codec::{Decode, Encode, Input};
 	use sc_client_api::StorageProof;
-	use sc_network_common::{
-		message::RequestId,
-		role::Roles,
-		sync::message::{
-			generic::{BlockRequest, BlockResponse},
-			BlockAnnounce,
-		},
-	};
+	use sc_network_common::{message::RequestId, role::Roles};
 	use sp_runtime::ConsensusEngineId;
 
 	/// Consensus is mostly opaque to us
