@@ -871,6 +871,8 @@ where
 		read_only: bool,
 		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, E)>, ExecError> {
+		let mut nested_gas = gas_meter.nested(gas_limit);
+
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
 				let contract = if let Some(contract) = cached_info {
@@ -889,7 +891,7 @@ where
 					if let Some(DelegatedCall { executable, caller, callee }) = delegated_call {
 						(executable, Some(DelegateInfo { caller, callee }))
 					} else {
-						(E::from_storage(contract.code_hash, gas_meter)?, None)
+						(E::from_storage(contract.code_hash, &mut nested_gas)?, None)
 					};
 
 				(dest, contract, executable, delegate_caller, ExportedFunction::Call)
@@ -933,7 +935,7 @@ where
 			contract_info: CachedContract::Cached(contract_info),
 			account_id,
 			entry_point,
-			nested_gas: gas_meter.nested(gas_limit),
+			nested_gas,
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,
@@ -994,9 +996,9 @@ where
 	///
 	/// This can be either a call or an instantiate.
 	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
+		let caller = self.caller();
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
-		let is_delegate_call = frame.delegate.is_some();
 		let delegated_code_hash =
 			if frame.delegate.is_some() { Some(*executable.code_hash()) } else { None };
 
@@ -1014,12 +1016,24 @@ where
 
 		self.transient_storage.start_transaction();
 
-		let do_transaction = || -> ExecResult {
-			let caller = self.caller();
+		if_tracing(|tracer| {
 			let frame = top_frame_mut!(self);
-			let read_only = frame.read_only;
-			let value_transferred = frame.value_transferred;
-			let account_id = &frame.account_id.clone();
+			let contract_addr = T::AddressMapper::to_address(&frame.account_id);
+			let caller_addr = caller.account_id().map(T::AddressMapper::to_address);
+			tracer.enter_child_span(
+				caller_addr.unwrap_or_default(),
+				contract_addr,
+				frame.delegate.is_some(),
+				frame.read_only,
+				frame.value_transferred,
+				&input_data,
+				frame.nested_gas.gas_left(),
+			);
+		});
+
+		let do_transaction = || -> ExecResult {
+			let frame = top_frame_mut!(self);
+			let account_id = &frame.account_id;
 
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
@@ -1062,35 +1076,11 @@ where
 				)?;
 			}
 
-			let contract_address = T::AddressMapper::to_address(account_id);
-			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
 			let code_deposit = executable.code_info().deposit();
 
-			if_tracing(|tracer| {
-				tracer.enter_child_span(
-					maybe_caller_address.unwrap_or_default(),
-					contract_address,
-					is_delegate_call,
-					read_only,
-					value_transferred,
-					&input_data,
-					frame.nested_gas.gas_left(),
-				);
-			});
-
-			let output = executable.execute(self, entry_point, input_data).map_err(|e| {
-				if_tracing(|tracer| {
-					tracer.exit_child_span_with_error(
-						e.error,
-						top_frame_mut!(self).nested_gas.gas_consumed(),
-					);
-				});
-				ExecError { error: e.error, origin: ErrorOrigin::Callee }
-			})?;
-
-			if_tracing(|tracer| {
-				tracer.exit_child_span(&output, top_frame_mut!(self).nested_gas.gas_consumed());
-			});
+			let output = executable
+				.execute(self, entry_point, input_data)
+				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
@@ -1149,6 +1139,18 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
+
+		if_tracing(|tracer| match &output {
+			Ok(result) => {
+				tracer.exit_child_span(&result, top_frame!(self).nested_gas.gas_consumed());
+			},
+			Err(e) => {
+				tracer.exit_child_span_with_error(
+					e.error.into(),
+					top_frame_mut!(self).nested_gas.gas_consumed(),
+				);
+			},
+		});
 
 		self.pop_frame(success);
 		output.map(|output| {
