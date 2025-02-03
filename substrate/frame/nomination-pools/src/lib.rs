@@ -2528,7 +2528,7 @@ pub mod pallet {
 		/// root role.
 		///
 		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
-		/// `pallet-staking`) through [`T::StakeAdapter`], on behalf of the bonded pool.
+		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
 		///
 		/// # Note
 		///
@@ -2743,7 +2743,7 @@ pub mod pallet {
 		/// root role, same as [`Pallet::nominate`].
 		///
 		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
-		/// `pallet-staking`) through [`T::StakeAdapter`], on behalf of the bonded pool.
+		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
 		///
 		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
 		/// account).
