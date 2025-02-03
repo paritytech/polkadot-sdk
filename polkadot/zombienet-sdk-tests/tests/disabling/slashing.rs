@@ -51,6 +51,11 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 				.with_node(|node| node.with_name("honest-flaky-validator-0"))
 				.with_node(|node| {
 					node.with_name("malicious-backer")
+						.with_image(
+							std::env::var("MALUS_IMAGE")
+								.unwrap_or("docker.io/paritypr/malus".to_string())
+								.as_str(),
+						)
 						.with_command("malus")
 						.with_subcommand("suggest-garbage-candidate")
 						.with_args(vec![
