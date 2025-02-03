@@ -893,7 +893,7 @@ fn compare_deny_filters() {
 		Err(ProcessMessageError::Unsupported),
 	);
 
-	// `DenyInstructionsWithXcm`: Top-level=Allow, Nested=Deny, TryAllow=No
+	// `DenyNestedXcmInstructions`: Top-level=Allow, Nested=Deny, TryAllow=No
 	assert_deny_barrier::<DenyNestedXcmInstructions<Denies>>(
 		Ok(()),
 		Err(ProcessMessageError::Unsupported),
