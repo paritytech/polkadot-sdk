@@ -94,10 +94,9 @@
 //! internally). Those aggregators are often referred as multi-view listeners and they implement
 //! stream-specific or event-specific logic.
 //!
-//! The most important is [`MultiViewListener`] which is owned by view store.
-//! More information about it is provided in [transaction
-//! route](#transaction-route-submit_and_watch) section.
-//!
+//! The most important is [`MultiViewListener`] which is owned by view store. Some internal details
+//! on events' flow is provided in [transaction status](#monitoring-the-status-of-a-transaction)
+//! section.
 //!
 //! ### Intermediate transactions buffer: [`TxMemPool`]
 //! The main purpose of an internal [`TxMemPool`] (referred to as *mempool*) is to prevent a
@@ -140,15 +139,7 @@
 //! ### Transaction route: [`submit_and_watch`][`api_submit_and_watch`]
 //!
 //! The [`submit_and_watch`] function allows to submit the transaction and track its
-//! [status][`TransactionStatus`] within the pool. Every view is providing an independent
-//! aggreagated [stream][`create_aggregated_stream`] of events for all transactions in this view,
-//! which needs to be merged into the single stream exposed to the [external
-//! listener][`TransactionStatusStreamFor`]. For majority of events simple forwarding of events
-//! would not work (e.g. we could get multiple [`Ready`] events, or [`Ready`] / [`Future`] mix).
-//! Some additional stateful logic is required to filter and process the views' events. It is also
-//! easier to trigger some events (e.g. [`Finalized`], [`Invalid`], and [`Broadcast`]) using some
-//! side-channel and simply ignoring these events from the view. All the before mentioned
-//! functionality is provided by the [`MultiViewListener`].
+//! [status][`TransactionStatus`] within the pool.
 //!
 //! When a watched transaction is submitted to the pool it is added to the *mempool* with the
 //! watched flag. The external stream for the transaction is created in a [`MultiViewListener`].
@@ -157,6 +148,28 @@
 //! stream][`create_aggregated_stream`] was already connected to the [`MultiViewListener`] when new
 //! view was created, so no additional action is required upon the submission. The view will provide
 //! the required updates for all the transactions over this single stream.
+//!
+//!
+//! #### Monitoring the status of a transaction
+//!
+//! Transaction status monitoring and triggering events to [external
+//! listener][`TransactionStatusStreamFor`] (e.g. to RPC client) is responsibility of the
+//! [`MultiViewListener`].
+//!
+//! Every view is providing an independent aggreagated [stream][`create_aggregated_stream`] of
+//! events for all transactions in this view, which needs to be merged into the single stream
+//! exposed to the [external listener][`TransactionStatusStreamFor`] (e.g. to RPC client). For
+//! majority of events simple forwarding would not work (e.g. we could get multiple [`Ready`]
+//! events, or [`Ready`] / [`Future`] mix). Some additional stateful logic (implemented by
+//! [`MultiViewListener`]) is required to filter and process the views' events.
+//!
+//! It is not possible to trigger some external events (e.g., [`Dropped`], [`Finalized`],
+//! [`Invalid`], and [`Broadcast`]) using only the view-aggregated streams. These events require a
+//! pool-wide understanding of the transaction state. For example, dropping a transaction from a
+//! single view does not mean it was dropped from other views. Broadcast and finalized notifications
+//! are sent to the transaction pool API, not at the view level. These events are simply ignored
+//! when they originate in the view. The pool uses a dedicated side channel exposed by
+//! [`MultiViewListener`] to trigger the beforementioned events.
 //!
 //! ### Maintain
 //! The transaction pool exposes the [task][`notification_future`] that listens to the
@@ -330,6 +343,7 @@
 //! [`Invalid`]:sc_transaction_pool_api::TransactionStatus::Invalid
 //! [`InBlock`]:sc_transaction_pool_api::TransactionStatus::InBlock
 //! [`Finalized`]:sc_transaction_pool_api::TransactionStatus::Finalized
+//! [`Dropped`]:sc_transaction_pool_api::TransactionStatus::Dropped
 //! [`ReadyTransactions`]:sc_transaction_pool_api::ReadyTransactions
 //! [`dropped_monitor_task`]: ForkAwareTxPool::dropped_monitor_task
 //! [`ready_poll`]: ForkAwareTxPool::ready_poll

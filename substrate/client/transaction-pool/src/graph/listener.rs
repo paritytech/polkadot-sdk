@@ -34,15 +34,19 @@ pub type TransactionStatusEvent<H, BH> = (H, TransactionStatus<H, BH>);
 /// Stream of events providing statuses of all the transactions within the pool.
 pub type AggregatedStream<H, BH> = TracingUnboundedReceiver<TransactionStatusEvent<H, BH>>;
 
+/// Warning threshold for (unbounded) channel used in aggregated stream.
+const AGGREGATED_STREAM_WARN_THRESHOLD: usize = 100_000;
+
 /// Extrinsic pool default listener.
 pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
 	/// Map containing per-transaction sinks for emitting transaction status events.
 	watchers: HashMap<H, watcher::Sender<H, BlockHash<C>>>,
 	finality_watchers: LinkedHashMap<ExtrinsicHash<C>, Vec<H>>,
 
-	/// The sink used to notify dropped by enforcing limits or by being usurped transactions. Also
-	/// ready and future statuses are reported via this channel to allow consumer of the stream
-	/// tracking actual drops.
+	/// The sink used to notify dropped by enforcing limits or by being usurped transactions.
+	///
+	/// Note: Ready and future statuses are alse communicated through this channel, enabling the
+	/// stream consumer to track views that reference the transaction.
 	dropped_stream_sink: Option<TracingUnboundedSender<TransactionStatusEvent<H, BlockHash<C>>>>,
 
 	/// The sink of the single, merged stream providing updates for all the transactions in the
@@ -94,7 +98,8 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	/// The stream can be used to subscribe to events related to dropping of all extrinsics in the
 	/// pool.
 	pub fn create_dropped_by_limits_stream(&mut self) -> AggregatedStream<H, BlockHash<C>> {
-		let (sender, single_stream) = tracing_unbounded("mpsc_txpool_watcher", 100_000);
+		let (sender, single_stream) =
+			tracing_unbounded("mpsc_txpool_watcher", AGGREGATED_STREAM_WARN_THRESHOLD);
 		self.dropped_stream_sink = Some(sender);
 		single_stream
 	}
@@ -109,7 +114,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	/// (external watcher) are not sent.
 	pub fn create_aggregated_stream(&mut self) -> AggregatedStream<H, BlockHash<C>> {
 		let (sender, aggregated_stream) =
-			tracing_unbounded("mpsc_txpool_aggregated_stream", 100_000);
+			tracing_unbounded("mpsc_txpool_aggregated_stream", AGGREGATED_STREAM_WARN_THRESHOLD);
 		self.aggregated_stream_sink = Some(sender);
 		aggregated_stream
 	}

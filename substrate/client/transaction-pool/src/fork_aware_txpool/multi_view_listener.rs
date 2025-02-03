@@ -540,13 +540,17 @@ where
 			Controller<ExternalWatcherCommand<ChainApi>>,
 		>::default()));
 
-		let (tx, rx) = mpsc::tracing_unbounded("txpool-multi-view-listener-task-controller", 512);
+		const CONTROLLER_QUEUE_WARN_SIZE: usize = 100_000;
+		let (tx, rx) = mpsc::tracing_unbounded(
+			"txpool-multi-view-listener-task-controller",
+			CONTROLLER_QUEUE_WARN_SIZE,
+		);
 		let task = Self::task(external_controllers.clone(), rx);
 
 		(Self { external_controllers, controller: tx }, task.boxed())
 	}
 
-	/// Creates an external stream of events for given transaction.
+	/// Creates an external tstream of events for given transaction.
 	///
 	/// This method initializes an `ExternalWatcherContext` for the provided transaction hash, sets
 	/// up the necessary communication channel with listener's task, and unfolds an external
@@ -557,10 +561,18 @@ where
 		&self,
 		tx_hash: ExtrinsicHash<ChainApi>,
 	) -> Option<TxStatusStream<ChainApi>> {
-		let mut external_controllers = self.external_controllers.write();
-		if external_controllers.contains_key(&tx_hash) {
-			return None
-		}
+		let external_ctx = match self.external_controllers.write().entry(tx_hash) {
+			Entry::Occupied(_) => return None,
+			Entry::Vacant(entry) => {
+				const EXT_CONTROLLER_QUEUE_WARN_THRESHOLD: usize = 128;
+				let (tx, rx) = mpsc::tracing_unbounded(
+					"txpool-multi-view-listener",
+					EXT_CONTROLLER_QUEUE_WARN_THRESHOLD,
+				);
+				entry.insert(tx);
+				ExternalWatcherContext::new(tx_hash, rx)
+			},
+		};
 
 		trace!(
 			target: LOG_TARGET,
@@ -568,13 +580,8 @@ where
 			"create_external_watcher_for_tx"
 		);
 
-		let (tx, rx) = mpsc::tracing_unbounded("txpool-multi-view-listener", 128);
-		external_controllers.insert(tx_hash, tx);
-
-		let ctx = ExternalWatcherContext::new(tx_hash, rx);
-
 		Some(
-			futures::stream::unfold(ctx, |mut ctx| async move {
+			futures::stream::unfold(external_ctx, |mut ctx| async move {
 				if ctx.terminate {
 					log::trace!(target: LOG_TARGET, "[{:?}] terminate", ctx.tx_hash);
 					return None
