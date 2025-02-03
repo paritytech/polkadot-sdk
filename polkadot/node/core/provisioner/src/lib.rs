@@ -37,13 +37,12 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	has_required_runtime, request_availability_cores, request_persisted_validation_data,
 	request_session_index_for_child,
-	runtime::{prospective_parachains_mode, request_node_features, ProspectiveParachainsMode},
+	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	node_features::FeatureIndex,
 	vstaging::{BackedCandidate, CandidateReceiptV2 as CandidateReceipt, CoreState},
-	BlockNumber, CandidateHash, CoreIndex, Hash, Id as ParaId, NodeFeatures,
+	BlockNumber, CandidateHash, CoreIndex, Hash, Id as ParaId,
 	OccupiedCoreAssumption, SessionIndex, SignedAvailabilityBitfield, ValidatorIndex,
 };
 use std::collections::{BTreeMap, HashMap};
@@ -83,7 +82,6 @@ impl ProvisionerSubsystem {
 /// Per-session info we need for the provisioner subsystem.
 pub struct PerSession {
 	prospective_parachains_mode: ProspectiveParachainsMode,
-	elastic_scaling_mvp: bool,
 }
 
 /// A per-relay-parent state for the provisioning subsystem.
@@ -91,7 +89,6 @@ pub struct PerRelayParent {
 	leaf: ActivatedLeaf,
 	backed_candidates: Vec<CandidateReceipt>,
 	prospective_parachains_mode: ProspectiveParachainsMode,
-	elastic_scaling_mvp: bool,
 	signed_bitfields: Vec<SignedAvailabilityBitfield>,
 	is_inherent_ready: bool,
 	awaiting_inherent: Vec<oneshot::Sender<ProvisionerInherentData>>,
@@ -103,7 +100,6 @@ impl PerRelayParent {
 			leaf,
 			backed_candidates: Vec::new(),
 			prospective_parachains_mode: per_session.prospective_parachains_mode,
-			elastic_scaling_mvp: per_session.elastic_scaling_mvp,
 			signed_bitfields: Vec::new(),
 			is_inherent_ready: false,
 			awaiting_inherent: Vec::new(),
@@ -215,12 +211,9 @@ async fn handle_active_leaves_update(
 			let prospective_parachains_mode =
 				prospective_parachains_mode(sender, leaf.hash).await?;
 
-			// elastic scaling always on
-			let elastic_scaling_mvp = true;
-
 			per_session.insert(
 				session_index,
-				PerSession { prospective_parachains_mode, elastic_scaling_mvp },
+				PerSession { prospective_parachains_mode },
 			);
 		}
 
@@ -286,7 +279,6 @@ async fn send_inherent_data_bg<Context>(
 	let signed_bitfields = per_relay_parent.signed_bitfields.clone();
 	let backed_candidates = per_relay_parent.backed_candidates.clone();
 	let mode = per_relay_parent.prospective_parachains_mode;
-	let elastic_scaling_mvp = per_relay_parent.elastic_scaling_mvp;
 
 	let mut sender = ctx.sender().clone();
 
@@ -304,7 +296,6 @@ async fn send_inherent_data_bg<Context>(
 			&signed_bitfields,
 			&backed_candidates,
 			mode,
-			elastic_scaling_mvp,
 			return_senders,
 			&mut sender,
 			&metrics,
@@ -411,7 +402,6 @@ async fn send_inherent_data(
 	bitfields: &[SignedAvailabilityBitfield],
 	candidates: &[CandidateReceipt],
 	prospective_parachains_mode: ProspectiveParachainsMode,
-	elastic_scaling_mvp: bool,
 	return_senders: Vec<oneshot::Sender<ProvisionerInherentData>>,
 	from_job: &mut impl overseer::ProvisionerSenderTrait,
 	metrics: &Metrics,
@@ -463,7 +453,6 @@ async fn send_inherent_data(
 		&bitfields,
 		candidates,
 		prospective_parachains_mode,
-		elastic_scaling_mvp,
 		leaf.hash,
 		from_job,
 	)
@@ -676,7 +665,6 @@ async fn select_candidate_hashes_from_tracked(
 /// Should be called when prospective parachains are enabled.
 async fn request_backable_candidates(
 	availability_cores: &[CoreState],
-	elastic_scaling_mvp: bool,
 	bitfields: &[SignedAvailabilityBitfield],
 	relay_parent: Hash,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
@@ -770,7 +758,6 @@ async fn select_candidates(
 	bitfields: &[SignedAvailabilityBitfield],
 	candidates: &[CandidateReceipt],
 	prospective_parachains_mode: ProspectiveParachainsMode,
-	elastic_scaling_mvp: bool,
 	relay_parent: Hash,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
 ) -> Result<Vec<BackedCandidate>, Error> {
@@ -784,7 +771,6 @@ async fn select_candidates(
 		ProspectiveParachainsMode::Enabled { .. } =>
 			request_backable_candidates(
 				availability_cores,
-				elastic_scaling_mvp,
 				bitfields,
 				relay_parent,
 				sender,
