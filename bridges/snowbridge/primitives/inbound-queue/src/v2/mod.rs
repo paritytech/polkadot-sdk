@@ -7,3 +7,5 @@ pub mod converter;
 
 pub use message::*;
 pub use converter::*;
+
+const LOG_TARGET: &str = "snowbridge-inbound-queue-primitives";

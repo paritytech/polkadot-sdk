@@ -28,8 +28,6 @@ pub mod api;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-mod types;
-
 pub mod weights;
 
 #[cfg(test)]
@@ -40,7 +38,6 @@ mod test;
 
 use frame_system::ensure_signed;
 use snowbridge_core::{
-	sparse_bitmap::SparseBitmap,
 	reward::{PaymentProcedure, ether_asset},
 	BasicOperatingMode,
 };
@@ -49,9 +46,15 @@ use snowbridge_inbound_queue_primitives::{
 	v2::{Message, ConvertMessage, ConvertMessageError}
 };
 use sp_core::H160;
-use types::Nonce;
-pub use weights::WeightInfo;
 use xcm::prelude::{Junction::*, Location, SendXcm, ExecuteXcm, *};
+use snowbridge_core::sparse_bitmap::SparseBitmapImpl;
+use sp_io::hashing::blake2_256;
+use frame_support::traits::tokens::Balance;
+use snowbridge_core::sparse_bitmap::SparseBitmap;
+use frame_support::weights::WeightToFee;
+use frame_support::traits::fungible::Inspect;
+use frame_support::traits::fungible::Mutate;
+use crate::weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 use {
@@ -64,7 +67,10 @@ pub use pallet::*;
 pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+type BalanceOf<T> =
+<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
+pub type Nonce<T> = SparseBitmapImpl<crate::NonceBitmap<T>>;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -103,7 +109,12 @@ pub mod pallet {
 		type MessageConverter: ConvertMessage;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
+		/// Used for the dry run API implementation.
+		type Balance: Balance + From<u128>;
 		type WeightInfo: WeightInfo;
+		/// Convert a weight value into deductible balance type.
+		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
+		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
 	}
 
 	#[pallet::event]
@@ -182,7 +193,8 @@ pub mod pallet {
 		}
 	}
 
-	/// The nonce of the message been processed or not
+	/// StorageMap used for encoding a SparseBitmapImpl that tracks whether a specific nonce has
+	/// been processed or not. Message nonces are unique and never repeated.
 	#[pallet::storage]
 	pub type NonceBitmap<T: Config> = StorageMap<_, Twox64Concat, u128, u128, ValueQuery>;
 
@@ -196,7 +208,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
 		pub fn submit(origin: OriginFor<T>, event: Box<EventProof>) -> DispatchResult {
-			let who = ensure_signed(origin.clone())?;
+			let who = ensure_signed(origin)?;
 			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 
 			// submit message for verification
@@ -232,7 +244,11 @@ pub mod pallet {
 			// Verify the message has not been processed
 			ensure!(!Nonce::<T>::get(message.nonce.into()), Error::<T>::InvalidNonce);
 
-			let xcm = T::MessageConverter::convert(message.clone())
+			let topic = blake2_256(
+				format!("snowbridge-inbound-queue:{}", message.nonce).as_bytes()
+			);
+
+			let xcm = T::MessageConverter::convert(message.clone(), topic)
 				.map_err(|error| Error::<T>::from(error))?;
 
 			// Forward XCM to AH

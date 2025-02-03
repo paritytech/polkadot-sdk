@@ -4,7 +4,6 @@
 
 use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
-use hex;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_runtime::traits::MaybeEquivalence;
@@ -12,10 +11,10 @@ use sp_std::prelude::*;
 use xcm::{
 	prelude::{Junction::*, *}, MAX_XCM_DECODE_DEPTH
 };
+use crate::v2::LOG_TARGET;
 
 use super::message::*;
 
-const LOG_TARGET: &str = "snowbridge-inbound-queue-primitives";
 
 /// Reason why a message conversion failed.
 #[derive(Copy, Clone, Encode, Decode, RuntimeDebug, PartialEq)]
@@ -29,6 +28,7 @@ pub enum ConvertMessageError {
 pub trait ConvertMessage {
 	fn convert(
 		message: Message,
+		topic: [u8; 32],
 	) -> Result<Xcm<()>, ConvertMessageError>;
 }
 
@@ -83,11 +83,10 @@ where
 {
 	fn convert(
 		message: Message,
+		topic: [u8; 32]
 	) -> Result<Xcm<()>, ConvertMessageError> {
 		let mut message_xcm: Xcm<()> = Xcm::new();
 		if message.xcm.len() > 0 {
-			let xcm_string = hex::encode(message.xcm.clone());
-			log::info!(target: LOG_TARGET,"found xcm payload: {:x?}", xcm_string);
 			// Allow xcm decode failure so that assets can be trapped on AH instead of this
 			// message failing but funds are already locked on Ethereum.
 			if let Ok(versioned_xcm) = VersionedXcm::<()>::decode_with_depth_limit(
@@ -104,15 +103,15 @@ where
 			}
 		}
 
-		log::info!(target: LOG_TARGET,"xcm decoded as {:?}", message_xcm);
+		log::trace!(target: LOG_TARGET,"xcm decoded as {:?}", message_xcm);
 
 		let network = EthereumNetwork::get();
 
 		// use eth as asset
-		let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-		let fee: Asset = (fee_asset.clone(), message.execution_fee).into();
+		let fee_asset_id = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
+		let fee: Asset = (fee_asset_id.clone(), message.execution_fee).into();
 		let eth: Asset =
-			(fee_asset.clone(), message.execution_fee.saturating_add(message.value)).into();
+			(fee_asset_id.clone(), message.execution_fee.saturating_add(message.value)).into();
 		let mut instructions = vec![
 			DescendOrigin(PalletInstance(InboundQueuePalletInstance::get()).into()),
 			UniversalOrigin(GlobalConsensus(network)),
@@ -194,10 +193,11 @@ where
 		instructions.extend(message_xcm.0);
 
 		let appendix = vec![
+			SetTopic(topic),
 			RefundSurplus,
 			// Refund excess fees to the claimer, if present, otherwise to the relayer.
 			DepositAsset {
-				assets: Wild(AllOf { id: AssetId(fee_asset.into()), fun: WildFungible }),
+				assets: Wild(AllOf { id: AssetId(fee_asset_id.into()), fun: WildFungible }),
 				beneficiary: claimer,
 			},
 		];

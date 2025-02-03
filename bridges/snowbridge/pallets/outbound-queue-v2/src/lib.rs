@@ -288,7 +288,9 @@ pub mod pallet {
 
 			// No fee for governance order
 			if !order.fee.is_zero() {
-				let reward_account_location = envelope.reward_address.into();
+				let account_bytes: [u8; 32] =
+					envelope.reward_address.encode().try_into().unwrap();
+				let reward_account_location = Location::new(0, AccountId32{id: account_bytes.into(), network: None});
 				let ether = ether_asset(T::EthereumNetwork::get(), order.fee);
 				T::RewardPayment::pay_reward(reward_account_location, ether)
 					.map_err(|_| Error::<T>::RewardPaymentFailed)?;

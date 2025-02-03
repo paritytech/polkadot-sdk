@@ -19,6 +19,7 @@ use sp_runtime::{
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
+use frame_support::weights::IdentityFee;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -196,7 +197,10 @@ impl inbound_queue_v2::Config for Test {
 	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
+	type Balance = u128;
 	type WeightInfo = ();
+	type WeightToFee = IdentityFee<u128>;
+	type Token = Balances;
 }
 
 pub fn setup() {
@@ -262,5 +266,22 @@ pub fn mock_execution_proof() -> ExecutionProof {
 			excess_blob_gas: 0,
 		}),
 		execution_branch: vec![],
+	}
+}
+
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+
+/// Weight functions needed for ethereum_beacon_client.
+pub trait WeightInfo {
+	fn submit() -> Weight;
+}
+
+// For backwards compatibility and tests
+impl WeightInfo for () {
+	fn submit() -> Weight {
+		Weight::from_parts(70_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3601))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 }

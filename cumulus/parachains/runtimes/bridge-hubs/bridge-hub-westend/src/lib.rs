@@ -952,8 +952,8 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_inbound_queue_v2_runtime_api::InboundQueueApiV2<Block, Balance> for Runtime {
-		fn convert_message(message: Message) -> Result<(Xcm<()>, Balance), DispatchError> {
-			snowbridge_pallet_inbound_queue_v2::api::dry_run::<Runtime>(message)
+		fn convert_message(message: Message) -> Result<(Xcm<()>), DispatchError> {
+			snowbridge_pallet_inbound_queue_v2::api::convert_message::<Runtime>(message)
 		}
 	}
 

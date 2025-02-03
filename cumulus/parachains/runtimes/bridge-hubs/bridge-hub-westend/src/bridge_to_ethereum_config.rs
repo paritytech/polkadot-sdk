@@ -51,6 +51,8 @@ use sp_runtime::{
 	FixedU128,
 };
 use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain};
+use xcm_executor::XcmExecutor;
+use crate::xcm_config::XcmConfig;
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
 
@@ -75,7 +77,7 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 
 // Ethereum Bridge
 parameter_types! {
-	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("b8ea8cb425d85536b158d661da1ef0895bb92f1d"));
+	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("b1185ede04202fe62d38f5db72f71e38ff3e8305"));
 }
 
 parameter_types! {
@@ -133,10 +135,11 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
-	type WeightToFee = WeightToFee;
+	//type WeightToFee = WeightToFee;
 	type AssetHubParaId = ConstU32<1000>;
-	type Token = Balances;
-	type Balance = Balance;
+	type RewardPayment = ();
+	type EthereumNetwork = EthereumNetwork;
+	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		EthereumNetwork,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V2>,
@@ -174,10 +177,11 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
 	type GatewayAddress = EthereumGatewayAddress;
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue_v2::WeightInfo<Runtime>;
-	type RewardLedger = ();
+	//type RewardLedger = ();
 	type ConvertAssetId = EthereumSystem;
 	type EthereumNetwork = EthereumNetwork;
 	type WETHAddress = WETHAddress;
+	type RewardPayment = ();
 }
 
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]

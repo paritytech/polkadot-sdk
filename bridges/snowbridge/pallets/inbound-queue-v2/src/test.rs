@@ -7,6 +7,7 @@ use frame_support::{assert_noop, assert_ok};
 use snowbridge_inbound_queue_primitives::{EventProof, Proof};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
+use frame_support::assert_err;
 
 #[test]
 fn test_submit_with_invalid_gateway() {
@@ -56,6 +57,38 @@ fn test_submit_happy_path() {
 			)),
 			"no event emitted."
 		);
+	});
+}
+
+#[test]
+fn test_using_same_nonce_fails() {
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+
+		let origin = RuntimeOrigin::signed(relayer.clone());
+
+		// Submit message
+		let event = EventProof {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+
+		assert_ok!(InboundQueue::submit(origin.clone(), Box::new(event.clone())));
+
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(
+			events.iter().any(|event| matches!(
+				event.event,
+				RuntimeEvent::InboundQueue(Event::MessageReceived { nonce, ..})
+					if nonce == 1
+			)),
+			"no event emitted."
+		);
+
+		assert_err!(InboundQueue::submit(origin.clone(), Box::new(event.clone())), Error::<Test>::InvalidNonce);
 	});
 }
 
