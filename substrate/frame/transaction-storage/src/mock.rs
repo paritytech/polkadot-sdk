@@ -65,6 +65,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		system: Default::default(),
 		balances: pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(1, 1000000000), (2, 100), (3, 100), (4, 100)],
+			..Default::default()
 		},
 		transaction_storage: pallet_transaction_storage::GenesisConfig::<Test> {
 			storage_period: 10,

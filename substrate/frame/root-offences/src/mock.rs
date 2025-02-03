@@ -28,6 +28,7 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, OneSessionHandler},
 };
 use pallet_staking::StakerStatus;
+use sp_core::ConstBool;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -110,7 +111,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type Sort = ConstBool<true>;
 	type Bounds = ElectionsBounds;
 }
 
@@ -212,6 +215,7 @@ impl ExtBuilder {
 				(31, self.balance_factor * 1000),
 				(41, self.balance_factor * 2000),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage)
 		.unwrap();
