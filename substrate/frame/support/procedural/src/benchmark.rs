@@ -685,7 +685,7 @@ pub fn benchmarks(
 			}
 			#[cfg(any(feature = "runtime-benchmarks", test))]
 			impl<#type_use_generics> #krate::Benchmarking for Pallet<#type_use_generics>
-			where #where_clause
+			where T: #frame_system::Config,#where_clause
 			{
 				fn benchmarks(
 					extra: bool,
@@ -850,7 +850,7 @@ pub fn benchmarks(
 			}
 
 			#[cfg(test)]
-			impl<#type_use_generics> Pallet<#type_use_generics> where #where_clause {
+			impl<#type_use_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 				/// Test a particular benchmark by name.
 				///
 				/// This isn't called `test_benchmark_by_name` just in case some end-user eventually
@@ -1129,7 +1129,7 @@ fn expand_benchmark(
 		}
 
 		#[cfg(test)]
-		impl<#type_use_generics> Pallet<#type_use_generics> where #where_clause {
+		impl<#type_use_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 			#[allow(unused)]
 			fn #test_ident() -> Result<(), #krate::BenchmarkError> {
 				let selected_benchmark = SelectedBenchmark::#name;
