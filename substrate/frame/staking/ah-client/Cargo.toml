@@ -11,12 +11,14 @@ repository.workspace = true
 codec = { workspace = true, features = ["derive"] }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-scale-info = { workspace = true, features = ["derive"] }
-sp-runtime = { features = ["serde"], workspace = true }
-sp-staking = { features = ["serde"], workspace = true }
+log = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-session = { features = [	"historical",], workspace = true }
 pallet-staking = { workspace = true}	# todo: probably not a good idea to depend on the whole staking pallet
+scale-info = { workspace = true, features = ["derive"] }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
+xcm = { workspace = true }
 
 [features]
 default = ["std"]
@@ -24,25 +26,28 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
-	"sp-runtime/std",
-	"sp-staking/std",
+	"log/std",
 	"pallet-authorship/std",
 	"pallet-session/std",
 	"pallet-staking/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-staking/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
+	"sp-runtime/try-runtime",
 ]

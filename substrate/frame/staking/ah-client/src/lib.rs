@@ -22,17 +22,39 @@
 pub use pallet::*;
 extern crate alloc;
 
+use frame_support::pallet_prelude::*;
 use sp_runtime::traits::Convert;
-use sp_staking::Exposure;
+use sp_staking::{Exposure, SessionIndex};
+use xcm::prelude::*;
 
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
+const LOG_TARGET: &str = "runtime::staking::ah-client";
+
+/// `pallet-staking-rc-client` pallet index on AssetHub. Used to construct remote calls.
+///
+/// The codec index must
+/// correspond to the index of `pallet-staking-rc-client` in the `construct_runtime` of AssetHub.
+#[derive(Encode, Decode)]
+enum AssetHubRuntimePallets {
+	#[codec(index = 50)]
+	RcClient(StakingCalls),
+}
+
+/// Call encoding for the calls needed from the Broker pallet.
+#[derive(Encode, Decode)]
+enum StakingCalls {
+	#[codec(index = 1)]
+	StartSession(SessionIndex),
+	#[codec(index = 2)]
+	EndSession(SessionIndex),
+}
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use crate::{BalanceOf, Convert, Exposure};
+	use crate::*;
 	use alloc::vec::Vec;
-	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
 	use pallet_staking::ExposureOf;
@@ -47,9 +69,13 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
-	// todo:
-	// Storage item for new_validator_set:
-	// `Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>>`
+	// TODO: should contain some initial state, otherwise starting from genesis won't work
+	#[pallet::storage]
+	pub type ValidatorSet<T: Config> = StorageValue<
+		_,
+		Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>>,
+		ValueQuery,
+	>;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -66,6 +92,17 @@ pub mod pallet {
 			+ Send
 			+ Sync
 			+ MaxEncodedLen;
+
+		/// The ParaId of the AH-next chain.
+		#[pallet::constant]
+		type AssetHubId: Get<u32>;
+		/// The XCM sender.
+		type SendXcm: SendXcm;
+		/// Maximum weight for any XCM transact call that should be executed on AssetHub.
+		///
+		/// Should be `max_weight(set_leases, reserve, notify_core_count)`.
+		/// TODO: Update this comment ^^^
+		type MaxXcmTransactWeight: Get<Weight>;
 	}
 
 	#[pallet::call]
@@ -76,9 +113,10 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			new_validator_set: Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>,
 		) -> DispatchResult {
-			// TODO: origin?
+			// TODO: check origin
 
-			// TODO: save validators in `new_validator_set` storage item
+			// Save the validator set. We don't care if there is a validator set which was not used.
+			ValidatorSet::<T>::put(Some(new_validator_set));
 
 			Ok(())
 		}
@@ -90,16 +128,17 @@ pub mod pallet {
 		fn new_session(
 			new_index: sp_staking::SessionIndex,
 		) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-			// todo: `take()` what's in `new_validator_set` and return it
-			None
+			// todo: check if we need to keep a copy of the validator set in case of another call to
+			// `new_session` before we get new validators. My assumption right now is that
+			// returning `None` will cause validator set to remain unchanged.
+			ValidatorSet::<T>::take()
 		}
 
+		// This method is supposed to be used by
 		fn new_session_genesis(
 			new_index: SessionIndex,
 		) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-			// todo: `take()` what's in `new_validator_set` and return it
-			// todo: Make sure that pallet_session handles this correctly
-			None
+			ValidatorSet::<T>::take()
 		}
 
 		fn start_session(start_index: SessionIndex) {
@@ -119,14 +158,40 @@ pub mod pallet {
 			None
 		}
 
-		fn end_session(_: u32) {
-			// call end_session from rc-client and pass era points info
-			todo!()
+		fn end_session(session_index: u32) {
+			// todo: pass era points info
+
+			let message = Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				mk_asset_hub_call::<T>(StakingCalls::EndSession(session_index)),
+			]);
+			if let Err(err) = send_xcm::<T::SendXcm>(
+				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
+				message,
+			) {
+				log::error!(target: LOG_TARGET, "Sending `EndSession` to AssetHub failed: {:?}", err);
+			}
 		}
 
-		fn start_session(_: u32) {
-			// call start_session from rc-client and pass active valdiator set somehow(tm)
-			todo!()
+		fn start_session(session_index: u32) {
+			// todo: pass active validator set somehow(tm)
+
+			let message = Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				mk_asset_hub_call::<T>(StakingCalls::StartSession(session_index)),
+			]);
+			if let Err(err) = send_xcm::<T::SendXcm>(
+				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
+				message,
+			) {
+				log::error!(target: LOG_TARGET, "Sending `StartSession` to AssetHub failed: {:?}", err);
+			}
 		}
 	}
 
@@ -166,6 +231,14 @@ pub mod pallet {
 		) -> Weight {
 			// send the offender immediately over xcm
 			todo!()
+		}
+	}
+
+	fn mk_asset_hub_call<T: Config>(call: StakingCalls) -> Instruction<()> {
+		Instruction::Transact {
+			origin_kind: OriginKind::Superuser,
+			fallback_max_weight: Some(T::MaxXcmTransactWeight::get()),
+			call: AssetHubRuntimePallets::RcClient(call).encode().into(),
 		}
 	}
 }
