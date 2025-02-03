@@ -33,8 +33,8 @@ jobs:
       - name: script
         run: |
           echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-          sleep 600
-          DEBUG=${{ needs.preflight.outputs.DEBUG }} zombie -p kubernetes test ${LOCAL_DIR}/0000-block-building/block-building.zndsl
+          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh --local-dir="$(LOCAL_DIR)/0000-block-building" --test="block-building.zndsl"
 
       - name: upload logs
         uses: actions/upload-artifact@v4
