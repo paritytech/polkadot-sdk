@@ -63,7 +63,7 @@ fn fee_estimation_for_teleport() {
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
 		let dry_run_effects =
-			runtime_api.dry_run_call(H256::zero(), origin, call).unwrap().unwrap();
+			runtime_api.dry_run_call(H256::zero(), origin, XCM_VERSION, call).unwrap().unwrap();
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
@@ -193,8 +193,7 @@ fn fee_estimation_for_teleport() {
 //                 Reserve Asset Transfer Relay Token
 //                 Reserve Asset Transfer Relay Token for fees
 // Parachain(2000) -------------------------------------------> Parachain(1000)
-#[test]
-fn dry_run_reserve_asset_transfer() {
+fn dry_run_reserve_asset_transfer_common(xcm_version: XcmVersion) {
 	sp_tracing::init_for_tests();
 	let who = 1; // AccountId = u64.
 			  // Native token used for fees.
@@ -205,27 +204,41 @@ fn dry_run_reserve_asset_transfer() {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
 		let call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
-			dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
-			beneficiary: Box::new(VersionedLocation::from(AccountId32 {
-				id: [0u8; 32],
-				network: None,
-			})),
-			assets: Box::new(VersionedAssets::from((Parent, 100u128))),
+			dest: Box::new(
+				VersionedLocation::from((Parent, Parachain(1000)))
+					.into_version(xcm_version)
+					.unwrap()
+			),
+			beneficiary: Box::new(
+				VersionedLocation::from(AccountId32 {
+					id: [0u8; 32],
+					network: None,
+				}).into_version(xcm_version)
+				.unwrap()
+			),
+			assets: Box::new(
+				VersionedAssets::from((Parent, 100u128))
+					.into_version(xcm_version)
+					.unwrap()
+			),
 			fee_asset_item: 0,
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
 		let dry_run_effects =
-			runtime_api.dry_run_call(H256::zero(), origin, call).unwrap().unwrap();
+			runtime_api.dry_run_call(H256::zero(), origin, xcm_version, call).unwrap().unwrap();
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
-			Some(VersionedXcm::from(
-				Xcm::builder_unsafe()
-					.withdraw_asset((Parent, 100u128))
-					.burn_asset((Parent, 100u128))
-					.build()
-			)),
+			Some(
+				VersionedXcm::from(
+					Xcm::builder_unsafe()
+						.withdraw_asset((Parent, 100u128))
+						.burn_asset((Parent, 100u128))
+						.build()
+				).into_version(xcm_version)
+				.unwrap()
+			),
 		);
 
 		// In this case, the transfer type is `DestinationReserve`, so the remote xcm just withdraws
@@ -240,8 +253,8 @@ fn dry_run_reserve_asset_transfer() {
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
-				VersionedLocation::from(send_destination.clone()),
-				vec![VersionedXcm::from(send_message.clone())],
+				VersionedLocation::from(send_destination.clone()).into_version(xcm_version).unwrap(),
+				vec![VersionedXcm::from(send_message.clone()).into_version(xcm_version).unwrap()],
 			),],
 		);
 
@@ -273,7 +286,26 @@ fn dry_run_reserve_asset_transfer() {
 }
 
 #[test]
-fn dry_run_xcm() {
+fn dry_run_reserve_asset_transfer_latest() {
+	dry_run_reserve_asset_transfer_common(XCM_VERSION);
+}
+
+#[test]
+fn dry_run_reserve_asset_transfer_v5() {
+	dry_run_reserve_asset_transfer_common(5);
+}
+
+#[test]
+fn dry_run_reserve_asset_transfer_v4() {
+	dry_run_reserve_asset_transfer_common(4);
+}
+
+#[test]
+fn dry_run_reserve_asset_transfer_v3() {
+	dry_run_reserve_asset_transfer_common(3);
+}
+
+fn dry_run_xcm_common(xcm_version: XcmVersion) {
 	sp_tracing::init_for_tests();
 	let who = 1; // AccountId = u64.
 	let transfer_amount = 100u128;
@@ -291,14 +323,19 @@ fn dry_run_xcm() {
 	let client = TestClient;
 	let runtime_api = client.runtime_api();
 	let xcm_weight = runtime_api
-		.query_xcm_weight(H256::zero(), VersionedXcm::from(xcm_to_weigh.clone().into()))
+		.query_xcm_weight(
+			H256::zero(),
+			VersionedXcm::from(xcm_to_weigh.clone().into()).into_version(xcm_version).unwrap()
+		)
 		.unwrap()
 		.unwrap();
 	let execution_fees = runtime_api
 		.query_weight_to_asset_fee(
 			H256::zero(),
 			xcm_weight,
-			VersionedAssetId::from(AssetId(Here.into())),
+			VersionedAssetId::from(AssetId(Here.into()))
+				.into_version(xcm_version)
+				.unwrap(),
 		)
 		.unwrap()
 		.unwrap();
@@ -316,26 +353,35 @@ fn dry_run_xcm() {
 		let dry_run_effects = runtime_api
 			.dry_run_xcm(
 				H256::zero(),
-				VersionedLocation::from([AccountIndex64 { index: 1, network: None }]),
-				VersionedXcm::from(xcm),
+				VersionedLocation::from([AccountIndex64 { index: 1, network: None }])
+					.into_version(xcm_version)
+					.unwrap(),
+				VersionedXcm::from(xcm)
+					.into_version(xcm_version)
+					.unwrap(),
 			)
 			.unwrap()
 			.unwrap();
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
-				VersionedLocation::from((Parent, Parachain(2100))),
-				vec![VersionedXcm::from(
-					Xcm::<()>::builder_unsafe()
-						.reserve_asset_deposited((
-							(Parent, Parachain(2000)),
-							transfer_amount + execution_fees - DeliveryFees::get()
-						))
-						.clear_origin()
-						.buy_execution((Here, 1u128), Unlimited)
-						.deposit_asset(AllCounted(1), [0u8; 32])
-						.build()
-				)],
+				VersionedLocation::from((Parent, Parachain(2100)))
+					.into_version(xcm_version)
+					.unwrap(),
+				vec![
+					VersionedXcm::from(
+						Xcm::<()>::builder_unsafe()
+							.reserve_asset_deposited((
+								(Parent, Parachain(2000)),
+								transfer_amount + execution_fees - DeliveryFees::get()
+							))
+							.clear_origin()
+							.buy_execution((Here, 1u128), Unlimited)
+							.deposit_asset(AllCounted(1), [0u8; 32])
+							.build()
+					).into_version(xcm_version)
+					.unwrap()
+				],
 			),]
 		);
 
@@ -352,6 +398,26 @@ fn dry_run_xcm() {
 			]
 		);
 	});
+}
+
+#[test]
+fn dry_run_xcm_latest() {
+	dry_run_xcm_common(XCM_VERSION);
+}
+
+#[test]
+fn dry_run_xcm_v5() {
+	dry_run_xcm_common(5);
+}
+
+#[test]
+fn dry_run_xcm_v4() {
+	dry_run_xcm_common(4);
+}
+
+#[test]
+fn dry_run_xcm_v3() {
+	dry_run_xcm_common(3);
 }
 
 #[test]
