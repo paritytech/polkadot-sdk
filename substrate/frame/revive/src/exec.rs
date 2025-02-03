@@ -1240,9 +1240,6 @@ where
 			}
 		} else {
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
-			if_tracing(|_| {
-				dbg!("after", self.gas_meter.gas_consumed(), self.gas_meter.gas_left());
-			});
 			if !persist {
 				return;
 			}
