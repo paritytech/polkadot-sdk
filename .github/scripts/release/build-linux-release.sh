@@ -3,7 +3,7 @@
 # This is used to build our binaries:
 # - polkadot
 # - polkadot-parachain
-# - polkadot-omni-node 
+# - polkadot-omni-node
 #
 # set -e
 
