@@ -199,12 +199,13 @@ jobs:
         working-directory: "${{ env.template-path }}"
       - name: Copy over the new changes
         run: |
+          # remove existing Cargo.toml of parachain-template (for the parachain-template-docs crate)
+          rm polkadot-sdk/templates/${{ matrix.template }}/Cargo.toml
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
       - name: Remove unnecessary files from parachain template
         if: ${{ matrix.template == 'parachain' }}
         run: |
           rm -f "${{ env.template-path }}/README.docify.md"
-          rm -f "${{ env.template-path }}/Cargo.toml"
           rm -f "${{ env.template-path }}/src/lib.rs"
 
       - name: Run psvm on monorepo workspace dependencies
