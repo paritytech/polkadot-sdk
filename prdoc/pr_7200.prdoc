@@ -1,0 +1,40 @@
+title: 'XCM: Deny barrier checks for nested XCMs with specific instructions to be
+  executed on the local chain'
+doc:
+- audience: Runtime Dev
+  description: "Resolves (partially): https://github.com/paritytech/polkadot-sdk/issues/7148\n\
+    Depends on: https://github.com/paritytech/polkadot-sdk/pull/7169\n\n# Description\n\
+    \nFor context and additional information, please refer to [_Problem 2 - Barrier\
+    \ vs nested XCM validation_](https://github.com/paritytech/polkadot-sdk/issues/7148).\n\
+    \n# TODO\n- [x] Evaluate PoC, more details at #7351:\n  - **DenyInstructionsWithXcm**:\
+    \ Keep it as it is and be explicit:\n    1. Name the Deny barriers for the top\
+    \ level.\n    2. Name the Deny barrier for nested with `DenyInstructionsWithXcm`.\n\
+    \  - **RecursiveDenyThenTry**: Alternatively, hard-code those three instructions\
+    \ in `DenyThenTry`, so we wouldn\u2019t need `DenyInstructionsWithXcm`. However,\
+    \ this approach wouldn\u2019t be as general.\n  - **DenyFirstInstructionsWithXcm**:\
+    \ Another possibility is to check `DenyInstructionsWithXcm::Inner` for the actual\
+    \ `message`, so we don\u2019t need duplication for top-level and nested (not sure,\
+    \ maybe be explicit is good thing) - see _Problem2 - example_. Instead of this:\n\
+    \   ```\n  DenyThenTry<\n                (\n                               //\
+    \ Deny for top level XCM program\n                               DenyReserveTransferToRelayChain,\n\
+    \                               // Dedicated barrier for nested XCM programs\n\
+    \                               DenyInstructionsWithXcmFor<\n                \
+    \                                // Repeat all Deny filters here\n           \
+    \                                     DenyReserveTransferToRelayChain,\n     \
+    \                           >\n                ),\n   ```\n   we could just use:\n\
+    \   ```\n  DenyThenTry<\n                (\n                               //\
+    \ Dedicated barrier for XCM programs\n                               DenyInstructionsWithXcmFor<\n\
+    \                                                // Add all `Deny` filters here\n\
+    \                                                DenyReserveTransferToRelayChain,\n\
+    \                                                ...\n                       \
+    \         >\n                ),\n   ```\n - [POC Evaluation](https://github.com/paritytech/polkadot-sdk/pull/7200/files#r19374329150)\n\
+    - [x] Consider better name `DenyInstructionsWithXcm` => `DenyNestedLocalInstructions`\
+    \ and `DenyNestedLocalInstructionsThenTry`, more details at [here](https://github.com/paritytech/polkadot-sdk/pull/7200#discussion_r1933637941)\n\
+    - [x] Clean-up and docs\n- [x] Merge https://github.com/paritytech/polkadot-sdk/pull/7169\
+    \ or rebase this branch on the top of `yrong:fix-for-deny-then-try`\n- [ ] Set\
+    \ for the runtimes where we use `DenyThenTry`\n- [ ] Schedule sec.audit"
+crates:
+- name: staging-xcm-builder
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
