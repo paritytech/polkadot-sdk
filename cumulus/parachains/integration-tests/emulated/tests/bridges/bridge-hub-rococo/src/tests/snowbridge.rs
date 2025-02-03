@@ -677,7 +677,7 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. })
 					if *who == assethub_sovereign
 			)),
 			"AssetHub sovereign takes remote fee."
