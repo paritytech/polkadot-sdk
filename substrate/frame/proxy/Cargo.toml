@@ -19,6 +19,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["max-encoded-len"], workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 scale-info = { features = ["derive"], workspace = true }
+sp-runtime-interface = { workspace = true }
+sp-api = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }

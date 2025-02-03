@@ -583,7 +583,6 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
-	// pub use sp_api;
 
 	pub use codec;
 	pub use scale_info;
