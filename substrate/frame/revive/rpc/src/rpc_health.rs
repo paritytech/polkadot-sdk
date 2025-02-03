@@ -25,6 +25,10 @@ pub trait SystemHealthRpc {
 	/// Proxy the substrate chain system_health RPC call.
 	#[method(name = "system_health")]
 	async fn system_health(&self) -> RpcResult<Health>;
+
+	///Returns the number of peers currently connected to the client.
+	#[method(name = "net_peerCount")]
+	async fn net_peer_count(&self) -> RpcResult<U64>;
 }
 
 pub struct SystemHealthRpcServerImpl {
@@ -46,5 +50,10 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			is_syncing: health.is_syncing,
 			should_have_peers: health.should_have_peers,
 		})
+	}
+
+	async fn net_peer_count(&self) -> RpcResult<U64> {
+		let health = self.client.system_health().await?;
+		Ok((health.peers as u64).into())
 	}
 }

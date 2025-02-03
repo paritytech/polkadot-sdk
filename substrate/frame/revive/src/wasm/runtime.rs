@@ -293,6 +293,8 @@ pub enum RuntimeCosts {
 	CallDataSize,
 	/// Weight of calling `seal_return_data_size`.
 	ReturnDataSize,
+	/// Weight of calling `seal_to_account_id`.
+	ToAccountId,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_is_contract`.
@@ -325,6 +327,8 @@ pub enum RuntimeCosts {
 	BlockNumber,
 	/// Weight of calling `seal_block_hash`.
 	BlockHash,
+	/// Weight of calling `seal_block_author`.
+	BlockAuthor,
 	/// Weight of calling `seal_gas_price`.
 	GasPrice,
 	/// Weight of calling `seal_base_fee`.
@@ -339,8 +343,6 @@ pub enum RuntimeCosts {
 	Terminate(u32),
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
-	/// Weight of calling `seal_debug_message` per byte of passed message.
-	DebugMessage(u32),
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
 	SetStorage { old_bytes: u32, new_bytes: u32 },
 	/// Weight of calling `seal_clear_storage` per cleared byte.
@@ -468,6 +470,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
+			ToAccountId => T::WeightInfo::seal_to_account_id(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			CodeSize => T::WeightInfo::seal_code_size(),
 			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
@@ -482,6 +485,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
+			BlockAuthor => T::WeightInfo::seal_block_author(),
 			GasPrice => T::WeightInfo::seal_gas_price(),
 			BaseFee => T::WeightInfo::seal_base_fee(),
 			Now => T::WeightInfo::seal_now(),
@@ -489,7 +493,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
-			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},
@@ -567,6 +570,11 @@ impl CallType {
 /// the beginning of the API entry point.
 fn already_charged(_: u32) -> Option<RuntimeCosts> {
 	None
+}
+
+/// Helper to extract two `u32` values from a given `u64` register.
+fn extract_hi_lo(reg: u64) -> (u32, u32) {
+	((reg >> 32) as u32, reg as u32)
 }
 
 /// Can only be used for one call.
@@ -669,10 +677,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		match result {
 			Ok(_) => Ok(ReturnErrorCode::Success),
 			Err(e) => {
-				if self.ext.debug_buffer_enabled() {
-					self.ext.append_debug_buffer("call failed with: ");
-					self.ext.append_debug_buffer(e.into());
-				};
+				log::debug!(target: LOG_TARGET, "call failed with: {e:?}");
 				Ok(ErrorReturnCode::get())
 			},
 		}
@@ -787,10 +792,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transfer_failed = Error::<E::T>::TransferFailed.into();
 		let out_of_gas = Error::<E::T>::OutOfGas.into();
 		let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
+		let duplicate_contract = Error::<E::T>::DuplicateContract.into();
 
 		// errors in the callee do not trap the caller
 		match (from.error, from.origin) {
 			(err, _) if err == transfer_failed => Ok(TransferFailed),
+			(err, _) if err == duplicate_contract => Ok(DuplicateContractAddress),
 			(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
 			(_, Callee) => Ok(CalleeTrapped),
 			(err, _) => Err(err),
@@ -1004,8 +1011,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		self.charge_gas(call_type.cost())?;
 
 		let callee = memory.read_h160(callee_ptr)?;
-		let deposit_limit =
-			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
 			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
@@ -1091,8 +1097,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		salt_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
-		let deposit_limit: U256 =
-			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+		let deposit_limit: U256 = memory.read_u256(deposit_ptr)?;
 		let value = memory.read_u256(value_ptr)?;
 		let code_hash = memory.read_h256(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
@@ -1204,17 +1209,18 @@ pub mod env {
 	fn call(
 		&mut self,
 		memory: &mut M,
-		flags: u32,
-		callee_ptr: u32,
+		flags_and_callee: u64,
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_ptr: u32,
-		value_ptr: u32,
-		input_data_ptr: u32,
-		input_data_len: u32,
-		output_ptr: u32,
-		output_len_ptr: u32,
+		deposit_and_value: u64,
+		input_data: u64,
+		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		let (flags, callee_ptr) = extract_hi_lo(flags_and_callee);
+		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
@@ -1235,16 +1241,17 @@ pub mod env {
 	fn delegate_call(
 		&mut self,
 		memory: &mut M,
-		flags: u32,
-		address_ptr: u32,
+		flags_and_callee: u64,
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit_ptr: u32,
-		input_data_ptr: u32,
-		input_data_len: u32,
-		output_ptr: u32,
-		output_len_ptr: u32,
+		input_data: u64,
+		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		let (flags, address_ptr) = extract_hi_lo(flags_and_callee);
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
@@ -1266,18 +1273,24 @@ pub mod env {
 	fn instantiate(
 		&mut self,
 		memory: &mut M,
-		code_hash_ptr: u32,
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_ptr: u32,
-		value_ptr: u32,
-		input_data_ptr: u32,
-		input_data_len: u32,
-		address_ptr: u32,
-		output_ptr: u32,
-		output_len_ptr: u32,
-		salt_ptr: u32,
+		deposit_and_value: u64,
+		input_data: u64,
+		output_data: u64,
+		address_and_salt: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
+		let (input_data_len, code_hash_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let (address_ptr, salt_ptr) = extract_hi_lo(address_and_salt);
+		let Some(input_data_ptr) = code_hash_ptr.checked_add(32) else {
+			return Err(Error::<E::T>::OutOfBounds.into());
+		};
+		let Some(input_data_len) = input_data_len.checked_sub(32) else {
+			return Err(Error::<E::T>::OutOfBounds.into());
+		};
+
 		self.instantiate(
 			memory,
 			code_hash_ptr,
@@ -1681,6 +1694,25 @@ pub mod env {
 		)?)
 	}
 
+	/// Stores the current block author into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::block_author`].
+	#[stable]
+	fn block_author(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BlockAuthor)?;
+		let block_author = self
+			.ext
+			.block_author()
+			.map(|account| <E::T as Config>::AddressMapper::to_address(&account))
+			.unwrap_or(H160::zero());
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&block_author.as_bytes(),
+			false,
+			already_charged,
+		)?)
+	}
+
 	/// Computes the KECCAK 256-bit hash on the given input buffer.
 	/// See [`pallet_revive_uapi::HostFn::hash_keccak_256`].
 	#[stable]
@@ -1832,27 +1864,6 @@ pub mod env {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		self.contains_storage(memory, flags, key_ptr, key_len)
-	}
-
-	/// Emit a custom debug message.
-	/// See [`pallet_revive_uapi::HostFn::debug_message`].
-	fn debug_message(
-		&mut self,
-		memory: &mut M,
-		str_ptr: u32,
-		str_len: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		let str_len = str_len.min(limits::DEBUG_BUFFER_BYTES);
-		self.charge_gas(RuntimeCosts::DebugMessage(str_len))?;
-		if self.ext.append_debug_buffer("") {
-			let data = memory.read(str_ptr, str_len)?;
-			if let Some(msg) = core::str::from_utf8(&data).ok() {
-				self.ext.append_debug_buffer(msg);
-			}
-			Ok(ReturnErrorCode::Success)
-		} else {
-			Ok(ReturnErrorCode::LoggingDisabled)
-		}
 	}
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
@@ -2164,12 +2175,30 @@ pub mod env {
 				Ok(ReturnErrorCode::Success)
 			},
 			Err(e) => {
-				if self.ext.append_debug_buffer("") {
-					self.ext.append_debug_buffer("seal0::xcm_send failed with: ");
-					self.ext.append_debug_buffer(e.into());
-				};
+				log::debug!(target: LOG_TARGET, "seal0::xcm_send failed with: {e:?}");
 				Ok(ReturnErrorCode::XcmSendFailed)
 			},
 		}
+	}
+
+	/// Retrieves the account id for a specified contract address.
+	///
+	/// See [`pallet_revive_uapi::HostFn::to_account_id`].
+	fn to_account_id(
+		&mut self,
+		memory: &mut M,
+		addr_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::ToAccountId)?;
+		let address = memory.read_h160(addr_ptr)?;
+		let account_id = self.ext.to_account_id(&address);
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&account_id.encode(),
+			false,
+			already_charged,
+		)?)
 	}
 }

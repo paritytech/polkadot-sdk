@@ -75,7 +75,7 @@
 //!
 //! ### Malicious Recovery Attempts
 //!
-//! Initializing a the recovery process for a recoverable account is open and
+//! Initializing the recovery process for a recoverable account is open and
 //! permissionless. However, the recovery deposit is an economic deterrent that
 //! should disincentivize would-be attackers from trying to maliciously recover
 //! accounts.

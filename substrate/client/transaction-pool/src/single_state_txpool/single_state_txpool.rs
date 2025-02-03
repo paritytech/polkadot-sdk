@@ -141,7 +141,11 @@ where
 		finalized_hash: Block::Hash,
 		options: graph::Options,
 	) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
-		let pool = Arc::new(graph::Pool::new(options, true.into(), pool_api.clone()));
+		let pool = Arc::new(graph::Pool::new_with_staticly_sized_rotator(
+			options,
+			true.into(),
+			pool_api.clone(),
+		));
 		let (revalidation_queue, background_task) = revalidation::RevalidationQueue::new_background(
 			pool_api.clone(),
 			pool.clone(),
@@ -177,7 +181,11 @@ where
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> Self {
-		let pool = Arc::new(graph::Pool::new(options, is_validator, pool_api.clone()));
+		let pool = Arc::new(graph::Pool::new_with_staticly_sized_rotator(
+			options,
+			is_validator,
+			pool_api.clone(),
+		));
 		let (revalidation_queue, background_task) = match revalidation_type {
 			RevalidationType::Light =>
 				(revalidation::RevalidationQueue::new(pool_api.clone(), pool.clone()), None),
@@ -266,7 +274,12 @@ where
 
 		let number = self.api.resolve_block_number(at);
 		let at = HashAndNumber { hash: at, number: number? };
-		Ok(pool.submit_at(&at, xts).await)
+		Ok(pool
+			.submit_at(&at, xts)
+			.await
+			.into_iter()
+			.map(|result| result.map(|outcome| outcome.hash()))
+			.collect())
 	}
 
 	async fn submit_one(
@@ -284,6 +297,7 @@ where
 		let at = HashAndNumber { hash: at, number: number? };
 		pool.submit_one(&at, TimedTransactionSource::from_transaction_source(source, false), xt)
 			.await
+			.map(|outcome| outcome.hash())
 	}
 
 	async fn submit_and_watch(
@@ -300,15 +314,13 @@ where
 		let number = self.api.resolve_block_number(at);
 
 		let at = HashAndNumber { hash: at, number: number? };
-		let watcher = pool
-			.submit_and_watch(
-				&at,
-				TimedTransactionSource::from_transaction_source(source, false),
-				xt,
-			)
-			.await?;
-
-		Ok(watcher.into_stream().boxed())
+		pool.submit_and_watch(
+			&at,
+			TimedTransactionSource::from_transaction_source(source, false),
+			xt,
+		)
+		.await
+		.map(|mut outcome| outcome.expect_watcher().into_stream().boxed())
 	}
 
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
@@ -476,7 +488,11 @@ where
 			validity,
 		);
 
-		self.pool.validated_pool().submit(vec![validated]).remove(0)
+		self.pool
+			.validated_pool()
+			.submit(vec![validated])
+			.remove(0)
+			.map(|outcome| outcome.hash())
 	}
 }
 
