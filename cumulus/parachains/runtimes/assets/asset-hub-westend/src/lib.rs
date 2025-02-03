@@ -98,7 +98,8 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
-	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	prelude::{VersionedAsset, VersionedAssetId, ParentThen,
+			  VersionedAssets, VersionedLocation, VersionedXcm},
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1880,7 +1881,7 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 				pub const RandomParaId: ParaId = ParaId::new(43211234);
-				pub const RandomParaLocation: Location = Location::new(1, [Junction::Parachain(RandomParaId::get().into())]);
+				pub static RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
