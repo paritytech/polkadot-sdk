@@ -858,7 +858,6 @@ where
 			self.mempool.remove_transaction(&tx.hash);
 		});
 
-		//todo: add metrics reported / removed
 		self.metrics
 			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed.len() as _));
 
