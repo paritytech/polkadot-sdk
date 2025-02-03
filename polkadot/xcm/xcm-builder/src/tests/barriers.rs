@@ -835,13 +835,13 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 
 #[test]
 fn deny_instructions_with_xcm_works() {
-	type Barrier = DenyInstructionsWithXcm<DenyClearOrigin>;
+	type Barrier = DenyNestedXcmInstructions<DenyClearOrigin>;
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Ok(()));
 }
 
 #[test]
-fn deny_first_instructions_with_xcm_works() {
-	type Barrier = DenyFirstInstructionsWithXcm<DenyClearOrigin>;
+fn deny_nested_local_instructions_works() {
+	type Barrier = DenyNestedLocalInstructions<DenyClearOrigin>;
 	assert_deny_nested_instructions_with_xcm::<Barrier>(Err(ProcessMessageError::Unsupported));
 }
 
@@ -894,13 +894,13 @@ fn compare_deny_filters() {
 	);
 
 	// `DenyInstructionsWithXcm`: Top-level=Allow, Nested=Deny, TryAllow=No
-	assert_deny_barrier::<DenyInstructionsWithXcm<Denies>>(
+	assert_deny_barrier::<DenyNestedXcmInstructions<Denies>>(
 		Ok(()),
 		Err(ProcessMessageError::Unsupported),
 	);
 
-	// `DenyFirstInstructionsWithXcm`: Top-level=Deny, Nested=Deny, TryAllow=No
-	assert_deny_barrier::<DenyFirstInstructionsWithXcm<Denies>>(
+	// `DenyNestedLocalInstructions`: Top-level=Deny, Nested=Deny, TryAllow=No
+	assert_deny_barrier::<DenyNestedLocalInstructions<Denies>>(
 		Err(ProcessMessageError::Unsupported),
 		Err(ProcessMessageError::Unsupported),
 	);

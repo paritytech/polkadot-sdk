@@ -492,7 +492,7 @@ where
 		Deny::deny_execution(origin, instructions, max_weight, properties)?;
 
 		// Recursively apply denial for nested XCM instructions
-		DenyInstructionsWithXcm::<Deny>::deny_execution(
+		DenyNestedXcmInstructions::<Deny>::deny_execution(
 			origin,
 			instructions,
 			max_weight,
@@ -572,9 +572,9 @@ environmental::environmental!(recursion_count: u8);
 /// `ExecuteWithOrigin` instructions.
 ///
 /// Note: The nested XCM is checked recursively!
-pub struct DenyInstructionsWithXcm<Inner>(PhantomData<Inner>);
+pub struct DenyNestedXcmInstructions<Inner>(PhantomData<Inner>);
 
-impl<Inner: DenyExecution> DenyInstructionsWithXcm<Inner> {
+impl<Inner: DenyExecution> DenyNestedXcmInstructions<Inner> {
 	fn deny_recursively<RuntimeCall>(
 		origin: &Location,
 		nested_xcm: &mut [Instruction<RuntimeCall>],
@@ -628,7 +628,7 @@ impl<Inner: DenyExecution> DenyInstructionsWithXcm<Inner> {
 	}
 }
 
-impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
+impl<Inner: DenyExecution> DenyExecution for DenyNestedXcmInstructions<Inner> {
 	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
@@ -660,9 +660,9 @@ impl<Inner: DenyExecution> DenyExecution for DenyInstructionsWithXcm<Inner> {
 ///
 /// Note: Ensures that restricted instructions are blocked at the top level and within nested XCM,
 /// enforcing stricter execution policies.
-pub struct DenyFirstInstructionsWithXcm<Inner>(PhantomData<Inner>);
+pub struct DenyNestedLocalInstructions<Inner>(PhantomData<Inner>);
 
-impl<Inner: DenyExecution> DenyExecution for DenyFirstInstructionsWithXcm<Inner> {
+impl<Inner: DenyExecution> DenyExecution for DenyNestedLocalInstructions<Inner> {
 	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
@@ -674,13 +674,13 @@ impl<Inner: DenyExecution> DenyExecution for DenyFirstInstructionsWithXcm<Inner>
 			.inspect_err(|e| {
 				log::warn!(
 					target: "xcm::barriers",
-					"DenyFirstInstructionsWithXcm::Inner denied execution, origin: {:?}, instructions: {:?}, error: {:?}",
+					"DenyNestedLocalInstructions::Inner denied execution, origin: {:?}, instructions: {:?}, error: {:?}",
 					origin, instructions, e
 				);
 			})?;
 
 		// If the top-level check passes, check nested instructions recursively.
-		DenyInstructionsWithXcm::<Inner>::deny_execution(
+		DenyNestedXcmInstructions::<Inner>::deny_execution(
 			origin,
 			instructions,
 			max_weight,
