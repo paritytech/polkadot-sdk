@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-//! Implements the dry-run API.
+//! Implements dry-run APIs for Snowbridge V2 inbound queue.
 
 use crate::{weights::WeightInfo, Config, Error, Junction::AccountId32, Location};
 use frame_support::weights::WeightToFee;
