@@ -19,9 +19,9 @@ use polkadot_runtime_common::impls::ToAuthor;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	DenyNestedLocalInstructionsThenTry, DenyReserveTransferToRelayChain, EnsureXcmOrigin,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset,
+	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
@@ -98,7 +98,7 @@ impl Contains<Location> for ParentOrParentsExecutivePlurality {
 }
 
 pub type Barrier = TrailingSetTopicAsId<
-	DenyThenTry<
+	DenyNestedLocalInstructionsThenTry<
 		DenyReserveTransferToRelayChain,
 		(
 			TakeWeightCredit,
