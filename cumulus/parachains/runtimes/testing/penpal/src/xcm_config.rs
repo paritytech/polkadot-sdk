@@ -138,6 +138,16 @@ pub type FungiblesTransactor = FungiblesAdapter<
 			>,
 			JustTry,
 		>,
+		ConvertedConcreteId<
+			AssetIdPalletAssets,
+			Balance,
+			AsPrefixedGeneralIndex<
+				SystemAssetHubNextAssetsPalletLocation,
+				AssetIdPalletAssets,
+				JustTry,
+			>,
+			JustTry,
+		>,
 	),
 	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
@@ -283,6 +293,7 @@ pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 
 pub const ASSETS_PALLET_ID: u8 = 50;
 pub const ASSET_HUB_ID: u32 = 1000;
+pub const ASSET_HUB_NEXT_ID: u32 = 1100;
 
 pub const USDT_ASSET_ID: u128 = 1984;
 
@@ -308,12 +319,26 @@ parameter_types! {
 		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ASSET_ID)],
 	);
 
+	// Configs for Asset Hub Next
+	pub SystemAssetHubNextLocation: Location = Location::new(1, [Parachain(ASSET_HUB_NEXT_ID)]);
+	pub SystemAssetHubNextAssetsPalletLocation: Location =
+		Location::new(1, [Parachain(ASSET_HUB_NEXT_ID), PalletInstance(ASSETS_PALLET_ID)]);
+	pub LocalReservableFromAssetHubNext: Location = Location::new(
+		1,
+		[Parachain(ASSET_HUB_NEXT_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())]
+	);
+	pub UsdtFromAssetHubNext: Location = Location::new(
+		1,
+		[Parachain(ASSET_HUB_NEXT_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ASSET_ID)],
+	);
+
 	/// The Penpal runtime is utilized for testing with various environment setups.
 	/// This storage item provides the opportunity to customize testing scenarios
 	/// by configuring the trusted asset from the `SystemAssetHub`.
 	///
 	/// By default, it is configured as a `SystemAssetHubLocation` and can be modified using `System::set_storage`.
 	pub storage CustomizableAssetFromSystemAssetHub: Location = SystemAssetHubLocation::get();
+	pub storage CustomizableAssetFromSystemAssetHubNext: Location = SystemAssetHubNextLocation::get();
 }
 
 /// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
@@ -333,9 +358,14 @@ pub type TrustedReserves = (
 	AssetsFrom<SystemAssetHubLocation>,
 	NativeAssetFrom<SystemAssetHubLocation>,
 	AssetPrefixFrom<CustomizableAssetFromSystemAssetHub, SystemAssetHubLocation>,
+	AssetsFrom<SystemAssetHubNextLocation>,
+	NativeAssetFrom<SystemAssetHubNextLocation>,
+	AssetPrefixFrom<CustomizableAssetFromSystemAssetHubNext, SystemAssetHubNextLocation>,
 );
-pub type TrustedTeleporters =
-	(AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,);
+pub type TrustedTeleporters = (
+	AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,
+	AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubNextLocation>,
+);
 
 pub type WaivedLocations = Equals<RootLocation>;
 /// `AssetId`/`Balance` converter for `TrustBackedAssets`.
@@ -359,6 +389,11 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	),
 	AccountId,
 >;
+
+pub type Aliasers = (
+	AliasOriginRootUsingFilter<SystemAssetHubLocation, Everything>,
+	AliasOriginRootUsingFilter<SystemAssetHubNextLocation, Everything>,
+);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -409,7 +444,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	// We allow trusted Asset Hub root to alias other locations.
-	type Aliasers = AliasOriginRootUsingFilter<SystemAssetHubLocation, Everything>;
+	type Aliasers = Aliasers;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();

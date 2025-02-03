@@ -111,6 +111,7 @@ pub type XcmRouter = WithUniqueTopic<
 
 parameter_types! {
 	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub AssetHubNext: Location = Parachain(ASSET_HUB_NEXT_ID).into_location();
 	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
 	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
 	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
@@ -118,6 +119,7 @@ parameter_types! {
 	pub Broker: Location = Parachain(BROKER_ID).into_location();
 	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
+	pub WndForAssetHubNext: (AssetFilter, Location) = (Wnd::get(), AssetHubNext::get());
 	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
 	pub WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
 	pub WndForEncointer: (AssetFilter, Location) = (Wnd::get(), Encointer::get());
@@ -129,6 +131,7 @@ parameter_types! {
 
 pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForAssetHub>,
+	xcm_builder::Case<WndForAssetHubNext>,
 	xcm_builder::Case<WndForCollectives>,
 	xcm_builder::Case<WndForBridgeHub>,
 	xcm_builder::Case<WndForEncointer>,

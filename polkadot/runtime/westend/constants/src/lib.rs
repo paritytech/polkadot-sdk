@@ -113,6 +113,8 @@ pub mod system_parachain {
 	pub const PEOPLE_ID: u32 = 1004;
 	/// Brokerage parachain ID.
 	pub const BROKER_ID: u32 = 1005;
+	/// Asset Hub Next parachain ID.
+	pub const ASSET_HUB_NEXT_ID: u32 = 1100;
 
 	/// All system parachains of Westend.
 	pub type SystemParachains = IsChildSystemParachain<Id>;

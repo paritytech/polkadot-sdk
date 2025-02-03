@@ -1,0 +1,32 @@
+[package]
+name = "asset-hub-next-westend-emulated-chain"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Asset Hub Next Westend emulated chain"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+
+# Substrate
+frame-support = { workspace = true }
+sp-core = { workspace = true }
+sp-keyring = { workspace = true }
+
+# Cumulus
+asset-hub-next-westend-runtime = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
+westend-emulated-chain = { workspace = true, default-features = true }
+
+# Polkadot
+xcm = { workspace = true }
+
+# Bridges
+bp-bridge-hub-westend = { workspace = true }
