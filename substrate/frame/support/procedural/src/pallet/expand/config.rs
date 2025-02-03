@@ -47,6 +47,7 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 			]
 		),
 	);
+	config_item.attrs.retain(|attr| !attr.path().is_ident("deprecated"));
 
 	// we only emit `DefaultConfig` if there are trait items, so an empty `DefaultConfig` is
 	// impossible consequently.

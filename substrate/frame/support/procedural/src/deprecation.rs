@@ -179,3 +179,22 @@ pub fn variant_index_for_deprecation(index: u8, item: &Variant) -> u8 {
 		})
 		.unwrap_or(index)
 }
+
+/// collect all of the `allow` attributes on the item
+/// or return #[allow(deprecated)] if deprecation attribute is present
+pub fn extract_or_return_allow_attrs(
+	items: &[syn::Attribute],
+) -> impl Iterator<Item = syn::Attribute> + '_ {
+	items.iter().filter_map(|attr| {
+		attr.path().is_ident("allow").then(|| attr.clone()).or_else(|| {
+			if attr.path().is_ident("deprecated") {
+				let attr = syn::parse_quote! {
+					#[allow(deprecated)]
+				};
+				Some(attr)
+			} else {
+				None
+			}
+		})
+	})
+}

@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(useless_deprecated, deprecated, clippy::deprecated_semver)]
+#![allow(useless_deprecated)]
 
 use std::collections::BTreeMap;
 
@@ -157,16 +157,6 @@ fn pallet_metadata() {
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			// Result should be this, but instead we get the result below
-			// see: https://github.com/paritytech/parity-scale-codec/issues/507
-			//
-			// DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([
-			// 	(codec::Compact(0), DeprecationStatusIR::Deprecated { note: "first", since: None
-			// }), 	(
-			// 		codec::Compact(1),
-			// 		DeprecationStatusIR::Deprecated { note: "second", since: None }
-			// 	)
-			// ])),
 			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
 				codec::Compact(0),
 				DeprecationStatusIR::Deprecated { note: "first", since: None }

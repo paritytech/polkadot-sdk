@@ -27,6 +27,7 @@ use substrate_test_runtime_client::runtime::{Block, Hash};
 pub struct Runtime {}
 
 decl_runtime_apis! {
+	#[deprecated]
 	pub trait Api {
 		fn test(data: u64);
 		fn something_with_block(block: Block) -> Block;
@@ -76,6 +77,7 @@ decl_runtime_apis! {
 }
 
 impl_runtime_apis! {
+	#[allow(deprecated)]
 	impl self::Api<Block> for Runtime {
 		fn test(_: u64) {
 			unimplemented!()
@@ -150,6 +152,7 @@ struct MockApi {
 }
 
 mock_impl_runtime_apis! {
+	#[allow(deprecated)]
 	impl Api<Block> for MockApi {
 		fn test(_: u64) {
 			unimplemented!()
@@ -192,6 +195,7 @@ type TestClient = substrate_test_runtime_client::client::Client<
 >;
 
 #[test]
+#[allow(deprecated)]
 fn test_client_side_function_signature() {
 	let _test: fn(
 		&RuntimeApiImpl<Block, TestClient>,
@@ -212,6 +216,7 @@ fn test_client_side_function_signature() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn check_runtime_api_info() {
 	assert_eq!(&<dyn Api::<Block>>::ID, &runtime_decl_for_api::ID);
 	assert_eq!(<dyn Api::<Block>>::VERSION, runtime_decl_for_api::VERSION);
@@ -262,6 +267,7 @@ fn check_staging_multiver_runtime_api_versions<T: RuntimeApiInfo + ?Sized>(
 }
 
 #[test]
+#[allow(deprecated)]
 fn check_runtime_api_versions() {
 	check_runtime_api_versions_contains::<dyn Api<Block>>();
 	check_runtime_api_versions_contains::<dyn ApiWithCustomVersion<Block>>();
@@ -279,6 +285,7 @@ fn check_runtime_api_versions() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn mock_runtime_api_has_api() {
 	let mock = MockApi { block: None };
 
@@ -296,6 +303,7 @@ fn mock_runtime_api_panics_on_calling_old_version() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn mock_runtime_api_works_with_advanced() {
 	let mock = MockApi { block: None };
 

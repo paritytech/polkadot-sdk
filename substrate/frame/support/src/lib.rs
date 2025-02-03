@@ -830,6 +830,7 @@ macro_rules! assert_error_encoded_size {
 		assert_message = [{ $assert_message:literal }]
 		error = [{ $error:ident }]
 	} => {
+		#[allow(deprecated)]
 		const _: () = assert!(
 			<
 				$($path::)+$error<$runtime> as $crate::traits::PalletError
@@ -1065,6 +1066,10 @@ pub mod pallet_prelude {
 /// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 ///   metadata.
 /// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the generated
+///   code.
+/// - If the item is annotated with `deprecated` attribute then the generated code will be
+///   automatically annotated with `allow(deprecated)`
 pub use frame_support_procedural::pallet;
 
 /// Contains macro stubs for all of the `pallet::` macros
@@ -1967,6 +1972,10 @@ pub mod pallet_macros {
 	/// - It's possible to deprecated either certain variants inside the `Error` or the whole
 	///   `Error` itself. If both the `Error` and its variants are deprecated a compile error
 	///   will be returned.
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::error;
 
 	/// Allows defining pallet events.
@@ -2017,6 +2026,10 @@ pub mod pallet_macros {
 	/// - It's possible to deprecated either certain variants inside the `Event` or the whole
 	///   `Event` itself. If both the `Event` and its variants are deprecated a compile error
 	///   will be returned.
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::event;
 
 	/// Selectively includes associated types in the metadata.
@@ -2154,6 +2167,10 @@ pub mod pallet_macros {
 	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 	///   metadata where the item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::call;
 
 	/// Enforce the index of a variant in the generated `enum Call`.
@@ -2292,6 +2309,10 @@ pub mod pallet_macros {
 	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 	///   metadata where the item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::constant;
 
 	/// Declares a type alias as a storage item.
@@ -2516,6 +2537,10 @@ pub mod pallet_macros {
 	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 	///   metadata where the storage item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::storage;
 
 	pub use frame_support_procedural::{

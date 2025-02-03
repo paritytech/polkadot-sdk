@@ -96,6 +96,7 @@ pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 	quote::quote!(
 		const _: () = {
 			#[automatically_derived]
+			#[allow(deprecated)]
 			impl #impl_generics ::core::clone::Clone for #name #ty_generics #where_clause {
 				fn clone(&self) -> Self {
 					#impl_
