@@ -709,8 +709,6 @@ fn deny_then_try_works() {
 
 #[test]
 fn deny_nested_local_instructions_then_try_works() {
-	frame_support::__private::sp_tracing::try_init_simple();
-
 	type Barrier = DenyNestedLocalInstructionsThenTry<DenyReserveTransferToRelayChain, AllowAll>;
 	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
@@ -767,6 +765,19 @@ fn deny_nested_local_instructions_then_try_works() {
 	}]);
 	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+
+	// Should ensure unrelated XCMs are not blocked
+	let mut unrelated_xcm = Xcm::<Instruction<()>>(vec![BuyExecution {
+		fees: (Parent, 100).into(),
+		weight_limit: Unlimited,
+	}]);
+	let result = Barrier::should_execute(
+		&origin,
+		unrelated_xcm.inner_mut(),
+		max_weight,
+		&mut properties,
+	);
 	assert!(result.is_ok());
 
 	// Should deny recursively before allow
@@ -842,9 +853,7 @@ fn deny_nested_local_instructions_works() {
 
 #[test]
 fn compare_deny_filters() {
-	frame_support::__private::sp_tracing::try_init_simple();
-
-	type Denies = (DenyReserveTransferToRelayChain, DenyWrapper<AllowAll>);
+	type Denies = (DenyWrapper<AllowAll>, DenyReserveTransferToRelayChain);
 
 	fn assert_barrier<Barrier: ShouldExecute>(
 		top_level_result: Result<(), ProcessMessageError>,
@@ -898,8 +907,6 @@ fn compare_deny_filters() {
 fn assert_deny_nested_instructions_with_xcm<Barrier: DenyExecution>(
 	top_level_expected_result: Result<(), ProcessMessageError>,
 ) {
-	frame_support::__private::sp_tracing::try_init_simple();
-
 	// closure for (xcm, origin) testing with `Barrier` which denies `ClearOrigin`
 	// instruction
 	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
