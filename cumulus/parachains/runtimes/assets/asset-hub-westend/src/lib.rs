@@ -98,17 +98,16 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
-	prelude::{VersionedAsset, VersionedAssetId, ParentThen,
+	prelude::{VersionedAsset, VersionedAssetId,
 			  VersionedAssets, VersionedLocation, VersionedXcm},
 };
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::PalletInfoAccess;
-
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Response, XCM_VERSION,
+	NetworkId, NonFungible, Response, XCM_VERSION, ParentThen, Parent
 };
 
 use xcm_runtime_apis::{
@@ -1880,8 +1879,9 @@ impl_runtime_apis! {
 					WestendLocation::get(),
 					ExistentialDeposit::get()
 				).into());
+
 				pub const RandomParaId: ParaId = ParaId::new(43211234);
-				pub static RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
+				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
