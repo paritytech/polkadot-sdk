@@ -378,7 +378,7 @@ zombienet-polkadot-elastic-scaling-slot-based-12cores:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export CUMULUS_IMAGE="docker.io/paritypr/test-parachain:${PIPELINE_IMAGE_TAG}"
     - export X_INFRA_INSTANCE=spot # use spot by default
@@ -464,7 +464,7 @@ zombienet-polkadot-functional-duplicate-collations:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export X_INFRA_INSTANCE=spot # use spot by default
   script:
@@ -472,3 +472,19 @@ zombienet-polkadot-functional-duplicate-collations:
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::duplicate_collations::duplicate_collations_test
+
+zombienet-polkadot-disputes-slashing:
+  extends:
+    - .zombienet-polkadot-common
+  needs:
+    - job: build-polkadot-zombienet-tests
+      artifacts: true
+  before_script:
+    - !reference [".zombienet-polkadot-common", "before_script"]
+    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - export X_INFRA_INSTANCE=spot # use spot by default
+  script:
+    # we want to use `--no-capture` in zombienet tests.
+    - unset NEXTEST_FAILURE_OUTPUT
+    - unset NEXTEST_SUCCESS_OUTPUT
+    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- disabling::slashing
