@@ -358,9 +358,8 @@ pub fn testnet_genesis(
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts);
 	const MAX_COLLECTIVE_SIZE: usize = 50;
 	let dev_stakers = if cfg!(feature = "staking-playground") {
-		let random_validators = std::option_env!("AUTHORITIES")
-			.map(|s| s.parse::<u32>().unwrap())
-			.unwrap_or(100);
+		let random_validators =
+			std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
 		let random_nominators = std::option_env!("NOMINATORS")
 			.map(|s| s.parse::<u32>().unwrap())
 			.unwrap_or(3000);
