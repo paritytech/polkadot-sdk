@@ -89,25 +89,34 @@ pub mod generic {
 		/// Consensus protocol message.
 		// NOTE: index is incremented by 1 due to transaction-related
 		// message that was removed
-		#[codec(index = 6)]
+		#[codec(index = 5)]
 		Consensus(ConsensusMessage),
 		/// Remote method call request.
+		#[codec(index = 6)]
 		RemoteCallRequest(RemoteCallRequest<Hash>),
 		/// Remote method call response.
+		#[codec(index = 7)]
 		RemoteCallResponse(RemoteCallResponse),
 		/// Remote storage read request.
+		#[codec(index = 8)]
 		RemoteReadRequest(RemoteReadRequest<Hash>),
 		/// Remote storage read response.
+		#[codec(index = 9)]
 		RemoteReadResponse(RemoteReadResponse),
 		/// Remote header request.
+		#[codec(index = 10)]
 		RemoteHeaderRequest(RemoteHeaderRequest<Number>),
 		/// Remote header response.
+		#[codec(index = 11)]
 		RemoteHeaderResponse(RemoteHeaderResponse<Header>),
 		/// Remote changes request.
+		#[codec(index = 12)]
 		RemoteChangesRequest(RemoteChangesRequest<Hash>),
 		/// Remote changes response.
+		#[codec(index = 13)]
 		RemoteChangesResponse(RemoteChangesResponse<Number, Hash>),
 		/// Remote child storage read request.
+		#[codec(index = 14)]
 		RemoteReadChildRequest(RemoteReadChildRequest<Hash>),
 		/// Batch of consensus protocol messages.
 		// NOTE: index is incremented by 2 due to finality proof related
