@@ -2513,6 +2513,7 @@ impl<T: Config> Pallet<T> {
 	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_call<Runtime, Router, OriginCaller, RuntimeCall>(
 		origin: OriginCaller,
+		xcms_version: XcmVersion,
 		call: RuntimeCall,
 	) -> Result<CallDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
 	where
@@ -2528,9 +2529,30 @@ impl<T: Config> Pallet<T> {
 		frame_system::Pallet::<Runtime>::reset_events();
 		let result = call.dispatch(origin.into());
 		crate::Pallet::<Runtime>::set_record_xcm(false);
-		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm();
+		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm()
+			.map(|xcm| VersionedXcm::<()>::from(xcm).into_version(xcms_version))
+			.transpose()
+			.map_err(|()| {
+				tracing::error!(
+					target: "xcm::DryRunApi::dry_run_call",
+					"Local xcm version conversion failed"
+				);
+
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+
 		// Should only get messages from this call since we cleared previous ones.
-		let forwarded_xcms = Router::get_messages();
+		let forwarded_xcms = Self::convert_forwarded_xcms(
+			xcms_version,
+			Router::get_messages()
+		).map_err(|error| {
+			tracing::error!(
+				target: "xcm::DryRunApi::dry_run_call",
+				?error, "Forwarded xcms version conversion failed with error"
+			);
+
+			error
+		})?;
 		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()
 				.map(|record| record.event.clone())
@@ -2563,6 +2585,7 @@ impl<T: Config> Pallet<T> {
 			);
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
+		let xcm_version = xcm.identify_version();
 		let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
 			tracing::error!(
 				target: "xcm::DryRunApi::dry_run_xcm",
@@ -2579,12 +2602,41 @@ impl<T: Config> Pallet<T> {
 			Weight::MAX, // Max limit available for execution.
 			Weight::zero(),
 		);
-		let forwarded_xcms = Router::get_messages();
+		let forwarded_xcms = Self::convert_forwarded_xcms(xcm_version, Router::get_messages())
+			.map_err(|error| {
+				tracing::error!(
+					target: "xcm::DryRunApi::dry_run_xcm",
+					?error, "Forwarded xcms version conversion failed with error"
+				);
+
+				error
+			})?;
 		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
 		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
+	}
+
+	fn convert_xcms(xcm_version: XcmVersion, xcms: Vec<VersionedXcm<()>>) -> Result<Vec<VersionedXcm<()>>, ()> {
+		xcms.into_iter()
+			.map(|xcm| xcm.into_version(xcm_version))
+			.collect::<Result<Vec<_>, ()>>()
+	}
+
+	fn convert_forwarded_xcms(
+		xcm_version: XcmVersion,
+		forwarded_xcms: Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>
+	) -> Result<Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>, XcmDryRunApiError> {
+		forwarded_xcms.into_iter()
+			.map(|(dest, forwarded_xcms)| {
+				let dest = dest.into_version(xcm_version)?;
+				let forwarded_xcms = Self::convert_xcms(xcm_version, forwarded_xcms)?;
+
+				Ok((dest, forwarded_xcms))
+			})
+			.collect::<Result<Vec<_>, ()>>()
+			.map_err(|()| XcmDryRunApiError::VersionedConversionFailed)
 	}
 
 	/// Given a list of asset ids, returns the correct API response for
