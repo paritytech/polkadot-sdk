@@ -897,6 +897,9 @@ where
 							Some(DelegateInfo { caller, callee }),
 							gas_meter.nested(gas_limit),
 						)
+
+					// For the first frame, charge the gas on its own nested gas meter.
+					// For subsequent frames, charge the parent frame's gas meter.
 					} else if origin_is_caller {
 						let mut nested_gas_meter = gas_meter.nested(gas_limit);
 						(
