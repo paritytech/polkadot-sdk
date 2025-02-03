@@ -886,34 +886,16 @@ where
 						}
 					};
 
-					let (executable, delegate_caller, nested_gas) = if let Some(DelegatedCall {
+					let mut nested_gas = gas_meter.nested(gas_limit);
+					let (executable, delegate_caller) = if let Some(DelegatedCall {
 						executable,
 						caller,
 						callee,
 					}) = delegated_call
 					{
-						(
-							executable,
-							Some(DelegateInfo { caller, callee }),
-							gas_meter.nested(gas_limit),
-						)
-
-					// For the first frame, charge the gas to the frame's nested gas meter
-					// instead of the top-level gas meter, so it's properly associated with
-					// the initial frame when tracing the call.
-					} else if origin_is_caller {
-						let mut nested_gas_meter = gas_meter.nested(gas_limit);
-						(
-							E::from_storage(contract.code_hash, &mut nested_gas_meter)?,
-							None,
-							nested_gas_meter,
-						)
+						(executable, Some(DelegateInfo { caller, callee }))
 					} else {
-						(
-							E::from_storage(contract.code_hash, gas_meter)?,
-							None,
-							gas_meter.nested(gas_limit),
-						)
+						(E::from_storage(contract.code_hash, &mut nested_gas)?, None)
 					};
 
 					(
@@ -958,6 +940,8 @@ where
 					)
 				},
 			};
+
+		let nested_storage = storage_meter.nested(deposit_limit);
 		let frame = Frame {
 			delegate,
 			value_transferred,
@@ -965,7 +949,7 @@ where
 			account_id,
 			entry_point,
 			nested_gas,
-			nested_storage: storage_meter.nested(deposit_limit),
+			nested_storage,
 			allows_reentry: true,
 			read_only,
 			last_frame_output: Default::default(),
@@ -1025,9 +1009,9 @@ where
 	///
 	/// This can be either a call or an instantiate.
 	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
-		let caller = self.caller();
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
+		let is_delegate_call = frame.delegate.is_some();
 		let delegated_code_hash =
 			if frame.delegate.is_some() { Some(*executable.code_hash()) } else { None };
 
@@ -1045,24 +1029,12 @@ where
 
 		self.transient_storage.start_transaction();
 
-		if_tracing(|tracer| {
-			let frame = top_frame_mut!(self);
-			let contract_addr = T::AddressMapper::to_address(&frame.account_id);
-			let caller_addr = caller.account_id().map(T::AddressMapper::to_address);
-			tracer.enter_child_span(
-				caller_addr.unwrap_or_default(),
-				contract_addr,
-				frame.delegate.is_some(),
-				frame.read_only,
-				frame.value_transferred,
-				&input_data,
-				frame.nested_gas.gas_left(),
-			);
-		});
-
 		let do_transaction = || -> ExecResult {
+			let caller = self.caller();
 			let frame = top_frame_mut!(self);
-			let account_id = &frame.account_id;
+			let read_only = frame.read_only;
+			let value_transferred = frame.value_transferred;
+			let account_id = &frame.account_id.clone();
 
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
@@ -1105,11 +1077,35 @@ where
 				)?;
 			}
 
+			let contract_address = T::AddressMapper::to_address(account_id);
+			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
 			let code_deposit = executable.code_info().deposit();
 
-			let output = executable
-				.execute(self, entry_point, input_data)
-				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
+			if_tracing(|tracer| {
+				tracer.enter_child_span(
+					maybe_caller_address.unwrap_or_default(),
+					contract_address,
+					is_delegate_call,
+					read_only,
+					value_transferred,
+					&input_data,
+					frame.nested_gas.gas_left(),
+				);
+			});
+
+			let output = executable.execute(self, entry_point, input_data).map_err(|e| {
+				if_tracing(|tracer| {
+					tracer.exit_child_span_with_error(
+						e.error,
+						top_frame_mut!(self).nested_gas.gas_consumed(),
+					);
+				});
+				ExecError { error: e.error, origin: ErrorOrigin::Callee }
+			})?;
+
+			if_tracing(|tracer| {
+				tracer.exit_child_span(&output, top_frame_mut!(self).nested_gas.gas_consumed());
+			});
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
@@ -1168,18 +1164,6 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
-
-		if_tracing(|tracer| match &output {
-			Ok(result) => {
-				tracer.exit_child_span(&result, top_frame!(self).nested_gas.gas_consumed());
-			},
-			Err(e) => {
-				tracer.exit_child_span_with_error(
-					e.error.into(),
-					top_frame_mut!(self).nested_gas.gas_consumed(),
-				);
-			},
-		});
 
 		self.pop_frame(success);
 		output.map(|output| {
@@ -1454,6 +1438,7 @@ where
 
 		// We need to make sure to reset `allows_reentry` even on failure.
 		let result = try_call();
+		println!("result: {:?}", result);
 
 		// Protection is on a per call basis.
 		self.top_frame_mut().allows_reentry = true;

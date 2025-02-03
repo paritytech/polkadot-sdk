@@ -995,6 +995,7 @@ fn transient_storage_limit_in_call() {
 fn deploy_and_call_other_contract() {
 	let (caller_wasm, _caller_code_hash) = compile_module("caller_contract").unwrap();
 	let (callee_wasm, callee_code_hash) = compile_module("return_with_data").unwrap();
+	let code_load_weight = crate::wasm::code_load_weight(callee_wasm.len() as u32);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -1022,7 +1023,9 @@ fn deploy_and_call_other_contract() {
 
 		// Call BOB contract, which attempts to instantiate and call the callee contract and
 		// makes various assertions on the results from those calls.
-		assert_ok!(builder::call(caller_addr).data(callee_code_hash.as_ref().to_vec()).build());
+		assert_ok!(builder::call(caller_addr)
+			.data((callee_code_hash, code_load_weight.ref_time()).encode())
+			.build());
 
 		assert_eq!(
 			System::events(),
