@@ -74,11 +74,10 @@ where
 		// we write the storage version in a seperate block
 		if cursor.unwrap_or(false) {
 			let required = T::DbWeight::get().writes(1);
-			if meter.remaining().any_lt(required) {
-				return Err(SteppedMigrationError::InsufficientWeight { required })
-			}
+			meter
+				.try_consume(required)
+				.map_err(|_| SteppedMigrationError::InsufficientWeight { required })?;
 			P::on_genesis();
-			meter.consume(required);
 			return Ok(None);
 		}
 
