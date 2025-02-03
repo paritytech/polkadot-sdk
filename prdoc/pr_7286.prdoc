@@ -1,0 +1,22 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Cleanup Elastic Scaling Checks for FeatureIndex::ElasticScalingMVP
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR addresses issue #6352, which proposes refactoring the codebase
+      by assuming that the FeatureIndex::ElasticScalingMVP feature is always
+      enabled.
+
+       **Integration**
+       Removed the traces of the elastic_scaling_mvp
+       scaling limitation (provisioner)
+       Removed the traces of inject_core_index scaling limitation (backing)
+
+crates:
+- name: polkadot-node-core-backing
+	bump: patch
+- name: polkadot-node-core-provisioner
+	bump: patch
