@@ -62,8 +62,10 @@ fn fee_estimation_for_teleport() {
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
-		let dry_run_effects =
-			runtime_api.dry_run_call(H256::zero(), origin, XCM_VERSION, call).unwrap().unwrap();
+		let dry_run_effects = runtime_api
+			.dry_run_call(H256::zero(), origin, XCM_VERSION, call)
+			.unwrap()
+			.unwrap();
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
@@ -207,26 +209,24 @@ fn dry_run_reserve_asset_transfer_common(xcm_version: XcmVersion) {
 			dest: Box::new(
 				VersionedLocation::from((Parent, Parachain(1000)))
 					.into_version(xcm_version)
-					.unwrap()
+					.unwrap(),
 			),
 			beneficiary: Box::new(
-				VersionedLocation::from(AccountId32 {
-					id: [0u8; 32],
-					network: None,
-				}).into_version(xcm_version)
-				.unwrap()
+				VersionedLocation::from(AccountId32 { id: [0u8; 32], network: None })
+					.into_version(xcm_version)
+					.unwrap(),
 			),
 			assets: Box::new(
-				VersionedAssets::from((Parent, 100u128))
-					.into_version(xcm_version)
-					.unwrap()
+				VersionedAssets::from((Parent, 100u128)).into_version(xcm_version).unwrap(),
 			),
 			fee_asset_item: 0,
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
-		let dry_run_effects =
-			runtime_api.dry_run_call(H256::zero(), origin, xcm_version, call).unwrap().unwrap();
+		let dry_run_effects = runtime_api
+			.dry_run_call(H256::zero(), origin, xcm_version, call)
+			.unwrap()
+			.unwrap();
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
@@ -236,7 +236,8 @@ fn dry_run_reserve_asset_transfer_common(xcm_version: XcmVersion) {
 						.withdraw_asset((Parent, 100u128))
 						.burn_asset((Parent, 100u128))
 						.build()
-				).into_version(xcm_version)
+				)
+				.into_version(xcm_version)
 				.unwrap()
 			),
 		);
@@ -253,7 +254,9 @@ fn dry_run_reserve_asset_transfer_common(xcm_version: XcmVersion) {
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
-				VersionedLocation::from(send_destination.clone()).into_version(xcm_version).unwrap(),
+				VersionedLocation::from(send_destination.clone())
+					.into_version(xcm_version)
+					.unwrap(),
 				vec![VersionedXcm::from(send_message.clone()).into_version(xcm_version).unwrap()],
 			),],
 		);
@@ -325,7 +328,9 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 	let xcm_weight = runtime_api
 		.query_xcm_weight(
 			H256::zero(),
-			VersionedXcm::from(xcm_to_weigh.clone().into()).into_version(xcm_version).unwrap()
+			VersionedXcm::from(xcm_to_weigh.clone().into())
+				.into_version(xcm_version)
+				.unwrap(),
 		)
 		.unwrap()
 		.unwrap();
@@ -333,9 +338,7 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 		.query_weight_to_asset_fee(
 			H256::zero(),
 			xcm_weight,
-			VersionedAssetId::from(AssetId(Here.into()))
-				.into_version(xcm_version)
-				.unwrap(),
+			VersionedAssetId::from(AssetId(Here.into())).into_version(xcm_version).unwrap(),
 		)
 		.unwrap()
 		.unwrap();
@@ -356,9 +359,7 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 				VersionedLocation::from([AccountIndex64 { index: 1, network: None }])
 					.into_version(xcm_version)
 					.unwrap(),
-				VersionedXcm::from(xcm)
-					.into_version(xcm_version)
-					.unwrap(),
+				VersionedXcm::from(xcm).into_version(xcm_version).unwrap(),
 			)
 			.unwrap()
 			.unwrap();
@@ -368,20 +369,19 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 				VersionedLocation::from((Parent, Parachain(2100)))
 					.into_version(xcm_version)
 					.unwrap(),
-				vec![
-					VersionedXcm::from(
-						Xcm::<()>::builder_unsafe()
-							.reserve_asset_deposited((
-								(Parent, Parachain(2000)),
-								transfer_amount + execution_fees - DeliveryFees::get()
-							))
-							.clear_origin()
-							.buy_execution((Here, 1u128), Unlimited)
-							.deposit_asset(AllCounted(1), [0u8; 32])
-							.build()
-					).into_version(xcm_version)
-					.unwrap()
-				],
+				vec![VersionedXcm::from(
+					Xcm::<()>::builder_unsafe()
+						.reserve_asset_deposited((
+							(Parent, Parachain(2000)),
+							transfer_amount + execution_fees - DeliveryFees::get()
+						))
+						.clear_origin()
+						.buy_execution((Here, 1u128), Unlimited)
+						.deposit_asset(AllCounted(1), [0u8; 32])
+						.build()
+				)
+				.into_version(xcm_version)
+				.unwrap()],
 			),]
 		);
 

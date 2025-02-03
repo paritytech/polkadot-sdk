@@ -36,8 +36,8 @@ use pallet_xcm::TestWeightInfo;
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,
-	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, IsConcrete, MintLocation, NoChecking,
-	TakeWeightCredit, InspectMessageQueues,
+	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, InspectMessageQueues, IsConcrete,
+	MintLocation, NoChecking, TakeWeightCredit,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},

@@ -103,7 +103,7 @@ use snowbridge_core::{
 	AgentId, PricingParameters,
 };
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
-use xcm::{VersionedLocation, Version as XcmVersion};
+use xcm::{Version as XcmVersion, VersionedLocation};
 
 use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
 

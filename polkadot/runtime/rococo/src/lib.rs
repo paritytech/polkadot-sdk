@@ -126,8 +126,8 @@ use sp_staking::SessionIndex;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
-	latest::prelude::*, VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation,
-	VersionedXcm, Version as XcmVersion,
+	latest::prelude::*, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
+	VersionedLocation, VersionedXcm,
 };
 use xcm_builder::PayOverXcm;
 
