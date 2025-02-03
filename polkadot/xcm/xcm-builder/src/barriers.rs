@@ -472,7 +472,8 @@ where
 ///
 /// Note: Ensures that restricted instructions are blocked at any depth with the XCM, enforcing
 /// stricter execution policies.
-pub type DenyNestedLocalInstructionsThenTry<Deny, Allow> = DenyThenTry<DenyNestedLocalInstructions<Deny>, Allow>;
+pub type DenyNestedLocalInstructionsThenTry<Deny, Allow> =
+	DenyThenTry<DenyNestedLocalInstructions<Deny>, Allow>;
 
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
@@ -521,7 +522,7 @@ environmental::environmental!(recursion_count: u8);
 /// `ExecuteWithOrigin` instructions.
 ///
 /// Note: The nested XCM is checked recursively!
-pub struct DenyNestedXcmInstructions<Inner>(PhantomData<Inner>);
+struct DenyNestedXcmInstructions<Inner>(PhantomData<Inner>);
 
 impl<Inner: DenyExecution> DenyNestedXcmInstructions<Inner> {
 	fn deny_recursively<RuntimeCall>(
