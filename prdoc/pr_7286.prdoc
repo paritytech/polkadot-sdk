@@ -1,22 +1,20 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
-
-title: Cleanup Elastic Scaling Checks for FeatureIndex::ElasticScalingMVP
-
+title: Remove feature flag checks for Elastic Scaling MVP
 doc:
-  - audience: Runtime Dev
-    description: |
-      This PR addresses issue #6352, which proposes refactoring the codebase
-      by assuming that the FeatureIndex::ElasticScalingMVP feature is always
-      enabled.
+- audience: Runtime Dev
+  description: |
+    ## Description
+    This PR addresses [issue #6352](https://github.com/paritytech/polkadot-sdk/issues/6352), which proposes cleaning up the codebase by assuming that the FeatureIndex::ElasticScalingMVP feature is always enabled.
 
-       **Integration**
-       Removed the traces of the elastic_scaling_mvp
-       scaling limitation (provisioner)
-       Removed the traces of inject_core_index scaling limitation (backing)
+    ## Integration
+    - Removed the traces of the `elastic_scaling_mvp`  scaling limitation   (provisioner)
+    - Removed the traces of `inject_core_index` scaling limitation   (backing)
+
+    ## Review Notes
+    - The inject_core_index flag is used to support elastic scaling. When true, the core index is injected into the BackedCandidate, enabling dynamic core allocation and deallocation.
+    - I removed this check in the backing file since we assume elastic scaling is enabled.
 
 crates:
 - name: polkadot-node-core-backing
-	bump: patch
+  bump: patch
 - name: polkadot-node-core-provisioner
-	bump: patch
+  bump: patch
