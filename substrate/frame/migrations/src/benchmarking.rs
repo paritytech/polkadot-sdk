@@ -227,9 +227,12 @@ mod benches {
 			result = storage::clear_prefix(&prefix, None);
 		}
 
+		// It will always reports no keys removed because they are still in the overlay.
+		// However, the benchmarking PoV results are correctly dependent on the amount of
+		// keys removed.
 		match result {
-			KillStorageResult::AllRemoved(i) if i == n => (),
-			_ => Err("Unexpected number of keys were removed")?,
+			KillStorageResult::AllRemoved(_) => (),
+			_ => Err("Not all keys were removed")?,
 		}
 
 		Ok(())
