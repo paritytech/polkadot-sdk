@@ -30,6 +30,11 @@ on:
         description: |
           Main runner for zombienet tests.
 
+      TEMP_IMAGES_BASE:
+        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
+        description: |
+          Base location for 'temp' images used in tests.
+
       DOCKER_IMAGES_VERSION:
         value: ${{ jobs.preflight.outputs.DOCKER_IMAGES_VERSION }}
         description: |
@@ -76,7 +81,10 @@ jobs:
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
       ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
 
-      DOCKER_IMAGES_VERSION: ${{ steps.set_images_version.outputs.ZOMBIENET_RUNNER }}
+      TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
+
+      # images versions
+      DOCKER_IMAGES_VERSION: ${{ steps.set_images_version.outputs.DOCKER_IMAGES_VERSION }}
 
       # common vars
       PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
@@ -171,3 +179,4 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
           echo "github.sha: ${{ github.sha }}"
+
