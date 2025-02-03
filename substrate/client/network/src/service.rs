@@ -516,6 +516,7 @@ where
 					request_response_protocols,
 					Arc::clone(&peer_store_handle),
 					external_addresses.clone(),
+					network_config.public_addresses.iter().cloned().map(Into::into).collect(),
 					ConnectionLimits::default()
 						.with_max_established_per_peer(Some(crate::MAX_CONNECTIONS_PER_PEER as u32))
 						.with_max_established_incoming(Some(

@@ -282,4 +282,8 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	> {
 		self.rpc_client.parachain_host_claim_queue(relay_parent).await
 	}
+
+	async fn scheduling_lookahead(&self, relay_parent: RelayHash) -> RelayChainResult<u32> {
+		self.rpc_client.parachain_host_scheduling_lookahead(relay_parent).await
+	}
 }
