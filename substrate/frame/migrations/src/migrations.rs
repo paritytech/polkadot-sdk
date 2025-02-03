@@ -82,7 +82,7 @@ where
 		}
 
 		let base_weight = T::WeightInfo::reset_pallet_migration(0);
-		let weight_per_key = T::WeightInfo::reset_pallet_migration(1) - base_weight;
+		let weight_per_key = T::WeightInfo::reset_pallet_migration(1).saturating_sub(base_weight);
 		let key_budget = meter
 			.remaining()
 			.saturating_sub(base_weight)
