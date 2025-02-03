@@ -87,10 +87,10 @@ impl<BlockNumber: Default + From<u32>> Default for SessionChangeNotification<Blo
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-struct BufferedSessionChange {
-	validators: Vec<ValidatorId>,
-	queued: Vec<ValidatorId>,
-	session_index: SessionIndex,
+pub(crate) struct BufferedSessionChange {
+	pub validators: Vec<ValidatorId>,
+	pub queued: Vec<ValidatorId>,
+	pub session_index: SessionIndex,
 }
 
 pub trait WeightInfo {
@@ -149,7 +149,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type HasInitialized<T: Config> = StorageValue<_, ()>;
 
-	/// Buffered session changes along with the block number at which they should be applied.
+	/// Buffered session changes.
 	///
 	/// Typically this will be empty or one element long. Apart from that this item never hits
 	/// the storage.
@@ -157,7 +157,7 @@ pub mod pallet {
 	/// However this is a `Vec` regardless to handle various edge cases that may occur at runtime
 	/// upgrade boundaries or if governance intervenes.
 	#[pallet::storage]
-	pub(super) type BufferedSessionChanges<T: Config> =
+	pub(crate) type BufferedSessionChanges<T: Config> =
 		StorageValue<_, Vec<BufferedSessionChange>, ValueQuery>;
 
 	#[pallet::hooks]
@@ -254,9 +254,6 @@ impl<T: Config> Pallet<T> {
 			buf
 		};
 
-		// inform about upcoming new session
-		scheduler::Pallet::<T>::pre_new_session();
-
 		let configuration::SessionChangeOutcome { prev_config, new_config } =
 			configuration::Pallet::<T>::initializer_on_new_session(&session_index);
 		let new_config = new_config.unwrap_or_else(|| prev_config.clone());
@@ -327,6 +324,11 @@ impl<T: Config> Pallet<T> {
 		I: Iterator<Item = (&'a T::AccountId, ValidatorId)>,
 	{
 		Self::on_new_session(changed, session_index, validators, queued)
+	}
+
+	/// Return whether at the end of this block a new session will be initialized.
+	pub(crate) fn upcoming_session_change() -> bool {
+		!BufferedSessionChanges::<T>::get().is_empty()
 	}
 }
 

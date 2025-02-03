@@ -14,7 +14,8 @@
     "indices": []
   },
   "balances": {
-    "balances": []
+    "balances": [],
+    "devAccounts": null
   },
   "broker": {},
   "transactionPayment": {

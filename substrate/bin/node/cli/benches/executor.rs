@@ -31,7 +31,7 @@ use sp_core::{
 	storage::well_known_keys,
 	traits::{CallContext, CodeExecutor, RuntimeCode},
 };
-use sp_runtime::traits::BlakeTwo256;
+use sp_runtime::{generic::ExtrinsicFormat, traits::BlakeTwo256};
 use sp_state_machine::TestExternalities as CoreTestExternalities;
 use staging_node_cli::service::RuntimeExecutor;
 
@@ -146,11 +146,11 @@ fn test_blocks(
 ) -> Vec<(Vec<u8>, Hash)> {
 	let mut test_ext = new_test_ext(genesis_config);
 	let mut block1_extrinsics = vec![CheckedExtrinsic {
-		signed: None,
+		format: ExtrinsicFormat::Bare,
 		function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: 0 }),
 	}];
 	block1_extrinsics.extend((0..20).map(|i| CheckedExtrinsic {
-		signed: Some((alice(), signed_extra(i, 0))),
+		format: ExtrinsicFormat::Signed(alice(), tx_ext(i, 0)),
 		function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 			dest: bob().into(),
 			value: 1 * DOLLARS,

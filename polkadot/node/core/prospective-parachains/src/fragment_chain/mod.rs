@@ -132,12 +132,13 @@ use std::{
 use super::LOG_TARGET;
 use polkadot_node_subsystem::messages::Ancestors;
 use polkadot_node_subsystem_util::inclusion_emulator::{
-	self, ConstraintModifications, Constraints, Fragment, HypotheticalOrConcreteCandidate,
-	ProspectiveCandidate, RelayChainBlockInfo,
+	self, validate_commitments, ConstraintModifications, Constraints, Fragment,
+	HypotheticalOrConcreteCandidate, ProspectiveCandidate, RelayChainBlockInfo,
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CandidateHash, CommittedCandidateReceipt, Hash, HeadData,
-	PersistedValidationData, ValidationCodeHash,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlockNumber,
+	CandidateCommitments, CandidateHash, Hash, HeadData, PersistedValidationData,
+	ValidationCodeHash,
 };
 use thiserror::Error;
 
@@ -371,7 +372,8 @@ impl CandidateEntry {
 		persisted_validation_data: PersistedValidationData,
 		state: CandidateState,
 	) -> Result<Self, CandidateEntryError> {
-		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash {
+		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash()
+		{
 			return Err(CandidateEntryError::PersistedValidationDataMismatch)
 		}
 
@@ -386,13 +388,13 @@ impl CandidateEntry {
 			candidate_hash,
 			parent_head_data_hash,
 			output_head_data_hash,
-			relay_parent: candidate.descriptor.relay_parent,
+			relay_parent: candidate.descriptor.relay_parent(),
 			state,
 			candidate: Arc::new(ProspectiveCandidate {
 				commitments: candidate.commitments,
 				persisted_validation_data,
-				pov_hash: candidate.descriptor.pov_hash,
-				validation_code_hash: candidate.descriptor.validation_code_hash,
+				pov_hash: candidate.descriptor.pov_hash(),
+				validation_code_hash: candidate.descriptor.validation_code_hash(),
 			}),
 		})
 	}
@@ -407,8 +409,8 @@ impl HypotheticalOrConcreteCandidate for CandidateEntry {
 		Some(&self.candidate.persisted_validation_data)
 	}
 
-	fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
-		Some(&self.candidate.validation_code_hash)
+	fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
+		Some(self.candidate.validation_code_hash)
 	}
 
 	fn parent_head_data_hash(&self) -> Hash {
@@ -628,7 +630,7 @@ impl BackedChain {
 	) -> impl Iterator<Item = FragmentNode> + 'a {
 		let mut found_index = None;
 		for index in 0..self.chain.len() {
-			let node = &self.chain[0];
+			let node = &self.chain[index];
 
 			if found_index.is_some() {
 				self.by_parent_head.remove(&node.parent_head_data_hash);
@@ -1050,7 +1052,7 @@ impl FragmentChain {
 
 		// Try seeing if the parent candidate is in the current chain or if it is the latest
 		// included candidate. If so, get the constraints the candidate must satisfy.
-		let (constraints, maybe_min_relay_parent_number) =
+		let (is_unconnected, constraints, maybe_min_relay_parent_number) =
 			if let Some(parent_candidate) = self.best_chain.by_output_head.get(&parent_head_hash) {
 				let Some(parent_candidate) =
 					self.best_chain.chain.iter().find(|c| &c.candidate_hash == parent_candidate)
@@ -1060,6 +1062,7 @@ impl FragmentChain {
 				};
 
 				(
+					false,
 					self.scope
 						.base_constraints
 						.apply_modifications(&parent_candidate.cumulative_modifications)
@@ -1068,11 +1071,10 @@ impl FragmentChain {
 				)
 			} else if self.scope.base_constraints.required_parent.hash() == parent_head_hash {
 				// It builds on the latest included candidate.
-				(self.scope.base_constraints.clone(), None)
+				(false, self.scope.base_constraints.clone(), None)
 			} else {
-				// If the parent is not yet part of the chain, there's nothing else we can check for
-				// now.
-				return Ok(())
+				// The parent is not yet part of the chain
+				(true, self.scope.base_constraints.clone(), None)
 			};
 
 		// Check for cycles or invalid tree transitions.
@@ -1086,11 +1088,22 @@ impl FragmentChain {
 			candidate.persisted_validation_data(),
 			candidate.validation_code_hash(),
 		) {
+			if is_unconnected {
+				// If the parent is not yet part of the chain, we can check the commitments only
+				// if we have the full candidate.
+				return validate_commitments(
+					&self.scope.base_constraints,
+					&relay_parent,
+					commitments,
+					&validation_code_hash,
+				)
+				.map_err(Error::CheckAgainstConstraints)
+			}
 			Fragment::check_against_constraints(
 				&relay_parent,
 				&constraints,
 				commitments,
-				validation_code_hash,
+				&validation_code_hash,
 				pvd,
 			)
 			.map_err(Error::CheckAgainstConstraints)?;

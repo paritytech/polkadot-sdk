@@ -20,8 +20,11 @@
 mod mock;
 
 use frame_support::{
-	assert_noop, assert_ok,
-	traits::{fungible::InspectHold, Currency},
+	assert_noop, assert_ok, hypothetically,
+	traits::{
+		fungible::{InspectHold, Mutate},
+		Currency,
+	},
 };
 use mock::*;
 use pallet_nomination_pools::{
@@ -41,7 +44,7 @@ use sp_staking::Agent;
 fn pool_lifecycle_e2e() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::minimum_balance(), 5);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
@@ -204,7 +207,7 @@ fn pool_lifecycle_e2e() {
 fn pool_chill_e2e() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::minimum_balance(), 5);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
@@ -330,7 +333,7 @@ fn pool_slash_e2e() {
 	new_test_ext().execute_with(|| {
 		ExistentialDeposit::set(1);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -537,9 +540,9 @@ fn pool_slash_proportional() {
 	// a typical example where 3 pool members unbond in era 99, 100, and 101, and a slash that
 	// happened in era 100 should only affect the latter two.
 	new_test_ext().execute_with(|| {
-		ExistentialDeposit::set(1);
+		ExistentialDeposit::set(2);
 		BondingDuration::set(28);
-		assert_eq!(Balances::minimum_balance(), 1);
+		assert_eq!(Balances::minimum_balance(), 2);
 		assert_eq!(Staking::current_era(), None);
 
 		// create the pool, we know this has id 1.
@@ -670,6 +673,34 @@ fn pool_slash_proportional() {
 
 		// no pending slash yet.
 		assert_eq!(Pools::api_pool_pending_slash(1), 0);
+		// and therefore applying slash fails
+		assert_noop!(
+			Pools::apply_slash(RuntimeOrigin::signed(10), 21),
+			PoolsError::<Runtime>::NothingToSlash
+		);
+
+		hypothetically!({
+			// a very small amount is slashed
+			pallet_staking::slashing::do_slash::<Runtime>(
+				&POOL1_BONDED,
+				3,
+				&mut Default::default(),
+				&mut Default::default(),
+				100,
+			);
+
+			// ensure correct amount is pending to be slashed
+			assert_eq!(Pools::api_pool_pending_slash(1), 3);
+
+			// 21 has pending slash lower than ED (2)
+			assert_eq!(Pools::api_member_pending_slash(21), 1);
+
+			// slash fails as minimum pending slash amount not met.
+			assert_noop!(
+				Pools::apply_slash(RuntimeOrigin::signed(10), 21),
+				PoolsError::<Runtime>::SlashTooLow
+			);
+		});
 
 		pallet_staking::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
@@ -758,7 +789,7 @@ fn pool_slash_non_proportional_only_bonded_pool() {
 		ExistentialDeposit::set(1);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -837,7 +868,7 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 		ExistentialDeposit::set(1);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -909,12 +940,17 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 		);
 	});
 }
+
 #[test]
 fn pool_migration_e2e() {
 	new_test_ext().execute_with(|| {
 		LegacyAdapter::set(true);
+		assert_eq!(CurrentEra::<T>::get(), None);
+
+		// hack: mint ED to pool so that the deprecated `TransferStake` works correctly with
+		// staking.
 		assert_eq!(Balances::minimum_balance(), 5);
-		assert_eq!(Staking::current_era(), None);
+		assert_ok!(Balances::mint_into(&POOL1_BONDED, 5));
 
 		// create the pool with TransferStake strategy.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
@@ -1021,10 +1057,11 @@ fn pool_migration_e2e() {
 
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
+			// delegated also contains the extra ED that we minted when pool was `TransferStake` .
 			vec![DelegatedStakingEvent::Delegated {
 				agent: POOL1_BONDED,
 				delegator: proxy_delegator_1,
-				amount: 50 + 10 * 3
+				amount: 50 + 10 * 3 + 5
 			}]
 		);
 
@@ -1192,7 +1229,12 @@ fn disable_pool_operations_on_non_migrated() {
 	new_test_ext().execute_with(|| {
 		LegacyAdapter::set(true);
 		assert_eq!(Balances::minimum_balance(), 5);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
+
+		// hack: mint ED to pool so that the deprecated `TransferStake` works correctly with
+		// staking.
+		assert_eq!(Balances::minimum_balance(), 5);
+		assert_ok!(Balances::mint_into(&POOL1_BONDED, 5));
 
 		// create the pool with TransferStake strategy.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
@@ -1302,11 +1344,12 @@ fn disable_pool_operations_on_non_migrated() {
 		assert_ok!(Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1));
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
+			// delegated also contains the extra ED that we minted when pool was `TransferStake` .
 			vec![DelegatedStakingEvent::Delegated {
 				agent: POOL1_BONDED,
 				delegator: DelegatedStaking::generate_proxy_delegator(Agent::from(POOL1_BONDED))
 					.get(),
-				amount: 50 + 10
+				amount: 50 + 10 + 5
 			},]
 		);
 
@@ -1369,7 +1412,7 @@ fn pool_no_dangling_delegation() {
 	new_test_ext().execute_with(|| {
 		ExistentialDeposit::set(1);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 		// pool creator
 		let alice = 10;
 		let bob = 20;

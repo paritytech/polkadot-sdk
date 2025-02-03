@@ -817,6 +817,7 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
 		item.ident != "RuntimeTask" &&
+		item.ident != "RuntimeViewFunction" &&
 		item.ident != "RuntimeOrigin" &&
 		item.ident != "RuntimeHoldReason" &&
 		item.ident != "RuntimeFreezeReason" &&
@@ -826,7 +827,7 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 		return syn::Error::new_spanned(
 			item,
 			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
-			`RuntimeTask`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
+			`RuntimeTask`, `RuntimeViewFunction`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
 		)
 		.to_compile_error()
 		.into();
@@ -969,6 +970,15 @@ pub fn error(_: TokenStream, _: TokenStream) -> TokenStream {
 /// Documentation for this macro can be found at `frame_support::pallet_macros::event`.
 #[proc_macro_attribute]
 pub fn event(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// Documentation for this macro can be found at `frame_support::pallet_macros::include_metadata`.
+#[proc_macro_attribute]
+pub fn include_metadata(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 

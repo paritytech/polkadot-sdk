@@ -111,7 +111,6 @@ def main(path, version):
 		"runtime": list([f"{d.name}" for d, _ in runtime_crates]),
 		"node": ["std"] + list([f"{d.name}" for d, _ in std_crates]),
 		"tuples-96": [],
-		"riscv": [],
 	}
 
 	manifest = {
@@ -121,6 +120,8 @@ def main(path, version):
 			"edition": { "workspace": True },
 			"authors": { "workspace": True },
 			"description": "Polkadot SDK umbrella crate.",
+			"homepage": { "workspace": True },
+			"repository": { "workspace": True },
 			"license": "Apache-2.0",
 			"metadata": { "docs": { "rs": {
 				"features": ["runtime-full", "node"],
@@ -207,4 +208,3 @@ def parse_args():
 if __name__ == "__main__":
 	args = parse_args()
 	main(args.sdk, args.version)
-

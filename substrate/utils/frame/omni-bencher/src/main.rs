@@ -24,14 +24,21 @@ use tracing_subscriber::EnvFilter;
 fn main() -> Result<()> {
 	setup_logger();
 
-	log::warn!("The FRAME omni-bencher is not yet battle tested - double check the results.",);
-
 	command::Command::parse().run()
 }
 
 /// Setup logging with `info` as default level. Can be set via `RUST_LOG` env.
 fn setup_logger() {
-	let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+	// Disable these log targets because they are spammy.
+	let unwanted_targets =
+		&["cranelift_codegen", "wasm_cranelift", "wasmtime_jit", "wasmtime_cranelift", "wasm_jit"];
+
+	let mut env_filter =
+		EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
+	for target in unwanted_targets {
+		env_filter = env_filter.add_directive(format!("{}=off", target).parse().unwrap());
+	}
 
 	tracing_subscriber::fmt()
 		.with_env_filter(env_filter)

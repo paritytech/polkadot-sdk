@@ -436,9 +436,6 @@ enum CollatorProtocolMessage {
     DistributeCollation(CandidateReceipt, PoV, Option<oneshot::Sender<CollationSecondedSignal>>),
     /// Fetch a collation under the given relay-parent for the given ParaId.
     FetchCollation(Hash, ParaId, ResponseChannel<(CandidateReceipt, PoV)>),
-    /// Report a collator as having provided an invalid collation. This should lead to disconnect
-    /// and blacklist of the collator.
-    ReportCollator(CollatorId),
     /// Note a collator as having provided a good collation.
     NoteGoodCollation(CollatorId, SignedFullStatement),
     /// Notify a collator that its collation was seconded.
@@ -697,14 +694,6 @@ mod generic {
         Invalidity(Digest, Signature, Signature),
     }
 
-    /// Misbehavior: declaring multiple candidates.
-    pub struct MultipleCandidates<Candidate, Signature> {
-        /// The first candidate seen.
-        pub first: (Candidate, Signature),
-        /// The second candidate seen.
-        pub second: (Candidate, Signature),
-    }
-
     /// Misbehavior: submitted statement for wrong group.
     pub struct UnauthorizedStatement<Candidate, Digest, AuthorityId, Signature> {
         /// A signed statement which was submitted without proper authority.
@@ -714,8 +703,6 @@ mod generic {
     pub enum Misbehavior<Candidate, Digest, AuthorityId, Signature> {
         /// Voted invalid and valid on validity.
         ValidityDoubleVote(ValidityDoubleVote<Candidate, Digest, Signature>),
-        /// Submitted multiple candidates.
-        MultipleCandidates(MultipleCandidates<Candidate, Signature>),
         /// Submitted a message that was unauthorized.
         UnauthorizedStatement(UnauthorizedStatement<Candidate, Digest, AuthorityId, Signature>),
         /// Submitted two valid signatures for the same message.
@@ -901,22 +888,6 @@ const APPROVAL_EXECUTION_TIMEOUT: Duration = 6 seconds;
 /// or `Ok(ValidationResult::Invalid)`.
 #[derive(Debug)]
 pub enum CandidateValidationMessage {
-    /// Validate a candidate with provided parameters using relay-chain state.
-    ///
-    /// This will implicitly attempt to gather the `PersistedValidationData` and `ValidationCode`
-    /// from the runtime API of the chain, based on the `relay_parent`
-    /// of the `CandidateDescriptor`.
-    ///
-    /// This will also perform checking of validation outputs against the acceptance criteria.
-    ///
-    /// If there is no state available which can provide this data or the core for
-    /// the para is not free at the relay-parent, an error is returned.
-    ValidateFromChainState(
-        CandidateDescriptor,
-        Arc<PoV>,
-        Duration, // Execution timeout.
-        oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-    ),
     /// Validate a candidate with provided, exhaustive parameters for validation.
     ///
     /// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full

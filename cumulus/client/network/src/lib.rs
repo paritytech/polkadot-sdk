@@ -32,8 +32,8 @@ use polkadot_node_primitives::{CollationSecondedSignal, Statement};
 use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_parachain_primitives::primitives::HeadData;
 use polkadot_primitives::{
-	CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId, OccupiedCoreAssumption,
-	SigningContext, UncheckedSigned,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CompactStatement, Hash as PHash,
+	Id as ParaId, OccupiedCoreAssumption, SigningContext, UncheckedSigned,
 };
 
 use codec::{Decode, DecodeAll, Encode};
@@ -79,7 +79,7 @@ impl Decode for BlockAnnounceData {
 		let relay_parent = match PHash::decode(input) {
 			Ok(p) => p,
 			// For being backwards compatible, we support missing relay-chain parent.
-			Err(_) => receipt.descriptor.relay_parent,
+			Err(_) => receipt.descriptor.relay_parent(),
 		};
 
 		Ok(Self { receipt, statement, relay_parent })
@@ -108,7 +108,7 @@ impl BlockAnnounceData {
 			return Err(Validation::Failure { disconnect: true })
 		}
 
-		if HeadData(encoded_header).hash() != self.receipt.descriptor.para_head {
+		if HeadData(encoded_header).hash() != self.receipt.descriptor.para_head() {
 			tracing::debug!(
 				target: LOG_TARGET,
 				"Receipt para head hash doesn't match the hash of the header in the block announcement",
@@ -302,7 +302,7 @@ where
 		}
 		.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?;
 
-		Ok(candidate_receipts.into_iter().map(|cr| cr.descriptor.para_head))
+		Ok(candidate_receipts.into_iter().map(|cr| cr.descriptor.para_head()))
 	}
 
 	/// Handle a block announcement with empty data (no statement) attached to it.
@@ -399,7 +399,7 @@ where
 				return Ok(e)
 			}
 
-			let relay_parent = block_announce_data.receipt.descriptor.relay_parent;
+			let relay_parent = block_announce_data.receipt.descriptor.relay_parent();
 
 			relay_chain_interface
 				.wait_for_block(relay_parent)

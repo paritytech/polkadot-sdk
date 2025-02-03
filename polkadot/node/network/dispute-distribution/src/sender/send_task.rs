@@ -234,7 +234,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 		runtime: &mut RuntimeInfo,
 		active_sessions: &HashMap<SessionIndex, Hash>,
 	) -> Result<HashSet<AuthorityDiscoveryId>> {
-		let ref_head = self.request.0.candidate_receipt.descriptor.relay_parent;
+		let ref_head = self.request.0.candidate_receipt.descriptor.relay_parent();
 		// Retrieve all authorities which participated in the parachain consensus of the session
 		// in which the candidate was backed.
 		let info = runtime

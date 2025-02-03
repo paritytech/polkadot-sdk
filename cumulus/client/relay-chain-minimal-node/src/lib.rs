@@ -224,7 +224,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 		.chain_get_header(None)
 		.await?
 		.ok_or_else(|| RelayChainError::RpcCallError("Unable to fetch best header".to_string()))?;
-	let (network, network_starter, sync_service) = build_collator_network::<Network>(
+	let (network, sync_service) = build_collator_network::<Network>(
 		&config,
 		net_config,
 		task_manager.spawn_handle(),
@@ -261,8 +261,6 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 
 	let overseer_handle =
 		collator_overseer::spawn_overseer(overseer_args, &task_manager, relay_chain_rpc_client)?;
-
-	network_starter.start_network();
 
 	Ok(NewMinimalNode { task_manager, overseer_handle })
 }

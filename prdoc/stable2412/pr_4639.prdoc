@@ -1,0 +1,69 @@
+title: "Added the fork-aware transaction pool implementation"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Most important changes introduced by this PR:
+       - The transaction pool references spread across codebase are now wrapper to a transaction pool trait object,
+       - The fork-aware pool implementation was added.
+       - The `sc-transaction-pool` refactored,
+       - Trasnaction pool builder was introduced to allow to instantiation of either old or new transaction pool. Refer to PR description for
+       more details on how to enable fork-aware pool in the custom node.
+  - audience: Node Operator
+    description: |
+       - New command line option was added, allowing to select implementation of transaction pool:
+         - `--pool-type=fork-aware`  - new fork aware transaction pool,
+         - `--pool-type=single-state` - old transaction pool implementation which is still default,
+
+crates:
+  - name: sc-basic-authorship
+    bump: patch
+  - name: sc-cli
+    bump: major
+  - name: sc-consensus-manual-seal
+    bump: patch
+  - name: sc-network-transactions
+    bump: none
+  - name: sc-rpc
+    bump: patch
+  - name: sc-rpc-spec-v2
+    bump: patch
+  - name: sc-offchain
+    bump: patch
+  - name: sc-service
+    bump: patch
+  - name: sc-service-test
+    bump: minor
+  - name: sc-transaction-pool
+    bump: major
+  - name: sc-transaction-pool-api
+    bump: major
+    validate: false
+  - name: sp-runtime
+    bump: patch
+  - name: substrate-test-runtime-transaction-pool
+    bump: minor
+  - name: staging-node-cli
+    bump: minor
+  - name: node-bench
+    bump: patch
+  - name: node-rpc
+    bump: minor
+  - name: substrate-prometheus-endpoint
+    bump: patch
+  - name: substrate-frame-rpc-system
+    bump: patch
+  - name: minimal-template-node
+    bump: minor
+  - name: parachain-template-node
+    bump: minor
+  - name: solochain-template-node
+    bump: minor
+  - name: polkadot-service
+    bump: patch
+  - name: cumulus-client-service
+    bump: patch
+  - name: cumulus-test-service
+    bump: major
+  - name: polkadot-omni-node-lib
+    bump: patch

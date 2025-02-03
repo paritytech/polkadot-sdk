@@ -29,8 +29,8 @@ messages_relayer_log=$logs_dir/relayer_messages.log
 echo -e "Starting rococo-westend messages relayer. Logs available at: $messages_relayer_log\n"
 start_background_process "$helper_script run-messages-relay" $messages_relayer_log messages_relayer_pid
 
-run_zndsl ${BASH_SOURCE%/*}/rococo.zndsl $rococo_dir
-run_zndsl ${BASH_SOURCE%/*}/westend.zndsl $westend_dir
+run_zndsl ${BASH_SOURCE%/*}/rococo-bridge.zndsl $rococo_dir
+run_zndsl ${BASH_SOURCE%/*}/westend-bridge.zndsl $westend_dir
 
 eval $__finality_relayer_pid="'$finality_relayer_pid'"
 eval $__parachains_relayer_pid="'$parachains_relayer_pid'"

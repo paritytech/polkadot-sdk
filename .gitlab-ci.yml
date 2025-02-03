@@ -22,7 +22,7 @@ workflow:
 
 variables:
   # CI_IMAGE: !reference [ .ci-unified, variables, CI_IMAGE ]
-  CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.81.0-2024-09-11-v202409111034"
+  CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.81.0-2024-11-19-v202411281558"
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
@@ -225,8 +225,6 @@ include:
   - .gitlab/pipeline/test.yml
   # build jobs
   - .gitlab/pipeline/build.yml
-  # short-benchmarks jobs
-  - .gitlab/pipeline/short-benchmarks.yml
   # publish jobs
   - .gitlab/pipeline/publish.yml
   # zombienet jobs
@@ -284,8 +282,3 @@ cancel-pipeline-build-linux-substrate:
   extends: .cancel-pipeline-template
   needs:
     - job: build-linux-substrate
-
-cancel-pipeline-build-short-benchmark:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: build-short-benchmark

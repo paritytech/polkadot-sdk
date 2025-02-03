@@ -117,14 +117,9 @@ impl<
 	pub fn from_parts(
 		ayes_with_conviction: Votes,
 		nays_with_conviction: Votes,
-		ayes: Votes,
+		support: Votes,
 	) -> Self {
-		Self {
-			ayes: ayes_with_conviction,
-			nays: nays_with_conviction,
-			support: ayes,
-			dummy: PhantomData,
-		}
+		Self { ayes: ayes_with_conviction, nays: nays_with_conviction, support, dummy: PhantomData }
 	}
 
 	/// Add an account's vote into the tally.

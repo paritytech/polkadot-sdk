@@ -46,7 +46,9 @@
     paths:
       - ./zombienet-logs
   allow_failure: true
-  retry: 2
+  retry:
+    max: 1
+    when: runner_system_failure
   tags:
     - zombienet-polkadot-integration-test
 

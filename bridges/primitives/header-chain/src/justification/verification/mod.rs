@@ -35,6 +35,8 @@ use sp_std::{
 		btree_set::BTreeSet,
 	},
 	prelude::*,
+	vec,
+	vec::Vec,
 };
 
 type SignedPrecommit<Header> = finality_grandpa::SignedPrecommit<

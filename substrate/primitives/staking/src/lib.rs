@@ -325,7 +325,7 @@ pub trait StakingUnchecked: StakingInterface {
 	/// Migrate an existing staker to a virtual staker.
 	///
 	/// It would release all funds held by the implementation pallet.
-	fn migrate_to_virtual_staker(who: &Self::AccountId);
+	fn migrate_to_virtual_staker(who: &Self::AccountId) -> DispatchResult;
 
 	/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
 	///
@@ -619,7 +619,7 @@ pub trait DelegationMigrator {
 	///
 	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn migrate_to_direct_staker(agent: Agent<Self::AccountId>);
+	fn force_kill_agent(agent: Agent<Self::AccountId>);
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
