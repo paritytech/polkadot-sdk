@@ -18,7 +18,7 @@ use sp_runtime::{
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
-
+use frame_support::weights::constants::RocksDbWeight;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
@@ -260,16 +260,6 @@ pub fn mock_execution_proof() -> ExecutionProof {
 		}),
 		execution_branch: vec![],
 	}
-}
-
-use frame_support::{
-	traits::Get,
-	weights::{constants::RocksDbWeight, Weight},
-};
-
-/// Weight functions needed for ethereum_beacon_client.
-pub trait WeightInfo {
-	fn submit() -> Weight;
 }
 
 // For backwards compatibility and tests
