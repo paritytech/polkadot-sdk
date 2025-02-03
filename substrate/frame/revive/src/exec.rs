@@ -871,64 +871,89 @@ where
 		read_only: bool,
 		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, E)>, ExecError> {
-		let mut nested_gas = gas_meter.nested(gas_limit);
-
-		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
-			FrameArgs::Call { dest, cached_info, delegated_call } => {
-				let contract = if let Some(contract) = cached_info {
-					contract
-				} else {
-					if let Some(contract) =
-						<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
-					{
+		let (account_id, contract_info, executable, delegate, entry_point, nested_gas) =
+			match frame_args {
+				FrameArgs::Call { dest, cached_info, delegated_call } => {
+					let contract = if let Some(contract) = cached_info {
 						contract
 					} else {
-						return Ok(None);
-					}
-				};
-
-				let (executable, delegate_caller) =
-					if let Some(DelegatedCall { executable, caller, callee }) = delegated_call {
-						(executable, Some(DelegateInfo { caller, callee }))
-					} else {
-						(E::from_storage(contract.code_hash, &mut nested_gas)?, None)
+						if let Some(contract) =
+							<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
+						{
+							contract
+						} else {
+							return Ok(None);
+						}
 					};
 
-				(dest, contract, executable, delegate_caller, ExportedFunction::Call)
-			},
-			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
-				let deployer = T::AddressMapper::to_address(&sender);
-				let account_nonce = <System<T>>::account_nonce(&sender);
-				let address = if let Some(salt) = salt {
-					address::create2(&deployer, executable.code(), input_data, salt)
-				} else {
-					use sp_runtime::Saturating;
-					address::create1(
-						&deployer,
-						// the Nonce from the origin has been incremented pre-dispatch, so we
-						// need to subtract 1 to get the nonce at the time of the call.
-						if origin_is_caller {
-							account_nonce.saturating_sub(1u32.into()).saturated_into()
-						} else {
-							account_nonce.saturated_into()
-						},
-					)
-				};
-				let contract = ContractInfo::new(
-					&address,
-					<System<T>>::account_nonce(&sender),
-					*executable.code_hash(),
-				)?;
-				(
-					T::AddressMapper::to_fallback_account_id(&address),
-					contract,
-					executable,
-					None,
-					ExportedFunction::Constructor,
-				)
-			},
-		};
+					let (executable, delegate_caller, nested_gas) = if let Some(DelegatedCall {
+						executable,
+						caller,
+						callee,
+					}) = delegated_call
+					{
+						(
+							executable,
+							Some(DelegateInfo { caller, callee }),
+							gas_meter.nested(gas_limit),
+						)
+					} else if origin_is_caller {
+						let mut nested_gas_meter = gas_meter.nested(gas_limit);
+						(
+							E::from_storage(contract.code_hash, &mut nested_gas_meter)?,
+							None,
+							nested_gas_meter,
+						)
+					} else {
+						(
+							E::from_storage(contract.code_hash, gas_meter)?,
+							None,
+							gas_meter.nested(gas_limit),
+						)
+					};
 
+					(
+						dest,
+						contract,
+						executable,
+						delegate_caller,
+						ExportedFunction::Call,
+						nested_gas,
+					)
+				},
+				FrameArgs::Instantiate { sender, executable, salt, input_data } => {
+					let deployer = T::AddressMapper::to_address(&sender);
+					let account_nonce = <System<T>>::account_nonce(&sender);
+					let address = if let Some(salt) = salt {
+						address::create2(&deployer, executable.code(), input_data, salt)
+					} else {
+						use sp_runtime::Saturating;
+						address::create1(
+							&deployer,
+							// the Nonce from the origin has been incremented pre-dispatch, so we
+							// need to subtract 1 to get the nonce at the time of the call.
+							if origin_is_caller {
+								account_nonce.saturating_sub(1u32.into()).saturated_into()
+							} else {
+								account_nonce.saturated_into()
+							},
+						)
+					};
+					let contract = ContractInfo::new(
+						&address,
+						<System<T>>::account_nonce(&sender),
+						*executable.code_hash(),
+					)?;
+					(
+						T::AddressMapper::to_fallback_account_id(&address),
+						contract,
+						executable,
+						None,
+						ExportedFunction::Constructor,
+						gas_meter.nested(gas_limit),
+					)
+				},
+			};
 		let frame = Frame {
 			delegate,
 			value_transferred,
@@ -1212,6 +1237,9 @@ where
 			}
 		} else {
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
+			if_tracing(|_| {
+				dbg!("after", self.gas_meter.gas_consumed(), self.gas_meter.gas_left());
+			});
 			if !persist {
 				return;
 			}
