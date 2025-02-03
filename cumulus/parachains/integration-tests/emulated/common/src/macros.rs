@@ -493,7 +493,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					(Parent, 100_000_000_000u128),
 				);
 				let origin = OriginCaller::system(RawOrigin::Signed(sender.clone()));
-				let result = Runtime::dry_run_call(origin, call).unwrap();
+				let result = Runtime::dry_run_call(origin, xcm::prelude::XCM_VERSION, call).unwrap();
 				let local_xcm = result.local_xcm.unwrap().clone();
 				let local_xcm_weight = Runtime::query_xcm_weight(local_xcm).unwrap();
 				local_execution_fees = Runtime::query_weight_to_asset_fee(
