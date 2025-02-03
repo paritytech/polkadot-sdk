@@ -79,7 +79,7 @@ pub struct Message {
 	pub xcm: Vec<u8>,
 	/// The claimer in the case that funds get trapped.
 	pub claimer: Option<Vec<u8>>,
-	/// The full value of the assets.
+	/// Native ether bridged over from Ethereum
 	pub value: u128,
 	/// Fee in eth to cover the xcm execution on AH.
 	pub execution_fee: u128,
