@@ -544,27 +544,6 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 	}
 }
 
-enum NestedXcmType<'a, RuntimeCall> {
-	Local(&'a mut RuntimeCall),
-	Remote(&'a mut RuntimeCall),
-	None,
-}
-
-impl<'a, RuntimeCall> From<Instruction<RuntimeCall>> for NestedXcmType<'a, RuntimeCall> {
-	fn from(value: Instruction<RuntimeCall>) -> Self {
-		match value {
-			// Local XCMs
-			ExecuteWithOrigin { mut xcm, .. } | SetAppendix(xcm) | SetErrorHandler(xcm) =>
-				NestedXcmType::Local(&mut xcm),
-			// Remote XCMs
-			DepositReserveAsset { mut xcm, .. } |
-			InitiateReserveWithdraw { xcm, .. } |
-			TransferReserveAsset { xcm, .. } => NestedXcmType::Remote(&mut xcm),
-			_ => NestedXcmType::None,
-		}
-	}
-}
-
 environmental::environmental!(recursion_count: u8);
 
 // TBD:
@@ -577,7 +556,7 @@ pub struct DenyNestedXcmInstructions<Inner>(PhantomData<Inner>);
 impl<Inner: DenyExecution> DenyNestedXcmInstructions<Inner> {
 	fn deny_recursively<RuntimeCall>(
 		origin: &Location,
-		nested_xcm: &mut [Instruction<RuntimeCall>],
+		mut nested_xcm: Xcm<RuntimeCall>,
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<ControlFlow<()>, ProcessMessageError> {
@@ -626,6 +605,15 @@ impl<Inner: DenyExecution> DenyNestedXcmInstructions<Inner> {
 
 		Ok(ControlFlow::Continue(()))
 	}
+
+	fn get_local_xcm<RuntimeCall>(value: &Instruction<RuntimeCall>) -> Option<&Xcm<RuntimeCall>> {
+		match value {
+			// Local XCMs
+			ExecuteWithOrigin { xcm, .. } | SetAppendix(xcm) | SetErrorHandler(xcm) =>
+				Some(xcm),
+			_ => None,
+		}
+	}
 }
 
 impl<Inner: DenyExecution> DenyExecution for DenyNestedXcmInstructions<Inner> {
@@ -638,13 +626,10 @@ impl<Inner: DenyExecution> DenyExecution for DenyNestedXcmInstructions<Inner> {
 		instructions.matcher().match_next_inst_while(
 			|_| true,
 			|inst| {
-				let nested_xcm_type: NestedXcmType<RuntimeCall> = inst.into();
-				match nested_xcm_type {
-					NestedXcmType::Local(nested_xcm) =>
+				match Self::get_local_xcm(inst) {
+					Some(&nested_xcm) =>
 						Self::deny_recursively(origin, nested_xcm, max_weight, properties),
-					NestedXcmType::Remote(nested_xcm) =>
-						Self::deny_recursively(origin, nested_xcm, max_weight, properties),
-					NestedXcmType::None => Ok(ControlFlow::Continue(())),
+					None => Ok(ControlFlow::Continue(())),
 				}
 			},
 		)?;
