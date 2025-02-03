@@ -33,6 +33,7 @@ jobs:
       - name: script
         run: |
           echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+          sleep 600
           DEBUG=${{ needs.preflight.outputs.DEBUG }} zombie -p kubernetes test ${LOCAL_DIR}/0000-block-building/block-building.zndsl
 
       - name: upload logs
