@@ -102,7 +102,7 @@ use parachains_common::{
 use snowbridge_core::{AgentId, PricingParameters};
 use snowbridge_outbound_queue_primitives::{
 	v1::{Command, Fee},
-	v2::{OutboundMessage, DryRunError},
+	v2::{DryRunError, OutboundMessage},
 };
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
@@ -952,8 +952,8 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_inbound_queue_v2_runtime_api::InboundQueueApiV2<Block, Balance> for Runtime {
-		fn convert_message(message: Message) -> Result<(Xcm<()>, Balance), DispatchError> {
-			snowbridge_pallet_inbound_queue_v2::api::dry_run::<Runtime>(message)
+		fn convert_message(message: Message) -> Result<Xcm<()>, DispatchError> {
+			snowbridge_pallet_inbound_queue_v2::api::convert_message::<Runtime>(message)
 		}
 	}
 

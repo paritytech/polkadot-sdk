@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(not(feature = "runtime-benchmarks"))]
-use crate::XcmRouter;
 use crate::{
 	xcm_config,
 	xcm_config::{TreasuryAccount, UniversalLocation},
@@ -26,10 +24,8 @@ use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
 use snowbridge_outbound_queue_primitives::{
-	v1::ConstantGasMeter, v2::ConstantGasMeter as ConstantGasMeterV2,
-};
-use snowbridge_outbound_queue_primitives::{
-	v1::EthereumBlobExporter, v2::EthereumBlobExporter as EthereumBlobExporterV2,
+	v1::{ConstantGasMeter, EthereumBlobExporter},
+	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
 use sp_core::H160;
 use testnet_parachains_constants::westend::{
@@ -41,7 +37,7 @@ use testnet_parachains_constants::westend::{
 	},
 };
 
-use crate::xcm_config::RelayNetwork;
+use crate::xcm_config::{RelayNetwork, XcmConfig, XcmRouter};
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
@@ -51,6 +47,7 @@ use sp_runtime::{
 	FixedU128,
 };
 use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain};
+use xcm_executor::XcmExecutor;
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
 
@@ -133,10 +130,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
-	type WeightToFee = WeightToFee;
 	type AssetHubParaId = ConstU32<1000>;
-	type Token = Balances;
-	type Balance = Balance;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		EthereumNetwork,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V2>,
@@ -145,6 +139,9 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 		EthereumUniversalLocation,
 		AssetHubFromEthereum,
 	>;
+	type RewardPayment = ();
+	type XcmExecutor = XcmExecutor<XcmConfig>;
+	type EthereumNetwork = EthereumNetwork;
 }
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {
@@ -174,10 +171,10 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
 	type GatewayAddress = EthereumGatewayAddress;
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue_v2::WeightInfo<Runtime>;
-	type RewardLedger = ();
 	type ConvertAssetId = EthereumSystem;
 	type EthereumNetwork = EthereumNetwork;
 	type WETHAddress = WETHAddress;
+	type RewardPayment = ();
 }
 
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]
