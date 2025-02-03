@@ -96,7 +96,9 @@ fn build_wasm(chain: &str) -> PathBuf {
 fn generate_metadata_file(wasm_path: &Path, output_path: &Path) {
 	let source = Source::from_options(Some(wasm_path.to_path_buf()), None, None, None).unwrap();
 	let subwasm = Subwasm::new(&source.try_into().unwrap()).unwrap();
-	let mut output_file = std::fs::File::create(output_path).unwrap();
+	let mut output_file = std::fs::File::create(output_path)
+		.inspect_err(|e| debug_output!("Could not create file at {}: {}", output_path.display(), e))
+		.unwrap();
 	subwasm.write_metadata(OutputFormat::Scale, None, &mut output_file).unwrap();
 }
 
@@ -138,6 +140,11 @@ fn main() {
 
 	let metadata_path = format!("{manifest_path}/{METADATA_DIR}");
 
+	debug_output!(
+		"Creating metadata for involved runtimes. If you encounter metadata-related \
+	errors durng the tests, delete the metadata files in '{}'.",
+		metadata_path
+	);
 	for chain in CHAINS {
 		let full_path = format!("{metadata_path}/{chain}-local.scale");
 		let output_path = path::PathBuf::from(&full_path);

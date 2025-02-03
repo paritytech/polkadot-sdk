@@ -29,6 +29,8 @@
 //! the collation task which compresses it and submits it to the collation-generation subsystem.
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
+use crate::collator::SlotClaim;
+pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 use codec::Codec;
 use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
@@ -36,11 +38,11 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, GetCoreSelectorApi};
-use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_relay_chain_interface::{PHeader, RelayChainInterface};
 use futures::FutureExt;
 use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId,
-	ValidationCodeHash,
+	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, CoreIndex, Header as RelayHeader,
+	Id as ParaId, ValidationCodeHash,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -53,14 +55,29 @@ use sp_core::{crypto::Pair, traits::SpawnNamed, U256};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member, NumberFor, One};
-use std::{sync::Arc, time::Duration};
-
-pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 mod block_builder_task;
 mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
+
+mod signaling_elastic_scaling_task;
+mod signaling_lookahead;
+
+pub struct SignalingTaskMessage<Pub, Block: BlockT> {
+	pub slot_claim: SlotClaim<Pub>,
+	pub parent_header: Block::Header,
+	pub authoring_duration: Duration,
+	pub core_index: CoreIndex,
+	pub relay_parent_header: PHeader,
+	pub max_pov_size: u32,
+}
+
+pub enum Flavor {
+	TimeBased,
+	Lookahead,
+}
 
 /// Parameters for [`run`].
 pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
@@ -96,9 +113,12 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	/// timings.
 	pub slot_drift: Duration,
 	/// The handle returned by [`SlotBasedBlockImport`].
-	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
+	pub block_import_handle: Option<SlotBasedBlockImportHandle<Block>>,
 	/// Spawner for spawning futures.
 	pub spawner: Spawner,
+	pub flavor: Flavor,
+	pub export_pov: Option<PathBuf>,
+	pub relay_slot_duration: Duration,
 }
 
 /// Run aura-based block building and collation task.
@@ -120,6 +140,9 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		slot_drift,
 		block_import_handle,
 		spawner,
+		flavor,
+		export_pov,
+		relay_slot_duration,
 	}: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) where
 	Block: BlockT,
@@ -156,29 +179,64 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service: collator_service.clone(),
 		collator_receiver: rx,
 		block_import_handle,
+		export_pov,
 	};
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
 
+	let (to_builder_sender, from_signaling_receiver) =
+		tracing_unbounded("mpsc_builder_to_collator", 100);
 	let block_builder_params = block_builder_task::BuilderTaskParams {
 		create_inherent_data_providers,
 		block_import,
-		para_client,
-		para_backend,
-		relay_client,
+		relay_client: relay_client.clone(),
 		code_hash_provider,
-		keystore,
+		keystore: keystore.clone(),
 		para_id,
 		proposer,
-		collator_service,
-		authoring_duration,
+		collator_service: collator_service.clone(),
 		collator_sender: tx,
-		slot_drift,
+		signaling_task_receiver: from_signaling_receiver,
 	};
 
-	let block_builder_fut =
-		run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(block_builder_params);
+	let block_builder_fut = run_block_builder::<Block, P, _, _, _, _, _, _>(block_builder_params);
 
+	let signaling_fut = match flavor {
+		Flavor::TimeBased => {
+			let signaling_task_params = signaling_elastic_scaling_task::SignalingTaskParams {
+				para_client,
+				para_backend,
+				relay_client,
+				keystore,
+				para_id,
+				authoring_duration,
+				slot_drift,
+				building_task_sender: to_builder_sender,
+				collator_service,
+			};
+
+			signaling_elastic_scaling_task::run_signaling_task::<Block, P, _, _, _, _>(
+				signaling_task_params,
+			)
+			.boxed()
+		},
+		Flavor::Lookahead => {
+			let signaling_task_params = signaling_lookahead::SignalingTaskParams {
+				para_client,
+				para_backend,
+				relay_client,
+				keystore,
+				para_id,
+				authoring_duration,
+				building_task_sender: to_builder_sender,
+				collator_service,
+				relay_slot_duration,
+			};
+
+			signaling_lookahead::run_signaling_task::<Block, P, _, _, _, _>(signaling_task_params)
+				.boxed()
+		},
+	};
 	spawner.spawn_blocking(
 		"slot-based-block-builder",
 		Some("slot-based-collator"),
@@ -189,14 +247,15 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		Some("slot-based-collator"),
 		collation_task_fut.boxed(),
 	);
+	spawner.spawn_blocking("slot-based-signaling", Some("slot-based-collator"), signaling_fut);
 }
 
 /// Message to be sent from the block builder to the collation task.
 ///
 /// Contains all data necessary to submit a collation to the relay chain.
 struct CollatorMessage<Block: BlockT> {
-	/// The hash of the relay chain block that provides the context for the parachain block.
-	pub relay_parent: RelayHash,
+	/// The relay chain header that provides the context for the parachain block.
+	pub relay_parent_header: RelayHeader,
 	/// The header of the parent block.
 	pub parent_header: Block::Header,
 	/// The parachain block candidate.

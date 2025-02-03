@@ -15,19 +15,22 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Encode;
-
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_relay_chain_interface::RelayChainInterface;
+use futures::future::OptionFuture;
+use std::{fs, fs::File, path::PathBuf};
 
-use polkadot_node_primitives::{MaybeCompressedPoV, SubmitCollationParams};
+use polkadot_node_primitives::{MaybeCompressedPoV, PoV, SubmitCollationParams};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId};
+use polkadot_primitives::{
+	BlockNumber as RelayBlockNumber, CollatorPair, Hash as RelayHash, Id as ParaId,
+};
 
+use cumulus_primitives_core::relay_chain::HeadData;
 use futures::prelude::*;
-
 use sc_utils::mpsc::TracingUnboundedReceiver;
-use sp_runtime::traits::{Block as BlockT, Header};
+use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
 
 use super::CollatorMessage;
 
@@ -48,7 +51,9 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	/// Receiver channel for communication with the block builder task.
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
 	/// The handle from the special slot based block import.
-	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
+	pub block_import_handle: Option<super::SlotBasedBlockImportHandle<Block>>,
+	/// Whether to export the PoV to a file. Useful for debugging purposes.
+	pub export_pov: Option<PathBuf>,
 }
 
 /// Asynchronously executes the collation task for a parachain.
@@ -66,6 +71,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 		collator_service,
 		mut collator_receiver,
 		mut block_import_handle,
+		export_pov,
 	}: Params<Block, RClient, CS>,
 ) where
 	Block: BlockT,
@@ -86,20 +92,23 @@ pub async fn run_collation_task<Block, RClient, CS>(
 	.await;
 
 	loop {
-		futures::select! {
-			collator_message = collator_receiver.next() => {
-				let Some(message) = collator_message else {
-					return;
-				};
+		let option_future =
+			OptionFuture::from(block_import_handle.as_mut().map(|handle| handle.next()));
+		tokio::select! {
+				collator_message = collator_receiver.next() => {
+					let Some(message) = collator_message else {
+						return;
+					};
 
-				handle_collation_message(message, &collator_service, &mut overseer_handle).await;
-			},
-			block_import_msg = block_import_handle.next().fuse() => {
-				// TODO: Implement me.
-				// Issue: https://github.com/paritytech/polkadot-sdk/issues/6495
-				let _ = block_import_msg;
-			}
+					handle_collation_message(message, &collator_service, &mut overseer_handle, &export_pov).await;
+				},
+				block_import_msg = option_future => {
+				if let Some((_, _)) = block_import_msg {
+					// TODO: Implement me.
+					// Issue: https://github.com/paritytech/polkadot-sdk/issues/6495
+				};
 		}
+			}
 	}
 }
 
@@ -110,12 +119,13 @@ async fn handle_collation_message<Block: BlockT>(
 	message: CollatorMessage<Block>,
 	collator_service: &impl CollatorServiceInterface<Block>,
 	overseer_handle: &mut OverseerHandle,
+	export_pov: &Option<PathBuf>,
 ) {
 	let CollatorMessage {
 		parent_header,
 		parachain_candidate,
 		validation_code_hash,
-		relay_parent,
+		relay_parent_header,
 		core_index,
 	} = message;
 
@@ -138,6 +148,18 @@ async fn handle_collation_message<Block: BlockT>(
 		block_data.storage_proof().encoded_size() as f64 / 1024f64,
 	);
 
+	if let Some(ref export_pov_path) = export_pov {
+		export_pov_to_path::<Block>(
+			export_pov_path,
+			collation.proof_of_validity.clone().into_compressed(),
+			hash,
+			*block_data.header().number(),
+			parent_header.clone(),
+			*relay_parent_header.state_root(),
+			*relay_parent_header.number(),
+		);
+	}
+
 	if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 		tracing::info!(
 			target: LOG_TARGET,
@@ -150,7 +172,7 @@ async fn handle_collation_message<Block: BlockT>(
 	overseer_handle
 		.send_msg(
 			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-				relay_parent,
+				relay_parent: relay_parent_header.hash(),
 				collation,
 				parent_head: parent_header.encode().into(),
 				validation_code_hash,
@@ -160,4 +182,38 @@ async fn handle_collation_message<Block: BlockT>(
 			"SubmitCollation",
 		)
 		.await;
+}
+
+/// Export the given `pov` to the file system at `path`.
+///
+/// The file will be named `block_hash_block_number.pov`.
+///
+/// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
+/// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
+fn export_pov_to_path<Block: BlockT>(
+	path: &PathBuf,
+	pov: PoV,
+	block_hash: Block::Hash,
+	block_number: NumberFor<Block>,
+	parent_header: Block::Header,
+	relay_parent_storage_root: RelayHash,
+	relay_parent_number: RelayBlockNumber,
+) {
+	if let Err(error) = fs::create_dir_all(&path) {
+		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
+		return
+	}
+
+	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
+		Ok(f) => f,
+		Err(error) => {
+			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
+			return
+		},
+	};
+
+	pov.encode_to(&mut file);
+	HeadData(parent_header.encode()).encode_to(&mut file);
+	relay_parent_storage_root.encode_to(&mut file);
+	relay_parent_number.encode_to(&mut file);
 }

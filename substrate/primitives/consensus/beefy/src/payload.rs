@@ -57,10 +57,7 @@ impl Payload {
 	}
 
 	/// Returns all the raw payloads under given `id`.
-	pub fn get_all_raw<'a>(
-		&'a self,
-		id: &'a BeefyPayloadId,
-	) -> impl Iterator<Item = &Vec<u8>> + 'a {
+	pub fn get_all_raw<'a>(&'a self, id: &'a BeefyPayloadId) -> impl Iterator<Item = &'a Vec<u8>> {
 		self.0
 			.iter()
 			.filter_map(move |probe| if &probe.0 != id { return None } else { Some(&probe.1) })

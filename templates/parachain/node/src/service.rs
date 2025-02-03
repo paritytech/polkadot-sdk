@@ -14,7 +14,9 @@ use polkadot_sdk::*;
 // Cumulus Imports
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
+//TODO skunert update docs
 #[docify::export(lookahead_collator)]
+#[allow(unused_imports)]
 use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_consensus_proposer::Proposer;
@@ -32,6 +34,10 @@ use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 
 // Substrate Imports
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
+use polkadot_sdk::cumulus_client_consensus_aura::collators::{
+	slot_based,
+	slot_based::{Flavor, Params as SlotBasedParams},
+};
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
@@ -181,7 +187,7 @@ fn start_consensus(
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
 	collator_key: CollatorPair,
-	overseer_handle: OverseerHandle,
+	_overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> Result<(), sc_service::Error> {
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -193,7 +199,6 @@ fn start_consensus(
 	);
 
 	let proposer = Proposer::new(proposer_factory);
-
 	let collator_service = CollatorService::new(
 		client.clone(),
 		Arc::new(task_manager.spawn_handle()),
@@ -201,29 +206,37 @@ fn start_consensus(
 		client.clone(),
 	);
 
-	let params = AuraParams {
+	let client_for_aura = client.clone();
+
+	let params = SlotBasedParams {
 		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 		block_import,
 		para_client: client.clone(),
-		para_backend: backend,
+		para_backend: backend.clone(),
 		relay_client: relay_chain_interface,
 		code_hash_provider: move |block_hash| {
-			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+			client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 		},
 		keystore,
 		collator_key,
 		para_id,
-		overseer_handle,
-		relay_chain_slot_duration,
 		proposer,
 		collator_service,
 		authoring_duration: Duration::from_millis(2000),
 		reinitialize: false,
+		slot_drift: Duration::from_secs(1),
+		block_import_handle: None,
+		spawner: task_manager.spawn_handle(),
+		flavor: Flavor::Lookahead,
+		export_pov: None,
+		relay_slot_duration: relay_chain_slot_duration,
 	};
-	let fut = aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _>(
+
+	// We have a separate function only to be able to use `docify::export` on this piece of
+	// code.
+	slot_based::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _, _>(
 		params,
 	);
-	task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 	Ok(())
 }
