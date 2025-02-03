@@ -2,12 +2,14 @@ title: 'XCM: Deny barrier checks for nested XCMs with specific instructions to b
   executed on the local chain'
 doc:
 - audience: Runtime User
-  description: "This PR addresses partially #7148 (Problem 2) and ensures the proper checking\
-    \ of nested local instructions. It introduces two new barriers - `DenyNestedLocalInstructions`\
-    \ and `DenyNestedLocalInstructionsThenTry` - to provide more refined control over\
-    \ instruction denial. The main change is the replacement of `DenyThenTry` with\
-    \ `DenyNestedLocalInstructionsThenTry` which handles both top-level and nested\
-    \ local instructions by applying allow condition after denial."
+  description: |-
+    This PR addresses partially #7148 (Problem 2) and ensures the proper checking
+    of nested local instructions. It introduces two new barriers -
+    `DenyNestedLocalInstructions` and `DenyNestedLocalInstructionsThenTry` - to
+    provide more refined control over instruction denial. The main change is the
+    replacement of `DenyThenTry` with `DenyNestedLocalInstructionsThenTry` which
+    handles both top-level and nested local instructions by applying allow
+    condition after denial.
 crates:
 - name: staging-xcm-builder
   bump: minor
