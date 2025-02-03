@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::*;
 use xcm_executor::traits::Properties;
+
+use super::*;
 
 fn props(weight_credit: Weight) -> Properties {
 	Properties { weight_credit, message_id: None }
@@ -772,12 +773,8 @@ fn deny_nested_local_instructions_then_try_works() {
 		fees: (Parent, 100).into(),
 		weight_limit: Unlimited,
 	}]);
-	let result = Barrier::should_execute(
-		&origin,
-		unrelated_xcm.inner_mut(),
-		max_weight,
-		&mut properties,
-	);
+	let result =
+		Barrier::should_execute(&origin, unrelated_xcm.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_ok());
 
 	// Should deny recursively before allow
