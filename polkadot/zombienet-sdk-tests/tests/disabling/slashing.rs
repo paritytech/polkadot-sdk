@@ -31,16 +31,18 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 					"-lparachain=debug,runtime=debug".into(),
 				])
 				.with_genesis_overrides(json!({
-					"configuration": {
-						"config": {
-							"scheduler_params": {
-								"group_rotation_frequency": 3,
-								"max_validators_per_core": 1,
-								"lookahead": 2,
-								"max_candidate_depth": 3,
-								"allowed_ancestry_len": 2
-							},
-							"needed_approvals": 2
+					"patch": {
+						"configuration": {
+							"config": {
+								"scheduler_params": {
+									"group_rotation_frequency": 3,
+									"max_validators_per_core": 1,
+									"lookahead": 2,
+									"max_candidate_depth": 3,
+									"allowed_ancestry_len": 2
+								},
+								"needed_approvals": 2
+							}
 						}
 					}
 				}))
