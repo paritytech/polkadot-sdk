@@ -466,7 +466,7 @@ where
 /// Denies execution if the XCM contains any of the denied **local** instructions, even if nested
 /// within `SetAppendix(xcm)`, `SetErrorHandler(xcm)`, or `ExecuteWithOrigin { xcm, ... }`.
 ///
-/// This check is applied **recursively** using `DenyNestedXcmInstructions`, ensuring that
+/// This check is applied **recursively** using `DenyNestedLocalInstructions`, ensuring that
 /// instructions do not execute on the local chain at any depth.
 ///
 /// If the message passes the deny filters, it is then evaluated against the allow condition.
@@ -522,7 +522,7 @@ environmental::environmental!(recursion_count: u8);
 // instructions.
 ///
 /// This struct is not meant to be used directly outside of this module. It ensures that restricted
-/// local instructions within `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` are blocked
+/// instructions within `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` are blocked
 /// **recursively**, preventing unintended execution of nested XCMs.
 struct DenyNestedXcmInstructions<Inner>(PhantomData<Inner>);
 
@@ -531,7 +531,7 @@ impl<Inner: DenyExecution> DenyNestedXcmInstructions<Inner> {
 	///
 	/// This function ensures that restricted instructions are blocked at any depth within the XCM.
 	/// It maintains a **recursion counter** to prevent stack overflows due to a deep nesting.
-	fn deny_recursively<RuntimeCall>(
+	fn deny_recursively<Deny: DenyExecution, RuntimeCall>(
 		origin: &Location,
 		nested_xcm: &mut Xcm<RuntimeCall>,
 		max_weight: Weight,
@@ -572,38 +572,11 @@ impl<Inner: DenyExecution> DenyNestedXcmInstructions<Inner> {
 				});
 			}
 
-			// Recursively check the nested XCM instrucitons.
-			Self::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
+			// Recursively check the nested XCM instructions.
+			Deny::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
 		})?;
 
 		Ok(Ok(ControlFlow::Continue(())))
-	}
-}
-
-impl<Inner: DenyExecution> DenyExecution for DenyNestedXcmInstructions<Inner> {
-	/// Denies execution of restricted nested XCM instructions.
-	///
-	/// This checks for `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instruction
-	/// applying the deny filter **recursively** to any nested XCMs found.
-	fn deny_execution<RuntimeCall>(
-		origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		max_weight: Weight,
-		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		instructions.matcher().match_next_inst_while(
-			|_| true,
-			|inst| match inst {
-				SetAppendix(nested_xcm) |
-				SetErrorHandler(nested_xcm) |
-				ExecuteWithOrigin { xcm: nested_xcm, .. } =>
-					Self::deny_recursively(origin, nested_xcm, max_weight, properties)?,
-				_ => Ok(ControlFlow::Continue(())),
-			},
-		)?;
-
-		// Permit everything else
-		Ok(())
 	}
 }
 
@@ -619,6 +592,10 @@ impl<Inner: DenyExecution> DenyExecution for DenyNestedXcmInstructions<Inner> {
 pub struct DenyNestedLocalInstructions<Inner>(PhantomData<Inner>);
 
 impl<Inner: DenyExecution> DenyExecution for DenyNestedLocalInstructions<Inner> {
+	/// Denies execution of restricted local nested XCM instructions.
+	///
+	/// This checks for `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instruction
+	/// applying the deny filter **recursively** to any nested XCMs found.
 	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
@@ -636,11 +613,20 @@ impl<Inner: DenyExecution> DenyExecution for DenyNestedLocalInstructions<Inner> 
 			})?;
 
 		// If the top-level check passes, check nested instructions recursively.
-		DenyNestedXcmInstructions::<Inner>::deny_execution(
-			origin,
-			instructions,
-			max_weight,
-			properties,
-		)
+		instructions.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				SetAppendix(nested_xcm) |
+				SetErrorHandler(nested_xcm) |
+				ExecuteWithOrigin { xcm: nested_xcm, .. } =>
+					DenyNestedXcmInstructions::<Inner>::deny_recursively::<Self, RuntimeCall>(
+						origin, nested_xcm, max_weight, properties,
+					)?,
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
+
+		// Permit everything else
+		Ok(())
 	}
 }
