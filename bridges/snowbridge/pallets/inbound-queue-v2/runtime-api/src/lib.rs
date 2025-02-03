@@ -2,9 +2,8 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use snowbridge_core::inbound::Proof;
 use frame_support::traits::tokens::Balance as BalanceT;
-use snowbridge_router_primitives::inbound::v2::Message;
+use snowbridge_inbound_queue_primitives::v2::Message;
 use xcm::latest::Xcm;
 use sp_runtime::DispatchError;
 

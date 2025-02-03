@@ -140,6 +140,9 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RewardPayment = ();
 	type EthereumNetwork = EthereumNetwork;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
+	type Token = Balances;
+	type Balance = Balance;
+	type WeightToFee = WeightToFee;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		EthereumNetwork,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V2>,
