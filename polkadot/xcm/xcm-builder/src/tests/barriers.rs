@@ -866,7 +866,7 @@ fn compare_deny_filters() {
 		let mut properties = props(Weight::zero());
 
 		// Validate Top-Level
-		let mut xcm = Xcm::<Instruction<()>>(
+		let xcm = Xcm::<Instruction<()>>(
 			vec![DepositReserveAsset {
 				assets: Wild(All),
 				dest: Location::parent(),
