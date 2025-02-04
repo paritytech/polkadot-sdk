@@ -106,9 +106,11 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, One, Saturating, Zero, BlockNumberProvider},
+	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
+
+use sp_runtime::traits::BlockNumberProvider;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -294,10 +296,11 @@ pub mod pallet {
 
 		/// The preimage provider with which we look up call hashes to get the call.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 
-	type BlockNumberProvider: BlockNumberProvider;
 
 	#[pallet::storage]
 	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
@@ -382,7 +385,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_do_not_use_local_block_number: SystemBlockNumberFor<T>) -> Weight {
 			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::max_value());
