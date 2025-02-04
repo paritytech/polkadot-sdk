@@ -501,7 +501,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = Staking;
+	type EventHandler = AssetHubStakingClient;
 }
 
 parameter_types! {
@@ -526,7 +526,8 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
+	type SessionManager =
+		pallet_session::historical::NoteHistoricalRoot<Self, AssetHubStakingClient>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
@@ -769,6 +770,10 @@ impl pallet_staking::Config for Runtime {
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 }
 
+impl pallet_staking_ah_client::Config for Runtime {
+	type CurrencyBalance = Balance;
+}
+
 impl pallet_fast_unstake::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -843,7 +848,7 @@ impl pallet_treasury::Config for Runtime {
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
-	type OnOffenceHandler = Staking;
+	type OnOffenceHandler = AssetHubStakingClient;
 }
 
 impl pallet_authority_discovery::Config for Runtime {
@@ -1153,7 +1158,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
@@ -1768,6 +1774,8 @@ mod runtime {
 	pub type AssignedSlots = assigned_slots;
 	#[runtime::pallet_index(66)]
 	pub type Coretime = coretime;
+	#[runtime::pallet_index(67)]
+	pub type AssetHubStakingClient = pallet_staking_ah_client;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
