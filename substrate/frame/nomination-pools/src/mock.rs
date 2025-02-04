@@ -17,14 +17,9 @@
 
 use super::*;
 use crate::{self as pools};
-use frame_support::{
-	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::Mutate, VariantCountOf},
-	PalletId,
-};
-use frame_system::{EnsureSignedBy, RawOrigin};
-use sp_runtime::{BuildStorage, DispatchResult, FixedU128};
-use sp_staking::{
+
+use frame::testing_prelude::*;
+use frame::deps::sp_staking::{
 	Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate, Stake,
 };
 

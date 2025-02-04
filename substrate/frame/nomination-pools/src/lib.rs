@@ -357,31 +357,15 @@ use adapter::{Member, Pool, StakeStrategy};
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::Codec;
 use core::{fmt::Debug, ops::Div};
-use frame_support::{
-	defensive, defensive_assert, ensure,
-	pallet_prelude::{MaxEncodedLen, *},
-	storage::bounded_btree_map::BoundedBTreeMap,
-	traits::{
-		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
-		tokens::{Fortitude, Preservation},
-		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
-	},
-	DefaultNoBound, PalletError,
-};
-use frame_system::pallet_prelude::BlockNumberFor;
+
 use scale_info::TypeInfo;
-use sp_core::U256;
-use sp_runtime::{
-	traits::{
-		AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Convert, Saturating, StaticLookup,
-		Zero,
-	},
-	FixedPointNumber, Perbill,
-};
-use sp_staking::{EraIndex, StakingInterface};
+
+use frame::deps::sp_staking::{EraIndex, StakingInterface};
+use frame::prelude::*;
+use frame::traits::tokens::{Fortitude, Preservation};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &str = "runtime::nomination-pools";
@@ -494,7 +478,7 @@ impl ClaimPermission {
 	TypeInfo,
 	RuntimeDebugNoBound,
 	CloneNoBound,
-	frame_support::PartialEqNoBound,
+	PartialEqNoBound,
 )]
 #[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[scale_info(skip_type_params(T))]
@@ -1561,12 +1545,9 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 	}
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::traits::StorageVersion;
-	use frame_system::{ensure_signed, pallet_prelude::*};
-	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
@@ -1606,7 +1587,7 @@ pub mod pallet {
 
 		/// The nomination pool's pallet id.
 		#[pallet::constant]
-		type PalletId: Get<frame_support::PalletId>;
+		type PalletId: Get<PalletId>;
 
 		/// The maximum pool points-to-balance ratio that an `open` pool can have.
 		///
@@ -2667,7 +2648,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let mut bonded_pool = match ensure_root(origin.clone()) {
 				Ok(()) => BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?,
-				Err(sp_runtime::traits::BadOrigin) => {
+				Err(_bad_origin) => {
 					let who = ensure_signed(origin)?;
 					let bonded_pool =
 						BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
@@ -4042,7 +4023,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
+impl<T: Config> frame::deps::sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Reduces the balances of the [`SubPools`], that belong to the pool involved in the
 	/// slash, to the amount that is defined in the `slashed_unlocking` field of
 	/// [`sp_staking::OnStakingUpdate::on_slash`]

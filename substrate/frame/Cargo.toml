@@ -48,6 +48,7 @@ sp-session = { optional = true, workspace = true }
 sp-storage = { optional = true, workspace = true }
 sp-transaction-pool = { optional = true, workspace = true }
 sp-version = { optional = true, workspace = true }
+sp-staking = { optional = true, workspace = true}
 
 frame-executive = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { optional = true, workspace = true }
@@ -83,6 +84,7 @@ runtime = [
 	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
+	"sp-staking",
 ]
 std = [
 	"codec/std",
@@ -109,6 +111,7 @@ std = [
 	"sp-runtime/std",
 	"sp-session?/std",
 	"sp-storage/std",
+	"sp-staking/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",
 ]
@@ -118,6 +121,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",

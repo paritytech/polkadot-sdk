@@ -202,11 +202,19 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::{
+		defensive, defensive_assert, ensure,
+		traits::{
+			fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
+			Contains, Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, EitherOf,
+			EstimateNextSessionRotation, Get, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
+			OneSessionHandler, RankedMembers, RankedMembersSwapHandler, StorageVersion,
+			UncheckedOnRuntimeUpgrade, VariantCountOf,
+		},
+		PalletError, PalletId, PartialEqNoBound
 	};
+
+	pub use frame_support::traits::tokens::{Fortitude::Polite, Preservation::Expendable, Balance};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -231,9 +239,14 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		bounded_btree_map,
+		traits::{
+			AccountIdConversion, BlockNumberProvider, Bounded, CheckedAdd, CheckedSub,
+			Convert, DispatchInfoOf, Dispatchable, ReduceBy, ReplaceWithDefault,
+			SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput, Zero,
+		},
+		BuildStorage, DispatchResult, FixedPointNumber, FixedU128, Perbill,
 	};
 
 	/// Bounded storage related types.
@@ -326,8 +339,10 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, ensure, hypothetically, storage_alias,
+		assert_storage_noop, hypothetically, storage_alias, DefaultNoBound,
 	};
+
+	pub use frame_support::migrations::VersionedMigration;
 
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
@@ -403,7 +418,7 @@ pub mod runtime {
 		pub use sp_version::NativeVersion;
 
 		/// Macro to implement runtime APIs.
-		pub use sp_api::impl_runtime_apis;
+		pub use sp_api::{impl_runtime_apis, decl_runtime_apis};
 
 		// Types often used in the runtime APIs.
 		pub use sp_core::OpaqueMetadata;
@@ -583,6 +598,7 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_staking;
 
 	pub use codec;
 	pub use scale_info;
