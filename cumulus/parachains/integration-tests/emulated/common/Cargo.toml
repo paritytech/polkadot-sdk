@@ -64,5 +64,3 @@ pallet-bridge-messages.workspace = true
 pallet-bridge-messages.default-features = true
 pallet-xcm-bridge-hub.workspace = true
 pallet-xcm-bridge-hub.default-features = true
-bridge-runtime-common.workspace = true
-bridge-runtime-common.default-features = true
