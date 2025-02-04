@@ -17,5 +17,18 @@
 //! In an ideal world this would be one runtime which would simplify the code massively.
 //! This is not an ideal world - Polkadot Asset Hub has a different key type.
 
+<<<<<<< HEAD:cumulus/polkadot-parachain/src/fake_runtime_api/mod.rs
 pub mod asset_hub_polkadot_aura;
 pub mod aura;
+=======
+pub mod cli;
+mod command;
+mod common;
+mod fake_runtime_api;
+mod nodes;
+
+pub use cli::CliConfig;
+pub use command::{run, RunConfig};
+pub use common::{chain_spec, runtime};
+pub use nodes::NODE_VERSION;
+>>>>>>> 3fb7c8c (Align omni-node and polkadot-parachain versions (#7367)):cumulus/polkadot-omni-node/lib/src/lib.rs

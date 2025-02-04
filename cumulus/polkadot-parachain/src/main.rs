@@ -50,6 +50,40 @@ mod fake_runtime_api;
 mod rpc;
 mod service;
 
+<<<<<<< HEAD
 fn main() -> sc_cli::Result<()> {
 	command::run()
+=======
+use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
+
+struct CliConfig;
+
+impl CliConfigT for CliConfig {
+	fn impl_version() -> String {
+		let commit_hash = env!("SUBSTRATE_CLI_COMMIT_HASH");
+		format!("{}-{commit_hash}", NODE_VERSION)
+	}
+
+	fn author() -> String {
+		env!("CARGO_PKG_AUTHORS").into()
+	}
+
+	fn support_url() -> String {
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+	}
+
+	fn copyright_start_year() -> u16 {
+		2017
+	}
+}
+
+fn main() -> color_eyre::eyre::Result<()> {
+	color_eyre::install()?;
+
+	let config = RunConfig::new(
+		Box::new(chain_spec::RuntimeResolver),
+		Box::new(chain_spec::ChainSpecLoader),
+	);
+	Ok(run::<CliConfig>(config)?)
+>>>>>>> 3fb7c8c (Align omni-node and polkadot-parachain versions (#7367))
 }
