@@ -26,3 +26,4 @@ mod nodes;
 pub use cli::CliConfig;
 pub use command::{run, RunConfig};
 pub use common::{chain_spec, runtime};
+pub use nodes::NODE_VERSION;
