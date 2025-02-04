@@ -1455,7 +1455,6 @@ where
 
 		// We need to make sure to reset `allows_reentry` even on failure.
 		let result = try_call();
-		println!("result: {:?}", result);
 
 		// Protection is on a per call basis.
 		self.top_frame_mut().allows_reentry = true;
