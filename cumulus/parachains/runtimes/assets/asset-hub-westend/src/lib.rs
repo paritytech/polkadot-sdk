@@ -1444,7 +1444,6 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
-		[pallet_revive, Revive]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
