@@ -243,23 +243,23 @@ decl_runtime_apis! {
 		fn get_block_number() -> u64;
 		/// Test that `ed25519` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `ed25519` public key and proof of possession.
+		/// Returns the signature generated for the message `ed25519` both the public key and proof of possession.
 		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, Ed25519Pop);
 		/// Test that `sr25519` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `sr25519` public key and proof of possession.
+		/// Returns the signature generated for the message `sr25519` both the public key and proof of possession.
 		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, Sr25519Pop);
 		/// Test that `ecdsa` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `ecdsa` public key and proof of possession.
+		/// Returns the signature generated for the message `ecdsa` both the public key and proof of possession.
 		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, EcdsaPop);
 		/// Test that `bls381` crypto works in the runtime
 		///
-		/// Returns the proof of possession & public key.
+		/// Returns both the proof of possession and public key.
 		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public);
 		/// Test that `ecdsa_bls381_crypto` works in the runtime
 		///
-		/// Returns the proof of possession & public key.
+		/// Returns both the proof of possession and public key.
 		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public);
 		/// Run various tests against storage.
 		fn test_storage();
