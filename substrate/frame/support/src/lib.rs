@@ -1761,7 +1761,8 @@ pub mod pallet_macros {
 	/// view function ID depends both on its pallet and on its method signature, so it remains
 	/// stable as long as those two elements are not modified. In general, pallet view
 	/// functions should expose a _stable_ interface and changes to the method signature are
-	/// strongly discouraged.
+	/// strongly discouraged. For more details on the dispatching mechanism, see the
+	/// [`DispatchViewFunction`](frame_support::view_functions::DispatchViewFunction) trait.
 	pub use frame_support_procedural::view_functions_experimental;
 
 	/// Allows defining a struct implementing the [`Get`](frame_support::traits::Get) trait to
