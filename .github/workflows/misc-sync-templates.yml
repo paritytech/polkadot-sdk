@@ -149,6 +149,10 @@ jobs:
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Create a new workspace Cargo.toml
         run: |
+          # This replaces the existing Cargo.toml for parachain-template,
+          # corresponding to the `parachain-template-docs` crate, so no need
+          # to delete that `Cargo.toml` after copying the `polkadot-sdk/templates/parachain/*`
+          # to the `polkadot-sdk-parachain-template` repo.
           cat << EOF > Cargo.toml
           [workspace.package]
           license = "MIT-0"
@@ -204,7 +208,6 @@ jobs:
         if: ${{ matrix.template == 'parachain' }}
         run: |
           rm -f "${{ env.template-path }}/README.docify.md"
-          rm -f "${{ env.template-path }}/Cargo.toml"
           rm -f "${{ env.template-path }}/src/lib.rs"
 
       - name: Run psvm on monorepo workspace dependencies
