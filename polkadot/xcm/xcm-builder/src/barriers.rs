@@ -524,14 +524,21 @@ environmental::environmental!(recursion_count: u8);
 /// This struct is not meant to be used directly outside of this module. It ensures that restricted
 /// instructions within `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` are blocked
 /// **recursively**, preventing unintended execution of nested XCMs.
-struct DenyNestedXcmInstructions<Inner>(PhantomData<Inner>);
+struct DenyNestedXcmInstructions<Deny, Inner>(PhantomData<Deny>, PhantomData<Inner>)
+where
+	Deny: DenyExecution,
+	Inner: DenyExecution;
 
-impl<Inner: DenyExecution> DenyNestedXcmInstructions<Inner> {
+impl<Deny, Inner> DenyNestedXcmInstructions<Deny, Inner>
+where
+	Deny: DenyExecution,
+	Inner: DenyExecution,
+{
 	// Recursively applies the deny filter to a nested XCM.
 	///
 	/// This function ensures that restricted instructions are blocked at any depth within the XCM.
 	/// It maintains a **recursion counter** to prevent stack overflows due to a deep nesting.
-	fn deny_recursively<Deny: DenyExecution, RuntimeCall>(
+	fn deny_recursively<RuntimeCall>(
 		origin: &Location,
 		nested_xcm: &mut Xcm<RuntimeCall>,
 		max_weight: Weight,
@@ -619,7 +626,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyNestedLocalInstructions<Inner> 
 				SetAppendix(nested_xcm) |
 				SetErrorHandler(nested_xcm) |
 				ExecuteWithOrigin { xcm: nested_xcm, .. } =>
-					DenyNestedXcmInstructions::<Inner>::deny_recursively::<Self, RuntimeCall>(
+					DenyNestedXcmInstructions::<Self, Inner>::deny_recursively::<RuntimeCall>(
 						origin, nested_xcm, max_weight, properties,
 					)?,
 				_ => Ok(ControlFlow::Continue(())),
