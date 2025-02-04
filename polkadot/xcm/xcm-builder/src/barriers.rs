@@ -522,16 +522,16 @@ environmental::environmental!(recursion_count: u8);
 // instructions.
 ///
 /// This struct is not meant to be used directly outside of this module. It ensures that restricted
-/// instructions within `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` are blocked
-/// **recursively**, preventing unintended execution of nested XCMs.
-struct DenyNestedXcmInstructions<Deny, Inner>(PhantomData<Deny>, PhantomData<Inner>)
+/// instructions within the `Outer` filter are blocked **recursively**, preventing unintended
+/// execution of nested XCMs.
+struct DenyNestedXcmInstructions<Outer, Inner>(PhantomData<Outer>, PhantomData<Inner>)
 where
-	Deny: DenyExecution,
+	Outer: DenyExecution,
 	Inner: DenyExecution;
 
-impl<Deny, Inner> DenyNestedXcmInstructions<Deny, Inner>
+impl<Outer, Inner> DenyNestedXcmInstructions<Outer, Inner>
 where
-	Deny: DenyExecution,
+	Outer: DenyExecution,
 	Inner: DenyExecution,
 {
 	// Recursively applies the deny filter to a nested XCM.
@@ -580,7 +580,7 @@ where
 			}
 
 			// Recursively check the nested XCM instructions.
-			Deny::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
+			Outer::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
 		})?;
 
 		Ok(Ok(ControlFlow::Continue(())))
