@@ -21,7 +21,7 @@ use std::{
 	sync::Arc,
 };
 
-use crate::{common::log_xt::log_xt_trace, LOG_TARGET};
+use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
 use parking_lot::{Mutex, RwLock};
 use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions, TransactionPriority};
@@ -706,7 +706,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		let invalid = self.pool.write().remove_subtree(hashes);
 
 		log::trace!(target: LOG_TARGET, "Removed invalid transactions: {:?}", invalid.len());
-		log_xt_trace!(target: LOG_TARGET, invalid.iter().map(|t| t.hash), "{:?} Removed invalid transaction");
+		log_xt_trace!(target: LOG_TARGET, invalid.iter().map(|t| t.hash), "Removed invalid transaction");
 
 		let mut listener = self.listener.write();
 		for tx in &invalid {
