@@ -18,7 +18,9 @@
 //! Cryptographic utilities.
 
 use crate::{ed25519, sr25519, U256};
-use alloc::{format, str, string::String, vec, vec::Vec};
+use alloc::{format, str, vec::Vec};
+#[cfg(any(feature = "serde", test))]
+use alloc::{string::String, vec};
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::hash::Hash;
