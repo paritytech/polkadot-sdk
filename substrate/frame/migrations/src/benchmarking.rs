@@ -20,7 +20,7 @@
 use super::*;
 
 use core::array;
-use frame_benchmarking::{v2::*, BenchmarkError};
+use frame_benchmarking::{v2::*, BenchmarkError, benchmarking};
 use frame_system::{Pallet as System, RawOrigin};
 use sp_core::{twox_128, Get};
 use sp_io::{storage, KillStorageResult};
@@ -220,8 +220,11 @@ mod benches {
 			storage::set(&key, &[0u8; 32]);
 		}
 
-		let result;
+		// test externalities don't support committing
+		#[cfg(not(test))]
+		benchmarking::commit_db();
 
+		let result;
 		#[block]
 		{
 			result = storage::clear_prefix(&prefix, None);
@@ -231,7 +234,11 @@ mod benches {
 		// However, the benchmarking PoV results are correctly dependent on the amount of
 		// keys removed.
 		match result {
-			KillStorageResult::AllRemoved(_) => (),
+			KillStorageResult::AllRemoved(i) => {
+				// `i` ionly includes commited keys
+				#[cfg(not(test))]
+				ensure!(i == n, "Not all keys are removed");
+			},
 			_ => Err("Not all keys were removed")?,
 		}
 
