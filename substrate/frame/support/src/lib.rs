@@ -1109,7 +1109,7 @@ pub mod pallet_macros {
 	///  	use frame_support::pallet_prelude::*;
 	///  	use frame_system::pallet_prelude::*;
 	///     use sp_weights::Weight;
-	/// 
+	///
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
@@ -1129,6 +1129,24 @@ pub mod pallet_macros {
 	/// 		) -> DispatchResult {
 	/// 			Ok(())
 	/// 		}
+	///
+	///         #[pallet::weight(10_000)]
+	///         #[pallet::call_index(1)]
+	///         pub fn do_something_else(
+	///             origin: OriginFor<T>,
+	///             bar: u64,
+	///         ) -> DispatchResult {
+	///             Ok(())
+	///         }
+	///
+	///         #[pallet::weight(T::BlockWeights::get().std())]
+	///         #[pallet::call_index(2)]
+	///         pub fn do_another_thing(
+	///             origin: OriginFor<T>,
+	///             baz: u128,
+	///         ) -> DispatchResult {
+	///             Ok(())
+	///         }
 	/// 	}
 	/// }
 	///
@@ -1143,8 +1161,6 @@ pub mod pallet_macros {
 	///   the corresponding dispatchable.
 	/// - The `Config` trait includes an associated type `WeightInfo` that implements the
 	///   `WeightInfo` trait.
-	/// - The weight of a dispatchable can also be defined dynamically using the pallet's
-	///   configuration.
 	/// - If the weight is not explicitly defined using the `#[pallet::weight]` attribute, the
 	///   macro will implicitly determine the weight.
 	/// - The macro looks up the `WeightInfo` type defined in the `#[pallet::call]` attribute
