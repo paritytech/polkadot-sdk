@@ -139,6 +139,10 @@ pub async fn start_work(
 	);
 
 	if let Executable::Wasm { artifact } = &executable {
+
+		// Cheaply create a hard link to the artifact. The artifact is always at a known location in the
+		// worker cache, and the child can't access any other artifacts or gain any information from the
+		// original filename.
 		let link_path = worker_dir::execute_artifact(worker_dir.path());
 		if let Err(err) = tokio::fs::hard_link(artifact.path.clone(), link_path).await {
 			gum::warn!(
