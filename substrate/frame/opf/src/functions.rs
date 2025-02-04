@@ -316,7 +316,7 @@ impl<T: Config> Pallet<T> {
 	pub fn on_idle_function(limit: Weight) -> Weight {
 		let now = T::BlockNumberProvider::current_block_number();
 		let mut meter = WeightMeter::with_limit(limit);
-		let max_block_weight = T::DbWeight::get().reads_writes(14, 8);
+		let max_block_weight = T::BlockWeights::get().max_block;
 
 		if meter.try_consume(max_block_weight).is_err() {
 			return meter.consumed();

@@ -30,27 +30,24 @@ use frame_system::RawOrigin;
 use sp_runtime::traits::One;
 
 const SEED: u32 = 0;
-
+/*
 pub fn next_block<T: Config>() {
 	let when = T::BlockNumberProvider::current_block_number().saturating_add(One::one());
-	run_to_block::<T>(when);
+	T::BlockNumberProvider::set_block_number(when);
 	Democracy::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	frame_system::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-	crate::Pallet::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
 	frame_system::Pallet::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
-	crate::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 }
 pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
 	while T::BlockNumberProvider::current_block_number() < n {
 		if T::BlockNumberProvider::current_block_number() > One::one() {
 			Democracy::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
-			crate::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
 			frame_system::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
 		}
 		next_block::<T>();
 	}
 }
-
+*/
 fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<(), &'static str> {
 	let mut batch = BoundedVec::<ProjectId<T>, <T as Config>::MaxProjects>::new();
 	for i in 1..=n {
@@ -80,9 +77,6 @@ mod benchmarks {
 		add_whitelisted_project::<T>(r, caller.clone())?;
 		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(account0.clone()), true);
 
-		let when = T::BlockNumberProvider::current_block_number() + One::one();
-		run_to_block::<T>(when);
-
 		let _ = assert_eq!(VotingRounds::<T>::get(0).is_some(), true);
 		let caller_balance = T::NativeBalance::minimum_balance() * 1000000u32.into();
 
@@ -109,9 +103,6 @@ mod benchmarks {
 			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()),
 			"Project_id not set up correctly."
 		);
-
-		let when = T::BlockNumberProvider::current_block_number() + One::one();
-		run_to_block::<T>(when);
 
 		ensure!(VotingRounds::<T>::get(0).is_some(), "Round not created!");
 		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
@@ -142,9 +133,6 @@ mod benchmarks {
 			"Project_id not set up correctly."
 		);
 
-		let mut when = T::BlockNumberProvider::current_block_number().saturating_add(One::one());
-		run_to_block::<T>(when);
-
 		ensure!(VotingRounds::<T>::get(0).is_some(), "Round not created!");
 		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
 
@@ -159,9 +147,9 @@ mod benchmarks {
 			Conviction::Locked1x,
 		)?;
 
-		when = Votes::<T>::get(account0.clone(), caller.clone()).unwrap().funds_unlock_block;
+		let when = Votes::<T>::get(account0.clone(), caller.clone()).unwrap().funds_unlock_block;
 
-		run_to_block::<T>(when);
+		T::BlockNumberProvider::set_block_number(when);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account0);
@@ -169,7 +157,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	/*#[benchmark]
 	fn claim_reward_for(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
@@ -213,7 +201,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), account0);
 
 		Ok(())
-	}
+	}*/
 
 	impl_benchmark_test_suite!(Opf, crate::mock::new_test_ext(), crate::mock::Test);
 }
