@@ -1724,7 +1724,7 @@ pub mod pallet_macros {
 	/// # 	pub trait Config: frame_system::Config {}
 	/// # 	#[pallet::pallet]
 	/// # 	pub struct Pallet<T>(_);
-	/// # 	use frame_support::traits::BuildGenesisConfig;
+	/// # 	use frame_support::{StorageMap, Twox64Concat, pallet_prelude::OptionQuery};
 	///     #[pallet::storage]
 	/// 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
 	///
@@ -1743,6 +1743,7 @@ pub mod pallet_macros {
 	/// accepts view function queries and dispatches them to the right pallet.
 	///
 	/// ```
+	/// # use sp_api::impl_runtime_apis;
 	/// impl_runtime_apis! {
 	/// 	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
 	/// 		fn execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
