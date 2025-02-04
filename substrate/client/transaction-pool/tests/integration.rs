@@ -45,9 +45,9 @@ async fn send_future_and_then_ready_from_single_account() {
 		});
 		tokio::time::sleep(Duration::from_secs(5)).await;
 		let handle2 = tokio::spawn(async move {
-			cmd_lib::run_cmd!(RUST_LOG=info ttxt tx --chain=sub --ws=$ws from-single-account --account 0 --count 5 --from $nonce)
+			cmd_lib::run_cmd!(RUST_LOG=info ttxt tx --chain=sub --ws=$ws from-single-account --account 0  --count 5 --from $nonce)
 		});
-		nonce = future_start + 10;
+		nonce = future_start + 5;
 		let (res1, res2) = join!(handle1, handle2);
 		assert!(res1.is_ok());
 		assert!(res2.is_ok());
