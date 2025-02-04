@@ -62,6 +62,7 @@ mod tests;
 const COST_SIGNATURE_INVALID: Rep = Rep::CostMajor("Bitfield signature invalid");
 const COST_VALIDATOR_INDEX_INVALID: Rep = Rep::CostMajor("Bitfield validator index invalid");
 const COST_MISSING_PEER_SESSION_KEY: Rep = Rep::CostMinor("Missing peer session key");
+const COST_UNSUPPORTED_PROTOCOL_VERSION: Rep = Rep::CostMinor("Unsupported protocol version");
 const COST_NOT_IN_VIEW: Rep = Rep::CostMinor("Not interested in that parent hash");
 const COST_PEER_DUPLICATE_MESSAGE: Rep =
 	Rep::CostMinorRepeated("Peer sent the same message multiple times");
@@ -92,32 +93,22 @@ impl BitfieldGossipMessage {
 		recipient_version: ProtocolVersion,
 	) -> net_protocol::BitfieldDistributionMessage {
 		match ValidationVersion::try_from(recipient_version).ok() {
-			Some(ValidationVersion::V1) =>
-				Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(
-					self.relay_parent,
-					self.signed_availability.into(),
-				)),
-			Some(ValidationVersion::V2) =>
-				Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
-					self.relay_parent,
-					self.signed_availability.into(),
-				)),
 			Some(ValidationVersion::V3) =>
 				Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
-			None => {
+			_ => {
 				never!("Peers should only have supported protocol versions.");
 
 				gum::warn!(
 					target: LOG_TARGET,
 					version = ?recipient_version,
-					"Unknown protocol version provided for message recipient"
+					"Unknown or unsupported protocol version provided for message recipient"
 				);
 
-				// fall back to v1 to avoid
-				Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(
+				// fall back to v3 to avoid
+				Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				))
@@ -480,28 +471,17 @@ async fn relay_message<Context>(
 			"no peers are interested in gossip for relay parent",
 		);
 	} else {
-		let v1_interested_peers =
-			filter_by_peer_version(&interested_peers, ValidationVersion::V1.into());
-		let v2_interested_peers =
-			filter_by_peer_version(&interested_peers, ValidationVersion::V2.into());
-
 		let v3_interested_peers =
 			filter_by_peer_version(&interested_peers, ValidationVersion::V3.into());
 
-		if !v1_interested_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v1_interested_peers,
-				message.clone().into_validation_protocol(ValidationVersion::V1.into()),
-			))
-			.await;
-		}
-
-		if !v2_interested_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v2_interested_peers,
-				message.clone().into_validation_protocol(ValidationVersion::V2.into()),
-			))
-			.await
+		let unsupported_peers_count = interested_peers.len() - v3_interested_peers.len();
+		if unsupported_peers_count > 0 {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"{} peers are interested in gossip, but have unsupported protocol versions",
+				unsupported_peers_count,
+			);
 		}
 
 		if !v3_interested_peers.is_empty() {
@@ -525,18 +505,23 @@ async fn process_incoming_peer_message<Context>(
 	rng: &mut (impl CryptoRng + Rng),
 ) {
 	let (relay_parent, bitfield) = match message {
-		Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(
-			relay_parent,
-			bitfield,
-		)) => (relay_parent, bitfield),
-		Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
-			relay_parent,
-			bitfield,
-		)) |
 		Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),
+		// Handle unsupported versions.
+		Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(relay_parent, _)) |
+		Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(relay_parent, _)) => {
+			modify_reputation(
+				&mut state.reputation,
+				ctx.sender(),
+				relay_parent,
+				origin,
+				COST_UNSUPPORTED_PROTOCOL_VERSION,
+			)
+			.await;
+			return
+		},
 	};
 
 	gum::trace!(
