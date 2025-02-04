@@ -217,7 +217,7 @@ impl StatementStore {
 		&'a self,
 		validators: &'a [ValidatorIndex],
 		candidate_hash: CandidateHash,
-	) -> impl Iterator<Item = &SignedStatement> + 'a {
+	) -> impl Iterator<Item = &'a SignedStatement> + 'a {
 		let s_st = CompactStatement::Seconded(candidate_hash);
 		let v_st = CompactStatement::Valid(candidate_hash);
 

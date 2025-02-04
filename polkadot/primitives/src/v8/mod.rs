@@ -444,6 +444,9 @@ pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 1_000_000_000;
 /// prior to v9 configuration migration.
 pub const LEGACY_MIN_BACKING_VOTES: u32 = 2;
 
+/// Default value for `SchedulerParams.lookahead`
+pub const DEFAULT_SCHEDULING_LOOKAHEAD: u32 = 3;
+
 // The public key of a keypair used by a validator for determining assignments
 /// to approve included parachain candidates.
 mod assignment_app {
@@ -2132,11 +2135,13 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 #[cfg(test)]
+/// Test helpers
 pub mod tests {
 	use super::*;
 	use bitvec::bitvec;
 	use sp_core::sr25519;
 
+	/// Create a dummy committed candidate receipt
 	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
 		let zeros = Hash::zero();
 

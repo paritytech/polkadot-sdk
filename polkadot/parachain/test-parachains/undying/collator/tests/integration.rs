@@ -19,6 +19,12 @@
 
 // If this test is failing, make sure to run all tests with the `real-overseer` feature being
 // enabled.
+
+use polkadot_node_subsystem::TimeoutExt;
+use std::time::Duration;
+
+const TIMEOUT: Duration = Duration::from_secs(120);
+
 #[tokio::test(flavor = "multi_thread")]
 async fn collating_using_undying_collator() {
 	use polkadot_primitives::Id as ParaId;
@@ -82,8 +88,16 @@ async fn collating_using_undying_collator() {
 		.await;
 
 	// Wait until the parachain has 4 blocks produced.
-	collator.wait_for_blocks(4).await;
+	collator
+		.wait_for_blocks(4)
+		.timeout(TIMEOUT)
+		.await
+		.expect("Timed out waiting for 4 produced blocks");
 
 	// Wait until the collator received `12` seconded statements for its collations.
-	collator.wait_for_seconded_collations(12).await;
+	collator
+		.wait_for_seconded_collations(12)
+		.timeout(TIMEOUT)
+		.await
+		.expect("Timed out waiting for 12 seconded collations");
 }

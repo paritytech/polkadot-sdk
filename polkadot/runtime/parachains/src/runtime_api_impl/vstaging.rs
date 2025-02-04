@@ -45,3 +45,8 @@ pub fn backing_constraints<T: initializer::Config>(
 		future_validation_code: constraints_v11.future_validation_code,
 	})
 }
+
+/// Implementation for `scheduling_lookahead` function from the runtime API
+pub fn scheduling_lookahead<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().scheduler_params.lookahead
+}

@@ -344,11 +344,6 @@ jobs:
           else
             echo "arg=" >> $GITHUB_OUTPUT
           fi
-      
-      - name: Install dependencies for bench
-        if: startsWith(needs.get-pr-info.outputs.CMD, 'bench')
-        run: |
-          cargo install --path substrate/utils/frame/omni-bencher --locked --profile production
 
       - name: Run cmd
         id: cmd

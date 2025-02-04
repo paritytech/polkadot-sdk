@@ -203,8 +203,8 @@ macro_rules! assert_future_iterator {
 	($hash:expr, $pool:expr, [$( $xt:expr ),*]) => {{
 		let futures = $pool.futures_at($hash).unwrap();
 		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
-		log::debug!(target:LOG_TARGET, "expected: {:#?}", futures);
-		log::debug!(target:LOG_TARGET, "output: {:#?}", expected);
+		log::debug!(target:LOG_TARGET, "expected: {:#?}", expected);
+		log::debug!(target:LOG_TARGET, "output: {:#?}", futures);
 		assert_eq!(expected.len(), futures.len());
 		let hsf = futures.iter().map(|a| a.hash).collect::<std::collections::HashSet<_>>();
 		let hse = expected.into_iter().collect::<std::collections::HashSet<_>>();

@@ -30,7 +30,6 @@ fn backed_candidate_leads_to_advertisement() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -240,7 +239,6 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -413,7 +411,6 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -595,7 +592,6 @@ fn receive_ack_for_unconfirmed_candidate() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -657,7 +653,6 @@ fn received_acknowledgements_for_locally_confirmed() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -820,7 +815,6 @@ fn received_acknowledgements_for_externally_confirmed() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -956,7 +950,6 @@ fn received_advertisement_after_confirmation_before_backing() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1135,7 +1128,6 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1423,7 +1415,6 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1637,7 +1628,6 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1849,7 +1839,6 @@ fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2058,7 +2047,6 @@ fn advertisements_rejected_from_incorrect_peers() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2195,7 +2183,6 @@ fn manifest_rejected_with_unknown_relay_parent() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2293,7 +2280,6 @@ fn manifest_rejected_when_not_a_validator() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::None,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2387,7 +2373,6 @@ fn manifest_rejected_when_group_does_not_match_para() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2486,7 +2471,6 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2677,7 +2661,6 @@ fn inactive_local_participates_in_grid() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::InactiveValidator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 

@@ -316,6 +316,10 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
 		Ok(self.full_client.runtime_api().claim_queue(hash)?)
 	}
+
+	async fn scheduling_lookahead(&self, hash: PHash) -> RelayChainResult<u32> {
+		Ok(self.full_client.runtime_api().scheduling_lookahead(hash)?)
+	}
 }
 
 pub enum BlockCheckStatus {

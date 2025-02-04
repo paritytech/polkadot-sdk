@@ -31,7 +31,6 @@ use crate::{
 	},
 	ReadyIteratorFor, LOG_TARGET,
 };
-use futures::prelude::*;
 use itertools::Itertools;
 use parking_lot::RwLock;
 use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus};
@@ -42,6 +41,7 @@ use std::{
 	sync::Arc,
 	time::Instant,
 };
+use tracing::{trace, warn};
 
 /// Helper struct to maintain the context for pending transaction submission, executed for
 /// newly inserted views.
@@ -54,8 +54,6 @@ where
 	xt: ExtrinsicFor<ChainApi>,
 	/// Source of the transaction.
 	source: TimedTransactionSource,
-	/// Inidicates if transaction is watched.
-	watched: bool,
 }
 
 /// Helper type representing the callback allowing to trigger per-transaction events on
@@ -107,14 +105,10 @@ where
 	ChainApi: graph::ChainApi,
 {
 	/// Creates new unprocessed instance of pending transaction submission.
-	fn new_submission_action(
-		xt: ExtrinsicFor<ChainApi>,
-		source: TimedTransactionSource,
-		watched: bool,
-	) -> Self {
+	fn new_submission_action(xt: ExtrinsicFor<ChainApi>, source: TimedTransactionSource) -> Self {
 		Self {
 			processed: false,
-			action: PreInsertAction::SubmitTx(PendingTxSubmission { xt, source, watched }),
+			action: PreInsertAction::SubmitTx(PendingTxSubmission { xt, source }),
 		}
 	}
 
@@ -258,9 +252,14 @@ where
 			.find_or_first(Result::is_ok);
 
 		match result {
-			Some(Err(err)) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] submit_local: err: {}", tx_hash, err);
-				Err(err)
+			Some(Err(error)) => {
+				trace!(
+					target: LOG_TARGET,
+					?tx_hash,
+					%error,
+					"submit_local: err"
+				);
+				Err(error)
 			},
 			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None)),
 			Some(Ok(r)) => Ok(r.into()),
@@ -284,7 +283,7 @@ where
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
 			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
 		};
-		let submit_and_watch_futures = {
+		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
 				.iter()
@@ -292,31 +291,24 @@ where
 					let view = view.clone();
 					let xt = xt.clone();
 					let source = source.clone();
-					async move {
-						match view.submit_and_watch(source, xt).await {
-							Ok(mut result) => {
-								self.listener.add_view_watcher_for_tx(
-									tx_hash,
-									view.at.hash,
-									result.expect_watcher().into_stream().boxed(),
-								);
-								Ok(result)
-							},
-							Err(e) => Err(e),
-						}
-					}
+					async move { view.submit_one(source, xt).await }
 				})
 				.collect::<Vec<_>>()
 		};
-		let result = futures::future::join_all(submit_and_watch_futures)
+		let result = futures::future::join_all(submit_futures)
 			.await
 			.into_iter()
 			.find_or_first(Result::is_ok);
 
 		match result {
-			Some(Err(err)) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
-				return Err(err);
+			Some(Err(error)) => {
+				trace!(
+					target: LOG_TARGET,
+					?tx_hash,
+					%error,
+					"submit_and_watch: err"
+				);
+				return Err(error);
 			},
 			Some(Ok(result)) =>
 				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
@@ -422,8 +414,12 @@ where
 		finalized_hash: Block::Hash,
 		tree_route: &[Block::Hash],
 	) -> Vec<ExtrinsicHash<ChainApi>> {
-		log::trace!(target: LOG_TARGET, "finalize_route finalized_hash:{finalized_hash:?} tree_route: {tree_route:?}");
-
+		trace!(
+			target: LOG_TARGET,
+			?finalized_hash,
+			?tree_route,
+			"finalize_route"
+		);
 		let mut finalized_transactions = Vec::new();
 
 		for block in tree_route.iter().chain(std::iter::once(&finalized_hash)) {
@@ -431,8 +427,12 @@ where
 				.api
 				.block_body(*block)
 				.await
-				.unwrap_or_else(|e| {
-					log::warn!(target: LOG_TARGET, "Finalize route: error request: {}", e);
+				.unwrap_or_else(|error| {
+					warn!(
+						target: LOG_TARGET,
+						%error,
+						"Finalize route: error request"
+					);
 					None
 				})
 				.unwrap_or_default()
@@ -443,7 +443,7 @@ where
 			extrinsics
 				.iter()
 				.enumerate()
-				.for_each(|(i, tx_hash)| self.listener.finalize_transaction(*tx_hash, *block, i));
+				.for_each(|(i, tx_hash)| self.listener.transaction_finalized(*tx_hash, *block, i));
 
 			finalized_transactions.extend(extrinsics);
 		}
@@ -500,7 +500,11 @@ where
 			active_views.insert(view.at.hash, view.clone());
 			most_recent_view_lock.replace(view.at.hash);
 		};
-		log::trace!(target:LOG_TARGET,"insert_new_view: inactive_views: {:?}", self.inactive_views.read().keys());
+		trace!(
+			target: LOG_TARGET,
+			inactive_views = ?self.inactive_views.read().keys(),
+			"insert_new_view"
+		);
 	}
 
 	/// Returns an optional reference to the view at given hash.
@@ -557,8 +561,11 @@ where
 				.for_each(drop);
 		}
 
-		log::trace!(target:LOG_TARGET,"handle_pre_finalized: removed_views: {:?}", removed_views);
-
+		trace!(
+			target: LOG_TARGET,
+			?removed_views,
+			"handle_pre_finalized"
+		);
 		removed_views.iter().for_each(|view| {
 			self.dropped_stream_controller.remove_view(*view);
 		});
@@ -613,10 +620,18 @@ where
 				retain
 			});
 
-			log::trace!(target:LOG_TARGET,"handle_finalized: inactive_views: {:?}", inactive_views.keys());
+			trace!(
+				target: LOG_TARGET,
+				inactive_views = ?inactive_views.keys(),
+				"handle_finalized"
+			);
 		}
 
-		log::trace!(target:LOG_TARGET,"handle_finalized: dropped_views: {:?}", dropped_views);
+		trace!(
+			target: LOG_TARGET,
+			?dropped_views,
+			"handle_finalized"
+		);
 
 		self.listener.remove_stale_controllers();
 		self.dropped_stream_controller.remove_finalized_txs(finalized_xts.clone());
@@ -647,7 +662,11 @@ where
 				.collect::<Vec<_>>()
 		};
 		futures::future::join_all(finish_revalidation_futures).await;
-		log::trace!(target:LOG_TARGET,"finish_background_revalidations took {:?}", start.elapsed());
+		trace!(
+			target: LOG_TARGET,
+			duration = ?start.elapsed(),
+			"finish_background_revalidations"
+		);
 	}
 
 	/// Replaces an existing transaction in the view_store with a new one.
@@ -667,22 +686,21 @@ where
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 		replaced: ExtrinsicHash<ChainApi>,
-		watched: bool,
 	) {
 		if let Entry::Vacant(entry) = self.pending_txs_tasks.write().entry(replaced) {
-			entry.insert(PendingPreInsertTask::new_submission_action(
-				xt.clone(),
-				source.clone(),
-				watched,
-			));
+			entry.insert(PendingPreInsertTask::new_submission_action(xt.clone(), source.clone()));
 		} else {
 			return
 		};
 
-		let xt_hash = self.api.hash_and_length(&xt).0;
-		log::trace!(target:LOG_TARGET,"[{replaced:?}] replace_transaction wtih {xt_hash:?}, w:{watched}");
-
-		self.replace_transaction_in_views(source, xt, xt_hash, replaced, watched).await;
+		let tx_hash = self.api.hash_and_length(&xt).0;
+		trace!(
+			target: LOG_TARGET,
+			?replaced,
+			?tx_hash,
+			"replace_transaction"
+		);
+		self.replace_transaction_in_views(source, xt, tx_hash, replaced).await;
 
 		if let Some(replacement) = self.pending_txs_tasks.write().get_mut(&replaced) {
 			replacement.mark_processed();
@@ -703,7 +721,6 @@ where
 						submission.source.clone(),
 						submission.xt.clone(),
 						xt_hash,
-						submission.watched,
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
@@ -723,34 +740,16 @@ where
 		view: Arc<View<ChainApi>>,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-		xt_hash: ExtrinsicHash<ChainApi>,
-		watched: bool,
+		tx_hash: ExtrinsicHash<ChainApi>,
 	) {
-		if watched {
-			match view.submit_and_watch(source, xt).await {
-				Ok(mut result) => {
-					self.listener.add_view_watcher_for_tx(
-						xt_hash,
-						view.at.hash,
-						result.expect_watcher().into_stream().boxed(),
-					);
-				},
-				Err(e) => {
-					log::trace!(
-						target:LOG_TARGET,
-						"[{:?}] replace_transaction: submit_and_watch to {} failed {}",
-						xt_hash, view.at.hash, e
-					);
-				},
-			}
-		} else {
-			if let Some(Err(e)) = view.submit_many(std::iter::once((source, xt))).await.pop() {
-				log::trace!(
-					target:LOG_TARGET,
-					"[{:?}] replace_transaction: submit to {} failed {}",
-					xt_hash, view.at.hash, e
-				);
-			}
+		if let Err(error) = view.submit_one(source, xt).await {
+			trace!(
+				target: LOG_TARGET,
+				?tx_hash,
+				at_hash = ?view.at.hash,
+				%error,
+				"replace_transaction: submit failed"
+			);
 		}
 	}
 
@@ -762,19 +761,9 @@ where
 		&self,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-		xt_hash: ExtrinsicHash<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
 		replaced: ExtrinsicHash<ChainApi>,
-		watched: bool,
 	) {
-		if watched && !self.listener.contains_tx(&xt_hash) {
-			log::trace!(
-				target:LOG_TARGET,
-				"error: replace_transaction_in_views: no listener for watched transaction {:?}",
-				xt_hash,
-			);
-			return;
-		}
-
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			let inactive_views = self.inactive_views.read();
@@ -787,8 +776,7 @@ where
 						view.clone(),
 						source.clone(),
 						xt.clone(),
-						xt_hash,
-						watched,
+						tx_hash,
 					)
 				})
 				.collect::<Vec<_>>()

@@ -41,9 +41,9 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, AsyncBackingParams,
-	CollatorPair, CoreIndex, GroupRotationInfo, HeadData, NodeFeatures, PersistedValidationData,
-	ValidatorId, ValidatorIndex,
+	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex,
+	GroupRotationInfo, HeadData, NodeFeatures, PersistedValidationData, ValidatorId,
+	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_hash};
 
@@ -71,7 +71,7 @@ struct TestState {
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
 	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
-	async_backing_params: AsyncBackingParams,
+	scheduling_lookahead: u32,
 	node_features: NodeFeatures,
 	session_index: SessionIndex,
 	// Used by `update_view` to keep track of latest requested ancestor
@@ -101,18 +101,19 @@ impl Default for TestState {
 		let group_rotation_info =
 			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 1, now: 0 };
 
+		let scheduling_lookahead = 3;
 		let mut claim_queue = BTreeMap::new();
 		claim_queue.insert(
 			CoreIndex(0),
 			iter::repeat(ParaId::from(Self::CHAIN_IDS[0]))
-				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize)
+				.take(scheduling_lookahead as usize)
 				.collect(),
 		);
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
 		claim_queue.insert(
 			CoreIndex(2),
 			iter::repeat(ParaId::from(Self::CHAIN_IDS[1]))
-				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize)
+				.take(scheduling_lookahead as usize)
 				.collect(),
 		);
 
@@ -128,7 +129,7 @@ impl Default for TestState {
 			validator_groups,
 			group_rotation_info,
 			claim_queue,
-			async_backing_params: Self::ASYNC_BACKING_PARAMS,
+			scheduling_lookahead,
 			node_features,
 			session_index: 1,
 			last_known_block: None,
@@ -138,8 +139,6 @@ impl Default for TestState {
 
 impl TestState {
 	const CHAIN_IDS: [u32; 2] = [1, 2];
-	const ASYNC_BACKING_PARAMS: AsyncBackingParams =
-		AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
 
 	fn with_shared_core() -> Self {
 		let mut state = Self::default();
@@ -159,8 +158,7 @@ impl TestState {
 		state.validator_groups.truncate(1);
 
 		assert!(
-			claim_queue.get(&CoreIndex(0)).unwrap().len() ==
-				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
+			claim_queue.get(&CoreIndex(0)).unwrap().len() == state.scheduling_lookahead as usize
 		);
 
 		state.claim_queue = claim_queue;
@@ -187,8 +185,7 @@ impl TestState {
 		);
 
 		assert!(
-			claim_queue.get(&CoreIndex(0)).unwrap().len() ==
-				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
+			claim_queue.get(&CoreIndex(0)).unwrap().len() == state.scheduling_lookahead as usize
 		);
 
 		state.validator_groups = validator_groups;

@@ -23,14 +23,15 @@
 
 use polkadot_omni_node_lib::{
 	chain_spec::DiskChainSpecLoader, run, runtime::DefaultRuntimeResolver, CliConfig as CliConfigT,
-	RunConfig,
+	RunConfig, NODE_VERSION,
 };
 
 struct CliConfig;
 
 impl CliConfigT for CliConfig {
 	fn impl_version() -> String {
-		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+		let commit_hash = env!("SUBSTRATE_CLI_COMMIT_HASH");
+		format!("{}-{commit_hash}", NODE_VERSION)
 	}
 
 	fn author() -> String {

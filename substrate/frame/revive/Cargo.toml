@@ -44,6 +44,9 @@ pallet-revive-uapi = { workspace = true, features = ["scale"] }
 pallet-transaction-payment = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
+sp-consensus-aura = { workspace = true, optional = true }
+sp-consensus-babe = { workspace = true, optional = true }
+sp-consensus-slots = { workspace = true, optional = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
@@ -96,6 +99,9 @@ std = [
 	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
+	"sp-consensus-aura/std",
+	"sp-consensus-babe/std",
+	"sp-consensus-slots/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-keystore/std",
@@ -114,6 +120,9 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"sp-consensus-aura",
+	"sp-consensus-babe",
+	"sp-consensus-slots",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",

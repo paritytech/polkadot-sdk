@@ -49,14 +49,14 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	request_async_backing_params, request_claim_queue, request_session_index_for_child,
-	runtime::{recv_runtime, request_node_features},
+	request_claim_queue, request_session_index_for_child,
+	runtime::request_node_features,
 };
 use polkadot_primitives::{
 	node_features,
 	vstaging::{CandidateDescriptorV2, CandidateDescriptorVersion},
-	AsyncBackingParams, CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId,
-	OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, SessionIndex,
 };
 
 use crate::error::{Error, FetchError, Result, SecondingError};
@@ -166,7 +166,7 @@ impl PeerData {
 	fn update_view(
 		&mut self,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashMap<Hash, AsyncBackingParams>,
+		active_leaves: &HashSet<Hash>,
 		new_view: View,
 	) {
 		let old_view = std::mem::replace(&mut self.view, new_view);
@@ -191,7 +191,7 @@ impl PeerData {
 	fn prune_old_advertisements(
 		&mut self,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashMap<Hash, AsyncBackingParams>,
+		active_leaves: &HashSet<Hash>,
 	) {
 		if let PeerState::Collating(ref mut peer_state) = self.state {
 			peer_state.advertisements.retain(|hash, _| {
@@ -215,7 +215,7 @@ impl PeerData {
 		on_relay_parent: Hash,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashMap<Hash, AsyncBackingParams>,
+		active_leaves: &HashSet<Hash>,
 		per_relay_parent: &PerRelayParent,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
@@ -365,10 +365,10 @@ struct State {
 	/// ancestry of some active leaf, then it does support prospective parachains.
 	implicit_view: ImplicitView,
 
-	/// All active leaves observed by us. This mapping works as a replacement for
+	/// All active leaves observed by us. This works as a replacement for
 	/// [`polkadot_node_network_protocol::View`] and can be dropped once the transition
 	/// to asynchronous backing is done.
-	active_leaves: HashMap<Hash, AsyncBackingParams>,
+	active_leaves: HashSet<Hash>,
 
 	/// State tracked per relay parent.
 	per_relay_parent: HashMap<Hash, PerRelayParent>,
@@ -465,10 +465,10 @@ impl State {
 fn is_relay_parent_in_implicit_view(
 	relay_parent: &Hash,
 	implicit_view: &ImplicitView,
-	active_leaves: &HashMap<Hash, AsyncBackingParams>,
+	active_leaves: &HashSet<Hash>,
 	para_id: ParaId,
 ) -> bool {
-	active_leaves.iter().any(|(hash, _)| {
+	active_leaves.iter().any(|hash| {
 		implicit_view
 			.known_allowed_relay_parents_under(hash, Some(para_id))
 			.unwrap_or_default()
@@ -1118,8 +1118,7 @@ where
 {
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
-	if peer_data.version == CollationVersion::V1 && !state.active_leaves.contains_key(&relay_parent)
-	{
+	if peer_data.version == CollationVersion::V1 && !state.active_leaves.contains(&relay_parent) {
 		return Err(AdvertisementError::ProtocolMisuse)
 	}
 
@@ -1274,17 +1273,14 @@ where
 {
 	let current_leaves = state.active_leaves.clone();
 
-	let removed = current_leaves.iter().filter(|(h, _)| !view.contains(h));
-	let added = view.iter().filter(|h| !current_leaves.contains_key(h));
+	let removed = current_leaves.iter().filter(|h| !view.contains(h));
+	let added = view.iter().filter(|h| !current_leaves.contains(h));
 
 	for leaf in added {
 		let session_index = request_session_index_for_child(*leaf, sender)
 			.await
 			.await
 			.map_err(Error::CancelledSessionIndex)??;
-
-		let async_backing_params =
-			recv_runtime(request_async_backing_params(*leaf, sender).await).await?;
 
 		let v2_receipts = request_node_features(*leaf, session_index, sender)
 			.await?
@@ -1306,7 +1302,7 @@ where
 			continue
 		};
 
-		state.active_leaves.insert(*leaf, async_backing_params);
+		state.active_leaves.insert(*leaf);
 		state.per_relay_parent.insert(*leaf, per_relay_parent);
 
 		state
@@ -1340,7 +1336,7 @@ where
 		}
 	}
 
-	for (removed, _) in removed {
+	for removed in removed {
 		gum::trace!(
 			target: LOG_TARGET,
 			?view,

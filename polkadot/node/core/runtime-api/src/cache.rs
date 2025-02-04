@@ -76,6 +76,7 @@ pub(crate) struct RequestResultCache {
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
 	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	backing_constraints: LruMap<(Hash, ParaId), Option<Constraints>>,
+	scheduling_lookahead: LruMap<SessionIndex, u32>,
 }
 
 impl Default for RequestResultCache {
@@ -114,6 +115,7 @@ impl Default for RequestResultCache {
 			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			claim_queue: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			backing_constraints: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			scheduling_lookahead: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -576,10 +578,21 @@ impl RequestResultCache {
 	) {
 		self.backing_constraints.insert(key, value);
 	}
+
+	pub(crate) fn scheduling_lookahead(&mut self, session_index: SessionIndex) -> Option<u32> {
+		self.scheduling_lookahead.get(&session_index).copied()
+	}
+
+	pub(crate) fn cache_scheduling_lookahead(
+		&mut self,
+		session_index: SessionIndex,
+		scheduling_lookahead: u32,
+	) {
+		self.scheduling_lookahead.insert(session_index, scheduling_lookahead);
+	}
 }
 
 pub(crate) enum RequestResult {
-	// The structure of each variant is (relay_parent, [params,]*, result)
 	Authorities(Hash, Vec<AuthorityDiscoveryId>),
 	Validators(Hash, Vec<ValidatorId>),
 	MinimumBackingVotes(SessionIndex, u32),
@@ -628,4 +641,5 @@ pub(crate) enum RequestResult {
 	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
 	CandidatesPendingAvailability(Hash, ParaId, Vec<CommittedCandidateReceipt>),
 	BackingConstraints(Hash, ParaId, Option<Constraints>),
+	SchedulingLookahead(SessionIndex, u32),
 }

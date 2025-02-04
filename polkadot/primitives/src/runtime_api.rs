@@ -303,5 +303,10 @@ sp_api::decl_runtime_apis! {
 		/// block.
 		#[api_version(12)]
 		fn backing_constraints(para_id: ppp::Id) -> Option<Constraints>;
+
+		/***** Added in v12 *****/
+		/// Retrieve the scheduling lookahead
+		#[api_version(12)]
+		fn scheduling_lookahead() -> u32;
 	}
 }

@@ -1,0 +1,17 @@
+title: Replace derivative dependency with derive-where
+author: conr2d
+topic: runtime
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    The `derivative` crate, previously used to derive basic traits for structs with
+    generics or enums, is no longer actively maintained. It has been replaced with
+    the `derive-where` crate, which offers a more straightforward syntax while
+    providing the same features as `derivative`.
+
+crates:
+  - name: cumulus-pallet-weight-reclaim
+    bump: patch
+  - name: staging-xcm
+    bump: patch

@@ -464,6 +464,10 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	) -> Result<Option<Constraints>, ApiError> {
 		Ok(self.rpc_client.parachain_host_backing_constraints(at, para_id).await?)
 	}
+
+	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
+		Ok(self.rpc_client.parachain_host_scheduling_lookahead(at).await?)
+	}
 }
 
 #[async_trait::async_trait]

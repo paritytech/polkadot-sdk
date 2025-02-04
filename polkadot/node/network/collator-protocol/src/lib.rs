@@ -32,7 +32,7 @@ use polkadot_node_subsystem_util::reputation::ReputationAggregator;
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::{
-	request_response::{v1 as request_v1, v2 as protocol_v2, IncomingRequestReceiver},
+	request_response::{v2 as protocol_v2, IncomingRequestReceiver},
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::CollatorPair;
@@ -81,8 +81,6 @@ pub enum ProtocolSide {
 		peer_id: PeerId,
 		/// Parachain collator pair.
 		collator_pair: CollatorPair,
-		/// Receiver for v1 collation fetching requests.
-		request_receiver_v1: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 		/// Receiver for v2 collation fetching requests.
 		request_receiver_v2: IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
 		/// Metrics.
@@ -116,22 +114,10 @@ impl<Context> CollatorProtocolSubsystem {
 				validator_side::run(ctx, keystore, eviction_policy, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 					.boxed(),
-			ProtocolSide::Collator {
-				peer_id,
-				collator_pair,
-				request_receiver_v1,
-				request_receiver_v2,
-				metrics,
-			} => collator_side::run(
-				ctx,
-				peer_id,
-				collator_pair,
-				request_receiver_v1,
-				request_receiver_v2,
-				metrics,
-			)
-			.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-			.boxed(),
+			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } =>
+				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics)
+					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+					.boxed(),
 			ProtocolSide::None => return DummySubsystem.start(ctx),
 		};
 
