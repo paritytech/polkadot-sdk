@@ -30,7 +30,7 @@ use frame_system::RawOrigin;
 use sp_runtime::traits::One;
 
 const SEED: u32 = 0;
-/*
+
 pub fn next_block<T: Config>() {
 	let when = T::BlockNumberProvider::current_block_number().saturating_add(One::one());
 	T::BlockNumberProvider::set_block_number(when);
@@ -47,7 +47,7 @@ pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
 		next_block::<T>();
 	}
 }
-*/
+
 fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<(), &'static str> {
 	let mut batch = BoundedVec::<ProjectId<T>, <T as Config>::MaxProjects>::new();
 	for i in 1..=n {
@@ -157,7 +157,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/*#[benchmark]
+	#[benchmark]
 	fn claim_reward_for(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
@@ -169,8 +169,8 @@ mod benchmarks {
 			"Project_id not set up correctly."
 		);
 
-		let mut when = T::BlockNumberProvider::current_block_number() + One::one();
-		run_to_block::<T>(when);
+		//let mut when = T::BlockNumberProvider::current_block_number() + One::one();
+		//run_to_block::<T>(when);
 		ensure!(VotingRounds::<T>::get(0).is_some(), "Round not created!");
 		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
 
@@ -192,16 +192,18 @@ mod benchmarks {
 		assert_eq!(Democracy::ReferendumCount::<T>::get(), r, "referenda not created");
 
 		// go to claiming period
-		when = round_end.saturating_add(<T as Config>::EnactmentPeriod::get());
-		run_to_block::<T>(when);
+		let when = round_end.saturating_add(<T as Config>::EnactmentPeriod::get());
+		T::BlockNumberProvider::set_block_number(when);
+		Opf::<T>::on_registration(RawOrigin::Signed(caller.clone()).into(), account0.clone())?;
+		Opf::<T>::claim_reward_for(RawOrigin::Signed(caller.clone()).into(), account0.clone())?;
 
-		let _spend = Spends::<T>::get(&account0.clone()).ok_or("Problem with spend creation")?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account0);
+		#[block]
+		{
+			Opf::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
+		}
 
 		Ok(())
-	}*/
+	}
 
 	impl_benchmark_test_suite!(Opf, crate::mock::new_test_ext(), crate::mock::Test);
 }
