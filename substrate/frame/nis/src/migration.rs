@@ -1,11 +1,16 @@
-use super::*;
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::*;
 use core::marker::PhantomData;
-use frame_support::traits::UncheckedOnRuntimeUpgrade;
-use sp_runtime::Weight;
+use frame_support::{
+	pallet_prelude::*,
+	traits::{Get, UncheckedOnRuntimeUpgrade},
+};
+use sp_runtime::{Saturating, Weight};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
+
+/// The log target.
+const TARGET: &'static str = "runtime::nis::migration::v1";
 
 type SystemBlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
 
@@ -15,27 +20,20 @@ pub mod v0 {
 
 	#[storage_alias]
 	pub type Receipts<T: Config> =
-		StorageMap<Pallet<T>, Blake2_128Concat, ReceiptIndex, ReceiptRecordOf<T>, OptionQuery>;
-	pub type ReceiptRecordOf<T> = ReceiptRecord<
+		StorageMap<Pallet<T>, Blake2_128Concat, ReceiptIndex, OldReceiptRecordOf<T>, OptionQuery>;
+	pub type OldReceiptRecordOf<T> = ReceiptRecord<
 		<T as frame_system::Config>::AccountId,
 		SystemBlockNumberFor<T>,
 		BalanceOf<T>,
 	>;
+
+	#[storage_alias]
+	pub type Summary<T: Config> = StorageValue<Pallet<T>, OldSummaryRecordOf<T>, ValueQuery>;
+	pub type OldSummaryRecordOf<T> = SummaryRecord<SystemBlockNumberFor<T>, BalanceOf<T>>;
 }
 
 pub mod v1 {
-	use super::*;
-	pub fn get_all_receipt_expiries<T: Config>() -> Vec<(ReceiptIndex, SystemBlockNumberFor<T>)> {
-		let mut receipt_expiry = Vec::new();
-
-		// Using for_each to collect the index and expiry values
-		v0::Receipts::<T>::iter().for_each(|(index, receipt)| {
-			// Collecting both the index and the expiry block number as a tuple
-			receipt_expiry.push((index, receipt.expiry));
-		});
-
-		receipt_expiry
-	}
+	use super::*; 
 
 	pub trait BlockToRelayHeightConversion<T: Config> {
 		fn convert_block_number_to_relay_height(
@@ -43,52 +41,103 @@ pub mod v1 {
 		) -> BlockNumberFor<T>;
 	}
 
-	pub struct MigrateToRBN<T, BlockConversion>(PhantomData<T>, PhantomData<BlockConversion>);
+	pub struct MigrateV0ToV1<T, BlockConversion>(PhantomData<T>, PhantomData<BlockConversion>);
 	impl<T: Config, BlockConversion: BlockToRelayHeightConversion<T>> UncheckedOnRuntimeUpgrade
-		for MigrateToRBN<T, BlockConversion>
+		for MigrateV0ToV1<T, BlockConversion>
 	{
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			// Collect the receipt expiry data, convert it, and prepare for encoding
-			let updated_expiry_records: Vec<(ReceiptIndex, BlockNumberFor<T>)> =
-				get_all_receipt_expiries::<T>()
-					.into_iter()
-					.map(|(index, expiry)| {
-						let updated_expiry =
-							BlockConversion::convert_block_number_to_relay_height(expiry);
-						(index, updated_expiry)
-					})
-					.collect();
-
-			// Encode the updated records and return them
-			Ok(updated_expiry_records.encode())
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let old_receipts = v0::Receipts::<T>::iter().collect::<Vec<_>>();
+			log::info!(target: TARGET, "reciept expirys will be migrated.");
+			let old_summary = v0::Summary::<T>::get();
+			log::info!(target: TARGET, "The current thaw period's beginning will be migrated.");
+			Ok((old_receipts, old_summary).encode())
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			log::info!(
-					target: LOG_TARGET,
-					"Running migration to change reciept expiry to new clock.",
-			);
-
 			let mut call_count = 0u64;
 
-			// Iterate over v0::Receipts and update the expiry in Receipts
-			v0::Receipts::<T>::iter().for_each(|(index, v0_receipt)| {
-				// Use mutate to modify the value directly in the storage
-				Receipts::<T>::mutate(index, |maybe_receipt| {
-					if let Some(receipt) = maybe_receipt {
-						// Update the expiry field
-						receipt.expiry = BlockConversion::convert_block_number_to_relay_height(
-							v0_receipt.expiry,
-						);
-
-						// Increment the call count
-						call_count = call_count.saturating_add(2);
-					}
+			// Check if migration is needed (old storage version)
+			if StorageVersion::get::<Pallet<T>>() == 0 {
+				Receipts::<T>::translate(|index, old_receipt: v0::OldReceiptRecordOf<T>| {
+					call_count.saturating_inc();
+					log::info!(target: TARGET, "migrating reciept record expiry #{:?}", &index);
+					let new_expiry =
+						BlockConversion::convert_block_number_to_relay_height(old_receipt.expiry);
+					Some(ReceiptRecord {
+						proportion: old_receipt.proportion,
+						owner: old_receipt.owner,
+						expiry: new_expiry,
+					})
 				});
-			});
 
-			call_count.into()
+				// Read old value
+				let old_summary = v0::Summary::<T>::get();
+
+				let new_last_period =
+					BlockConversion::convert_block_number_to_relay_height(old_summary.last_period);
+				// Convert to new format
+				let new_summary = SummaryRecord {
+					proportion_owed: old_summary.proportion_owed,
+					index: old_summary.index,
+					thawed: old_summary.thawed,
+					last_period: new_last_period,
+					receipts_on_hold: old_summary.receipts_on_hold,
+				};
+				// Write new value
+				Summary::<T>::put(new_summary);
+				// Update storage version
+				StorageVersion::new(1).put::<Pallet<T>>();
+				// Return weight (adjust based on operations)
+				T::DbWeight::get().reads_writes(call_count + 1u64, call_count + 2u64)
+			} else {
+				log::info!(target: TARGET, "nill");
+				call_count.into()
+			}
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// Decode pre-upgrade state
+			let (old_receipts, old_summary): (Vec<(ReceiptIndex ,v0::OldReceiptRecordOf<T>)>, v0::OldSummaryRecordOf<T>) =
+				Decode::decode(&mut &state[..]).expect("pre_upgrade data must decode");
+
+			// Verify Receipts migration
+			for (index, old_receipt) in old_receipts {
+				let new_receipt =
+					Receipts::<T>::get(index).ok_or("Receipt missing after migration")?;
+
+				// Verify expiry conversion
+				let expected_expiry =
+					BlockConversion::convert_block_number_to_relay_height(old_receipt.expiry);
+				ensure!(new_receipt.expiry == expected_expiry, "Receipt expiry conversion failed");
+
+				// Verify other fields unchanged
+				ensure!(
+					new_receipt.proportion == old_receipt.proportion &&
+						new_receipt.owner == old_receipt.owner,
+					"Receipt fields corrupted"
+				);
+			}
+
+			// Verify Summary migration
+			let new_summary = Summary::<T>::get();
+			let old_summary_last_period = BlockConversion::convert_block_number_to_relay_height(old_summary.last_period);
+			ensure!(new_summary.last_period == old_summary_last_period, "Summary conversion failed");
+
+			// Verify storage version
+			ensure!(StorageVersion::get::<Pallet<T>>() == 1, "Storage version not updated");
+
+			Ok(())
 		}
 	}
 }
+
+/// Migrate the pallet storage from `0` to `1`.
+pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
+	0,
+	1,
+	v1::MigrateToV1Impl<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
