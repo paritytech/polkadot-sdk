@@ -25,8 +25,8 @@ cp ./target/$PROFILE/$BIN "$ARTIFACTS"
 pushd "$ARTIFACTS" > /dev/null
 sha256sum "$BIN" | tee "$BIN.sha256"
 chmod a+x "$BIN"
-VERSION="$($BIN --version)"
-EXTRATAG="echo $VERSION |
+VERSION="$($ARTIFACTS/$BIN --version)"
+EXTRATAG="$(echo "${VERSION}" |
     sed -n -r 's/^'$BIN' ([0-9.]+.*-[0-9a-f]{7,13})-.*$/\1/p')"
 EXTRATAG="${VERSION}-${EXTRATAG}-$(cut -c 1-8 $ARTIFACTS/$BIN.sha256)"
 
