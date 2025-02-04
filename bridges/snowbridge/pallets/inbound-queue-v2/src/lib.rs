@@ -40,24 +40,21 @@ mod test;
 
 use frame_system::ensure_signed;
 use snowbridge_core::{
+	reward::{ether_asset, PaymentProcedure},
 	sparse_bitmap::SparseBitmap,
-	reward::{PaymentProcedure, ether_asset},
 	BasicOperatingMode,
 };
 use snowbridge_inbound_queue_primitives::{
-	VerificationError, Verifier, EventProof,
-	v2::{Message, ConvertMessage, ConvertMessageError}
+	v2::{ConvertMessage, ConvertMessageError, Message},
+	EventProof, VerificationError, Verifier,
 };
 use sp_core::H160;
 use types::Nonce;
 pub use weights::WeightInfo;
-use xcm::prelude::{Junction::*, Location, SendXcm, ExecuteXcm, *};
+use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
 
 #[cfg(feature = "runtime-benchmarks")]
-use {
-	snowbridge_beacon_primitives::BeaconHeader,
-	sp_core::H256
-};
+use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
 
 pub use pallet::*;
 
@@ -160,7 +157,6 @@ pub mod pallet {
 		RewardPaymentFailed,
 		/// Message verification error
 		Verification(VerificationError),
-
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -191,7 +187,7 @@ pub mod pallet {
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> where Location: From<<T as frame_system::Config>::AccountId> {
+	impl<T: Config> Pallet<T> {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
@@ -207,7 +203,9 @@ pub mod pallet {
 			let message =
 				Message::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidMessage)?;
 
-			Self::process_message(who.into(), message)
+			let reward_account_location = AccountId32 { id: [0; 32], network: None }.into();
+
+			Self::process_message(reward_account_location, message)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
@@ -224,7 +222,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> where Location: From<<T as frame_system::Config>::AccountId> {
+	impl<T: Config> Pallet<T> {
 		pub fn process_message(relayer: Location, message: Message) -> DispatchResult {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
@@ -256,17 +254,20 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn send_xcm(dest: Location, fee_payer: Location, xcm: Xcm<()>) -> Result<XcmHash, SendError> {
+		fn send_xcm(
+			dest: Location,
+			fee_payer: Location,
+			xcm: Xcm<()>,
+		) -> Result<XcmHash, SendError> {
 			let (ticket, fee) = validate_send::<T::XcmSender>(dest, xcm)?;
-			T::XcmExecutor::charge_fees(fee_payer.clone(), fee.clone())
-				.map_err(|error| {
-					tracing::error!(
-						target: "snowbridge_pallet_inbound_queue_v2::send_xcm",
-						?error,
-						"Charging fees failed with error",
-					);
-					SendError::Fees
-				})?;
+			T::XcmExecutor::charge_fees(fee_payer.clone(), fee.clone()).map_err(|error| {
+				tracing::error!(
+					target: "snowbridge_pallet_inbound_queue_v2::send_xcm",
+					?error,
+					"Charging fees failed with error",
+				);
+				SendError::Fees
+			})?;
 			Self::deposit_event(Event::FeesPaid { paying: fee_payer, fees: fee });
 			T::XcmSender::deliver(ticket)
 		}

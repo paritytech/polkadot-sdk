@@ -127,10 +127,10 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
 	type GatewayAddress = EthereumGatewayAddress;
-	#[cfg(feature = "runtime-benchmarks")]
-	type Helper = Runtime;
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
 	type AssetHubParaId = ConstU32<1000>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = Runtime;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		EthereumNetwork,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V2>,
@@ -286,10 +286,17 @@ pub mod benchmark_helpers {
 	use codec::Encode;
 	use snowbridge_beacon_primitives::BeaconHeader;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
+	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as BenchmarkHelperV2;
 	use sp_core::H256;
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
+		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
+			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+		}
+	}
+
+	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelperV2<T> for Runtime {
 		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
 			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
 		}

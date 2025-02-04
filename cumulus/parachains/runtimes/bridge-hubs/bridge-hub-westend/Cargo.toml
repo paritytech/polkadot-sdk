@@ -274,6 +274,7 @@ runtime-benchmarks = [
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-system-v2/runtime-benchmarks",

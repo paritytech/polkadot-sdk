@@ -3,6 +3,7 @@
 use super::*;
 
 use crate::Pallet as InboundQueue;
+use alloc::boxed::Box;
 use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
