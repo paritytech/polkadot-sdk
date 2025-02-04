@@ -296,10 +296,12 @@ pub mod pallet {
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 	}
 
+
+	type BlockNumberProvider: BlockNumberProvider;
+
 	#[pallet::storage]
 	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
 
-	type BlockNumberProvider: BlockNumberProvider;
 
 	/// Items to be executed, indexed by the block number that they should be executed on.
 	#[pallet::storage]
