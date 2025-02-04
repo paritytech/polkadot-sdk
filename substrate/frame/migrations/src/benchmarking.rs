@@ -230,10 +230,10 @@ mod benches {
 		// However, the benchmarking PoV results are correctly dependent on the amount of
 		// keys removed.
 		match result {
-			KillStorageResult::AllRemoved(i) => {
+			KillStorageResult::AllRemoved(_i) => {
 				// during the test the storage is not comitted and `i` will always be 0
 				#[cfg(not(test))]
-				ensure!(i == n, "Not all keys are removed");
+				ensure!(_i == n, "Not all keys are removed");
 			},
 			_ => Err("Not all keys were removed")?,
 		}
