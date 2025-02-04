@@ -1453,6 +1453,11 @@ mod benches {
 	);
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub const RANDOM_PARA_ID: ParaId = ParaId::new(43211234);
+
+
+
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
@@ -1879,8 +1884,10 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 
-				pub const RandomParaId: ParaId = ParaId::new(43211234);
-				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
+				pub RandomParaLocation: Location = Location::new(
+					1, // parents: 1 (Relay Chain)
+					[Parachain(RANDOM_PARA_ID.into())] // interior: Parachain(43211234)
+				);
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
