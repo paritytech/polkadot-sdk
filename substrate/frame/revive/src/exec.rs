@@ -1277,10 +1277,7 @@ where
 				.and_then(|_| T::Currency::transfer(from, to, value, Preservation::Preserve))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(Default::default())),
-				Err(err) => {
-					log::debug!(target: crate::LOG_TARGET, "Transfer failed: {err:?}");
-					TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into()))
-				},
+				Err(_) => TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into())),
 			}
 		})
 	}
