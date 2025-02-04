@@ -19,8 +19,8 @@ use crate::{weights::WeightInfo, Config};
 use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::{
-	migrations::{SteppedMigration, SteppedMigrationError},
-	traits::{GetStorageVersion, PalletInfoAccess, WriteStorageVersion},
+	migrations::{SteppedMigration, SteppedMigrationError, StoreInCodeStorageVersion},
+	traits::{GetStorageVersion, PalletInfoAccess},
 	weights::WeightMeter,
 };
 use sp_core::{twox_128, Get};
@@ -54,10 +54,11 @@ where
 	}
 }
 
-impl<T, P> SteppedMigration for ResetPallet<T, P>
+impl<T, P, V> SteppedMigration for ResetPallet<T, P>
 where
 	T: Config,
-	P: PalletInfoAccess + GetStorageVersion,
+	P: PalletInfoAccess + GetStorageVersion<InCodeStorageVersion = V>,
+	V: StoreInCodeStorageVersion<P>,
 {
 	type Cursor = bool;
 	type Identifier = [u8; 16];
@@ -76,7 +77,7 @@ where
 			meter
 				.try_consume(required)
 				.map_err(|_| SteppedMigrationError::InsufficientWeight { required })?;
-			P::in_code_storage_version().write_storage_version::<P>();
+			V::store_in_code_storage_version();
 			return Ok(None);
 		}
 
