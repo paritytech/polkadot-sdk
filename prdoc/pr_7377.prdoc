@@ -16,3 +16,5 @@ doc:
 crates:
 - name: pallet-nomination-pools
   bump: major
+- name: pallet-staking
+  bump: none
