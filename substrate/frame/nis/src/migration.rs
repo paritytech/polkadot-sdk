@@ -140,10 +140,10 @@ pub mod v1 {
 }
 
 /// Migrate the pallet storage from `0` to `1`.
-pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
+pub type MigrateV0ToV1<T, BlockConversion> = frame_support::migrations::VersionedMigration<
 	0,
 	1,
-	v1::MigrateToV1Impl<T>,
+	v1::MigrateV0ToV1<T, BlockConversion>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
