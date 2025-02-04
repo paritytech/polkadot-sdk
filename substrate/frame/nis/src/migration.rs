@@ -4,7 +4,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Get, UncheckedOnRuntimeUpgrade},
 };
-use sp_runtime::{Saturating, Weight};
+use sp_runtime::Weight;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -55,12 +55,12 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let mut call_count = 0u64;
+			let mut weight = T::DbWeight::get().reads(1);
 
 			// Check if migration is needed (old storage version)
 			if StorageVersion::get::<Pallet<T>>() == 0 {
 				Receipts::<T>::translate(|index, old_receipt: v0::OldReceiptRecordOf<T>| {
-					call_count.saturating_inc();
+					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 					log::info!(target: TARGET, "migrating reciept record expiry #{:?}", &index);
 					let new_expiry =
 						BlockConversion::convert_block_number_to_relay_height(old_receipt.expiry);
@@ -89,10 +89,10 @@ pub mod v1 {
 				// Update storage version
 				StorageVersion::new(1).put::<Pallet<T>>();
 				// Return weight (adjust based on operations)
-				T::DbWeight::get().reads_writes(call_count + 1u64, call_count + 2u64)
+				weight.saturating_add(T::DbWeight::get().reads_writes(1, 3))
 			} else {
 				log::info!(target: TARGET, "nill");
-				call_count.into()
+				weight
 			}
 		}
 
