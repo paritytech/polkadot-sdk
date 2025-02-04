@@ -17,13 +17,13 @@
 use crate::{xcm_config::AssetTransactors, Runtime, RuntimeEvent};
 use frame_support::{parameter_types, traits::Everything};
 use pallet_xcm::EnsureXcm;
-use xcm::prelude::{AccountKey20, Asset, Location};
+use xcm::prelude::{Asset, Location};
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 use crate::xcm_config::XcmRouter;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
-use testnet_parachains_constants::westend::snowbridge::{EthereumNetwork, WETHAddress};
+use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
@@ -55,14 +55,10 @@ pub mod benchmark_helpers {
 }
 
 parameter_types! {
-	pub storage WETH: Location = Location::new(
+	pub storage FeeAsset: Location = Location::new(
 			2,
 			[
 				EthereumNetwork::get().into(),
-				AccountKey20 {
-					network: None,
-					key: WETHAddress::get().into(),
-				},
 			],
 	);
 	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
@@ -80,6 +76,6 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
 	type AssetTransactor = AssetTransactors;
-	type WETH = WETH;
+	type FeeAsset = FeeAsset;
 	type DeliveryFee = DeliveryFee;
 }

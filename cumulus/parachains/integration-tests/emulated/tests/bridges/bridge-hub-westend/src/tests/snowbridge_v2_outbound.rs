@@ -18,8 +18,8 @@ use emulated_integration_tests_common::{impls::Decode, PenpalBTeleportableAssetL
 use frame_support::pallet_prelude::TypeInfo;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
 use snowbridge_core::AssetMetadata;
-use snowbridge_outbound_queue_primitives::v2::TransactInfo;
 use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
+use snowbridge_outbound_queue_primitives::v2::TransactInfo;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
 
@@ -27,7 +27,7 @@ use xcm_executor::traits::ConvertLocation;
 fn send_weth_from_asset_hub_to_ethereum() {
 	fund_on_bh();
 
-	register_weth_on_ah();
+	register_assets_on_ah();
 
 	fund_on_ah();
 
@@ -38,17 +38,11 @@ fn send_weth_from_asset_hub_to_ethereum() {
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 
 		let remote_fee_asset =
-			Asset { id: AssetId(weth_location()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
 
-		let reserve_asset = Asset {
-			id: AssetId(weth_location()),
-			fun: Fungible(TOKEN_AMOUNT - REMOTE_FEE_AMOUNT_IN_WETH),
-		};
+		let reserve_asset = Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT) };
 
-		let assets = vec![
-			Asset { id: weth_location().into(), fun: Fungible(TOKEN_AMOUNT) },
-			local_fee_asset.clone(),
-		];
+		let assets = vec![reserve_asset.clone(), remote_fee_asset.clone(), local_fee_asset.clone()];
 
 		let xcm = VersionedXcm::from(Xcm(vec![
 			WithdrawAsset(assets.clone().into()),
@@ -99,7 +93,7 @@ fn transfer_relay_token_from_ah() {
 
 	register_relay_token_on_bh();
 
-	register_weth_on_ah();
+	register_assets_on_ah();
 
 	fund_on_ah();
 
@@ -111,7 +105,7 @@ fn transfer_relay_token_from_ah() {
 		let local_fee_asset =
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 		let remote_fee_asset =
-			Asset { id: AssetId(weth_location()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
 
 		let assets = vec![
 			Asset {
@@ -177,7 +171,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 
 	register_relay_token_on_bh();
 
-	register_weth_on_ah();
+	register_assets_on_ah();
 
 	fund_on_ah();
 
@@ -187,18 +181,18 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		let local_fee_asset =
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 		let remote_fee_asset =
-			Asset { id: AssetId(weth_location()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
-
-		let reserve_asset = Asset {
-			id: AssetId(weth_location()),
-			fun: Fungible(TOKEN_AMOUNT - REMOTE_FEE_AMOUNT_IN_WETH),
-		};
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
 
 		let weth_asset = Asset { id: weth_location().into(), fun: Fungible(TOKEN_AMOUNT) };
 
 		let dot_asset = Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) };
 
-		let assets = vec![weth_asset, dot_asset.clone(), local_fee_asset.clone()];
+		let assets = vec![
+			weth_asset.clone(),
+			dot_asset.clone(),
+			local_fee_asset.clone(),
+			remote_fee_asset.clone(),
+		];
 
 		let xcms = VersionedXcm::from(Xcm(vec![
 			WithdrawAsset(assets.clone().into()),
@@ -210,7 +204,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 				))),
 				preserve_origin: true,
 				assets: vec![
-					AssetTransferFilter::ReserveWithdraw(Definite(reserve_asset.clone().into())),
+					AssetTransferFilter::ReserveWithdraw(Definite(weth_asset.clone().into())),
 					AssetTransferFilter::ReserveDeposit(Definite(dot_asset.into())),
 				],
 				remote_xcm: Xcm(vec![DepositAsset {
@@ -246,7 +240,7 @@ fn transact_with_agent() {
 
 	register_ah_user_agent_on_ethereum();
 
-	register_weth_on_ah();
+	register_assets_on_ah();
 
 	fund_on_ah();
 
@@ -256,19 +250,13 @@ fn transact_with_agent() {
 		let local_fee_asset =
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 
-		let remote_fee_asset = Asset {
-			id: AssetId(weth_asset_location.clone()),
-			fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH),
-		};
-		let reserve_asset = Asset {
-			id: AssetId(weth_asset_location.clone()),
-			fun: Fungible(TOKEN_AMOUNT - REMOTE_FEE_AMOUNT_IN_WETH),
-		};
+		let remote_fee_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
 
-		let assets = vec![
-			Asset { id: weth_asset_location.clone().into(), fun: Fungible(TOKEN_AMOUNT) },
-			local_fee_asset.clone(),
-		];
+		let reserve_asset =
+			Asset { id: AssetId(weth_asset_location.clone()), fun: Fungible(TOKEN_AMOUNT) };
+
+		let assets = vec![reserve_asset.clone(), local_fee_asset.clone(), remote_fee_asset.clone()];
 
 		let beneficiary =
 			Location::new(0, [AccountKey20 { network: None, key: AGENT_ADDRESS.into() }]);
@@ -327,14 +315,14 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 	fund_on_bh();
 	register_penpal_agent_on_ethereum();
 	// ah
-	register_weth_on_ah();
+	register_assets_on_ah();
 	register_pal_on_ah();
 	register_pal_on_bh();
 	fund_on_ah();
 	create_pools_on_ah();
 	// penpal
 	set_trust_reserve_on_penpal();
-	register_weth_on_penpal();
+	register_assets_on_penpal();
 	fund_on_penpal();
 
 	PenpalB::execute_with(|| {
@@ -344,10 +332,10 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 
 		let remote_fee_asset_on_ah =
-			Asset { id: AssetId(weth_location()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
 
 		let remote_fee_asset_on_ethereum =
-			Asset { id: AssetId(weth_location()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
 
 		let pna =
 			Asset { id: AssetId(LocalTeleportableToAssetHub::get()), fun: Fungible(TOKEN_AMOUNT) };
@@ -479,11 +467,11 @@ pub enum SnowbridgeControlFrontend {
 #[test]
 fn create_user_agent_from_penpal() {
 	fund_on_bh();
-	register_weth_on_ah();
+	register_assets_on_ah();
 	fund_on_ah();
 	create_pools_on_ah();
 	set_trust_reserve_on_penpal();
-	register_weth_on_penpal();
+	register_assets_on_penpal();
 	fund_on_penpal();
 	let penpal_user_location = Location::new(
 		1,
@@ -502,10 +490,10 @@ fn create_user_agent_from_penpal() {
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 
 		let remote_fee_asset_on_ah =
-			Asset { id: AssetId(weth_location()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
 
 		let remote_fee_asset_on_ethereum =
-			Asset { id: AssetId(weth_location()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
 
 		let call = SnowbridgeControlFrontend::Control(ControlFrontendCall::CreateAgent {
 			fee: REMOTE_FEE_AMOUNT_IN_WETH,

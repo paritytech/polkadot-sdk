@@ -6,8 +6,7 @@ use crate::{Config, MessageLeaves};
 use frame_support::storage::StorageStreamIter;
 use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
 use snowbridge_outbound_queue_primitives::v2::{
-	GasMeter, Message, OutboundCommandWrapper, OutboundMessage, DryRunError,
-	XcmConverter,
+	DryRunError, GasMeter, Message, OutboundCommandWrapper, OutboundMessage, XcmConverter,
 };
 use sp_core::Get;
 use sp_std::{default::Default, vec::Vec};
@@ -29,8 +28,7 @@ pub fn dry_run<T>(xcm: Xcm<()>) -> Result<(OutboundMessage, T::Balance), DryRunE
 where
 	T: Config,
 {
-	let mut converter =
-		XcmConverter::<T::ConvertAssetId, T::WETHAddress, ()>::new(&xcm, T::EthereumNetwork::get());
+	let mut converter = XcmConverter::<T::ConvertAssetId, ()>::new(&xcm, T::EthereumNetwork::get());
 
 	let message: Message = converter.convert().map_err(|_| DryRunError::ConvertXcmFailed)?;
 

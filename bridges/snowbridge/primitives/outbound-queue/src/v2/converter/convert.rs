@@ -4,7 +4,7 @@
 
 use codec::DecodeAll;
 use core::slice::Iter;
-use frame_support::{ensure, traits::Get, BoundedVec};
+use frame_support::{ensure, BoundedVec};
 use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
 
 use crate::v2::{
@@ -54,15 +54,14 @@ macro_rules! match_expression {
 	};
 }
 
-pub struct XcmConverter<'a, ConvertAssetId, WETHAddress, Call> {
+pub struct XcmConverter<'a, ConvertAssetId, Call> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: NetworkId,
-	_marker: PhantomData<(ConvertAssetId, WETHAddress)>,
+	_marker: PhantomData<ConvertAssetId>,
 }
-impl<'a, ConvertAssetId, WETHAddress, Call> XcmConverter<'a, ConvertAssetId, WETHAddress, Call>
+impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
 where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	WETHAddress: Get<H160>,
 {
 	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId) -> Self {
 		Self {
@@ -105,14 +104,8 @@ where
 			_ => None,
 		}
 		.ok_or(AssetResolutionFailed)?;
-		let weth_address = match_expression!(
-			fee_asset_id.0.unpack(),
-			(0, [AccountKey20 { network, key }])
-				if self.network_matches(network),
-			H160(*key)
-		)
-		.ok_or(FeeAssetResolutionFailed)?;
-		ensure!(weth_address == WETHAddress::get(), InvalidFeeAsset);
+		// Check the fee asset is Ether
+		ensure!(fee_asset_id.0 == Here.into(), InvalidFeeAsset);
 		Ok(fee_amount)
 	}
 

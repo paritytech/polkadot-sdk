@@ -31,7 +31,7 @@ use xcm_executor::traits::ConvertLocation;
 #[test]
 fn user_export_message_from_ah_directly_will_fail() {
 	fund_on_bh();
-	register_weth_on_ah();
+	register_assets_on_ah();
 	fund_on_ah();
 	create_pools_on_ah();
 

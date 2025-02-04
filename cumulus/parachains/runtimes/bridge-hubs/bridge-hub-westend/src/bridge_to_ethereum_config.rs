@@ -32,8 +32,8 @@ use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
 	snowbridge::{
-		AssetHubParaId, EthereumLocation, EthereumNetwork, WETHAddress,
-		INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
+		AssetHubParaId, EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX_V1,
+		INBOUND_QUEUE_PALLET_INDEX_V2,
 	},
 };
 
@@ -66,7 +66,6 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	snowbridge_pallet_outbound_queue_v2::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
 	(EthereumSystem, EthereumSystemV2),
-	WETHAddress,
 	AssetHubParaId,
 >;
 
@@ -173,7 +172,6 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue_v2::WeightInfo<Runtime>;
 	type ConvertAssetId = EthereumSystem;
 	type EthereumNetwork = EthereumNetwork;
-	type WETHAddress = WETHAddress;
 	type RewardPayment = ();
 }
 
