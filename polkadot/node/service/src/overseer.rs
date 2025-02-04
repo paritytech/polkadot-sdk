@@ -210,7 +210,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
-		CollationGenerationSubsystem,
+		DummySubsystem,
 		CollatorProtocolSubsystem,
 		ApprovalDistributionSubsystem,
 		ApprovalVotingSubsystem,
@@ -237,6 +237,7 @@ where
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
 	let approval_voting_parallel_metrics: ApprovalVotingParallelMetrics =
 		Metrics::register(registry)?;
+
 	let builder = Overseer::builder()
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
 			network_service.clone(),
@@ -295,7 +296,7 @@ where
 		))
 		.pvf_checker(PvfCheckerSubsystem::new(keystore.clone(), Metrics::register(registry)?))
 		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
-		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
+		.collation_generation(DummySubsystem)
 		.collator_protocol({
 			let side = match is_parachain_node {
 				IsParachainNode::Collator(_) | IsParachainNode::FullNode =>
@@ -434,7 +435,7 @@ pub fn validator_with_parallel_overseer_builder<Spawner, RuntimeClient>(
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
-		CollationGenerationSubsystem,
+		DummySubsystem,
 		CollatorProtocolSubsystem,
 		DummySubsystem,
 		DummySubsystem,
@@ -519,7 +520,7 @@ where
 		))
 		.pvf_checker(PvfCheckerSubsystem::new(keystore.clone(), Metrics::register(registry)?))
 		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
-		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
+		.collation_generation(DummySubsystem)
 		.collator_protocol({
 			let side = match is_parachain_node {
 				IsParachainNode::Collator(_) | IsParachainNode::FullNode =>
@@ -599,7 +600,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		network_service,
 		sync_service,
 		authority_discovery_service,
-		collation_req_v1_receiver,
+		collation_req_v1_receiver: _,
 		collation_req_v2_receiver,
 		available_data_req_receiver,
 		registry,
@@ -702,7 +703,6 @@ where
 				IsParachainNode::Collator(collator_pair) => ProtocolSide::Collator {
 					peer_id: network_service.local_peer_id(),
 					collator_pair,
-					request_receiver_v1: collation_req_v1_receiver,
 					request_receiver_v2: collation_req_v2_receiver,
 					metrics: Metrics::register(registry)?,
 				},

@@ -39,15 +39,14 @@ sp-state-machine = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 
 [dev-dependencies]
+array-bytes = { workspace = true, default-features = true }
 criterion = { workspace = true, default-features = true }
+kitchensink-runtime = { workspace = true }
 kvdb-rocksdb = { workspace = true }
 rand = { workspace = true, default-features = true }
-tempfile = { workspace = true }
-quickcheck = { workspace = true }
-kitchensink-runtime = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
-array-bytes = { workspace = true, default-features = true }
+tempfile = { workspace = true }
 
 [features]
 default = []

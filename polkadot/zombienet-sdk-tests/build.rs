@@ -25,39 +25,47 @@ fn make_env_key(k: &str) -> String {
 	replace_dashes(&k.to_ascii_uppercase())
 }
 
+fn wasm_sub_path(chain: &str) -> String {
+	let (package, runtime_name) =
+		if let Some(cumulus_test_runtime) = chain.strip_prefix("cumulus-test-runtime-") {
+			(
+				"cumulus-test-runtime".to_string(),
+				format!("wasm_binary_{}.rs", replace_dashes(cumulus_test_runtime)),
+			)
+		} else {
+			(format!("{chain}-runtime"), replace_dashes(&format!("{chain}-runtime")))
+		};
+
+	format!("{}/{}.wasm", package, runtime_name)
+}
+
 fn find_wasm(chain: &str) -> Option<PathBuf> {
 	const PROFILES: [&str; 2] = ["release", "testnet"];
 	let manifest_path = env::var("CARGO_WORKSPACE_ROOT_DIR").unwrap();
 	let manifest_path = manifest_path.strip_suffix('/').unwrap();
 	debug_output!("manifest_path is  : {}", manifest_path);
-	let package = format!("{chain}-runtime");
+
+	let sub_path = wasm_sub_path(chain);
+
 	let profile = PROFILES.into_iter().find(|p| {
-		let full_path = format!(
-			"{}/target/{}/wbuild/{}/{}.wasm",
-			manifest_path,
-			p,
-			&package,
-			replace_dashes(&package)
-		);
+		let full_path = format!("{}/target/{}/wbuild/{}", manifest_path, p, sub_path);
 		debug_output!("checking wasm at : {}", full_path);
 		matches!(path::PathBuf::from(&full_path).try_exists(), Ok(true))
 	});
 
 	debug_output!("profile is : {:?}", profile);
 	profile.map(|profile| {
-		PathBuf::from(&format!(
-			"{}/target/{}/wbuild/{}/{}.wasm",
-			manifest_path,
-			profile,
-			&package,
-			replace_dashes(&package)
-		))
+		PathBuf::from(&format!("{}/target/{}/wbuild/{}", manifest_path, profile, sub_path))
 	})
 }
 
 // based on https://gist.github.com/s0me0ne-unkn0wn/bbd83fe32ce10327086adbf13e750eec
 fn build_wasm(chain: &str) -> PathBuf {
-	let package = format!("{chain}-runtime");
+	let package = if chain.starts_with("cumulus-test-runtime-") {
+		String::from("cumulus-test-runtime")
+	} else {
+		format!("{chain}-runtime")
+	};
 
 	let cargo = env::var("CARGO").unwrap();
 	let target = env::var("TARGET").unwrap();
@@ -81,11 +89,7 @@ fn build_wasm(chain: &str) -> PathBuf {
 		.status()
 		.unwrap();
 
-	let wasm_path = &format!(
-		"{target_dir}/{target}/release/wbuild/{}/{}.wasm",
-		&package,
-		replace_dashes(&package)
-	);
+	let wasm_path = &format!("{target_dir}/{target}/release/wbuild/{}", wasm_sub_path(chain));
 	PathBuf::from(wasm_path)
 }
 
@@ -128,9 +132,28 @@ fn main() {
 	const METADATA_DIR: &str = "metadata-files";
 	const CHAINS: [&str; 2] = ["rococo", "coretime-rococo"];
 
+	// Add some cumulus test runtimes if needed. Formatted like
+	// "cumulus-test-runtime-elastic-scaling".
+	const CUMULUS_TEST_RUNTIMES: [&str; 0] = [];
+
 	let metadata_path = format!("{manifest_path}/{METADATA_DIR}");
 
 	for chain in CHAINS {
+		let full_path = format!("{metadata_path}/{chain}-local.scale");
+		let output_path = path::PathBuf::from(&full_path);
+
+		match output_path.try_exists() {
+			Ok(true) => {
+				debug_output!("got: {}", full_path);
+			},
+			_ => {
+				debug_output!("needs: {}", full_path);
+				fetch_metadata_file(chain, &output_path);
+			},
+		};
+	}
+
+	for chain in CUMULUS_TEST_RUNTIMES {
 		let full_path = format!("{metadata_path}/{chain}-local.scale");
 		let output_path = path::PathBuf::from(&full_path);
 
