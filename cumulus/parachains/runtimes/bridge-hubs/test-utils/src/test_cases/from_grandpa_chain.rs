@@ -20,13 +20,13 @@
 use crate::{
 	test_cases::{bridges_prelude::*, helpers, run_test},
 	test_data,
+	test_data::XcmAsPlainPayload,
 };
 
 use alloc::{boxed::Box, vec};
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::UnrewardedRelayersState;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
-use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_messages::{BridgedChainOf, LaneIdOf, ThisChainOf};
