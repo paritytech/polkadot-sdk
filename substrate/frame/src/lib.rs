@@ -151,8 +151,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
 #[doc(no_inline)]
 pub use frame_support::pallet;
 
@@ -336,7 +334,7 @@ pub mod testing_prelude {
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::{traits::BadOrigin, StateVersion};
 
-	#[cfg(any(feature = "try-runtime", test))]
+	#[cfg(feature = "try-runtime")]
 	pub use sp_runtime::TryRuntimeError;
 }
 
@@ -349,8 +347,6 @@ pub mod migrations_prelude {
 	pub use super::traits::UncheckedOnRuntimeUpgrade;
 	pub use frame_support::{migrations::*, storage_alias, traits::OnRuntimeUpgrade};
 
-	#[cfg(feature = "try-runtime")]
-	pub use alloc::vec::Vec;
 	#[cfg(feature = "try-runtime")]
 	pub use sp_runtime::TryRuntimeError;
 }
