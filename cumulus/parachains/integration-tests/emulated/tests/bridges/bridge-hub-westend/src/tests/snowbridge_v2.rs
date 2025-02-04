@@ -190,9 +190,9 @@ fn send_token_v2() {
 	let beneficiary =
 		Location::new(0, AccountId32 { network: None, id: beneficiary_acc_id.into() });
 
-	let claimer_acc_id = H256::random();
-	let claimer_acc_id_bytes: [u8; 32] = claimer_acc_id.into();
-	let claimer = Location::new(0, AccountId32 { network: None, id: claimer_acc_id.into() });
+	let claimer_acc_id = H160::random();
+	let claimer_acc_id_bytes: [u8; 20] = claimer_acc_id.into();
+	let claimer = Location::new(0, AccountKey20 { network: None, key: claimer_acc_id.into() });
 	let claimer_bytes = claimer.encode();
 
 	register_foreign_asset(eth_location());
@@ -264,7 +264,7 @@ fn send_token_v2() {
 			"Assets were trapped, should not happen."
 		);
 		// Claimer received eth refund for fees paid
-		assert!(ForeignAssets::balance(eth_location(), claimer) > 0);
+		assert!(ForeignAssets::balance(eth_location(), claimer_acc_id_bytes.into()) > 0);
 	});
 }
 
