@@ -1894,7 +1894,7 @@ impl_runtime_apis! {
 						ParachainSystem,
 					>;
 
-				fn reachable_dest() -> Option<Location> {
+				const fn reachable_dest() -> Option<Location> {
 					Some(RandomParaLocation::get())
 				}
 
