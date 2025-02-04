@@ -1,0 +1,16 @@
+title: 'Pallet view functions: improve metadata, API docs and testing'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - [x] improve metadata in preparation for V16 metadata according to #6833 and move them to pallet-level metadata
+    - [x] add `view_functions_experimental` macro to `pallet_macros` with API docs
+    - [x] improve UI testing
+crates:
+- name: frame-support-procedural
+  bump: patch
+- name: sp-metadata-ir
+  bump: patch
+- name: pallet-example-view-functions
+  bump: patch
+- name: frame-support
+  bump: patch
