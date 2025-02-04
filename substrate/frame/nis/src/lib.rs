@@ -204,13 +204,13 @@ pub mod pallet {
 		Rounding, TokenError,
 	};
 
-	pub type BlockNumberFor<T> =
+	pub(crate) type BlockNumberFor<T> =
 		<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
-	pub type BalanceOf<T> =
+	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 	type DebtOf<T> =
 		fungible::Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
-	pub type ReceiptRecordOf<T> =
+	pub(crate) type ReceiptRecordOf<T> =
 		ReceiptRecord<<T as frame_system::Config>::AccountId, BlockNumberFor<T>, BalanceOf<T>>;
 	type IssuanceInfoOf<T> = IssuanceInfo<BalanceOf<T>>;
 	type SummaryRecordOf<T> = SummaryRecord<BlockNumberFor<T>, BalanceOf<T>>;
@@ -321,7 +321,27 @@ pub mod pallet {
 		#[pallet::constant]
 		type ThawThrottle: Get<(Perquintill, BlockNumberFor<Self>)>;
 
-		/// Provider for the block number.
+		/// Abstracted source of block numbers for this pallet.
+		///
+		/// This provider decouples the pallet from direct use of the system block number, allowing:
+		/// - Integration with external block number sources (e.g. bridged chains)
+		/// - Custom timekeeping mechanisms (e.g. mock timelines for testing)
+		/// - Composite block numbers (e.g. parachain blocks vs relay chain blocks)
+		///
+		/// # Implementation Guide
+		/// - Most teams should use `()` to default to the System pallet's block number
+		/// - Required to implement `Default` for initial state handling
+		///
+		/// # Example: Using Relay Chain Block Numbers
+		/// ```rust,ignore
+		/// impl Config for Runtime {
+		///     type BlockNumberProvider = RelayChainBlockNumber;
+		/// }
+		/// ```
+		///
+		/// # Warning
+		/// Only implement custom providers if you need alternative timekeeping - most
+		/// pallets should use the system block number through `frame_system::Pallet<T>`.
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber: Default>;
 
 		/// Setup the state for benchmarking.

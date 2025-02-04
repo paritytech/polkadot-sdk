@@ -33,7 +33,7 @@ pub mod v0 {
 }
 
 pub mod v1 {
-	use super::*; 
+	use super::*;
 
 	pub trait BlockToRelayHeightConversion<T: Config> {
 		fn convert_block_number_to_relay_height(
@@ -99,8 +99,10 @@ pub mod v1 {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// Decode pre-upgrade state
-			let (old_receipts, old_summary): (Vec<(ReceiptIndex ,v0::OldReceiptRecordOf<T>)>, v0::OldSummaryRecordOf<T>) =
-				Decode::decode(&mut &state[..]).expect("pre_upgrade data must decode");
+			let (old_receipts, old_summary): (
+				Vec<(ReceiptIndex, v0::OldReceiptRecordOf<T>)>,
+				v0::OldSummaryRecordOf<T>,
+			) = Decode::decode(&mut &state[..]).expect("pre_upgrade data must decode");
 
 			// Verify Receipts migration
 			for (index, old_receipt) in old_receipts {
@@ -122,8 +124,12 @@ pub mod v1 {
 
 			// Verify Summary migration
 			let new_summary = Summary::<T>::get();
-			let old_summary_last_period = BlockConversion::convert_block_number_to_relay_height(old_summary.last_period);
-			ensure!(new_summary.last_period == old_summary_last_period, "Summary conversion failed");
+			let old_summary_last_period =
+				BlockConversion::convert_block_number_to_relay_height(old_summary.last_period);
+			ensure!(
+				new_summary.last_period == old_summary_last_period,
+				"Summary conversion failed"
+			);
 
 			// Verify storage version
 			ensure!(StorageVersion::get::<Pallet<T>>() == 1, "Storage version not updated");
