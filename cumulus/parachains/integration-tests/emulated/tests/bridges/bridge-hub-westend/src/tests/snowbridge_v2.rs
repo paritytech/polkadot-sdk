@@ -190,11 +190,6 @@ fn send_token_v2() {
 	let beneficiary =
 		Location::new(0, AccountId32 { network: None, id: beneficiary_acc_id.into() });
 
-	let claimer_acc_id = H160::random();
-	let claimer_acc_id_bytes: [u8; 20] = claimer_acc_id.into();
-	let claimer = Location::new(0, AccountKey20 { network: None, key: claimer_acc_id.into() });
-	let claimer_bytes = claimer.encode();
-
 	register_foreign_asset(eth_location());
 	register_foreign_asset(token_location.clone());
 
@@ -216,15 +211,15 @@ fn send_token_v2() {
 		}];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
-		let origin = EthereumGatewayAddress::get();
+		let origin = H160::random();
 
 		let message = Message {
-			gateway: origin,
+			gateway: EthereumGatewayAddress::get(),
 			nonce: 1,
 			origin,
 			assets,
 			xcm: versioned_message_xcm.encode(),
-			claimer: Some(claimer_bytes),
+			claimer: None,
 			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
 			relayer_fee: 1_500_000_000_000u128,
@@ -264,7 +259,7 @@ fn send_token_v2() {
 			"Assets were trapped, should not happen."
 		);
 		// Claimer received eth refund for fees paid
-		assert!(ForeignAssets::balance(eth_location(), claimer_acc_id_bytes.into()) > 0);
+		assert!(ForeignAssets::balance(eth_location(), origin.into()) > 0);
 	});
 }
 
