@@ -201,7 +201,6 @@ where
 		});
 
 		log::trace!(target: LOG_TARGET,"converted message to xcm {:?}", instructions);
-		println!("converted message to xcm {:?}", instructions);
 		Ok(instructions.into())
 	}
 }

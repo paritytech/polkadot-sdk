@@ -71,7 +71,7 @@ fn register_token_v2() {
 
 	set_up_eth_and_dot_pool(eth_location());
 
-	let claimer = AccountId32 { network: None, id: receiver.clone().into() };
+	let claimer = Location::new(0, AccountId32 { network: None, id: receiver.clone().into() });
 	let claimer_bytes = claimer.encode();
 
 	let relayer_location =
@@ -114,6 +114,8 @@ fn register_token_v2() {
 					.into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
+			RefundSurplus,
+			DepositAsset{ assets: Wild(All), beneficiary: claimer.into() },
 		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
@@ -152,9 +154,24 @@ fn register_token_v2() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { .. }) => {},]
+		let events = AssetHubWestend::events();
+
+		assert!(
+			events.iter().any(|event| matches!(
+			event,
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { asset_id: register_asset_id, .. } )
+				if *register_asset_id == erc20_token_location(token.into())
+		)),
+			"Asset registration not found or expected asset ID incorrect"
+		);
+
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+			event,
+			RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+		)),
+			"Assets were trapped, should not happen."
 		);
 	});
 }
@@ -175,7 +192,7 @@ fn send_token_v2() {
 
 	let claimer_acc_id = H256::random();
 	let claimer_acc_id_bytes: [u8; 32] = claimer_acc_id.into();
-	let claimer = AccountId32 { network: None, id: claimer_acc_id.into() };
+	let claimer = Location::new(0, AccountId32 { network: None, id: claimer_acc_id.into() });
 	let claimer_bytes = claimer.encode();
 
 	register_foreign_asset(eth_location());
@@ -236,8 +253,18 @@ fn send_token_v2() {
 			token_transfer_value
 		);
 
+		let events = AssetHubWestend::events();
+
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+			event,
+			RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+		)),
+			"Assets were trapped, should not happen."
+		);
 		// Claimer received eth refund for fees paid
-		//assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0); TODO fix
+		assert!(ForeignAssets::balance(eth_location(), claimer) > 0);
 	});
 }
 
