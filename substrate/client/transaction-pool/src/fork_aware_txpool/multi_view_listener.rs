@@ -291,25 +291,19 @@ where
 		match request {
 			TransactionStatusUpdate::TransactionInvalidated(..) =>
 				if self.handle_invalidate_transaction() {
-					log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", self.tx_hash);
 					return Some(TransactionStatus::Invalid)
 				},
 			TransactionStatusUpdate::TransactionFinalized(_, block, index) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", self.tx_hash);
 				self.terminate = true;
 				return Some(TransactionStatus::Finalized((block, index)))
 			},
-			TransactionStatusUpdate::TransactionBroadcasted(_, peers) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", self.tx_hash);
-				return Some(TransactionStatus::Broadcast(peers))
-			},
+			TransactionStatusUpdate::TransactionBroadcasted(_, peers) =>
+				return Some(TransactionStatus::Broadcast(peers)),
 			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::LimitsEnforced) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", self.tx_hash);
 				self.terminate = true;
 				return Some(TransactionStatus::Dropped)
 			},
 			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Usurped(by)) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Usurped({:?})", self.tx_hash, by);
 				self.terminate = true;
 				return Some(TransactionStatus::Usurped(by))
 			},
@@ -466,32 +460,31 @@ where
 				biased;
 				Some((view_hash, (tx_hash, status))) =  next_event(&mut aggregated_streams_map) => {
 					if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
-						log::trace!(
+						trace!(
 							target: LOG_TARGET,
-							"[{:?}] aggregated_stream_map event: view:{} status:{:?}",
-							tx_hash,
-							view_hash,
-							status
+							?tx_hash,
+							?view_hash,
+							?status,
+							"aggregated_stream_map event",
 						);
-						if let Err(e) = ctrl
+						if let Err(error) = ctrl
 							.get_mut()
 							.unbounded_send(ExternalWatcherCommand::ViewTransactionStatus(view_hash, status))
 						{
-							trace!(target: LOG_TARGET, "[{:?}] send status failed: {:?}", tx_hash, e);
+							trace!(target: LOG_TARGET, ?tx_hash, ?error, "send status failed");
 							ctrl.remove();
 						}
 					}
 				},
 				cmd = command_receiver.next() => {
-					log::trace!(target: LOG_TARGET, "cmd {:?}", cmd);
 					match cmd {
 						Some(ControllerCommand::AddViewStream(h,stream)) => {
 							aggregated_streams_map.insert(h,stream);
 							// //todo: aysnc and join all?
 							external_watchers_tx_hash_map.write().retain(|tx_hash, ctrl| {
 								ctrl.unbounded_send(ExternalWatcherCommand::AddView(h))
-									.inspect_err(|e| {
-										trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
+									.inspect_err(|error| {
+										trace!(target: LOG_TARGET, ?tx_hash, ?error, "add_view: send message failed");
 									})
 									.is_ok()
 							})
@@ -501,8 +494,8 @@ where
 							//todo: aysnc and join all?
 							external_watchers_tx_hash_map.write().retain(|tx_hash, ctrl| {
 								ctrl.unbounded_send(ExternalWatcherCommand::RemoveView(h))
-									.inspect_err(|e| {
-										trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
+									.inspect_err(|error| {
+										trace!(target: LOG_TARGET, ?tx_hash, ?error, "remove_view: send message failed");
 									})
 									.is_ok()
 							})
@@ -511,11 +504,11 @@ where
 						Some(ControllerCommand::TransactionStatusRequest(request)) => {
 							let tx_hash = request.hash();
 							if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
-								if let Err(e) = ctrl
+								if let Err(error) = ctrl
 									.get_mut()
 									.unbounded_send(ExternalWatcherCommand::PoolTransactionStatus(request))
 								{
-									trace!(target: LOG_TARGET, "[{:?}] send message failed: {:?}", tx_hash, e);
+									trace!(target: LOG_TARGET, ?tx_hash, ?error, "send message failed");
 									ctrl.remove();
 								}
 							}
@@ -583,7 +576,7 @@ where
 		Some(
 			futures::stream::unfold(external_ctx, |mut ctx| async move {
 				if ctx.terminate {
-					log::trace!(target: LOG_TARGET, "[{:?}] terminate", ctx.tx_hash);
+					trace!(target: LOG_TARGET, tx_hash = ?ctx.tx_hash, "terminate");
 					return None
 				}
 				loop {
