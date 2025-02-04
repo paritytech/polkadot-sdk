@@ -375,7 +375,8 @@ pub fn run_worker<F>(
 	};
 
 	// Enable some security features.
-	{
+	// TODO: !!! Re-enable security !!!
+	if !matches!(worker_kind, WorkerKind::Execute) {
 		gum::trace!(target: LOG_TARGET, ?security_status, "Enabling security features");
 
 		// First, make sure env vars were cleared, to match the environment we perform the checks

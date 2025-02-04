@@ -284,8 +284,11 @@ where
 	static ENGINE: std::sync::OnceLock<Result<polkavm::Engine, polkavm::Error>> =
 		std::sync::OnceLock::new();
 
+	log::warn!("PVM: Creating engine");
 	let engine = ENGINE.get_or_init(|| {
+		log::warn!("PVM: Creating config");
 		let config = polkavm::Config::from_env()?;
+		log::warn!("PVM: Instantiating engine");
 		polkavm::Engine::new(&config)
 	});
 
@@ -296,16 +299,21 @@ where
 		},
 	};
 
+	log::warn!("PVM: Creating module");
 	let module =
 		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone())?;
 
+	log::warn!("PVM: Creating linker");
 	let mut linker = polkavm::Linker::new();
 
+	log::warn!("PVM: Defining host functions");
 	for function in H::host_functions() {
 		linker.define_untyped(function.name(), |mut caller: Caller<()>| {
 			call_host_function(&mut caller, function)
 		})?;
 	}
+	log::warn!("PVM: Instantiating pre");
 	let instance_pre = linker.instantiate_pre(&module)?;
+	log::warn!("PVM: Creating instance pre");
 	Ok(Box::new(InstancePre(instance_pre)))
 }

@@ -17,19 +17,17 @@
 //! Host interface to the execute worker.
 
 use crate::{
-	artifacts::ArtifactPathId,
-	worker_interface::{
+	artifacts::ArtifactPathId, host::Executable, worker_interface::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
 		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
-	},
-	LOG_TARGET,
+	}, LOG_TARGET
 };
 use codec::{Decode, Encode};
 use futures::FutureExt;
 use futures_timer::Delay;
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, WorkerError, WorkerResponse},
+	execute::{Execution, Handshake, WorkerError, WorkerResponse},
 	worker_dir, SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
@@ -122,28 +120,45 @@ pub enum Error {
 /// killed, if it's still alive.
 pub async fn start_work(
 	worker: IdleWorker,
-	artifact: ArtifactPathId,
+	executable: Executable,
 	execution_timeout: Duration,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 ) -> Result<Response, Error> {
 	let IdleWorker { mut stream, pid, worker_dir } = worker;
+	let code_hash = executable.code_hash();
+	let worker_dir_path = worker_dir.path().to_owned();
 
 	gum::debug!(
 		target: LOG_TARGET,
 		worker_pid = %pid,
 		?worker_dir,
-		validation_code_hash = ?artifact.id.code_hash,
+		validation_code_hash = ?code_hash,
 		"starting execute for {}",
-		artifact.path.display(),
+		executable,
 	);
 
-	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
-		send_request(&mut stream, pvd, pov, execution_timeout).await.map_err(|error| {
+	if let Executable::Wasm { artifact } = &executable {
+		let link_path = worker_dir::execute_artifact(worker_dir.path());
+		if let Err(err) = tokio::fs::hard_link(artifact.path.clone(), link_path).await {
 			gum::warn!(
 				target: LOG_TARGET,
 				worker_pid = %pid,
-				validation_code_hash = ?artifact.id.code_hash,
+				?worker_dir,
+				"failed to create a hard link to the artifact: {}",
+				err,
+			);
+			return Err(InternalValidationError::CouldNotCreateLink(format!("{:?}", err)).into());
+		}
+	}
+
+	let execution = Execution::from(executable);
+
+	send_request(&mut stream, execution, pvd, pov, execution_timeout).await.map_err(|error| {
+			gum::warn!(
+				target: LOG_TARGET,
+				worker_pid = %pid,
+				validation_code_hash = ?code_hash,
 				"failed to send an execute request: {}",
 				error,
 			);
@@ -170,7 +185,7 @@ pub async fn start_work(
 						gum::warn!(
 							target: LOG_TARGET,
 							worker_pid = %pid,
-							validation_code_hash = ?artifact.id.code_hash,
+							validation_code_hash = ?code_hash,
 							"failed to recv an execute result: {}",
 							error,
 						);
@@ -183,22 +198,38 @@ pub async fn start_work(
 				gum::warn!(
 					target: LOG_TARGET,
 					worker_pid = %pid,
-					validation_code_hash = ?artifact.id.code_hash,
+					validation_code_hash = ?code_hash,
 					"execution worker exceeded lenient timeout for execution, child worker likely stalled",
 				);
 				return Err(Error::HardTimeout)
 			},
 		};
 
-		match worker_result {
+		let result = match worker_result {
 			Ok(worker_response) => Ok(Response {
 				worker_response,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			}),
 			Err(worker_error) => Err(worker_error.into()),
+		};
+
+	// Try to clear the worker dir.
+	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			?worker_dir_path,
+			"failed to clear worker cache after the job: {:?}",
+			err,
+		);
+		return Err(InternalValidationError::CouldNotClearWorkerDir {
+			err: format!("{:?}", err),
+			path: worker_dir_path.to_str().map(String::from),
 		}
-	})
-	.await
+		.into())
+	}
+
+	result
 }
 
 /// Handles the case where we successfully received response bytes on the host from the child.
@@ -229,58 +260,6 @@ async fn handle_result(
 	worker_result
 }
 
-/// Create a temporary file for an artifact in the worker cache, execute the given future/closure
-/// passing the file path in, and clean up the worker cache.
-///
-/// Failure to clean up the worker cache results in an error - leaving any files here could be a
-/// security issue, and we should shut down the worker. This should be very rare.
-async fn with_worker_dir_setup<F, Fut>(
-	worker_dir: WorkerDir,
-	pid: u32,
-	artifact_path: &Path,
-	f: F,
-) -> Result<Response, Error>
-where
-	Fut: futures::Future<Output = Result<Response, Error>>,
-	F: FnOnce(WorkerDir) -> Fut,
-{
-	// Cheaply create a hard link to the artifact. The artifact is always at a known location in the
-	// worker cache, and the child can't access any other artifacts or gain any information from the
-	// original filename.
-	let link_path = worker_dir::execute_artifact(worker_dir.path());
-	if let Err(err) = tokio::fs::hard_link(artifact_path, link_path).await {
-		gum::warn!(
-			target: LOG_TARGET,
-			worker_pid = %pid,
-			?worker_dir,
-			"failed to clear worker cache after the job: {}",
-			err,
-		);
-		return Err(InternalValidationError::CouldNotCreateLink(format!("{:?}", err)).into());
-	}
-
-	let worker_dir_path = worker_dir.path().to_owned();
-	let result = f(worker_dir).await;
-
-	// Try to clear the worker dir.
-	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {
-		gum::warn!(
-			target: LOG_TARGET,
-			worker_pid = %pid,
-			?worker_dir_path,
-			"failed to clear worker cache after the job: {:?}",
-			err,
-		);
-		return Err(InternalValidationError::CouldNotClearWorkerDir {
-			err: format!("{:?}", err),
-			path: worker_dir_path.to_str().map(String::from),
-		}
-		.into())
-	}
-
-	result
-}
-
 /// Sends a handshake with information specific to the execute worker.
 async fn send_execute_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Result<()> {
 	framed_send(stream, &handshake.encode()).await
@@ -288,10 +267,12 @@ async fn send_execute_handshake(stream: &mut UnixStream, handshake: Handshake) -
 
 async fn send_request(
 	stream: &mut UnixStream,
+	execution: Execution,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	execution_timeout: Duration,
 ) -> io::Result<()> {
+	framed_send(stream, &execution.encode()).await?;
 	framed_send(stream, &pvd.encode()).await?;
 	framed_send(stream, &pov.encode()).await?;
 	framed_send(stream, &execution_timeout.encode()).await

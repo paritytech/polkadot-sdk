@@ -33,22 +33,17 @@ use futures::{
 	Future, FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_core_pvf_common::{
-	error::{PrecheckResult, PrepareError},
-	prepare::PrepareSuccess,
-	pvf::PvfPrepData,
+	error::{PrecheckResult, PrepareError}, execute::Execution, prepare::PrepareSuccess, pvf::PvfPrepData
 };
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::{
 	messages::PvfExecKind, ActiveLeavesUpdate, SubsystemError, SubsystemResult,
 };
 use polkadot_parachain_primitives::primitives::{ValidationParams, ValidationResult};
-use polkadot_primitives::{Hash, PersistedValidationData};
+use polkadot_primitives::{Hash, PersistedValidationData, ValidationCodeHash};
 use sp_maybe_compressed_blob::{blob_type, MaybeCompressedBlobType};
 use std::{
-	collections::HashMap,
-	path::PathBuf,
-	sync::Arc,
-	time::{Duration, SystemTime},
+	collections::HashMap, fmt::{Debug, Display}, path::PathBuf, sync::Arc, time::{Duration, SystemTime}
 };
 
 /// The time period after which a failed preparation artifact is considered ready to be retried.
@@ -550,6 +545,51 @@ async fn handle_precheck_pvf(
 	Ok(())
 }
 
+#[derive(Clone)]
+pub enum Executable {
+	Wasm { artifact: ArtifactPathId },
+	Pvm {
+		code: Arc<Vec<u8>>,
+		code_hash: ValidationCodeHash,
+	},
+}
+
+impl Executable {
+	pub fn code_hash(&self) -> ValidationCodeHash {
+		match self {
+			Executable::Wasm { artifact: ArtifactPathId { id: ArtifactId { code_hash, .. }, .. } } => *code_hash,
+			Executable::Pvm { code_hash, .. } => *code_hash,
+		}
+	}
+}
+
+impl Display for Executable {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Executable::Wasm { artifact } => write!(f, "Wasm artifact {}", artifact.path.display()),
+			Executable::Pvm { .. } => write!(f, "Pvm code"),
+		}
+	}
+}
+
+impl std::fmt::Debug for Executable {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Executable::Wasm { artifact } => write!(f, "Wasm artifact {}", artifact.path.display()),
+			Executable::Pvm { code_hash, .. } => write!(f, "Pvm code hash {}", code_hash),
+		}
+	}
+}
+
+impl From<Executable> for Execution {
+	fn from(executable: Executable) -> Self {
+		match executable {
+			Executable::Wasm { .. } => Execution::Wasm,
+			Executable::Pvm { code, .. } => Execution::Pvm(code),
+		}
+	}
+}
+
 /// Handles PVF execution.
 ///
 /// This will try to prepare the PVF, if a prepared artifact does not already exist. If there is
@@ -571,55 +611,35 @@ async fn handle_execute_pvf(
 ) -> Result<(), Fatal> {
 	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, exec_kind, result_tx } = inputs;
 
-	// A YOLO PVM execution interface
-
 	let code = pvf.maybe_compressed_code();
+	let executor_params = (*pvf.executor_params()).clone();
+
 	if matches!(blob_type(&code).map_err(|_| Fatal)?, MaybeCompressedBlobType::Pvm) {
 		gum::warn!(
 			target: LOG_TARGET,
 			?pvf,
-			"handle_execute_pvf: Executing with YOLO PVM executor interface 🤟",
+			"handle_execute_pvf: Executing with PVM executor interface 🤟",
 		);
-		let raw_block_data =
-			sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT)
-				.map_err(|_| Fatal)?;
-		let params = ValidationParams {
-			parent_head: pvd.parent_head.clone(),
-			block_data: polkadot_node_primitives::BlockData(raw_block_data.to_vec()),
-			relay_parent_number: pvd.relay_parent_number,
-			relay_parent_storage_root: pvd.relay_parent_storage_root,
-		};
-		let params = Arc::new(params.encode());
 
-		let code = sp_maybe_compressed_blob::decompress(&code, VALIDATION_CODE_BOMB_LIMIT)
-			.map_err(|_| Fatal)?;
-		let res = unsafe {
-			polkadot_node_core_pvf_common::executor_interface::execute_artifact(
-				&code,
-				&pvf.executor_params(),
-				&params,
-			)
-		};
-
-		let vres = match res {
-			Ok(bytes) => match ValidationResult::decode(&mut &bytes[..]) {
-				Ok(r) => Ok(r),
-				Err(e) => Err(ValidationError::Invalid(
-					crate::InvalidCandidate::WorkerReportedInvalid(e.to_string()),
-				)),
+		send_execute(
+			execute_queue,
+			execute::ToQueue::Enqueue {
+				executable: Executable::Pvm { code, code_hash: pvf.code_hash() },
+				pending_execution_request: PendingExecutionRequest {
+					exec_timeout,
+					pvd,
+					pov,
+					executor_params,
+					exec_kind,
+					result_tx,
+				},
 			},
-			Err(e) => Err(ValidationError::Invalid(
-				crate::InvalidCandidate::WorkerReportedInvalid(e.to_string()),
-			)),
-		};
-
-		result_tx.send(vres).map_err(|_| Fatal)?;
+		).await?;
 
 		return Ok(());
 	}
 
 	let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
-	let executor_params = (*pvf.executor_params()).clone();
 
 	if let Some(state) = artifacts.artifact_state_mut(&artifact_id) {
 		match state {
@@ -633,7 +653,7 @@ async fn handle_execute_pvf(
 					send_execute(
 						execute_queue,
 						execute::ToQueue::Enqueue {
-							artifact: ArtifactPathId::new(artifact_id, path),
+							executable: Executable::Wasm { artifact: ArtifactPathId::new(artifact_id, path) },
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
 								pvd,
@@ -888,7 +908,7 @@ async fn handle_prepare_done(
 		send_execute(
 			execute_queue,
 			execute::ToQueue::Enqueue {
-				artifact: ArtifactPathId::new(artifact_id.clone(), &path),
+				executable: Executable::Wasm { artifact: ArtifactPathId::new(artifact_id.clone(), &path) },
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
 					pvd,

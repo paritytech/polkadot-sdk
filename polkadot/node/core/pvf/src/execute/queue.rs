@@ -19,7 +19,7 @@
 use super::worker_interface::{Error as WorkerInterfaceError, Response as WorkerInterfaceResponse};
 use crate::{
 	artifacts::{ArtifactId, ArtifactPathId},
-	host::ResultSender,
+	host::{Executable, ResultSender},
 	metrics::Metrics,
 	worker_interface::{IdleWorker, WorkerHandle},
 	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
@@ -59,7 +59,7 @@ slotmap::new_key_type! { struct Worker; }
 #[derive(Debug)]
 pub enum ToQueue {
 	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Vec<Hash> },
-	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
+	Enqueue { executable: Executable, pending_execution_request: PendingExecutionRequest },
 }
 
 /// A response from queue.
@@ -81,7 +81,7 @@ pub struct PendingExecutionRequest {
 }
 
 struct ExecuteJob {
-	artifact: ArtifactPathId,
+	executable: Executable,
 	exec_timeout: Duration,
 	exec_kind: PvfExecKind,
 	pvd: Arc<PersistedValidationData>,
@@ -148,7 +148,7 @@ enum QueueEvent {
 	FinishWork(
 		Worker,
 		Result<WorkerInterfaceResponse, WorkerInterfaceError>,
-		ArtifactId,
+		Executable,
 		ResultSender,
 	),
 }
@@ -372,7 +372,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		ToQueue::UpdateActiveLeaves { update, ancestors } => {
 			queue.update_active_leaves(update, ancestors);
 		},
-		ToQueue::Enqueue { artifact, pending_execution_request } => {
+		ToQueue::Enqueue { executable, pending_execution_request } => {
 			let PendingExecutionRequest {
 				exec_timeout,
 				pvd,
@@ -383,13 +383,13 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 			} = pending_execution_request;
 			gum::debug!(
 				target: LOG_TARGET,
-				validation_code_hash = ?artifact.id.code_hash,
+				validation_code_hash = ?executable.code_hash(),
 				"enqueueing an artifact for execution",
 			);
 			queue.metrics.observe_pov_size(pov.block_data.0.len(), true);
 			queue.metrics.execute_enqueued();
 			let job = ExecuteJob {
-				artifact,
+				executable,
 				exec_timeout,
 				exec_kind,
 				pvd,
@@ -440,7 +440,7 @@ async fn handle_job_finish(
 	queue: &mut Queue,
 	worker: Worker,
 	worker_result: Result<WorkerInterfaceResponse, WorkerInterfaceError>,
-	artifact_id: ArtifactId,
+	executable: Executable,
 	result_tx: ResultSender,
 ) {
 	let (idle_worker, result, duration, sync_channel, pov_size) = match worker_result {
@@ -483,25 +483,31 @@ async fn handle_job_finish(
 				WorkerResponse { job_response: JobResponse::RuntimeConstruction(err), .. },
 			idle_worker,
 		}) => {
-			// The task for artifact removal is executed concurrently with
-			// the message to the host on the execution result.
-			let (result_tx, result_rx) = oneshot::channel();
-			queue
-				.from_queue_tx
-				.unbounded_send(FromQueue::RemoveArtifact {
-					artifact: artifact_id.clone(),
+			if let Executable::Wasm { artifact } = &executable {
+				// The task for artifact removal is executed concurrently with
+				// the message to the host on the execution result.
+				let (result_tx, result_rx) = oneshot::channel();
+				queue
+					.from_queue_tx
+					.unbounded_send(FromQueue::RemoveArtifact {
+					artifact: artifact.id.clone(),
 					reply_to: result_tx,
 				})
 				.expect("from execute queue receiver is listened by the host; qed");
-			(
-				Some(idle_worker),
-				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(
-					err,
-				))),
-				None,
-				Some(result_rx),
-				None,
-			)
+				(
+					Some(idle_worker),
+					Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(
+						err,
+					))),
+					None,
+					Some(result_rx),
+					None,
+				)
+			} else {
+				// Something went wrong: runtime construction should never fail for non-Wasm runtimes
+				// Treat as a job error and reap the worker
+				(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("Runtime construction failed for non-Wasm runtime".to_string()))), None, None, None)
+			}
 		},
 
 		Err(WorkerInterfaceError::InternalError(err)) |
@@ -543,7 +549,7 @@ async fn handle_job_finish(
 	if let Err(ref err) = result {
 		gum::warn!(
 			target: LOG_TARGET,
-			?artifact_id,
+			?executable,
 			?worker,
 			worker_rip = idle_worker.is_none(),
 			"execution worker concluded, error occurred: {}",
@@ -552,7 +558,7 @@ async fn handle_job_finish(
 	} else {
 		gum::trace!(
 			target: LOG_TARGET,
-			?artifact_id,
+			?executable,
 			?worker,
 			worker_rip = idle_worker.is_none(),
 			?duration,
@@ -656,7 +662,7 @@ async fn spawn_worker_task(
 fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 	gum::debug!(
 		target: LOG_TARGET,
-		validation_code_hash = ?job.artifact.id,
+		validation_code_hash = ?job.executable.code_hash(),
 		?worker,
 		"assigning the execute worker",
 	);
@@ -685,13 +691,13 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 			let _timer = execution_timer;
 			let result = super::worker_interface::start_work(
 				idle,
-				job.artifact.clone(),
+				job.executable.clone(),
 				job.exec_timeout,
 				job.pvd,
 				job.pov,
 			)
 			.await;
-			QueueEvent::FinishWork(worker, result, job.artifact.id, job.result_tx)
+			QueueEvent::FinishWork(worker, result, job.executable, job.result_tx)
 		}
 		.boxed(),
 	);
@@ -906,7 +912,7 @@ mod tests {
 		});
 		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 		ExecuteJob {
-			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			executable: Executable::Wasm { artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() } },
 			exec_timeout: Duration::from_secs(10),
 			exec_kind: PvfExecKind::Approval,
 			pvd,
@@ -1070,7 +1076,7 @@ mod tests {
 		let mut result_rxs = vec![];
 		let (result_tx, _result_rx) = oneshot::channel();
 		let relevant_job = ExecuteJob {
-			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			executable: Executable::Wasm { artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() } },
 			exec_timeout: Duration::from_secs(1),
 			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
 			pvd: Arc::new(PersistedValidationData::default()),
@@ -1083,7 +1089,7 @@ mod tests {
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();
 			let expired_job = ExecuteJob {
-				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+				executable: Executable::Wasm { artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() } },
 				exec_timeout: Duration::from_secs(1),
 				exec_kind: PvfExecKind::Backing(old_relay_parent),
 				pvd: Arc::new(PersistedValidationData::default()),

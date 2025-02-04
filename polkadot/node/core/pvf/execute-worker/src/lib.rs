@@ -20,7 +20,7 @@
 #![warn(missing_docs)]
 
 pub use polkadot_node_core_pvf_common::{
-	error::ExecuteError, executor_interface::execute_artifact,
+	error::ExecuteError, executor_interface::execute_code,
 };
 use polkadot_parachain_primitives::primitives::ValidationParams;
 
@@ -40,7 +40,7 @@ use nix::{
 };
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},
+	execute::{Execution, Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},
 	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
@@ -51,7 +51,7 @@ use polkadot_node_core_pvf_common::{
 	},
 	worker_dir,
 };
-use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT};
+use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{ExecutorParams, PersistedValidationData};
 use std::{
@@ -87,7 +87,14 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	Ok(handshake)
 }
 
-fn recv_request(stream: &mut UnixStream) -> io::Result<(PersistedValidationData, PoV, Duration)> {
+fn recv_request(stream: &mut UnixStream) -> io::Result<(Execution, PersistedValidationData, PoV, Duration)> {
+	let execution = framed_recv_blocking(stream)?;
+	let execution = Execution::decode(&mut &execution[..]).map_err(|_| {
+		io::Error::new(
+			io::ErrorKind::Other,
+			"execute pvf recv_request: failed to decode execution".to_string(),
+		)
+	})?;
 	let pvd = framed_recv_blocking(stream)?;
 	let pvd = PersistedValidationData::decode(&mut &pvd[..]).map_err(|_| {
 		io::Error::new(
@@ -111,7 +118,7 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<(PersistedValidationData,
 			"execute pvf recv_request: failed to decode duration".to_string(),
 		)
 	})?;
-	Ok((pvd, pov, execution_timeout))
+	Ok((execution, pvd, pov, execution_timeout))
 }
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
@@ -150,8 +157,6 @@ pub fn worker_entrypoint(
 		node_version,
 		worker_version,
 		|mut stream, worker_info, security_status| {
-			let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
-
 			let Handshake { executor_params } =
 				recv_execute_handshake(&mut stream).map_err(|e| {
 					map_and_send_err!(
@@ -166,7 +171,7 @@ pub fn worker_entrypoint(
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-				let (pvd, pov, execution_timeout) = recv_request(&mut stream).map_err(|e| {
+				let (execution, pvd, pov, execution_timeout) = recv_request(&mut stream).map_err(|e| {
 					map_and_send_err!(
 						e,
 						InternalValidationError::HostCommunication,
@@ -174,23 +179,43 @@ pub fn worker_entrypoint(
 						worker_info
 					)
 				})?;
-				gum::debug!(
-					target: LOG_TARGET,
-					?worker_info,
-					?security_status,
-					"worker: validating artifact {}",
-					artifact_path.display(),
-				);
 
-				// Get the artifact bytes.
-				let compiled_artifact_blob = std::fs::read(&artifact_path).map_err(|e| {
-					map_and_send_err!(
-						e,
-						InternalValidationError::CouldNotOpenFile,
-						&mut stream,
-						worker_info
-					)
-				})?;
+				let code = match execution {
+					Execution::Wasm => {
+						let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
+						
+						gum::debug!(
+							target: LOG_TARGET,
+							?worker_info,
+							?security_status,
+							"worker: validating artifact {}",
+							artifact_path.display(),
+						);
+
+						// Get the artifact bytes.
+						let compiled_artifact_blob = std::fs::read(&artifact_path).map_err(|e| {
+							map_and_send_err!(
+								e,
+								InternalValidationError::CouldNotOpenFile,
+								&mut stream,
+								worker_info
+							)
+						})?;
+						Arc::new(compiled_artifact_blob)
+					}
+					Execution::Pvm(code) => {
+						let code = sp_maybe_compressed_blob::decompress(&code, VALIDATION_CODE_BOMB_LIMIT)
+							.map_err(|e| {
+								map_and_send_err!(
+									e,
+									InternalValidationError::CouldNotDecompressPvmCode,
+									&mut stream,
+									worker_info
+								)
+							})?;
+						Arc::new(code.to_vec())
+					}
+				};
 
 				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
 					map_and_send_err!(
@@ -212,8 +237,6 @@ pub fn worker_entrypoint(
 						)
 					})?;
 				let stream_fd = stream.as_raw_fd();
-
-				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
 
 				let raw_block_data =
 					match sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT) {
@@ -249,7 +272,7 @@ pub fn worker_entrypoint(
 								pipe_write_fd,
 								pipe_read_fd,
 								stream_fd,
-								&compiled_artifact_blob,
+								&code,
 								&executor_params,
 								&params,
 								execution_timeout,
@@ -265,7 +288,7 @@ pub fn worker_entrypoint(
 								pipe_write_fd,
 								pipe_read_fd,
 								stream_fd,
-								&compiled_artifact_blob,
+								&code,
 								&executor_params,
 								&params,
 								execution_timeout,
@@ -280,7 +303,7 @@ pub fn worker_entrypoint(
 							pipe_write_fd,
 							pipe_read_fd,
 							stream_fd,
-							&compiled_artifact_blob,
+							&code,
 							&executor_params,
 							&params,
 							execution_timeout,
@@ -304,8 +327,8 @@ pub fn worker_entrypoint(
 	);
 }
 
-fn validate_using_artifact(
-	compiled_artifact_blob: &[u8],
+fn validate_using_code(
+	code: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
 ) -> JobResponse {
@@ -313,7 +336,7 @@ fn validate_using_artifact(
 		// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
 		//         [`executor_interface::prepare`].
-		execute_artifact(compiled_artifact_blob, executor_params, params)
+		execute_code(code, executor_params, params)
 	} {
 		Err(ExecuteError::RuntimeConstruction(wasmerr)) =>
 			return JobResponse::runtime_construction("execute", &wasmerr.to_string()),
@@ -338,7 +361,7 @@ fn handle_clone(
 	pipe_write_fd: i32,
 	pipe_read_fd: i32,
 	stream_fd: i32,
-	compiled_artifact_blob: &Arc<Vec<u8>>,
+	code: &Arc<Vec<u8>>,
 	executor_params: &Arc<ExecutorParams>,
 	params: &Arc<Vec<u8>>,
 	execution_timeout: Duration,
@@ -361,7 +384,7 @@ fn handle_clone(
 					pipe_write_fd,
 					pipe_read_fd,
 					stream_fd,
-					Arc::clone(compiled_artifact_blob),
+					Arc::clone(code),
 					Arc::clone(executor_params),
 					Arc::clone(params),
 					execution_timeout,
@@ -479,7 +502,7 @@ fn handle_child_process(
 
 	let execute_thread = thread::spawn_worker_thread_with_stack_size(
 		"execute thread",
-		move || validate_using_artifact(&compiled_artifact_blob, &executor_params, &params),
+		move || validate_using_code(&compiled_artifact_blob, &executor_params, &params),
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
 		execute_thread_stack_size,
