@@ -1,0 +1,14 @@
+title: 'omni-node: Adjust manual seal parameters'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The changes introduced in https://github.com/paritytech/polkadot-sdk/pull/6825 changed constraints that are enforced in the runtime. For normal chains this should work fine, since we have real parameters there, like relay chain slots and parachain slots.
+
+    For these manual seal parameters we need to respect the constraints, while faking all the parameters. This PR should fix manual seal in omni-node to work with runtime build before and after https://github.com/paritytech/polkadot-sdk/pull/6825 (I tested that).
+
+    In the future, we should look into improving the parameterization here, possibly by introducing proper aura pre-digests so that the parachain slot moves forward. This will require quite a bit of refactoring on the manual seal node side however.
+
+    Also, the dev chain spec in parachain template is updated. This makes it work with stable2412-1 and master omni-node. Once the changes here are backported and in a release, all combinations will work again.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
