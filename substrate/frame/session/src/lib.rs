@@ -172,6 +172,21 @@ impl<
 		BlockNumber: AtLeast32BitUnsigned + Clone,
 		Period: Get<BlockNumber>,
 		Offset: Get<BlockNumber>,
+	> EstimateNextNewSession<BlockNumber> for PeriodicSessions<Period, Offset>
+{
+	fn average_session_length() -> BlockNumber {
+		<Self as EstimateNextSessionRotation<BlockNumber>>::average_session_length()
+	}
+
+	fn estimate_next_new_session(now: BlockNumber) -> (Option<BlockNumber>, Weight) {
+		<Self as EstimateNextSessionRotation<BlockNumber>>::estimate_next_session_rotation(now)
+	}
+}
+
+impl<
+		BlockNumber: AtLeast32BitUnsigned + Clone,
+		Period: Get<BlockNumber>,
+		Offset: Get<BlockNumber>,
 	> EstimateNextSessionRotation<BlockNumber> for PeriodicSessions<Period, Offset>
 {
 	fn average_session_length() -> BlockNumber {

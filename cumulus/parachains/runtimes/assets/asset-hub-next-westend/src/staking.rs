@@ -18,19 +18,15 @@ use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder},
-	onchain, ElectionDataProvider, NposSolver, SequentialPhragmen,
+	onchain, ElectionDataProvider, SequentialPhragmen,
 };
 use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking::UseValidatorsMap;
-use polkadot_runtime_common::{
-	elections::OnChainAccuracy, prod_or_fast, BalanceToU256, CurrencyToVote, U256ToBalance,
-};
+use polkadot_runtime_common::{prod_or_fast, BalanceToU256, CurrencyToVote, U256ToBalance};
 use sp_runtime::{
-	traits::Get, transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, Percent,
-	SaturatedConversion,
+	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
-use westend_runtime_constants::time::EPOCH_DURATION_IN_SLOTS;
 
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
@@ -69,8 +65,8 @@ parameter_types! {
 	pub VoterSnapshotPerBlock: u32 = 22_500 / Pages::get();
 	pub TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
 	// TODO: the duration of phases, plus our estimation of the next election should be fixed up based on the rc-client pallet.
-	pub SignedPhase: u32 = prod_or_fast!(MINUTES * 30, MINUTES * 2);
-	pub UnsignedPhase: u32 = prod_or_fast!(MINUTES * 30, MINUTES * 2);
+	pub SignedPhase: u32 = TempFixedSessionLength::get() / 2;
+	pub UnsignedPhase: u32 = TempFixedSessionLength::get() / 2;
 	// validate up to 4 signed solution.
 	pub SignedValidationPhase: u32 = Pages::get() * 4;
 	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
@@ -222,8 +218,8 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 }
 
 parameter_types! {
-	// Six sessions in an era (6 hours).
-	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
+	// TODO: (rc-client) Very short sessions. This needs to be reworked based on rc-client.
+	pub const SessionsPerEra: SessionIndex = 1;
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
@@ -234,6 +230,11 @@ parameter_types! {
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
+
+parameter_types! {
+	pub TempFixedSessionLength: u32 = 120;
+}
+type TempNextNewSession = pallet_session::PeriodicSessions<TempFixedSessionLength, ()>;
 
 impl pallet_staking::Config for Runtime {
 	type MaxValidatorSet = MaxValidatorSet;
@@ -252,9 +253,9 @@ impl pallet_staking::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type SessionInterface = Self;
+	type NextNewSession = TempNextNewSession;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type NextNewSession = Session;
 	type ElectionProvider = MultiBlock; // Kaboom!
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
