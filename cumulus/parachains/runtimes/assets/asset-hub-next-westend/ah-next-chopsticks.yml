@@ -1,0 +1,16 @@
+mock-signature-host: true
+block: ${env.AH_NEXT_BLOCK_NUMBER}
+db: ./db.sqlite
+
+# Specify this on the command line with --genesis ./path/to/chain-spec.json or uncomment below
+# genesis: ./path/to/chain-spec.json
+
+import-storage:
+  System:
+    Account:
+      -
+        -
+          - 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+        - providers: 1
+          data:
+            free: 1000000000000000
