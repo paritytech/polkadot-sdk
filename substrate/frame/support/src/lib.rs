@@ -1720,11 +1720,14 @@ pub mod pallet_macros {
 	/// ```
 	/// #[frame_support::pallet]
 	/// pub mod pallet {
-	/// # 	#[pallet::config]
-	/// # 	pub trait Config: frame_system::Config {}
-	/// # 	#[pallet::pallet]
-	/// # 	pub struct Pallet<T>(_);
-	/// # 	use frame_support::{StorageMap, Twox64Concat, pallet_prelude::OptionQuery};
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	///  	#[pallet::config]
+	///  	pub trait Config: frame_system::Config {}
+	///
+	///  	#[pallet::pallet]
+	///  	pub struct Pallet<T>(_);
+	///
 	///     #[pallet::storage]
 	/// 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
 	///
