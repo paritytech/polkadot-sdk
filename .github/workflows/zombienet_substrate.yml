@@ -10,6 +10,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  RUN_IN_CONTAINER: 1
+  FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
+  LOCAL_DIR: "./substrate/zombienet"
+  GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
+
 jobs:
   preflight:
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
@@ -23,8 +29,6 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
-      FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
-      LOCAL_DIR: "./substrate/zombienet"
       ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
     steps:
       - name: Checkout
