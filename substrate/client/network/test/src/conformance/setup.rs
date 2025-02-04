@@ -190,23 +190,20 @@ pub async fn connect_notifications(left: &NetworkBackendClient, right: &NetworkB
 
 	let mut notifications_left = left.notification_service.lock().await;
 	let mut notifications_right = right.notification_service.lock().await;
-	let mut received = 0;
+	let mut opened = 0;
 	loop {
 		tokio::select! {
 			Some(event) = notifications_left.next_event() => {
 				match event {
 					NotificationEvent::NotificationStreamOpened { .. } => {
-						notifications_left.send_async_notification(&right_peer_id, vec![1, 2, 3]).await.unwrap();
+						opened += 1;
+						if opened >= 2 {
+							break;
+						}
 					},
 					NotificationEvent::ValidateInboundSubstream { result_tx, .. } => {
 						result_tx.send(sc_network::service::traits::ValidationResult::Accept).unwrap();
 					},
-					NotificationEvent::NotificationReceived { .. } => {
-						received += 1;
-						if received >= 2 {
-							break;
-						}
-					}
 					_ => {},
 				};
 			},
@@ -216,14 +213,11 @@ pub async fn connect_notifications(left: &NetworkBackendClient, right: &NetworkB
 						result_tx.send(sc_network::service::traits::ValidationResult::Accept).unwrap();
 					},
 					NotificationEvent::NotificationStreamOpened { .. } => {
-						notifications_right.send_async_notification(&left_peer_id, vec![1, 2, 3]).await.unwrap();
-					},
-					NotificationEvent::NotificationReceived { .. } => {
-						received += 1;
-						if received >= 2 {
+						opened += 1;
+						if opened >= 2 {
 							break;
 						}
-					}
+					},
 					_ => {}
 				}
 			},
