@@ -141,6 +141,10 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RewardPayment = ();
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type EthereumNetwork = EthereumNetwork;
+	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
+		RelayNetwork,
+		<Runtime as frame_system::Config>::AccountId,
+	>;
 }
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {

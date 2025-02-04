@@ -9,15 +9,14 @@ use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
-use snowbridge_inbound_queue_primitives::{Log, Proof, VerificationError};
 use snowbridge_core::TokenId;
-use snowbridge_inbound_queue_primitives::v2::MessageToXcm;
+use snowbridge_inbound_queue_primitives::{v2::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::H160;
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
 	BuildStorage, MultiSignature,
 };
-use sp_std::{convert::From, default::Default};
+use sp_std::{convert::From, default::Default, marker::PhantomData};
 use xcm::{latest::SendXcm, opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -143,12 +142,7 @@ impl<C> ExecuteXcm<C> for MockXcmExecutor {
 	fn prepare(message: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
 		Err(message)
 	}
-	fn execute(
-		_: impl Into<Location>,
-		_: Self::Prepared,
-		_: &mut XcmHash,
-		_: Weight,
-	) -> Outcome {
+	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
 		unreachable!()
 	}
 	fn charge_fees(_: impl Into<Location>, _: Assets) -> xcm::latest::Result {
@@ -177,6 +171,15 @@ parameter_types! {
 	pub const InitialFund: u128 = 1_000_000_000_000;
 }
 
+pub struct MockAccountLocationConverter<AccountId>(PhantomData<AccountId>);
+impl<'a, AccountId: Clone + Clone> TryConvert<&'a AccountId, Location>
+	for MockAccountLocationConverter<AccountId>
+{
+	fn try_convert(_who: &AccountId) -> Result<Location, &AccountId> {
+		Ok(Location::here())
+	}
+}
+
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -197,6 +200,7 @@ impl inbound_queue_v2::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type WeightInfo = ();
+	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 }
 
 pub fn setup() {

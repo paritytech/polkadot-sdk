@@ -49,6 +49,7 @@ use snowbridge_inbound_queue_primitives::{
 	EventProof, VerificationError, Verifier,
 };
 use sp_core::H160;
+use sp_runtime::traits::TryConvert;
 use types::Nonce;
 pub use weights::WeightInfo;
 use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
@@ -101,6 +102,8 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
 		type WeightInfo: WeightInfo;
+
+		type AccountToLocation: for<'a> TryConvert<&'a Self::AccountId, Location>;
 	}
 
 	#[pallet::event]
@@ -203,7 +206,8 @@ pub mod pallet {
 			let message =
 				Message::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidMessage)?;
 
-			let reward_account_location = AccountId32 { id: [0; 32], network: None }.into();
+			let reward_account_location =
+				T::AccountToLocation::try_convert(&who).map_err(|_| Error::<T>::InvalidAccount)?;
 
 			Self::process_message(reward_account_location, message)
 		}
