@@ -4,7 +4,11 @@ use super::*;
 
 use crate::{self as inbound_queue_v2};
 use codec::Encode;
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::ConstU32,
+	weights::{constants::RocksDbWeight, IdentityFee},
+};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
@@ -18,7 +22,6 @@ use sp_runtime::{
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
-use frame_support::weights::constants::RocksDbWeight;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
@@ -163,7 +166,7 @@ impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 parameter_types! {
 	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
-	pub const InboundQueuePalletInstance: u8 = 84;
+	pub const InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
 	pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
@@ -182,7 +185,7 @@ impl inbound_queue_v2::Config for Test {
 	type AssetHubParaId = ConstU32<1000>;
 	type MessageConverter = MessageToXcm<
 		EthereumNetwork,
-		InboundQueuePalletInstance,
+		InboundQueueLocation,
 		MockTokenIdConvert,
 		GatewayAddress,
 		UniversalLocation,

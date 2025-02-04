@@ -23,9 +23,7 @@ where
 	// Compute the base fee for submitting the extrinsic. This covers the cost of the "submit" call
 	// on our chain.
 	let submit_weight_fee = T::WeightToFee::weight_to_fee(&T::WeightInfo::submit());
-	let mut total_fee: u128 = submit_weight_fee
-		.try_into()
-		.map_err(|_| Error::<T>::InvalidFee)?;
+	let mut total_fee: u128 = submit_weight_fee.try_into().map_err(|_| Error::<T>::InvalidFee)?;
 
 	// Include the delivery fee from the Asset Hub side by validating the xcm message send.
 	//  This returns a list (`Assets`) of fees required.

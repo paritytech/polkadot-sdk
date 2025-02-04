@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use emulated_integration_tests_common::{PENPAL_B_ID, RESERVABLE_ASSET_ID};
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
-use penpal_emulated_chain::PARA_ID_B;
+use rococo_westend_system_emulated_network::penpal_emulated_chain::PARA_ID_B;
 use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
 use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;

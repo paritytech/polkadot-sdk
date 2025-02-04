@@ -72,15 +72,15 @@ pub struct Message {
 	pub gateway: H160,
 	/// A nonce for enforcing replay protection and ordering.
 	pub nonce: u64,
-	/// The origin address
+	/// The address on Ethereum that initiated the message.
 	pub origin: H160,
-	/// The assets
+	/// The assets sent from Ethereum (ERC-20s).
 	pub assets: Vec<EthereumAsset>,
-	/// The command originating from the Gateway contract
+	/// The command originating from the Gateway contract.
 	pub xcm: Vec<u8>,
-	/// The claimer in the case that funds get trapped.
+	/// The claimer in the case that funds get trapped. Expected to be an XCM::v5::Location.
 	pub claimer: Option<Vec<u8>>,
-	/// The full value of the assets.
+	/// The amount of native ether bridged from Ethereum.
 	pub value: u128,
 	/// Fee in eth to cover the xcm execution on AH.
 	pub execution_fee: u128,

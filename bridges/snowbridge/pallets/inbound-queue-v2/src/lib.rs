@@ -37,6 +37,7 @@ mod mock;
 mod test;
 
 pub use crate::weights::WeightInfo;
+use alloc::format;
 use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -57,7 +58,6 @@ use snowbridge_inbound_queue_primitives::{
 use sp_core::H160;
 use sp_io::hashing::blake2_256;
 use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
-use alloc::format;
 
 #[cfg(feature = "runtime-benchmarks")]
 use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};

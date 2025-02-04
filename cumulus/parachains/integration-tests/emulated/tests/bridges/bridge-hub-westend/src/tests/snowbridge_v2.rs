@@ -21,7 +21,7 @@ use bridge_hub_westend_runtime::{
 use codec::Encode;
 use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
 use hex_literal::hex;
-use penpal_emulated_chain::PARA_ID_B;
+use rococo_westend_system_emulated_network::penpal_emulated_chain::PARA_ID_B;
 use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::{
 	v2::{
