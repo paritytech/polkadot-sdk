@@ -792,10 +792,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transfer_failed = Error::<E::T>::TransferFailed.into();
 		let out_of_gas = Error::<E::T>::OutOfGas.into();
 		let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
+		let duplicate_contract = Error::<E::T>::DuplicateContract.into();
 
 		// errors in the callee do not trap the caller
 		match (from.error, from.origin) {
 			(err, _) if err == transfer_failed => Ok(TransferFailed),
+			(err, _) if err == duplicate_contract => Ok(DuplicateContractAddress),
 			(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
 			(_, Callee) => Ok(CalleeTrapped),
 			(err, _) => Err(err),
