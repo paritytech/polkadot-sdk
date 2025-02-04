@@ -16,3 +16,5 @@ crates:
   bump: minor
 - name: pallet-multisig
   bump: none
+- name: pallet-assets-freezer
+  bump: none

@@ -199,7 +199,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
-	/// Dispatch types from `frame-support`, other fundamental traits
+	/// Dispatch types from `frame-support`, other fundamental traits.
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
@@ -220,7 +220,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
+	/// All hashing related things.
 	pub use super::hashing::*;
 
 	/// All account related things.
@@ -239,11 +239,15 @@ pub mod prelude {
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
 
-	/// Other error/result types for runtime
+	/// Other error/result types for runtime.
 	#[doc(no_inline)]
 	pub use sp_runtime::{
 		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
 	};
+
+	/// Try runtime types.
+	#[cfg(feature = "try-runtime")]
+	pub use sp_runtime::TryRuntimeError;
 }
 
 /// Prelude to be included in the `benchmarking.rs` of a pallet.

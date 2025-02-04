@@ -53,9 +53,6 @@ use frame::{
 
 pub use pallet::*;
 
-#[cfg(feature = "try-runtime")]
-use frame::try_runtime::TryRuntimeError;
-
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
