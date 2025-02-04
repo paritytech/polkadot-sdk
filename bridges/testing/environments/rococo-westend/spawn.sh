@@ -35,9 +35,11 @@ start_zombienet $TEST_DIR $westend_def westend_dir westend_pid
 echo
 
 if [[ $init -eq 1 ]]; then
+  run_zndsl ${BASH_SOURCE%/*}/rococo-start.zndsl $rococo_dir
+  run_zndsl ${BASH_SOURCE%/*}/westend-start.zndsl $westend_dir
+
   rococo_init_log=$logs_dir/rococo-init.log
   echo -e "Setting up the rococo side of the bridge. Logs available at: $rococo_init_log\n"
-
   westend_init_log=$logs_dir/westend-init.log
   echo -e "Setting up the westend side of the bridge. Logs available at: $westend_init_log\n"
 
@@ -46,7 +48,6 @@ if [[ $init -eq 1 ]]; then
   $helper_script init-asset-hub-westend-local >> $westend_init_log 2>&1 &
   westend_init_pid=$!
   wait -n $rococo_init_pid $westend_init_pid
-
 
   $helper_script init-bridge-hub-rococo-local >> $rococo_init_log 2>&1 &
   rococo_init_pid=$!

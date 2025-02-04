@@ -9,5 +9,6 @@ PROJECT_ROOT=`git rev-parse --show-toplevel`
 
 export BINARY=polkadot,polkadot-execute-worker,polkadot-prepare-worker
 export ARTIFACTS_FOLDER=$1
+export DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected.Dockerfile"
 
 $PROJECT_ROOT/docker/scripts/build-injected.sh

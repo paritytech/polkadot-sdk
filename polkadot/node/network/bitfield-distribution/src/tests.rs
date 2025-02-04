@@ -25,11 +25,7 @@ use polkadot_node_network_protocol::{
 	peer_set::ValidationVersion,
 	view, ObservedRole,
 };
-use polkadot_node_subsystem::{
-	jaeger,
-	jaeger::{PerLeafSpan, Span},
-	messages::ReportPeerMessage,
-};
+use polkadot_node_subsystem::messages::ReportPeerMessage;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{AvailabilityBitfield, Signed, ValidatorIndex};
@@ -86,7 +82,6 @@ fn prewarmed_state(
 					},
 					message_received_from_peer: hashmap!{},
 					message_sent_to_peer: hashmap!{},
-					span: PerLeafSpan::new(Arc::new(jaeger::Span::Disabled), "test"),
 				},
 		},
 		peer_data: peers
@@ -124,7 +119,6 @@ fn state_with_view(
 					one_per_validator: hashmap! {},
 					message_received_from_peer: hashmap! {},
 					message_sent_to_peer: hashmap! {},
-					span: PerLeafSpan::new(Arc::new(jaeger::Span::Disabled), "test"),
 				},
 			)
 		})
@@ -1024,11 +1018,7 @@ fn need_message_works() {
 	let validator_set = Vec::from_iter(validators.iter().map(|k| ValidatorId::from(k.public())));
 
 	let signing_context = SigningContext { session_index: 1, parent_hash: Hash::repeat_byte(0x00) };
-	let mut state = PerRelayParentData::new(
-		signing_context,
-		validator_set.clone(),
-		PerLeafSpan::new(Arc::new(Span::Disabled), "foo"),
-	);
+	let mut state = PerRelayParentData::new(signing_context, validator_set.clone());
 
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();

@@ -26,15 +26,20 @@ use crate::{
 	shared::AllowedRelayParentsTracker,
 };
 use polkadot_primitives::{
-	effective_minimum_backing_votes, AvailabilityBitfield, CandidateDescriptor,
-	SignedAvailabilityBitfields, UncheckedSignedAvailabilityBitfields,
+	effective_minimum_backing_votes,
+	vstaging::{
+		CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector,
+		UMPSignal, UMP_SEPARATOR,
+	},
+	AvailabilityBitfield, CandidateDescriptor, SignedAvailabilityBitfields,
+	UncheckedSignedAvailabilityBitfields,
 };
 
 use assert_matches::assert_matches;
 use codec::DecodeAll;
 use frame_support::assert_noop;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
+	vstaging::MutateDescriptorV2, BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
 	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
 	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
 };
@@ -83,7 +88,7 @@ fn default_allowed_relay_parent_tracker() -> AllowedRelayParentsTracker<Hash, Bl
 	let relay_parent = System::parent_hash();
 	let parent_number = System::block_number().saturating_sub(1);
 
-	allowed.update(relay_parent, Hash::zero(), parent_number, 1);
+	allowed.update(relay_parent, Hash::zero(), Default::default(), parent_number, 1);
 	allowed
 }
 
@@ -262,6 +267,10 @@ pub(crate) struct TestCandidateBuilder {
 	pub(crate) new_validation_code: Option<ValidationCode>,
 	pub(crate) validation_code: ValidationCode,
 	pub(crate) hrmp_watermark: BlockNumber,
+	/// Creates a v2 descriptor if set.
+	pub(crate) core_index: Option<CoreIndex>,
+	/// The core selector to use.
+	pub(crate) core_selector: Option<u8>,
 }
 
 impl std::default::Default for TestCandidateBuilder {
@@ -277,14 +286,28 @@ impl std::default::Default for TestCandidateBuilder {
 			new_validation_code: None,
 			validation_code: dummy_validation_code(),
 			hrmp_watermark: 0u32.into(),
+			core_index: None,
+			core_selector: None,
 		}
 	}
 }
 
 impl TestCandidateBuilder {
 	pub(crate) fn build(self) -> CommittedCandidateReceipt {
-		CommittedCandidateReceipt {
-			descriptor: CandidateDescriptor {
+		let descriptor = if let Some(core_index) = self.core_index {
+			CandidateDescriptorV2::new(
+				self.para_id,
+				self.relay_parent,
+				core_index,
+				0,
+				self.persisted_validation_data_hash,
+				self.pov_hash,
+				Default::default(),
+				self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
+				self.validation_code.hash(),
+			)
+		} else {
+			CandidateDescriptor {
 				para_id: self.para_id,
 				pov_hash: self.pov_hash,
 				relay_parent: self.relay_parent,
@@ -301,14 +324,31 @@ impl TestCandidateBuilder {
 				)
 				.expect("32 bytes; qed"),
 			}
-			.into(),
+			.into()
+		};
+		let mut ccr = CommittedCandidateReceipt {
+			descriptor,
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				new_validation_code: self.new_validation_code,
 				hrmp_watermark: self.hrmp_watermark,
 				..Default::default()
 			},
+		};
+
+		if ccr.descriptor.version() == CandidateDescriptorVersion::V2 {
+			ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+			ccr.commitments.upward_messages.force_push(
+				UMPSignal::SelectCore(
+					CoreSelector(self.core_selector.unwrap_or_default()),
+					ClaimQueueOffset(0),
+				)
+				.encode(),
+			);
 		}
+
+		ccr
 	}
 }
 
@@ -1227,7 +1267,7 @@ fn candidate_checks() {
 				&group_validators,
 				false
 			),
-			Ok(ProcessedCandidates::default())
+			Ok(Default::default())
 		);
 
 		// Check candidate ordering
@@ -1523,20 +1563,16 @@ fn candidate_checks() {
 				None,
 			);
 
-			let ProcessedCandidates {
-				core_indices: occupied_cores,
-				candidate_receipt_with_backing_validator_indices,
-			} = ParaInclusion::process_candidates(
-				&allowed_relay_parents,
-				&vec![(thread_a_assignment.0, vec![(backed.clone(), thread_a_assignment.1)])]
-					.into_iter()
-					.collect(),
-				&group_validators,
-				false,
-			)
-			.expect("candidate is accepted with bad collator signature");
-
-			assert_eq!(occupied_cores, vec![(CoreIndex::from(2), thread_a)]);
+			let candidate_receipt_with_backing_validator_indices =
+				ParaInclusion::process_candidates(
+					&allowed_relay_parents,
+					&vec![(thread_a_assignment.0, vec![(backed.clone(), thread_a_assignment.1)])]
+						.into_iter()
+						.collect(),
+					&group_validators,
+					false,
+				)
+				.expect("candidate is accepted with bad collator signature");
 
 			let mut expected = std::collections::HashMap::<
 				CandidateHash,
@@ -1884,25 +1920,13 @@ fn backing_works() {
 			}
 		};
 
-		let ProcessedCandidates {
-			core_indices: occupied_cores,
-			candidate_receipt_with_backing_validator_indices,
-		} = ParaInclusion::process_candidates(
+		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
 			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(
-			occupied_cores,
-			vec![
-				(CoreIndex::from(0), chain_a),
-				(CoreIndex::from(1), chain_b),
-				(CoreIndex::from(2), thread_a)
-			]
-		);
 
 		// Transform the votes into the setup we expect
 		let expected = {
@@ -2184,26 +2208,13 @@ fn backing_works_with_elastic_scaling_mvp() {
 			}
 		};
 
-		let ProcessedCandidates {
-			core_indices: occupied_cores,
-			candidate_receipt_with_backing_validator_indices,
-		} = ParaInclusion::process_candidates(
+		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
 			true,
 		)
 		.expect("candidates scheduled, in order, and backed");
-
-		// Both b candidates will be backed.
-		assert_eq!(
-			occupied_cores,
-			vec![
-				(CoreIndex::from(0), chain_a),
-				(CoreIndex::from(1), chain_b),
-				(CoreIndex::from(2), chain_b),
-			]
-		);
 
 		// Transform the votes into the setup we expect
 		let mut expected = std::collections::HashMap::<
@@ -2380,18 +2391,15 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			None,
 		);
 
-		let ProcessedCandidates { core_indices: occupied_cores, .. } =
-			ParaInclusion::process_candidates(
-				&allowed_relay_parents,
-				&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
-					.into_iter()
-					.collect::<BTreeMap<_, _>>(),
-				group_validators,
-				false,
-			)
-			.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
+		let _ = ParaInclusion::process_candidates(
+			&allowed_relay_parents,
+			&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
+				.into_iter()
+				.collect::<BTreeMap<_, _>>(),
+			group_validators,
+			false,
+		)
+		.expect("candidates scheduled, in order, and backed");
 
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
@@ -2497,18 +2505,21 @@ fn check_allowed_relay_parents() {
 		allowed_relay_parents.update(
 			relay_parent_a.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_a.0,
 			max_ancestry_len,
 		);
 		allowed_relay_parents.update(
 			relay_parent_b.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_b.0,
 			max_ancestry_len,
 		);
 		allowed_relay_parents.update(
 			relay_parent_c.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_c.0,
 			max_ancestry_len,
 		);
@@ -2803,7 +2814,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			None,
 		);
 
-		let ProcessedCandidates { core_indices: occupied_cores, .. } =
+		let _ =
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
@@ -2813,8 +2824,6 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 				false,
 			)
 			.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
 
 		// Run a couple of blocks before the inclusion.
 		run_to_block(7, |_| None);

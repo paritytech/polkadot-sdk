@@ -29,7 +29,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame::{deps::frame_support::weights::constants::RocksDbWeight, prelude::*};
 use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_template.
@@ -39,6 +39,12 @@ pub trait WeightInfo {
 }
 
 /// Weights for pallet_template using the Substrate node and recommended hardware.
+#[cfg_attr(
+    not(feature = "std"),
+    deprecated(
+        note = "SubstrateWeight is auto-generated and should not be used in production. Replace it with runtime benchmarked weights."
+    )
+)]
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: Template Something (r:0 w:1)

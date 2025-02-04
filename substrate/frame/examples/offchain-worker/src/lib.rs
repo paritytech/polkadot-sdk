@@ -53,8 +53,8 @@ use frame_support::traits::Get;
 use frame_system::{
 	self as system,
 	offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, SendUnsignedTransaction,
-		SignedPayload, Signer, SigningTypes, SubmitTransaction,
+		AppCrypto, CreateInherent, CreateSignedTransaction, SendSignedTransaction,
+		SendUnsignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction,
 	},
 	pallet_prelude::BlockNumberFor,
 };
@@ -124,7 +124,9 @@ pub mod pallet {
 
 	/// This pallet's configuration trait
 	#[pallet::config]
-	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>> + CreateInherent<Call<Self>> + frame_system::Config
+	{
 		/// The identifier type for an offchain worker.
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 
@@ -501,7 +503,8 @@ impl<T: Config> Pallet<T> {
 		// implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
 		// attack vectors. See validation logic docs for more details.
 		//
-		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+		let xt = T::create_inherent(call.into());
+		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map_err(|()| "Unable to submit unsigned transaction.")?;
 
 		Ok(())

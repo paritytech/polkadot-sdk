@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION};
+use crate::chain_spec::SAFE_XCM_VERSION;
 use cumulus_primitives_core::ParaId;
 use parachains_common::{AccountId, AuraId};
-use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
-use sp_core::sr25519;
+use sp_keyring::Sr25519Keyring;
 
 pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec {
 	// Give your base currency a unit name and decimal places
@@ -41,29 +41,10 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec 
 	.with_genesis_config_patch(penpal_testnet_genesis(
 		// initial collators.
 		vec![
-			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
-			),
-			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_collator_keys_from_seed::<AuraId>("Bob"),
-			),
+			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 		],
-		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-		],
+		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		id,
 	))
 	.build()
@@ -105,7 +86,7 @@ fn penpal_testnet_genesis(
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
 		"sudo": {
-			"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+			"key": Some(Sr25519Keyring::Alice.to_account_id()),
 		},
 	})
 }

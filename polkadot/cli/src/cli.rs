@@ -79,7 +79,7 @@ pub struct RunCmd {
 
 	/// Disable the BEEFY gadget.
 	///
-	/// Currently enabled by default on 'Rococo', 'Wococo' and 'Versi'.
+	/// Currently enabled by default.
 	#[arg(long)]
 	pub no_beefy: bool,
 
@@ -92,12 +92,6 @@ pub struct RunCmd {
 	/// Enable the block authoring backoff that is triggered when finality is lagging.
 	#[arg(long)]
 	pub force_authoring_backoff: bool,
-
-	/// Add the destination address to the 'Jaeger' agent.
-	///
-	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:6831`).
-	#[arg(long)]
-	pub jaeger_agent: Option<String>,
 
 	/// Add the destination address to the `pyroscope` agent.
 	///

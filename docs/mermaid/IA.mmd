@@ -1,13 +1,12 @@
 flowchart
     parity[paritytech.github.io] --> devhub[polkadot_sdk_docs]
-	polkadot_network[polkadot.network] --> devhub[polkadot_sdk_docs]
 
     devhub --> polkadot_sdk
     devhub --> reference_docs
     devhub --> guides
+	devhub --> external_resources
 
     polkadot_sdk --> substrate
     polkadot_sdk --> frame
-    polkadot_sdk --> cumulus
-    polkadot_sdk --> polkadot[polkadot node]
     polkadot_sdk --> xcm
+	polkadot_sdk --> templates

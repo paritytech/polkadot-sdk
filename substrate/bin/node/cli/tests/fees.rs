@@ -55,11 +55,11 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time1 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(0, 0)),
 				function: RuntimeCall::Sudo(pallet_sudo::Call::sudo {
 					call: Box::new(RuntimeCall::RootTesting(
 						pallet_root_testing::Call::fill_block { ratio: Perbill::from_percent(60) },
@@ -78,11 +78,11 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
 		block1.1,
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time2 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(1, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(1, 0)),
 				function: RuntimeCall::System(frame_system::Call::remark { remark: vec![0; 1] }),
 			},
 		],
@@ -148,7 +148,7 @@ fn transaction_fee_is_correct() {
 
 	let tip = 1_000_000;
 	let xt = sign(CheckedExtrinsic {
-		signed: Some((alice(), signed_extra(0, tip))),
+		format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, tip)),
 		function: RuntimeCall::Balances(default_transfer_call()),
 	});
 
@@ -174,7 +174,9 @@ fn transaction_fee_is_correct() {
 		let length_fee = TransactionByteFee::get() * (xt.clone().encode().len() as Balance);
 		balance_alice -= length_fee;
 
-		let weight = default_transfer_call().get_dispatch_info().weight;
+		let mut info = default_transfer_call().get_dispatch_info();
+		info.extension_weight = xt.0.extension_weight();
+		let weight = info.total_weight();
 		let weight_fee = IdentityFee::<Balance>::weight_to_fee(&weight);
 
 		// we know that weight to fee multiplier is effect-less in block 1.

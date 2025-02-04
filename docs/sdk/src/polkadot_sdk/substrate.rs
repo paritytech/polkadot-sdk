@@ -90,22 +90,6 @@
 //!
 //! In order to ensure that the WASM build is **deterministic**, the [Substrate Runtime Toolbox (srtool)](https://github.com/paritytech/srtool) can be used.
 //!
-//! ### Binaries
-//!
-//! Multiple binaries are shipped with substrate, the most important of which are located in the
-//! [`./bin`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin) folder.
-//!
-//! * [`node_cli`] is an extensive substrate node that contains the superset of all runtime and node
-//!   side features. The corresponding runtime, called [`kitchensink_runtime`] contains all of the
-//!   modules that are provided with `FRAME`. This node and runtime is only used for testing and
-//!   demonstration.
-//!     * [`chain_spec_builder`]: Utility to build more detailed chain-specs for the aforementioned
-//!       node. Other projects typically contain a `build-spec` subcommand that does the same.
-//! * [`node_template`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node):
-//!   a template node that contains a minimal set of features and can act as a starting point of a
-//!   project.
-//! * [`subkey`]: Substrate's key management utility.
-//!
 //! ### Anatomy of a Binary Crate
 //!
 //! From the above, [`node_cli`]/[`kitchensink_runtime`] and `node-template` are essentially

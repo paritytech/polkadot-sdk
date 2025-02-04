@@ -22,7 +22,7 @@ use alloc::{vec, vec::Vec};
 use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 
 use codec::Decode;
-use frame_benchmarking::v1::benchmarks;
+use frame_benchmarking::v2::*;
 use frame_support::traits::{Get, KeyOwnerProofSystem, OnInitialize};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::{historical::Pallet as Historical, Pallet as Session, *};
@@ -45,8 +45,12 @@ impl<T: Config> OnInitialize<BlockNumberFor<T>> for Pallet<T> {
 	}
 }
 
-benchmarks! {
-	set_keys {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn set_keys() -> Result<(), BenchmarkError> {
 		let n = MaxNominationsOf::<T>::get();
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
@@ -58,13 +62,19 @@ benchmarks! {
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 
 		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
-		let proof: Vec<u8> = vec![0,1,2,3];
+		let proof: Vec<u8> = vec![0, 1, 2, 3];
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
 		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-	}: _(RawOrigin::Signed(v_controller), keys, proof)
 
-	purge_keys {
+		#[extrinsic_call]
+		_(RawOrigin::Signed(v_controller), keys, proof);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn purge_keys() -> Result<(), BenchmarkError> {
 		let n = MaxNominationsOf::<T>::get();
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
@@ -75,30 +85,33 @@ benchmarks! {
 		)?;
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
-		let proof: Vec<u8> = vec![0,1,2,3];
+		let proof: Vec<u8> = vec![0, 1, 2, 3];
 		Session::<T>::set_keys(RawOrigin::Signed(v_controller.clone()).into(), keys, proof)?;
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
 		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-	}: _(RawOrigin::Signed(v_controller))
 
-	#[extra]
-	check_membership_proof_current_session {
-		let n in 2 .. MAX_VALIDATORS as u32;
+		#[extrinsic_call]
+		_(RawOrigin::Signed(v_controller));
 
+		Ok(())
+	}
+
+	#[benchmark(extra)]
+	fn check_membership_proof_current_session(n: Linear<2, MAX_VALIDATORS>) {
 		let (key, key_owner_proof1) = check_membership_proof_setup::<T>(n);
 		let key_owner_proof2 = key_owner_proof1.clone();
-	}: {
-		Historical::<T>::check_proof(key, key_owner_proof1);
-	}
-	verify {
+
+		#[block]
+		{
+			Historical::<T>::check_proof(key, key_owner_proof1);
+		}
+
 		assert!(Historical::<T>::check_proof(key, key_owner_proof2).is_some());
 	}
 
-	#[extra]
-	check_membership_proof_historical_session {
-		let n in 2 .. MAX_VALIDATORS as u32;
-
+	#[benchmark(extra)]
+	fn check_membership_proof_historical_session(n: Linear<2, MAX_VALIDATORS>) {
 		let (key, key_owner_proof1) = check_membership_proof_setup::<T>(n);
 
 		// skip to the next session so that the session is historical
@@ -106,14 +119,21 @@ benchmarks! {
 		Session::<T>::rotate_session();
 
 		let key_owner_proof2 = key_owner_proof1.clone();
-	}: {
-		Historical::<T>::check_proof(key, key_owner_proof1);
-	}
-	verify {
+
+		#[block]
+		{
+			Historical::<T>::check_proof(key, key_owner_proof1);
+		}
+
 		assert!(Historical::<T>::check_proof(key, key_owner_proof2).is_some());
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test, extra = false);
+	impl_benchmark_test_suite!(
+		Pallet,
+		crate::mock::new_test_ext(),
+		crate::mock::Test,
+		extra = false
+	);
 }
 
 /// Sets up the benchmark for checking a membership proof. It creates the given
