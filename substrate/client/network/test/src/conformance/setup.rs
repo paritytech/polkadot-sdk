@@ -164,7 +164,6 @@ pub async fn connect_backends(left: &NetworkBackendClient, right: &NetworkBacken
 
 /// Ensure connectivity on the notification protocol level.
 pub async fn connect_notifications(left: &NetworkBackendClient, right: &NetworkBackendClient) {
-	let left_peer_id = left.network_service.local_peer_id();
 	let right_peer_id = right.network_service.local_peer_id();
 
 	while left.network_service.listen_addresses().is_empty() {
