@@ -153,6 +153,7 @@ impl TransactionBuilder {
 			.await
 			.with_context(|| "Failed to fetch gas estimate")?;
 
+		println!("Gas estimate: {gas:?}");
 		let mut unsigned_tx = TransactionLegacyUnsigned {
 			gas,
 			nonce,

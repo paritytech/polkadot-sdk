@@ -1,0 +1,19 @@
+title: '[pallet-revive] gas-price update'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Update the default gas_price to 20Gwei, a more sensible value based on Ethereum mainnet average.
+    This works better with web3.js that hard code the `defaultMaxPriorityFeePerGas` [to 2.5Gwei](https://github.com/web3/web3.js/blob/4.x/docs/docs/guides/09_web3_config/index.md?plain=1#L439-L443)
+
+    - Since the gas_price value may change over time it's now served through runtime API instead of being a shared constant
+
+    - Fixed The Gas Used reported in Receipts. Moved the free functions into a 'receipt_extractor' module
+
+    should fix https://github.com/paritytech/contract-issues/issues/24
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor

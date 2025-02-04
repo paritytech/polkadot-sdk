@@ -41,7 +41,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl,
-	dispatch::DispatchClass,
+	dispatch::{DispatchClass, DispatchInfo},
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
 	instances::{Instance1, Instance2},
@@ -89,6 +89,7 @@ use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_session::historical as pallet_session_historical;
 use sp_core::U256;
+use sp_runtime::traits::TransactionExtension;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 use pallet_broker::TaskId;
@@ -3305,6 +3306,10 @@ impl_runtime_apis! {
 			Revive::evm_block_gas_limit()
 		}
 
+		fn gas_price() -> U256 {
+			Revive::evm_gas_price()
+		}
+
 		fn nonce(address: H160) -> Nonce {
 			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
 			System::account_nonce(account)
@@ -3313,18 +3318,19 @@ impl_runtime_apis! {
 		fn eth_transact(tx: pallet_revive::evm::GenericTransaction) -> Result<pallet_revive::EthTransactInfo<Balance>, pallet_revive::EthTransactError>
 		{
 			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
-
-			let encoded_size = |pallet_call| {
+			let tx_fee = |pallet_call, mut dispatch_info: DispatchInfo| {
 				let call = RuntimeCall::Revive(pallet_call);
+				dispatch_info.extension_weight = EthExtraImpl::get_eth_extension(0, 0u32.into()).weight(&call);
 				let uxt: UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
-				uxt.encoded_size() as u32
+
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
+					uxt.encoded_size() as u32,
+					&dispatch_info,
+					0u32.into(),
+				)
 			};
 
-			Revive::bare_eth_transact(
-				tx,
-				blockweights.max_block,
-				encoded_size,
-			)
+			Revive::bare_eth_transact(tx, blockweights.max_block, tx_fee)
 		}
 
 		fn call(

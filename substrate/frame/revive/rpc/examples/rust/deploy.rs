@@ -48,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
 		.await?;
 
 	println!("Deploy Tx hash: {hash:?}");
-	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
+	let ReceiptInfo { block_number, gas_used, effective_gas_price, contract_address, .. } =
 		wait_for_receipt(&client, hash).await?;
 
 	let contract_address = contract_address.unwrap();
@@ -57,9 +57,14 @@ async fn main() -> anyhow::Result<()> {
 	println!("Receipt:");
 	println!("- Block number: {block_number}");
 	println!("- Gas used: {gas_used}");
+	println!("- EVM fees: {}", gas_used * effective_gas_price);
 	println!("- Contract address: {contract_address:?}");
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
 	println!("- Contract balance: {balance:?}");
+
+	if std::env::var("SKIP_CALL").is_ok() {
+		return Ok(());
+	}
 
 	println!("\n\n=== Calling contract ===\n\n");
 	let hash = TransactionBuilder::default()
@@ -69,10 +74,12 @@ async fn main() -> anyhow::Result<()> {
 		.await?;
 
 	println!("Contract call tx hash: {hash:?}");
-	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;
+	let ReceiptInfo { block_number, gas_used, effective_gas_price, to, .. } =
+		wait_for_receipt(&client, hash).await?;
 	println!("Receipt:");
 	println!("- Block number: {block_number}");
 	println!("- Gas used: {gas_used}");
+	println!("- EVM fees: {}", gas_used * effective_gas_price);
 	println!("- To: {to:?}");
 	Ok(())
 }

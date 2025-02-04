@@ -105,8 +105,8 @@ where
 		let components = U256::from(deposit_component + proof_size_component + ref_time_component);
 
 		let raw_gas_mask = U256::from(SCALE).pow(3.into());
-		let raw_gas_component = if gas_limit < raw_gas_mask.saturating_add(components) {
-			raw_gas_mask
+		let raw_gas_component = if gas_limit <= components {
+			U256::zero()
 		} else {
 			round_up(gas_limit, raw_gas_mask).saturating_mul(raw_gas_mask)
 		};
@@ -122,10 +122,19 @@ where
 		let proof_time = ((gas / SCALE) % SCALE).as_u32();
 		let ref_time = ((gas / SCALE.pow(2)) % SCALE).as_u32();
 
-		let weight = Weight::from_parts(
-			if ref_time == 0 { 0 } else { 1u64.checked_shl(ref_time)? },
-			if proof_time == 0 { 0 } else { 1u64.checked_shl(proof_time)? },
-		);
+		let ref_weight = match ref_time {
+			0 => 0,
+			64 => u64::MAX,
+			_ => 1u64.checked_shl(ref_time)?,
+		};
+
+		let proof_weight = match proof_time {
+			0 => 0,
+			64 => u64::MAX,
+			_ => 1u64.checked_shl(proof_time)?,
+		};
+
+		let weight = Weight::from_parts(ref_weight, proof_weight);
 		let deposit =
 			if deposit == 0 { Balance::zero() } else { Balance::one().checked_shl(deposit)? };
 
@@ -169,12 +178,16 @@ mod test {
 			Default::default(),
 		);
 
-		assert_eq!(encoded_gas, U256::from(1_00_00_00));
+		assert_eq!(encoded_gas, U256::from(0));
 
 		let (decoded_weight, decoded_deposit) =
 			<() as GasEncoder<u64>>::decode(encoded_gas).unwrap();
 		assert_eq!(Weight::default(), decoded_weight);
 		assert_eq!(0u64, decoded_deposit);
+
+		let encoded_gas =
+			<() as GasEncoder<u64>>::encode(U256::from(1), Default::default(), Default::default());
+		assert_eq!(encoded_gas, U256::from(1000000));
 	}
 
 	#[test]
