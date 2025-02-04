@@ -189,7 +189,6 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -629,6 +628,7 @@ impl pallet_scheduler::Config for Runtime {
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = EqualOrGreatestRootCmp;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
