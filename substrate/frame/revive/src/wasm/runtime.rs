@@ -327,6 +327,8 @@ pub enum RuntimeCosts {
 	BlockNumber,
 	/// Weight of calling `seal_block_hash`.
 	BlockHash,
+	/// Weight of calling `seal_block_author`.
+	BlockAuthor,
 	/// Weight of calling `seal_gas_price`.
 	GasPrice,
 	/// Weight of calling `seal_base_fee`.
@@ -483,6 +485,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
+			BlockAuthor => T::WeightInfo::seal_block_author(),
 			GasPrice => T::WeightInfo::seal_gas_price(),
 			BaseFee => T::WeightInfo::seal_base_fee(),
 			Now => T::WeightInfo::seal_now(),
@@ -789,10 +792,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transfer_failed = Error::<E::T>::TransferFailed.into();
 		let out_of_gas = Error::<E::T>::OutOfGas.into();
 		let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
+		let duplicate_contract = Error::<E::T>::DuplicateContract.into();
 
 		// errors in the callee do not trap the caller
 		match (from.error, from.origin) {
 			(err, _) if err == transfer_failed => Ok(TransferFailed),
+			(err, _) if err == duplicate_contract => Ok(DuplicateContractAddress),
 			(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
 			(_, Callee) => Ok(CalleeTrapped),
 			(err, _) => Err(err),
@@ -1684,6 +1689,25 @@ pub mod env {
 			memory,
 			out_ptr,
 			&block_hash.as_bytes(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Stores the current block author into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::block_author`].
+	#[stable]
+	fn block_author(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BlockAuthor)?;
+		let block_author = self
+			.ext
+			.block_author()
+			.map(|account| <E::T as Config>::AddressMapper::to_address(&account))
+			.unwrap_or(H160::zero());
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&block_author.as_bytes(),
 			false,
 			already_charged,
 		)?)
