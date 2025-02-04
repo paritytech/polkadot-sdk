@@ -21,6 +21,7 @@ use crate::common::{
 };
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
+use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 use polkadot_primitives::UpgradeGoAhead;
 use sc_consensus::{DefaultImportQueue, LongestChain};
@@ -28,7 +29,7 @@ use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_runtime::traits::Header;
 use std::{marker::PhantomData, sync::Arc};
 
@@ -169,6 +170,17 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					},
 				};
 
+				// The API version is relevant here because the constraints in the runtime changed
+				// in https://github.com/paritytech/polkadot-sdk/pull/6825. In general, the logic
+				// here assumes that we are using the aura-ext consensushook in the parachain
+				// runtime.
+				let api_version = client_for_cidp
+					.runtime_api()
+					.api_version::<dyn AuraUnincludedSegmentApi<NodeSpec::Block>>(block)
+					.ok()
+					.flatten()
+					.unwrap();
+
 				let current_para_block_head =
 					Some(polkadot_primitives::HeadData(current_para_head.encode()));
 				let client_for_xcm = client_for_cidp.clone();
@@ -183,8 +195,8 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						),
 						para_id,
 						current_para_block_head,
-						relay_offset: 1000,
-						relay_blocks_per_para_block: 1,
+						relay_offset: 0,
+						relay_blocks_per_para_block: if api_version > 1 { 1 } else { 0 },
 						para_blocks_per_relay_epoch: 10,
 						relay_randomness_config: (),
 						xcm_config: MockXcmConfig::new(&*client_for_xcm, block, Default::default()),
