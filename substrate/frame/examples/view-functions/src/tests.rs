@@ -144,7 +144,7 @@ fn metadata_ir_definitions() {
 					id: get_value_id,
 					inputs: vec![],
 					output: meta_type::<Option<u32>>(),
-					docs: vec![" Query value no args."],
+					docs: vec![" Query value with no input args."],
 					deprecation_info: DeprecationStatusIR::NotDeprecated,
 				},
 				PalletViewFunctionMethodMetadataIR {
@@ -155,7 +155,7 @@ fn metadata_ir_definitions() {
 						ty: meta_type::<u32>()
 					},],
 					output: meta_type::<Option<u32>>(),
-					docs: vec![" Query value with args."],
+					docs: vec![" Query value with input args."],
 					deprecation_info: DeprecationStatusIR::NotDeprecated,
 				},
 			]
