@@ -842,13 +842,10 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`
+   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `GenesisConfig<Runtime>: std::default::Default`
    |
-note: required by a bound in `GenesisConfig`
-  --> $WORKSPACE/substrate/frame/system/src/lib.rs
-   |
-   |     pub struct GenesisConfig<T: Config> {
-   |                                 ^^^^^^ required by this bound in `GenesisConfig`
+   = help: the trait `std::default::Default` is implemented for `GenesisConfig<T>`
+   = note: required for `GenesisConfig<Runtime>` to implement `std::default::Default`
    = note: this error originates in the derive macro `Default` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
@@ -892,4 +889,4 @@ error[E0282]: type annotations needed
    |
    = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: internal compiler error: compiler/rustc_middle/src/ty/normalize_erasing_regions.rs:169:90: Failed to normalize std::rc::Rc<std::boxed::Box<dyn [Binder { value: Trait(std::ops::Fn<(&<Runtime as frame_system::Config>::RuntimeCall,)>), bound_vars: [Region(BrAnon)] }, Binder { value: Projection(Output = bool), bound_vars: [Region(BrAnon)] }] + '{erased}, std::alloc::Global>, std::alloc::Global>, maybe try to call `try_normalize_erasing_regions` instead
+error: internal compiler error: compiler/rustc_middle/src/ty/normalize_erasing_regions.rs:168:90: Failed to normalize std::rc::Rc<std::boxed::Box<dyn [Binder { value: Trait(std::ops::Fn<(&<Runtime as frame_system::Config>::RuntimeCall,)>), bound_vars: [Region(BrAnon)] }, Binder { value: Projection(Output = bool), bound_vars: [Region(BrAnon)] }] + '{erased}, std::alloc::Global>, std::alloc::Global>, maybe try to call `try_normalize_erasing_regions` instead
