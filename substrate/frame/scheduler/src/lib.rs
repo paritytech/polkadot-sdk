@@ -101,7 +101,6 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::{
-	pallet_prelude::BlockNumberFor,
 	{self as system},
 };
 use scale_info::TypeInfo;
