@@ -1565,9 +1565,9 @@ where
 
 		info!(
 			target: LOG_TARGET,
-			mempool_len = format!("{:?}", self.mempool_len()),
+			txs = ?self.mempool_len(),
 			active_views_count = self.active_views_count(),
-			views_stats = ?self.views_stats(),
+			views = ?self.views_stats(),
 			?event,
 			?duration,
 			"maintain"
