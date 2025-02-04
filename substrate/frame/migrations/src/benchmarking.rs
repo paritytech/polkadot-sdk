@@ -20,7 +20,7 @@
 use super::*;
 
 use core::array;
-use frame_benchmarking::{v2::*, BenchmarkError, benchmarking};
+use frame_benchmarking::{benchmarking, v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
 use sp_core::{twox_128, Get};
 use sp_io::{storage, KillStorageResult};
