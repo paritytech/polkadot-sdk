@@ -39,9 +39,9 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	self as util,
-	runtime::{prospective_parachains_mode, ClaimQueueSnapshot, ProspectiveParachainsMode},
+	runtime::{fetch_scheduling_lookahead, ClaimQueueSnapshot},
 };
-use polkadot_overseer::ActiveLeavesUpdate;
+use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
 	executor_params::{
@@ -158,7 +158,7 @@ where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
 	match util::runtime::fetch_claim_queue(sender, relay_parent).await {
-		Ok(maybe_cq) => maybe_cq,
+		Ok(cq) => Some(cq),
 		Err(err) => {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -190,40 +190,30 @@ where
 			exec_kind,
 			response_sender,
 			..
-		} =>
-			async move {
-				let _timer = metrics.time_validate_from_exhaustive();
-				let relay_parent = candidate_receipt.descriptor.relay_parent();
+		} => async move {
+			let _timer = metrics.time_validate_from_exhaustive();
+			let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-				let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
+			let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
 
-				let maybe_expected_session_index =
-					match util::request_session_index_for_child(relay_parent, &mut sender)
-						.await
-						.await
-					{
-						Ok(Ok(expected_session_index)) => Some(expected_session_index),
-						_ => None,
-					};
+			let res = validate_candidate_exhaustive(
+				get_session_index(&mut sender, relay_parent).await,
+				validation_host,
+				validation_data,
+				validation_code,
+				candidate_receipt,
+				pov,
+				executor_params,
+				exec_kind,
+				&metrics,
+				maybe_claim_queue,
+			)
+			.await;
 
-				let res = validate_candidate_exhaustive(
-					maybe_expected_session_index,
-					validation_host,
-					validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					executor_params,
-					exec_kind,
-					&metrics,
-					maybe_claim_queue,
-				)
-				.await;
-
-				metrics.on_validation_event(&res);
-				let _ = response_sender.send(res);
-			}
-			.boxed(),
+			metrics.on_validation_event(&res);
+			let _ = response_sender.send(res);
+		}
+		.boxed(),
 		CandidateValidationMessage::PreCheck {
 			relay_parent,
 			validation_code_hash,
@@ -257,7 +247,7 @@ async fn run<Context>(
 		pvf_prepare_workers_hard_max_num,
 	}: Config,
 ) -> SubsystemResult<()> {
-	let (validation_host, task) = polkadot_node_core_pvf::start(
+	let (mut validation_host, task) = polkadot_node_core_pvf::start(
 		polkadot_node_core_pvf::Config::new(
 			artifacts_cache_path,
 			node_version,
@@ -282,8 +272,13 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							update_active_leaves(ctx.sender(), validation_host.clone(), update.clone()).await;
-							maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
+							handle_active_leaves_update(
+								ctx.sender(),
+								keystore.clone(),
+								&mut validation_host,
+								update,
+								&mut prepare_state,
+							).await
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
@@ -343,17 +338,46 @@ impl Default for PrepareValidationState {
 	}
 }
 
+async fn handle_active_leaves_update<Sender>(
+	sender: &mut Sender,
+	keystore: KeystorePtr,
+	validation_host: &mut impl ValidationBackend,
+	update: ActiveLeavesUpdate,
+	prepare_state: &mut PrepareValidationState,
+) where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	let maybe_session_index = update_active_leaves(sender, validation_host, update.clone()).await;
+
+	if let Some(activated) = update.activated {
+		let maybe_new_session_index = match (prepare_state.session_index, maybe_session_index) {
+			(Some(existing_index), Some(new_index)) =>
+				(new_index > existing_index).then_some(new_index),
+			(None, Some(new_index)) => Some(new_index),
+			_ => None,
+		};
+		maybe_prepare_validation(
+			sender,
+			keystore.clone(),
+			validation_host,
+			activated,
+			prepare_state,
+			maybe_new_session_index,
+		)
+		.await;
+	}
+}
+
 async fn maybe_prepare_validation<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
-	validation_backend: impl ValidationBackend,
-	update: ActiveLeavesUpdate,
+	validation_backend: &mut impl ValidationBackend,
+	leaf: ActivatedLeaf,
 	state: &mut PrepareValidationState,
+	new_session_index: Option<SessionIndex>,
 ) where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let Some(leaf) = update.activated else { return };
-	let new_session_index = new_session_index(sender, state.session_index, leaf.hash).await;
 	if new_session_index.is_some() {
 		state.session_index = new_session_index;
 		state.already_prepared_code_hashes.clear();
@@ -380,16 +404,11 @@ async fn maybe_prepare_validation<Sender>(
 	}
 }
 
-// Returns the new session index if it is greater than the current one.
-async fn new_session_index<Sender>(
-	sender: &mut Sender,
-	session_index: Option<SessionIndex>,
-	relay_parent: Hash,
-) -> Option<SessionIndex>
+async fn get_session_index<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<SessionIndex>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let Ok(Ok(new_session_index)) =
+	let Ok(Ok(session_index)) =
 		util::request_session_index_for_child(relay_parent, sender).await.await
 	else {
 		gum::warn!(
@@ -400,13 +419,7 @@ where
 		return None
 	};
 
-	session_index.map_or(Some(new_session_index), |index| {
-		if new_session_index > index {
-			Some(new_session_index)
-		} else {
-			None
-		}
-	})
+	Some(session_index)
 }
 
 // Returns true if the node is an authority in the next session.
@@ -460,7 +473,7 @@ where
 // Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.
 async fn prepare_pvfs_for_backed_candidates<Sender>(
 	sender: &mut Sender,
-	mut validation_backend: impl ValidationBackend,
+	validation_backend: &mut impl ValidationBackend,
 	relay_parent: Hash,
 	already_prepared: &HashSet<ValidationCodeHash>,
 	per_block_limit: usize,
@@ -557,12 +570,21 @@ where
 
 async fn update_active_leaves<Sender>(
 	sender: &mut Sender,
-	mut validation_backend: impl ValidationBackend,
+	validation_backend: &mut impl ValidationBackend,
 	update: ActiveLeavesUpdate,
-) where
+) -> Option<SessionIndex>
+where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let ancestors = get_block_ancestors(sender, update.activated.as_ref().map(|x| x.hash)).await;
+	let maybe_new_leaf = if let Some(activated) = &update.activated {
+		get_session_index(sender, activated.hash)
+			.await
+			.map(|index| (activated.hash, index))
+	} else {
+		None
+	};
+
+	let ancestors = get_block_ancestors(sender, maybe_new_leaf).await;
 	if let Err(err) = validation_backend.update_active_leaves(update, ancestors).await {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -570,39 +592,33 @@ async fn update_active_leaves<Sender>(
 			"cannot update active leaves in validation backend",
 		);
 	};
-}
 
-async fn get_allowed_ancestry_len<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<usize>
-where
-	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
-{
-	match prospective_parachains_mode(sender, relay_parent).await {
-		Ok(ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. }) =>
-			Some(allowed_ancestry_len),
-		res => {
-			gum::warn!(target: LOG_TARGET, ?res, "async backing is disabled");
-			None
-		},
-	}
+	maybe_new_leaf.map(|l| l.1)
 }
 
 async fn get_block_ancestors<Sender>(
 	sender: &mut Sender,
-	maybe_relay_parent: Option<Hash>,
+	maybe_new_leaf: Option<(Hash, SessionIndex)>,
 ) -> Vec<Hash>
 where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let Some(relay_parent) = maybe_relay_parent else { return vec![] };
-	let Some(allowed_ancestry_len) = get_allowed_ancestry_len(sender, relay_parent).await else {
-		return vec![]
-	};
+	let Some((relay_parent, session_index)) = maybe_new_leaf else { return vec![] };
+	let scheduling_lookahead =
+		match fetch_scheduling_lookahead(relay_parent, session_index, sender).await {
+			Ok(scheduling_lookahead) => scheduling_lookahead,
+			res => {
+				gum::warn!(target: LOG_TARGET, ?res, "Failed to request scheduling lookahead");
+				return vec![]
+			},
+		};
 
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ChainApiMessage::Ancestors {
 			hash: relay_parent,
-			k: allowed_ancestry_len,
+			// Subtract 1 from the claim queue length, as it includes current `relay_parent`.
+			k: scheduling_lookahead.saturating_sub(1) as usize,
 			response_channel: tx,
 		})
 		.await;

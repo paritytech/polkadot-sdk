@@ -1614,6 +1614,18 @@ fn instantiate_return_code() {
 			.data(callee_hash.iter().chain(&2u32.to_le_bytes()).cloned().collect())
 			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::CalleeTrapped);
+
+		// Contract instantiation succeeds
+		let result = builder::bare_call(contract.addr)
+			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
+			.build_and_unwrap_result();
+		assert_return_code!(result, 0);
+
+		// Contract instantiation fails because the same salt is being used again.
+		let result = builder::bare_call(contract.addr)
+			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
+			.build_and_unwrap_result();
+		assert_return_code!(result, RuntimeReturnCode::DuplicateContractAddress);
 	});
 }
 
