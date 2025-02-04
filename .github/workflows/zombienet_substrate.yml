@@ -51,7 +51,7 @@ jobs:
       - name: upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: zombienet-logs-scale-net
+          name: zombienet-logs-${{ github.job }}
           path: |
             /tmp/zombie*/logs/*
 
@@ -78,7 +78,7 @@ jobs:
       - name: upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: zombienet-logs-scale-net
+          name: zombienet-logs-${{ github.job }}
           path: |
             /tmp/zombie*/logs/*
 
@@ -106,7 +106,7 @@ jobs:
       - name: upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: zombienet-logs-scale-net
+          name: zombienet-logs-${{ github.job }}
           path: |
             /tmp/zombie*/logs/*
 
@@ -134,6 +134,6 @@ jobs:
       - name: upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: zombienet-logs-scale-net
+          name: zombienet-logs-${{ github.job }}
           path: |
             /tmp/zombie*/logs/*
