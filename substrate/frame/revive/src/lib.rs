@@ -1016,7 +1016,7 @@ where
 			storage_deposit = storage_meter
 				.try_into_deposit(&origin, storage_deposit_limit.is_unchecked())
 				.inspect_err(|err| {
-					log::error!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
+					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
 				})?;
 			Ok(result)
 		};

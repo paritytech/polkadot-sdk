@@ -4414,13 +4414,13 @@ fn tracing_works() {
 	let (code, _code_hash) = compile_module("tracing").unwrap();
 	let (wasm_callee, _) = compile_module("tracing_callee").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 
 		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
 
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(code)).value(10_000_000).build_and_unwrap_contract();
 
 		let tracer_options = vec![
 			( false , vec![]),
@@ -4518,6 +4518,15 @@ fn tracing_works() {
 											to: addr,
 											input: (0u32, addr_callee).encode(),
 											call_type: Call,
+											calls: vec![
+												CallTrace {
+													from: addr,
+													to: BOB_ADDR,
+													value: U256::from(100),
+													call_type: CallType::Call,
+													..Default::default()
+												}
+											],
 											..Default::default()
 										},
 									],

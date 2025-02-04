@@ -733,24 +733,23 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
 			if_tracing(|t| {
-				let address =
-					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default();
-				let dest = T::AddressMapper::to_address(&dest);
-				t.enter_child_span(address, dest, false, false, value, &input_data, Weight::zero());
+				t.enter_child_span(
+					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
+					T::AddressMapper::to_address(&dest),
+					false,
+					false,
+					value,
+					&input_data,
+					Weight::zero(),
+				);
+				match result {
+					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+				}
 			});
 
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
-			match result {
-				Ok(ref output) => {
-					if_tracing(|t| {
-						t.exit_child_span(&output, Weight::zero());
-					});
-				},
-				Err(e) => {
-					if_tracing(|t| t.exit_child_span_with_error(e.error.into(), Weight::zero()));
-				},
-			}
 			result
 		}
 	}
@@ -1279,7 +1278,10 @@ where
 				.and_then(|_| T::Currency::transfer(from, to, value, Preservation::Preserve))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(Default::default())),
-				Err(_) => TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into())),
+				Err(err) => {
+					log::debug!(target: crate::LOG_TARGET, "Transfer failed: {err:?}");
+					TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into()))
+				},
 			}
 		})
 	}
@@ -1426,13 +1428,28 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				Self::transfer_from_origin(
+				let result = Self::transfer_from_origin(
 					&self.origin,
 					&Origin::from_account_id(self.account_id().clone()),
 					&dest,
 					value,
-				)?;
-				Ok(())
+				);
+				if_tracing(|t| {
+					t.enter_child_span(
+						T::AddressMapper::to_address(self.account_id()),
+						T::AddressMapper::to_address(&dest),
+						false,
+						false,
+						value,
+						&input_data,
+						Weight::zero(),
+					);
+					match result {
+						Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+						Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+					}
+				});
+				result.map(|_| ())
 			}
 		};
 
