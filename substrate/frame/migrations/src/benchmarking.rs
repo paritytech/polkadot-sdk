@@ -20,7 +20,7 @@
 use super::*;
 
 use core::array;
-use frame_benchmarking::{benchmarking, v2::*, BenchmarkError};
+use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
 use sp_core::{twox_128, Get};
 use sp_io::{storage, KillStorageResult};
@@ -220,10 +220,6 @@ mod benches {
 			storage::set(&key, &[0u8; 32]);
 		}
 
-		// test externalities don't support committing
-		#[cfg(not(test))]
-		benchmarking::commit_db();
-
 		let result;
 		#[block]
 		{
@@ -235,7 +231,7 @@ mod benches {
 		// keys removed.
 		match result {
 			KillStorageResult::AllRemoved(i) => {
-				// `i` ionly includes commited keys
+				// during the test the storage is not comitted and `i` will always be 0
 				#[cfg(not(test))]
 				ensure!(i == n, "Not all keys are removed");
 			},
