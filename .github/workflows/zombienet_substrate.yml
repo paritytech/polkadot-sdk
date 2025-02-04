@@ -29,7 +29,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
