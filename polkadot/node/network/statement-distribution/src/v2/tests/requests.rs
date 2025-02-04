@@ -38,7 +38,6 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors,
 	};
 
@@ -202,13 +201,11 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: Some(AsyncBackingParams {
-			// Makes `seconding_limit: 2` (easier to hit the limit).
-			max_candidate_depth: 1,
-			allowed_ancestry_len: 3,
-		}),
 		allow_v2_descriptors: false,
 	};
+
+	// use a scheduling_lookahead of two to restrict the per-core seconding limit to 2.
+	let scheduling_lookahead = 2;
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -222,7 +219,8 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
-		let test_leaf = state.make_dummy_leaf(relay_parent);
+		let test_leaf =
+			state.make_dummy_leaf_with_scheduling_lookahead(relay_parent, scheduling_lookahead);
 
 		let (candidate_1, pvd_1) = make_candidate(
 			relay_parent,
@@ -482,7 +480,6 @@ fn peer_reported_for_not_enough_statements() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -670,7 +667,6 @@ fn peer_reported_for_duplicate_statements() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -824,7 +820,6 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -956,7 +951,6 @@ fn peer_reported_for_invalid_v2_descriptor() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: true,
 	};
 
@@ -988,7 +982,6 @@ fn peer_reported_for_invalid_v2_descriptor() {
 		let other_group_validators = state.group_validators(local_group_index, true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
-		let v_c = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -997,14 +990,14 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			connect_peer(
 				&mut overseer,
 				peer_a.clone(),
-				Some(vec![state.discovery_id(other_group_validators[0])].into_iter().collect()),
+				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
 			)
 			.await;
 
 			connect_peer(
 				&mut overseer,
 				peer_b.clone(),
-				Some(vec![state.discovery_id(other_group_validators[1])].into_iter().collect()),
+				Some(vec![state.discovery_id(v_b)].into_iter().collect()),
 			)
 			.await;
 
@@ -1177,11 +1170,17 @@ fn peer_reported_for_invalid_v2_descriptor() {
 				.clone();
 			let statements = vec![b_seconded_invalid.clone()];
 
+			// v_a has exhausted its seconded statements (3).
+			let mut statement_filter = StatementFilter::blank(group_size);
+			statement_filter
+				.seconded_in_group
+				.set(state.index_within_group(local_group_index, v_a).unwrap(), true);
+
 			handle_sent_request(
 				&mut overseer,
 				peer_a,
 				candidate_hash,
-				StatementFilter::blank(group_size),
+				statement_filter,
 				candidate.clone(),
 				pvd.clone(),
 				statements,
@@ -1213,7 +1212,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 					assert_eq!(peers, vec![peer_a.clone()]);
 					assert_eq!(r, relay_parent);
 					assert_eq!(s.unchecked_payload(), &CompactStatement::Seconded(candidate_hash));
-					assert_eq!(s.unchecked_validator_index(), v_c);
+					assert_eq!(s.unchecked_validator_index(), v_b);
 				}
 			);
 
@@ -1234,7 +1233,6 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors,
 	};
 
@@ -1365,7 +1363,6 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1496,7 +1493,6 @@ fn disabled_validators_added_to_unwanted_mask() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1663,7 +1659,6 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -1863,7 +1858,6 @@ fn local_node_sanity_checks_incoming_requests() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2065,7 +2059,6 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2265,7 +2258,6 @@ fn local_node_respects_statement_mask() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
@@ -2508,7 +2500,6 @@ fn should_delay_before_retrying_dropped_requests() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
 		allow_v2_descriptors: false,
 	};
 
