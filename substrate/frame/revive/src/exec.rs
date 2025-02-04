@@ -940,7 +940,6 @@ where
 				},
 			};
 
-		let nested_storage = storage_meter.nested(deposit_limit);
 		let frame = Frame {
 			delegate,
 			value_transferred,
@@ -948,7 +947,7 @@ where
 			account_id,
 			entry_point,
 			nested_gas,
-			nested_storage,
+			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,
 			last_frame_output: Default::default(),
