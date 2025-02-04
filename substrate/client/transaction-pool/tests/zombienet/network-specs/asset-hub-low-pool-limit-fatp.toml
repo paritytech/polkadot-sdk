@@ -45,9 +45,9 @@ default_args = [
 [parachains.genesis.runtimeGenesis.patch.balances]
 # TODO: fix zombienet/cli to accept such arrays
 devAccounts = [
-	"//Sender//{}",
-	1000000000000000000,
 	20000,
+	1000000000000000000,
+	"//Sender//{}",
 ]
 
 # run charlie as parachain collator
