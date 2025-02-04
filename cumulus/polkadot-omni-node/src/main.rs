@@ -14,18 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Polkadot parachain node.
+//! White labeled polkadot omni-node.
+//!
+//! For documentation, see [`polkadot_omni_node_lib`].
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-mod chain_spec;
-
-<<<<<<< HEAD
-use polkadot_parachain_lib::{run, CliConfig as CliConfigT, RunConfig};
-=======
-use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
->>>>>>> 3fb7c8c6 (Align omni-node and polkadot-parachain versions (#7367))
+use polkadot_omni_node_lib::{
+	chain_spec::DiskChainSpecLoader, run, runtime::DefaultRuntimeResolver, CliConfig as CliConfigT,
+	RunConfig, NODE_VERSION,
+};
 
 struct CliConfig;
 
@@ -51,9 +50,6 @@ impl CliConfigT for CliConfig {
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
-	let config = RunConfig {
-		chain_spec_loader: Box::new(chain_spec::ChainSpecLoader),
-		runtime_resolver: Box::new(chain_spec::RuntimeResolver),
-	};
+	let config = RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
 	Ok(run::<CliConfig>(config)?)
 }

@@ -23,5 +23,18 @@ fn main() {
 		.build()
 }
 
+<<<<<<< HEAD:cumulus/parachains/runtimes/starters/shell/build.rs
 #[cfg(not(feature = "std"))]
 fn main() {}
+=======
+pub mod cli;
+mod command;
+mod common;
+mod fake_runtime_api;
+mod nodes;
+
+pub use cli::CliConfig;
+pub use command::{run, RunConfig};
+pub use common::{chain_spec, runtime};
+pub use nodes::NODE_VERSION;
+>>>>>>> 3fb7c8c6 (Align omni-node and polkadot-parachain versions (#7367)):cumulus/polkadot-omni-node/lib/src/lib.rs
