@@ -1716,6 +1716,11 @@ pub mod pallet_macros {
 	/// for querying the state of the pallet, avoiding direct storage access and upgrading
 	/// along with the runtime.
 	///
+	/// ## Syntax
+	/// View functions methods must be read-only and always return some output. A
+	/// `view_functions_experimental` impl block only allows methods to be defined inside of
+	/// it.
+	///
 	/// ## Example
 	/// ```
 	/// #[frame_support::pallet]
@@ -1741,22 +1746,16 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	///
-	/// ## Expose pallet view functions through Runtime APIs
+	///
+	/// ## Usage and implementation details
 	/// To allow outside access to pallet view functions, you need to add a runtime API that
-	/// accepts view function queries and dispatches them to the right pallet.
+	/// accepts view function queries and dispatches them to the right pallet. You can do that
+	/// by implementing the
+	/// [`RuntimeViewFunction`](frame_support::view_functions::runtime_api::RuntimeViewFunction)
+	/// trait for the runtime inside an [`impl_runtime_apis!`](sp_api::impl_runtime_apis)
+	/// block.
 	///
-	/// ```
-	/// # use sp_api::impl_runtime_apis;
-	/// impl_runtime_apis! {
-	/// 	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
-	/// 		fn execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
-	/// 			Runtime::execute_view_function(id, input)
-	/// 		}
-	/// 	}
-	/// }
-	/// ```
-	///
-	/// The [`RuntimeViewFunction`](frame_support::view_functions::runtime_api::RuntimeViewFunction) trait implements a hashing-based dispatching mechanism to
+	/// The `RuntimeViewFunction` trait implements a hashing-based dispatching mechanism to
 	/// dispatch view functions to the right method in the right pallet based on their IDs. A
 	/// view function ID depends both on its pallet and on its method signature, so it remains
 	/// stable as long as those two elements are not modified. In general, pallet view
