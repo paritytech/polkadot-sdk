@@ -41,6 +41,7 @@ use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
@@ -303,6 +304,29 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.await?;
 
+			if parachain_config.offchain_worker.enabled {
+				use futures::FutureExt;
+
+				let offchain_workers =
+					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+						runtime_api_provider: client.clone(),
+						keystore: Some(params.keystore_container.keystore()),
+						offchain_db: backend.offchain_storage(),
+						transaction_pool: Some(OffchainTransactionPoolFactory::new(
+							transaction_pool.clone(),
+						)),
+						network_provider: Arc::new(network.clone()),
+						is_validator: parachain_config.role.is_authority(),
+						enable_http_requests: false,
+						custom_extensions: move |_| vec![],
+					})?;
+				task_manager.spawn_handle().spawn(
+					"offchain-workers-runner",
+					"offchain-work",
+					offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+				);
+			}
+
 			let rpc_builder = {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
@@ -436,7 +460,7 @@ where
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
 		match parachain_config.network.network_backend {
-			sc_network::config::NetworkBackendType::Libp2p =>
+			sc_network::config::NetworkBackendType::Libp2p => {
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
 					parachain_config,
 					polkadot_config,
@@ -444,8 +468,9 @@ where
 					para_id,
 					hwbench,
 					node_extra_args,
-				),
-			sc_network::config::NetworkBackendType::Litep2p =>
+				)
+			},
+			sc_network::config::NetworkBackendType::Litep2p => {
 				<Self as NodeSpec>::start_node::<sc_network::Litep2pNetworkBackend>(
 					parachain_config,
 					polkadot_config,
@@ -453,7 +478,8 @@ where
 					para_id,
 					hwbench,
 					node_extra_args,
-				),
+				)
+			},
 		}
 	}
 }

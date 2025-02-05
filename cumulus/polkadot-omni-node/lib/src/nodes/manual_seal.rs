@@ -28,6 +28,7 @@ use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Header;
 use std::{marker::PhantomData, sync::Arc};
@@ -116,6 +117,29 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				block_relay: None,
 				metrics,
 			})?;
+
+		if parachain_config.offchain_worker.enabled {
+			use futures::FutureExt;
+
+			let offchain_workers =
+				sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+					runtime_api_provider: client.clone(),
+					keystore: Some(params.keystore_container.keystore()),
+					offchain_db: backend.offchain_storage(),
+					transaction_pool: Some(OffchainTransactionPoolFactory::new(
+						transaction_pool.clone(),
+					)),
+					network_provider: Arc::new(network.clone()),
+					is_validator: parachain_config.role.is_authority(),
+					enable_http_requests: true,
+					custom_extensions: move |_| vec![],
+				})?;
+			task_manager.spawn_handle().spawn(
+				"offchain-workers-runner",
+				"offchain-work",
+				offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+			);
+		}
 
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
