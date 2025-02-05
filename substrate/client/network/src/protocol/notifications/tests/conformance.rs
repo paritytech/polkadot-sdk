@@ -278,3 +278,78 @@ async fn libp2p_to_litep2p_substream() {
 		}
 	}
 }
+
+/// Litep2p rejects the libp2p substream. The connection finishes due to the keep-alive mechanism
+/// detecting the connection as idle. In this case, substrate does not force reopen the substreams.
+#[tokio::test]
+async fn litep2p_rejects_libp2p_substream() {
+	let _ = sp_tracing::tracing_subscriber::fmt()
+		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.try_init();
+
+	let (mut litep2p, mut handle) = setup_litep2p().await;
+	let (mut libp2p, peerstore, _notification_service) = setup_libp2p(1, 1);
+
+	let libp2p_peer = *libp2p.local_peer_id();
+	let litep2p_peer = *litep2p.local_peer_id();
+
+	let litep2p_address = litep2p.listen_addresses().into_iter().next().unwrap().clone();
+	let address: sc_network_types::multiaddr::Multiaddr = litep2p_address.clone().into();
+	let address: libp2p::multiaddr::Multiaddr = address.into();
+	libp2p.dial(address).unwrap();
+
+	const RETRY_DURATION: Duration = Duration::from_secs(5);
+	// Check that libp2p does not eagerly retry opening the rejected substream by litep2p.
+	let mut first_notification = None;
+
+	loop {
+		tokio::select! {
+			event = libp2p.select_next_some() => {
+				log::info!("[libp2p] event: {event:?}");
+
+				match event {
+					SwarmEvent::ConnectionEstablished { .. } => {
+						peerstore.add_known_peer(litep2p_peer.into());
+					}
+					_ => {},
+				}
+			},
+
+			event = litep2p.next_event() => {
+				log::info!("[litep2p] event: {event:?}");
+
+				match event {
+					Some(Litep2pEvent::ConnectionClosed { .. }) => break,
+					_ => {},
+				}
+			},
+
+			event = handle.next() => match event.unwrap() {
+				Litep2pNotificationEvent::ValidateSubstream { peer, handshake, .. } => {
+					assert_eq!(peer.to_bytes(), libp2p_peer.to_bytes());
+					assert_eq!(handshake, vec![1, 2, 3, 4]);
+
+					handle.send_validation_result(peer, Litep2pValidationResult::Reject);
+					log::info!("reject substream");
+
+					match first_notification {
+						None => {
+							first_notification = Some(std::time::Instant::now());
+						},
+						Some(instant) => {
+							let elapsed = instant.elapsed();
+							if elapsed < RETRY_DURATION {
+								log::error!("Expecting libp2p substream to retry after 5 seconds, elapsed: {elapsed:?}");
+								panic!("Libp2p substream was not rejected and is expected to retry after 5 seconds");
+							} else {
+								// Finish testing.
+								return;
+							}
+						},
+					}
+				}
+				_ => {},
+			},
+		}
+	}
+}
