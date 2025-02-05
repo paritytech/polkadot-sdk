@@ -289,10 +289,10 @@ where
 		request: TransactionStatusUpdate<ChainApi>,
 	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
 		match request {
-			TransactionStatusUpdate::TransactionInvalidated(..) =>
-				if self.handle_invalidate_transaction() {
-					return Some(TransactionStatus::Invalid)
-				},
+			TransactionStatusUpdate::TransactionInvalidated(..) => {
+				self.terminate = true;
+				return Some(TransactionStatus::Invalid)
+			},
 			TransactionStatusUpdate::TransactionFinalized(_, block, index) => {
 				self.terminate = true;
 				return Some(TransactionStatus::Finalized((block, index)))
@@ -372,34 +372,6 @@ where
 			TransactionStatus::Usurped(_) |
 			TransactionStatus::Dropped |
 			TransactionStatus::Invalid => None,
-		}
-	}
-
-	/// Handles transaction invalidation sent via side channel.
-	///
-	/// Function may set the context termination flag, which will close the stream.
-	///
-	/// Returns true if the event should be sent out, and false if the invalidation request should
-	/// be skipped.
-	fn handle_invalidate_transaction(&mut self) -> bool {
-		let keys = self.known_views.clone();
-		trace!(
-			target: LOG_TARGET,
-			tx_hash = ?self.tx_hash,
-			views = ?self.known_views.iter().collect::<Vec<_>>(),
-			"got invalidate_transaction"
-		);
-		if self.views_keeping_tx_valid.is_disjoint(&keys) {
-			self.terminate = true;
-			true
-		} else {
-			//todo [#5477]
-			// - handle corner case:  this may happen when tx is invalid for mempool, but somehow
-			//   some view still sees it as ready/future. In that case we don't send the invalid
-			//   event, as transaction can still be included. Probably we should set some flag here
-			//   and allow for invalid sent from the view.
-			// - add debug / metrics,
-			false
 		}
 	}
 

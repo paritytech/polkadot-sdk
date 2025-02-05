@@ -1381,6 +1381,7 @@ where
 			self.revalidation_queue
 				.revalidate_mempool(
 					self.mempool.clone(),
+					self.view_store.clone(),
 					HashAndNumber { hash: finalized_hash, number: finalized_number },
 				)
 				.await;
