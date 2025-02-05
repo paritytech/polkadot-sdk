@@ -849,3 +849,80 @@ async fn litep2p_idle_litep2p_substream() {
 		}
 	}
 }
+
+#[tokio::test]
+async fn libp2p_idle_to_libp2p_substream() {
+	let _ = sp_tracing::tracing_subscriber::fmt()
+		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.try_init();
+
+	let (mut libp2p_lhs, peerstore_lhs, _notification_service) = setup_libp2p(1, 1);
+	let (mut libp2p_rhs, peerstore_rhs, _notification_service) = setup_libp2p(1, 1);
+
+	let libp2p_lhs_peer = *libp2p_lhs.local_peer_id();
+	let libp2p_rhs_peer = *libp2p_rhs.local_peer_id();
+
+	let libp2p_lhs_address = loop {
+		let event = libp2p_lhs.select_next_some().await;
+		match event {
+			SwarmEvent::NewListenAddr { address, .. } => {
+				log::info!("libp2p lhs listener: {address:?}");
+
+				break address.clone();
+			},
+			_ => {},
+		}
+	};
+
+	libp2p_rhs.dial(libp2p_lhs_address).unwrap();
+	let mut sink = None;
+	loop {
+		tokio::select! {
+			event = libp2p_lhs.select_next_some() => {
+				log::info!("[libp2p lhs] event: {event:?}");
+				match event {
+					SwarmEvent::ConnectionEstablished { .. } => {
+						peerstore_lhs.add_known_peer(libp2p_rhs_peer.into());
+					},
+					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen { set_id, negotiated_fallback, received_handshake, notifications_sink, .. }) => {
+						assert_eq!(set_id, SetId::from(0usize));
+						assert_eq!(received_handshake, vec![1, 2, 3, 4]);
+						assert!(negotiated_fallback.is_none());
+
+						notifications_sink.reserve_notification().await.unwrap().send(vec![3, 3, 3, 3]).unwrap();
+						notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
+					},
+					SwarmEvent::Behaviour(NotificationsOut::Notification { .. }) => { },
+					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolClosed { .. }) => {
+						// TODO: Ensure these messages are entirely lost.
+						let sink: crate::service::NotificationsSink = sink.take().unwrap();
+						sink.reserve_notification().await.unwrap().send(vec![5, 5, 5, 5]).unwrap();
+						sink.send_sync_notification(vec![6, 6, 6, 6]);
+					}
+					_ => {},
+				}
+			}
+
+			event = libp2p_rhs.select_next_some() => {
+				log::info!("[LIBP2P LHS] event: {event:?}");
+
+				match event {
+					SwarmEvent::ConnectionEstablished { .. } => {
+						peerstore_rhs.add_known_peer(libp2p_lhs_peer.into());
+					},
+					SwarmEvent::ConnectionClosed { .. } => break,
+					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen { set_id, negotiated_fallback, received_handshake, notifications_sink, .. }) => {
+						assert_eq!(set_id, SetId::from(0usize));
+						assert_eq!(received_handshake, vec![1, 2, 3, 4]);
+						assert!(negotiated_fallback.is_none());
+
+						notifications_sink.reserve_notification().await.unwrap().send(vec![3, 3, 3, 3]).unwrap();
+						notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
+						sink = Some(notifications_sink);
+					},
+					_ => {},
+				}
+			},
+		}
+	}
+}
