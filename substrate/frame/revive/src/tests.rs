@@ -4445,7 +4445,6 @@ fn tracing_works_for_transfers() {
 }
 
 #[test]
-#[ignore = "does not collect the gas_used properly"]
 fn tracing_works() {
 	use crate::evm::*;
 	use CallType::*;
