@@ -92,6 +92,7 @@ jobs:
 
       - name: benchmark ${{ matrix.bench_cmd }}
         id: required
+        shell: bash
         run: |
           RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
           RUNTIME_BLOB_PATH=./target/release/wbuild/$PACKAGE_NAME/$RUNTIME_BLOB_NAME
