@@ -1,0 +1,20 @@
+title: 'omni-node: add offchain worker'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Copy pasted the `parachain-template-node` offchain worker setup to omni-node-lib for both aura and manual seal nodes.
+
+    Closes #7447
+
+    ## Integration
+
+    Enabled offchain workers for both `polkadot-omni-node` and `polkadot-parachain` nodes. This would allow executing offchain logic in the runtime and considering it on the node side.
+
+    ## Review Notes
+
+    I enabled offchain workers for both `aura` and `manual seal` nodes. Used the same setup done in `parachain-template-node`.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
