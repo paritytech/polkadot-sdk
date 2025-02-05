@@ -144,3 +144,48 @@ async fn setup_litep2p() -> (Litep2p, NotificationHandle) {
 
 	(litep2p, handle)
 }
+
+/// Test ensures litep2p can dial and connect to libp2p.
+#[tokio::test]
+async fn test_libp2p_litep2p_connectivity() {
+	let (mut litep2p, _notif_handle) = setup_litep2p().await;
+	let (mut libp2p, _peerstore, _notification_service) = setup_libp2p(1, 1);
+
+	let libp2p_address = loop {
+		let event = libp2p.select_next_some().await;
+		match event {
+			SwarmEvent::NewListenAddr { address, .. } => {
+				break address;
+			},
+			_ => {},
+		}
+	};
+	let libp2p_address = libp2p_address.with_p2p(*libp2p.local_peer_id()).unwrap();
+	let libp2p_address: sc_network_types::multiaddr::Multiaddr = libp2p_address.clone().into();
+	litep2p.dial_address(libp2p_address.into()).await.unwrap();
+
+	let mut libp2p_connected = false;
+	let mut litep2p_connected = false;
+
+	loop {
+		tokio::select! {
+			event = litep2p.next_event() => match event.unwrap() {
+				Litep2pEvent::ConnectionEstablished { .. } => {
+					litep2p_connected = true;
+				}
+				_ => {},
+			},
+
+			event = libp2p.select_next_some() => match event {
+				SwarmEvent::ConnectionEstablished { .. } => {
+					libp2p_connected = true;
+				}
+				_ => {},
+			},
+		}
+
+		if libp2p_connected && litep2p_connected {
+			break;
+		}
+	}
+}
