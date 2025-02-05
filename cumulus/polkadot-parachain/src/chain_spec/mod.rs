@@ -117,30 +117,27 @@ impl LoadSpec for ChainSpecLoader {
 			)?),
 
 			// -- BridgeHub
+			bridge_like_id
+				if bridge_like_id.starts_with(bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) =>
+				bridge_like_id
+					.parse::<bridge_hubs::BridgeHubRuntimeType>()
+					.expect("invalid value")
+					.load_config()?,
 
-			// -- BridgeHub Rococo
+			// -- Coretime
+			// -- Coretime Rococo
 			"coretime-rococo-dev" => Box::new(asset_hubs::asset_hub_rococo_development_config()),
 			"coretime-rococo-local" => Box::new(asset_hubs::asset_hub_rococo_local_config()),
 			"coretime-rococo" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/coretime-rococo.json")[..],
 			)?),
 
-			// -- BridgeHub Westend
-			"coretime-westend-dev" | "westmint-dev" =>
-				Box::new(asset_hubs::asset_hub_westend_development_config()),
-			"coretime-westend-local" | "westmint-local" =>
-				Box::new(asset_hubs::asset_hub_westend_local_config()),
+			// -- Coretime Westend
+			"coretime-westend-dev" => Box::new(asset_hubs::asset_hub_westend_development_config()),
+			"coretime-westend-local" => Box::new(asset_hubs::asset_hub_westend_local_config()),
 			"coretime-westend" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/coretime-westend.json")[..],
 			)?),
-
-			// -- Coretime
-			coretime_like_id
-				if coretime_like_id.starts_with(coretime::CoretimeRuntimeType::ID_PREFIX) =>
-				coretime_like_id
-					.parse::<coretime::CoretimeRuntimeType>()
-					.expect("invalid value")
-					.load_config()?,
 
 			// -- Penpal
 			id if id.starts_with("penpal-rococo") => {
