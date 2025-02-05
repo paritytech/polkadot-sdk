@@ -262,4 +262,3 @@ fn test_xcm_charge_fees_failure() {
 		);
 	});
 }
-

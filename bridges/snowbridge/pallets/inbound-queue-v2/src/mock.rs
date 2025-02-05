@@ -461,9 +461,7 @@ pub mod mock_xcm_validate_failure {
 	}
 
 	pub fn new_tester() -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::<Test>::default()
-			.build_storage()
-			.unwrap();
+		let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(setup);
 		ext
@@ -536,7 +534,12 @@ pub mod mock_charge_fees_failure {
 		fn prepare(message: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
 			Err(message)
 		}
-		fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
+		fn execute(
+			_: impl Into<Location>,
+			_: Self::Prepared,
+			_: &mut XcmHash,
+			_: Weight,
+		) -> Outcome {
 			unreachable!()
 		}
 		fn charge_fees(_: impl Into<Location>, _: Assets) -> xcm::latest::Result {
@@ -545,9 +548,7 @@ pub mod mock_charge_fees_failure {
 	}
 
 	pub fn new_tester() -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::<Test>::default()
-			.build_storage()
-			.unwrap();
+		let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(setup);
 		ext
