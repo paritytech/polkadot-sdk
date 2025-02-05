@@ -12,14 +12,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::imports::*;
+use crate::{create_pool_with_native_on, imports::*};
 use asset_hub_westend_runtime::ForeignAssets;
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::{CreateAssetCall, CreateAssetDeposit, EthereumGatewayAddress},
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
-use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
+use emulated_integration_tests_common::{RESERVABLE_ASSET_ID, WETH};
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::PARA_ID_B;
 use snowbridge_core::{AssetMetadata, TokenIdOf};
@@ -32,13 +32,15 @@ use snowbridge_inbound_queue_primitives::{
 };
 use sp_core::{H160, H256};
 use sp_runtime::MultiAddress;
+use xcm::opaque::latest::AssetTransferFilter::ReserveDeposit;
 use xcm_executor::traits::ConvertLocation;
+
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 
 /// Calculates the XCM prologue fee for sending an XCM to AH.
 const INITIAL_FUND: u128 = 5_000_000_000_000;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
-const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
+
 /// An ERC-20 token to be registered and sent.
 const TOKEN_ID: [u8; 20] = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
 const CHAIN_ID: u64 = 11155111u64;
@@ -66,10 +68,9 @@ fn register_token_v2() {
 	let relayer = BridgeHubWestendSender::get();
 	let receiver = AssetHubWestendReceiver::get();
 	BridgeHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 
-	register_foreign_asset(eth_location());
-
-	set_up_eth_and_dot_pool(eth_location());
+	set_up_eth_and_dot_pool();
 
 	let claimer = Location::new(0, AccountId32 { network: None, id: receiver.clone().into() });
 	let claimer_bytes = claimer.encode();
@@ -115,20 +116,13 @@ fn register_token_v2() {
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 			RefundSurplus,
-			DepositAsset{ assets: Wild(All), beneficiary: claimer.into() },
+			DepositAsset { assets: Wild(All), beneficiary: claimer.into() },
 		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
 		let origin = EthereumGatewayAddress::get();
 
 		let encoded_xcm = versioned_message_xcm.encode();
-
-		let hex_string = hex::encode(encoded_xcm.clone());
-		let eth_asset_value_encoded = eth_asset_value.encode();
-		let eth_asset_value_hex = hex::encode(eth_asset_value_encoded);
-		println!("register token hex: {:x?}", hex_string);
-		println!("eth value hex: {:x?}", eth_asset_value_hex);
-		println!("token: {:?}", token);
 
 		let message = Message {
 			gateway: origin,
@@ -154,23 +148,33 @@ fn register_token_v2() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-		let events = AssetHubWestend::events();
-
-		assert!(
-			events.iter().any(|event| matches!(
-			event,
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { asset_id: register_asset_id, .. } )
-				if *register_asset_id == erc20_token_location(token.into())
-		)),
-			"Asset registration not found or expected asset ID incorrect"
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				// message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				// Check that the token was created as a foreign asset on AssetHub
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { asset_id, owner, .. }) => {
+					asset_id: *asset_id == erc20_token_location(token),
+					owner: *owner == snowbridge_sovereign(),
+				},
+				// Check that excess fees were paid to the claimer
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == eth_location(),
+					owner: *owner == receiver.clone().into(),
+				},
+			]
 		);
 
+		let events = AssetHubWestend::events();
 		// Check that no assets were trapped
 		assert!(
 			!events.iter().any(|event| matches!(
-			event,
-			RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
-		)),
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
 			"Assets were trapped, should not happen."
 		);
 	});
@@ -185,12 +189,15 @@ fn send_token_v2() {
 	let token: H160 = TOKEN_ID.into();
 	let token_location = erc20_token_location(token);
 
+	let receiver = AssetHubWestendReceiver::get();
+	let claimer = Location::new(0, AccountId32 { network: None, id: receiver.clone().into() });
+	let claimer_bytes = claimer.encode();
+
 	let beneficiary_acc_id: H256 = H256::random();
 	let beneficiary_acc_bytes: [u8; 32] = beneficiary_acc_id.into();
 	let beneficiary =
 		Location::new(0, AccountId32 { network: None, id: beneficiary_acc_id.into() });
 
-	register_foreign_asset(eth_location());
 	register_foreign_asset(token_location.clone());
 
 	let token_transfer_value = 2_000_000_000_000u128;
@@ -219,7 +226,7 @@ fn send_token_v2() {
 			origin,
 			assets,
 			xcm: versioned_message_xcm.encode(),
-			claimer: None,
+			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
 			relayer_fee: 1_500_000_000_000u128,
@@ -236,10 +243,24 @@ fn send_token_v2() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-		// Check that the token was received and issued as a foreign asset on AssetHub
 		assert_expected_events!(
 			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
+			vec![
+				// message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				// Check that the token was received and issued as a foreign asset on AssetHub
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == token_location,
+					owner: *owner == beneficiary_acc_bytes.into(),
+				},
+				// Check that excess fees were paid to the claimer
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == eth_location(),
+					owner: *owner == receiver.clone().into(),
+				},
+			]
 		);
 
 		// Beneficiary received the token transfer value
@@ -247,19 +268,18 @@ fn send_token_v2() {
 			ForeignAssets::balance(token_location, AccountId::from(beneficiary_acc_bytes)),
 			token_transfer_value
 		);
+		// Claimer received eth refund for fees paid
+		assert!(ForeignAssets::balance(eth_location(), receiver) > 0);
 
 		let events = AssetHubWestend::events();
-
 		// Check that no assets were trapped
 		assert!(
 			!events.iter().any(|event| matches!(
-			event,
-			RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
-		)),
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
 			"Assets were trapped, should not happen."
 		);
-		// Claimer received eth refund for fees paid
-		assert!(ForeignAssets::balance(eth_location(), origin.into()) > 0);
 	});
 }
 
@@ -276,11 +296,8 @@ fn send_weth_v2() {
 
 	let claimer_acc_id = H256::random();
 	let claimer_acc_id_bytes: [u8; 32] = claimer_acc_id.into();
-	let claimer = AccountId32 { network: None, id: claimer_acc_id.into() };
+	let claimer = Location::new(0, AccountId32 { network: None, id: claimer_acc_id.into() });
 	let claimer_bytes = claimer.encode();
-
-	register_foreign_asset(eth_location());
-	register_foreign_asset(weth_location());
 
 	let token_transfer_value = 2_000_000_000_000u128;
 
@@ -325,10 +342,24 @@ fn send_weth_v2() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-		// Check that the weth was received and issued as a foreign asset on AssetHub
 		assert_expected_events!(
 			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
+			vec![
+				// message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				// Check that the token was received and issued as a foreign asset on AssetHub
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == weth_location(),
+					owner: *owner == beneficiary_acc_bytes.into(),
+				},
+				// Check that excess fees were paid to the claimer
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == eth_location(),
+					owner: *owner == claimer_acc_id_bytes.clone().into(),
+				},
+			]
 		);
 
 		// Beneficiary received the token transfer value
@@ -338,7 +369,17 @@ fn send_weth_v2() {
 		);
 
 		// Claimer received eth refund for fees paid
-		//assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0); TODO fix
+		assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
+
+		let events = AssetHubWestend::events();
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Assets were trapped, should not happen."
+		);
 	});
 }
 
@@ -366,13 +407,10 @@ fn register_and_send_multiple_tokens_v2() {
 
 	let claimer_acc_id = H256::random();
 	let claimer_acc_id_bytes: [u8; 32] = claimer_acc_id.into();
-	let claimer = AccountId32 { network: None, id: claimer_acc_id.into() };
+	let claimer = Location::new(0, AccountId32 { network: None, id: claimer_acc_id.into() });
 	let claimer_bytes = claimer.encode();
 
-	register_foreign_asset(eth_location());
-	register_foreign_asset(weth_location());
-
-	set_up_eth_and_dot_pool(eth_location());
+	set_up_eth_and_dot_pool();
 
 	let token_transfer_value = 2_000_000_000_000u128;
 	let weth_transfer_value = 2_500_000_000_000u128;
@@ -456,16 +494,29 @@ fn register_and_send_multiple_tokens_v2() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-		// The token was created
 		assert_expected_events!(
 			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { .. }) => {},]
-		);
-
-		// Check that the token was received and issued as a foreign asset on AssetHub
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
+			vec![
+				// message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				// Check that the token was created as a foreign asset on AssetHub
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { asset_id, owner, .. }) => {
+					asset_id: *asset_id == token_location.clone(),
+					owner: *owner == snowbridge_sovereign().into(),
+				},
+				// Check that the token was received and issued as a foreign asset on AssetHub
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == token_location,
+					owner: *owner == beneficiary_acc_bytes.into(),
+				},
+				// Check that excess fees were paid to the claimer
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == eth_location(),
+					owner: *owner == claimer_acc_id_bytes.clone().into(),
+				},
+			]
 		);
 
 		// Beneficiary received the token transfer value
@@ -480,8 +531,18 @@ fn register_and_send_multiple_tokens_v2() {
 				weth_transfer_value
 		);
 
-		// Claimer received eth refund for fees paid TODO fix
-		//assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
+		let events = AssetHubWestend::events();
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Assets were trapped, should not happen."
+		);
+
+		// Claimer received eth refund for fees paid
+		assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
 	});
 }
 
@@ -504,9 +565,8 @@ fn send_token_to_penpal_v2() {
 	let claimer_bytes = claimer.encode();
 
 	// To pay fees on Penpal.
-	let eth_fee_penpal: xcm::prelude::Asset = (eth_location(), 3_000_000_000_000u128).into();
+	let eth_fee_penpal_ah: xcm::prelude::Asset = (eth_location(), 3_000_000_000_000u128).into();
 
-	register_foreign_asset(eth_location());
 	register_foreign_asset(token_location.clone());
 
 	// To satisfy ED
@@ -515,8 +575,7 @@ fn send_token_to_penpal_v2() {
 		3_000_000_000_000,
 	)]);
 
-	let penpal_location = BridgeHubWestend::sibling_location_of(PenpalB::para_id());
-	let penpal_sovereign = BridgeHubWestend::sovereign_account_id_of(penpal_location);
+	let snowbridge_sovereign = snowbridge_sovereign();
 	PenpalB::execute_with(|| {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
@@ -524,7 +583,7 @@ fn send_token_to_penpal_v2() {
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			token_location.clone().try_into().unwrap(),
-			penpal_sovereign.clone().into(),
+			snowbridge_sovereign.clone().into(),
 			true,
 			1000,
 		));
@@ -537,7 +596,7 @@ fn send_token_to_penpal_v2() {
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			eth_location().try_into().unwrap(),
-			penpal_sovereign.clone().into(),
+			snowbridge_sovereign.clone().into(),
 			true,
 			1000,
 		));
@@ -555,8 +614,8 @@ fn send_token_to_penpal_v2() {
 		));
 	});
 
-	set_up_eth_and_dot_pool(eth_location());
-	set_up_eth_and_dot_pool_on_penpal(eth_location());
+	set_up_eth_and_dot_pool();
+	set_up_eth_and_dot_pool_on_penpal();
 
 	let token_transfer_value = 2_000_000_000_000u128;
 
@@ -565,27 +624,22 @@ fn send_token_to_penpal_v2() {
 		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value },
 	];
 
-	let token_asset: xcm::prelude::Asset = (token_location.clone(), token_transfer_value).into();
+	let token_asset_ah: xcm::prelude::Asset = (token_location.clone(), token_transfer_value).into();
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
 			// Send message to Penpal
-			DepositReserveAsset {
-				// Send the token plus some eth for execution fees
-				assets: Definite(vec![eth_fee_penpal.clone(), token_asset].into()),
+			InitiateTransfer {
 				// Penpal
-				dest: Location::new(1, [Parachain(PARA_ID_B)]),
-				xcm: vec![
-					// Pay fees on Penpal.
-					PayFees { asset: eth_fee_penpal },
+				destination: Location::new(1, [Parachain(PARA_ID_B)]),
+				remote_fees: Some(ReserveDeposit(Definite(vec![eth_fee_penpal_ah.clone()].into()))),
+				preserve_origin: true,
+				assets: vec![ReserveDeposit(Definite(vec![token_asset_ah.clone()].into()))],
+				remote_xcm: vec![
+					// Refund unspent fees
+					RefundSurplus,
 					// Deposit assets to beneficiary.
-					DepositAsset {
-						assets: Wild(AllOf {
-							id: AssetId(token_location.clone()),
-							fun: WildFungibility::Fungible,
-						}),
-						beneficiary: beneficiary.clone(),
-					},
+					DepositAsset { assets: Wild(AllCounted(2)), beneficiary: beneficiary.clone() },
 					SetTopic(H256::random().into()),
 				]
 				.into(),
@@ -621,25 +675,67 @@ fn send_token_to_penpal_v2() {
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
+				// Message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				// Token was issued to beneficiary
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == token_location,
+					owner: *owner == beneficiary_acc_bytes.into(),
+				},
 				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
 			]
+		);
+
+		let events = AssetHubWestend::events();
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Assets were trapped, should not happen."
 		);
 	});
 
 	PenpalB::execute_with(|| {
 		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 
-		// Check that the token was received and issued as a foreign asset on PenpalB
 		assert_expected_events!(
 			PenpalB,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
+			vec![
+				// Message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				// Token was issued to beneficiary
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == token_location,
+					owner: *owner == beneficiary_acc_bytes.into(),
+				},
+				// Leftover fees was deposited to beneficiary
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == eth_location(),
+					owner: *owner == beneficiary_acc_bytes.into(),
+				},
+			]
 		);
 
 		// Beneficiary received the token transfer value
 		assert_eq!(
 			ForeignAssets::balance(token_location, AccountId::from(beneficiary_acc_bytes)),
 			token_transfer_value
+		);
+
+		let events = PenpalB::events();
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Assets were trapped on Penpal, should not happen."
 		);
 	});
 }
@@ -657,8 +753,6 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 
 	let asset_id: Location =
 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())].into();
-
-	register_foreign_asset(eth_location());
 
 	let asset_id_in_bh: Location = Location::new(
 		1,
@@ -719,7 +813,8 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		let instructions = vec![DepositAsset { assets: Wild(AllCounted(2)), beneficiary }];
+		let instructions =
+			vec![RefundSurplus, DepositAsset { assets: Wild(AllCounted(2)), beneficiary }];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
 		let origin = EthereumGatewayAddress::get();
@@ -752,26 +847,32 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 			vec![RuntimeEvent::Assets(pallet_assets::Event::Burned{..}) => {},]
 		);
 
-		let events = AssetHubWestend::events();
-
-		// Check that the native token burnt from some reserved account
-		assert!(
-			events.iter().any(|event| matches!(
-				event,
-				RuntimeEvent::Assets(pallet_assets::Event::Burned { owner, .. })
-					if *owner == ethereum_sovereign.clone(),
-			)),
-			"token burnt from Ethereum sovereign account."
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				// Message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				// Check that the native token burnt from some reserved account
+				RuntimeEvent::Assets(pallet_assets::Event::Burned { owner, .. }) => {
+					owner: *owner == snowbridge_sovereign().into(),
+				},
+				// Check that the token was minted to beneficiary
+				RuntimeEvent::Assets(pallet_assets::Event::Issued { owner, .. }) => {
+					owner: *owner == AssetHubWestendReceiver::get(),
+				},
+			]
 		);
 
-		// Check that the token was minted to beneficiary
+		let events = AssetHubWestend::events();
+		// Check that no assets were trapped
 		assert!(
-			events.iter().any(|event| matches!(
+			!events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Assets(pallet_assets::Event::Issued { owner, .. })
-					if *owner == AssetHubWestendReceiver::get()
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
 			)),
-			"Token minted to beneficiary."
+			"Assets were trapped, should not happen."
 		);
 	});
 }
@@ -792,9 +893,7 @@ fn invalid_xcm_traps_funds_on_ah() {
 		3_000_000_000_000,
 	)]);
 
-	register_foreign_asset(eth_location());
-
-	set_up_eth_and_dot_pool(eth_location());
+	set_up_eth_and_dot_pool();
 
 	let assets = vec![
 		// to transfer assets
@@ -849,9 +948,6 @@ fn invalid_claimer_does_not_fail_the_message() {
 	let beneficiary_acc: [u8; 32] = H256::random().into();
 	let beneficiary = Location::new(0, AccountId32 { network: None, id: beneficiary_acc.into() });
 
-	register_foreign_asset(eth_location());
-	register_foreign_asset(weth_location());
-
 	let token_transfer_value = 2_000_000_000_000u128;
 
 	let assets = vec![
@@ -898,10 +994,15 @@ fn invalid_claimer_does_not_fail_the_message() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-		// Check that the token was received and issued as a foreign asset on AssetHub
 		assert_expected_events!(
 			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
+			vec![
+				// Token was issued to beneficiary
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == weth_location(),
+					owner: *owner == beneficiary_acc.into(),
+				},
+			]
 		);
 
 		// Beneficiary received the token transfer value
@@ -910,27 +1011,26 @@ fn invalid_claimer_does_not_fail_the_message() {
 			token_transfer_value
 		);
 
-		// Ethereum origin (instead of claimer) received eth refund for fees paid
-		let claimer = Location::new(0, [
-			AccountKey20 {
-				network: None,
-				key: origin.into()
-			}
-		]);
-		//assert!(ForeignAssets::balance(eth_location(), claimer) > 0);  TODO fix
+		let events = AssetHubWestend::events();
+		// Check that assets were trapped due to the invalid claimer.
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Assets were trapped, should not happen."
+		);
 	});
 }
 
 pub fn register_foreign_asset(token_location: Location) {
-	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
-	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			token_location.clone().try_into().unwrap(),
-			assethub_sovereign.clone().into(),
+			snowbridge_sovereign().into(),
 			true,
 			1000,
 		));
@@ -941,125 +1041,38 @@ pub fn register_foreign_asset(token_location: Location) {
 	});
 }
 
-pub(crate) fn set_up_eth_and_dot_pool(asset: v5::Location) {
-	let wnd: v5::Location = v5::Parent.into();
-	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
-	let owner = AssetHubWestendSender::get();
-	let bh_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
-
-	AssetHubWestend::fund_accounts(vec![(owner.clone(), 3_000_000_000_000)]);
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
-		let signed_bh_sovereign =
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(bh_sovereign.clone());
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
-			signed_bh_sovereign.clone(),
-			asset.clone().into(),
-			bh_sovereign.clone().into(),
-			3_500_000_000_000,
-		));
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::transfer(
-			signed_bh_sovereign.clone(),
-			asset.clone().into(),
-			owner.clone().into(),
-			3_000_000_000_000,
-		));
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
-			signed_owner.clone(),
-			Box::new(wnd.clone()),
-			Box::new(asset.clone()),
-		));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-			]
-		);
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
-			signed_owner.clone(),
-			Box::new(wnd),
-			Box::new(asset),
-			1_000_000_000_000,
-			2_000_000_000_000,
-			1,
-			1,
-			owner.into()
-		));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
-			]
-		);
-	});
+pub(crate) fn set_up_eth_and_dot_pool() {
+	// We create a pool between WND and WETH in AssetHub to support paying for fees with WETH.
+	let ethereum_sovereign: AccountId =
+		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
+			2,
+			[GlobalConsensus(EthereumNetwork::get())],
+		))
+		.unwrap()
+		.into();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	create_pool_with_native_on!(AssetHubWestend, eth_location(), true, ethereum_sovereign.clone());
 }
 
-pub(crate) fn set_up_eth_and_dot_pool_on_penpal(asset: v5::Location) {
-	let wnd: v5::Location = v5::Parent.into();
-	let penpal_location = BridgeHubWestend::sibling_location_of(PenpalB::para_id());
-	let owner = PenpalBSender::get();
-	let bh_sovereign = BridgeHubWestend::sovereign_account_id_of(penpal_location);
+pub(crate) fn set_up_eth_and_dot_pool_on_penpal() {
+	let ethereum_sovereign: AccountId =
+		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
+			2,
+			[GlobalConsensus(EthereumNetwork::get())],
+		))
+		.unwrap()
+		.into();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	create_pool_with_native_on!(PenpalB, eth_location(), true, ethereum_sovereign.clone());
+}
 
-	PenpalB::fund_accounts(vec![(owner.clone(), 3_000_000_000_000)]);
-
-	PenpalB::execute_with(|| {
-		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-
-		let signed_owner = <PenpalB as Chain>::RuntimeOrigin::signed(owner.clone());
-		let signed_bh_sovereign = <PenpalB as Chain>::RuntimeOrigin::signed(bh_sovereign.clone());
-
-		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint(
-			signed_bh_sovereign.clone(),
-			asset.clone().into(),
-			bh_sovereign.clone().into(),
-			3_500_000_000_000,
-		));
-
-		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::transfer(
-			signed_bh_sovereign.clone(),
-			asset.clone().into(),
-			owner.clone().into(),
-			3_000_000_000_000,
-		));
-
-		assert_ok!(<PenpalB as PenpalBPallet>::AssetConversion::create_pool(
-			signed_owner.clone(),
-			Box::new(wnd.clone()),
-			Box::new(asset.clone()),
-		));
-
-		assert_expected_events!(
-			PenpalB,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-			]
-		);
-
-		assert_ok!(<PenpalB as PenpalBPallet>::AssetConversion::add_liquidity(
-			signed_owner.clone(),
-			Box::new(wnd),
-			Box::new(asset),
-			1_000_000_000_000,
-			2_000_000_000_000,
-			1,
-			1,
-			owner.into()
-		));
-
-		assert_expected_events!(
-			PenpalB,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
-			]
-		);
-	});
+fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
+	EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&xcm::v5::Location::new(
+		2,
+		[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
+	))
+	.unwrap()
+	.into()
 }
