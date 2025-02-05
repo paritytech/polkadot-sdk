@@ -83,7 +83,6 @@ parameter_types! {
 		);
 	pub PenpalASiblingSovereignAccount: AccountId = Sibling::from(PENPAL_A_ID).into_account_truncating();
 	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
-	pub AssetHubWestendSovereignAccount: AccountId = Sibling::from(ASSET_HUB_WESTEND_ID).into_account_truncating();
 }
 
 pub fn get_host_config() -> HostConfiguration<BlockNumber> {
