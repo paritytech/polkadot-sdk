@@ -2590,7 +2590,11 @@ impl<T: Config> Pallet<T> {
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
 		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
+
+		// To make sure we only record events from current call.
+		Router::clear_messages();
+		frame_system::Pallet::<Runtime>::reset_events();
+
 		let result = xcm_executor::XcmExecutor::<XcmConfig>::prepare_and_execute(
 			origin_location,
 			xcm,
