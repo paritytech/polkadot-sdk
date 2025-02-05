@@ -214,13 +214,9 @@ impl<T: Config> CodeInfo<T> {
 	}
 
 	/// Returns reference count of the module.
+	#[cfg(test)]
 	pub fn refcount(&self) -> u64 {
 		self.refcount
-	}
-
-	/// Return mutable reference to the refcount of the module.
-	pub fn refcount_mut(&mut self) -> &mut u64 {
-		&mut self.refcount
 	}
 
 	/// Returns the deposit of the module.
@@ -231,6 +227,47 @@ impl<T: Config> CodeInfo<T> {
 	/// Returns the code length.
 	pub fn code_len(&self) -> u64 {
 		self.code_len.into()
+	}
+
+	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
+	/// Increment the reference count of a stored code by one.
+	///
+	/// # Errors
+	///
+	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
+	/// `code_hash`.
+	pub fn increment_refcount(code_hash: H256) -> DispatchResult {
+		<CodeInfoOf<T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
+			if let Some(info) = existing {
+				info.refcount = info
+					.refcount
+					.checked_add(1)
+					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+				Ok(())
+			} else {
+				Err(Error::<T>::CodeNotFound.into())
+			}
+		})
+	}
+
+	/// Decrement the reference count of a stored code by one.
+	///
+	/// # Note
+	///
+	/// A contract whose reference count dropped to zero isn't automatically removed. A
+	/// `remove_code` transaction must be submitted by the original uploader to do so.
+	pub fn decrement_refcount(code_hash: H256) -> DispatchResult {
+		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
+			if let Some(info) = existing {
+				info.refcount = info
+					.refcount
+					.checked_sub(1)
+					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+				Ok(())
+			} else {
+				Err(Error::<T>::CodeNotFound.into())
+			}
+		})
 	}
 }
 
@@ -287,15 +324,6 @@ impl<T: Config> WasmBlob<T> {
 			Error::<T>::CodeRejected
 		})?;
 
-		// This is checked at deploy time but we also want to reject pre-existing
-		// 32bit programs.
-		// TODO: Remove when we reset the test net.
-		// https://github.com/paritytech/contract-issues/issues/11
-		if !module.is_64_bit() {
-			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
-			Err(Error::<T>::CodeRejected)?;
-		}
-
 		let entry_program_counter = module
 			.exports()
 			.find(|export| export.symbol().as_bytes() == entry_point.identifier().as_bytes())
@@ -308,11 +336,6 @@ impl<T: Config> WasmBlob<T> {
 			log::debug!(target: LOG_TARGET, "failed to instantiate polkavm module: {err:?}");
 			Error::<T>::CodeRejected
 		})?;
-
-		// Increment before execution so that the constructor sees the correct refcount
-		if let ExportedFunction::Constructor = entry_point {
-			E::increment_refcount(self.code_hash)?;
-		}
 
 		instance.set_gas(gas_limit_polkavm);
 		instance.prepare_call_untyped(entry_program_counter, &[]);

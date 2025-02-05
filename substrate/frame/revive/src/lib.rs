@@ -42,7 +42,7 @@ pub mod weights;
 
 use crate::{
 	evm::{runtime::GAS_PRICE, GasEncoder, GenericTransaction},
-	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
@@ -211,9 +211,8 @@ pub mod pallet {
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
-		/// Instantiating a contract, or calling [`chain_extension::Ext::lock_delegate_dependency`]
-		/// protects the code from being removed. In order to prevent abuse these actions are
-		/// protected with a percentage of the code deposit.
+		/// Instantiating a contract, protects the code from being removed. In order to prevent
+		/// abuse these actions are protected with a percentage of the code deposit.
 		#[pallet::constant]
 		type CodeHashLockupDepositPercent: Get<Perbill>;
 
@@ -493,6 +492,8 @@ pub mod pallet {
 		AccountAlreadyMapped,
 		/// The transaction used to dry-run a contract is invalid.
 		InvalidGenericTransaction,
+		/// The refcount of a code either over or underflowed.
+		RefcountOverOrUnderflow,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -908,8 +909,8 @@ pub mod pallet {
 				} else {
 					return Err(<Error<T>>::ContractNotFound.into());
 				};
-				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
-				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
+				<CodeInfo<T>>::increment_refcount(code_hash)?;
+				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
 				Ok(())
 			})
