@@ -101,7 +101,7 @@ pub mod v17 {
 			match invulnerables_maybe {
 				Ok(invulnerables) => {
 					Invulnerables::<T>::set(invulnerables);
-					log!(info, "v17 applied successfully, migrated {:?}.", invulnerables);
+					log!(info, "v17 applied successfully for Invulnerables.");
 				},
 				Err(_) => {
 					log!(warn, "Migration to v17 failed for Invulnerables.");
