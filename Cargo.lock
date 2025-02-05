@@ -16233,10 +16233,8 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
- "parity-scale-codec",
  "polkadot-sdk 0.1.0",
  "serde",
- "serde_json",
 ]
 
 [[package]]
