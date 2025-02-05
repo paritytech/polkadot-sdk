@@ -10431,7 +10431,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.9.0"
-source = "git+https://github.com/paritytech/litep2p.git#42dbb9cce9ac51cb7982a2651cd0b533ed3b167d"
+source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/req-resp-improvement#4bc31d03a1af5978059e8a571c4276dae5917718"
 dependencies = [
  "async-trait",
  "bs58",
