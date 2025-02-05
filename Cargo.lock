@@ -16235,10 +16235,8 @@ dependencies = [
  "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-sdk 0.1.0",
- "sc-tracing",
  "serde",
  "serde_json",
- "substrate-prometheus-endpoint",
 ]
 
 [[package]]
