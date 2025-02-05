@@ -324,13 +324,9 @@ pub mod pallet {
 		/// Abstracted source of block numbers for this pallet.
 		///
 		/// This provider decouples the pallet from direct use of the system block number, allowing:
-		/// - Integration with external block number sources (e.g. bridged chains)
+		/// - Integration with external block number sources.
 		/// - Custom timekeeping mechanisms (e.g. mock timelines for testing)
 		/// - Composite block numbers (e.g. parachain blocks vs relay chain blocks)
-		///
-		/// # Implementation Guide
-		/// - Most teams should use `()` to default to the System pallet's block number
-		/// - Required to implement `Default` for initial state handling
 		///
 		/// # Example: Using Relay Chain Block Numbers
 		/// ```rust,ignore

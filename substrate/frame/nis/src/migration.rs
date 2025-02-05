@@ -9,6 +9,9 @@ use sp_runtime::Weight;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+
 /// The log target.
 const TARGET: &'static str = "runtime::nis::migration::v1";
 
@@ -48,9 +51,7 @@ pub mod v1 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			let old_receipts = v0::Receipts::<T>::iter().collect::<Vec<_>>();
-			log::info!(target: TARGET, "reciept expirys will be migrated.");
 			let old_summary = v0::Summary::<T>::get();
-			log::info!(target: TARGET, "The current thaw period's beginning will be migrated.");
 			Ok((old_receipts, old_summary).encode())
 		}
 
@@ -84,6 +85,7 @@ pub mod v1 {
 					last_period: new_last_period,
 					receipts_on_hold: old_summary.receipts_on_hold,
 				};
+				log::info!(target: TARGET, "migrating summary record, current thaw period's beginning.");
 				// Write new value
 				Summary::<T>::put(new_summary);
 				// Update storage version
