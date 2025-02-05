@@ -1706,16 +1706,21 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
+			pub const RANDOM_ID: u32 = 43211234;
+			pub const fn CREATE_RND_LOC() -> Location {
+					Location::new(
+						1,
+						[Parachain(ParaId::new(RANDOM_ID).into())]
+					)
+			};
 			parameter_types! {
+				pub const RandomParaId: u32 = RANDOM_ID;
+				pub const RandomParaLocation: Location = CREATE_RND_LOC();
+
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					TokenLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub const RandomParaId: u32 = 43211234;
-				pub RandomParaLocation: Location = Location::new(
-					1, // parents: 1 (Relay Chain)
-					[Parachain(RandomParaId)] // interior: Parachain(43211234)
-				);
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -1881,7 +1886,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RandomParaLocation::get(),
+					RandomParaLocation,
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
