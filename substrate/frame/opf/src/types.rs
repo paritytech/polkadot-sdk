@@ -47,7 +47,7 @@ pub use sp_runtime::{
 	},
 	Percent, SaturatedConversion,
 };
-pub use sp_std::boxed::Box;
+pub use sp_std::{boxed::Box, vec};
 
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
