@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use super::*;
-use crate::BlockInfoProvider;
+use crate::{BlockInfoProvider, ReceiptExtractor};
 use jsonrpsee::core::async_trait;
 use pallet_revive::evm::{ReceiptInfo, TransactionSigned};
-use sp_core::{H256, U256};
+use sp_core::H256;
 use sqlx::{query, SqlitePool};
 use std::sync::Arc;
 
@@ -30,6 +30,8 @@ pub struct DBReceiptProvider {
 	pool: SqlitePool,
 	/// The block provider used to fetch blocks, and reconstruct receipts.
 	block_provider: Arc<dyn BlockInfoProvider>,
+	/// A means to extract receipts from extrinsics.
+	receipt_extractor: ReceiptExtractor,
 	/// weather or not we should write to the DB.
 	read_only: bool,
 }
@@ -40,9 +42,10 @@ impl DBReceiptProvider {
 		database_url: &str,
 		read_only: bool,
 		block_provider: Arc<dyn BlockInfoProvider>,
+		receipt_extractor: ReceiptExtractor,
 	) -> Result<Self, sqlx::Error> {
 		let pool = SqlitePool::connect(database_url).await?;
-		Ok(Self { pool, block_provider, read_only })
+		Ok(Self { pool, block_provider, read_only, receipt_extractor })
 	}
 
 	async fn fetch_row(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
@@ -125,12 +128,14 @@ impl ReceiptProvider for DBReceiptProvider {
 	async fn receipt_by_block_hash_and_index(
 		&self,
 		block_hash: &H256,
-		transaction_index: &U256,
+		transaction_index: usize,
 	) -> Option<ReceiptInfo> {
 		let block = self.block_provider.block_by_hash(block_hash).await.ok()??;
-		let transaction_index: usize = transaction_index.as_usize(); // TODO: check for overflow
-		let (_, receipt) =
-			extract_receipts_from_transaction(&block, transaction_index).await.ok()?;
+		let (_, receipt) = self
+			.receipt_extractor
+			.extract_from_transaction(&block, transaction_index)
+			.await
+			.ok()?;
 		Some(receipt)
 	}
 
@@ -138,8 +143,11 @@ impl ReceiptProvider for DBReceiptProvider {
 		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let (_, receipt) =
-			extract_receipts_from_transaction(&block, transaction_index).await.ok()?;
+		let (_, receipt) = self
+			.receipt_extractor
+			.extract_from_transaction(&block, transaction_index)
+			.await
+			.ok()?;
 		Some(receipt)
 	}
 
@@ -161,8 +169,11 @@ impl ReceiptProvider for DBReceiptProvider {
 		let transaction_index = result.transaction_index.try_into().ok()?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let (signed_tx, _) =
-			extract_receipts_from_transaction(&block, transaction_index).await.ok()?;
+		let (signed_tx, _) = self
+			.receipt_extractor
+			.extract_from_transaction(&block, transaction_index)
+			.await
+			.ok()?;
 		Some(signed_tx)
 	}
 }
@@ -179,6 +190,7 @@ mod tests {
 		DBReceiptProvider {
 			pool,
 			block_provider: Arc::new(MockBlockInfoProvider {}),
+			receipt_extractor: ReceiptExtractor::new(1_000_000),
 			read_only: false,
 		}
 	}

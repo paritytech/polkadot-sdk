@@ -60,6 +60,10 @@ async fn main() -> anyhow::Result<()> {
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
 	println!("- Contract balance: {balance:?}");
 
+	if std::env::var("SKIP_CALL").is_ok() {
+		return Ok(());
+	}
+
 	println!("\n\n=== Calling contract ===\n\n");
 	let tx = TransactionBuilder::new(&client)
 		.value(U256::from(1_000_000u32))

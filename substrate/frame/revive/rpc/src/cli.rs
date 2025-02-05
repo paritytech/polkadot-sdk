@@ -16,9 +16,9 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::{connect, Client},
+	client::{connect, native_to_eth_ratio, Client},
 	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
-	EthRpcServer, EthRpcServerImpl, ReceiptProvider, SystemHealthRpcServer,
+	EthRpcServer, EthRpcServerImpl, ReceiptExtractor, ReceiptProvider, SystemHealthRpcServer,
 	SystemHealthRpcServerImpl, LOG_TARGET,
 };
 use clap::Parser;
@@ -146,6 +146,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			let (api, rpc_client, rpc) = connect(&node_rpc_url).await?;
 			let block_provider: Arc<dyn BlockInfoProvider> =
 				Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
+
+			let receipt_extractor = ReceiptExtractor::new(native_to_eth_ratio(&api).await?);
 			let receipt_provider: Arc<dyn ReceiptProvider> =
 				if let Some(database_url) = database_url.as_ref() {
 					log::info!(target: LOG_TARGET, "🔗 Connecting to provided database");
@@ -155,6 +157,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 							database_url,
 							database_read_only,
 							block_provider.clone(),
+							receipt_extractor.clone(),
 						)
 						.await?,
 					))
@@ -163,8 +166,15 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 					Arc::new(CacheReceiptProvider::default())
 				};
 
-			let client =
-				Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+			let client = Client::new(
+				api,
+				rpc_client,
+				rpc,
+				block_provider,
+				receipt_provider,
+				receipt_extractor,
+			)
+			.await?;
 			client.subscribe_and_cache_blocks(&essential_spawn_handle);
 			Ok::<_, crate::ClientError>(client)
 		}
