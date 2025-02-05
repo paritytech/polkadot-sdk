@@ -22,9 +22,11 @@
 pub use pallet::*;
 extern crate alloc;
 
+use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
-use sp_runtime::traits::Convert;
-use sp_staking::{Exposure, SessionIndex};
+use sp_core::crypto::AccountId32;
+use sp_runtime::{traits::Convert, Perbill};
+use sp_staking::{offence::OffenceDetails, Exposure, SessionIndex};
 use xcm::prelude::*;
 
 /// The balance type of this pallet.
@@ -48,21 +50,29 @@ enum StakingCalls {
 	#[codec(index = 1)]
 	StartSession(SessionIndex),
 	#[codec(index = 2)]
-	EndSession(SessionIndex),
+	// TODO: `AccountId32` should be a parameter?
+	EndSession(SessionIndex, Vec<(AccountId32, u32)>),
+	#[codec(index = 3)]
+	NewOffence(SessionIndex, Vec<Offence>),
+}
+
+// Based on [`sp_staking::offence::OffenceDetails`].
+#[derive(Encode, Decode)]
+struct Offence {
+	offender: AccountId32,
+	reporters: Vec<AccountId32>,
+	slash_fraction: Perbill,
 }
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use crate::*;
-	use alloc::vec::Vec;
+	use alloc::vec;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
 	use pallet_staking::ExposureOf;
 	use sp_runtime::Perbill;
-	use sp_staking::{
-		offence::{OffenceDetails, OnOffenceHandler},
-		SessionIndex,
-	};
+	use sp_staking::{offence::OnOffenceHandler, SessionIndex};
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 	#[pallet::pallet]
@@ -76,6 +86,10 @@ pub mod pallet {
 		Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>>,
 		ValueQuery,
 	>;
+
+	/// How many blocks each validator has authored during the current session.
+	#[pallet::storage]
+	pub type BlockAuthors<T: Config> = StorageMap<_, Twox64Concat, AccountId32, u32, ValueQuery>;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -159,15 +173,19 @@ pub mod pallet {
 		}
 
 		fn end_session(session_index: u32) {
-			// todo: pass era points info
+			let authors = BlockAuthors::<T>::iter().collect::<Vec<_>>();
+			// TODO: Revisit this limit. The number of keys is limited to the number of validators
+			// in the active set.
+			BlockAuthors::<T>::clear(2000, None);
 
 			let message = Xcm(vec![
 				Instruction::UnpaidExecution {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_asset_hub_call::<T>(StakingCalls::EndSession(session_index)),
+				mk_asset_hub_call::<T>(StakingCalls::EndSession(session_index, authors)),
 			]);
+
 			if let Err(err) = send_xcm::<T::SendXcm>(
 				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
 				message,
@@ -197,11 +215,14 @@ pub mod pallet {
 
 	impl<T> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T>
 	where
-		T: Config + pallet_authorship::Config + pallet_session::Config,
+		T: Config + pallet_authorship::Config + pallet_session::Config + crate::Config,
+		T::AccountId: Into<AccountId32>,
 	{
+		// Notes the authored block in `BlockAuthors`.
 		fn note_author(author: T::AccountId) {
-			// save the account id in a storage item
-			todo!()
+			BlockAuthors::<T>::mutate(author.into(), |block_count| {
+				*block_count += 1;
+			});
 		}
 	}
 
@@ -220,6 +241,7 @@ pub mod pallet {
 			<T as frame_system::Config>::AccountId,
 			Option<<T as frame_system::Config>::AccountId>,
 		>,
+		T::AccountId: Into<AccountId32>,
 	{
 		fn on_offence(
 			offenders: &[OffenceDetails<
@@ -229,8 +251,33 @@ pub mod pallet {
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
+			let o = offenders
+				.iter()
+				.zip(slash_fraction)
+				.map(|(offence, fraction)| Offence {
+					offender: offence.offender.0.clone().into(),
+					reporters: offence.reporters.iter().cloned().map(|r| r.into()).collect(),
+					slash_fraction: *fraction,
+				})
+				.collect::<Vec<_>>();
+
 			// send the offender immediately over xcm
-			todo!()
+			let message = Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				mk_asset_hub_call::<T>(StakingCalls::NewOffence(slash_session, o)),
+			]);
+			if let Err(err) = send_xcm::<T::SendXcm>(
+				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
+				message,
+			) {
+				log::error!(target: LOG_TARGET, "Sending `StartSession` to AssetHub failed: {:?}",
+			err);
+			}
+
+			Weight::zero() // TODO: this is not needed. Fix it.
 		}
 	}
 

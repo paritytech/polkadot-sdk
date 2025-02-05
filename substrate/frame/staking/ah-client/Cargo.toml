@@ -16,6 +16,7 @@ pallet-authorship = { workspace = true }
 pallet-session = { features = [	"historical",], workspace = true }
 pallet-staking = { workspace = true}	# todo: probably not a good idea to depend on the whole staking pallet
 scale-info = { workspace = true, features = ["derive"] }
+sp-core = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 xcm = { workspace = true }
@@ -31,6 +32,7 @@ std = [
 	"pallet-session/std",
 	"pallet-staking/std",
 	"scale-info/std",
+	"sp-core/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 	"xcm/std",
