@@ -33,6 +33,7 @@ use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use parachains_common::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
+use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
@@ -305,8 +306,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				.await?;
 
 			if parachain_config.offchain_worker.enabled {
-				use futures::FutureExt;
-
 				let offchain_workers =
 					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 						runtime_api_provider: client.clone(),
@@ -460,7 +459,7 @@ where
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
 		match parachain_config.network.network_backend {
-			sc_network::config::NetworkBackendType::Libp2p => {
+			sc_network::config::NetworkBackendType::Libp2p =>
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
 					parachain_config,
 					polkadot_config,
@@ -468,9 +467,8 @@ where
 					para_id,
 					hwbench,
 					node_extra_args,
-				)
-			},
-			sc_network::config::NetworkBackendType::Litep2p => {
+				),
+			sc_network::config::NetworkBackendType::Litep2p =>
 				<Self as NodeSpec>::start_node::<sc_network::Litep2pNetworkBackend>(
 					parachain_config,
 					polkadot_config,
@@ -478,8 +476,7 @@ where
 					para_id,
 					hwbench,
 					node_extra_args,
-				)
-			},
+				),
 		}
 	}
 }

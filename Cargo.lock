@@ -18145,6 +18145,7 @@ dependencies = [
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
  "sp-keystore 0.34.0",
+ "sp-offchain 26.0.0",
  "sp-runtime 31.0.1",
  "sp-session 27.0.0",
  "sp-storage 19.0.0",

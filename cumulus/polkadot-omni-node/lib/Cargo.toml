@@ -68,6 +68,7 @@ sp-crypto-hashing = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-offchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
