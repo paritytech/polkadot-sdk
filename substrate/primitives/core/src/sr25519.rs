@@ -930,6 +930,6 @@ mod tests {
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
 		let pop = pair.generate_proof_of_possession();
 		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
-		assert_eq!(Pair::verify_proof_of_possession(&pop, &other_pair.public()), false);
+		assert!(!Pair::verify_proof_of_possession(&pop, &other_pair.public()));
 	}
 }
