@@ -19,8 +19,8 @@ use crate::{weights::WeightInfo, Config};
 use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::{
-	migrations::{SteppedMigration, SteppedMigrationError},
-	traits::{OnGenesis, PalletInfoAccess},
+	migrations::{SteppedMigration, SteppedMigrationError, StoreInCodeStorageVersion},
+	traits::{GetStorageVersion, PalletInfoAccess},
 	weights::WeightMeter,
 };
 use sp_core::{twox_128, Get};
@@ -40,8 +40,7 @@ use sp_runtime::SaturatedConversion;
 /// # Note
 ///
 /// If your pallet does rely of some state in genesis you need to take care of that
-/// separately. This migration only sets the storage version after wiping by running
-/// [`OnGenesis::on_genesis`].
+/// separately. This migration only sets the storage version after wiping.
 pub struct ResetPallet<T, P>(PhantomData<(T, P)>);
 
 impl<T, P> ResetPallet<T, P>
@@ -55,10 +54,11 @@ where
 	}
 }
 
-impl<T, P> SteppedMigration for ResetPallet<T, P>
+impl<T, P, V> SteppedMigration for ResetPallet<T, P>
 where
 	T: Config,
-	P: PalletInfoAccess + OnGenesis,
+	P: PalletInfoAccess + GetStorageVersion<InCodeStorageVersion = V>,
+	V: StoreInCodeStorageVersion<P>,
 {
 	type Cursor = bool;
 	type Identifier = [u8; 16];
@@ -74,16 +74,15 @@ where
 		// we write the storage version in a seperate block
 		if cursor.unwrap_or(false) {
 			let required = T::DbWeight::get().writes(1);
-			if meter.remaining().any_lt(required) {
-				return Err(SteppedMigrationError::InsufficientWeight { required })
-			}
-			P::on_genesis();
-			meter.consume(required);
+			meter
+				.try_consume(required)
+				.map_err(|_| SteppedMigrationError::InsufficientWeight { required })?;
+			V::store_in_code_storage_version();
 			return Ok(None);
 		}
 
 		let base_weight = T::WeightInfo::reset_pallet_migration(0);
-		let weight_per_key = T::WeightInfo::reset_pallet_migration(1) - base_weight;
+		let weight_per_key = T::WeightInfo::reset_pallet_migration(1).saturating_sub(base_weight);
 		let key_budget = meter
 			.remaining()
 			.saturating_sub(base_weight)

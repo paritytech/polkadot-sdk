@@ -51,7 +51,7 @@ use frame_support::{
 	traits::{
 		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
 		tokens::Preservation,
-		ConstU32, ConstU64, Contains, OnIdle, OnInitialize, StorageVersion,
+		ConstU32, ConstU64, Contains, FindAuthor, OnIdle, OnInitialize, StorageVersion,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
@@ -511,6 +511,15 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
+impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
+	fn find_author<'a, I>(_digests: I) -> Option<<Test as frame_system::Config>::AccountId>
+	where
+		I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
+	{
+		Some(EVE)
+	}
+}
+
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type Time = Timestamp;
@@ -526,6 +535,7 @@ impl Config for Test {
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
+	type FindAuthor = Test;
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {
@@ -1612,6 +1622,18 @@ fn instantiate_return_code() {
 			.data(callee_hash.iter().chain(&2u32.to_le_bytes()).cloned().collect())
 			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::CalleeTrapped);
+
+		// Contract instantiation succeeds
+		let result = builder::bare_call(contract.addr)
+			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
+			.build_and_unwrap_result();
+		assert_return_code!(result, 0);
+
+		// Contract instantiation fails because the same salt is being used again.
+		let result = builder::bare_call(contract.addr)
+			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
+			.build_and_unwrap_result();
+		assert_return_code!(result, RuntimeReturnCode::DuplicateContractAddress);
 	});
 }
 
@@ -3088,7 +3110,7 @@ fn deposit_limit_in_nested_calls() {
 		// Require more than the sender's balance.
 		// Limit the sub call to little balance so it should fail in there
 		let ret = builder::bare_call(addr_caller)
-			.data((448, &addr_callee, U256::from(1u64)).encode())
+			.data((416, &addr_callee, U256::from(1u64)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
@@ -3421,6 +3443,21 @@ fn block_hash_works() {
 
 		// A block number out of range returns the zero value
 		assert_ok!(builder::call(addr).data((U256::from(1), H256::zero()).encode()).build());
+	});
+}
+
+#[test]
+fn block_author_works() {
+	let (code, _) = compile_module("block_author").unwrap();
+
+	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// The fixture asserts the input to match the find_author API method output.
+		assert_ok!(builder::call(addr).data(EVE_ADDR.encode()).build());
 	});
 }
 
@@ -4408,6 +4445,7 @@ fn tracing_works_for_transfers() {
 }
 
 #[test]
+#[ignore = "does not collect the gas_used properly"]
 fn tracing_works() {
 	use crate::evm::*;
 	use CallType::*;

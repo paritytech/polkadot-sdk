@@ -44,7 +44,7 @@ pub const CALL_STACK_DEPTH: u32 = 5;
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
 /// Maximum size of events (including topics) and storage values.
-pub const PAYLOAD_BYTES: u32 = 448;
+pub const PAYLOAD_BYTES: u32 = 416;
 
 /// The maximum size of the transient storage in bytes.
 ///
