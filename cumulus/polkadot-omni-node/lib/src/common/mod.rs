@@ -28,6 +28,7 @@ pub mod types;
 
 use cumulus_primitives_core::{CollectCollationInfo, GetCoreSelectorApi};
 use sc_client_db::DbHash;
+use sc_offchain::OffchainWorkerApi;
 use serde::de::DeserializeOwned;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
@@ -65,6 +66,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ SessionKeys<Block>
 	+ BlockBuilder<Block>
 	+ TaggedTransactionQueue<Block>
+	+ OffchainWorkerApi<Block>
 	+ CollectCollationInfo<Block>
 	+ GetCoreSelectorApi<Block>
 	+ Sized
@@ -77,6 +79,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ SessionKeys<Block>
 		+ BlockBuilder<Block>
 		+ TaggedTransactionQueue<Block>
+		+ OffchainWorkerApi<Block>
 		+ GetCoreSelectorApi<Block>
 		+ CollectCollationInfo<Block>
 {
