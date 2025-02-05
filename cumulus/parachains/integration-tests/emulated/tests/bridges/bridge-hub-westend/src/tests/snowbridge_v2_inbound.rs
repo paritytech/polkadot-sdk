@@ -12,7 +12,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{create_pool_with_native_on, imports::*};
+use crate::{
+	imports::*,
+	tests::snowbridge_common::{
+		erc20_token_location, eth_location, register_foreign_asset, set_up_eth_and_dot_pool,
+		set_up_eth_and_dot_pool_on_penpal, snowbridge_sovereign, weth_location,
+	},
+};
 use asset_hub_westend_runtime::ForeignAssets;
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::{CreateAssetCall, CreateAssetDeposit, EthereumGatewayAddress},
@@ -39,29 +45,10 @@ const TOKEN_AMOUNT: u128 = 100_000_000_000;
 
 /// Calculates the XCM prologue fee for sending an XCM to AH.
 const INITIAL_FUND: u128 = 5_000_000_000_000;
-use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 
 /// An ERC-20 token to be registered and sent.
 const TOKEN_ID: [u8; 20] = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
 const CHAIN_ID: u64 = 11155111u64;
-
-pub fn eth_location() -> Location {
-	Location::new(2, [GlobalConsensus(EthereumNetwork::get().into())])
-}
-
-pub fn weth_location() -> Location {
-	erc20_token_location(WETH.into())
-}
-
-pub fn erc20_token_location(token_id: H160) -> Location {
-	Location::new(
-		2,
-		[
-			GlobalConsensus(EthereumNetwork::get().into()),
-			AccountKey20 { network: None, key: token_id.into() },
-		],
-	)
-}
 
 #[test]
 fn register_token_v2() {
@@ -1021,58 +1008,4 @@ fn invalid_claimer_does_not_fail_the_message() {
 			"Assets were trapped, should not happen."
 		);
 	});
-}
-
-pub fn register_foreign_asset(token_location: Location) {
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			token_location.clone().try_into().unwrap(),
-			snowbridge_sovereign().into(),
-			true,
-			1000,
-		));
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			token_location.clone().try_into().unwrap(),
-		));
-	});
-}
-
-pub(crate) fn set_up_eth_and_dot_pool() {
-	// We create a pool between WND and WETH in AssetHub to support paying for fees with WETH.
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into();
-	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_pool_with_native_on!(AssetHubWestend, eth_location(), true, ethereum_sovereign.clone());
-}
-
-pub(crate) fn set_up_eth_and_dot_pool_on_penpal() {
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into();
-	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_pool_with_native_on!(PenpalB, eth_location(), true, ethereum_sovereign.clone());
-}
-
-fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
-	EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&xcm::v5::Location::new(
-		2,
-		[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
-	))
-	.unwrap()
-	.into()
 }
