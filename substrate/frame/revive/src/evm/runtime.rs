@@ -383,7 +383,7 @@ pub trait EthExtra {
 				Default::default(),
 			)
 			.into();
-		log::debug!(target: LOG_TARGET, "try_into_checked_extrinsic: actual_fee: {actual_fee:?} gas_price: {gas_price:?}, encoded_len: {encoded_len:?}  eth_fee: {eth_fee:?}");
+		log::debug!(target: LOG_TARGET, "try_into_checked_extrinsic: gas_price: {gas_price:?}, encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
 
 		// The fees from the Ethereum transaction should be greater or equal to the actual fees paid
 		// by the account.
