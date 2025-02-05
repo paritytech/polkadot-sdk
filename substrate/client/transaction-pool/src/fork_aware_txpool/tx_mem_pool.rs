@@ -468,13 +468,13 @@ where
 		self.transactions.clone_map()
 	}
 
-	/// Removes a transaction with given hash from the memory pool.
-	pub(super) fn remove_transaction(
-		&self,
-		tx_hash: &ExtrinsicHash<ChainApi>,
-	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
-		debug!(target: LOG_TARGET, ?tx_hash, "mempool::remove_transaction");
-		self.transactions.write().remove(tx_hash)
+	/// Removes transactions with given hashes from the memory pool.
+	pub(super) fn remove_transactions(&self, tx_hashes: &[ExtrinsicHash<ChainApi>]) {
+		log_xt_trace!(target: LOG_TARGET, tx_hashes, "mempool::remove_transaction");
+		let mut transactions = self.transactions.write();
+		for tx_hash in tx_hashes {
+			transactions.remove(tx_hash);
+		}
 	}
 
 	/// Revalidates a batch of transactions against the provided finalized block.

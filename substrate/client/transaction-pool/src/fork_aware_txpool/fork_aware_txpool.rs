@@ -296,7 +296,7 @@ where
 				},
 			};
 
-			mempool.remove_transaction(&tx_hash);
+			mempool.remove_transactions(&[tx_hash]);
 			import_notification_sink.clean_notified_items(&[tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
 		}
@@ -759,7 +759,7 @@ where
 			.map(|result| {
 				result.map_err(Into::into).and_then(|insertion| {
 					submission_results.next().expect(RESULTS_ASSUMPTION).inspect_err(|_| {
-						mempool.remove_transaction(&insertion.hash);
+						mempool.remove_transactions(&[insertion.hash]);
 					})
 				})
 			})
@@ -826,7 +826,7 @@ where
 			.submit_and_watch(at, timed_source, xt)
 			.await
 			.inspect_err(|_| {
-				self.mempool.remove_transaction(&xt_hash);
+				self.mempool.remove_transactions(&[xt_hash]);
 			})
 			.map(|mut outcome| {
 				self.mempool.update_transaction_priority(&outcome);
@@ -854,12 +854,12 @@ where
 
 		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
 
-		removed.iter().for_each(|tx| {
-			self.mempool.remove_transaction(&tx.hash);
-		});
+		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
+		self.mempool.remove_transactions(&removed_hashes);
+		self.import_notification_sink.clean_notified_items(&removed_hashes);
 
 		self.metrics
-			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed.len() as _));
+			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _));
 
 		removed
 	}
@@ -990,7 +990,7 @@ where
 		self.view_store
 			.submit_local(xt)
 			.inspect_err(|_| {
-				self.mempool.remove_transaction(&insertion.hash);
+				self.mempool.remove_transactions(&[insertion.hash]);
 			})
 			.map(|outcome| {
 				self.mempool.update_transaction_priority(&outcome);
@@ -1248,7 +1248,7 @@ where
 			for result in results {
 				if let Err(tx_hash) = result {
 					self.view_store.listener.transactions_invalidated(&[tx_hash]);
-					self.mempool.remove_transaction(&tx_hash);
+					self.mempool.remove_transactions(&[tx_hash]);
 				}
 			}
 		}
