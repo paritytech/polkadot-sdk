@@ -253,18 +253,6 @@ pub fn mock_event_log_invalid_message() -> Log {
 	}
 }
 
-//pub fn mock_event_log_invalid_assets() -> Log {
-//	Log {
-//		// gateway address
-//		address: hex!("b8ea8cb425d85536b158d661da1ef0895bb92f1d").into(),
-//		topics: vec![
-//			hex!("b61699d45635baed7500944331ea827538a50dbfef79180f2079e9185da627aa").into(),
-//		],
-//		// Nonce + Payload
-//		data: hex!("00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000016345785d8a0000000000000000000000000000000000000000000000000000058d15e17628000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0cb889707d426a7a386870a03bc70d1b06975980000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007ff9c67c93d9f7318219faacb5c619a773afef6a0000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000000000000").into(),
-//	}
-//}
-
 pub fn mock_execution_proof() -> ExecutionProof {
 	ExecutionProof {
 		header: BeaconHeader::default(),
@@ -381,12 +369,183 @@ pub mod mock_xcm_send_failure {
 		}
 
 		fn deliver(_xcm: Self::Ticket) -> core::result::Result<XcmHash, SendError> {
-			return Err(SendError::ExceedsMaxMessageSize)
+			return Err(SendError::DestinationUnsupported)
 		}
 	}
 
 	pub fn new_tester() -> sp_io::TestExternalities {
 		let storage = frame_system::GenesisConfig::<TestXcmSendFailure>::default()
+			.build_storage()
+			.unwrap();
+		let mut ext: sp_io::TestExternalities = storage.into();
+		ext.execute_with(setup);
+		ext
+	}
+}
+
+pub mod mock_xcm_validate_failure {
+	use super::*;
+
+	frame_support::construct_runtime!(
+		pub enum Test
+		{
+			System: frame_system::{Pallet, Call, Storage, Event<T>},
+			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+			EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>},
+			InboundQueue: inbound_queue_v2::{Pallet, Call, Storage, Event<T>},
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for Test {
+		type AccountId = AccountId;
+		type Lookup = IdentityLookup<Self::AccountId>;
+		type AccountData = pallet_balances::AccountData<u128>;
+		type Block = Block;
+	}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for Test {
+		type Balance = Balance;
+		type ExistentialDeposit = ExistentialDeposit;
+		type AccountStore = System;
+	}
+
+	impl inbound_queue_v2::Config for Test {
+		type RuntimeEvent = RuntimeEvent;
+		type Verifier = MockVerifier;
+		type XcmSender = MockXcmFailureValidate;
+		type XcmExecutor = MockXcmExecutor;
+		type RewardPayment = ();
+		type EthereumNetwork = EthereumNetwork;
+		type GatewayAddress = GatewayAddress;
+		type AssetHubParaId = ConstU32<1000>;
+		type MessageConverter = MessageToXcm<
+			EthereumNetwork,
+			InboundQueueLocation,
+			MockTokenIdConvert,
+			GatewayAddress,
+			UniversalLocation,
+			AssetHubFromEthereum,
+		>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Helper = Test;
+		type Balance = u128;
+		type WeightInfo = ();
+		type WeightToFee = IdentityFee<u128>;
+		type Token = Balances;
+	}
+
+	impl snowbridge_pallet_ethereum_client::Config for Test {
+		type RuntimeEvent = RuntimeEvent;
+		type ForkVersions = ChainForkVersions;
+		type FreeHeadersInterval = ConstU32<32>;
+		type WeightInfo = ();
+	}
+
+	pub struct MockXcmFailureValidate;
+	impl SendXcm for MockXcmFailureValidate {
+		type Ticket = Xcm<()>;
+
+		fn validate(
+			_dest: &mut Option<Location>,
+			_xcm: &mut Option<Xcm<()>>,
+		) -> SendResult<Self::Ticket> {
+			return Err(SendError::NotApplicable)
+		}
+
+		fn deliver(xcm: Self::Ticket) -> core::result::Result<XcmHash, SendError> {
+			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			Ok(hash)
+		}
+	}
+
+	pub fn new_tester() -> sp_io::TestExternalities {
+		let storage = frame_system::GenesisConfig::<Test>::default()
+			.build_storage()
+			.unwrap();
+		let mut ext: sp_io::TestExternalities = storage.into();
+		ext.execute_with(setup);
+		ext
+	}
+}
+
+pub mod mock_charge_fees_failure {
+	use super::*;
+
+	frame_support::construct_runtime!(
+		pub enum Test
+		{
+			System: frame_system::{Pallet, Call, Storage, Event<T>},
+			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+			EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>},
+			InboundQueue: inbound_queue_v2::{Pallet, Call, Storage, Event<T>},
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for Test {
+		type AccountId = AccountId;
+		type Lookup = IdentityLookup<Self::AccountId>;
+		type AccountData = pallet_balances::AccountData<u128>;
+		type Block = Block;
+	}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for Test {
+		type Balance = Balance;
+		type ExistentialDeposit = ExistentialDeposit;
+		type AccountStore = System;
+	}
+
+	impl inbound_queue_v2::Config for Test {
+		type RuntimeEvent = RuntimeEvent;
+		type Verifier = MockVerifier;
+		type XcmSender = MockXcmSender;
+		type XcmExecutor = MockXcmChargeFeesFailure;
+		type RewardPayment = ();
+		type EthereumNetwork = EthereumNetwork;
+		type GatewayAddress = GatewayAddress;
+		type AssetHubParaId = ConstU32<1000>;
+		type MessageConverter = MessageToXcm<
+			EthereumNetwork,
+			InboundQueueLocation,
+			MockTokenIdConvert,
+			GatewayAddress,
+			UniversalLocation,
+			AssetHubFromEthereum,
+		>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Helper = Test;
+		type Balance = u128;
+		type WeightInfo = ();
+		type WeightToFee = IdentityFee<u128>;
+		type Token = Balances;
+	}
+
+	impl snowbridge_pallet_ethereum_client::Config for Test {
+		type RuntimeEvent = RuntimeEvent;
+		type ForkVersions = ChainForkVersions;
+		type FreeHeadersInterval = ConstU32<32>;
+		type WeightInfo = ();
+	}
+
+	pub struct MockXcmChargeFeesFailure;
+	impl<C> ExecuteXcm<C> for MockXcmChargeFeesFailure {
+		type Prepared = Weightless;
+		fn prepare(message: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
+			Err(message)
+		}
+		fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
+			unreachable!()
+		}
+		fn charge_fees(_: impl Into<Location>, _: Assets) -> xcm::latest::Result {
+			Err(XcmError::Barrier)
+		}
+	}
+
+	pub fn new_tester() -> sp_io::TestExternalities {
+		let storage = frame_system::GenesisConfig::<Test>::default()
 			.build_storage()
 			.unwrap();
 		let mut ext: sp_io::TestExternalities = storage.into();

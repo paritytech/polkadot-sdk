@@ -115,27 +115,6 @@ fn test_submit_fails_with_malformed_message() {
 	});
 }
 
-//#[test]
-//fn test_submit_with_invalid_assets() {
-//	new_tester().execute_with(|| {
-//		let relayer: AccountId = Keyring::Bob.into();
-//		let origin = RuntimeOrigin::signed(relayer);
-//
-//		// Submit message
-//		let event = EventProof {
-//			event_log: mock_event_log_invalid_assets(),
-//			proof: Proof {
-//				receipt_proof: Default::default(),
-//				execution_proof: mock_execution_proof(),
-//			},
-//		};
-//		assert_noop!(
-//			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
-//			Error::<Test>::InvalidAssets
-//		);
-//	});
-//}
-
 #[test]
 fn test_using_same_nonce_fails() {
 	new_tester().execute_with(|| {
@@ -231,3 +210,56 @@ fn test_xcm_send_failure() {
 		);
 	});
 }
+
+#[test]
+fn test_xcm_send_validate_failure() {
+	crate::test::mock_xcm_validate_failure::new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+
+		let origin = mock::mock_xcm_validate_failure::RuntimeOrigin::signed(relayer.clone());
+
+		// Submit message
+		let event = EventProof {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+
+		assert_err!(
+			crate::test::mock_xcm_validate_failure::InboundQueue::submit(
+				origin.clone(),
+				Box::new(event.clone())
+			),
+			Error::<Test>::Unreachable
+		);
+	});
+}
+
+#[test]
+fn test_xcm_charge_fees_failure() {
+	crate::test::mock_charge_fees_failure::new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+
+		let origin = mock::mock_charge_fees_failure::RuntimeOrigin::signed(relayer.clone());
+
+		// Submit message
+		let event = EventProof {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+
+		assert_err!(
+			crate::test::mock_charge_fees_failure::InboundQueue::submit(
+				origin.clone(),
+				Box::new(event.clone())
+			),
+			Error::<Test>::FeesNotMet
+		);
+	});
+}
+
