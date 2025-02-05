@@ -516,7 +516,7 @@ environmental::environmental!(recursion_count: u8);
 /// execution policies, while allowing remote chains to enforce their own rules.
 pub struct DenyLocalInstructions<Inner>(PhantomData<Inner>);
 
-impl<Inner> DenyLocalInstructions<Inner> {
+impl<Inner: DenyExecution> DenyLocalInstructions<Inner> {
 	// Recursively applies the deny filter to a nested XCM.
 	///
 	/// This function ensures that restricted instructions are blocked at any depth within the XCM.
