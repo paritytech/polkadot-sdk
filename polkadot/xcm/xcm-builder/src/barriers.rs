@@ -540,17 +540,17 @@ where
 	/// It maintains a **recursion counter** to prevent stack overflows due to a deep nesting.
 	fn deny_recursively<RuntimeCall>(
 		origin: &Location,
-		nested_xcm: &mut Xcm<RuntimeCall>,
+		xcm: &mut Xcm<RuntimeCall>,
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<Result<ControlFlow<()>, ProcessMessageError>, ProcessMessageError> {
 		// Apply the `Inner` deny filter to the nested XCM.
-		let _ = Inner::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
+		let _ = Inner::deny_execution(origin, xcm.inner_mut(), max_weight, properties)
 			.inspect_err(|e| {
 				log::warn!(
 					target: "xcm::barriers",
-					"Execution denied by Inner filter, origin: {:?}, nested_xcm: {:?}, error: {:?}",
-					origin, nested_xcm, e
+					"Execution denied by Inner filter, origin: {:?}, xcm: {:?}, error: {:?}",
+					origin, xcm, e
 				);
 			})?;
 
@@ -561,7 +561,7 @@ where
 					log::error!(
 						target: "xcm::barriers",
 						"Recursion limit exceeded, origin: {:?}, nested_xcm: {:?}, count: {count}",
-						origin, nested_xcm
+						origin, xcm
 					);
 
 					return Err(ProcessMessageError::StackLimitReached);
@@ -580,7 +580,7 @@ where
 			}
 
 			// Recursively check the nested XCM instructions.
-			Outer::deny_execution(origin, nested_xcm.inner_mut(), max_weight, properties)
+			Outer::deny_execution(origin, xcm.inner_mut(), max_weight, properties)
 		})?;
 
 		Ok(Ok(ControlFlow::Continue(())))
