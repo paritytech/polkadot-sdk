@@ -866,6 +866,9 @@ async fn litep2p_idle_litep2p_substream() {
 					Litep2pNotificationEvent::NotificationReceived { peer, .. } => {
 						assert_eq!(peer.to_bytes(), litep2p_lhs_peer.to_bytes());
 					}
+					Litep2pNotificationEvent::NotificationStreamClosed { .. } => {
+						panic!("Substream should not be closed by the keep-alive mechanism");
+					}
 					_ => {},
 				}
 			}
@@ -890,6 +893,9 @@ async fn litep2p_idle_litep2p_substream() {
 					Litep2pNotificationEvent::NotificationReceived { peer, .. } => {
 						assert_eq!(peer.to_bytes(), litep2p_rhs_peer.to_bytes());
 					}
+					Litep2pNotificationEvent::NotificationStreamClosed { .. } => {
+						panic!("Substream should not be closed by the keep-alive mechanism");
+					}
 					_ => {},
 				}
 			}
@@ -897,6 +903,8 @@ async fn litep2p_idle_litep2p_substream() {
 	}
 }
 
+/// Keep the substream idle for a long time and ensure the connection is not closed by the
+/// keep-alive mechanism.
 #[tokio::test]
 async fn libp2p_idle_to_libp2p_substream() {
 	let _ = sp_tracing::tracing_subscriber::fmt()
@@ -922,9 +930,17 @@ async fn libp2p_idle_to_libp2p_substream() {
 	};
 
 	libp2p_rhs.dial(libp2p_lhs_address).unwrap();
-	let mut sink = None;
+
+	// Disarm first timer interval.
+	let mut timer = tokio::time::interval(std::time::Duration::from_secs(6));
+	timer.tick().await;
+
 	loop {
 		tokio::select! {
+			_ = timer.tick() => {
+				return;
+			}
+
 			event = libp2p_lhs.select_next_some() => {
 				log::info!("[libp2p lhs] event: {event:?}");
 				match event {
@@ -941,10 +957,7 @@ async fn libp2p_idle_to_libp2p_substream() {
 					},
 					SwarmEvent::Behaviour(NotificationsOut::Notification { .. }) => { },
 					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolClosed { .. }) => {
-						// TODO: Ensure these messages are entirely lost.
-						let sink: crate::service::NotificationsSink = sink.take().unwrap();
-						sink.reserve_notification().await.unwrap().send(vec![5, 5, 5, 5]).unwrap();
-						sink.send_sync_notification(vec![6, 6, 6, 6]);
+						panic!("Libp2p substream should not be closed by the keep-alive mechanism");
 					}
 					_ => {},
 				}
@@ -965,8 +978,10 @@ async fn libp2p_idle_to_libp2p_substream() {
 
 						notifications_sink.reserve_notification().await.unwrap().send(vec![3, 3, 3, 3]).unwrap();
 						notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
-						sink = Some(notifications_sink);
 					},
+					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolClosed { .. }) => {
+						panic!("Libp2p substream should not be closed by the keep-alive mechanism");
+					}
 					_ => {},
 				}
 			},
