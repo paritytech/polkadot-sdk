@@ -17,31 +17,39 @@
 
 //! Convert the IR to V15 metadata.
 
-use crate::OuterEnumsIR;
-
 use super::types::{
-	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
+	ExtrinsicMetadataIR, MetadataIR, OuterEnumsIR, PalletMetadataIR, RuntimeApiMetadataIR,
 	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, TransactionExtensionMetadataIR,
 };
 
 use frame_metadata::v15::{
-	CustomMetadata, ExtrinsicMetadata, OuterEnums, PalletMetadata, RuntimeApiMetadata,
-	RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata, RuntimeMetadataV15,
-	SignedExtensionMetadata,
+	CustomMetadata, CustomValueMetadata, ExtrinsicMetadata, OuterEnums, PalletMetadata,
+	RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata,
+	RuntimeMetadataV15, SignedExtensionMetadata,
 };
+use scale_info::{IntoPortable, Registry};
 
 impl From<MetadataIR> for RuntimeMetadataV15 {
 	fn from(ir: MetadataIR) -> Self {
-		RuntimeMetadataV15::new(
-			ir.pallets.into_iter().map(Into::into).collect(),
-			ir.extrinsic.into(),
-			ir.ty,
-			ir.apis.into_iter().map(Into::into).collect(),
-			ir.outer_enums.into(),
-			// Substrate does not collect yet the custom metadata fields.
-			// This allows us to extend the V15 easily.
-			CustomMetadata { map: Default::default() },
-		)
+		let mut registry = Registry::new();
+		let pallets =
+			registry.map_into_portable(ir.pallets.into_iter().map(Into::<PalletMetadata>::into));
+		let extrinsic = Into::<ExtrinsicMetadata>::into(ir.extrinsic).into_portable(&mut registry);
+		let ty = registry.register_type(&ir.ty);
+		let apis =
+			registry.map_into_portable(ir.apis.into_iter().map(Into::<RuntimeApiMetadata>::into));
+		let outer_enums = Into::<OuterEnums>::into(ir.outer_enums).into_portable(&mut registry);
+
+		let view_function_groups = registry.map_into_portable(ir.view_functions.groups.into_iter());
+		let view_functions_custom_metadata = CustomValueMetadata {
+			ty: ir.view_functions.ty,
+			value: codec::Encode::encode(&view_function_groups),
+		};
+		let mut custom_map = alloc::collections::BTreeMap::new();
+		custom_map.insert("view_functions_experimental", view_functions_custom_metadata);
+		let custom = CustomMetadata { map: custom_map }.into_portable(&mut registry);
+
+		Self { types: registry.into(), pallets, extrinsic, ty, apis, outer_enums, custom }
 	}
 }
 

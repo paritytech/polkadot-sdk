@@ -144,7 +144,6 @@ assert_cmd = { workspace = true }
 criterion = { features = ["async_tokio"], workspace = true, default-features = true }
 futures = { workspace = true }
 nix = { features = ["signal"], workspace = true }
-platforms = { workspace = true }
 pretty_assertions.workspace = true
 regex = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }

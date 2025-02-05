@@ -201,6 +201,7 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
 use core::fmt::Debug;
+use frame_support::traits::{Defensive, DefensiveResult};
 use sp_core::ConstU32;
 use sp_runtime::{
 	traits::{Bounded, Saturating, Zero},
@@ -795,13 +796,16 @@ impl<AccountId, Bound: Get<u32>> TryFrom<sp_npos_elections::Support<AccountId>>
 }
 
 impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
-	pub fn sorted_truncate_from(mut support: sp_npos_elections::Support<AccountId>) -> Self {
+	pub fn sorted_truncate_from(mut support: sp_npos_elections::Support<AccountId>) -> (Self, u32) {
 		// If bounds meet, then short circuit.
 		if let Ok(bounded) = support.clone().try_into() {
-			return bounded
+			return (bounded, 0)
 		}
 
+		let pre_len = support.voters.len();
 		// sort support based on stake of each backer, low to high.
+		// Note: we don't sort high to low and truncate because we would have to track `total`
+		// updates, so we need one iteration anyhow.
 		support.voters.sort_by(|a, b| a.1.cmp(&b.1));
 		// then do the truncation.
 		let mut bounded = Self { voters: Default::default(), total: 0 };
@@ -811,7 +815,8 @@ impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
 			}
 			bounded.total += weight;
 		}
-		bounded
+		let post_len = bounded.voters.len();
+		(bounded, (pre_len - post_len) as u32)
 	}
 }
 
@@ -829,20 +834,66 @@ pub struct BoundedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>>(
 	pub BoundedVec<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>,
 );
 
+/// Try and build yourself from another `BoundedSupports` with a different set of types.
+pub trait TryFromOtherBounds<AccountId, BOtherOuter: Get<u32>, BOtherInner: Get<u32>> {
+	fn try_from_other_bounds(
+		other: BoundedSupports<AccountId, BOtherOuter, BOtherInner>,
+	) -> Result<Self, crate::Error>
+	where
+		Self: Sized;
+}
+
+impl<
+		AccountId,
+		BOuter: Get<u32>,
+		BInner: Get<u32>,
+		BOtherOuter: Get<u32>,
+		BOuterInner: Get<u32>,
+	> TryFromOtherBounds<AccountId, BOtherOuter, BOuterInner>
+	for BoundedSupports<AccountId, BOuter, BInner>
+{
+	fn try_from_other_bounds(
+		other: BoundedSupports<AccountId, BOtherOuter, BOuterInner>,
+	) -> Result<Self, crate::Error> {
+		// TODO: we might as well do this with unsafe rust and do it faster.
+		if BOtherOuter::get() <= BOuter::get() && BInner::get() <= BOuterInner::get() {
+			let supports = other
+				.into_iter()
+				.map(|(acc, b_support)| {
+					b_support
+						.try_into()
+						.defensive_map_err(|_| Error::BoundsExceeded)
+						.map(|b_support| (acc, b_support))
+				})
+				.collect::<Result<Vec<_>, _>>()
+				.defensive()?;
+			supports.try_into()
+		} else {
+			Err(crate::Error::BoundsExceeded)
+		}
+	}
+}
+
 impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
 	BoundedSupports<AccountId, BOuter, BInner>
 {
-	pub fn sorted_truncate_from(supports: Supports<AccountId>) -> Self {
+	/// Two u32s returned are number of winners and backers removed respectively.
+	pub fn sorted_truncate_from(supports: Supports<AccountId>) -> (Self, u32, u32) {
 		// if bounds, meet, short circuit
 		if let Ok(bounded) = supports.clone().try_into() {
-			return bounded
+			return (bounded, 0, 0)
 		}
 
+		let pre_winners = supports.len();
+		let mut backers_removed = 0;
 		// first, convert all inner supports.
 		let mut inner_supports = supports
 			.into_iter()
 			.map(|(account, support)| {
-				(account, BoundedSupport::<AccountId, BInner>::sorted_truncate_from(support))
+				let (bounded, removed) =
+					BoundedSupport::<AccountId, BInner>::sorted_truncate_from(support);
+				backers_removed += removed;
+				(account, bounded)
 			})
 			.collect::<Vec<_>>();
 
@@ -850,11 +901,12 @@ impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
 		inner_supports.sort_by(|a, b| b.1.total.cmp(&a.1.total));
 
 		// then take the first slice that can fit.
-		BoundedSupports(
-			BoundedVec::<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>::truncate_from(
-				inner_supports,
-			),
-		)
+		let bounded = BoundedSupports(BoundedVec::<
+			(AccountId, BoundedSupport<AccountId, BInner>),
+			BOuter,
+		>::truncate_from(inner_supports));
+		let post_winners = bounded.len();
+		(bounded, (pre_winners - post_winners) as u32, backers_removed)
 	}
 }
 pub trait TryFromUnboundedPagedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {
@@ -909,6 +961,15 @@ impl<AccountId: PartialEq, BOuter: Get<u32>, BInner: Get<u32>> PartialEq
 {
 	fn eq(&self, other: &Self) -> bool {
 		self.0 == other.0
+	}
+}
+
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> Into<Supports<AccountId>>
+	for BoundedSupports<AccountId, BOuter, BInner>
+{
+	fn into(self) -> Supports<AccountId> {
+		// TODO: can be done faster with unsafe code.
+		self.0.into_iter().map(|(acc, b_support)| (acc, b_support.into())).collect()
 	}
 }
 

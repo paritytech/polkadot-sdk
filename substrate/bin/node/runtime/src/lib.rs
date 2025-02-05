@@ -914,12 +914,29 @@ pub(crate) mod multi_block_impls {
 	parameter_types! {
 		pub Pages: u32 = 4;
 		// nominators snapshot size
-		pub VoterSnapshotPerBlock: u32 = 22500 / 4;
+		pub VoterSnapshotPerBlock: u32 = 22500 / Pages::get();
 		// validator snapshot size
 		pub TargetSnapshotPerBlock: u32 = 1000;
 		pub SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
-		pub SignedValidation: u32 = 8;
+		pub SignedValidation: u32 = Pages::get() * 2;
 		pub UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	}
+
+	impl multi_block::unsigned::miner::MinerConfig for Runtime {
+		type AccountId = AccountId;
+		type Hash = Hash;
+		type MaxBackersPerWinner = <Self as multi_block::verifier::Config>::MaxBackersPerWinner;
+		type MaxBackersPerWinnerFinal =
+			<Self as multi_block::verifier::Config>::MaxBackersPerWinnerFinal;
+		type MaxWinnersPerPage = <Self as multi_block::verifier::Config>::MaxWinnersPerPage;
+		type MaxVotesPerVoter =
+			<<Self as multi_block::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
+		type MaxLength = MinerMaxLength;
+		type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
+		type Pages = Pages;
+		type Solution = NposSolution16;
+		type VoterSnapshotPerBlock = <Runtime as multi_block::Config>::VoterSnapshotPerBlock;
+		type TargetSnapshotPerBlock = <Runtime as multi_block::Config>::TargetSnapshotPerBlock;
 	}
 
 	impl multi_block::Config for Runtime {
@@ -939,10 +956,10 @@ pub(crate) mod multi_block_impls {
 		// TODO: sanity check that the length of all phases is within reason.
 		type SignedPhase = SignedPhase;
 		type UnsignedPhase = UnsignedPhase;
-		type Solution = NposSolution16;
 		type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 		type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 		type Verifier = MultiBlockVerifier;
+		type MinerConfig = Self;
 		type WeightInfo = ();
 	}
 
@@ -979,8 +996,6 @@ pub(crate) mod multi_block_impls {
 	impl multi_block::unsigned::Config for Runtime {
 		// TODO: split into MinerConfig so the staker miner can easily configure these.
 		// miner configs.
-		type MinerMaxLength = MinerMaxLength;
-		type MinerMaxWeight = MinerMaxWeight;
 		type OffchainSolver = <Runtime as multi_phase::Config>::Solver;
 
 		// offchain usage of miner configs
@@ -1032,7 +1047,7 @@ parameter_types! {
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
 		.voters_count(5000.into()).targets_count(10.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(50_000.into()).targets_count(1000.into()).build();
+		.voters_count(1000.into()).targets_count(1000.into()).build();
 
 	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	/// The maximum winners that can be elected by the Election pallet which is equivalent to the
@@ -1730,11 +1745,11 @@ impl pallet_revive::Config for Runtime {
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Debug = ();
 	type Xcm = ();
 	type ChainId = ConstU64<420_420_420>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 	type EthGasEncoder = ();
+	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -2699,7 +2714,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 
@@ -3267,6 +3283,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
+		fn execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
+			Runtime::execute_view_function(id, input)
+		}
+	}
+
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
 			Executive::apply_extrinsic(extrinsic)
@@ -3553,6 +3575,10 @@ impl_runtime_apis! {
 	{
 		fn balance(address: H160) -> U256 {
 			Revive::evm_balance(&address)
+		}
+
+		fn block_gas_limit() -> U256 {
+			Revive::evm_block_gas_limit()
 		}
 
 		fn nonce(address: H160) -> Nonce {

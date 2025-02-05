@@ -357,6 +357,16 @@ pub fn testnet_genesis(
 	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts);
 	const MAX_COLLECTIVE_SIZE: usize = 50;
+	let dev_stakers = if cfg!(feature = "staking-playground") {
+		let random_validators =
+			std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
+		let random_nominators = std::option_env!("NOMINATORS")
+			.map(|s| s.parse::<u32>().unwrap())
+			.unwrap_or(3000);
+		Some((random_validators, random_nominators))
+	} else {
+		None
+	};
 
 	serde_json::json!({
 		"balances": {
@@ -387,6 +397,7 @@ pub fn testnet_genesis(
 			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			"slashRewardFraction": Perbill::from_percent(10),
 			"stakers": stakers.clone(),
+			"devStakers": dev_stakers
 		},
 		"elections": {
 			"members": endowed_accounts
@@ -420,38 +431,12 @@ pub fn testnet_genesis(
 }
 
 fn development_config_genesis_json() -> serde_json::Value {
-	if cfg!(feature = "staking-playground") {
-		let random_authorities_count = std::option_env!("AUTHORITIES")
-			.map(|s| s.parse::<u32>().unwrap())
-			.unwrap_or(100);
-		let random_nominators_count = std::option_env!("NOMINATORS")
-			.map(|s| s.parse::<u32>().unwrap())
-			.unwrap_or(3000);
-		let mut random_authorities = (0..random_authorities_count)
-			.map(|i| authority_keys_from_seed(&format!("Random{}", i)))
-			.collect::<Vec<_>>();
-		let random_nominators = (0..random_nominators_count)
-			.map(|i| {
-				get_public_from_string_or_panic::<sr25519::Public>(&format!("Random{}", i)).into()
-			})
-			.collect::<Vec<_>>();
-		// Alice should also always be an authority.
-		random_authorities.push(authority_keys_from_seed("Alice"));
-
-		testnet_genesis(
-			random_authorities,
-			random_nominators,
-			Sr25519Keyring::Alice.to_account_id(),
-			None,
-		)
-	} else {
-		testnet_genesis(
-			vec![authority_keys_from_seed("Alice")],
-			vec![],
-			Sr25519Keyring::Alice.to_account_id(),
-			None,
-		)
-	}
+	testnet_genesis(
+		vec![authority_keys_from_seed("Alice")],
+		vec![],
+		Sr25519Keyring::Alice.to_account_id(),
+		None,
+	)
 }
 
 fn props() -> Properties {

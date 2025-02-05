@@ -22,6 +22,7 @@ use crate::{
 		AccountId, RuntimeHoldReason, RuntimeOrigin, VerifierPallet,
 	},
 	signed::{self as signed_pallet, Event as SignedEvent, Submissions},
+	unsigned::miner::MinerConfig,
 	verifier::{self, AsynchronousVerifier, SolutionDataProvider, VerificationResult, Verifier},
 	Event, PadSolutionPages, PagedRawSolution, Pagify, Phase, SolutionOf,
 };
@@ -44,7 +45,7 @@ parameter_types! {
 /// Useful for when you don't care too much about the signed phase.
 pub struct MockSignedPhase;
 impl SolutionDataProvider for MockSignedPhase {
-	type Solution = <Runtime as crate::Config>::Solution;
+	type Solution = <Runtime as MinerConfig>::Solution;
 	fn get_page(page: PageIndex) -> Option<Self::Solution> {
 		MockSignedNextSolution::get().map(|i| i.get(page as usize).cloned().unwrap_or_default())
 	}
@@ -96,7 +97,7 @@ pub enum SignedSwitch {
 
 pub struct DualSignedPhase;
 impl SolutionDataProvider for DualSignedPhase {
-	type Solution = <Runtime as crate::Config>::Solution;
+	type Solution = <Runtime as MinerConfig>::Solution;
 	fn get_page(page: PageIndex) -> Option<Self::Solution> {
 		match SignedPhaseSwitch::get() {
 			SignedSwitch::Mock => MockSignedNextSolution::get()
@@ -166,7 +167,7 @@ pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runt
 pub fn load_signed_for_verification_and_start(
 	who: AccountId,
 	paged: PagedRawSolution<Runtime>,
-	round: u32,
+	_round: u32,
 ) {
 	load_signed_for_verification(who, paged);
 

@@ -143,7 +143,9 @@ impl<T: Config> OnChainExecution<T> {
 
 		let unbounded = to_supports(&staked);
 		let bounded = if T::Sort::get() {
-			BoundedSupportsOf::<Self>::sorted_truncate_from(unbounded)
+			let (bounded, _winners_removed, _backers_removed) =
+				BoundedSupportsOf::<Self>::sorted_truncate_from(unbounded);
+			bounded
 		} else {
 			unbounded.try_into().map_err(|_| Error::FailedToBound)?
 		};
@@ -282,11 +284,10 @@ mod tests {
 	}
 
 	mod mock_data_provider {
+		use super::*;
+		use crate::{data_provider, DataProviderBounds, PageIndex, VoterOf};
 		use frame_support::traits::ConstU32;
 		use sp_runtime::bounded_vec;
-
-		use super::*;
-		use crate::{data_provider, PageIndex, VoterOf};
 
 		pub struct DataProvider;
 		impl ElectionDataProvider for DataProvider {

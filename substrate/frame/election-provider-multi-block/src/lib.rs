@@ -230,7 +230,7 @@ impl<T: Config> ElectionProvider for InitiateEmergencyPhase<T> {
 
 impl<T: Config> InstantElectionProvider for InitiateEmergencyPhase<T> {
 	fn instant_elect(
-		_voters: Vec<VoterOf<T>>,
+		_voters: Vec<VoterOf<T::MinerConfig>>,
 		_targets: Vec<Self::AccountId>,
 		_desired_targets: u32,
 	) -> Result<BoundedSupportsOf<Self>, Self::Error> {
@@ -264,7 +264,7 @@ impl<T: Config> ElectionProvider for Continue<T> {
 
 impl<T: Config> InstantElectionProvider for Continue<T> {
 	fn instant_elect(
-		_voters: Vec<VoterOf<T>>,
+		_voters: Vec<VoterOf<T::MinerConfig>>,
 		_targets: Vec<Self::AccountId>,
 		_desired_targets: u32,
 	) -> Result<BoundedSupportsOf<Self>, Self::Error> {
@@ -368,9 +368,11 @@ pub mod pallet {
 		/// The duration of this should not be less than `T::Pages`, and there is no point in it
 		/// being more than `SignedPhase::MaxSubmission::get() * T::Pages`. TODO: integrity test for
 		/// it.
+		#[pallet::constant]
 		type SignedValidationPhase: Get<BlockNumberFor<Self>>;
 
 		/// The number of snapshot voters to fetch per block.
+		#[pallet::constant]
 		type VoterSnapshotPerBlock: Get<u32>;
 
 		/// The number of snapshot targets to fetch per block.
@@ -392,17 +394,16 @@ pub mod pallet {
 			BlockNumber = BlockNumberFor<Self>,
 		>;
 
-		/// The solution type.
-		type Solution: codec::FullCodec
-			+ Default
-			+ PartialEq
-			+ Eq
-			+ Clone
-			+ sp_std::fmt::Debug
-			+ Ord
-			+ NposSolution
-			+ TypeInfo
-			+ MaxEncodedLen;
+		/// The miner configuration.
+		type MinerConfig: crate::unsigned::miner::MinerConfig<
+			Pages = Self::Pages,
+			AccountId = <Self as frame_system::Config>::AccountId,
+			MaxVotesPerVoter = <Self::DataProvider as ElectionDataProvider>::MaxVotesPerVoter,
+			VoterSnapshotPerBlock = Self::VoterSnapshotPerBlock,
+			TargetSnapshotPerBlock = Self::TargetSnapshotPerBlock,
+			MaxBackersPerWinner = <Self::Verifier as verifier::Verifier>::MaxBackersPerWinner,
+			MaxWinnersPerPage = <Self::Verifier as verifier::Verifier>::MaxWinnersPerPage,
+		>;
 
 		/// The fallback type used for the election.
 		///
@@ -417,8 +418,10 @@ pub mod pallet {
 		>;
 
 		/// The verifier pallet's interface.
-		type Verifier: verifier::Verifier<Solution = SolutionOf<Self>, AccountId = Self::AccountId>
-			+ verifier::AsynchronousVerifier;
+		type Verifier: verifier::Verifier<
+				Solution = SolutionOf<Self::MinerConfig>,
+				AccountId = Self::AccountId,
+			> + verifier::AsynchronousVerifier;
 
 		/// The number of blocks ahead of time to try and have the election results ready by.
 		type Lookahead: Get<BlockNumberFor<Self>>;
@@ -515,14 +518,11 @@ pub mod pallet {
 
 			match current_phase {
 				// start and continue snapshot.
-				Phase::Off
-					if remaining_blocks <= snapshot_deadline
-					// && remaining_blocks > signed_deadline // TODO do we need this?
-					=>
-				{
+				Phase::Off if remaining_blocks <= snapshot_deadline => {
 					let remaining_pages = Self::msp();
 					Self::create_targets_snapshot().defensive_unwrap_or_default();
-					Self::create_voters_snapshot_paged(remaining_pages).defensive_unwrap_or_default();
+					Self::create_voters_snapshot_paged(remaining_pages)
+						.defensive_unwrap_or_default();
 					Self::phase_transition(Phase::Snapshot(remaining_pages));
 					todo_weight
 				},
@@ -574,13 +574,13 @@ pub mod pallet {
 			use sp_std::mem::size_of;
 			// The index type of both voters and targets need to be smaller than that of usize (very
 			// unlikely to be the case, but anyhow).
-			assert!(size_of::<SolutionVoterIndexOf<T>>() <= size_of::<usize>());
-			assert!(size_of::<SolutionTargetIndexOf<T>>() <= size_of::<usize>());
+			assert!(size_of::<SolutionVoterIndexOf<T::MinerConfig>>() <= size_of::<usize>());
+			assert!(size_of::<SolutionTargetIndexOf<T::MinerConfig>>() <= size_of::<usize>());
 
 			// also, because `VoterSnapshotPerBlock` and `TargetSnapshotPerBlock` are in u32, we
 			// assert that both of these types are smaller than u32 as well.
-			assert!(size_of::<SolutionVoterIndexOf<T>>() <= size_of::<u32>());
-			assert!(size_of::<SolutionTargetIndexOf<T>>() <= size_of::<u32>());
+			assert!(size_of::<SolutionVoterIndexOf<T::MinerConfig>>() <= size_of::<u32>());
+			assert!(size_of::<SolutionTargetIndexOf<T::MinerConfig>>() <= size_of::<u32>());
 
 			let pages_bn: BlockNumberFor<T> = T::Pages::get().into();
 			// pages must be at least 1.
@@ -593,17 +593,18 @@ pub mod pallet {
 			assert!(pages_bn + lookahead < T::UnsignedPhase::get());
 
 			// Based on the requirements of [`sp_npos_elections::Assignment::try_normalize`].
-			let max_vote: usize = <SolutionOf<T> as NposSolution>::LIMIT;
+			let max_vote: usize = <SolutionOf<T::MinerConfig> as NposSolution>::LIMIT;
 
 			// 2. Maximum sum of [SolutionAccuracy; 16] must fit into `UpperOf<OffchainAccuracy>`.
-			let maximum_chain_accuracy: Vec<UpperOf<SolutionAccuracyOf<T>>> = (0..max_vote)
+			let maximum_chain_accuracy: Vec<UpperOf<SolutionAccuracyOf<T::MinerConfig>>> = (0..
+				max_vote)
 				.map(|_| {
-					<UpperOf<SolutionAccuracyOf<T>>>::from(
-						<SolutionAccuracyOf<T>>::one().deconstruct(),
+					<UpperOf<SolutionAccuracyOf<T::MinerConfig>>>::from(
+						<SolutionAccuracyOf<T::MinerConfig>>::one().deconstruct(),
 					)
 				})
 				.collect();
-			let _: UpperOf<SolutionAccuracyOf<T>> = maximum_chain_accuracy
+			let _: UpperOf<SolutionAccuracyOf<T::MinerConfig>> = maximum_chain_accuracy
 				.iter()
 				.fold(Zero::zero(), |acc, x| acc.checked_add(x).unwrap());
 
@@ -614,7 +615,7 @@ pub mod pallet {
 			// solution cannot represent any voters more than `LIMIT` anyhow.
 			assert_eq!(
 				<T::DataProvider as ElectionDataProvider>::MaxVotesPerVoter::get(),
-				<SolutionOf<T> as NposSolution>::LIMIT as u32,
+				<SolutionOf<T::MinerConfig> as NposSolution>::LIMIT as u32,
 			);
 
 			// The duration of the signed validation phase should be such that at least one solution
@@ -637,6 +638,17 @@ pub mod pallet {
 	/// Error of the pallet that can be returned in response to dispatches.
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Triggering the `Fallback` failed.
+		Fallback,
+		/// Unexpected phase
+		UnexpectedPhase,
+		/// Snapshot was unavailable.
+		Snapshot,
+	}
+
+	/// Common errors in all sub-pallets and miner.
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+	pub enum CommonError {
 		/// Submission is too early (or too late, depending on your point of reference).
 		EarlySubmission,
 		/// The round counter is wrong.
@@ -649,26 +661,8 @@ pub mod pallet {
 		WrongWinnerCount,
 		/// The snapshot fingerprint is not a match. The solution is likely outdated.
 		WrongFingerprint,
-		/// Triggering the `Fallback` failed.
-		Fallback,
-		/// Unexpected phase
-		UnexpectedPhase,
-		/// Snapshot was unavailable.
+		/// Snapshot was not available.
 		Snapshot,
-	}
-
-	impl<T: Config> PartialEq for Error<T> {
-		fn eq(&self, other: &Self) -> bool {
-			use Error::*;
-			match (self, other) {
-				(EarlySubmission, EarlySubmission) |
-				(WrongRound, WrongRound) |
-				(WeakSubmission, WeakSubmission) |
-				(WrongWinnerCount, WrongWinnerCount) |
-				(WrongPageCount, WrongPageCount) => true,
-				_ => false,
-			}
-		}
 	}
 
 	/// Internal counter for the number of rounds.
@@ -729,7 +723,7 @@ pub mod pallet {
 			PagedTargetSnapshotHash::<T>::insert(Pallet::<T>::msp(), hash);
 		}
 
-		pub(crate) fn set_voters(page: PageIndex, voters: VoterPageOf<T>) {
+		pub(crate) fn set_voters(page: PageIndex, voters: VoterPageOf<T::MinerConfig>) {
 			let hash = Self::write_storage_with_pre_allocate(
 				&PagedVoterSnapshot::<T>::hashed_key_for(page),
 				voters,
@@ -753,7 +747,7 @@ pub mod pallet {
 			DesiredTargets::<T>::get()
 		}
 
-		pub(crate) fn voters(page: PageIndex) -> Option<VoterPageOf<T>> {
+		pub(crate) fn voters(page: PageIndex) -> Option<VoterPageOf<T::MinerConfig>> {
 			PagedVoterSnapshot::<T>::get(page)
 		}
 
@@ -901,7 +895,7 @@ pub mod pallet {
 			PagedTargetSnapshot::<T>::iter().count().saturated_into::<PageIndex>()
 		}
 
-		pub(crate) fn voters_iter_flattened() -> impl Iterator<Item = VoterOf<T>> {
+		pub(crate) fn voters_iter_flattened() -> impl Iterator<Item = VoterOf<T::MinerConfig>> {
 			let key_range =
 				(crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp()).collect::<Vec<_>>();
 			key_range
@@ -943,7 +937,8 @@ pub mod pallet {
 	type DesiredTargets<T> = StorageValue<_, u32>;
 	/// Paginated voter snapshot. At most [`T::Pages`] keys will exist.
 	#[pallet::storage]
-	type PagedVoterSnapshot<T: Config> = StorageMap<_, Twox64Concat, PageIndex, VoterPageOf<T>>;
+	type PagedVoterSnapshot<T: Config> =
+		StorageMap<_, Twox64Concat, PageIndex, VoterPageOf<T::MinerConfig>>;
 	/// Same as [`PagedVoterSnapshot`], but it will store the hash of the snapshot.
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
@@ -1002,34 +997,34 @@ impl<T: Config> Pallet<T> {
 	/// These compliment a feasibility-check, which is exactly the opposite: snapshot-dependent
 	/// checks.
 	pub(crate) fn snapshot_independent_checks(
-		paged_solution: &PagedRawSolution<T>,
+		paged_solution: &PagedRawSolution<T::MinerConfig>,
 		maybe_snapshot_fingerprint: Option<T::Hash>,
-	) -> Result<(), Error<T>> {
+	) -> Result<(), CommonError> {
 		// Note that the order of these checks are critical for the correctness and performance of
 		// `restore_or_compute_then_maybe_submit`. We want to make sure that we always check round
 		// first, so that if it has a wrong round, we can detect and delete it from the cache right
 		// from the get go.
 
 		// ensure round is current
-		ensure!(Self::round() == paged_solution.round, Error::<T>::WrongRound);
+		ensure!(Self::round() == paged_solution.round, CommonError::WrongRound);
 
 		// ensure score is being improved, if the claim is even correct.
 		ensure!(
 			<T::Verifier as Verifier>::ensure_claimed_score_improves(paged_solution.score),
-			Error::<T>::WeakSubmission,
+			CommonError::WeakSubmission,
 		);
 
 		// ensure solution pages are no more than the snapshot
 		ensure!(
 			paged_solution.solution_pages.len().saturated_into::<PageIndex>() <= T::Pages::get(),
-			Error::<T>::WrongPageCount
+			CommonError::WrongPageCount
 		);
 
 		// finally, check the winner count being correct.
 		if let Some(desired_targets) = Snapshot::<T>::desired_targets() {
 			ensure!(
 				desired_targets == paged_solution.winner_count_single_page_target_snapshot() as u32,
-				Error::<T>::WrongWinnerCount
+				CommonError::WrongWinnerCount
 			)
 		}
 
@@ -1038,7 +1033,7 @@ impl<T: Config> Pallet<T> {
 			maybe_snapshot_fingerprint
 				.map_or(true, |snapshot_fingerprint| Snapshot::<T>::fingerprint() ==
 					snapshot_fingerprint),
-			Error::<T>::WrongFingerprint
+			CommonError::WrongFingerprint
 		);
 
 		Ok(())
@@ -1833,7 +1828,7 @@ mod phase_rotation {
 #[cfg(test)]
 mod election_provider {
 	use super::*;
-	use crate::{mock::*, unsigned::miner::BaseMiner, verifier::Verifier, Phase};
+	use crate::{mock::*, unsigned::miner::OffchainWorkerMiner, verifier::Verifier, Phase};
 	use frame_election_provider_support::{BoundedSupport, BoundedSupports, ElectionProvider};
 	use frame_support::{
 		assert_storage_noop, testing_prelude::bounded_vec, unsigned::ValidateUnsigned,
@@ -1849,7 +1844,7 @@ mod election_provider {
 			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
 
 			// load a solution into the verifier
-			let paged = BaseMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
+			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
 			let score = paged.score.clone();
 
 			// now let's submit this one by one, into the signed phase.
@@ -1943,7 +1938,7 @@ mod election_provider {
 			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
 
 			// load a solution into the verifier
-			let paged = BaseMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
+			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
 			let score = paged.score.clone();
 			load_signed_for_verification_and_start(99, paged, 0);
 
@@ -2000,7 +1995,7 @@ mod election_provider {
 			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
 
 			// load a solution into the verifier
-			let paged = BaseMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
+			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
 			let score = paged.score.clone();
 			load_signed_for_verification_and_start(99, paged, 0);
 
@@ -2070,7 +2065,7 @@ mod election_provider {
 			let round = MultiBlock::round();
 
 			// load a solution into the verifier
-			let paged = BaseMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
+			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
 
 			load_signed_for_verification_and_start_and_roll_to_verified(99, paged, 0);
 
@@ -2113,7 +2108,7 @@ mod election_provider {
 			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
 
 			// load a solution into the verifier
-			let paged = BaseMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
+			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
 			load_signed_for_verification_and_start_and_roll_to_verified(99, paged, 0);
 
 			assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
@@ -2353,7 +2348,6 @@ mod admin_ops {
 
 #[cfg(test)]
 mod snapshot {
-	use super::*;
 
 	#[test]
 	fn fetches_exact_voters() {

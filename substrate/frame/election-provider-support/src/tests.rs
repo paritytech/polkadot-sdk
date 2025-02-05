@@ -461,7 +461,8 @@ fn sorted_truncate_from_works() {
 		(3, Support { total: 406, voters: vec![(100, 100), (101, 101), (102, 102), (103, 103)] }),
 	];
 
-	let bounded = BoundedSupports::<u32, ConstU32<2>, ConstU32<2>>::sorted_truncate_from(supports);
+	let (bounded, winners_removed, backers_removed) =
+		BoundedSupports::<u32, ConstU32<2>, ConstU32<2>>::sorted_truncate_from(supports);
 	// we trim 2 as it has least total support, and trim backers based on stake.
 	assert_eq!(
 		bounded
@@ -474,4 +475,6 @@ fn sorted_truncate_from_works() {
 			(1, Support { total: 203, voters: vec![(102, 102), (101, 101)] })
 		]
 	);
+	assert_eq!(winners_removed, 1);
+	assert_eq!(backers_removed, 3);
 }
