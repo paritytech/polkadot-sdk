@@ -552,8 +552,8 @@ impl<Inner: DenyExecution> DenyLocalInstructions<Inner> {
 				*count = count.saturating_add(1);
 				Ok(())
 			})
-				// Fallback safety in case of an unexpected failure.
-				.unwrap_or(Ok(()))?;
+			// Fallback safety in case of an unexpected failure.
+			.unwrap_or(Ok(()))?;
 
 			// Ensure that we always decrement the counter after processing.
 			sp_core::defer! {
@@ -596,10 +596,9 @@ impl<Inner: DenyExecution> DenyExecution for DenyLocalInstructions<Inner> {
 			|inst| match inst {
 				SetAppendix(nested_xcm) |
 				SetErrorHandler(nested_xcm) |
-				ExecuteWithOrigin { xcm: nested_xcm, .. } =>
-					Self::deny_recursively::<RuntimeCall>(
-						origin, nested_xcm, max_weight, properties,
-					)?,
+				ExecuteWithOrigin { xcm: nested_xcm, .. } => Self::deny_recursively::<RuntimeCall>(
+					origin, nested_xcm, max_weight, properties,
+				)?,
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		)?;
