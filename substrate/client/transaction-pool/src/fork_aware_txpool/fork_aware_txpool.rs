@@ -752,26 +752,24 @@ where
 		//
 		// Finally, it collects the hashes of updated transactions or submission errors (either
 		// from the mempool or view_store) into a returned vector.
+		const RESULTS_ASSUMPTION : &str =
+			"The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
 		Ok(mempool_results
-				.into_iter()
-				.map(|result| {
-					result
-						.map_err(Into::into)
-						.and_then(|insertion| {
-							submission_results
-								.next()
-								.expect("The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.")
-								.inspect_err(|_|{
-									mempool.remove_transaction(&insertion.hash);
-								})
+			.into_iter()
+			.map(|result| {
+				result.map_err(Into::into).and_then(|insertion| {
+					submission_results.next().expect(RESULTS_ASSUMPTION).inspect_err(|_| {
+						mempool.remove_transaction(&insertion.hash);
 					})
-
 				})
-				.map(|r| r.map(|r| {
+			})
+			.map(|r| {
+				r.map(|r| {
 					mempool.update_transaction_priority(&r);
 					r.hash()
-				}))
-				.collect::<Vec<_>>())
+				})
+			})
+			.collect::<Vec<_>>())
 	}
 
 	/// Submits a single transaction and returns a future resolving to the submission results.
