@@ -21,13 +21,14 @@
 
 mod chain_spec;
 
-use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig};
+use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
 
 struct CliConfig;
 
 impl CliConfigT for CliConfig {
 	fn impl_version() -> String {
-		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+		let commit_hash = env!("SUBSTRATE_CLI_COMMIT_HASH");
+		format!("{}-{commit_hash}", NODE_VERSION)
 	}
 
 	fn author() -> String {
