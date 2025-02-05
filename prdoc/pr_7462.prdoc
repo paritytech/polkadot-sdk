@@ -1,0 +1,17 @@
+title: '[stable2412] Backport #7446'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Backport #7446 into `stable2412` from serban300.
+
+    See the [documentation](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) on how to use this bot.
+
+    <!--
+      # To be used by other automation, do not modify:
+      original-pr-number: #${pull_number}
+    -->
+crates:
+- name: pallet-parameters
+  bump: patch
+- name: frame-support-procedural
+  bump: patch
