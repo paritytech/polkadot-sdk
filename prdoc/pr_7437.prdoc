@@ -1,10 +1,10 @@
-title: Update SCALE codec indices
+title: Remove dead code
 
 doc:
   - audience: Runtime Dev
     description: |
-      We need this in order to be able to update `parity-scale-codec` to the latest version after it's released. That's because `parity-scale-codec` added support for checking for duplicate indexes at compile time.
+      Remove unused code
 
 crates:
-  - name: frame-support-procedural
+  - name: sc-network
     bump: patch
