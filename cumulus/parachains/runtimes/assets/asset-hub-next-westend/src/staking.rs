@@ -18,19 +18,15 @@ use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder},
-	onchain, ElectionDataProvider, NposSolver, SequentialPhragmen,
+	onchain, ElectionDataProvider, SequentialPhragmen,
 };
 use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking::UseValidatorsMap;
-use polkadot_runtime_common::{
-	elections::OnChainAccuracy, prod_or_fast, BalanceToU256, CurrencyToVote, U256ToBalance,
-};
+use polkadot_runtime_common::{prod_or_fast, BalanceToU256, CurrencyToVote, U256ToBalance};
 use sp_runtime::{
-	traits::Get, transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, Percent,
-	SaturatedConversion,
+	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
-use westend_runtime_constants::time::EPOCH_DURATION_IN_SLOTS;
 
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
