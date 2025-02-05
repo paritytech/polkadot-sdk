@@ -20,14 +20,14 @@ use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, ProspectiveParachainsMessage, RuntimeApiMessage},
 	SubsystemSender,
 };
-use polkadot_primitives::{AsyncBackingParams, BlockNumber, Hash, Id as ParaId};
+use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
 
 use std::collections::{HashMap, HashSet};
 
 use crate::{
 	inclusion_emulator::RelayChainBlockInfo,
-	request_async_backing_params, request_session_index_for_child,
-	runtime::{self, recv_runtime},
+	request_session_index_for_child,
+	runtime::{self, fetch_scheduling_lookahead, recv_runtime},
 	LOG_TARGET,
 };
 
@@ -147,6 +147,11 @@ impl View {
 	/// Get an iterator over active leaves in the view.
 	pub fn leaves(&self) -> impl Iterator<Item = &Hash> {
 		self.leaves.keys()
+	}
+
+	/// Check if the given block hash is an active leaf of the current view.
+	pub fn contains_leaf(&self, leaf_hash: &Hash) -> bool {
+		self.leaves.contains_key(leaf_hash)
 	}
 
 	/// Activate a leaf in the view.
@@ -590,22 +595,22 @@ where
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainApiMessage>,
 {
-	let AsyncBackingParams { allowed_ancestry_len, .. } =
-		recv_runtime(request_async_backing_params(leaf_hash, sender).await).await?;
-
 	// Fetch the session of the leaf. We must make sure that we stop at the ancestor which has a
 	// different session index.
 	let required_session =
 		recv_runtime(request_session_index_for_child(leaf_hash, sender).await).await?;
 
+	let scheduling_lookahead =
+		fetch_scheduling_lookahead(leaf_hash, required_session, sender).await?;
+
 	let mut min = leaf_number;
 
-	// Fetch the ancestors, up to allowed_ancestry_len.
+	// Fetch the ancestors, up to (scheduling_lookahead - 1).
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ChainApiMessage::Ancestors {
 			hash: leaf_hash,
-			k: allowed_ancestry_len as usize,
+			k: scheduling_lookahead.saturating_sub(1) as usize,
 			response_channel: tx,
 		})
 		.await;
@@ -642,7 +647,7 @@ mod tests {
 		make_subsystem_context, TestSubsystemContextHandle,
 	};
 	use polkadot_overseer::SubsystemContext;
-	use polkadot_primitives::{AsyncBackingParams, Header};
+	use polkadot_primitives::Header;
 	use sp_core::testing::TaskExecutor;
 	use std::time::Duration;
 
@@ -743,23 +748,24 @@ mod tests {
 		);
 	}
 
-	async fn assert_async_backing_params_request(
+	async fn assert_scheduling_lookahead_request(
 		virtual_overseer: &mut VirtualOverseer,
 		leaf: Hash,
-		params: AsyncBackingParams,
+		lookahead: u32,
 	) {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(
 					leaf_hash,
-					RuntimeApiRequest::AsyncBackingParams(
+					RuntimeApiRequest::SchedulingLookahead(
+						_,
 						tx
 					)
 				)
 			) => {
 				assert_eq!(leaf, leaf_hash, "received unexpected leaf hash");
-				tx.send(Ok(params)).unwrap();
+				tx.send(Ok(lookahead)).unwrap();
 			}
 		);
 	}
@@ -946,17 +952,10 @@ mod tests {
 		let overseer_fut = async {
 			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[leaf_idx..]).await;
 
-			assert_async_backing_params_request(
-				&mut ctx_handle,
-				*leaf,
-				AsyncBackingParams {
-					max_candidate_depth: 0,
-					allowed_ancestry_len: PARA_A_MIN_PARENT,
-				},
-			)
-			.await;
-
 			assert_session_index_request(&mut ctx_handle, *leaf, current_session).await;
+
+			assert_scheduling_lookahead_request(&mut ctx_handle, *leaf, PARA_A_MIN_PARENT + 1)
+				.await;
 
 			assert_ancestors_request(
 				&mut ctx_handle,
@@ -1020,17 +1019,10 @@ mod tests {
 		let overseer_fut = async {
 			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[leaf_idx..]).await;
 
-			assert_async_backing_params_request(
-				&mut ctx_handle,
-				*leaf,
-				AsyncBackingParams {
-					max_candidate_depth: 0,
-					allowed_ancestry_len: blocks.len() as u32,
-				},
-			)
-			.await;
-
 			assert_session_index_request(&mut ctx_handle, *leaf, current_session).await;
+
+			assert_scheduling_lookahead_request(&mut ctx_handle, *leaf, blocks.len() as u32 + 1)
+				.await;
 
 			assert_ancestors_request(
 				&mut ctx_handle,

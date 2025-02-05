@@ -29,7 +29,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_storage_weight_reclaim::get_proof_size;
-use derivative::Derivative;
+use derive_where::derive_where;
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::Weight,
@@ -83,13 +83,8 @@ pub mod pallet {
 /// calculates the unused weight using the post information and reclaim the unused weight.
 /// So this extension can be used as a drop-in replacement for `WeightReclaim` extension for
 /// parachains.
-#[derive(Encode, Decode, TypeInfo, Derivative)]
-#[derivative(
-	Clone(bound = "S: Clone"),
-	Eq(bound = "S: Eq"),
-	PartialEq(bound = "S: PartialEq"),
-	Default(bound = "S: Default")
-)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Default; S)]
 #[scale_info(skip_type_params(T))]
 pub struct StorageWeightReclaim<T, S>(pub S, core::marker::PhantomData<T>);
 
