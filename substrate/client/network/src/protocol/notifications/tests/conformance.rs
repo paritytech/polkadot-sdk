@@ -668,6 +668,9 @@ async fn litep2p_disconnects_libp2p_substream() {
 	}
 }
 
+/// Raw litep2p closes the substream with a raw litep2p.
+/// In this case, there's no protocol controller from substrate that will reopen the substream.
+/// Therefore, since the substream is closed, the connection will be closed by the keep-alive.
 #[tokio::test]
 async fn litep2p_disconnects_litep2p_substream() {
 	let _ = sp_tracing::tracing_subscriber::fmt()
@@ -683,6 +686,12 @@ async fn litep2p_disconnects_litep2p_substream() {
 	let litep2p_address = litep2p_lhs.listen_addresses().into_iter().next().unwrap().clone();
 	litep2p_rhs.dial_address(litep2p_address).await.unwrap();
 
+	let mut num_closed = 0;
+	let mut lhs_opened = 0;
+	let mut lhs_closed = 0;
+	let mut rhs_opened = 0;
+	let mut rhs_closed = 0;
+
 	loop {
 		tokio::select! {
 			event = litep2p_lhs.next_event() => {
@@ -691,6 +700,12 @@ async fn litep2p_disconnects_litep2p_substream() {
 				match event.unwrap() {
 					Litep2pEvent::ConnectionEstablished { .. } => {
 						handle_rhs.open_substream(litep2p_lhs_peer).await.unwrap();
+					}
+					Litep2pEvent::ConnectionClosed { .. } => {
+						num_closed += 1;
+						if num_closed == 2 {
+							break;
+						}
 					}
 					_ => {},
 				}
@@ -702,6 +717,12 @@ async fn litep2p_disconnects_litep2p_substream() {
 				match event.unwrap() {
 					Litep2pEvent::ConnectionEstablished { .. } => {
 						handle_lhs.open_substream(litep2p_lhs_peer).await.unwrap();
+					}
+					Litep2pEvent::ConnectionClosed { .. } => {
+						num_closed += 1;
+						if num_closed == 2 {
+							break;
+						}
 					}
 					_ => {},
 				}
@@ -718,6 +739,7 @@ async fn litep2p_disconnects_litep2p_substream() {
 						handle_rhs.send_validation_result(peer, Litep2pValidationResult::Accept);
 					}
 					Litep2pNotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
+						rhs_opened += 1;
 						assert_eq!(peer.to_bytes(), litep2p_lhs_peer.to_bytes());
 						assert_eq!(handshake, vec![1, 2, 3, 4]);
 
@@ -728,6 +750,10 @@ async fn litep2p_disconnects_litep2p_substream() {
 						assert_eq!(peer.to_bytes(), litep2p_lhs_peer.to_bytes());
 
 						handle_lhs.close_substream(litep2p_rhs_peer).await;
+					}
+					Litep2pNotificationEvent::NotificationStreamClosed { peer, .. } => {
+						rhs_closed += 1;
+						assert_eq!(peer.to_bytes(), litep2p_lhs_peer.to_bytes());
 					}
 					_ => {},
 				}
@@ -744,6 +770,8 @@ async fn litep2p_disconnects_litep2p_substream() {
 						handle_lhs.send_validation_result(peer, Litep2pValidationResult::Accept);
 					}
 					Litep2pNotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
+						lhs_opened += 1;
+
 						assert_eq!(peer.to_bytes(), litep2p_rhs_peer.to_bytes());
 						assert_eq!(handshake, vec![1, 2, 3, 4]);
 
@@ -753,11 +781,20 @@ async fn litep2p_disconnects_litep2p_substream() {
 					Litep2pNotificationEvent::NotificationReceived { peer, .. } => {
 						assert_eq!(peer.to_bytes(), litep2p_rhs_peer.to_bytes());
 					}
+					Litep2pNotificationEvent::NotificationStreamClosed { peer, .. } => {
+						lhs_closed += 1;
+						assert_eq!(peer.to_bytes(), litep2p_rhs_peer.to_bytes());
+					}
 					_ => {},
 				}
 			}
 		}
 	}
+
+	assert_eq!(lhs_opened, 1);
+	assert_eq!(lhs_closed, 1);
+	assert_eq!(rhs_opened, 1);
+	assert_eq!(rhs_closed, 1);
 }
 
 #[tokio::test]
