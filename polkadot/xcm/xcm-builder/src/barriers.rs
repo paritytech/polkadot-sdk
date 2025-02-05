@@ -466,15 +466,15 @@ where
 /// Denies execution if the XCM contains any of the denied **local** instructions, even if nested
 /// within `SetAppendix(xcm)`, `SetErrorHandler(xcm)`, or `ExecuteWithOrigin { xcm, ... }`.
 ///
-/// This check is applied **recursively** using `DenyNestedLocalInstructions`, ensuring that
-/// instructions do not execute on the local chain at any depth.
+/// This check is applied **recursively** using `DenyLocalInstructions`, ensuring that instructions
+/// do not execute on the local chain at any depth.
 ///
 /// If the message passes the deny filters, it is then evaluated against the allow condition.
 ///
 /// Note: This applies only to locally executed instructions. Remote parts of the XCM are expected
 /// to be validated by the destination chain's barrier.
 pub type DenyNestedLocalInstructionsThenTry<Deny, Allow> =
-	DenyThenTry<DenyNestedLocalInstructions<Deny>, Allow>;
+	DenyThenTry<DenyLocalInstructions<Deny>, Allow>;
 
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
@@ -596,9 +596,9 @@ where
 ///
 /// Note: Ensures that restricted instructions do not execute on the local chain, enforcing stricter
 /// execution policies, while allowing remote chains to enforce their own rules.
-pub struct DenyNestedLocalInstructions<Inner>(PhantomData<Inner>);
+pub struct DenyLocalInstructions<Inner>(PhantomData<Inner>);
 
-impl<Inner: DenyExecution> DenyExecution for DenyNestedLocalInstructions<Inner> {
+impl<Inner: DenyExecution> DenyExecution for DenyLocalInstructions<Inner> {
 	/// Denies execution of restricted local nested XCM instructions.
 	///
 	/// This checks for `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instruction
@@ -610,14 +610,13 @@ impl<Inner: DenyExecution> DenyExecution for DenyNestedLocalInstructions<Inner> 
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		// First, check if the top-level message should be denied.
-		Inner::deny_execution(origin, instructions, max_weight, properties)
-			.inspect_err(|e| {
-				log::warn!(
-					target: "xcm::barriers",
-					"DenyNestedLocalInstructions::Inner denied execution, origin: {:?}, instructions: {:?}, error: {:?}",
-					origin, instructions, e
-				);
-			})?;
+		Inner::deny_execution(origin, instructions, max_weight, properties).inspect_err(|e| {
+			log::warn!(
+				target: "xcm::barriers",
+				"DenyLocalInstructions::Inner denied execution, origin: {:?}, instructions: {:?}, error: {:?}",
+				origin, instructions, e
+			);
+		})?;
 
 		// If the top-level check passes, check nested instructions recursively.
 		instructions.matcher().match_next_inst_while(

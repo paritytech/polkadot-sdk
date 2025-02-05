@@ -780,7 +780,7 @@ fn deny_nested_local_instructions_then_try_works() {
 	// Should deny recursively before allow
 	type BarrierDenyClearOrigin =
 		DenyWrapper<DenyNestedLocalInstructionsThenTry<DenyClearOrigin, AllowAll>>;
-	assert_deny_nested_instructions_with_xcm::<BarrierDenyClearOrigin>();
+	assert_deny_instructions_recursively::<BarrierDenyClearOrigin>();
 }
 
 #[test]
@@ -841,9 +841,9 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 }
 
 #[test]
-fn deny_nested_local_instructions_works() {
-	type Barrier = DenyNestedLocalInstructions<DenyClearOrigin>;
-	assert_deny_nested_instructions_with_xcm::<Barrier>();
+fn deny_local_instructions_works() {
+	type Barrier = DenyLocalInstructions<DenyClearOrigin>;
+	assert_deny_instructions_recursively::<Barrier>();
 }
 
 #[test]
@@ -894,14 +894,14 @@ fn compare_deny_filters() {
 		Err(ProcessMessageError::Unsupported),
 	);
 
-	// `DenyNestedLocalInstructions`: Top-level=Deny, Nested=Deny, TryAllow=No
-	assert_deny_barrier::<DenyNestedLocalInstructions<Denies>>(
+	// `DenyLocalInstructions`: Top-level=Deny, Nested=Deny, TryAllow=No
+	assert_deny_barrier::<DenyLocalInstructions<Denies>>(
 		Err(ProcessMessageError::Unsupported),
 		Err(ProcessMessageError::Unsupported),
 	);
 }
 
-fn assert_deny_nested_instructions_with_xcm<Barrier: DenyExecution>() {
+fn assert_deny_instructions_recursively<Barrier: DenyExecution>() {
 	// closure for (xcm, origin) testing with `Barrier` which denies `ClearOrigin`
 	// instruction
 	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
