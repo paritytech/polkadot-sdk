@@ -111,6 +111,12 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
+			impl sp_offchain::OffchainWorkerApi<$block> for $runtime {
+				fn offchain_worker(_: &<$block as BlockT>::Header) {
+					unimplemented!()
+				}
+			}
+
 			impl sp_session::SessionKeys<$block> for $runtime {
 				fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
 					unimplemented!()
