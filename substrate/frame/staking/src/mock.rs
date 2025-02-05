@@ -140,7 +140,7 @@ sp_runtime::impl_opaque_keys! {
 	}
 }
 impl pallet_session::Config for Test {
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
+	type SessionManager = Staking;
 	type Keys = SessionKeys;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionHandler = (OtherSessionHandler,);
@@ -152,8 +152,8 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = crate::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = crate::ExposureOf<Test>;
+	type FullIdentification = AccountId;
+	type FullIdentificationOf = IdentityOf<Test>;
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
@@ -715,6 +715,11 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 	);
 }
 
+/// Progress by n block.
+pub(crate) fn advance_blocks(n: u64) {
+	run_to_block(System::block_number() + n);
+}
+
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
 pub(crate) fn start_session(end_session_idx: SessionIndex) {
 	let period = Period::get();
@@ -811,17 +816,21 @@ pub(crate) fn era_exposures(era: u32) -> Vec<(AccountId, Exposure<AccountId, Bal
 }
 
 pub(crate) fn on_offence_in_era(
-	offenders: &[OffenceDetails<
-		AccountId,
-		pallet_session::historical::IdentificationTuple<Test>,
-	>],
+	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
 ) {
+	// counter to keep track of how many blocks we need to advance to process all the offences.
+	let mut process_blocks = 0u32;
+	for detail in offenders {
+		process_blocks += EraInfo::<Test>::get_page_count(era, &detail.offender.0);
+	}
+
 	let bonded_eras = crate::BondedEras::<Test>::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
 			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
+			advance_blocks(process_blocks as u64);
 			return
 		} else if bonded_era > era {
 			break
@@ -834,28 +843,32 @@ pub(crate) fn on_offence_in_era(
 			slash_fraction,
 			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
 		);
+		advance_blocks(process_blocks as u64);
 	} else {
 		panic!("cannot slash in era {}", era);
 	}
 }
 
 pub(crate) fn on_offence_now(
-	offenders: &[OffenceDetails<
-		AccountId,
-		pallet_session::historical::IdentificationTuple<Test>,
-	>],
+	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
 	slash_fraction: &[Perbill],
 ) {
 	let now = pallet_staking::ActiveEra::<Test>::get().unwrap().index;
-	on_offence_in_era(offenders, slash_fraction, now)
+	on_offence_in_era(offenders, slash_fraction, now);
+}
+pub(crate) fn offence_from(
+	offender: AccountId,
+	reporter: Option<AccountId>,
+) -> OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>> {
+	OffenceDetails {
+		offender: (offender, offender),
+		reporters: reporter.map(|r| vec![(r)]).unwrap_or_default(),
+	}
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
 	on_offence_now(
-		&[OffenceDetails {
-			offender: (*who, Staking::eras_stakers(active_era(), who)),
-			reporters: vec![],
-		}],
+		&[offence_from(*who, None)],
 		&[Perbill::from_percent(10)],
 	);
 }
