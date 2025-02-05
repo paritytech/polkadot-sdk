@@ -1453,11 +1453,6 @@ mod benches {
 	);
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-pub const RANDOM_PARA_ID: ParaId = ParaId::new(43211234);
-
-
-
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
@@ -1884,9 +1879,10 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 
+				pub const RandomParaId: u32 = 43211234;
 				pub RandomParaLocation: Location = Location::new(
 					1, // parents: 1 (Relay Chain)
-					[Parachain(RANDOM_PARA_ID.into())] // interior: Parachain(43211234)
+					[Parachain(RandomParaId.into())] // interior: Parachain(43211234)
 				);
 			}
 
@@ -1896,8 +1892,8 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RANDOM_PARA_ID.into(),
-						ParachainSystem,
+						RandomParaId,
+						ParachainSystem
 					>;
 
 				fn reachable_dest() -> Option<Location> {
@@ -2026,7 +2022,7 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RANDOM_PARA_ID.into(),
+						RandomParaId,
 						ParachainSystem
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {

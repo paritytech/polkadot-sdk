@@ -1711,8 +1711,11 @@ impl_runtime_apis! {
 					TokenLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub const RandomParaId: ParaId = ParaId::new(43211234);
-				pub const RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
+				pub const RandomParaId: u32 = 43211234;
+				pub RandomParaLocation: Location = Location::new(
+					1, // parents: 1 (Relay Chain)
+					[Parachain(RandomParaId.into())] // interior: Parachain(43211234)
+				);
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -1848,7 +1851,7 @@ impl_runtime_apis! {
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
 						RandomParaId,
-						ParachainSystem,
+						ParachainSystem
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(RandomParaLocation::get())
