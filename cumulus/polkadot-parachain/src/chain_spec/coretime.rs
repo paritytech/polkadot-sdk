@@ -146,7 +146,6 @@ pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
 /// Sub-module for Rococo setup.
 pub mod rococo {
 	use super::{chain_type_name, CoretimeRuntimeType};
-	use parachains_common::Balance;
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 
@@ -193,7 +192,6 @@ pub mod rococo {
 /// Sub-module for Westend setup.
 pub mod westend {
 	use super::{chain_type_name, CoretimeRuntimeType, GenericChainSpec};
-	use parachains_common::Balance;
 	use polkadot_omni_node_lib::chain_spec::Extensions;
 	use sc_chain_spec::ChainType;
 
