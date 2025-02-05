@@ -4,6 +4,7 @@ use super::*;
 
 use crate::{mock::*, Error};
 use frame_support::{assert_err, assert_noop, assert_ok};
+use hex_literal::hex;
 use snowbridge_inbound_queue_primitives::{EventProof, Proof};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
@@ -55,6 +56,53 @@ fn test_submit_happy_path() {
 					if nonce == 1
 			)),
 			"no event emitted."
+		);
+	});
+}
+
+#[test]
+fn test_submit_verification_fails_with_invalid_proof() {
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+
+		let origin = RuntimeOrigin::signed(relayer.clone());
+
+		// Submit message
+		let mut event = EventProof {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+		// The mock verifier will error once it matches this address.
+		event.event_log.address = hex!("0000000000000000000000000000000000000911").into();
+
+		assert_err!(
+			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
+			Error::<Test>::Verification(VerificationError::InvalidProof)
+		);
+	});
+}
+
+fn test_submit_fails_with_malformed_message() {
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+
+		let origin = RuntimeOrigin::signed(relayer.clone());
+
+		// Submit message
+		let mut event = EventProof {
+			event_log: mock_event_log_invalid_message(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+
+		assert_err!(
+			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
+			Error::<Test>::InvalidMessage
 		);
 	});
 }

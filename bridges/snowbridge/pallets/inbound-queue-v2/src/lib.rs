@@ -268,7 +268,7 @@ pub mod pallet {
 			T::RewardPayment::pay_reward(relayer, ether)
 				.map_err(|_| Error::<T>::RewardPaymentFailed)?;
 
-			// Mark message as as received
+			// Mark message as received
 			Nonce::<T>::set(message.nonce.into());
 
 			Self::deposit_event(Event::MessageReceived { nonce: message.nonce, message_id });
