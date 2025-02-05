@@ -30,7 +30,7 @@ mod pallet {
 
 	#[pallet::view_functions_experimental]
 	impl<T: Config> Pallet<T> {
-		fn get_value() {
+		pub fn get_value() {
 			MyStorage::<T>::set(0);
 		}
 	}
