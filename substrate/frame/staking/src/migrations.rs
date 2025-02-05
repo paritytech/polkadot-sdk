@@ -93,6 +93,12 @@ pub mod v17 {
 			debug_assert!(result.is_ok());
 			log!(info, "v17 applied successfully for pagination, migrated {:?}.", migrated_stashes);
 
+			let eras_stakers_removed = v16::ErasStakers::<T>::clear(u32::max_value(), None);
+			debug_assert!(eras_stakers_removed.backend == 0);
+			let eras_stakers_clipped_removed =
+				v16::ErasStakersClipped::<T>::clear(u32::max_value(), None);
+			debug_assert!(eras_stakers_clipped_removed.backend == 0);
+
 			let mut bounding_storage_success = true;
 
 			let old_invulnerables = v16::Invulnerables::<T>::get();
@@ -160,6 +166,7 @@ pub mod v17 {
 /// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
+	use frame_support::Twox64Concat;
 	use sp_staking::offence::OffenceSeverity;
 
 	#[frame_support::storage_alias]
@@ -169,6 +176,29 @@ pub mod v16 {
 	#[frame_support::storage_alias]
 	pub(crate) type DisabledValidators<T: Config> =
 		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakers<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		ValueQuery,
+	>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakersClipped<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		ValueQuery,
+	>;
+
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
 		#[cfg(feature = "try-runtime")]
