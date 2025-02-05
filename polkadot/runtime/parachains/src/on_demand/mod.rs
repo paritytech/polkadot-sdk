@@ -195,6 +195,8 @@ pub mod pallet {
 		OnDemandOrderPlaced { para_id: ParaId, spot_price: BalanceOf<T>, ordered_by: T::AccountId },
 		/// The value of the spot price has likely changed
 		SpotPriceSet { spot_price: BalanceOf<T> },
+		/// An account was given credits.
+		AccountCredited { who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -311,8 +313,10 @@ pub mod pallet {
 		/// Will charge the owner's on-demand credit account the spot price for the current block.
 		///
 		/// Parameters:
-		/// - `origin`: The sender of the call, on-demand credits will be withdrawn from this account.
-		/// - `max_amount`: The maximum number of credits to spend from the origin to place an order.
+		/// - `origin`: The sender of the call, on-demand credits will be withdrawn from this
+		///   account.
+		/// - `max_amount`: The maximum number of credits to spend from the origin to place an
+		///   order.
 		/// - `para_id`: A `ParaId` the origin wants to provide blockspace for.
 		///
 		/// Errors:
@@ -424,10 +428,11 @@ where
 	/// - `who`: Credit receiver.
 	/// - `amount`: The amount of new credits the account will receive.
 	pub fn credit_account(who: T::AccountId, amount: BalanceOf<T>) {
-		Credits::<T>::mutate(who, |old_credits| {
+		Credits::<T>::mutate(who.clone(), |old_credits| {
 			let credits = old_credits.saturating_add(amount);
 			credits
 		});
+		Pallet::<T>::deposit_event(Event::<T>::AccountCredited { who });
 	}
 
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
