@@ -237,6 +237,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 }
 
 impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
+	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self) -> Self::Signature {
 		let r: [u8; SIGNATURE_SERIALIZED_SIZE] = <Keypair<T> as BlsProofOfPossessionGenerator<
 			T,

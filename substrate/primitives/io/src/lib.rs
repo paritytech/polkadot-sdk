@@ -1219,18 +1219,31 @@ pub trait Crypto {
 			.expect("`bls381_generate` failed")
 	}
 
-	/// Generate an `(ecdsa,bls12-381)` key for the given key type using an optional `seed` and
+	/// Generate a 'bls12-381' Proof Of Possession for the corresponding public key.
+	///
+	/// Returns the Proof Of Possession as an option of the ['bls381::Signature'] type
+	/// or 'None' if an error occurs.
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_pop(
+		&mut self,
+		id: KeyTypeId,
+		pub_key: &bls381::Public,
+	) -> Option<bls381::Signature> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bls381_generate_pop(id, pub_key)
+			.ok()
+			.flatten()
+	}
+
+	/// Generate combination `ecdsa & bls12-381` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_generate(
-		&mut self,
-		id: KeyTypeId,
-		seed: Option<Vec<u8>>,
-	) -> ecdsa_bls381::Public {
+	fn ecdsa_bls381_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa_bls381::Public {
 		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
@@ -1255,6 +1268,24 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.bandersnatch_generate_new(id, seed)
 			.expect("`bandernatch_generate` failed")
+	}
+
+	/// Sign the given `msg` with the `bandersnatch` key that corresponds to the given public key
+	/// and key type in the keystore.
+	///
+	/// Returns the signature.
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_sign(
+		&mut self,
+		id: KeyTypeId,
+		pub_key: &bandersnatch::Public,
+		msg: &[u8],
+	) -> Option<bandersnatch::Signature> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bandersnatch_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
 	}
 }
 

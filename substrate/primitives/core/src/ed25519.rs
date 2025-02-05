@@ -18,13 +18,11 @@
 //! Simple Ed25519 API.
 
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
-	SignatureBytes,
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable,
+	Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes,
 };
 
 use ed25519_zebra::{SigningKey, VerificationKey};
-use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 use alloc::vec::Vec;
 
@@ -52,7 +50,7 @@ pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
 
 /// A key pair.
-#[derive(Copy, Clone, ProofOfPossession)]
+#[derive(Copy, Clone)]
 pub struct Pair {
 	public: VerificationKey,
 	secret: SigningKey,
@@ -155,12 +153,14 @@ impl CryptoType for Pair {
 	type Pair = Pair;
 }
 
+impl NonAggregatable for Pair {}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	#[cfg(feature = "serde")]
 	use crate::crypto::Ss58Codec;
-	use crate::crypto::DEV_PHRASE;
+	use crate::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier, DEV_PHRASE};
 	use serde_json;
 
 	#[test]

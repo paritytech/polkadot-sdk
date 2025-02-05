@@ -123,6 +123,14 @@ impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
 		traits::Verify::verify(signature, msg.as_ref(), &self.0)
 	}
 
+	fn generate_pop(&mut self) -> Option<Self::Signature> {
+		None
+	}
+
+	fn verify_pop(&self, _pop: &Self::Signature) -> bool {
+		false
+	}
+
 	fn to_raw_vec(&self) -> Vec<u8> {
 		AsRef::<[u8]>::as_ref(self).to_vec()
 	}

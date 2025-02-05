@@ -21,6 +21,7 @@ use crate::{KeyTypeId, RuntimePublic};
 
 use alloc::vec::Vec;
 
+use sp_core::crypto::POP_CONTEXT_TAG;
 pub use sp_core::ecdsa::*;
 
 mod app {
@@ -46,6 +47,18 @@ impl RuntimePublic for Public {
 
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
 		sp_io::crypto::ecdsa_verify(signature, msg.as_ref(), self)
+	}
+
+	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+		let pub_key_as_bytes = self.to_raw_vec();
+		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
+		sp_io::crypto::ecdsa_sign(key_type, self, pop_statement.as_slice())
+	}
+
+	fn verify_pop(&self, pop: &Self::Signature) -> bool {
+		let pub_key_as_bytes = self.to_raw_vec();
+		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
+		sp_io::crypto::ecdsa_verify(&pop, &pop_statement, &self)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

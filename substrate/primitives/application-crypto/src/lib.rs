@@ -24,7 +24,10 @@ extern crate alloc;
 
 pub use sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 #[doc(hidden)]
-pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
+pub use sp_core::crypto::{
+	DeriveError, Pair, ProofOfPossessionGenerator, ProofOfPossessionVerifier, SecretStringError,
+	POP_CONTEXT_TAG,
+};
 #[doc(hidden)]
 pub use sp_core::{
 	self,
@@ -174,6 +177,18 @@ macro_rules! app_crypto_pair_common {
 			}
 			fn to_raw_vec(&self) -> $crate::Vec<u8> {
 				self.0.to_raw_vec()
+			}
+		}
+
+	    impl $crate::ProofOfPossessionVerifier for Pair {
+			fn verify_proof_of_possession(
+				proof_of_possession: &Self::Signature,
+				allegedly_possessed_pubkey: &Self::Public,
+			) -> bool {
+				<$pair>::verify_proof_of_possession(
+					&proof_of_possession.0,
+					allegedly_possessed_pubkey.as_ref(),
+				)
 			}
 		}
 

@@ -21,6 +21,11 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 pub use sp_core::bandersnatch::*;
 
+use sp_core::{
+	crypto::{ProofOfPossessionVerifier, POP_CONTEXT_TAG, CryptoType},
+	Pair as TraitPair,
+};
+
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BANDERSNATCH);
 }
@@ -41,14 +46,26 @@ impl RuntimePublic for Public {
 		sp_io::crypto::bandersnatch_generate(key_type, seed)
 	}
 
-	/// Dummy implementation. Returns `None`.
-	fn sign<M: AsRef<[u8]>>(&self, _key_type: KeyTypeId, _msg: &M) -> Option<Self::Signature> {
-		None
+	fn sign<M: AsRef<[u8]>>(&self, key_type: KeyTypeId, msg: &M) -> Option<Self::Signature> {
+		sp_io::crypto::bandersnatch_sign(key_type, self, msg.as_ref())
 	}
 
-	/// Dummy implementation. Returns `false`.
-	fn verify<M: AsRef<[u8]>>(&self, _msg: &M, _signature: &Self::Signature) -> bool {
-		false
+	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
+		let sig = AppSignature::from(signature.clone());
+		let pub_key = AppPublic::from(self.clone());
+		AppPair::verify(&sig, msg.as_ref(), &pub_key)
+	}
+
+	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+		let pub_key_as_bytes = self.to_raw_vec();
+		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
+		sp_io::crypto::bandersnatch_sign(key_type, self, pop_statement.as_slice())
+	}
+
+	fn verify_pop(&self, pop: &Self::Signature) -> bool {
+		let pop = AppSignature::from(pop.clone());
+		let pub_key = AppPublic::from(self.clone());
+		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&pop, &pub_key)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

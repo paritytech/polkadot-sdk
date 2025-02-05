@@ -23,11 +23,9 @@
 #[cfg(feature = "full_crypto")]
 use crate::crypto::VrfSecret;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
-	SignatureBytes, UncheckedFrom, VrfPublic,
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable,
+	Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 };
-use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
@@ -77,7 +75,7 @@ impl CryptoType for Signature {
 type Seed = [u8; SEED_SERIALIZED_SIZE];
 
 /// Bandersnatch secret key.
-#[derive(Clone, ProofOfPossession)]
+#[derive(Clone)]
 pub struct Pair {
 	secret: SecretKey,
 	seed: Seed,
@@ -168,6 +166,8 @@ impl TraitPair for Pair {
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
+
+impl NonAggregatable for Pair {}
 
 /// Bandersnatch VRF types and operations.
 pub mod vrf {
@@ -765,7 +765,9 @@ pub mod ring_vrf {
 #[cfg(test)]
 mod tests {
 	use super::{ring_vrf::*, vrf::*, *};
-	use crate::crypto::{VrfPublic, VrfSecret, DEV_PHRASE};
+	use crate::crypto::{
+		ProofOfPossessionGenerator, ProofOfPossessionVerifier, VrfPublic, VrfSecret, DEV_PHRASE,
+	};
 
 	const DEV_SEED: &[u8; SEED_SERIALIZED_SIZE] = &[0xcb; SEED_SERIALIZED_SIZE];
 	const TEST_DOMAIN_SIZE: u32 = 1024;

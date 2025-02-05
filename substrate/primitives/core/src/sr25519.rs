@@ -23,10 +23,8 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, ProofOfPossessionGenerator,
-	ProofOfPossessionVerifier, SecretStringError,
+	CryptoBytes, DeriveError, DeriveJunction, NonAggregatable, Pair as TraitPair, SecretStringError,
 };
-use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]
@@ -148,7 +146,6 @@ impl From<schnorrkel::Signature> for Signature {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
-#[derive(ProofOfPossession)]
 pub struct Pair(Keypair);
 
 impl Clone for Pair {
@@ -301,6 +298,8 @@ impl CryptoType for Signature {
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
+
+impl NonAggregatable for Pair {}
 
 /// Schnorrkel VRF related types and operations.
 pub mod vrf {
@@ -592,7 +591,10 @@ pub mod vrf {
 mod tests {
 	use super::{vrf::*, *};
 	use crate::{
-		crypto::{Ss58Codec, VrfPublic, VrfSecret, DEV_ADDRESS, DEV_PHRASE},
+		crypto::{
+			ProofOfPossessionGenerator, ProofOfPossessionVerifier, Ss58Codec, VrfPublic, VrfSecret,
+			DEV_ADDRESS, DEV_PHRASE,
+		},
 		ByteArray as _,
 	};
 	use serde_json;
