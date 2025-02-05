@@ -64,7 +64,7 @@ use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
 
 pub use pallet::*;
 
-pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
+pub const LOG_TARGET: &str = "snowbridge-pallet-inbound-queue-v2";
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type BalanceOf<T> =
@@ -259,7 +259,7 @@ pub mod pallet {
 			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
 			let message_id = Self::send_xcm(dest.clone(), relayer.clone(), xcm.clone())
 				.map_err(|error| {
-					tracing::error!(target: "snowbridge_pallet_inbound_queue_v2::submit", ?error, ?dest, ?xcm, "XCM send failed with error");
+					tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
 					Error::<T>::from(error)
 				})?;
 
@@ -284,7 +284,7 @@ pub mod pallet {
 			let (ticket, fee) = validate_send::<T::XcmSender>(dest, xcm)?;
 			T::XcmExecutor::charge_fees(fee_payer.clone(), fee.clone()).map_err(|error| {
 				tracing::error!(
-					target: "snowbridge_pallet_inbound_queue_v2::send_xcm",
+					target: LOG_TARGET,
 					?error,
 					"Charging fees failed with error",
 				);

@@ -10,27 +10,6 @@ use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
 
 #[test]
-fn test_submit_with_invalid_gateway() {
-	new_tester().execute_with(|| {
-		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
-
-		// Submit message
-		let event = EventProof {
-			event_log: mock_event_log_invalid_gateway(),
-			proof: Proof {
-				receipt_proof: Default::default(),
-				execution_proof: mock_execution_proof(),
-			},
-		};
-		assert_noop!(
-			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
-			Error::<Test>::InvalidGateway
-		);
-	});
-}
-
-#[test]
 fn test_submit_happy_path() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
@@ -55,7 +34,35 @@ fn test_submit_happy_path() {
 				RuntimeEvent::InboundQueue(Event::MessageReceived { nonce, ..})
 					if nonce == 1
 			)),
-			"no event emitted."
+			"no message received event emitted."
+		);
+		assert!(
+			events.iter().any(|event| matches!(
+				event.event,
+				RuntimeEvent::InboundQueue(Event::FeesPaid { ..})
+			)),
+			"no fees paid event emitted."
+		);
+	});
+}
+
+#[test]
+fn test_submit_with_invalid_gateway() {
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = RuntimeOrigin::signed(relayer);
+
+		// Submit message
+		let event = EventProof {
+			event_log: mock_event_log_invalid_gateway(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+		assert_noop!(
+			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
+			Error::<Test>::InvalidGateway
 		);
 	});
 }
@@ -85,6 +92,7 @@ fn test_submit_verification_fails_with_invalid_proof() {
 	});
 }
 
+#[test]
 fn test_submit_fails_with_malformed_message() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
@@ -92,7 +100,7 @@ fn test_submit_fails_with_malformed_message() {
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
-		let mut event = EventProof {
+		let event = EventProof {
 			event_log: mock_event_log_invalid_message(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -106,6 +114,27 @@ fn test_submit_fails_with_malformed_message() {
 		);
 	});
 }
+
+//#[test]
+//fn test_submit_with_invalid_assets() {
+//	new_tester().execute_with(|| {
+//		let relayer: AccountId = Keyring::Bob.into();
+//		let origin = RuntimeOrigin::signed(relayer);
+//
+//		// Submit message
+//		let event = EventProof {
+//			event_log: mock_event_log_invalid_assets(),
+//			proof: Proof {
+//				receipt_proof: Default::default(),
+//				execution_proof: mock_execution_proof(),
+//			},
+//		};
+//		assert_noop!(
+//			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
+//			Error::<Test>::InvalidAssets
+//		);
+//	});
+//}
 
 #[test]
 fn test_using_same_nonce_fails() {
