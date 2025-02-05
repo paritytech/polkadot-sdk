@@ -183,7 +183,7 @@ impl Config for Test {
 pub struct ExtBuilder {
 	validator_count: u32,
 	minimum_validator_count: u32,
-	invulnerables: Vec<AccountId>,
+	invulnerables: BoundedVec<AccountId, <Test as pallet_staking::Config>::MaxInvulnerables>,
 	balance_factor: Balance,
 }
 
@@ -192,7 +192,7 @@ impl Default for ExtBuilder {
 		Self {
 			validator_count: 2,
 			minimum_validator_count: 0,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			balance_factor: 1,
 		}
 	}

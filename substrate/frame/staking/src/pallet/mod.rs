@@ -330,6 +330,10 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type DisablingStrategy: DisablingStrategy<Self>;
 
+		/// Maximum number of invulnerable validators.
+		#[pallet::constant]
+		type MaxInvulnerables: Get<u32>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -386,6 +390,7 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
+			type MaxInvulnerables = ConstU32<20>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			#[cfg(feature = "std")]
@@ -406,8 +411,8 @@ pub mod pallet {
 	/// easy to initialize and the performance hit is minimal (we expect no more than four
 	/// invulnerables) and restricted to testnets.
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type Invulnerables<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+	pub type Invulnerables<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
 	/// Map from all locked "stash" accounts to the controller account.
 	///
@@ -792,7 +797,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub validator_count: u32,
 		pub minimum_validator_count: u32,
-		pub invulnerables: Vec<T::AccountId>,
+		pub invulnerables: BoundedVec<T::AccountId, T::MaxInvulnerables>,
 		pub force_era: Forcing,
 		pub slash_reward_fraction: Perbill,
 		pub canceled_payout: BalanceOf<T>,
@@ -842,7 +847,11 @@ pub mod pallet {
 		fn build(&self) {
 			ValidatorCount::<T>::put(self.validator_count);
 			MinimumValidatorCount::<T>::put(self.minimum_validator_count);
-			Invulnerables::<T>::put(&self.invulnerables);
+			assert!(
+				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
+				"Too many invulnerable validators at genesis."
+			);
+			<Invulnerables<T>>::put(&self.invulnerables);
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
@@ -1240,7 +1249,7 @@ pub mod pallet {
 		}
 
 		/// Get the validators that may never be slashed or forcibly kicked out.
-		pub fn invulnerables() -> Vec<T::AccountId> {
+		pub fn invulnerables() -> BoundedVec<T::AccountId, T::MaxInvulnerables> {
 			Invulnerables::<T>::get()
 		}
 
@@ -1917,6 +1926,8 @@ pub mod pallet {
 			invulnerables: Vec<T::AccountId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			let invulnerables =
+				BoundedVec::try_from(invulnerables).map_err(|_| Error::<T>::BoundNotMet)?;
 			<Invulnerables<T>>::put(invulnerables);
 			Ok(())
 		}

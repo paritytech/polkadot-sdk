@@ -60,7 +60,7 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
-/// Migrates to multi-page election support.
+/// Migrates to multi-page election support and bound storage items.
 ///
 /// See: <https://github.com/paritytech/polkadot-sdk/pull/6034>
 ///
@@ -91,8 +91,30 @@ pub mod v17 {
 
 			let result = Pallet::<T>::add_electables(prepared_exposures.into_iter());
 			debug_assert!(result.is_ok());
+			log!(info, "v17 applied successfully for pagination, migrated {:?}.", migrated_stashes);
 
-			log!(info, "v17 applied successfully, migrated {:?}.", migrated_stashes);
+			let mut bounding_storage_success = true;
+
+			let old_invulnerables = v16::Invulnerables::<T>::get();
+			// BoundedVec with MaxInvulnerables limit, this should always succeed
+			let invulnerables_maybe = BoundedVec::try_from(old_invulnerables);
+			match invulnerables_maybe {
+				Ok(invulnerables) => {
+					Invulnerables::<T>::set(invulnerables);
+					log!(info, "v17 applied successfully, migrated {:?}.", invulnerables);
+				},
+				Err(_) => {
+					log!(warn, "Migration to v17 failed for Invulnerables.");
+					bounding_storage_success = false;
+				},
+			}
+
+			if bounding_storage_success {
+				log!(info, "v17 applied successfully to bound storage items.");
+			} else {
+				log!(warn, "v17 failed to bound some storage items.");
+			}
+
 			T::DbWeight::get().reads_writes(
 				// 1x read per history depth and current era read.
 				(T::HistoryDepth::get() + 1u32).into(),
@@ -125,6 +147,10 @@ pub mod v17 {
 pub mod v16 {
 	use super::*;
 	use sp_staking::offence::OffenceSeverity;
+
+	#[frame_support::storage_alias]
+	pub(crate) type Invulnerables<T: Config> =
+		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
