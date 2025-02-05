@@ -30,9 +30,9 @@ pub mod fast_runtime_binary {
 }
 
 mod coretime;
+mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
-mod genesis_config_presets;
 
 extern crate alloc;
 
