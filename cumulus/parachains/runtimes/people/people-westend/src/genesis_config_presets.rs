@@ -22,7 +22,9 @@ use frame_support::build_struct_json_patch;
 use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use testnet_parachains_constants::westend::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
+use testnet_parachains_constants::westend::{
+	currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION,
+};
 
 const PEOPLE_WESTEND_ED: Balance = ExistentialDeposit::get();
 
