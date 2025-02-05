@@ -45,6 +45,7 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 		self.hash
 	}
 
+	/// The gas sent with the transaction.
 	pub fn gas(&self) -> U256 {
 		self.tx.gas.unwrap()
 	}
@@ -57,6 +58,10 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 			let receipt = self.client.get_transaction_receipt(hash).await?;
 			if let Some(receipt) = receipt {
 				if receipt.is_success() {
+					assert!(
+						self.gas() > receipt.gas_used,
+						"Gas used should be less than gas estimated."
+					);
 					return Ok(receipt)
 				} else {
 					anyhow::bail!("Transaction failed")
