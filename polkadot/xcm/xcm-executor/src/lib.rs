@@ -60,6 +60,10 @@ pub struct FeesMode {
 	pub jit_withdraw: bool,
 }
 
+/// The maximum recursion depth allowed when executing nested XCM instructions.
+///
+/// Exceeding this limit results in `XcmError::ExceedsStackLimit` or
+/// `ProcessMessageError::StackLimitReached`.
 pub const RECURSION_LIMIT: u8 = 10;
 
 environmental::environmental!(recursion_count: u8);
