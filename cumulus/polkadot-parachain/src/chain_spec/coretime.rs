@@ -149,12 +149,10 @@ pub mod rococo {
 	use parachains_common::Balance;
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_keyring::Sr25519Keyring;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
-	const CORETIME_ROCOCO_ED: Balance = coretime_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// Rococo defaults
@@ -198,12 +196,10 @@ pub mod westend {
 	use parachains_common::Balance;
 	use polkadot_omni_node_lib::chain_spec::Extensions;
 	use sc_chain_spec::ChainType;
-	use sp_keyring::Sr25519Keyring;
 
 	pub(crate) const CORETIME_WESTEND: &str = "coretime-westend";
 	pub(crate) const CORETIME_WESTEND_LOCAL: &str = "coretime-westend-local";
 	pub(crate) const CORETIME_WESTEND_DEVELOPMENT: &str = "coretime-westend-dev";
-	const CORETIME_WESTEND_ED: Balance = coretime_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// westend defaults
