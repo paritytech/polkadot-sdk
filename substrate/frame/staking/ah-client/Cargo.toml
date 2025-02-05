@@ -14,7 +14,9 @@ frame-system = { workspace = true }
 log = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-session = { features = [	"historical",], workspace = true }
-pallet-staking = { workspace = true}	# todo: probably not a good idea to depend on the whole staking pallet
+pallet-staking = { workspace = true}
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-core = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
@@ -31,6 +33,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-session/std",
 	"pallet-staking/std",
+	"polkadot-primitives/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-runtime/std",
@@ -41,6 +44,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
