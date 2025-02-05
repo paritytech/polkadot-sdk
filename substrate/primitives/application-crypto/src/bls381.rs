@@ -21,7 +21,7 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 
 pub use sp_core::bls::bls381::*;
-use sp_core::crypto::{ProofOfPossessionVerifier, CryptoType};
+use sp_core::crypto::{CryptoType, ProofOfPossessionVerifier};
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BLS381);

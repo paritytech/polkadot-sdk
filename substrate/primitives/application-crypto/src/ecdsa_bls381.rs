@@ -23,8 +23,9 @@ use alloc::vec::Vec;
 pub use sp_core::paired_crypto::ecdsa_bls381::*;
 use sp_core::{
 	bls381,
-	crypto::{ProofOfPossessionVerifier, POP_CONTEXT_TAG, CryptoType},
-	ecdsa, ecdsa_bls381, testing::{ECDSA_BLS381, ECDSA, BLS381},
+	crypto::{CryptoType, ProofOfPossessionVerifier, POP_CONTEXT_TAG},
+	ecdsa, ecdsa_bls381,
+	testing::{BLS381, ECDSA, ECDSA_BLS381},
 };
 
 mod app {
@@ -127,35 +128,30 @@ fn combine_pop(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use sp_core::ecdsa;
-    use sp_core::bls381;
-    use sp_core::crypto::Pair;
+	use super::*;
+	use sp_core::{bls381, crypto::Pair, ecdsa};
 
-    /// Helper function to generate test public keys for ECDSA and BLS381
-    fn generate_test_keys() -> ([u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE], [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE]) {
-        let ecdsa_pair = ecdsa::Pair::generate().0;
-        let bls381_pair = bls381::Pair::generate().0;
+	/// Helper function to generate test public keys for ECDSA and BLS381
+	fn generate_test_keys(
+	) -> ([u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE], [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE]) {
+		let ecdsa_pair = ecdsa::Pair::generate().0;
+		let bls381_pair = bls381::Pair::generate().0;
 
-        let ecdsa_pub = ecdsa_pair.public();
-        let bls381_pub = bls381_pair.public();
+		let ecdsa_pub = ecdsa_pair.public();
+		let bls381_pub = bls381_pair.public();
 
-        (
-            ecdsa_pub.to_raw_vec().try_into().unwrap(),
-            bls381_pub.to_raw_vec().try_into().unwrap(),
-        )
-    }
+		(ecdsa_pub.to_raw_vec().try_into().unwrap(), bls381_pub.to_raw_vec().try_into().unwrap())
+	}
 
-    #[test]
-    fn test_split_pub_key_bytes() {
-        let (ecdsa_pub, bls381_pub) = generate_test_keys();
-        let mut combined_pub_key = Vec::new();
-        combined_pub_key.extend_from_slice(&ecdsa_pub);
-        combined_pub_key.extend_from_slice(&bls381_pub);
+	#[test]
+	fn test_split_pub_key_bytes() {
+		let (ecdsa_pub, bls381_pub) = generate_test_keys();
+		let mut combined_pub_key = Vec::new();
+		combined_pub_key.extend_from_slice(&ecdsa_pub);
+		combined_pub_key.extend_from_slice(&bls381_pub);
 
-        let result = split_pub_key_bytes(&combined_pub_key).unwrap();
-        assert_eq!(result.0, ecdsa_pub, "ECDSA public key does not match");
-        assert_eq!(result.1, bls381_pub, "BLS381 public key does not match");
-    }
+		let result = split_pub_key_bytes(&combined_pub_key).unwrap();
+		assert_eq!(result.0, ecdsa_pub, "ECDSA public key does not match");
+		assert_eq!(result.1, bls381_pub, "BLS381 public key does not match");
+	}
 }
-

@@ -180,7 +180,7 @@ macro_rules! app_crypto_pair_common {
 			}
 		}
 
-	    impl $crate::ProofOfPossessionVerifier for Pair {
+		impl $crate::ProofOfPossessionVerifier for Pair {
 			fn verify_proof_of_possession(
 				proof_of_possession: &Self::Signature,
 				allegedly_possessed_pubkey: &Self::Public,
