@@ -788,11 +788,12 @@ fn fatp_linear_progress_finalization() {
 	let f00 = forks[0][0].hash();
 	let f12 = forks[1][2].hash();
 	let f14 = forks[1][4].hash();
+	let f15 = forks[1][5].hash();
 
 	let event = new_best_block_event(&pool, None, f00);
 	block_on(pool.maintain(event));
 
-	let xt0 = uxt(Bob, 204);
+	let xt0 = uxt(Bob, 205);
 	let submissions = vec![pool.submit_one(invalid_hash(), SOURCE, xt0.clone())];
 	block_on(futures::future::join_all(submissions));
 
@@ -803,13 +804,13 @@ fn fatp_linear_progress_finalization() {
 
 	log::debug!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
 
-	let event = ChainEvent::Finalized { hash: f14, tree_route: Arc::from(vec![]) };
-	block_on(pool.maintain(event));
+	block_on(pool.maintain(new_best_block_event(&pool, Some(f12), f15)));
+	block_on(pool.maintain(finalized_block_event(&pool, f00, f14)));
 
 	log::debug!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
 
 	assert_eq!(pool.active_views_count(), 1);
-	assert_pool_status!(f14, &pool, 1, 0);
+	assert_pool_status!(f15, &pool, 1, 0);
 }
 
 #[test]
@@ -870,14 +871,12 @@ fn fatp_watcher_future() {
 
 	assert_pool_status!(header01.hash(), &pool, 0, 1);
 
-	let header02 = api.push_block(2, vec![], true);
-	let event = ChainEvent::Finalized {
-		hash: header02.hash(),
-		tree_route: Arc::from(vec![header01.hash()]),
-	};
-	block_on(pool.maintain(event));
+	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
+	let header03 = api.push_block_with_parent(header02.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header03.hash())));
+	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
 
-	assert_pool_status!(header02.hash(), &pool, 0, 1);
+	assert_pool_status!(header03.hash(), &pool, 0, 1);
 
 	let xt0_events = block_on(xt0_watcher.take(1).collect::<Vec<_>>());
 	assert_eq!(xt0_events, vec![TransactionStatus::Future]);
@@ -1001,15 +1000,12 @@ fn fatp_watcher_future_and_finalized() {
 
 	assert_pool_status!(header01.hash(), &pool, 1, 1);
 
-	let header02 = api.push_block(2, vec![xt0], true);
-	let event = ChainEvent::Finalized {
-		hash: header02.hash(),
-		tree_route: Arc::from(vec![header01.hash()]),
-	};
-	// let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
-	block_on(pool.maintain(event));
+	let header02 = api.push_block_with_parent(header01.hash(), vec![xt0], true);
+	let header03 = api.push_block_with_parent(header02.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header03.hash())));
+	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
 
-	assert_pool_status!(header02.hash(), &pool, 0, 1);
+	assert_pool_status!(header03.hash(), &pool, 0, 1);
 
 	let xt1_status = block_on(xt1_watcher.take(1).collect::<Vec<_>>());
 	assert_eq!(xt1_status, vec![TransactionStatus::Future]);

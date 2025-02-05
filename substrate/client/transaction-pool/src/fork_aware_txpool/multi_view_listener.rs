@@ -307,8 +307,11 @@ where
 				self.terminate = true;
 				return Some(TransactionStatus::Usurped(by))
 			},
+			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Invalid) => {
+				self.terminate = true;
+				return Some(TransactionStatus::Invalid)
+			},
 		};
-		None
 	}
 
 	/// Handles various transaction status updates from individual views and manages internal states

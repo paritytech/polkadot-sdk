@@ -289,14 +289,16 @@ where
 							tx_hash = ?new_tx_hash,
 							"error: dropped_monitor_task: no entry in mempool for new transaction"
 						);
-					}
+					};
 				},
-				DroppedReason::LimitsEnforced => {},
+				DroppedReason::LimitsEnforced | DroppedReason::Invalid => {
+					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
+				},
 			};
 
 			mempool.remove_transaction(&tx_hash);
-			view_store.listener.transaction_dropped(dropped);
 			import_notification_sink.clean_notified_items(&[tx_hash]);
+			view_store.listener.transaction_dropped(dropped);
 		}
 	}
 
