@@ -20,7 +20,9 @@
 #![no_main]
 
 use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+
+static BUFFER: [u8; 16 * 1024 + 1] = [0u8; 16 * 1024 + 1];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -34,6 +36,12 @@ pub extern "C" fn call() {
 		input: [u8; 4],
 		deposit_limit: &[u8; 32],
 	);
+
+	let len = u32::from_le_bytes(input.try_into().unwrap());
+	let data = &BUFFER[..len as usize];
+	let mut key = [0u8; 32];
+	key[0] = 1;
+	api::set_storage(StorageFlags::empty(), &key, data);
 
 	let value = u256_bytes(10_000u64);
 	let salt = [0u8; 32];
