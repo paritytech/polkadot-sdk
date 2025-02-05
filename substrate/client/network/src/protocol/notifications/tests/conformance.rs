@@ -797,6 +797,8 @@ async fn litep2p_disconnects_litep2p_substream() {
 	assert_eq!(rhs_closed, 1);
 }
 
+/// Keep the substream idle for a long time and ensure the connection is not closed by the
+/// keep-alive mechanism.
 #[tokio::test]
 async fn litep2p_idle_litep2p_substream() {
 	let _ = sp_tracing::tracing_subscriber::fmt()
@@ -812,8 +814,16 @@ async fn litep2p_idle_litep2p_substream() {
 	let litep2p_address = litep2p_lhs.listen_addresses().into_iter().next().unwrap().clone();
 	litep2p_rhs.dial_address(litep2p_address).await.unwrap();
 
+	// Disarm first timer interval.
+	let mut timer = tokio::time::interval(std::time::Duration::from_secs(6));
+	timer.tick().await;
+
 	loop {
 		tokio::select! {
+			_ = timer.tick() => {
+				return;
+			}
+
 			event = litep2p_lhs.next_event() => {
 				log::info!("[litep2p lhs] event: {event:?}");
 
