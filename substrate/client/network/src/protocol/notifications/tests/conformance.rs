@@ -451,3 +451,113 @@ async fn libp2p_disconnects_libp2p_substream() {
 		}
 	}
 }
+
+/// Libp2p disconnects the litep2p substream.
+/// Then, the libp2p protocol controller reopens the substream and the connection is
+/// re-established.
+///
+/// # Warning
+///
+/// It is unclear at the moment if this behavior is intended, considering that libp2p disconnected
+/// the peer.
+#[tokio::test]
+async fn libp2p_disconnects_litep2p_substream() {
+	let _ = sp_tracing::tracing_subscriber::fmt()
+		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.try_init();
+
+	let (mut litep2p, mut handle) = setup_litep2p().await;
+	let (mut libp2p, peerstore, _notification_service) = setup_libp2p(1, 1);
+
+	let libp2p_peer = *libp2p.local_peer_id();
+	let litep2p_peer = *litep2p.local_peer_id();
+
+	let litep2p_address = litep2p.listen_addresses().into_iter().next().unwrap().clone();
+	let address: sc_network_types::multiaddr::Multiaddr = litep2p_address.clone().into();
+	let address: libp2p::multiaddr::Multiaddr = address.into();
+	libp2p.dial(address).unwrap();
+
+	let mut notification_count = 0;
+	let mut open_times = 0;
+
+	loop {
+		tokio::select! {
+			event = libp2p.select_next_some() => {
+				log::info!("[libp2p lhs] event: {event:?}");
+				match event {
+					SwarmEvent::ConnectionEstablished { .. } => {
+						peerstore.add_known_peer(litep2p_peer.into());
+					},
+
+					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen { set_id, negotiated_fallback, received_handshake, notifications_sink, .. }) => {
+						assert_eq!(set_id, SetId::from(0usize));
+						assert_eq!(received_handshake, vec![1, 2, 3, 4]);
+						assert!(negotiated_fallback.is_none());
+
+						notifications_sink.reserve_notification().await.unwrap().send(vec![3, 3, 3, 3]).unwrap();
+						notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
+
+						open_times += 1;
+						if open_times == 2 {
+							return;
+						}
+					},
+
+					SwarmEvent::Behaviour(NotificationsOut::Notification { peer_id, set_id, .. }) => {
+						notification_count += 1;
+
+						if notification_count == 2 {
+							// Disconnect the peer.
+							log::info!("Disconnecting peer: {peer_id:?}");
+
+							libp2p.behaviour_mut().disconnect_peer(&peer_id, set_id);
+						}
+					},
+
+					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolClosed { .. }) => {
+						// At this point libp2p is disconnected from litep2p.
+						// However, litep2p still thinks its connected to libp2p and this notification is entirely lost.
+						let libp2p_peer: sc_network_types::PeerId = libp2p_peer.clone().into();
+						handle.send_sync_notification(libp2p_peer.into(), vec![5, 5, 5, 5]).unwrap();
+						handle.send_async_notification(libp2p_peer.into(), vec![6, 6, 6, 6]).await.unwrap();
+					}
+					_ => {},
+				}
+			}
+
+			event = litep2p.next_event() => {
+				log::info!("[litep2p] event: {event:?}");
+
+				match event {
+					Some(Litep2pEvent::ConnectionClosed { .. }) => {
+						panic!("Litep2p connection should not be closed by libp2p");
+					}
+					_ => {},
+				}
+			},
+
+			event = handle.next() => {
+				log::info!("[litep2p handle] event: {event:?}");
+				match event.unwrap() {
+					Litep2pNotificationEvent::ValidateSubstream { peer, handshake, .. } => {
+						assert_eq!(peer.to_bytes(), libp2p_peer.to_bytes());
+						assert_eq!(handshake, vec![1, 2, 3, 4]);
+
+						handle.send_validation_result(peer, Litep2pValidationResult::Accept);
+					},
+					Litep2pNotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
+						assert_eq!(peer.to_bytes(), libp2p_peer.to_bytes());
+						assert_eq!(handshake, vec![1, 2, 3, 4]);
+
+						handle.send_sync_notification(peer, vec![1, 1, 1, 1]).unwrap();
+						handle.send_async_notification(peer, vec![2, 2, 2, 2]).await.unwrap();
+					}
+					Litep2pNotificationEvent::NotificationReceived { peer, .. } => {
+						assert_eq!(peer.to_bytes(), libp2p_peer.to_bytes());
+					}
+					event => log::info!("unhandled notification event: {event:?}"),
+				}
+			},
+		}
+	}
+}
