@@ -1418,10 +1418,7 @@ where
 
 		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
 		match (precision, remainder.is_zero()) {
-			(ConversionPrecision::Exact, false) => {
-				log::error!(target: LOG_TARGET, "Precision loss converting EVM to native: {value:?}");
-				Err(Error::<T>::DecimalPrecisionLoss)
-			},
+			(ConversionPrecision::Exact, false) => Err(Error::<T>::DecimalPrecisionLoss),
 			(_, true) => quotient.try_into().map_err(|_| Error::<T>::BalanceConversionFailed),
 			(_, false) => quotient
 				.saturating_add(U256::one())
