@@ -1896,11 +1896,11 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						RANDOM_PARA_ID.into(),
 						ParachainSystem,
 					>;
 
-				const fn reachable_dest() -> Option<Location> {
+				fn reachable_dest() -> Option<Location> {
 					Some(RandomParaLocation::get())
 				}
 
@@ -2026,7 +2026,7 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						RANDOM_PARA_ID.into(),
 						ParachainSystem
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
