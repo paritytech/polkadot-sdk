@@ -381,12 +381,26 @@ async fn libp2p_disconnects_libp2p_substream() {
 
 	libp2p_rhs.dial(libp2p_lhs_address).unwrap();
 
-	let mut notification_count = 0;
+	// Disarm first timer interval.
+	let mut timer = tokio::time::interval(std::time::Duration::from_secs(5));
+	timer.tick().await;
+
 	let mut sink = None;
+	let mut notification_count = 0;
 	let mut open_times = 0;
+	let mut recv_1111 = 0;
+	let mut recv_2222 = 0;
+	let mut recv_3333 = 0;
+	let mut recv_4444 = 0;
+	let mut recv_5555 = 0;
+	let mut recv_6666 = 0;
 
 	loop {
 		tokio::select! {
+			_ = timer.tick() => {
+				break;
+			}
+
 			event = libp2p_lhs.select_next_some() => {
 				log::info!("[libp2p lhs] event: {event:?}");
 				match event {
@@ -402,11 +416,22 @@ async fn libp2p_disconnects_libp2p_substream() {
 						notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
 
 						open_times += 1;
-						if open_times == 2 {
-							return;
-						}
 					},
-					SwarmEvent::Behaviour(NotificationsOut::Notification { peer_id, set_id, .. }) => {
+					SwarmEvent::Behaviour(NotificationsOut::Notification { peer_id, set_id, message }) => {
+						if message == vec![1, 1, 1, 1] {
+							recv_1111 += 1;
+						} else if message == vec![2, 2, 2, 2] {
+							recv_2222 += 1;
+						} else if message == vec![3, 3, 3, 3] {
+							recv_3333+= 1;
+						} else if message == vec![4, 4, 4, 4] {
+							recv_4444 += 1;
+						} else if message == vec![5, 5, 5, 5] {
+							recv_5555 += 1;
+						} else if message == vec![6, 6, 6, 6] {
+							recv_6666 += 1;
+						}
+
 						notification_count += 1;
 						if notification_count == 2 {
 							// Disconnect the peer.
@@ -416,7 +441,16 @@ async fn libp2p_disconnects_libp2p_substream() {
 						}
 					},
 					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolClosed { .. }) => {
-						// TODO: Ensure these messages are entirely lost.
+						// Use the rhs sink to send notifications to the lhs node.
+						//
+						// The rhs node is not aware that the lhs node has disconnected.
+						// This is because lhs disconnected the node on the second notification received above,
+						// and because of this it is guaranteed for the LHS swarm to promptly generate
+						// the `NotificationsOut::CustomProtocolClosed` event. At the same time, the rhs swarm
+						// is not polled.
+						//
+						// Because the lhs substream is closed, these notifications are lost. However,
+						// the rhs behaves as if the substream is still open.
 						let sink: crate::service::NotificationsSink = sink.take().unwrap();
 						sink.reserve_notification().await.unwrap().send(vec![5, 5, 5, 5]).unwrap();
 						sink.send_sync_notification(vec![6, 6, 6, 6]);
@@ -440,16 +474,40 @@ async fn libp2p_disconnects_libp2p_substream() {
 						assert_eq!(received_handshake, vec![1, 2, 3, 4]);
 						assert!(negotiated_fallback.is_none());
 
-						notifications_sink.reserve_notification().await.unwrap().send(vec![3, 3, 3, 3]).unwrap();
-						notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
+						notifications_sink.reserve_notification().await.unwrap().send(vec![1, 1, 1, 1]).unwrap();
+						notifications_sink.send_sync_notification(vec![2, 2, 2, 2]);
 						sink = Some(notifications_sink);
 					},
+					SwarmEvent::Behaviour(NotificationsOut::Notification {message, .. }) => {
+						if message == vec![1, 1, 1, 1] {
+							recv_1111 += 1;
+						} else if message == vec![2, 2, 2, 2] {
+							recv_2222 += 1;
+						} else if message == vec![3, 3, 3, 3] {
+							recv_3333+= 1;
+						} else if message == vec![4, 4, 4, 4] {
+							recv_4444 += 1;
+						} else if message == vec![5, 5, 5, 5] {
+							recv_5555 += 1;
+						} else if message == vec![6, 6, 6, 6] {
+							recv_6666 += 1;
+						}
+					}
 					_ => {},
 				}
 
 			},
 		}
 	}
+
+	assert_eq!(open_times, 2);
+	assert_eq!(notification_count, 4);
+	assert_eq!(recv_1111, 2);
+	assert_eq!(recv_2222, 2);
+	assert_eq!(recv_3333, 2);
+	assert_eq!(recv_4444, 2);
+	assert_eq!(recv_5555, 0);
+	assert_eq!(recv_6666, 0);
 }
 
 /// Libp2p disconnects the litep2p substream.
@@ -477,11 +535,25 @@ async fn libp2p_disconnects_litep2p_substream() {
 	let address: libp2p::multiaddr::Multiaddr = address.into();
 	libp2p.dial(address).unwrap();
 
+	// Disarm first timer interval.
+	let mut timer = tokio::time::interval(std::time::Duration::from_secs(5));
+	timer.tick().await;
+
 	let mut notification_count = 0;
 	let mut open_times = 0;
+	let mut recv_1111 = 0;
+	let mut recv_2222 = 0;
+	let mut recv_3333 = 0;
+	let mut recv_4444 = 0;
+	let mut recv_5555 = 0;
+	let mut recv_6666 = 0;
 
 	loop {
 		tokio::select! {
+			_ = timer.tick() => {
+				break;
+			}
+
 			event = libp2p.select_next_some() => {
 				log::info!("[libp2p lhs] event: {event:?}");
 				match event {
@@ -498,14 +570,24 @@ async fn libp2p_disconnects_litep2p_substream() {
 						notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
 
 						open_times += 1;
-						if open_times == 2 {
-							return;
-						}
 					},
 
-					SwarmEvent::Behaviour(NotificationsOut::Notification { peer_id, set_id, .. }) => {
-						notification_count += 1;
+					SwarmEvent::Behaviour(NotificationsOut::Notification { peer_id, set_id, message }) => {
+						if message == vec![1, 1, 1, 1] {
+							recv_1111 += 1;
+						} else if message == vec![2, 2, 2, 2] {
+							recv_2222 += 1;
+						} else if message == vec![3, 3, 3, 3] {
+							recv_3333+= 1;
+						} else if message == vec![4, 4, 4, 4] {
+							recv_4444 += 1;
+						} else if message == vec![5, 5, 5, 5] {
+							recv_5555 += 1;
+						} else if message == vec![6, 6, 6, 6] {
+							recv_6666 += 1;
+						}
 
+						notification_count += 1;
 						if notification_count == 2 {
 							// Disconnect the peer.
 							log::info!("Disconnecting peer: {peer_id:?}");
@@ -552,7 +634,21 @@ async fn libp2p_disconnects_litep2p_substream() {
 						handle.send_sync_notification(peer, vec![1, 1, 1, 1]).unwrap();
 						handle.send_async_notification(peer, vec![2, 2, 2, 2]).await.unwrap();
 					}
-					Litep2pNotificationEvent::NotificationReceived { peer, .. } => {
+					Litep2pNotificationEvent::NotificationReceived { peer, notification: message } => {
+						if message == vec![1, 1, 1, 1] {
+							recv_1111 += 1;
+						} else if message == vec![2, 2, 2, 2] {
+							recv_2222 += 1;
+						} else if message == vec![3, 3, 3, 3] {
+							recv_3333+= 1;
+						} else if message == vec![4, 4, 4, 4] {
+							recv_4444 += 1;
+						} else if message == vec![5, 5, 5, 5] {
+							recv_5555 += 1;
+						} else if message == vec![6, 6, 6, 6] {
+							recv_6666 += 1;
+						}
+
 						assert_eq!(peer.to_bytes(), libp2p_peer.to_bytes());
 					}
 					event => log::info!("unhandled notification event: {event:?}"),
@@ -560,6 +656,15 @@ async fn libp2p_disconnects_litep2p_substream() {
 			},
 		}
 	}
+
+	assert_eq!(open_times, 2);
+	assert_eq!(notification_count, 4);
+	assert_eq!(recv_1111, 2);
+	assert_eq!(recv_2222, 2);
+	assert_eq!(recv_3333, 2);
+	assert_eq!(recv_4444, 2);
+	assert_eq!(recv_5555, 0);
+	assert_eq!(recv_6666, 0);
 }
 
 /// Litep2p force-closes the substream with libp2p. The protocol controller of libp2p reopens the
