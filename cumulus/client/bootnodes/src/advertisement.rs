@@ -149,23 +149,27 @@ impl BootnodeAdvertisement {
 				if current_epoch_key == old_current_epoch_key {
 					debug!(
 						target: LOG_TARGET,
-						"Re-advertising bootnode for current epoch {current_epoch_key:?}",
+						"Re-advertising bootnode for current epoch key {}",
+						hex::encode(current_epoch_key.as_ref()),
 					);
 				} else {
 					self.network_service.stop_providing(old_current_epoch_key.clone());
 					debug!(
 						target: LOG_TARGET,
-						"Stopped advertising bootnode for past epoch {old_current_epoch_key:?}",
+						"Stopped advertising bootnode for past epoch key {}",
+						hex::encode(old_current_epoch_key.as_ref()),
 					);
 
 					match self.next_epoch_key {
 						Some(ref old_next_key) if old_next_key == current_epoch_key => debug!(
 							target: LOG_TARGET,
-							"Advertising bootnode for current (old next) epoch {current_epoch_key:?}",
+							"Advertising bootnode for current (old next) epoch key {}",
+							hex::encode(current_epoch_key.as_ref()),
 						),
 						_ => debug!(
 							target: LOG_TARGET,
-							"Advertising bootnode for current epoch {current_epoch_key:?}",
+							"Advertising bootnode for current epoch key {}",
+							hex::encode(current_epoch_key.as_ref()),
 						),
 					}
 				}
@@ -183,8 +187,8 @@ impl BootnodeAdvertisement {
 
 							debug!(
 								target: LOG_TARGET,
-								"Stopped advertising bootnode for discarded next epoch {:?}",
-								old_next_epoch_key,
+								"Stopped advertising bootnode for discarded next epoch key {}",
+								hex::encode(old_next_epoch_key.as_ref()),
 							);
 						},
 					// In all other cases we keep the old next epoch key advertised, as it either
@@ -197,7 +201,8 @@ impl BootnodeAdvertisement {
 
 				debug!(
 					target: LOG_TARGET,
-					"Advertising bootnode for next epoch {next_epoch_key:?}",
+					"Advertising bootnode for next epoch key {}",
+					hex::encode(next_epoch_key.as_ref()),
 				);
 			}
 		} else {
@@ -210,7 +215,8 @@ impl BootnodeAdvertisement {
 			if let Some(current_epoch_key) = current_epoch_key {
 				debug!(
 					target: LOG_TARGET,
-					"Initial advertisement of bootnode for current epoch {current_epoch_key:?}",
+					"Initial advertisement of bootnode for current epoch key {}",
+					hex::encode(current_epoch_key.as_ref()),
 				);
 
 				self.network_service.start_providing(current_epoch_key);
@@ -224,7 +230,8 @@ impl BootnodeAdvertisement {
 			if let Some(next_epoch_key) = next_epoch_key {
 				debug!(
 					target: LOG_TARGET,
-					"Initial advertisement of bootnode for next epoch {next_epoch_key:?}",
+					"Initial advertisement of bootnode for next epoch key {}",
+					hex::encode(next_epoch_key.as_ref()),
 				);
 
 				self.network_service.start_providing(next_epoch_key);

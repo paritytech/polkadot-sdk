@@ -13,7 +13,8 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-futures = { workspace = true }
+futures = { workspace = true, default-features = true }
+hex = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true }
 
