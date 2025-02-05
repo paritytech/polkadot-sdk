@@ -516,7 +516,7 @@ environmental::environmental!(recursion_count: u8);
 /// execution policies, while allowing remote chains to enforce their own rules.
 pub struct DenyLocalInstructions<Inner>(PhantomData<Inner>);
 
-impl<Inner: DenyExecution> DenyLocalInstructions<Inner> {
+impl<Inner> DenyLocalInstructions<Inner> {
 	// Recursively applies the deny filter to a nested XCM.
 	///
 	/// This function ensures that restricted instructions are blocked at any depth within the XCM.
@@ -527,24 +527,14 @@ impl<Inner: DenyExecution> DenyLocalInstructions<Inner> {
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<Result<ControlFlow<()>, ProcessMessageError>, ProcessMessageError> {
-		// Apply the `Inner` deny filter to the nested XCM.
-		let _ = Inner::deny_execution(origin, xcm.inner_mut(), max_weight, properties)
-			.inspect_err(|e| {
-				log::warn!(
-					target: "xcm::barriers",
-					"Execution denied by Inner filter, origin: {:?}, xcm: {:?}, error: {:?}",
-					origin, xcm, e
-				);
-			})?;
-
 		// Initialise the recursion count the first time we enter recursive execution.
 		let _ = recursion_count::using_once(&mut 1, || {
 			recursion_count::with(|count| {
 				if *count > xcm_executor::RECURSION_LIMIT {
 					log::error!(
 						target: "xcm::barriers",
-						"Recursion limit exceeded, origin: {:?}, nested_xcm: {:?}, count: {count}",
-						origin, xcm
+						"Recursion limit exceeded, origin: {:?}, xcm: {:?}, max_weight: {:?}, properties: {:?}, count: {count}",
+						origin, xcm, max_weight, properties
 					);
 
 					return Err(ProcessMessageError::StackLimitReached);
@@ -585,8 +575,8 @@ impl<Inner: DenyExecution> DenyExecution for DenyLocalInstructions<Inner> {
 		Inner::deny_execution(origin, instructions, max_weight, properties).inspect_err(|e| {
 			log::warn!(
 				target: "xcm::barriers",
-				"DenyLocalInstructions::Inner denied execution, origin: {:?}, instructions: {:?}, error: {:?}",
-				origin, instructions, e
+				"DenyLocalInstructions::Inner denied execution, origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}, error: {:?}",
+				origin, instructions, max_weight, properties, e
 			);
 		})?;
 
