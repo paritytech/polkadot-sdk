@@ -111,6 +111,8 @@ pub enum RelayerAccountAction<AccountId, Reward, LaneId> {
 /// It may be incorporated into runtime to refund relayers for submitting correct
 /// message delivery and confirmation transactions, optionally batched with required
 /// finality proofs.
+///
+/// (Works only with `pallet-bridge-messages` and `RewardsAccountParams` as the `RewardKind`)
 #[derive(
 	DefaultNoBound,
 	CloneNoBound,
@@ -129,7 +131,7 @@ pub struct BridgeRelayersTransactionExtension<Runtime, Config, LaneId>(
 impl<R, C, LaneId> BridgeRelayersTransactionExtension<R, C, LaneId>
 where
 	Self: 'static + Send + Sync,
-	R: RelayersConfig<C::BridgeRelayersPalletInstance, LaneId = LaneId>
+	R: RelayersConfig<C::BridgeRelayersPalletInstance>
 		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
 		+ TransactionPaymentConfig,
 	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
@@ -137,6 +139,7 @@ where
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<LaneIdOf<R, C::BridgeMessagesPalletInstance>>>,
 	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
 {
 	/// Returns number of bundled messages `Some(_)`, if the given call info is a:
@@ -278,7 +281,7 @@ impl<R, C, LaneId> TransactionExtension<R::RuntimeCall>
 	for BridgeRelayersTransactionExtension<R, C, LaneId>
 where
 	Self: 'static + Send + Sync,
-	R: RelayersConfig<C::BridgeRelayersPalletInstance, LaneId = LaneId>
+	R: RelayersConfig<C::BridgeRelayersPalletInstance>
 		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
 		+ TransactionPaymentConfig,
 	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
@@ -286,6 +289,7 @@ where
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<LaneIdOf<R, C::BridgeMessagesPalletInstance>>>,
 	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
 {
 	const IDENTIFIER: &'static str = C::IdProvider::STR;
@@ -385,7 +389,7 @@ where
 			RelayerAccountAction::None => (),
 			RelayerAccountAction::Reward(relayer, reward_account, reward) => {
 				RelayersPallet::<R, C::BridgeRelayersPalletInstance>::register_relayer_reward(
-					reward_account,
+					reward_account.into(),
 					&relayer,
 					reward,
 				);

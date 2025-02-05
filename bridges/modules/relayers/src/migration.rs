@@ -82,20 +82,20 @@ pub mod v0 {
 		type Value = Reward;
 	}
 
-	pub(crate) type RelayerRewardsKeyProviderOf<T, I> = RelayerRewardsKeyProvider<
+	pub(crate) type RelayerRewardsKeyProviderOf<T, I, LaneId> = RelayerRewardsKeyProvider<
 		<T as frame_system::Config>::AccountId,
 		<T as Config<I>>::Reward,
-		<T as Config<I>>::LaneId,
+		LaneId,
 	>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type RelayerRewards<T: Config<I>, I: 'static> = StorageDoubleMap<
+	pub(crate) type RelayerRewards<T: Config<I>, I: 'static, LaneId> = StorageDoubleMap<
 		Pallet<T, I>,
-		<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Hasher1,
-		<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key1,
-		<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Hasher2,
-		<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key2,
-		<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Value,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Hasher1,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Key1,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Hasher2,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Key2,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Value,
 		OptionQuery,
 	>;
 
@@ -119,6 +119,7 @@ pub mod v0 {
 pub mod v1 {
 	use super::*;
 	use crate::{Config, Pallet};
+	use bp_messages::LaneIdType;
 	use bp_relayers::RewardsAccountParams;
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 	use sp_std::marker::PhantomData;
@@ -127,19 +128,19 @@ pub mod v1 {
 	use crate::RelayerRewards;
 
 	/// Migrates the pallet storage to v1.
-	pub struct UncheckedMigrationV0ToV1<T, I>(PhantomData<(T, I)>);
+	pub struct UncheckedMigrationV0ToV1<T, I, LaneId>(PhantomData<(T, I, LaneId)>);
 
 	#[cfg(feature = "try-runtime")]
 	const LOG_TARGET: &str = "runtime::bridge-relayers-migration";
 
-	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrationV0ToV1<T, I> {
+	impl<T: Config<I, RewardKind = RewardsAccountParams<LaneId>>, I: 'static, LaneId: LaneIdType + Send + Sync> UncheckedOnRuntimeUpgrade for UncheckedMigrationV0ToV1<T, I, LaneId> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = T::DbWeight::get().reads(1);
 
 			// list all rewards (we cannot do this as one step because of `drain` limitation)
 			let mut rewards_to_migrate =
-				sp_std::vec::Vec::with_capacity(v0::RelayerRewards::<T, I>::iter().count());
-			for (key1, key2, reward) in v0::RelayerRewards::<T, I>::drain() {
+				sp_std::vec::Vec::with_capacity(v0::RelayerRewards::<T, I, LaneId>::iter().count());
+			for (key1, key2, reward) in v0::RelayerRewards::<T, I, LaneId>::drain() {
 				rewards_to_migrate.push((key1, key2, reward));
 				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 			}
@@ -169,11 +170,11 @@ pub mod v1 {
 
 			// collect actual rewards
 			let mut rewards: BoundedBTreeMap<
-				(T::AccountId, T::LaneId),
+				(T::AccountId, LaneId),
 				T::Reward,
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
-			for (key1, key2, reward) in v0::RelayerRewards::<T, I>::iter() {
+			for (key1, key2, reward) in v0::RelayerRewards::<T, I, LaneId>::iter() {
 				log::info!(target: LOG_TARGET, "Reward to migrate: {key1:?}::{key2:?} - {reward:?}");
 				rewards = rewards
 					.try_mutate(|inner| {
@@ -196,14 +197,14 @@ pub mod v1 {
 			use sp_runtime::traits::ConstU32;
 
 			let rewards_before: BoundedBTreeMap<
-				(T::AccountId, T::LaneId),
+				(T::AccountId, LaneId),
 				T::Reward,
 				ConstU32<{ u32::MAX }>,
 			> = Decode::decode(&mut &state[..]).unwrap();
 
 			// collect migrated rewards
 			let mut rewards_after: BoundedBTreeMap<
-				(T::AccountId, T::LaneId),
+				(T::AccountId, LaneId),
 				T::Reward,
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
@@ -233,10 +234,10 @@ pub mod v1 {
 	/// [`UncheckedMigrationV0ToV1`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 0.
-	pub type MigrationToV1<T, I> = frame_support::migrations::VersionedMigration<
+	pub type MigrationToV1<T, I, LaneId> = frame_support::migrations::VersionedMigration<
 		0,
 		1,
-		UncheckedMigrationV0ToV1<T, I>,
+		UncheckedMigrationV0ToV1<T, I, LaneId>,
 		Pallet<T, I>,
 		<T as frame_system::Config>::DbWeight,
 	>;

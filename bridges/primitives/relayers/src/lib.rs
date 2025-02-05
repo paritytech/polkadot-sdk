@@ -90,27 +90,24 @@ impl<LaneId: Decode + Encode> TypeId for RewardsAccountParams<LaneId> {
 }
 
 /// Reward payment procedure.
-pub trait PaymentProcedure<Relayer, Reward> {
+pub trait PaymentProcedure<Relayer, RewardKind, Reward> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
-	/// Lane identifier type.
-	type LaneId: Decode + Encode;
 
 	/// Pay reward to the relayer from the account with provided params.
 	fn pay_reward(
 		relayer: &Relayer,
-		rewards_account_params: RewardsAccountParams<Self::LaneId>,
+		reward_kind: RewardKind,
 		reward: Reward,
 	) -> Result<(), Self::Error>;
 }
 
-impl<Relayer, Reward> PaymentProcedure<Relayer, Reward> for () {
+impl<Relayer, RewardKind, Reward> PaymentProcedure<Relayer, RewardKind, Reward> for () {
 	type Error = &'static str;
-	type LaneId = ();
 
 	fn pay_reward(
 		_: &Relayer,
-		_: RewardsAccountParams<Self::LaneId>,
+		_: RewardKind,
 		_: Reward,
 	) -> Result<(), Self::Error> {
 		Ok(())
@@ -118,7 +115,7 @@ impl<Relayer, Reward> PaymentProcedure<Relayer, Reward> for () {
 }
 
 /// Reward payment procedure that does `balances::transfer` call from the account, derived from
-/// given params.
+/// given `RewardsAccountParams` params.
 pub struct PayRewardFromAccount<T, Relayer, LaneId>(PhantomData<(T, Relayer, LaneId)>);
 
 impl<T, Relayer, LaneId> PayRewardFromAccount<T, Relayer, LaneId>
@@ -132,7 +129,7 @@ where
 	}
 }
 
-impl<T, Relayer, LaneId> PaymentProcedure<Relayer, T::Balance>
+impl<T, Relayer, LaneId> PaymentProcedure<Relayer, RewardsAccountParams<LaneId>, T::Balance>
 	for PayRewardFromAccount<T, Relayer, LaneId>
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,
@@ -140,15 +137,14 @@ where
 	LaneId: Decode + Encode,
 {
 	type Error = sp_runtime::DispatchError;
-	type LaneId = LaneId;
 
 	fn pay_reward(
 		relayer: &Relayer,
-		rewards_account_params: RewardsAccountParams<Self::LaneId>,
+		reward_kind: RewardsAccountParams<LaneId>,
 		reward: T::Balance,
 	) -> Result<(), Self::Error> {
 		T::transfer(
-			&Self::rewards_account(rewards_account_params),
+			&Self::rewards_account(reward_kind),
 			relayer,
 			reward,
 			Preservation::Expendable,
@@ -159,23 +155,23 @@ where
 
 /// Can be used to access the runtime storage key within the `RelayerRewards` map of the relayers
 /// pallet.
-pub struct RelayerRewardsKeyProvider<AccountId, Reward, LaneId>(
-	PhantomData<(AccountId, Reward, LaneId)>,
+pub struct RelayerRewardsKeyProvider<AccountId, RewardKind, Reward>(
+	PhantomData<(AccountId, RewardKind, Reward)>,
 );
 
-impl<AccountId, Reward, LaneId> StorageDoubleMapKeyProvider
-	for RelayerRewardsKeyProvider<AccountId, Reward, LaneId>
+impl<AccountId, RewardKind, Reward> StorageDoubleMapKeyProvider
+	for RelayerRewardsKeyProvider<AccountId, RewardKind, Reward>
 where
 	AccountId: 'static + Codec + EncodeLike + Send + Sync,
 	Reward: 'static + Codec + EncodeLike + Send + Sync,
-	LaneId: Codec + EncodeLike + Send + Sync,
+	RewardKind: Codec + EncodeLike + Send + Sync,
 {
 	const MAP_NAME: &'static str = "RelayerRewards";
 
 	type Hasher1 = Blake2_128Concat;
 	type Key1 = AccountId;
 	type Hasher2 = Identity;
-	type Key2 = RewardsAccountParams<LaneId>;
+	type Key2 = RewardKind;
 	type Value = Reward;
 }
 

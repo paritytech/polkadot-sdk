@@ -21,14 +21,14 @@
 #![warn(missing_docs)]
 
 use bp_relayers::{
-	ExplicitOrAccountParams, PaymentProcedure, Registration, RelayerRewardsKeyProvider,
+	PaymentProcedure, Registration, RelayerRewardsKeyProvider,
 	StakeAndSlash,
 };
 pub use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::fail;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
-use sp_runtime::{traits::CheckedSub, Saturating};
+use sp_runtime::{traits::{CheckedSub, IdentifyAccount}, Saturating};
 use sp_std::marker::PhantomData;
 
 pub use pallet::*;
@@ -53,15 +53,14 @@ pub const LOG_TARGET: &str = "runtime::bridge-relayers";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use bp_messages::LaneIdType;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	/// `RelayerRewardsKeyProvider` for given configuration.
 	type RelayerRewardsKeyProviderOf<T, I> = RelayerRewardsKeyProvider<
 		<T as frame_system::Config>::AccountId,
+		<T as Config<I>>::RewardKind,
 		<T as Config<I>>::Reward,
-		<T as Config<I>>::LaneId,
 	>;
 
 	#[pallet::config]
@@ -69,20 +68,22 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// Type of relayer reward.
 		type Reward: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
+		/// Reward discriminator type. The pallet can collect different types of rewards for a single account.
+		type RewardKind: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
+
 		/// Pay rewards scheme.
 		type PaymentProcedure: PaymentProcedure<
 			Self::AccountId,
+			Self::RewardKind,
 			Self::Reward,
-			LaneId = Self::LaneId,
 		>;
 		/// Stake and slash scheme.
 		type StakeAndSlash: StakeAndSlash<Self::AccountId, BlockNumberFor<Self>, Self::Reward>;
 		/// Pallet call weights.
 		type WeightInfo: WeightInfoExt;
-		/// Lane identifier type.
-		type LaneId: LaneIdType + Send + Sync;
 	}
 
 	#[pallet::pallet]
@@ -96,21 +97,22 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_rewards())]
 		pub fn claim_rewards(
 			origin: OriginFor<T>,
-			rewards_account_params: RewardsAccountParams<T::LaneId>,
+			reward_kind: T::RewardKind,
 		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 
 			RelayerRewards::<T, I>::try_mutate_exists(
 				&relayer,
-				rewards_account_params,
+				reward_kind,
 				|maybe_reward| -> DispatchResult {
 					let reward = maybe_reward.take().ok_or(Error::<T, I>::NoRewardForRelayer)?;
-					T::PaymentProcedure::pay_reward(&relayer, rewards_account_params, reward)
+					T::PaymentProcedure::pay_reward(&relayer, reward_kind, reward)
 						.map_err(|e| {
 							log::trace!(
 								target: LOG_TARGET,
-								"Failed to pay {:?} rewards to {:?}: {:?}",
-								rewards_account_params,
+								"Failed to pay ({:?} / {:?}) rewards to {:?}: {:?}",
+								reward_kind,
+								reward,
 								relayer,
 								e,
 							);
@@ -119,7 +121,7 @@ pub mod pallet {
 
 					Self::deposit_event(Event::<T, I>::RewardPaid {
 						relayer: relayer.clone(),
-						rewards_account_params,
+						reward_kind,
 						reward,
 					});
 					Ok(())
@@ -264,7 +266,7 @@ pub mod pallet {
 		/// It may fail inside, but error is swallowed and we only log it.
 		pub fn slash_and_deregister(
 			relayer: &T::AccountId,
-			slash_destination: ExplicitOrAccountParams<T::AccountId, T::LaneId>,
+			slash_destination: impl IdentifyAccount<AccountId = T::AccountId>,
 		) {
 			let registration = match RegisteredRelayers::<T, I>::take(relayer) {
 				Some(registration) => registration,
@@ -278,10 +280,11 @@ pub mod pallet {
 					return
 				},
 			};
+			let slash_destination = slash_destination.into_account();
 
 			match T::StakeAndSlash::repatriate_reserved(
 				relayer,
-				slash_destination.clone(),
+				&slash_destination,
 				registration.stake,
 			) {
 				Ok(failed_to_slash) if failed_to_slash.is_zero() => {
@@ -307,8 +310,8 @@ pub mod pallet {
 				Err(e) => {
 					// TODO: document this. Where?
 
-					// it may fail if there's no beneficiary account. For us it means that this
-					// account must exists before we'll deploy the bridge
+					// it may fail if there's no beneficiary account. For us, it means that this
+					// account must exist before we'll deploy the bridge
 					log::debug!(
 						target: crate::LOG_TARGET,
 						"Failed to slash relayer account {:?}: {:?}. Maybe beneficiary account doesn't exist? \
@@ -325,7 +328,7 @@ pub mod pallet {
 
 		/// Register reward for given relayer.
 		pub fn register_relayer_reward(
-			rewards_account_params: RewardsAccountParams<T::LaneId>,
+			reward_kind: T::RewardKind,
 			relayer: &T::AccountId,
 			reward: T::Reward,
 		) {
@@ -335,7 +338,7 @@ pub mod pallet {
 
 			RelayerRewards::<T, I>::mutate(
 				relayer,
-				rewards_account_params,
+				reward_kind,
 				|old_reward: &mut Option<T::Reward>| {
 					let new_reward = old_reward.unwrap_or_else(Zero::zero).saturating_add(reward);
 					*old_reward = Some(new_reward);
@@ -344,13 +347,13 @@ pub mod pallet {
 						target: crate::LOG_TARGET,
 						"Relayer {:?} can now claim reward for serving payer {:?}: {:?}",
 						relayer,
-						rewards_account_params,
+						reward_kind,
 						new_reward,
 					);
 
 					Self::deposit_event(Event::<T, I>::RewardRegistered {
 						relayer: relayer.clone(),
-						rewards_account_params,
+						reward_kind,
 						reward,
 					});
 				},
@@ -401,8 +404,8 @@ pub mod pallet {
 		RewardRegistered {
 			/// Relayer account that can claim reward.
 			relayer: T::AccountId,
-			/// Relayer can claim reward from this account.
-			rewards_account_params: RewardsAccountParams<T::LaneId>,
+			/// Relayer can claim reward.
+			reward_kind: T::RewardKind,
 			/// Reward amount.
 			reward: T::Reward,
 		},
@@ -410,8 +413,8 @@ pub mod pallet {
 		RewardPaid {
 			/// Relayer account that has been rewarded.
 			relayer: T::AccountId,
-			/// Relayer has received reward from this account.
-			rewards_account_params: RewardsAccountParams<T::LaneId>,
+			/// Relayer has received reward.
+			reward_kind: T::RewardKind,
 			/// Reward amount.
 			reward: T::Reward,
 		},
@@ -490,14 +493,11 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_messages::LaneIdType;
 	use mock::{RuntimeEvent as TestEvent, *};
 
-	use crate::Event::{RewardPaid, RewardRegistered};
-	use bp_relayers::RewardsAccountOwner;
 	use frame_support::{
 		assert_noop, assert_ok,
-		traits::fungible::{Inspect, Mutate},
+		traits::fungible::Mutate,
 	};
 	use frame_system::{EventRecord, Pallet as System, Phase};
 	use sp_runtime::DispatchError;
@@ -523,9 +523,9 @@ mod tests {
 				System::<TestRuntime>::events().last(),
 				Some(&EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::BridgeRelayers(RewardRegistered {
+					event: TestEvent::BridgeRelayers(Event::RewardRegistered {
 						relayer: REGULAR_RELAYER,
-						rewards_account_params: test_reward_account_param(),
+						reward_kind: test_reward_account_param(),
 						reward: 100
 					}),
 					topics: vec![],
@@ -602,53 +602,14 @@ mod tests {
 				System::<TestRuntime>::events().last(),
 				Some(&EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::BridgeRelayers(RewardPaid {
+					event: TestEvent::BridgeRelayers(Event::RewardPaid {
 						relayer: REGULAR_RELAYER,
-						rewards_account_params: test_reward_account_param(),
+						reward_kind: test_reward_account_param(),
 						reward: 100
 					}),
 					topics: vec![],
 				}),
 			);
-		});
-	}
-
-	#[test]
-	fn pay_reward_from_account_actually_pays_reward() {
-		type Balances = pallet_balances::Pallet<TestRuntime>;
-		type PayLaneRewardFromAccount =
-			bp_relayers::PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType>;
-
-		run_test(|| {
-			let in_lane_0 = RewardsAccountParams::new(
-				TestLaneIdType::try_new(1, 2).unwrap(),
-				*b"test",
-				RewardsAccountOwner::ThisChain,
-			);
-			let out_lane_1 = RewardsAccountParams::new(
-				TestLaneIdType::try_new(1, 3).unwrap(),
-				*b"test",
-				RewardsAccountOwner::BridgedChain,
-			);
-
-			let in_lane0_rewards_account = PayLaneRewardFromAccount::rewards_account(in_lane_0);
-			let out_lane1_rewards_account = PayLaneRewardFromAccount::rewards_account(out_lane_1);
-
-			Balances::mint_into(&in_lane0_rewards_account, 100).unwrap();
-			Balances::mint_into(&out_lane1_rewards_account, 100).unwrap();
-			assert_eq!(Balances::balance(&in_lane0_rewards_account), 100);
-			assert_eq!(Balances::balance(&out_lane1_rewards_account), 100);
-			assert_eq!(Balances::balance(&1), 0);
-
-			PayLaneRewardFromAccount::pay_reward(&1, in_lane_0, 100).unwrap();
-			assert_eq!(Balances::balance(&in_lane0_rewards_account), 0);
-			assert_eq!(Balances::balance(&out_lane1_rewards_account), 100);
-			assert_eq!(Balances::balance(&1), 100);
-
-			PayLaneRewardFromAccount::pay_reward(&1, out_lane_1, 100).unwrap();
-			assert_eq!(Balances::balance(&in_lane0_rewards_account), 0);
-			assert_eq!(Balances::balance(&out_lane1_rewards_account), 0);
-			assert_eq!(Balances::balance(&1), 200);
 		});
 	}
 

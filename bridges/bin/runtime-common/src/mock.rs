@@ -24,7 +24,7 @@ use bp_messages::{
 	ChainWithMessages, HashedLaneId, LaneIdType, MessageNonce,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
-use bp_relayers::PayRewardFromAccount;
+use bp_relayers::{PayRewardFromAccount, RewardsAccountParams};
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, Parachain};
 use codec::Encode;
 use frame_support::{
@@ -211,10 +211,10 @@ impl pallet_bridge_messages::Config for TestRuntime {
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = ThisChainBalance;
+	type RewardKind = RewardsAccountParams<pallet_bridge_messages::LaneIdOf<TestRuntime, ()>>;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
 	type WeightInfo = ();
-	type LaneId = TestLaneIdType;
 }
 
 /// Dummy message dispatcher.

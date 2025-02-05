@@ -281,22 +281,26 @@ impl pallet_bridge_messages::Config for TestRuntime {
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = ThisChainBalance;
+	type RewardKind = RewardsAccountParams<pallet_bridge_messages::LaneIdOf<TestRuntime, ()>>;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
 	type WeightInfo = ();
-	type LaneId = TestLaneIdType;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
+	fn bench_reward_kind() -> Self::RewardKind {
+		RewardsAccountParams::new(TestLaneIdType::default(), *b"test", RewardsAccountOwner::ThisChain)
+	}
+
 	fn prepare_rewards_account(
-		account_params: RewardsAccountParams<Self::LaneId>,
+		account_params: RewardsAccountParams<TestLaneIdType>,
 		reward: Self::Reward,
 	) {
 		let rewards_account = bp_relayers::PayRewardFromAccount::<
 			Balances,
 			ThisChainAccountId,
-			Self::LaneId,
+			TestLaneIdType,
 		>::rewards_account(account_params);
 		Self::deposit_account(rewards_account, reward);
 	}
@@ -324,13 +328,12 @@ impl TestPaymentProcedure {
 	}
 }
 
-impl PaymentProcedure<ThisChainAccountId, ThisChainBalance> for TestPaymentProcedure {
+impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, ThisChainBalance> for TestPaymentProcedure {
 	type Error = ();
-	type LaneId = TestLaneIdType;
 
 	fn pay_reward(
 		relayer: &ThisChainAccountId,
-		_lane_id: RewardsAccountParams<Self::LaneId>,
+		_reward_kind: RewardsAccountParams<TestLaneIdType>,
 		_reward: ThisChainBalance,
 	) -> Result<(), Self::Error> {
 		match *relayer {
