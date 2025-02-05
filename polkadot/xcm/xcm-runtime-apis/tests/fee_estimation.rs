@@ -289,23 +289,12 @@ fn dry_run_reserve_asset_transfer_common(xcm_version: XcmVersion) {
 }
 
 #[test]
-fn dry_run_reserve_asset_transfer_latest() {
-	dry_run_reserve_asset_transfer_common(XCM_VERSION);
-}
+fn dry_run_reserve_asset_transfer_versions() {
+	let tested_versions = [XCM_VERSION, 5, 4, 3];
 
-#[test]
-fn dry_run_reserve_asset_transfer_v5() {
-	dry_run_reserve_asset_transfer_common(5);
-}
-
-#[test]
-fn dry_run_reserve_asset_transfer_v4() {
-	dry_run_reserve_asset_transfer_common(4);
-}
-
-#[test]
-fn dry_run_reserve_asset_transfer_v3() {
-	dry_run_reserve_asset_transfer_common(3);
+	for version in tested_versions {
+		dry_run_reserve_asset_transfer_common(version);
+	}
 }
 
 fn dry_run_xcm_common(xcm_version: XcmVersion) {
@@ -401,23 +390,12 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 }
 
 #[test]
-fn dry_run_xcm_latest() {
-	dry_run_xcm_common(XCM_VERSION);
-}
+fn dry_run_xcm_versions() {
+	let tested_versions = [XCM_VERSION, 5, 4, 3];
 
-#[test]
-fn dry_run_xcm_v5() {
-	dry_run_xcm_common(5);
-}
-
-#[test]
-fn dry_run_xcm_v4() {
-	dry_run_xcm_common(4);
-}
-
-#[test]
-fn dry_run_xcm_v3() {
-	dry_run_xcm_common(3);
+	for version in tested_versions {
+		dry_run_xcm_common(version);
+	}
 }
 
 #[test]
