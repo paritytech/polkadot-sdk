@@ -22,6 +22,7 @@ use crate::common::{
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
+use futures::FutureExt;
 use polkadot_primitives::UpgradeGoAhead;
 use sc_client_api::Backend;
 use sc_consensus::{DefaultImportQueue, LongestChain};
