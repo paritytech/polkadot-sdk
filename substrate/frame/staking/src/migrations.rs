@@ -109,6 +109,20 @@ pub mod v17 {
 				},
 			}
 
+			let old_disabled_validators = v16::DisabledValidators::<T>::get();
+			// BoundedVec with MaxDisabledValidators limit, this should always succeed
+			let disabled_validators_maybe = BoundedVec::try_from(old_disabled_validators);
+			match disabled_validators_maybe {
+				Ok(disabled_validators) => {
+					DisabledValidators::<T>::set(disabled_validators);
+					log!(info, "v17 applied successfully for Invulnerables.");
+				},
+				Err(_) => {
+					log!(warn, "Migration to v17 failed for DisabledValidators.");
+					bounding_storage_success = false;
+				},
+			}
+
 			if bounding_storage_success {
 				log!(info, "v17 applied successfully to bound storage items.");
 			} else {
@@ -152,6 +166,9 @@ pub mod v16 {
 	pub(crate) type Invulnerables<T: Config> =
 		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
 
+	#[frame_support::storage_alias]
+	pub(crate) type DisabledValidators<T: Config> =
+		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
 		#[cfg(feature = "try-runtime")]
@@ -172,7 +189,7 @@ pub mod v16 {
 				.map(|v| (v, max_offence))
 				.collect::<Vec<_>>();
 
-			DisabledValidators::<T>::set(migrated);
+			v16::DisabledValidators::<T>::set(migrated);
 
 			log!(info, "v16 applied successfully.");
 			T::DbWeight::get().reads_writes(1, 1)

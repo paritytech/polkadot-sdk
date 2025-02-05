@@ -894,6 +894,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxInvulnerables = ConstU32<20>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
