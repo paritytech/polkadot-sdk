@@ -98,7 +98,7 @@ fn setup_libp2p(
 		struct SpawnImpl {}
 		impl libp2p::swarm::Executor for SpawnImpl {
 			fn exec(&self, f: Pin<Box<dyn Future<Output = ()> + Send>>) {
-				tokio::spawn(async move { f.await });
+				tokio::spawn(f);
 			}
 		}
 
@@ -587,7 +587,7 @@ async fn libp2p_disconnects_litep2p_substream() {
 					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolClosed { .. }) => {
 						// At this point libp2p is disconnected from litep2p.
 						// However, litep2p still thinks its connected to libp2p and this notification is entirely lost.
-						let libp2p_peer: sc_network_types::PeerId = libp2p_peer.clone().into();
+						let libp2p_peer: sc_network_types::PeerId = libp2p_peer.into();
 						handle.send_sync_notification(libp2p_peer.into(), vec![5, 5, 5, 5]).unwrap();
 						handle.send_async_notification(libp2p_peer.into(), vec![6, 6, 6, 6]).await.unwrap();
 					}
@@ -710,7 +710,7 @@ async fn litep2p_disconnects_libp2p_substream() {
 							// Disconnect the peer.
 							log::info!("Disconnecting peer: {peer_id:?}");
 
-							let libp2p_peer: sc_network_types::PeerId = libp2p_peer.clone().into();
+							let libp2p_peer: sc_network_types::PeerId = libp2p_peer.into();
 							handle.close_substream(libp2p_peer.into()).await;
 
 							// After closing the substream set the timer to 6s to ensure the connection does
