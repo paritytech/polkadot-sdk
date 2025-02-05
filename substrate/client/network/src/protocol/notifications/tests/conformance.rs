@@ -353,3 +353,101 @@ async fn litep2p_rejects_libp2p_substream() {
 		}
 	}
 }
+
+/// Libp2p LHS disconnects from Libp2p RHS after receiving a notification.
+/// The protocol controller reopens the substream and the connection is re-established.
+#[tokio::test]
+async fn libp2p_disconnects_libp2p_substream() {
+	let _ = sp_tracing::tracing_subscriber::fmt()
+		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.try_init();
+
+	let (mut libp2p_lhs, peerstore_lhs, _notification_service) = setup_libp2p(1, 1);
+	let (mut libp2p_rhs, peerstore_rhs, _notification_service) = setup_libp2p(1, 1);
+
+	let libp2p_lhs_peer = *libp2p_lhs.local_peer_id();
+	let libp2p_rhs_peer = *libp2p_rhs.local_peer_id();
+
+	let libp2p_lhs_address = loop {
+		let event = libp2p_lhs.select_next_some().await;
+		match event {
+			SwarmEvent::NewListenAddr { address, .. } => {
+				log::info!("libp2p lhs address: {address:?}");
+				break address.clone();
+			},
+			_ => {},
+		}
+	};
+
+	libp2p_rhs.dial(libp2p_lhs_address).unwrap();
+
+	let mut notification_count = 0;
+	let mut sink = None;
+	let mut open_times = 0;
+
+	loop {
+		tokio::select! {
+			event = libp2p_lhs.select_next_some() => {
+				log::info!("[libp2p lhs] event: {event:?}");
+				match event {
+					SwarmEvent::ConnectionEstablished { .. } => {
+						peerstore_lhs.add_known_peer(libp2p_rhs_peer.into());
+					},
+					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen { set_id, negotiated_fallback, received_handshake, notifications_sink, .. }) => {
+						assert_eq!(set_id, SetId::from(0usize));
+						assert_eq!(received_handshake, vec![1, 2, 3, 4]);
+						assert!(negotiated_fallback.is_none());
+
+						notifications_sink.reserve_notification().await.unwrap().send(vec![3, 3, 3, 3]).unwrap();
+						notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
+
+						open_times += 1;
+						if open_times == 2 {
+							return;
+						}
+					},
+					SwarmEvent::Behaviour(NotificationsOut::Notification { peer_id, set_id, .. }) => {
+						notification_count += 1;
+						if notification_count == 2 {
+							// Disconnect the peer.
+							log::info!("Disconnecting peer: {peer_id:?}");
+
+							libp2p_lhs.behaviour_mut().disconnect_peer(&peer_id, set_id);
+						}
+					},
+					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolClosed { .. }) => {
+						// TODO: Ensure these messages are entirely lost.
+						let sink: crate::service::NotificationsSink = sink.take().unwrap();
+						sink.reserve_notification().await.unwrap().send(vec![5, 5, 5, 5]).unwrap();
+						sink.send_sync_notification(vec![6, 6, 6, 6]);
+					}
+					_ => {},
+				}
+			}
+
+			event = libp2p_rhs.select_next_some() => {
+				log::info!("[libp2p lhs] event: {event:?}");
+
+				match event {
+					SwarmEvent::ConnectionEstablished { .. } => {
+						peerstore_rhs.add_known_peer(libp2p_lhs_peer.into());
+					},
+					SwarmEvent::ConnectionClosed { .. } => {
+						panic!("Keep alive should not close the connection because the notification controller should reopen the substream");
+					}
+					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen { set_id, negotiated_fallback, received_handshake, notifications_sink, .. }) => {
+						assert_eq!(set_id, SetId::from(0usize));
+						assert_eq!(received_handshake, vec![1, 2, 3, 4]);
+						assert!(negotiated_fallback.is_none());
+
+						notifications_sink.reserve_notification().await.unwrap().send(vec![3, 3, 3, 3]).unwrap();
+						notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
+						sink = Some(notifications_sink);
+					},
+					_ => {},
+				}
+
+			},
+		}
+	}
+}
