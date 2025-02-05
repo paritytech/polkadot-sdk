@@ -18,8 +18,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod people;
 mod genesis_config_presets;
+pub mod people;
 mod weights;
 pub mod xcm_config;
 
