@@ -39,7 +39,7 @@ fn test_submit_happy_path() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event.event,
-				RuntimeEvent::InboundQueue(Event::FeesPaid { ..})
+				RuntimeEvent::InboundQueue(Event::FeesPaid { .. })
 			)),
 			"no fees paid event emitted."
 		);
@@ -202,6 +202,32 @@ fn test_set_operating_mode_root_only() {
 				snowbridge_core::BasicOperatingMode::Halted
 			),
 			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn test_xcm_send_failure() {
+	crate::test::mock_xcm_send_failure::new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+
+		let origin = mock::mock_xcm_send_failure::RuntimeOrigin::signed(relayer.clone());
+
+		// Submit message
+		let event = EventProof {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+
+		assert_err!(
+			crate::test::mock_xcm_send_failure::InboundQueue::submit(
+				origin.clone(),
+				Box::new(event.clone())
+			),
+			Error::<Test>::SendFailure
 		);
 	});
 }

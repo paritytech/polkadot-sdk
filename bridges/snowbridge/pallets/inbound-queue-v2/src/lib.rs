@@ -257,8 +257,8 @@ pub mod pallet {
 
 			// Forward XCM to AH
 			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
-			let message_id = Self::send_xcm(dest.clone(), relayer.clone(), xcm.clone())
-				.map_err(|error| {
+			let message_id =
+				Self::send_xcm(dest.clone(), relayer.clone(), xcm.clone()).map_err(|error| {
 					tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
 					Error::<T>::from(error)
 				})?;

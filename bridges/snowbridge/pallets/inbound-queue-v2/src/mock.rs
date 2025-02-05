@@ -301,3 +301,96 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 }
+
+pub mod mock_xcm_send_failure {
+	use super::*;
+
+	frame_support::construct_runtime!(
+		pub enum TestXcmSendFailure
+		{
+			System: frame_system::{Pallet, Call, Storage, Event<T>},
+			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+			EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>},
+			InboundQueue: inbound_queue_v2::{Pallet, Call, Storage, Event<T>},
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for TestXcmSendFailure {
+		type AccountId = AccountId;
+		type Lookup = IdentityLookup<Self::AccountId>;
+		type AccountData = pallet_balances::AccountData<u128>;
+		type Block = Block;
+	}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for TestXcmSendFailure {
+		type Balance = Balance;
+		type ExistentialDeposit = ExistentialDeposit;
+		type AccountStore = System;
+	}
+
+	impl inbound_queue_v2::Config for TestXcmSendFailure {
+		type RuntimeEvent = RuntimeEvent;
+		type Verifier = MockVerifier;
+		type XcmSender = MockXcmFailureSender;
+		type XcmExecutor = MockXcmExecutor;
+		type RewardPayment = ();
+		type EthereumNetwork = EthereumNetwork;
+		type GatewayAddress = GatewayAddress;
+		type AssetHubParaId = ConstU32<1000>;
+		type MessageConverter = MessageToXcm<
+			EthereumNetwork,
+			InboundQueueLocation,
+			MockTokenIdConvert,
+			GatewayAddress,
+			UniversalLocation,
+			AssetHubFromEthereum,
+		>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Helper = Test;
+		type Balance = u128;
+		type WeightInfo = ();
+		type WeightToFee = IdentityFee<u128>;
+		type Token = Balances;
+	}
+
+	impl snowbridge_pallet_ethereum_client::Config for TestXcmSendFailure {
+		type RuntimeEvent = RuntimeEvent;
+		type ForkVersions = ChainForkVersions;
+		type FreeHeadersInterval = ConstU32<32>;
+		type WeightInfo = ();
+	}
+
+	pub struct MockXcmFailureSender;
+	impl SendXcm for MockXcmFailureSender {
+		type Ticket = Xcm<()>;
+
+		fn validate(
+			dest: &mut Option<Location>,
+			xcm: &mut Option<Xcm<()>>,
+		) -> SendResult<Self::Ticket> {
+			if let Some(location) = dest {
+				match location.unpack() {
+					(_, [Parachain(1001)]) => return Err(SendError::NotApplicable),
+					_ => Ok((xcm.clone().unwrap(), Assets::default())),
+				}
+			} else {
+				Ok((xcm.clone().unwrap(), Assets::default()))
+			}
+		}
+
+		fn deliver(_xcm: Self::Ticket) -> core::result::Result<XcmHash, SendError> {
+			return Err(SendError::ExceedsMaxMessageSize)
+		}
+	}
+
+	pub fn new_tester() -> sp_io::TestExternalities {
+		let storage = frame_system::GenesisConfig::<TestXcmSendFailure>::default()
+			.build_storage()
+			.unwrap();
+		let mut ext: sp_io::TestExternalities = storage.into();
+		ext.execute_with(setup);
+		ext
+	}
+}
