@@ -1882,7 +1882,7 @@ impl_runtime_apis! {
 				pub const RandomParaId: u32 = 43211234;
 				pub RandomParaLocation: Location = Location::new(
 					1, // parents: 1 (Relay Chain)
-					[Parachain(RandomParaId.into())] // interior: Parachain(43211234)
+					[Parachain(RandomParaId)] // interior: Parachain(43211234)
 				);
 			}
 
