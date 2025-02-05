@@ -189,3 +189,92 @@ async fn test_libp2p_litep2p_connectivity() {
 		}
 	}
 }
+
+/// A ping pong between libp2p and low level litep2p at notification level.
+#[tokio::test]
+async fn libp2p_to_litep2p_substream() {
+	let (mut litep2p, mut handle) = setup_litep2p().await;
+	let (mut libp2p, peerstore, _notification_service) = setup_libp2p(1, 1);
+
+	let libp2p_peer = *libp2p.local_peer_id();
+	let litep2p_peer = *litep2p.local_peer_id();
+
+	let litep2p_address = litep2p.listen_addresses().into_iter().next().unwrap().clone();
+	let address: sc_network_types::multiaddr::Multiaddr = litep2p_address.clone().into();
+	let address: libp2p::multiaddr::Multiaddr = address.into();
+	libp2p.dial(address).unwrap();
+
+	let mut libp2p_ready = false;
+	let mut litep2p_ready = false;
+	let mut litep2p_3333_seen = false;
+	let mut litep2p_4444_seen = false;
+	let mut libp2p_1111_seen = false;
+	let mut libp2p_2222_seen = false;
+
+	while !libp2p_ready ||
+		!litep2p_ready ||
+		!litep2p_3333_seen ||
+		!litep2p_4444_seen ||
+		!libp2p_1111_seen ||
+		!libp2p_2222_seen
+	{
+		tokio::select! {
+			event = libp2p.select_next_some() => match event {
+				SwarmEvent::ConnectionEstablished { .. } => {
+					peerstore.add_known_peer(litep2p_peer.into());
+				}
+				SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen {  peer_id, set_id, negotiated_fallback, received_handshake, notifications_sink, .. }) => {
+					assert_eq!(peer_id.to_bytes(), litep2p_peer.to_bytes());
+					assert_eq!(set_id, SetId::from(0usize));
+					assert_eq!(received_handshake, vec![1, 2, 3, 4]);
+					assert!(negotiated_fallback.is_none());
+
+					notifications_sink.reserve_notification().await.unwrap().send(vec![3, 3, 3, 3]).unwrap();
+					notifications_sink.send_sync_notification(vec![4, 4, 4, 4]);
+
+					libp2p_ready = true;
+				}
+				SwarmEvent::Behaviour(NotificationsOut::Notification { peer_id, set_id, message }) => {
+					assert_eq!(peer_id.to_bytes(), litep2p_peer.to_bytes());
+					assert_eq!(set_id, SetId::from(0usize));
+
+					if message == vec![1, 1, 1, 1] {
+						libp2p_1111_seen = true;
+					} else if message == vec![2, 2, 2, 2] {
+						libp2p_2222_seen = true;
+					}
+				}
+				_ => {},
+			},
+
+			_event = litep2p.next_event() => {},
+
+			event = handle.next() => match event.unwrap() {
+				Litep2pNotificationEvent::ValidateSubstream { peer, handshake, .. } => {
+					assert_eq!(peer.to_bytes(), libp2p_peer.to_bytes());
+					assert_eq!(handshake, vec![1, 2, 3, 4]);
+
+					handle.send_validation_result(peer, Litep2pValidationResult::Accept);
+					litep2p_ready = true;
+				}
+				Litep2pNotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
+					assert_eq!(peer.to_bytes(), libp2p_peer.to_bytes());
+					assert_eq!(handshake, vec![1, 2, 3, 4]);
+
+					handle.send_sync_notification(peer, vec![1, 1, 1, 1]).unwrap();
+					handle.send_async_notification(peer, vec![2, 2, 2, 2]).await.unwrap();
+				}
+				Litep2pNotificationEvent::NotificationReceived { peer, notification } => {
+					assert_eq!(peer.to_bytes(), libp2p_peer.to_bytes());
+
+					if notification == vec![3, 3, 3, 3] {
+						litep2p_3333_seen = true;
+					} else if notification == vec![4, 4, 4, 4] {
+						litep2p_4444_seen = true;
+					}
+				}
+				_ => {},
+			}
+		}
+	}
+}
