@@ -133,7 +133,7 @@ def setup_parser(parser=None, pr_required=True):
 	if parser is None:
 		parser = argparse.ArgumentParser()
 	parser.add_argument("--pr", type=int, required=pr_required, help="The PR number to generate the PrDoc for.")
-	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["todo"], help="The audience of whom the changes may concern. Allowed values: " + ", ".join(allowed_audiences))
+	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["todo"], help="The audience of whom the changes may concern. Example: --audience runtime_dev node_dev")
 	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "none"], help="A default bump level for all crates. Example: --bump patch")
 	parser.add_argument("--force", action="store_true", help="Whether to overwrite any existing PrDoc.")
 	return parser
