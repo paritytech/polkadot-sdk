@@ -37,7 +37,7 @@ use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyNestedLocalInstructionsThenTry, DenyReserveTransferToRelayChain, DescribeAllTerminal,
+	DenyLocalInstructions, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
 	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
 	HashedDescription, IsConcrete, LocatableAssetId, OriginToPluralityVoice, ParentAsSuperuser,
 	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
@@ -145,8 +145,8 @@ impl Contains<Location> for LocalPlurality {
 }
 
 pub type Barrier = TrailingSetTopicAsId<
-	DenyNestedLocalInstructionsThenTry<
-		DenyReserveTransferToRelayChain,
+	DenyThenTry<
+		DenyLocalInstructions<DenyReserveTransferToRelayChain>,
 		(
 			// Allow local users to buy weight credit.
 			TakeWeightCredit,

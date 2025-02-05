@@ -44,7 +44,7 @@ use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyNestedLocalInstructionsThenTry, DenyReserveTransferToRelayChain, DescribeAllTerminal,
+	DenyLocalInstructions, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
 	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, HandleFee,
 	HashedDescription, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
@@ -130,8 +130,8 @@ impl Contains<Location> for ParentOrParentsPlurality {
 }
 
 pub type Barrier = TrailingSetTopicAsId<
-	DenyNestedLocalInstructionsThenTry<
-		DenyReserveTransferToRelayChain,
+	DenyThenTry<
+		DenyLocalInstructions<DenyReserveTransferToRelayChain>,
 		(
 			// Allow local users to buy weight credit.
 			TakeWeightCredit,
