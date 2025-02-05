@@ -20,56 +20,38 @@ assert_matches = { optional = true, workspace = true }
 codec = { features = [
 	"derive",
 ], workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame = { workspace = true, features = ["runtime"]}
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
-sp-arithmetic = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-preimage = { workspace = true, default-features = true }
 pallet-scheduler = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-support/std",
-	"frame-system/std",
+	"frame/std",
 	"log/std",
 	"pallet-balances/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
 	"scale-info/std",
 	"serde",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
 ]
 runtime-benchmarks = [
 	"assert_matches",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
-	"sp-runtime/try-runtime",
+	"frame/try-runtime",
 ]
