@@ -27,12 +27,12 @@ use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::
 const CORETIME_ROCOCO_ED: Balance = ExistentialDeposit::get();
 
 fn coretime_rococo_genesis(
-    invulnerables: Vec<(AccountId, AuraId)>,
-    endowed_accounts: Vec<AccountId>,
-    endowment: Balance,
-    id: ParaId,
+	invulnerables: Vec<(AccountId, AuraId)>,
+	endowed_accounts: Vec<AccountId>,
+	endowment: Balance,
+	id: ParaId,
 ) -> serde_json::Value {
-    build_struct_json_patch!(RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
@@ -59,43 +59,43 @@ fn coretime_rococo_genesis(
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-    let patch = match id.as_ref() {
-        sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => coretime_rococo_genesis(
-            // initial collators.
-            vec![
-                (Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-                (Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
-            ],
-            Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
-            testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
-            1000.into(),
-        ),
-        sp_genesis_builder::DEV_RUNTIME_PRESET => coretime_rococo_genesis(
-            // initial collators.
-            vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
-            vec![
-                Sr25519Keyring::Alice.to_account_id(),
-                Sr25519Keyring::Bob.to_account_id(),
-                Sr25519Keyring::AliceStash.to_account_id(),
-                Sr25519Keyring::BobStash.to_account_id(),
-            ],
-            ROC * 1_000_000,
-            1000.into(),
-        ),
-        _ => return None,
-    };
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => coretime_rococo_genesis(
+			// initial collators.
+			vec![
+				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+			],
+			Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
+			testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
+			1000.into(),
+		),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => coretime_rococo_genesis(
+			// initial collators.
+			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
+			vec![
+				Sr25519Keyring::Alice.to_account_id(),
+				Sr25519Keyring::Bob.to_account_id(),
+				Sr25519Keyring::AliceStash.to_account_id(),
+				Sr25519Keyring::BobStash.to_account_id(),
+			],
+			ROC * 1_000_000,
+			1000.into(),
+		),
+		_ => return None,
+	};
 
-    Some(
-        serde_json::to_string(&patch)
-            .expect("serialization to json is expected to work. qed.")
-            .into_bytes(),
-    )
+	Some(
+		serde_json::to_string(&patch)
+			.expect("serialization to json is expected to work. qed.")
+			.into_bytes(),
+	)
 }
 
 /// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
-    vec![
-        PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
-        PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
-    ]
+	vec![
+		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
+		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+	]
 }
