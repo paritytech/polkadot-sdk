@@ -1111,8 +1111,7 @@ where
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
-	/// - `tx_fee`: A function that returns the fee for the given call and dispatch info. unchecked
-	///   extrinsic.
+	/// - `tx_fee`: A function that returns the fee for the given call and dispatch info.
 	pub fn bare_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
@@ -1303,7 +1302,7 @@ where
 		let eth_gas =
 			T::EthGasEncoder::encode(raw_gas, result.gas_required, result.storage_deposit);
 
-		log::debug!(target: LOG_TARGET, "bare_eth_call: raw_gas: {raw_gas:?} eth_gas: {eth_gas:?}");
+		log::trace!(target: LOG_TARGET, "bare_eth_call: raw_gas: {raw_gas:?} eth_gas: {eth_gas:?}");
 		result.eth_gas = eth_gas;
 		Ok(result)
 	}
@@ -1314,7 +1313,7 @@ where
 		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
 	}
 
-	/// Convert an substrate fee into a gas value, using the fixed `GAS_PRICE`.
+	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
 		let fee = Self::convert_native_to_evm(fee);
