@@ -147,17 +147,14 @@ pub mod pallet {
 		for Pallet<T>
 	{
 		fn new_session(
-			new_index: sp_staking::SessionIndex,
+			_: sp_staking::SessionIndex,
 		) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-			// todo: check if we need to keep a copy of the validator set in case of another call to
-			// `new_session` before we get new validators. My assumption right now is that
-			// returning `None` will cause validator set to remain unchanged.
+			// If there is a new validator set - return it. Otherwise return `None`.
 			ValidatorSet::<T>::take()
 		}
 
-		// This method is supposed to be used by
 		fn new_session_genesis(
-			new_index: SessionIndex,
+			_: SessionIndex,
 		) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
 			ValidatorSet::<T>::take()
 		}
@@ -181,9 +178,9 @@ pub mod pallet {
 
 		fn end_session(session_index: u32) {
 			let authors = BlockAuthors::<T>::iter().collect::<Vec<_>>();
-			// TODO: Revisit this limit. The number of keys is limited to the number of validators
-			// in the active set.
-			BlockAuthors::<T>::clear(2000, None);
+			// The maximum number of block authors is `num_cores * max_validators_per_core` (both
+			// are parameters from [`SchedulerParams`]).
+			let _ = BlockAuthors::<T>::clear(u32::MAX, None);
 
 			let message = Xcm(vec![
 				Instruction::UnpaidExecution {
@@ -202,7 +199,7 @@ pub mod pallet {
 		}
 
 		fn start_session(session_index: u32) {
-			// todo: pass active validator set somehow(tm)
+			// TODO: pass active validator set somehow???
 
 			let message = Xcm(vec![
 				Instruction::UnpaidExecution {
@@ -258,12 +255,13 @@ pub mod pallet {
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
-			let o = offenders
+			let offenders_and_slashes = offenders
 				.iter()
+				.cloned()
 				.zip(slash_fraction)
 				.map(|(offence, fraction)| Offence {
-					offender: offence.offender.0.clone().into(),
-					reporters: offence.reporters.iter().cloned().map(|r| r.into()).collect(),
+					offender: offence.offender.0.into(),
+					reporters: offence.reporters.into_iter().map(|r| r.into()).collect(),
 					slash_fraction: *fraction,
 				})
 				.collect::<Vec<_>>();
@@ -274,7 +272,10 @@ pub mod pallet {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_asset_hub_call::<T>(StakingCalls::NewOffence(slash_session, o)),
+				mk_asset_hub_call::<T>(StakingCalls::NewOffence(
+					slash_session,
+					offenders_and_slashes,
+				)),
 			]);
 			if let Err(err) = send_xcm::<T::SendXcm>(
 				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
@@ -284,7 +285,7 @@ pub mod pallet {
 			err);
 			}
 
-			Weight::zero() // TODO: this is not needed. Fix it.
+			Weight::zero() // TODO: how much?
 		}
 	}
 
