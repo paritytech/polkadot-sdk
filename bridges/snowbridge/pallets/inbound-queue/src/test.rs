@@ -22,8 +22,8 @@ fn test_submit_happy_path() {
 
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
-		// Submit event proof
-		let event = EventProof {
+		// Submit message
+		let message = Message {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -72,8 +72,8 @@ fn test_submit_xcm_invalid_channel() {
 		println!("account: {}", sovereign_account);
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
-		// Submit event proof
-		let event = EventProof {
+		// Submit message
+		let message = Message {
 			event_log: mock_event_log_invalid_channel(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -97,8 +97,8 @@ fn test_submit_with_invalid_gateway() {
 		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
-		// Submit event proof
-		let event = EventProof {
+		// Submit message
+		let message = Message {
 			event_log: mock_event_log_invalid_gateway(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -237,7 +237,7 @@ fn test_submit_no_funds_to_reward_relayers_and_ed_preserved() {
 				execution_proof: mock_execution_proof(),
 			},
 		};
-		assert_ok!(InboundQueue::submit(origin.clone(), event.clone()));
+		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
 		// Check balance of sovereign account as ED does not change
 		let amount = Balances::balance(&sovereign_account);
 		assert_eq!(amount, ExistentialDeposit::get());

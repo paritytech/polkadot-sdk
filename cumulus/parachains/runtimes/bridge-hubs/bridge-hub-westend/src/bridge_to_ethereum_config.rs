@@ -36,6 +36,7 @@ use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
+use snowbridge_pallet_inbound_queue::RewardThroughSovereign;
 use sp_core::H160;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Convert, Keccak256},
@@ -126,6 +127,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 	type MessageProcessor =
 		snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
+	type RewardProcessor = RewardThroughSovereign<Self>;
 }
 
 impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {

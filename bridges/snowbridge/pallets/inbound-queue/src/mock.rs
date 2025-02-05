@@ -2,7 +2,19 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
+use crate::{
+	xcm_message_processor::XcmMessageProcessor,
+	{self as inbound_queue},
+};
+use frame_support::{
+	derive_impl, parameter_types,
+	storage::Key,
+	traits::{
+		tokens::{Fortitude, Preservation},
+		ConstU32,
+	},
+	weights::IdentityFee,
+};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
@@ -11,9 +23,10 @@ use snowbridge_core::{
 	gwei, meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
 use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, VerificationError};
-use sp_core::{H160, H256};
+use sp_core::{Get, H160, H256};
+use sp_keyring::AccountKeyring as Keyring;
 use sp_runtime::{
-	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, MaybeEquivalence, Verify},
+	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, MaybeEquivalence, Verify, Zero},
 	BuildStorage, DispatchError, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
@@ -22,11 +35,6 @@ use xcm::{
 	prelude::*,
 };
 use xcm_executor::AssetsInHolding;
-
-use crate::{
-	xcm_message_processor::XcmMessageProcessor,
-	{self as inbound_queue},
-};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -274,6 +282,7 @@ impl inbound_queue::Config for Test {
 	type AssetTransactor = SuccessfulTransactor;
 	type MessageProcessor = (DummyPrefix, XcmMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for
 																				// tuple
+	type RewardProcessor = RewardThroughSovereign<Self>;
 }
 
 pub fn setup() {
