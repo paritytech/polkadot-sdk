@@ -40,9 +40,9 @@ tracing = { workspace = true }
 tracing-core = { workspace = true }
 
 [target.'cfg(not(substrate_runtime))'.dependencies]
-sp-keystore = { path = "../keystore", default-features = false }
-sp-trie = { path = "../trie", default-features = false }
-sp-state-machine = { path = "../state-machine", default-features = false }
+sp-keystore = { workspace = true, default-features = false }
+sp-trie = { workspace = true, default-features = false }
+sp-state-machine = { workspace = true, default-features = false }
 log = { workspace = true, default-features = true }
 libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"] }
 secp256k1 = { version = "0.28.2", default-features = false, features = ["alloc", "recovery"] }
