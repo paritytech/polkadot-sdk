@@ -505,22 +505,18 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 
 environmental::environmental!(recursion_count: u8);
 
-// A private helper struct that applies the `Inner` filter to nested XCMs within certain
-// instructions.
+/// Denies execution if the XCM contains restricted **local** instructions, first checking at the
+/// top-level and then **recursively**.
 ///
-/// This struct is not meant to be used directly outside of this module. It ensures that restricted
-/// instructions within the `Outer` filter are blocked **recursively**, preventing unintended
-/// execution of nested XCMs.
-struct DenyNestedXcmInstructions<Outer, Inner>(PhantomData<Outer>, PhantomData<Inner>)
-where
-	Outer: DenyExecution,
-	Inner: DenyExecution;
+/// This barrier only applies to **locally executed** XCM instructions (`SetAppendix`,
+/// `SetErrorHandler`, and `ExecuteWithOrigin`). Remote parts of the XCM are expected to be
+/// validated by receiving chain's barrier.
+///
+/// Note: Ensures that restricted instructions do not execute on the local chain, enforcing stricter
+/// execution policies, while allowing remote chains to enforce their own rules.
+pub struct DenyLocalInstructions<Inner>(PhantomData<Inner>);
 
-impl<Outer, Inner> DenyNestedXcmInstructions<Outer, Inner>
-where
-	Outer: DenyExecution,
-	Inner: DenyExecution,
-{
+impl<Inner: DenyExecution> DenyLocalInstructions<Inner> {
 	// Recursively applies the deny filter to a nested XCM.
 	///
 	/// This function ensures that restricted instructions are blocked at any depth within the XCM.
@@ -556,8 +552,8 @@ where
 				*count = count.saturating_add(1);
 				Ok(())
 			})
-			// Fallback safety in case of an unexpected failure.
-			.unwrap_or(Ok(()))?;
+				// Fallback safety in case of an unexpected failure.
+				.unwrap_or(Ok(()))?;
 
 			// Ensure that we always decrement the counter after processing.
 			sp_core::defer! {
@@ -567,23 +563,12 @@ where
 			}
 
 			// Recursively check the nested XCM instructions.
-			Outer::deny_execution(origin, xcm.inner_mut(), max_weight, properties)
+			Self::deny_execution(origin, xcm.inner_mut(), max_weight, properties)
 		})?;
 
 		Ok(Ok(ControlFlow::Continue(())))
 	}
 }
-
-/// Denies execution if the XCM contains restricted **local** instructions, first checking at the
-/// top-level and then **recursively** using `DenyNestedXcmInstructions`.
-///
-/// This barrier only applies to **locally executed** XCM instructions (`SetAppendix`,
-/// `SetErrorHandler`, and `ExecuteWithOrigin`). Remote parts of the XCM are expected to be
-/// validated by receiving chain's barrier.
-///
-/// Note: Ensures that restricted instructions do not execute on the local chain, enforcing stricter
-/// execution policies, while allowing remote chains to enforce their own rules.
-pub struct DenyLocalInstructions<Inner>(PhantomData<Inner>);
 
 impl<Inner: DenyExecution> DenyExecution for DenyLocalInstructions<Inner> {
 	/// Denies execution of restricted local nested XCM instructions.
@@ -612,7 +597,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyLocalInstructions<Inner> {
 				SetAppendix(nested_xcm) |
 				SetErrorHandler(nested_xcm) |
 				ExecuteWithOrigin { xcm: nested_xcm, .. } =>
-					DenyNestedXcmInstructions::<Self, Inner>::deny_recursively::<RuntimeCall>(
+					Self::deny_recursively::<RuntimeCall>(
 						origin, nested_xcm, max_weight, properties,
 					)?,
 				_ => Ok(ControlFlow::Continue(())),
