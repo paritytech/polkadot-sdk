@@ -16,22 +16,17 @@
 //! # Glutton Westend Runtime genesis config presets
 
 use crate::*;
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
-use parachains_common::{AuraId};
+use parachains_common::AuraId;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 
-fn glutton_westend_genesis(
-	authorities: Vec<AuraId>,
-	id: ParaId,
-) -> serde_json::Value {
+fn glutton_westend_genesis(authorities: Vec<AuraId>, id: ParaId) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		parachain_info: ParachainInfoConfig { parachain_id: id },
-		aura: AuraConfig {
-			authorities,
-		},
+		aura: AuraConfig { authorities },
 	})
 }
 
@@ -40,10 +35,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => glutton_westend_genesis(
 			// initial collators.
-			vec![
-				Sr25519Keyring::Alice.public().into(),
-				Sr25519Keyring::Bob.public().into(),
-			],
+			vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()],
 			1000.into(),
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => glutton_westend_genesis(

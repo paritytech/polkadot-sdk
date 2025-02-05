@@ -44,8 +44,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod weights;
 pub mod genesis_config_presets;
+pub mod weights;
 pub mod xcm_config;
 
 extern crate alloc;
