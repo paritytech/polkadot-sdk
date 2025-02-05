@@ -23300,7 +23300,6 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tokio",
- "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
