@@ -76,6 +76,12 @@ pub mod v17 {
 	pub struct VersionedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionedMigrateV16ToV17<T> {
 		fn on_runtime_upgrade() -> Weight {
+			// Number of reads performed for migration.
+			let mut x: u32 = 0;
+
+			// Number of writes performed for migration.
+			let mut y: u32 = 0;
+
 			// Populates the `ElectableStashes` with the exposures of the next planning era if it
 			// is initialized (i.e. if the there are exposures collected for the next planning
 			// era).
@@ -92,20 +98,28 @@ pub mod v17 {
 			let result = Pallet::<T>::add_electables(prepared_exposures.into_iter());
 			debug_assert!(result.is_ok());
 			log!(info, "v17 applied successfully for pagination, migrated {:?}.", migrated_stashes);
+			// 1x read per history depth and current era read.
+			x = x.saturating_add(T::HistoryDepth::get() + 1u32);
+			// 1x write per exposure migrated.
+			y = y.saturating_add(migrated_stashes);
 
 			let eras_stakers_removed = v16::ErasStakers::<T>::clear(u32::max_value(), None);
 			debug_assert!(eras_stakers_removed.backend == 0);
 			let eras_stakers_clipped_removed =
 				v16::ErasStakersClipped::<T>::clear(u32::max_value(), None);
 			debug_assert!(eras_stakers_clipped_removed.backend == 0);
+			// Just reading and deleting two empty lists
+			x = x.saturating_add(2);
 
 			let mut bounding_storage_success = true;
 
+			x = x.saturating_add(1);
 			let old_invulnerables = v16::Invulnerables::<T>::get();
 			// BoundedVec with MaxInvulnerables limit, this should always succeed
 			let invulnerables_maybe = BoundedVec::try_from(old_invulnerables);
 			match invulnerables_maybe {
 				Ok(invulnerables) => {
+					y = y.saturating_add(1);
 					Invulnerables::<T>::set(invulnerables);
 					log!(info, "v17 applied successfully for Invulnerables.");
 				},
@@ -115,11 +129,13 @@ pub mod v17 {
 				},
 			}
 
+			x = x.saturating_add(1);
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
 			// BoundedVec with MaxDisabledValidators limit, this should always succeed
 			let disabled_validators_maybe = BoundedVec::try_from(old_disabled_validators);
 			match disabled_validators_maybe {
 				Ok(disabled_validators) => {
+					y = y.saturating_add(1);
 					DisabledValidators::<T>::set(disabled_validators);
 					log!(info, "v17 applied successfully for Invulnerables.");
 				},
@@ -135,12 +151,7 @@ pub mod v17 {
 				log!(warn, "v17 failed to bound some storage items.");
 			}
 
-			T::DbWeight::get().reads_writes(
-				// 1x read per history depth and current era read.
-				(T::HistoryDepth::get() + 1u32).into(),
-				// 1x write per exposure migrated.
-				migrated_stashes.into(),
-			)
+			T::DbWeight::get().reads_writes(x.into(), y.into())
 		}
 
 		#[cfg(feature = "try-runtime")]
