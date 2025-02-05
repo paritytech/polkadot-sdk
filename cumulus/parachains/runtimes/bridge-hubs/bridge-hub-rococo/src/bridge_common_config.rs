@@ -23,6 +23,7 @@
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
+use bp_relayers::RewardsAccountParams;
 use frame_support::{parameter_types, traits::ConstU32};
 
 parameter_types! {
@@ -63,15 +64,18 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
 }
 
+// TODO: FAIL-CI - now we can merge/migrate all instance `pallet_bridge_relayers` to the one
+
 /// Allows collect and claim rewards for relayers
 pub type RelayersForLegacyLaneIdsMessagesInstance = ();
 impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
+	type RewardKind = RewardsAccountParams<bp_messages::LegacyLaneId>;
 	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
 		pallet_balances::Pallet<Runtime>,
 		AccountId,
-		Self::LaneId,
+		bp_messages::LegacyLaneId,
 	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
@@ -82,7 +86,6 @@ impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> fo
 		RelayerStakeLease,
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
-	type LaneId = bp_messages::LegacyLaneId;
 }
 
 /// Allows collect and claim rewards for relayers
@@ -90,10 +93,11 @@ pub type RelayersForPermissionlessLanesInstance = pallet_bridge_relayers::Instan
 impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
+	type RewardKind = RewardsAccountParams<bp_messages::HashedLaneId>;
 	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
 		pallet_balances::Pallet<Runtime>,
 		AccountId,
-		Self::LaneId,
+		bp_messages::HashedLaneId,
 	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
@@ -104,7 +108,6 @@ impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for 
 		RelayerStakeLease,
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
-	type LaneId = bp_messages::HashedLaneId;
 }
 
 /// Add GRANDPA bridge pallet to track Rococo Bulletin chain.

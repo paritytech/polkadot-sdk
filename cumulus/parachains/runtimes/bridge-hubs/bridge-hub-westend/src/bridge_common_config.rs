@@ -23,6 +23,7 @@
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use bp_messages::LegacyLaneId;
+use bp_relayers::RewardsAccountParams;
 use frame_support::parameter_types;
 
 parameter_types! {
@@ -38,10 +39,11 @@ pub type RelayersForLegacyLaneIdsMessagesInstance = ();
 impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
+	type RewardKind = RewardsAccountParams<LegacyLaneId>;
 	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
 		pallet_balances::Pallet<Runtime>,
 		AccountId,
-		Self::LaneId,
+		LegacyLaneId,
 	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
@@ -52,5 +54,4 @@ impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> fo
 		RelayerStakeLease,
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
-	type LaneId = LegacyLaneId;
 }

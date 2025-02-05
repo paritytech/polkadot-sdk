@@ -162,7 +162,11 @@ pub type Migrations = (
 		OutboundLanesCongestedSignalsKey,
 		RocksDbWeight,
 	>,
-	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
+	pallet_bridge_relayers::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance,
+		bp_messages::LegacyLaneId
+	>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
@@ -1310,15 +1314,23 @@ impl_runtime_apis! {
 			}
 
 			impl BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
+				fn bench_reward_kind() -> Self::RewardKind {
+					bp_relayers::RewardsAccountParams::new(
+						bp_messages::LegacyLaneId::default(),
+						*b"test",
+						bp_relayers::RewardsAccountOwner::ThisChain
+					)
+				}
+
 				fn prepare_rewards_account(
-					account_params: bp_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId>,
+					reward_kind: Self::RewardKind,
 					reward: Balance,
 				) {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
-						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId,
-					>::rewards_account(account_params);
+						bp_messages::LegacyLaneId,
+					>::rewards_account(reward_kind);
 					Self::deposit_account(rewards_account, reward);
 				}
 
