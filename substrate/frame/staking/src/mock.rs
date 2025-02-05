@@ -816,7 +816,10 @@ pub(crate) fn era_exposures(era: u32) -> Vec<(AccountId, Exposure<AccountId, Bal
 }
 
 pub(crate) fn on_offence_in_era(
-	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
+	offenders: &[OffenceDetails<
+		AccountId,
+		pallet_session::historical::IdentificationTuple<Test>,
+	>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
 ) {
@@ -850,7 +853,10 @@ pub(crate) fn on_offence_in_era(
 }
 
 pub(crate) fn on_offence_now(
-	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
+	offenders: &[OffenceDetails<
+		AccountId,
+		pallet_session::historical::IdentificationTuple<Test>,
+	>],
 	slash_fraction: &[Perbill],
 ) {
 	let now = pallet_staking::ActiveEra::<Test>::get().unwrap().index;
@@ -867,10 +873,7 @@ pub(crate) fn offence_from(
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
-	on_offence_now(
-		&[offence_from(*who, None)],
-		&[Perbill::from_percent(10)],
-	);
+	on_offence_now(&[offence_from(*who, None)], &[Perbill::from_percent(10)]);
 }
 
 /// Make all validator and nominator request their payment
