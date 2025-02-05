@@ -2,13 +2,7 @@ title: 'pallet-assets: make touch other permissionless'
 doc:
 - audience: Runtime User
   description: |-
-    Fix https://github.com/paritytech/polkadot-sdk/issues/7450
-
-    Pallet assets don't have the assumption that Admin and Freezer are trusted by the chain, so I don't see any security concern from this change.
-
-    The only difference I see is that people can create more account with 0 balance for a given asset, whereas in the past only privileged role could do it (privileged from the point of view of the asset, not the chain).
-
-    That said maybe this is not the actual fix we want, maybe it would be better to have accounts being able to increase their `MaxConsumers` value by adding some deposit.
+    In pallet assets, make `touch_other` call permissionless. Before this PR only `Admin` and `Freezer` of an asset could touch an account, now every account can.
 crates:
 - name: pallet-assets
   bump: minor
