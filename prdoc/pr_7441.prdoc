@@ -1,0 +1,26 @@
+title: 'Update Scheduler to have a configurable block provider #7434'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Follow up from https://github.com/paritytech/polkadot-sdk/pull/6362#issuecomment-2629744365
+
+    The goal of this PR is to have the scheduler pallet work on a parachain which does not produce blocks on a regular schedule, thus can use the relay chain as a block provider.
+
+    Because blocks are not produced regularly, we cannot make the assumption that block number increases monotonically, and thus have new logic to handle multiple spend periods passing between blocks.
+
+    Requirement:
+
+     instead of using the hard coded system block number. We add an associated type BlockNumberProvider
+crates:
+- name: collectives-westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: pallet-democracy
+  bump: minor
+- name: pallet-referenda
+  bump: minor
+- name: pallet-scheduler
+  bump: minor

@@ -100,9 +100,7 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use frame_system::{
-	{self as system},
-};
+use frame_system::{self as system};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
@@ -127,7 +125,7 @@ pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 pub type BlockNumberFor<T> =
-		<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The configuration of the retry mechanism for a given task along with its current state.
 #[derive(Clone, Copy, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -300,11 +298,8 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
-
-
 	#[pallet::storage]
 	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
-
 
 	/// Items to be executed, indexed by the block number that they should be executed on.
 	#[pallet::storage]
