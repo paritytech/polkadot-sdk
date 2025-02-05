@@ -667,3 +667,95 @@ async fn litep2p_disconnects_libp2p_substream() {
 		}
 	}
 }
+
+#[tokio::test]
+async fn litep2p_disconnects_litep2p_substream() {
+	let _ = sp_tracing::tracing_subscriber::fmt()
+		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.try_init();
+
+	let (mut litep2p_lhs, mut handle_lhs) = setup_litep2p().await;
+	let (mut litep2p_rhs, mut handle_rhs) = setup_litep2p().await;
+
+	let litep2p_lhs_peer = *litep2p_lhs.local_peer_id();
+	let litep2p_rhs_peer = *litep2p_rhs.local_peer_id();
+
+	let litep2p_address = litep2p_lhs.listen_addresses().into_iter().next().unwrap().clone();
+	litep2p_rhs.dial_address(litep2p_address).await.unwrap();
+
+	loop {
+		tokio::select! {
+			event = litep2p_lhs.next_event() => {
+				log::info!("[litep2p_lhs] event: {event:?}");
+
+				match event.unwrap() {
+					Litep2pEvent::ConnectionEstablished { .. } => {
+						handle_rhs.open_substream(litep2p_lhs_peer).await.unwrap();
+					}
+					_ => {},
+				}
+			},
+
+			event = litep2p_rhs.next_event() => {
+				log::info!("[litep2p_rhs] event: {event:?}");
+
+				match event.unwrap() {
+					Litep2pEvent::ConnectionEstablished { .. } => {
+						handle_lhs.open_substream(litep2p_lhs_peer).await.unwrap();
+					}
+					_ => {},
+				}
+			},
+
+			event = handle_rhs.next() => {
+				log::info!("[handle_rhs] event: {event:?}");
+
+				match event.unwrap() {
+					Litep2pNotificationEvent::ValidateSubstream { peer, handshake, .. } => {
+						assert_eq!(peer.to_bytes(), litep2p_lhs_peer.to_bytes());
+						assert_eq!(handshake, vec![1, 2, 3, 4]);
+
+						handle_rhs.send_validation_result(peer, Litep2pValidationResult::Accept);
+					}
+					Litep2pNotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
+						assert_eq!(peer.to_bytes(), litep2p_lhs_peer.to_bytes());
+						assert_eq!(handshake, vec![1, 2, 3, 4]);
+
+						handle_rhs.send_sync_notification(peer, vec![1, 1, 1, 1]).unwrap();
+						handle_rhs.send_async_notification(peer, vec![2, 2, 2, 2]).await.unwrap();
+					}
+					Litep2pNotificationEvent::NotificationReceived { peer, .. } => {
+						assert_eq!(peer.to_bytes(), litep2p_lhs_peer.to_bytes());
+
+						handle_lhs.close_substream(litep2p_rhs_peer).await;
+					}
+					_ => {},
+				}
+			}
+
+			event = handle_lhs.next() => {
+				log::info!("[handle_lhs] event: {event:?}");
+
+				match event.unwrap() {
+					Litep2pNotificationEvent::ValidateSubstream { peer, handshake, .. } => {
+						assert_eq!(peer.to_bytes(), litep2p_rhs_peer.to_bytes());
+						assert_eq!(handshake, vec![1, 2, 3, 4]);
+
+						handle_lhs.send_validation_result(peer, Litep2pValidationResult::Accept);
+					}
+					Litep2pNotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
+						assert_eq!(peer.to_bytes(), litep2p_rhs_peer.to_bytes());
+						assert_eq!(handshake, vec![1, 2, 3, 4]);
+
+						handle_lhs.send_sync_notification(peer, vec![1, 1, 1, 1]).unwrap();
+						handle_lhs.send_async_notification(peer, vec![2, 2, 2, 2]).await.unwrap();
+					}
+					Litep2pNotificationEvent::NotificationReceived { peer, .. } => {
+						assert_eq!(peer.to_bytes(), litep2p_rhs_peer.to_bytes());
+					}
+					_ => {},
+				}
+			}
+		}
+	}
+}
