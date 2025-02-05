@@ -463,19 +463,6 @@ where
 	}
 }
 
-/// Denies execution if the XCM contains any of the denied **local** instructions, even if nested
-/// within `SetAppendix(xcm)`, `SetErrorHandler(xcm)`, or `ExecuteWithOrigin { xcm, ... }`.
-///
-/// This check is applied **recursively** using `DenyLocalInstructions`, ensuring that instructions
-/// do not execute on the local chain at any depth.
-///
-/// If the message passes the deny filters, it is then evaluated against the allow condition.
-///
-/// Note: This applies only to locally executed instructions. Remote parts of the XCM are expected
-/// to be validated by the destination chain's barrier.
-pub type DenyNestedLocalInstructionsThenTry<Deny, Allow> =
-	DenyThenTry<DenyLocalInstructions<Deny>, Allow>;
-
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
 impl DenyExecution for DenyReserveTransferToRelayChain {
