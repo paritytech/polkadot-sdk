@@ -20,7 +20,14 @@
 
 pub mod aura;
 
+<<<<<<< HEAD:cumulus/polkadot-parachain/src/common/mod.rs
 use cumulus_primitives_core::CollectCollationInfo;
+=======
+use cumulus_primitives_core::{CollectCollationInfo, GetCoreSelectorApi};
+use sc_client_db::DbHash;
+use sc_offchain::OffchainWorkerApi;
+use serde::de::DeserializeOwned;
+>>>>>>> 87f4f3f (omni-node: add offchain worker (#7479)):cumulus/polkadot-omni-node/lib/src/common/mod.rs
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
 use sp_runtime::traits::Block as BlockT;
@@ -34,6 +41,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ SessionKeys<Block>
 	+ BlockBuilder<Block>
 	+ TaggedTransactionQueue<Block>
+	+ OffchainWorkerApi<Block>
 	+ CollectCollationInfo<Block>
 	+ Sized
 {
@@ -45,6 +53,11 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ SessionKeys<Block>
 		+ BlockBuilder<Block>
 		+ TaggedTransactionQueue<Block>
+<<<<<<< HEAD:cumulus/polkadot-parachain/src/common/mod.rs
+=======
+		+ OffchainWorkerApi<Block>
+		+ GetCoreSelectorApi<Block>
+>>>>>>> 87f4f3f (omni-node: add offchain worker (#7479)):cumulus/polkadot-omni-node/lib/src/common/mod.rs
 		+ CollectCollationInfo<Block>
 {
 }
