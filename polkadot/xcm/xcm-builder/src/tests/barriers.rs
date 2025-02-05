@@ -19,53 +19,6 @@ use xcm_executor::traits::Properties;
 
 use super::*;
 
-// Dummy Barriers
-// Dummy filter to allow all
-struct AllowAll;
-impl ShouldExecute for AllowAll {
-	fn should_execute<RuntimeCall>(
-		_: &Location,
-		_: &mut [Instruction<RuntimeCall>],
-		_: Weight,
-		_: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		Ok(())
-	}
-}
-
-// Dummy filter which denies `ClearOrigin`
-struct DenyClearOrigin;
-impl DenyExecution for DenyClearOrigin {
-	fn deny_execution<RuntimeCall>(
-		_: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		_: Weight,
-		_: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		instructions.matcher().match_next_inst_while(
-			|_| true,
-			|inst| match inst {
-				ClearOrigin => Err(ProcessMessageError::Unsupported),
-				_ => Ok(ControlFlow::Continue(())),
-			},
-		)?;
-		Ok(())
-	}
-}
-
-// Dummy filter which wraps `DenyExecution` on `ShouldExecution`
-struct DenyWrapper<Deny: ShouldExecute>(PhantomData<Deny>);
-impl<Deny: ShouldExecute> DenyExecution for DenyWrapper<Deny> {
-	fn deny_execution<RuntimeCall>(
-		origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		max_weight: Weight,
-		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		Deny::should_execute(origin, instructions, max_weight, properties)
-	}
-}
-
 fn props(weight_credit: Weight) -> Properties {
 	Properties { weight_credit, message_id: None }
 }
@@ -757,8 +710,112 @@ fn deny_then_try_works() {
 }
 
 #[test]
-fn deny_nested_local_instructions_then_try_works() {
-	type Barrier = DenyNestedLocalInstructionsThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+fn deny_reserve_transfer_to_relaychain_should_work() {
+	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			DenyReserveTransferToRelayChain::deny_execution(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+	// deny DepositReserveAsset to RelayChain
+	assert_deny_execution(
+		vec![DepositReserveAsset {
+			assets: Wild(All),
+			dest: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// deny InitiateReserveWithdraw to RelayChain
+	assert_deny_execution(
+		vec![InitiateReserveWithdraw {
+			assets: Wild(All),
+			reserve: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// deny TransferReserveAsset to RelayChain
+	assert_deny_execution(
+		vec![TransferReserveAsset {
+			assets: vec![].into(),
+			dest: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// accept DepositReserveAsset to destination other than RelayChain
+	assert_deny_execution(
+		vec![DepositReserveAsset {
+			assets: Wild(All),
+			dest: Here.into_location(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Ok(()),
+	);
+	// others instructions should pass
+	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
+}
+
+// Dummy Barriers
+// Dummy filter to allow all
+struct AllowAll;
+impl ShouldExecute for AllowAll {
+	fn should_execute<RuntimeCall>(
+		_: &Location,
+		_: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Ok(())
+	}
+}
+
+// Dummy filter which denies `ClearOrigin`
+struct DenyClearOrigin;
+impl DenyExecution for DenyClearOrigin {
+	fn deny_execution<RuntimeCall>(
+		_: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		instructions.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				ClearOrigin => Err(ProcessMessageError::Unsupported),
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
+		Ok(())
+	}
+}
+
+// Dummy filter which wraps `DenyExecution` on `ShouldExecution`
+struct DenyWrapper<Deny: ShouldExecute>(PhantomData<Deny>);
+impl<Deny: ShouldExecute> DenyExecution for DenyWrapper<Deny> {
+	fn deny_execution<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Deny::should_execute(origin, instructions, max_weight, properties)
+	}
+}
+
+#[test]
+fn deny_local_instructions_then_try_works() {
+	type Barrier = DenyThenTry<DenyLocalInstructions<DenyReserveTransferToRelayChain>, AllowAll>;
 	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
 		dest: Location::parent(),
@@ -827,65 +884,8 @@ fn deny_nested_local_instructions_then_try_works() {
 
 	// Should deny recursively before allow
 	type BarrierDenyClearOrigin =
-		DenyWrapper<DenyNestedLocalInstructionsThenTry<DenyClearOrigin, AllowAll>>;
+		DenyWrapper<DenyThenTry<DenyLocalInstructions<DenyClearOrigin>, AllowAll>>;
 	assert_deny_instructions_recursively::<BarrierDenyClearOrigin>();
-}
-
-#[test]
-fn deny_reserve_transfer_to_relaychain_should_work() {
-	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
-		assert_eq!(
-			DenyReserveTransferToRelayChain::deny_execution(
-				&origin,
-				&mut xcm,
-				Weight::from_parts(10, 10),
-				&mut props(Weight::zero()),
-			),
-			expected_result
-		);
-	};
-	// deny DepositReserveAsset to RelayChain
-	assert_deny_execution(
-		vec![DepositReserveAsset {
-			assets: Wild(All),
-			dest: Location::parent(),
-			xcm: vec![].into(),
-		}],
-		Here.into_location(),
-		Err(ProcessMessageError::Unsupported),
-	);
-	// deny InitiateReserveWithdraw to RelayChain
-	assert_deny_execution(
-		vec![InitiateReserveWithdraw {
-			assets: Wild(All),
-			reserve: Location::parent(),
-			xcm: vec![].into(),
-		}],
-		Here.into_location(),
-		Err(ProcessMessageError::Unsupported),
-	);
-	// deny TransferReserveAsset to RelayChain
-	assert_deny_execution(
-		vec![TransferReserveAsset {
-			assets: vec![].into(),
-			dest: Location::parent(),
-			xcm: vec![].into(),
-		}],
-		Here.into_location(),
-		Err(ProcessMessageError::Unsupported),
-	);
-	// accept DepositReserveAsset to destination other than RelayChain
-	assert_deny_execution(
-		vec![DepositReserveAsset {
-			assets: Wild(All),
-			dest: Here.into_location(),
-			xcm: vec![].into(),
-		}],
-		Here.into_location(),
-		Ok(()),
-	);
-	// others instructions should pass
-	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
 }
 
 #[test]
@@ -936,8 +936,8 @@ fn compare_deny_filters() {
 	// `DenyThenTry`: Top-level=Deny, Nested=Allow, TryAllow=Yes
 	assert_barrier::<DenyThenTry<Denies, AllowAll>>(Err(ProcessMessageError::Unsupported), Ok(()));
 
-	// `DenyNestedLocalInstructionsThenTry`: Top-level=Deny, Nested=Deny, TryAllow=Yes
-	assert_barrier::<DenyNestedLocalInstructionsThenTry<Denies, AllowAll>>(
+	// `DenyThenTry<DenyLocalInstructions<Deny>>`: Top-level=Deny, Nested=Deny, TryAllow=Yes
+	assert_barrier::<DenyThenTry<DenyLocalInstructions<Denies>, AllowAll>>(
 		Err(ProcessMessageError::Unsupported),
 		Err(ProcessMessageError::Unsupported),
 	);

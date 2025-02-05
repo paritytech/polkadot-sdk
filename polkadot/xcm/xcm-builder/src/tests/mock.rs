@@ -18,7 +18,6 @@
 
 use crate::{
 	barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId},
-	matcher::{CreateMatcher, MatchXcm},
 	test_utils::*,
 	EnsureDecodableXcm,
 };
@@ -34,7 +33,7 @@ pub use core::{
 	fmt::Debug,
 	ops::ControlFlow,
 };
-use frame_support::traits::{ContainsPair, Everything, ProcessMessageError};
+use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure, parameter_types,
