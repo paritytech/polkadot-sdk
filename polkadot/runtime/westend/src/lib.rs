@@ -771,6 +771,7 @@ impl pallet_staking::Config for Runtime {
 }
 
 impl pallet_staking_ah_client::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
 	type CurrencyBalance = Balance;
 	type AssetHubId = AssetHubId;
 	type SendXcm = crate::xcm_config::XcmRouter;

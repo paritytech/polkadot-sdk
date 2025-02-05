@@ -50,7 +50,6 @@ enum StakingCalls {
 	#[codec(index = 1)]
 	StartSession(SessionIndex),
 	#[codec(index = 2)]
-	// TODO: `AccountId32` should be a parameter?
 	EndSession(SessionIndex, Vec<(AccountId32, u32)>),
 	#[codec(index = 3)]
 	NewOffence(SessionIndex, Vec<Offence>),
@@ -68,13 +67,16 @@ struct Offence {
 pub mod pallet {
 	use crate::*;
 	use alloc::vec;
+	use core::result;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
 	use pallet_staking::ExposureOf;
+	use polkadot_primitives::Id as ParaId;
+	use polkadot_runtime_parachains::origin::{ensure_parachain, Origin};
 	use sp_runtime::Perbill;
 	use sp_staking::{offence::OnOffenceHandler, SessionIndex};
-
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
@@ -93,6 +95,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
+			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
@@ -106,17 +110,19 @@ pub mod pallet {
 			+ Send
 			+ Sync
 			+ MaxEncodedLen;
-
-		/// The ParaId of the AH-next chain.
+		/// The ParaId of the AssetHub.
 		#[pallet::constant]
 		type AssetHubId: Get<u32>;
 		/// The XCM sender.
 		type SendXcm: SendXcm;
 		/// Maximum weight for any XCM transact call that should be executed on AssetHub.
-		///
-		/// Should be `max_weight(set_leases, reserve, notify_core_count)`.
-		/// TODO: Update this comment ^^^
 		type MaxXcmTransactWeight: Get<Weight>;
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// The paraid making the call is not AssetHub.
+		NotAssetHub,
 	}
 
 	#[pallet::call]
@@ -127,7 +133,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			new_validator_set: Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>,
 		) -> DispatchResult {
-			// TODO: check origin
+			// Ignore requests not coming from the AssetHub or root.
+			Self::ensure_root_or_para(origin, <T as Config>::AssetHubId::get().into())?;
 
 			// Save the validator set. We don't care if there is a validator set which was not used.
 			ValidatorSet::<T>::put(Some(new_validator_set));
@@ -278,6 +285,25 @@ pub mod pallet {
 			}
 
 			Weight::zero() // TODO: this is not needed. Fix it.
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Ensure the origin is one of Root or the `para` itself.
+		fn ensure_root_or_para(
+			origin: <T as frame_system::Config>::RuntimeOrigin,
+			id: ParaId,
+		) -> DispatchResult {
+			if let Ok(caller_id) =
+				ensure_parachain(<T as Config>::RuntimeOrigin::from(origin.clone()))
+			{
+				// Check if matching para id...
+				ensure!(caller_id == id, Error::<T>::NotAssetHub);
+			} else {
+				// Check if root...
+				ensure_root(origin.clone())?;
+			}
+			Ok(())
 		}
 	}
 
