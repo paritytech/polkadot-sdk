@@ -345,7 +345,6 @@ impl pallet_scheduler::Config for Runtime {
 	type OriginPrivilegeCmp = OriginPrivilegeCmp;
 	type Preimages = Preimage;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
-
 }
 
 parameter_types! {
