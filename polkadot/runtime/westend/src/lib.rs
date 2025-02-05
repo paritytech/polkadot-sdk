@@ -134,7 +134,7 @@ pub use sp_runtime::BuildStorage;
 use westend_runtime_constants::{
 	currency::*,
 	fee::*,
-	system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID},
+	system_parachain::{coretime::TIMESLICE_PERIOD, ASSET_HUB_ID, BROKER_ID},
 	time::*,
 };
 
@@ -777,6 +777,9 @@ impl pallet_staking::Config for Runtime {
 
 impl pallet_staking_ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
+	type AssetHubId = AssetHubId;
+	type SendXcm = crate::xcm_config::XcmRouter;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight; // TODO: check if it's safe to reuse
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1358,6 +1361,7 @@ impl parachains_scheduler::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
+	pub const AssetHubId: u32 = ASSET_HUB_ID;	// TODO: replace with ASSET_HUB_NEXT_ID
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
