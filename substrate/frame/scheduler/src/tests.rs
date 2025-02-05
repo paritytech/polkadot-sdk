@@ -1636,6 +1636,7 @@ fn on_initialize_weight_is_correct() {
 		));
 
 		// Will include the named periodic only
+		System::set_block_number(1);
 		assert_eq!(
 			Scheduler::on_initialize(1),
 			TestWeightInfo::service_agendas_base() +
@@ -1648,6 +1649,7 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(logger::log(), vec![(root(), 2600u32)]);
 
 		// Will include anon and anon periodic
+		System::set_block_number(2);
 		assert_eq!(
 			Scheduler::on_initialize(2),
 			TestWeightInfo::service_agendas_base() +
@@ -1663,6 +1665,7 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(logger::log(), vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32)]);
 
 		// Will include named only
+		System::set_block_number(3);
 		assert_eq!(
 			Scheduler::on_initialize(3),
 			TestWeightInfo::service_agendas_base() +
@@ -1678,6 +1681,7 @@ fn on_initialize_weight_is_correct() {
 		);
 
 		// Will contain none
+		System::set_block_number(4);
 		let actual_weight = Scheduler::on_initialize(4);
 		assert_eq!(
 			actual_weight,
