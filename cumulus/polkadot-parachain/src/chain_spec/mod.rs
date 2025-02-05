@@ -125,19 +125,12 @@ impl LoadSpec for ChainSpecLoader {
 					.load_config()?,
 
 			// -- Coretime
-			// -- Coretime Rococo
-			"coretime-rococo-dev" => Box::new(asset_hubs::asset_hub_rococo_development_config()),
-			"coretime-rococo-local" => Box::new(asset_hubs::asset_hub_rococo_local_config()),
-			"coretime-rococo" => Box::new(GenericChainSpec::from_json_bytes(
-				&include_bytes!("../../chain-specs/coretime-rococo.json")[..],
-			)?),
-
-			// -- Coretime Westend
-			"coretime-westend-dev" => Box::new(asset_hubs::asset_hub_westend_development_config()),
-			"coretime-westend-local" => Box::new(asset_hubs::asset_hub_westend_local_config()),
-			"coretime-westend" => Box::new(GenericChainSpec::from_json_bytes(
-				&include_bytes!("../../chain-specs/coretime-westend.json")[..],
-			)?),
+			coretime_like_id
+				if coretime_like_id.starts_with(coretime::CoretimeRuntimeType::ID_PREFIX) =>
+				coretime_like_id
+					.parse::<coretime::CoretimeRuntimeType>()
+					.expect("invalid value")
+					.load_config()?,
 
 			// -- Penpal
 			id if id.starts_with("penpal-rococo") => {
