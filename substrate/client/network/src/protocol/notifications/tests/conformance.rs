@@ -283,10 +283,6 @@ async fn libp2p_to_litep2p_substream() {
 /// detecting the connection as idle. In this case, substrate does not force reopen the substreams.
 #[tokio::test]
 async fn litep2p_rejects_libp2p_substream() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	let (mut litep2p, mut handle) = setup_litep2p().await;
 	let (mut libp2p, peerstore, _notification_service) = setup_libp2p(1, 1);
 
@@ -358,10 +354,6 @@ async fn litep2p_rejects_libp2p_substream() {
 /// The protocol controller reopens the substream and the connection is re-established.
 #[tokio::test]
 async fn libp2p_disconnects_libp2p_substream() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	let (mut libp2p_lhs, peerstore_lhs, _notification_service) = setup_libp2p(1, 1);
 	let (mut libp2p_rhs, peerstore_rhs, _notification_service) = setup_libp2p(1, 1);
 
@@ -520,10 +512,6 @@ async fn libp2p_disconnects_libp2p_substream() {
 /// the peer.
 #[tokio::test]
 async fn libp2p_disconnects_litep2p_substream() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	let (mut litep2p, mut handle) = setup_litep2p().await;
 	let (mut libp2p, peerstore, _notification_service) = setup_libp2p(1, 1);
 
@@ -674,10 +662,6 @@ async fn libp2p_disconnects_litep2p_substream() {
 /// substream.
 #[tokio::test]
 async fn litep2p_disconnects_libp2p_substream() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	let (mut litep2p, mut handle) = setup_litep2p().await;
 	let (mut libp2p, peerstore, _notification_service) = setup_libp2p(1, 1);
 
@@ -778,10 +762,6 @@ async fn litep2p_disconnects_libp2p_substream() {
 /// Therefore, since the substream is closed, the connection will be closed by the keep-alive.
 #[tokio::test]
 async fn litep2p_disconnects_litep2p_substream() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	let (mut litep2p_lhs, mut handle_lhs) = setup_litep2p().await;
 	let (mut litep2p_rhs, mut handle_rhs) = setup_litep2p().await;
 
@@ -906,10 +886,6 @@ async fn litep2p_disconnects_litep2p_substream() {
 /// keep-alive mechanism.
 #[tokio::test]
 async fn litep2p_idle_litep2p_substream() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	let (mut litep2p_lhs, mut handle_lhs) = setup_litep2p().await;
 	let (mut litep2p_rhs, mut handle_rhs) = setup_litep2p().await;
 
@@ -1012,10 +988,6 @@ async fn litep2p_idle_litep2p_substream() {
 /// keep-alive mechanism.
 #[tokio::test]
 async fn libp2p_idle_to_libp2p_substream() {
-	let _ = sp_tracing::tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.try_init();
-
 	let (mut libp2p_lhs, peerstore_lhs, _notification_service) = setup_libp2p(1, 1);
 	let (mut libp2p_rhs, peerstore_rhs, _notification_service) = setup_libp2p(1, 1);
 
