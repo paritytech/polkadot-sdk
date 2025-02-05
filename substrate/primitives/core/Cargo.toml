@@ -34,10 +34,8 @@ substrate-bip39 = { workspace = true }
 bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false, features = [
 	"alloc",
 ] }
+sp-crypto-pubkeycrypto-proc-macro=  { workspace = true }
 bitflags = { workspace = true }
-
-sp-crypto-pubkeycrypto-proc-macro =  { workspace = true }
-
 dyn-clonable = { optional = true, workspace = true }
 futures = { optional = true, workspace = true }
 itertools = { optional = true, workspace = true }
