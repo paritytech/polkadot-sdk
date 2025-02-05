@@ -109,7 +109,7 @@ fn setup_libp2p(
 			// necessary. See <https://github.com/paritytech/substrate/pull/6080>
 			.with_per_connection_event_buffer_size(24)
 			.with_max_negotiating_inbound_streams(2048)
-			.with_idle_connection_timeout(Duration::from_secs(10));
+			.with_idle_connection_timeout(Duration::from_secs(5));
 
 		Swarm::new(transport.0, behaviour, local_peer_id, config)
 	};
