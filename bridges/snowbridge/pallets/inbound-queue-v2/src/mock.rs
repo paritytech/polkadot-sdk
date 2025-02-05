@@ -166,7 +166,7 @@ impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 parameter_types! {
 	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
-	pub const InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
+	pub InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
 	pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
