@@ -1877,7 +1877,7 @@ impl_runtime_apis! {
 			pub const fn CREATE_RND_LOC() -> Location {
 					Location::new(
 						1,
-						[Parachain(ParaId::new(RANDOM_ID).into())]
+						[Parachain(ParaId::from(RANDOM_ID).into())]
 					)
 			};
 			parameter_types! {
