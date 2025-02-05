@@ -261,7 +261,7 @@ where
 					target: LOG_TARGET,
 					?tx_hash,
 					%error,
-					"submit_local: err"
+					"submit_local failed"
 				);
 				Err(error)
 			},
@@ -310,7 +310,7 @@ where
 					target: LOG_TARGET,
 					?tx_hash,
 					%error,
-					"submit_and_watch: err"
+					"submit_and_watch failed"
 				);
 				return Err(error);
 			},

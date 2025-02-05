@@ -1487,7 +1487,12 @@ where
 			self.mempool.try_insert_with_replacement(xt, priority, source, watched)?;
 
 		for worst_hash in &insertion_info.removed {
-			log::trace!(target: LOG_TARGET, "removed: {worst_hash:?} replaced by {tx_hash:?}");
+			trace!(
+				target: LOG_TARGET,
+				tx_hash = ?worst_hash,
+				new_tx_hash = ?tx_hash,
+				"removed: replaced by"
+			);
 			self.view_store
 				.listener
 				.transaction_dropped(DroppedTransaction::new_enforced_by_limts(*worst_hash));
