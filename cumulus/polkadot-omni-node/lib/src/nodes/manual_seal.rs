@@ -21,6 +21,7 @@ use crate::common::{
 };
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
+use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 use polkadot_primitives::UpgradeGoAhead;
 use sc_consensus::{DefaultImportQueue, LongestChain};
@@ -28,7 +29,7 @@ use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_runtime::traits::Header;
 use std::{marker::PhantomData, sync::Arc};
 
@@ -158,16 +159,24 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					.expect("Header lookup should succeed")
 					.expect("Header passed in as parent should be present in backend.");
 
-				let should_send_go_ahead = match client_for_cidp
+				let should_send_go_ahead = client_for_cidp
 					.runtime_api()
 					.collect_collation_info(block, &current_para_head)
-				{
-					Ok(info) => info.new_validation_code.is_some(),
-					Err(e) => {
-						log::error!("Failed to collect collation info: {:?}", e);
-						false
-					},
-				};
+					.map(|info| info.new_validation_code.is_some())
+					.unwrap_or_default();
+
+				// The API version is relevant here because the constraints in the runtime changed
+				// in https://github.com/paritytech/polkadot-sdk/pull/6825. In general, the logic
+				// here assumes that we are using the aura-ext consensushook in the parachain
+				// runtime.
+				let requires_relay_progress = client_for_cidp
+					.runtime_api()
+					.has_api_with::<dyn AuraUnincludedSegmentApi<NodeSpec::Block>, _>(
+						block,
+						|version| version > 1,
+					)
+					.ok()
+					.unwrap_or_default();
 
 				let current_para_block_head =
 					Some(polkadot_primitives::HeadData(current_para_head.encode()));
@@ -183,8 +192,10 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						),
 						para_id,
 						current_para_block_head,
-						relay_offset: 1000,
-						relay_blocks_per_para_block: 1,
+						relay_offset: 0,
+						relay_blocks_per_para_block: requires_relay_progress
+							.then(|| 1)
+							.unwrap_or_default(),
 						para_blocks_per_relay_epoch: 10,
 						relay_randomness_config: (),
 						xcm_config: MockXcmConfig::new(&*client_for_xcm, block, Default::default()),
