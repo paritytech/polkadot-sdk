@@ -20,6 +20,28 @@ on:
     outputs:
       changes_substrate:
         value: ${{ jobs.preflight.outputs.changes_substrate }}
+        description: |
+          True iff there are changes in substrate directory or the current workflow
+
+      changes_cumulus:
+        value: ${{ jobs.preflight.outputs.changes_cumulus }}
+        description: |
+          True iff there are changes in cumulus directory or the current workflow
+
+      changes_polkadot:
+        value: ${{ jobs.preflight.outputs.changes_polkadot }}
+        description: |
+          True iff there are changes in polkadot directory or the current workflow
+
+      changes_bridges:
+        value: ${{ jobs.preflight.outputs.changes_bridges }}
+        description: |
+          True iff there are changes in bridges directory or the current workflow
+
+      changes_templates:
+        value: ${{ jobs.preflight.outputs.changes_templates }}
+        description: |
+          True iff there are changes in templates directory or the current workflow
 
       ZOMBIENET_IMAGE:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -77,6 +99,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_cumulus: ${{ steps.set_changes.outputs.cumulus_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_polkadot: ${{ steps.set_changes.outputs.polkadot_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_bridges: ${{ steps.set_changes.outputs.bridges_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_templates: ${{ steps.set_changes.outputs.templates_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+
 
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
       ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
@@ -117,6 +144,14 @@ jobs:
           files_yaml: |
             substrate:
               - 'substrate/**/*'
+            cumulus:
+              - 'cumulus/**/*'
+            polkadot:
+              - 'polkadot/**/*'
+            bridges:
+              - 'bridges/**/*'
+            templates:
+              - 'templates/**/*'
             currentWorkflow:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/zombienet-reusable-preflight.yml'
@@ -183,6 +218,7 @@ jobs:
   #
   # Wait until the 'build and push' image workflow success
   wait_build_images:
+    needs: [ci-env]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
