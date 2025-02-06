@@ -16234,7 +16234,9 @@ dependencies = [
  "log",
  "parachain-template-runtime",
  "polkadot-sdk 0.1.0",
+ "sc-tracing",
  "serde",
+ "substrate-prometheus-endpoint",
 ]
 
 [[package]]

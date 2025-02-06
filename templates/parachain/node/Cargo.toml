@@ -23,6 +23,10 @@ polkadot-sdk = { workspace = true, features = ["node"] }
 
 parachain-template-runtime = { workspace = true }
 
+# Substrate
+prometheus-endpoint = { workspace = true, default-features = true }
+sc-tracing = { workspace = true, default-features = true }
+
 [build-dependencies]
 polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
 
