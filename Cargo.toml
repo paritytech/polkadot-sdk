@@ -761,7 +761,7 @@ frame-executive = { path = "substrate/frame/executive", default-features = false
 frame-metadata = { version = "16.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false, version = "0.6.0" }
 frame-support = { path = "substrate/frame/support", default-features = false, version = "38.2.0" }
-frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false, version = "30.0.3" }
+frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false, version = "30.0.6" }
 frame-support-procedural-tools = { path = "substrate/frame/support/procedural/tools", default-features = false, version = "13.0.0" }
 frame-support-procedural-tools-derive = { path = "substrate/frame/support/procedural/tools/derive", default-features = false, version = "12.0.0" }
 frame-support-test = { path = "substrate/frame/support/test" }
@@ -1145,7 +1145,7 @@ sc-executor-wasmtime = { path = "substrate/client/executor/wasmtime", default-fe
 sc-informant = { path = "substrate/client/informant", default-features = false, version = "0.44.0" }
 sc-keystore = { path = "substrate/client/keystore", default-features = false, version = "33.0.0" }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false, version = "0.15.0" }
-sc-network = { path = "substrate/client/network", default-features = false, version = "0.45.5" }
+sc-network = { path = "substrate/client/network", default-features = false, version = "0.45.6" }
 sc-network-common = { path = "substrate/client/network/common", default-features = false, version = "0.44.0" }
 sc-network-gossip = { path = "substrate/client/network-gossip", default-features = false, version = "0.45.0" }
 sc-network-light = { path = "substrate/client/network/light", default-features = false, version = "0.44.1" }

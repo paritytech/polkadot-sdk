@@ -5999,7 +5999,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural"
-version = "30.0.3"
+version = "30.0.6"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -17873,7 +17873,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.45.5"
+version = "0.45.6"
 dependencies = [
  "array-bytes",
  "assert_matches",
