@@ -32,8 +32,7 @@ use polkadot_node_network_protocol::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v3 as protocol_v3, OurView, PeerId, UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_subsystem::{
 	messages::*, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
@@ -62,7 +61,6 @@ mod tests;
 const COST_SIGNATURE_INVALID: Rep = Rep::CostMajor("Bitfield signature invalid");
 const COST_VALIDATOR_INDEX_INVALID: Rep = Rep::CostMajor("Bitfield validator index invalid");
 const COST_MISSING_PEER_SESSION_KEY: Rep = Rep::CostMinor("Missing peer session key");
-const COST_UNSUPPORTED_PROTOCOL_VERSION: Rep = Rep::CostMinor("Unsupported protocol version");
 const COST_NOT_IN_VIEW: Rep = Rep::CostMinor("Not interested in that parent hash");
 const COST_PEER_DUPLICATE_MESSAGE: Rep =
 	Rep::CostMinorRepeated("Peer sent the same message multiple times");
@@ -98,13 +96,13 @@ impl BitfieldGossipMessage {
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
-			_ => {
+			None => {
 				never!("Peers should only have supported protocol versions.");
 
 				gum::warn!(
 					target: LOG_TARGET,
 					version = ?recipient_version,
-					"Unknown or unsupported protocol version provided for message recipient"
+					"Unknown protocol version provided for message recipient"
 				);
 
 				// fall back to v3 to avoid
@@ -474,16 +472,6 @@ async fn relay_message<Context>(
 		let v3_interested_peers =
 			filter_by_peer_version(&interested_peers, ValidationVersion::V3.into());
 
-		let unsupported_peers_count = interested_peers.len() - v3_interested_peers.len();
-		if unsupported_peers_count > 0 {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				"{} peers are interested in gossip, but have unsupported protocol versions",
-				unsupported_peers_count,
-			);
-		}
-
 		if !v3_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 				v3_interested_peers,
@@ -509,17 +497,12 @@ async fn process_incoming_peer_message<Context>(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),
-		// Handle unsupported versions.
-		Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(relay_parent, _)) |
-		Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(relay_parent, _)) => {
-			modify_reputation(
-				&mut state.reputation,
-				ctx.sender(),
-				relay_parent,
-				origin,
-				COST_UNSUPPORTED_PROTOCOL_VERSION,
-			)
-			.await;
+		_ => {
+			gum::warn!(
+				target: LOG_TARGET,
+				peer = %origin,
+				"Received bitfield gossip message with unsupported protocol version",
+			);
 			return
 		},
 	};

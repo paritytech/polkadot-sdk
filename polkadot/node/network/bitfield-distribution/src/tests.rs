@@ -304,69 +304,6 @@ fn receive_invalid_validator_index() {
 }
 
 #[test]
-fn receive_unsupported_protocol_version() {
-	sp_tracing::init_for_tests();
-
-	let hash_a: Hash = [0; 32].into();
-	let hash_b: Hash = [1; 32].into(); // other
-
-	let peer_a = PeerId::random();
-	let peer_b = PeerId::random();
-	assert_ne!(peer_a, peer_b);
-
-	// validator 0 key pair
-	let (mut state, signing_context, keystore, validator) =
-		state_with_view(our_view![hash_a, hash_b], hash_a, ReputationAggregator::new(|_| true));
-
-	state.peer_data.insert(peer_b, peer_data_v3(view![hash_a]));
-
-	let payload = AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
-	let signed = Signed::<AvailabilityBitfield>::sign(
-		&keystore,
-		payload,
-		&signing_context,
-		ValidatorIndex(0),
-		&validator,
-	)
-	.ok()
-	.flatten()
-	.expect("should be signed");
-
-	let msg = BitfieldGossipMessage { relay_parent: hash_a, signed_availability: signed.clone() };
-
-	let pool = sp_core::testing::TaskExecutor::new();
-	let (mut ctx, mut handle) = make_subsystem_context::<BitfieldDistributionMessage, _>(pool);
-	let mut rng = dummy_rng();
-
-	executor::block_on(async move {
-		launch!(handle_network_msg(
-			&mut ctx,
-			&mut state,
-			&Default::default(),
-			NetworkBridgeEvent::PeerMessage(
-				peer_b,
-				Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(
-					msg.relay_parent,
-					msg.signed_availability.into(),
-				)),
-			),
-			&mut rng,
-		));
-
-		// reputation change due to unsupported protocol version
-		assert_matches!(
-			handle.recv().await,
-			AllMessages::NetworkBridgeTx(
-				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer, rep))
-			) => {
-				assert_eq!(peer, peer_b);
-				assert_eq!(rep.value, COST_UNSUPPORTED_PROTOCOL_VERSION.cost_or_benefit())
-			}
-		);
-	});
-}
-
-#[test]
 fn receive_duplicate_messages() {
 	sp_tracing::init_for_tests();
 
@@ -1137,13 +1074,8 @@ fn network_protocol_versioning() {
 
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();
-	let peer_c = PeerId::random();
 
-	let peers = [
-		(peer_a, ValidationVersion::V3),
-		(peer_b, ValidationVersion::V1),
-		(peer_c, ValidationVersion::V3),
-	];
+	let peers = [(peer_a, ValidationVersion::V3), (peer_b, ValidationVersion::V3)];
 
 	// validator 0 key pair
 	let (mut state, signing_context, keystore, validator) =
@@ -1225,7 +1157,7 @@ fn network_protocol_versioning() {
 			AllMessages::NetworkBridgeTx(
 				NetworkBridgeTxMessage::SendValidationMessage(peers, send_msg),
 			) => {
-				assert_eq!(peers, vec![peer_c]);
+				assert_eq!(peers, vec![peer_b]);
 				assert_eq!(send_msg, msg.clone().into_validation_protocol(ValidationVersion::V3.into()));
 			}
 		);
