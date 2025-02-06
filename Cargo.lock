@@ -5876,7 +5876,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural"
-version = "30.0.4"
+version = "30.0.5"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -9827,7 +9827,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "38.0.0"
+version = "38.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -17508,7 +17508,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.44.1"
+version = "0.44.2"
 dependencies = [
  "array-bytes",
  "assert_matches",

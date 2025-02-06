@@ -748,7 +748,7 @@ frame-executive = { path = "substrate/frame/executive", default-features = false
 frame-metadata = { version = "16.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false, version = "0.5.0" }
 frame-support = { path = "substrate/frame/support", default-features = false, version = "37.1.0" }
-frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false, version = "30.0.4" }
+frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false, version = "30.0.5" }
 frame-support-procedural-tools = { path = "substrate/frame/support/procedural/tools", default-features = false, version = "13.0.0" }
 frame-support-procedural-tools-derive = { path = "substrate/frame/support/procedural/tools/derive", default-features = false, version = "12.0.0" }
 frame-support-test = { path = "substrate/frame/support/test" }
@@ -869,7 +869,7 @@ pallet-authorship = { path = "substrate/frame/authorship", default-features = fa
 pallet-babe = { path = "substrate/frame/babe", default-features = false, version = "37.0.0" }
 pallet-bags-list = { path = "substrate/frame/bags-list", default-features = false, version = "36.0.0" }
 pallet-bags-list-remote-tests = { path = "substrate/frame/bags-list/remote-tests", version = "4.0.0" }
-pallet-balances = { path = "substrate/frame/balances", default-features = false, version = "38.0.0" }
+pallet-balances = { path = "substrate/frame/balances", default-features = false, version = "38.0.1" }
 pallet-beefy = { path = "substrate/frame/beefy", default-features = false, version = "38.0.0" }
 pallet-beefy-mmr = { path = "substrate/frame/beefy-mmr", default-features = false, version = "38.0.0" }
 pallet-bounties = { path = "substrate/frame/bounties", default-features = false, version = "36.0.1" }
@@ -1124,7 +1124,7 @@ sc-executor-wasmtime = { path = "substrate/client/executor/wasmtime", default-fe
 sc-informant = { path = "substrate/client/informant", default-features = false, version = "0.43.0" }
 sc-keystore = { path = "substrate/client/keystore", default-features = false, version = "33.0.0" }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false, version = "0.14.0" }
-sc-network = { path = "substrate/client/network", default-features = false, version = "0.44.1" }
+sc-network = { path = "substrate/client/network", default-features = false, version = "0.44.2" }
 sc-network-common = { path = "substrate/client/network/common", default-features = false, version = "0.43.0" }
 sc-network-gossip = { path = "substrate/client/network-gossip", default-features = false, version = "0.44.0" }
 sc-network-light = { path = "substrate/client/network/light", default-features = false, version = "0.43.0" }

@@ -844,7 +844,7 @@ version = "37.1.0"
 path = "../substrate/frame/support/procedural"
 default-features = false
 optional = true
-version = "30.0.4"
+version = "30.0.5"
 
 [dependencies.frame-support-procedural-tools-derive]
 path = "../substrate/frame/support/procedural/tools/derive"
@@ -964,7 +964,7 @@ version = "36.0.0"
 path = "../substrate/frame/balances"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.0.1"
 
 [dependencies.pallet-beefy]
 path = "../substrate/frame/beefy"
@@ -2554,7 +2554,7 @@ version = "0.14.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.44.1"
+version = "0.44.2"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
