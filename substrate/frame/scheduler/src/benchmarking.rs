@@ -32,10 +32,8 @@ type SystemCall<T> = frame_system::Call<T>;
 type SystemOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
 const SEED: u32 = 0;
+const BLOCK_NUMBER: u32 = 2;
 
-fn max_scheduled_blocks<T: Config>() -> u32 {
-	T::MaxScheduledPerBlock::get()
-}
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
@@ -141,7 +139,7 @@ mod benchmarks {
 	// `service_agendas` when no work is done.
 	#[benchmark]
 	fn service_agendas_base() {
-		let now = max_scheduled_blocks::<T>().into();
+		let now = BLOCK_NUMBER.into();
 		IncompleteSince::<T>::put(now - One::one());
 
 		#[block]
@@ -157,7 +155,7 @@ mod benchmarks {
 	fn service_agenda_base(
 		s: Linear<0, { T::MaxScheduledPerBlock::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let now = max_scheduled_blocks::<T>().into();
+		let now = BLOCK_NUMBER.into();
 		fill_schedule::<T>(now, s)?;
 		let mut executed = 0;
 
@@ -175,7 +173,7 @@ mod benchmarks {
 	// dispatched (e.g. due to being overweight).
 	#[benchmark]
 	fn service_task_base() {
-		let now = max_scheduled_blocks::<T>().into();
+		let now = BLOCK_NUMBER.into();
 		let task = make_task::<T>(false, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -198,7 +196,7 @@ mod benchmarks {
 	fn service_task_fetched(
 		s: Linear<{ BoundedInline::bound() as u32 }, { T::Preimages::MAX_LENGTH as u32 }>,
 	) {
-		let now = max_scheduled_blocks::<T>().into();
+		let now = BLOCK_NUMBER.into();
 		let task = make_task::<T>(false, false, false, Some(s), 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -216,7 +214,7 @@ mod benchmarks {
 	// dispatched (e.g. due to being overweight).
 	#[benchmark]
 	fn service_task_named() {
-		let now = max_scheduled_blocks::<T>().into();
+		let now = BLOCK_NUMBER.into();
 		let task = make_task::<T>(false, true, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -234,7 +232,7 @@ mod benchmarks {
 	// dispatched (e.g. due to being overweight).
 	#[benchmark]
 	fn service_task_periodic() {
-		let now = max_scheduled_blocks::<T>().into();
+		let now = BLOCK_NUMBER.into();
 		let task = make_task::<T>(true, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -288,7 +286,7 @@ mod benchmarks {
 	fn schedule(
 		s: Linear<0, { T::MaxScheduledPerBlock::get() - 1 }>,
 	) -> Result<(), BenchmarkError> {
-		let when = max_scheduled_blocks::<T>().into();
+		let when = BLOCK_NUMBER.into();
 		let periodic = Some((BlockNumberFor::<T>::one(), 100));
 		let priority = 0;
 		// Essentially a no-op call.
@@ -306,7 +304,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn cancel(s: Linear<1, { T::MaxScheduledPerBlock::get() }>) -> Result<(), BenchmarkError> {
-		let when = max_scheduled_blocks::<T>().into();
+		let when = BLOCK_NUMBER.into();
 
 		fill_schedule::<T>(when, s)?;
 		assert_eq!(Agenda::<T>::get(when).len(), s as usize);
@@ -338,7 +336,7 @@ mod benchmarks {
 		s: Linear<0, { T::MaxScheduledPerBlock::get() - 1 }>,
 	) -> Result<(), BenchmarkError> {
 		let id = u32_to_name(s);
-		let when = max_scheduled_blocks::<T>().into();
+		let when = BLOCK_NUMBER.into();
 		let periodic = Some((BlockNumberFor::<T>::one(), 100));
 		let priority = 0;
 		// Essentially a no-op call.
@@ -358,7 +356,7 @@ mod benchmarks {
 	fn cancel_named(
 		s: Linear<1, { T::MaxScheduledPerBlock::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let when = max_scheduled_blocks::<T>().into();
+		let when = BLOCK_NUMBER.into();
 
 		fill_schedule::<T>(when, s)?;
 
@@ -386,7 +384,7 @@ mod benchmarks {
 	fn schedule_retry(
 		s: Linear<1, { T::MaxScheduledPerBlock::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let when = max_scheduled_blocks::<T>().into();
+		let when = BLOCK_NUMBER.into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
@@ -422,7 +420,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_retry() -> Result<(), BenchmarkError> {
 		let s = T::MaxScheduledPerBlock::get();
-		let when = max_scheduled_blocks::<T>().into();
+		let when = BLOCK_NUMBER.into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
@@ -446,8 +444,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_retry_named() -> Result<(), BenchmarkError> {
-		let s =   max_scheduled_blocks::<T>().into();
-		let when = max_scheduled_blocks::<T>().into();
+		let s = T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
@@ -472,7 +470,7 @@ mod benchmarks {
 	#[benchmark]
 	fn cancel_retry() -> Result<(), BenchmarkError> {
 		let s = T::MaxScheduledPerBlock::get();
-		let when = max_scheduled_blocks::<T>().into();
+		let when = BLOCK_NUMBER.into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
@@ -493,7 +491,7 @@ mod benchmarks {
 	#[benchmark]
 	fn cancel_retry_named() -> Result<(), BenchmarkError> {
 		let s = T::MaxScheduledPerBlock::get();
-		let when = max_scheduled_blocks::<T>().into();
+		let when = BLOCK_NUMBER.into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
