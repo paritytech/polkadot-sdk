@@ -25,10 +25,9 @@ parachain-template-runtime = { workspace = true }
 
 # Substrate
 prometheus-endpoint = { workspace = true, default-features = true }
-sc-tracing = { workspace = true, default-features = true }
 
 [build-dependencies]
-polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
+polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils", "sc-tracing"] }
 
 [features]
 default = ["std"]
