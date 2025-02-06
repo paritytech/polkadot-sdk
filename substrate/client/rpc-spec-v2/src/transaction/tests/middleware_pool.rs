@@ -21,7 +21,7 @@ use codec::Encode;
 use sc_transaction_pool::BasicPool;
 use sc_transaction_pool_api::{
 	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool,
-	TransactionSource, TransactionStatusStreamFor, TxHash,
+	TransactionSource, TransactionStatusStreamFor, TransactionValidityError, TxHash,
 };
 
 use crate::hex_string;
@@ -140,7 +140,7 @@ impl TransactionPool for MiddlewarePool {
 	fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
-		invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
+		invalid_tx_errors: &[(TxHash<Self>, Option<TransactionValidityError>)],
 	) -> Vec<Arc<Self::InPoolTransaction>> {
 		self.inner_pool.report_invalid(at, invalid_tx_errors)
 	}
