@@ -1880,7 +1880,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const RandomParaLocationDup: Location = Location::parent()
-									.pushed_front_interior(Parachain(43211234))
+									.push_front_interior(Parachain(43211234))
 									.expect("Valid location");
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
 					RandomParaLocationDup::get(),
