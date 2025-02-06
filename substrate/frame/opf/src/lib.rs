@@ -247,7 +247,7 @@ pub mod pallet {
 		InexistentSpend,
 		/// No valid Account_id found
 		NoValidAccount,
-		/// No project available for funding
+		/// No project found under this project_id
 		NoProjectAvailable,
 		/// The Funds transfer failed
 		FailedSpendOperation,
@@ -292,7 +292,7 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// From this extrinsic only AdminOrigin can register project.
+		/// From this extrinsic only AdminOrigin can register whitelisted projects.
 		///
 		/// ### Parameters
 		/// - `projects_id`: The accounts that might be funded.
@@ -481,7 +481,7 @@ pub mod pallet {
 		/// - `project_id`: The account that will receive the reward.
 		///
 		/// ### Errors
-		/// - [`Error::<T>::NotEnoughFunds`]: The user does not have enough balance to cast a vote
+		/// - [`Error::<T>::NoProjectAvailable`]: No project found under this project_id
 		///  
 		/// ## Events
 		/// - [`Event::<T>::VoteRemoved { who, when, project_id }`]: User's vote successfully
