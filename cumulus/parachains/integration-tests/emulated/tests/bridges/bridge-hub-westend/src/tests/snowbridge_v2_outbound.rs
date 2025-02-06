@@ -18,16 +18,14 @@ use emulated_integration_tests_common::{impls::Decode, PenpalBTeleportableAssetL
 use frame_support::pallet_prelude::TypeInfo;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
 use snowbridge_core::AssetMetadata;
-use snowbridge_outbound_queue_primitives::v2::TransactInfo;
 use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
+use snowbridge_outbound_queue_primitives::v2::TransactInfo;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
 
 #[test]
 fn send_weth_from_asset_hub_to_ethereum() {
 	fund_on_bh();
-
-	register_weth_on_ah();
 
 	fund_on_ah();
 
@@ -98,8 +96,6 @@ fn transfer_relay_token_from_ah() {
 	fund_on_bh();
 
 	register_relay_token_on_bh();
-
-	register_weth_on_ah();
 
 	fund_on_ah();
 
@@ -177,8 +173,6 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 
 	register_relay_token_on_bh();
 
-	register_weth_on_ah();
-
 	fund_on_ah();
 
 	AssetHubWestend::execute_with(|| {
@@ -245,8 +239,6 @@ fn transact_with_agent() {
 	fund_on_bh();
 
 	register_ah_user_agent_on_ethereum();
-
-	register_weth_on_ah();
 
 	fund_on_ah();
 
@@ -327,7 +319,6 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 	fund_on_bh();
 	register_penpal_agent_on_ethereum();
 	// ah
-	register_weth_on_ah();
 	register_pal_on_ah();
 	register_pal_on_bh();
 	fund_on_ah();
@@ -479,7 +470,6 @@ pub enum SnowbridgeControlFrontend {
 #[test]
 fn create_user_agent_from_penpal() {
 	fund_on_bh();
-	register_weth_on_ah();
 	fund_on_ah();
 	create_pools_on_ah();
 	set_trust_reserve_on_penpal();

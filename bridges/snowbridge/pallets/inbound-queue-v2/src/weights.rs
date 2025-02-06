@@ -19,13 +19,3 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
     fn submit() -> Weight;
 }
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-    fn submit() -> Weight {
-        Weight::from_parts(70_000_000, 0)
-            .saturating_add(Weight::from_parts(0, 3601))
-            .saturating_add(RocksDbWeight::get().reads(2))
-            .saturating_add(RocksDbWeight::get().writes(2))
-    }
-}

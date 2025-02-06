@@ -12,6 +12,7 @@ use alloy_core::{
 	sol_types::{SolEvent, SolType},
 };
 use crate::Log;
+use crate::v2::LOG_TARGET;
 
 sol! {
 	interface IGatewayV2 {
@@ -71,13 +72,13 @@ pub struct Message {
 	pub gateway: H160,
 	/// A nonce for enforcing replay protection and ordering.
 	pub nonce: u64,
-	/// The origin address
+	/// The address on Ethereum that initiated the message.
 	pub origin: H160,
-	/// The assets
+	/// The assets sent from Ethereum (ERC-20s).
 	pub assets: Vec<EthereumAsset>,
-	/// The command originating from the Gateway contract
+	/// The command originating from the Gateway contract.
 	pub xcm: Vec<u8>,
-	/// The claimer in the case that funds get trapped.
+	/// The claimer in the case that funds get trapped. Expected to be an XCM::v5::Location.
 	pub claimer: Option<Vec<u8>>,
 	/// Native ether bridged over from Ethereum
 	pub value: u128,
@@ -121,9 +122,9 @@ impl TryFrom<&Log> for Message {
 		// Decode the Solidity event from raw logs
 		let event = IGatewayV2::OutboundMessageAccepted::decode_raw_log(topics, &log.data, true).map_err(
 			|decode_err| {
-				log::error!(
-					target: "snowbridge-inbound-queue:v2",
-					"💫 decode error {:?}",
+				log::debug!(
+					target: LOG_TARGET,
+					"decode message error {:?}",
 					decode_err
 				);
 				MessageDecodeError
@@ -136,7 +137,14 @@ impl TryFrom<&Log> for Message {
 			match asset.kind {
 				0 => {
 					let native_data = IGatewayV2::AsNativeTokenERC20::abi_decode(&asset.data, true)
-						.map_err(|_| MessageDecodeError)?;
+						.map_err(|decode_err| {
+							log::debug!(
+								target: LOG_TARGET,
+								"decode native asset error {:?}",
+								decode_err
+							);
+							MessageDecodeError
+						})?;
 					substrate_assets.push(EthereumAsset::NativeTokenERC20 {
 						token_id: H160::from(native_data.token_id.as_ref()),
 						value: native_data.value,
@@ -144,7 +152,14 @@ impl TryFrom<&Log> for Message {
 				},
 				1 => {
 					let foreign_data = IGatewayV2::AsForeignTokenERC20::abi_decode(&asset.data, true)
-						.map_err(|_| MessageDecodeError)?;
+						.map_err(|decode_err| {
+							log::debug!(
+								target: LOG_TARGET,
+								"decode foreign asset error {:?}",
+								decode_err
+							);
+							MessageDecodeError
+						})?;
 					substrate_assets.push(EthereumAsset::ForeignTokenERC20 {
 						token_id: H256::from(foreign_data.token_id.as_ref()),
 						value: foreign_data.value,
