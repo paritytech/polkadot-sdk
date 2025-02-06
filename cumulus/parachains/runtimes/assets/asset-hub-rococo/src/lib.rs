@@ -1879,7 +1879,9 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const RandomParaLocationDup: Location = ParentThen(Parachain(43211234).into()).into();
+				pub const RandomParaLocationDup: Location = Location::parent()
+									.pushed_front_interior(Parachain(43211234))
+									.expect("Valid location");
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
 					RandomParaLocationDup::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenLocation::get()) },
