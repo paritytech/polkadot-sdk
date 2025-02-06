@@ -501,7 +501,7 @@ async fn process_incoming_peer_message<Context>(
 			gum::warn!(
 				target: LOG_TARGET,
 				peer = %origin,
-				"Received bitfield gossip message with unsupported protocol version",
+				"Received bitfield distribution message with unsupported protocol version",
 			);
 			return
 		},
