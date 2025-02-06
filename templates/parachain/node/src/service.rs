@@ -32,6 +32,7 @@ use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 
 // Substrate Imports
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
+use polkadot_sdk::sc_tracing::logging;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
