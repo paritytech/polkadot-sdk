@@ -27,6 +27,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
+use pallet_staking::NullIdentity;
 use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
 
 type AccountId = u64;
@@ -68,8 +69,8 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = NullIdentity;
 }
 
 sp_runtime::impl_opaque_keys! {

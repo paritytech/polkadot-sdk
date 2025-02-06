@@ -66,10 +66,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	BoundedVec, DispatchResult, RuntimeDebug,
 };
-use sp_staking::{
-	offence::OffenceSeverity,
-	EraIndex, StakingInterface,
-};
+use sp_staking::{offence::OffenceSeverity, EraIndex, StakingInterface};
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.

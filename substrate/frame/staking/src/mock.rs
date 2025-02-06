@@ -140,7 +140,7 @@ sp_runtime::impl_opaque_keys! {
 	}
 }
 impl pallet_session::Config for Test {
-	type SessionManager = Staking;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
 	type Keys = SessionKeys;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionHandler = (OtherSessionHandler,);
@@ -152,8 +152,8 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = AccountId;
-	type FullIdentificationOf = IdentityOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = NullIdentity;
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
@@ -820,7 +820,10 @@ pub(crate) fn era_exposures(era: u32) -> Vec<(AccountId, Exposure<AccountId, Bal
 }
 
 pub(crate) fn on_offence_in_era(
-	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
+	offenders: &[OffenceDetails<
+		AccountId,
+		pallet_session::historical::IdentificationTuple<Test>,
+	>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
 ) {
@@ -854,7 +857,10 @@ pub(crate) fn on_offence_in_era(
 }
 
 pub(crate) fn on_offence_now(
-	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>>],
+	offenders: &[OffenceDetails<
+		AccountId,
+		pallet_session::historical::IdentificationTuple<Test>,
+	>],
 	slash_fraction: &[Perbill],
 ) {
 	let now = pallet_staking::ActiveEra::<Test>::get().unwrap().index;
@@ -865,16 +871,13 @@ pub(crate) fn offence_from(
 	reporter: Option<AccountId>,
 ) -> OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>> {
 	OffenceDetails {
-		offender: (offender, offender),
+		offender: (offender, ()),
 		reporters: reporter.map(|r| vec![(r)]).unwrap_or_default(),
 	}
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
-	on_offence_now(
-		&[offence_from(*who, None)],
-		&[Perbill::from_percent(10)],
-	);
+	on_offence_now(&[offence_from(*who, None)], &[Perbill::from_percent(10)]);
 }
 
 /// Make all validator and nominator request their payment
