@@ -263,9 +263,24 @@ jobs:
         ref: ${{ inputs.release_tag }}
         fetch-depth: 0
 
-    - name: Download artifacts
+    - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
+        name: polkadot_x86_64-unknown-linux-gnu
+        path: target/production
+        merge-multiple: true
+
+    - name: Download polkadot-execute-worker_x86_64-unknown-linux-gnu artifacts
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: polkadot-execute-worker_x86_64-unknown-linux-gnu
+        path: target/production
+        merge-multiple: true
+
+    - name: Download polkadot-prepare-worker_x86_64-unknown-linux-gnu artifacts
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: polkadot-prepare-worker_x86_64-unknown-linux-gnu
         path: target/production
         merge-multiple: true
 

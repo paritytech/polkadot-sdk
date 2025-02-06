@@ -41,6 +41,5 @@ sp-storage = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-test-primitives = { workspace = true }
 substrate-test-runtime = { workspace = true }
 thiserror = { workspace = true }
