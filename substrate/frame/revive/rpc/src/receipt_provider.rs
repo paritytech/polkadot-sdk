@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use jsonrpsee::core::async_trait;
-use pallet_revive::evm::{ReceiptInfo, TransactionSigned, H256};
+use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned, H256};
 use tokio::join;
 
 mod cache;
@@ -34,6 +34,11 @@ pub trait ReceiptProvider: Send + Sync {
 	/// Similar to `insert`, but intended for archiving receipts from historical blocks.
 	/// Cache providers may use the default no-operation implementation.
 	async fn archive(&self, _block_hash: &H256, _receipts: &[(TransactionSigned, ReceiptInfo)]) {}
+
+	/// Get logs that match the given filter.
+	async fn logs(&self, _filter: Filter) -> anyhow::Result<Option<Vec<Log>>> {
+		return Ok(None);
+	}
 
 	/// Deletes receipts associated with the specified block hash.
 	/// Archive providers can use the default no-operation implementation.
@@ -57,13 +62,17 @@ pub trait ReceiptProvider: Send + Sync {
 }
 
 #[async_trait]
-impl<Main: ReceiptProvider, Fallback: ReceiptProvider> ReceiptProvider for (Main, Fallback) {
+impl<Cache: ReceiptProvider, Archive: ReceiptProvider> ReceiptProvider for (Cache, Archive) {
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
 		join!(self.0.insert(block_hash, receipts), self.1.insert(block_hash, receipts));
 	}
 
+	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
+		self.1.insert(block_hash, receipts).await;
+	}
+
 	async fn remove(&self, block_hash: &H256) {
-		join!(self.0.remove(block_hash), self.1.remove(block_hash));
+		self.0.remove(block_hash).await;
 	}
 
 	async fn receipt_by_block_hash_and_index(
@@ -99,5 +108,9 @@ impl<Main: ReceiptProvider, Fallback: ReceiptProvider> ReceiptProvider for (Main
 			return Some(tx);
 		}
 		self.1.signed_tx_by_hash(hash).await
+	}
+
+	async fn logs(&self, filter: Filter) -> anyhow::Result<Option<Vec<Log>>> {
+		self.1.logs(filter).await
 	}
 }

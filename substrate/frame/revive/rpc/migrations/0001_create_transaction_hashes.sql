@@ -1,7 +1,7 @@
 -- Useful commands:
 --
 -- Set DATABASE_URL environment variable.
--- export DATABASE_URL=sqlite:///$HOME/tx_hashes.db
+-- export DATABASE_URL=sqlite:///$HOME/eth_rpc.db
 --
 -- Create DB:
 -- cargo sqlx database create
@@ -17,4 +17,6 @@ CREATE TABLE IF NOT EXISTS transaction_hashes (
   block_hash BLOB NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_block_hash ON transaction_hashes (block_hash);
+CREATE INDEX IF NOT EXISTS idx_block_hash ON transaction_hashes (
+	block_hash
+);

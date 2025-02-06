@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use super::*;
-use crate::{BlockInfoProvider, ReceiptExtractor};
+use crate::{Address, AddressOrAddresses, BlockInfoProvider, Bytes, FilterTopic, ReceiptExtractor};
 use jsonrpsee::core::async_trait;
-use pallet_revive::evm::{ReceiptInfo, TransactionSigned};
-use sp_core::H256;
-use sqlx::{query, SqlitePool};
+use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
+use sp_core::{H256, U256};
+use sqlx::{query, QueryBuilder, Row, Sqlite, SqlitePool};
 use std::sync::Arc;
 
 /// A `[ReceiptProvider]` that stores receipts in a SQLite database.
@@ -80,12 +80,8 @@ impl ReceiptProvider for DBReceiptProvider {
 
 			let result = query!(
 				r#"
-				INSERT INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+				INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
 				VALUES ($1, $2, $3)
-
-				ON CONFLICT(transaction_hash) DO UPDATE SET
-				block_hash = EXCLUDED.block_hash,
-				transaction_index = EXCLUDED.transaction_index
 				"#,
 				transaction_hash,
 				block_hash,
@@ -95,12 +91,139 @@ impl ReceiptProvider for DBReceiptProvider {
 			.await;
 
 			if let Err(err) = result {
-				log::error!(
-					"Error inserting transaction for block hash {block_hash:?}:  {:?}",
-					err
-				);
+				log::error!("Error inserting transaction for block hash {block_hash:?}: {err:?}");
+			}
+
+			for log in &receipt.logs {
+				let block_hash = log.block_hash.as_ref();
+				let transaction_index = log.transaction_index.as_u64() as i64;
+				let log_index = log.log_index.as_u32() as i32;
+				let address = log.address.as_ref();
+				let block_number = log.block_number.as_u64() as i64;
+				let transaction_hash = log.transaction_hash.as_ref();
+
+				let topic_0 = log.topics.get(0).as_ref().map(|v| &v[..]);
+				let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
+				let topic_2 = log.topics.get(2).as_ref().map(|v| &v[..]);
+				let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
+				let data = log.data.as_ref().map(|v| &v.0[..]);
+
+				let result = query!(
+					r#"
+					INSERT OR REPLACE INTO logs(
+						block_hash,
+						transaction_index,
+						log_index,
+						address,
+						block_number,
+						transaction_hash,
+						topic_0, topic_1, topic_2, topic_3,
+						data)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+					"#,
+					block_hash,
+					transaction_index,
+					log_index,
+					address,
+					block_number,
+					transaction_hash,
+					topic_0,
+					topic_1,
+					topic_2,
+					topic_3,
+					data
+				)
+				.execute(&self.pool)
+				.await;
+
+				if let Err(err) = result {
+					log::error!("Error inserting log {log:?}: {err:?}");
+				}
 			}
 		}
+	}
+
+	async fn logs(&self, filter: Filter) -> anyhow::Result<Option<Vec<Log>>> {
+		let mut qb = QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE 1=1");
+
+		if let Some(from_block) = filter.from_block {
+			qb.push(" AND block_number >= ").push_bind(from_block.as_u64() as i64);
+		}
+
+		if let Some(to_block) = filter.to_block {
+			qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
+		}
+
+		if let Some(addresses) = filter.address {
+			match addresses {
+				AddressOrAddresses::Address(addr) => {
+					qb.push(" AND address = ").push_bind(addr.0.to_vec());
+				},
+				AddressOrAddresses::Addresses(addrs) => {
+					qb.push(" AND address IN (");
+					let mut separated = qb.separated(", ");
+					for addr in addrs {
+						separated.push_bind(addr.0.to_vec());
+					}
+					separated.push_unseparated(")");
+				},
+			}
+		}
+
+		if let Some(topics) = filter.topics {
+			for (i, topic) in topics.into_iter().enumerate() {
+				match topic {
+					FilterTopic::Single(hash) => {
+						qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
+					},
+					FilterTopic::Multiple(hashes) => {
+						qb.push(format_args!(" AND topic_{i} IN ("));
+						let mut separated = qb.separated(", ");
+						for hash in hashes {
+							separated.push_bind(hash.0.to_vec());
+						}
+						separated.push_unseparated(")");
+					},
+				}
+			}
+		}
+
+		let logs = qb
+			.build()
+			.try_map(|row| {
+				let block_hash: Vec<u8> = row.try_get("block_hash")?;
+				let transaction_index: i64 = row.try_get("transaction_index")?;
+				let log_index: i64 = row.try_get("log_index")?;
+				let address: Vec<u8> = row.try_get("address")?;
+				let block_number: i64 = row.try_get("block_number")?;
+				let transaction_hash: Vec<u8> = row.try_get("transaction_hash")?;
+				let topic_0: Option<Vec<u8>> = row.try_get("topic_0")?;
+				let topic_1: Option<Vec<u8>> = row.try_get("topic_1")?;
+				let topic_2: Option<Vec<u8>> = row.try_get("topic_2")?;
+				let topic_3: Option<Vec<u8>> = row.try_get("topic_3")?;
+				let data: Option<Vec<u8>> = row.try_get("data")?;
+
+				let topics = [topic_0, topic_1, topic_2, topic_3]
+					.iter()
+					.filter_map(|t| t.as_ref().map(|t| H256::from_slice(t)))
+					.collect::<Vec<_>>();
+
+				Ok(Log {
+					address: Address::from_slice(&address),
+					block_hash: H256::from_slice(&block_hash),
+					block_number: U256::from(block_number as u64),
+					data: data.map(Bytes::from),
+					log_index: U256::from(log_index as u64),
+					topics,
+					transaction_hash: H256::from_slice(&transaction_hash),
+					transaction_index: U256::from(transaction_index as u64),
+					removed: None,
+				})
+			})
+			.fetch_all(&self.pool)
+			.await?;
+
+		Ok(Some(logs))
 	}
 
 	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<usize> {
@@ -179,7 +302,8 @@ mod tests {
 	use super::*;
 	use crate::test::MockBlockInfoProvider;
 	use pallet_revive::evm::{ReceiptInfo, TransactionSigned};
-	use sp_core::H256;
+	use pretty_assertions::assert_eq;
+	use sp_core::{H160, H256};
 	use sqlx::SqlitePool;
 
 	async fn setup_sqlite_provider(pool: SqlitePool) -> DBReceiptProvider {
@@ -219,5 +343,111 @@ mod tests {
 		provider.insert(&block_hash, &receipts).await;
 		let count = provider.receipts_count_per_block(&block_hash).await;
 		assert_eq!(count, Some(2));
+	}
+
+	#[sqlx::test]
+	async fn test_query_logs(pool: SqlitePool) {
+		let provider = setup_sqlite_provider(pool).await;
+		let log1 = Log {
+			block_hash: H256::default(),
+			block_number: U256::from(1),
+			address: H160::from([1u8; 20]),
+			topics: vec![H256::from([1u8; 32]), H256::from([2u8; 32])],
+			data: Some(vec![0u8; 32].into()),
+			transaction_hash: H256::default(),
+			transaction_index: U256::from(1),
+			log_index: U256::from(1),
+			..Default::default()
+		};
+		let log2 = Log {
+			block_hash: H256::default(),
+			block_number: U256::from(2),
+			address: H160::from([2u8; 20]),
+			topics: vec![H256::from([2u8; 32]), H256::from([3u8; 32])],
+			transaction_hash: H256::from([1u8; 32]),
+			transaction_index: U256::from(2),
+			log_index: U256::from(1),
+			..Default::default()
+		};
+
+		provider
+			.insert(
+				&log1.block_hash,
+				&vec![(
+					TransactionSigned::default(),
+					ReceiptInfo { logs: vec![log1.clone()], ..Default::default() },
+				)],
+			)
+			.await;
+		provider
+			.insert(
+				&log2.block_hash,
+				&vec![(
+					TransactionSigned::default(),
+					ReceiptInfo { logs: vec![log2.clone()], ..Default::default() },
+				)],
+			)
+			.await;
+
+		// Empty filter
+		let logs = provider.logs(Default::default()).await;
+		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		// from_block filter
+		let logs = provider
+			.logs(Filter { from_block: Some(log2.block_number), ..Default::default() })
+			.await;
+		assert_eq!(logs, vec![log2.clone()]);
+
+		// to_block filter
+		let logs = provider
+			.logs(Filter { to_block: Some(log1.block_number), ..Default::default() })
+			.await;
+		assert_eq!(logs, vec![log1.clone()]);
+
+		// single address
+		let logs = provider
+			.logs(Filter { address: Some(log1.address.into()), ..Default::default() })
+			.await;
+		assert_eq!(logs, vec![log1.clone()]);
+
+		// multiple addresses
+		let logs = provider
+			.logs(Filter {
+				address: Some(vec![log1.address, log2.address].into()),
+				..Default::default()
+			})
+			.await;
+		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		// single topic
+		let logs = provider
+			.logs(Filter {
+				topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
+				..Default::default()
+			})
+			.await;
+		assert_eq!(logs, vec![log1.clone()]);
+
+		// multiple topic
+		let logs = provider
+			.logs(Filter {
+				topics: Some(vec![
+					FilterTopic::Single(log1.topics[0]),
+					FilterTopic::Single(log1.topics[1]),
+				]),
+				..Default::default()
+			})
+			.await;
+		assert_eq!(logs, vec![log1.clone()]);
+
+		// topic selections
+		let logs = provider
+			.logs(Filter {
+				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
+				..Default::default()
+			})
+			.await;
+		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 	}
 }

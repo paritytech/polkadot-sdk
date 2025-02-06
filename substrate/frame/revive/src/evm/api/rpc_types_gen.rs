@@ -435,17 +435,17 @@ pub struct Log {
 	/// address
 	pub address: Address,
 	/// block hash
-	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
-	pub block_hash: Option<H256>,
+	#[serde(rename = "blockHash")]
+	pub block_hash: H256,
 	/// block number
-	#[serde(rename = "blockNumber", skip_serializing_if = "Option::is_none")]
-	pub block_number: Option<U256>,
+	#[serde(rename = "blockNumber")]
+	pub block_number: U256,
 	/// data
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub data: Option<Bytes>,
 	/// log index
-	#[serde(rename = "logIndex", skip_serializing_if = "Option::is_none")]
-	pub log_index: Option<U256>,
+	#[serde(rename = "logIndex")]
+	pub log_index: U256,
 	/// removed
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub removed: Option<bool>,
@@ -456,8 +456,8 @@ pub struct Log {
 	#[serde(rename = "transactionHash")]
 	pub transaction_hash: H256,
 	/// transaction index
-	#[serde(rename = "transactionIndex", skip_serializing_if = "Option::is_none")]
-	pub transaction_index: Option<U256>,
+	#[serde(rename = "transactionIndex")]
+	pub transaction_index: U256,
 }
 
 /// Syncing progress
@@ -669,13 +669,13 @@ pub struct AccessListEntry {
 #[serde(untagged)]
 pub enum FilterTopic {
 	/// Single Topic Match
-	H256(H256),
+	Single(H256),
 	/// Multiple Topic Match
-	Hashes(Vec<H256>),
+	Multiple(Vec<H256>),
 }
 impl Default for FilterTopic {
 	fn default() -> Self {
-		FilterTopic::H256(Default::default())
+		FilterTopic::Single(Default::default())
 	}
 }
 
