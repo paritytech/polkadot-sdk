@@ -265,7 +265,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let p_api = para_node.wait_client().await?;
 	let p_events = para_events.clone();
 
-	let _subscriber = tokio::spawn(async move {
+	let _subscriber1 = tokio::spawn(async move {
 		para_watcher(p_api, p_events).await;
 	});
 
@@ -273,7 +273,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let r_api = relay_node.wait_client().await?;
 	let r_events = relay_events.clone();
 
-	let _subscriber = tokio::spawn(async move {
+	let _subscriber2 = tokio::spawn(async move {
 		relay_watcher(r_api, r_events).await;
 	});
 
@@ -466,53 +466,9 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	assert_eq!(order.spot_price, ON_DEMAND_BASE_FEE);
 
-	log::info!("Bob is going to buy on-demand credits for alice");
-
-	let r = para_client
-		.tx()
-		.sign_and_submit_then_watch_default(
-			&coretime_api::tx().broker().purchase_credit(100_000_000, alice_acc.clone()),
-			&bob,
-		)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	assert!(r.find_first::<coretime_api::broker::events::CreditPurchased>()?.is_some());
-
-	let _account_credited = wait_for_event(
-		relay_events.clone(),
-		"OnDemandAssignmentProvider",
-		"AccountCredited",
-		|e: &on_demand_events::AccountCredited| e.who == alice_acc,
-	)
-	.await;
-
-	// Once the account is credit we can place an on-demand order using credits
-	log::info!("Alice is going to place an on-demand order using credits");
-
-	let r = relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(
-			&rococo_api::tx()
-				.on_demand_assignment_provider()
-				.place_order_with_credits(100_000_000, primitives::Id(100)),
-			&alice,
-		)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	let order = r
-		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
-		.unwrap();
-
 	// Somewhere below this point, revenue is generated and is teleported to the PC (that happens
 	// once a timeslice so we're not ready to assert it yet, let's just account). That checks out
 	// tokens from the RC and mints them on the PC.
-
-	// Purchasing on-demand with credits doesn't affect the total issuance, as the credits are
-	// purchased on the PC.
 
 	total_issuance.1 += ON_DEMAND_BASE_FEE;
 
@@ -540,6 +496,54 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	// issuance
 
 	assert_total_issuance(relay_client.clone(), para_client.clone(), total_issuance).await;
+
+	// Try purchasing on-demand with credits:
+
+	log::info!("Bob is going to buy on-demand credits for alice");
+
+	let r = para_client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&coretime_api::tx().broker().purchase_credit(100_000_000, alice_acc.clone()),
+			&bob,
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	assert!(r.find_first::<coretime_api::broker::events::CreditPurchased>()?.is_some());
+
+	let _account_credited = wait_for_event(
+		relay_events.clone(),
+		"OnDemandAssignmentProvider",
+		"AccountCredited",
+		|e: &on_demand_events::AccountCredited| e.who == alice_acc && e.amount == 100_000_000,
+	)
+	.await;
+
+	// Once the account is credit we can place an on-demand order using credits
+	log::info!("Alice is going to place an on-demand order using credits");
+
+	let r = relay_client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&rococo_api::tx()
+				.on_demand_assignment_provider()
+				.place_order_with_credits(100_000_000, primitives::Id(100)),
+			&alice,
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	let order = r
+		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
+		.unwrap();
+
+	assert_eq!(order.spot_price, ON_DEMAND_BASE_FEE);
+
+	// NOTE: Purchasing on-demand with credits doesn't affect the total issuance, as the credits are
+	// purchased on the PC. Therefore we don't check for total issuance changes.
 
 	// Alice claims her revenue
 

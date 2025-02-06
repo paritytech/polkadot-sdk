@@ -363,7 +363,8 @@ fn place_order_with_credits() {
 
 		// Initialize the parathread and wait for it to be ready.
 		schedule_blank_para(para_id, ParaKind::Parathread);
-		Credits::<Test>::insert(alice, initial_credit);
+		OnDemand::credit_account(alice, initial_credit);
+		assert_eq!(Credits::<Test>::get(alice), initial_credit);
 
 		assert!(!Paras::is_parathread(para_id));
 		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });

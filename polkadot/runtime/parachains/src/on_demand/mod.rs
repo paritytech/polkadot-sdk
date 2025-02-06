@@ -196,7 +196,7 @@ pub mod pallet {
 		/// The value of the spot price has likely changed
 		SpotPriceSet { spot_price: BalanceOf<T> },
 		/// An account was given credits.
-		AccountCredited { who: T::AccountId },
+		AccountCredited { who: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -428,11 +428,10 @@ where
 	/// - `who`: Credit receiver.
 	/// - `amount`: The amount of new credits the account will receive.
 	pub fn credit_account(who: T::AccountId, amount: BalanceOf<T>) {
-		Credits::<T>::mutate(who.clone(), |old_credits| {
-			let credits = old_credits.saturating_add(amount);
-			credits
+		Credits::<T>::mutate(who.clone(), |credits| {
+			*credits = credits.saturating_add(amount);
 		});
-		Pallet::<T>::deposit_event(Event::<T>::AccountCredited { who });
+		Pallet::<T>::deposit_event(Event::<T>::AccountCredited { who, amount });
 	}
 
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
@@ -501,8 +500,9 @@ where
 				PaymentType::Credits => {
 					// Charge the sending account the spot price in credits.
 					Credits::<T>::try_mutate(&sender, |credits| -> DispatchResult {
-						ensure!(spot_price <= *credits, Error::<T>::InsufficientCredits);
-						*credits = credits.saturating_sub(spot_price);
+						*credits = credits
+							.checked_sub(&spot_price)
+							.ok_or(Error::<T>::InsufficientCredits)?;
 						Ok(())
 					})?;
 				},
