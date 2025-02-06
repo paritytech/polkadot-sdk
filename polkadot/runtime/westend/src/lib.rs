@@ -777,7 +777,6 @@ impl pallet_staking_ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type AssetHubId = AssetHubId;
 	type SendXcm = crate::xcm_config::XcmRouter;
-	type MaxXcmTransactWeight = MaxXcmTransactWeight; // TODO: check if it's safe to reuse
 }
 
 impl pallet_fast_unstake::Config for Runtime {
