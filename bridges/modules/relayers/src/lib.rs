@@ -24,7 +24,7 @@ use bp_relayers::{
 	PaymentProcedure, Registration, RelayerRewardsKeyProvider,
 	StakeAndSlash,
 };
-pub use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
+pub use bp_relayers::{RewardsAccountOwner, RewardsAccountParams, RewardLedger};
 use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::{fail, traits::tokens::Balance};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
@@ -492,6 +492,19 @@ pub mod pallet {
 		Registration<BlockNumberFor<T>, T::Balance>,
 		OptionQuery,
 	>;
+}
+
+/// Implementation of `RewardLedger` for the pallet.
+impl<T: Config<I>, I: 'static, Relayer, RewardKind, Reward> RewardLedger<Relayer, RewardKind, Reward> for Pallet<T, I>
+where
+	Relayer: AsRef<T::AccountId>,
+	RewardKind: Into<T::RewardKind>,
+	Reward: Into<T::Reward>,
+{
+
+	fn register_reward(relayer: &Relayer, reward_kind: RewardKind, reward: Reward) {
+		Pallet::<T, I>::register_relayer_reward(reward_kind.into(), relayer.as_ref(), reward.into());
+	}
 }
 
 #[cfg(test)]

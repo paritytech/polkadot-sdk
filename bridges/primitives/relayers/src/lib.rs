@@ -102,6 +102,20 @@ pub trait PaymentProcedure<Relayer, RewardKind, Reward> {
 	) -> Result<(), Self::Error>;
 }
 
+/// A trait defining a reward ledger, which tracks rewards that can be later claimed.
+///
+/// This ledger allows registering rewards for a relayer, categorized by a specific `RewardKind`.
+/// The registered rewards can be claimed later through an appropriate payment procedure.
+pub trait RewardLedger<Relayer, RewardKind, Reward> {
+
+	/// Registers a reward for a given relayer.
+	fn register_reward(
+		relayer: &Relayer,
+		reward_kind: RewardKind,
+		reward: Reward,
+	);
+}
+
 impl<Relayer, RewardKind, Reward> PaymentProcedure<Relayer, RewardKind, Reward> for () {
 	type Error = &'static str;
 
