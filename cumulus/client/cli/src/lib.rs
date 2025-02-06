@@ -431,6 +431,18 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_methods()
 	}
 
+	fn rpc_rate_limit(&self) -> sc_cli::Result<Option<std::num::NonZeroU32>> {
+		Ok(self.base.rpc_params.rpc_rate_limit)
+	}
+
+	fn rpc_rate_limit_whitelisted_ips(&self) -> sc_cli::Result<Vec<sc_service::config::IpNetwork>> {
+		Ok(self.base.rpc_params.rpc_rate_limit_whitelisted_ips.clone())
+	}
+
+	fn rpc_rate_limit_trust_proxy_headers(&self) -> sc_cli::Result<bool> {
+		Ok(self.base.rpc_params.rpc_rate_limit_trust_proxy_headers)
+	}
+
 	fn rpc_max_request_size(&self) -> sc_cli::Result<u32> {
 		self.base.rpc_max_request_size()
 	}
