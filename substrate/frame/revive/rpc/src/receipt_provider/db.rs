@@ -42,6 +42,7 @@ impl DBReceiptProvider {
 		receipt_extractor: ReceiptExtractor,
 	) -> Result<Self, sqlx::Error> {
 		let pool = SqlitePool::connect(database_url).await?;
+		sqlx::migrate!().run(&pool).await?;
 		Ok(Self { pool, block_provider, receipt_extractor })
 	}
 
