@@ -18,7 +18,7 @@
 
 pub use polkadot_node_primitives::NODE_VERSION;
 
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use std::path::PathBuf;
 
 #[allow(missing_docs)]
@@ -150,7 +150,7 @@ pub struct RunCmd {
 	///
 	///**Dangerous!** This is an experimental feature and should not be used in production, unless
 	/// explicitly advised to.
-	#[arg(long)]
+	#[arg(long, default_value = "true", action=ArgAction::Set)]
 	pub enable_approval_voting_parallel: bool,
 }
 
