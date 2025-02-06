@@ -179,4 +179,33 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
           echo "github.sha: ${{ github.sha }}"
+  #
+  #
+  # Wait until the 'build and push' image workflow success
+  wait_build_images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Wait until "Build and push images" workflow is done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh --version
+          export SHA=${{ github.event.pull_request.head.sha }}
+          while true; do
+            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
+            echo "CI workflow status: $STATUS"
+            if [[ $STATUS == "completed" ]]; then
+              echo "CI workflow is done."
+              break
+            fi
+            if [[ -z "$STATUS" ]]; then
+              echo "::warning::No CI workflow runs found for this commit"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "CI workflow is done."
 

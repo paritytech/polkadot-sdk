@@ -1,11 +1,12 @@
 name: Zombienet Substrate
 
 on:
-  # This workflow should only runs when the images are built for the pr/merge queue
-  # NOTE: 'Build and push images' will run in each pr/merge queue.
-  workflow_run:
-    workflows: [Build and push images]
-    types: [completed]
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
