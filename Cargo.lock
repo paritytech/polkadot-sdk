@@ -6460,7 +6460,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural"
-version = "31.0.0"
+version = "31.0.1"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -15008,7 +15008,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "1.17.1"
+version = "6.0.0"
 dependencies = [
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
@@ -19258,7 +19258,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.48.0"
+version = "0.48.1"
 dependencies = [
  "array-bytes",
  "assert_matches",

@@ -844,7 +844,7 @@ version = "39.0.0"
 path = "../substrate/frame/support/procedural"
 default-features = false
 optional = true
-version = "31.0.0"
+version = "31.0.1"
 
 [dependencies.frame-support-procedural-tools-derive]
 path = "../substrate/frame/support/procedural/tools/derive"
@@ -2590,7 +2590,7 @@ version = "0.18.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.48.0"
+version = "0.48.1"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
