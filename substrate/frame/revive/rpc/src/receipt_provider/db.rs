@@ -47,7 +47,7 @@ impl DBReceiptProvider {
 	}
 
 	async fn fetch_row(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
-		let transaction_hash = hex::encode(transaction_hash);
+		let transaction_hash = transaction_hash.as_ref();
 		let result = query!(
 			r#"
 			SELECT block_hash, transaction_index
@@ -73,7 +73,7 @@ impl ReceiptProvider for DBReceiptProvider {
 	}
 
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
-		let block_hash_str = hex::encode(block_hash);
+		let block_hash = block_hash.as_ref();
 		for (_, receipt) in receipts {
 			let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
 			let transaction_index = receipt.transaction_index.as_u32() as i32;
@@ -88,7 +88,7 @@ impl ReceiptProvider for DBReceiptProvider {
 				transaction_index = EXCLUDED.transaction_index
 				"#,
 				transaction_hash,
-				block_hash_str,
+				block_hash,
 				transaction_index
 			)
 			.execute(&self.pool)
@@ -104,7 +104,7 @@ impl ReceiptProvider for DBReceiptProvider {
 	}
 
 	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<usize> {
-		let block_hash = hex::encode(block_hash);
+		let block_hash = block_hash.as_ref();
 		let row = query!(
 			r#"
             SELECT COUNT(*) as count
@@ -148,7 +148,7 @@ impl ReceiptProvider for DBReceiptProvider {
 	}
 
 	async fn signed_tx_by_hash(&self, transaction_hash: &H256) -> Option<TransactionSigned> {
-		let transaction_hash = hex::encode(transaction_hash);
+		let transaction_hash = transaction_hash.as_ref();
 		let result = query!(
 			r#"
 			SELECT block_hash, transaction_index
