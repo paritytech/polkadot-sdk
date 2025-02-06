@@ -21,7 +21,7 @@ on:
 
 jobs:
 
-  set-image:
+  setup:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
@@ -39,16 +39,16 @@ jobs:
       - id: set_runner
         run: |
           if [ "${{ inputs.binary }}" = "polkadot-parachain" ]; then
-            echo "RUNNER = parity-large" >> GITHUB_OUTPUT
+            echo "RUNNER=parity-large" >> GITHUB_OUTPUT
           else
-            echo "RUNNER = ubuntu-latest" >> GITHUB_OUTPUT
+            echo "RUNNER=ubuntu-latest" >> GITHUB_OUTPUT
           fi
 
   build:
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [setup]
+    runs-on: ${{ needs.setup.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.setup.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
