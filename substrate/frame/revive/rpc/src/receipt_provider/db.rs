@@ -32,20 +32,17 @@ pub struct DBReceiptProvider {
 	block_provider: Arc<dyn BlockInfoProvider>,
 	/// A means to extract receipts from extrinsics.
 	receipt_extractor: ReceiptExtractor,
-	/// weather or not we should write to the DB.
-	read_only: bool,
 }
 
 impl DBReceiptProvider {
 	/// Create a new `DBReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
 		database_url: &str,
-		read_only: bool,
 		block_provider: Arc<dyn BlockInfoProvider>,
 		receipt_extractor: ReceiptExtractor,
 	) -> Result<Self, sqlx::Error> {
 		let pool = SqlitePool::connect(database_url).await?;
-		Ok(Self { pool, block_provider, read_only, receipt_extractor })
+		Ok(Self { pool, block_provider, receipt_extractor })
 	}
 
 	async fn fetch_row(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
@@ -71,10 +68,6 @@ impl DBReceiptProvider {
 #[async_trait]
 impl ReceiptProvider for DBReceiptProvider {
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
-		if self.read_only {
-			return
-		}
-
 		let block_hash_str = hex::encode(block_hash);
 		for (_, receipt) in receipts {
 			let transaction_hash = hex::encode(receipt.transaction_hash);
@@ -191,7 +184,6 @@ mod tests {
 			pool,
 			block_provider: Arc::new(MockBlockInfoProvider {}),
 			receipt_extractor: ReceiptExtractor::new(1_000_000),
-			read_only: false,
 		}
 	}
 

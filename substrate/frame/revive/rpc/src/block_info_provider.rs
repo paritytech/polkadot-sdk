@@ -91,8 +91,7 @@ impl BlockInfoProvider for BlockInfoProviderImpl {
 		&self,
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		let cache = self.cache().await;
-		if let Some(block) = cache.blocks_by_number.get(&block_number).cloned() {
+		if let Some(block) = self.cache().await.blocks_by_number.get(&block_number).cloned() {
 			return Ok(Some(block));
 		}
 
@@ -100,12 +99,12 @@ impl BlockInfoProvider for BlockInfoProviderImpl {
 			return Ok(None);
 		};
 
-		self.block_by_hash(&hash).await
+		let res = self.block_by_hash(&hash).await;
+		res
 	}
 
 	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		let cache = self.cache().await;
-		if let Some(block) = cache.blocks_by_hash.get(hash).cloned() {
+		if let Some(block) = self.cache().await.blocks_by_hash.get(hash).cloned() {
 			return Ok(Some(block));
 		}
 

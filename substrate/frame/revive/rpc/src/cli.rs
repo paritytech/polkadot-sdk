@@ -16,7 +16,7 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::{connect, native_to_eth_ratio, Client},
+	client::{connect, native_to_eth_ratio, Client, SubscriptionType},
 	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
 	EthRpcServer, EthRpcServerImpl, ReceiptExtractor, ReceiptProvider, SystemHealthRpcServer,
 	SystemHealthRpcServerImpl, LOG_TARGET,
@@ -55,11 +55,6 @@ pub struct CliCommand {
 	#[clap(long, env = "DATABASE_URL")]
 	pub database_url: Option<String>,
 
-	/// If true, we will only read from the database and not write to it.
-	/// Only useful if `--database-url` is specified.
-	#[clap(long, default_value = "true")]
-	pub database_read_only: bool,
-
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub shared_params: SharedParams,
@@ -76,6 +71,11 @@ pub struct CliCommand {
 /// Initialize the logger
 #[cfg(not(test))]
 fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
+	if std::env::var("TOKIO_CONSOLE").is_ok() {
+		console_subscriber::init();
+		return Ok(())
+	}
+
 	let mut logger = sc_cli::LoggerBuilder::new(params.log_filters().join(","));
 	logger
 		.with_log_reloading(params.enable_log_reloading)
@@ -94,6 +94,51 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 	Ok(())
 }
 
+fn build_client(
+	tokio_handle: &tokio::runtime::Handle,
+	cache_size: usize,
+	node_rpc_url: &str,
+	database_url: Option<&str>,
+	abort_signal: Signals,
+) -> anyhow::Result<Client> {
+	let fut = async {
+		let (api, rpc_client, rpc) = connect(&node_rpc_url).await?;
+		let block_provider: Arc<dyn BlockInfoProvider> =
+			Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
+
+		let receipt_extractor = ReceiptExtractor::new(native_to_eth_ratio(&api).await?);
+		let receipt_provider: Arc<dyn ReceiptProvider> = if let Some(database_url) = database_url {
+			log::info!(target: LOG_TARGET, "🔗 Connecting to provided database");
+			Arc::new((
+				CacheReceiptProvider::default(),
+				DBReceiptProvider::new(
+					database_url,
+					block_provider.clone(),
+					receipt_extractor.clone(),
+				)
+				.await?,
+			))
+		} else {
+			log::info!(target: LOG_TARGET, "🔌 No database provided, using in-memory cache");
+			Arc::new(CacheReceiptProvider::default())
+		};
+
+		let client =
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, receipt_extractor)
+				.await?;
+
+		Ok(client)
+	}
+	.fuse();
+	pin_mut!(fut);
+
+	match tokio_handle.block_on(abort_signal.try_until_signal(fut)) {
+		Ok(Ok(client)) => Ok(client),
+		Ok(Err(err)) => Err(err),
+		Err(_) => anyhow::bail!("Process interrupted"),
+	}
+}
+
 /// Start the JSON-RPC server using the given command line arguments.
 pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let CliCommand {
@@ -102,7 +147,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		node_rpc_url,
 		cache_size,
 		database_url,
-		database_read_only,
 		shared_params,
 		..
 	} = cmd;
@@ -138,58 +182,14 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let tokio_runtime = sc_cli::build_runtime()?;
 	let tokio_handle = tokio_runtime.handle();
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
-	let essential_spawn_handle = task_manager.spawn_essential_handle();
 
-	let gen_rpc_module = || {
-		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
-		let fut = async {
-			let (api, rpc_client, rpc) = connect(&node_rpc_url).await?;
-			let block_provider: Arc<dyn BlockInfoProvider> =
-				Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
-
-			let receipt_extractor = ReceiptExtractor::new(native_to_eth_ratio(&api).await?);
-			let receipt_provider: Arc<dyn ReceiptProvider> =
-				if let Some(database_url) = database_url.as_ref() {
-					log::info!(target: LOG_TARGET, "🔗 Connecting to provided database");
-					Arc::new((
-						CacheReceiptProvider::default(),
-						DBReceiptProvider::new(
-							database_url,
-							database_read_only,
-							block_provider.clone(),
-							receipt_extractor.clone(),
-						)
-						.await?,
-					))
-				} else {
-					log::info!(target: LOG_TARGET, "🔌 No database provided, using in-memory cache");
-					Arc::new(CacheReceiptProvider::default())
-				};
-
-			let client = Client::new(
-				api,
-				rpc_client,
-				rpc,
-				block_provider,
-				receipt_provider,
-				receipt_extractor,
-			)
-			.await?;
-			client.subscribe_and_cache_blocks(&essential_spawn_handle);
-			Ok::<_, crate::ClientError>(client)
-		}
-		.fuse();
-		pin_mut!(fut);
-
-		match tokio_handle.block_on(signals.try_until_signal(fut)) {
-			Ok(Ok(client)) => rpc_module(is_dev, client),
-			Ok(Err(err)) => {
-				log::error!("Error initializing: {err:?}");
-				Err(sc_service::Error::Application(err.into()))
-			},
-			Err(_) => Err(sc_service::Error::Application("Client connection interrupted".into())),
-		}
-	};
+	let client = build_client(
+		&tokio_handle,
+		cache_size,
+		&node_rpc_url,
+		database_url.as_deref(),
+		tokio_runtime.block_on(async { Signals::capture() })?,
+	)?;
 
 	// Prometheus metrics.
 	if let Some(PrometheusConfig { port, registry }) = prometheus_config.clone() {
@@ -200,8 +200,19 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		);
 	}
 
-	let rpc_server_handle =
-		start_rpc_servers(&rpc_config, prometheus_registry, tokio_handle, gen_rpc_module, None)?;
+	let rpc_server_handle = start_rpc_servers(
+		&rpc_config,
+		prometheus_registry,
+		tokio_handle,
+		|| rpc_module(is_dev, client.clone()),
+		None,
+	)?;
+
+	task_manager
+		.spawn_essential_handle()
+		.spawn("block-subscription", None, async move {
+			client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks).await
+		});
 
 	task_manager.keep_alive(rpc_server_handle);
 	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
