@@ -7,3 +7,5 @@ doc:
 crates:
   - name: polkadot-service
     bump: patch
+  - name: polkadot-cli
+    bump: patch
