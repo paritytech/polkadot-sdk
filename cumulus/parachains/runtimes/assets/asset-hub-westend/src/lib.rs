@@ -1873,16 +1873,10 @@ impl_runtime_apis! {
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
-			pub const RANDOM_ID: u32 = 43211234;
-			pub const fn CREATE_RND_LOC() -> Location {
-					Location::new(
-						1,
-						[Parachain(ParaId::from(RANDOM_ID).into())]
-					)
-			};
 			parameter_types! {
-				pub const RandomParaId: u32 = RANDOM_ID;
-				pub const RandomParaLocation: Location = CREATE_RND_LOC();
+				pub RandomParaId: ParaId = ParaId::new(43211234);
+				pub RandomParaLocation: Location = ParentThen(Parachain(
+					RandomParaId::get().into()).into()).into();
 
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					WestendLocation::get(),

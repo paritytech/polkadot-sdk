@@ -1706,16 +1706,10 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
-			pub const RANDOM_ID: u32 = 43211234;
-			pub const fn CREATE_RND_LOC() -> Location {
-					Location::new(
-						1,
-						[Parachain(ParaId::from(RANDOM_ID).into())]
-					)
-			}
 			parameter_types! {
-				pub const RandomParaId: u32 = RANDOM_ID;
-				pub const RandomParaLocation: Location = CREATE_RND_LOC();
+				pub RandomParaId: ParaId = ParaId::new(43211234);
+				pub RandomParaLocation: Location = ParentThen(Parachain(
+					RandomParaId::get().into()).into()).into();
 
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					TokenLocation::get(),
@@ -1885,8 +1879,9 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
+				pub const RandomParaLocationDup: Location = ParentThen(Parachain(43211234).into()).into();
 				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					CREATE_RND_LOC(),
+					RandomParaLocationDup::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
