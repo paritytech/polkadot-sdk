@@ -11,9 +11,9 @@ doc:
     and nested local instructions by applying allow condition after denial.
 crates:
 - name: staging-xcm-builder
-  bump: patch
+  bump: minor
 - name: staging-xcm-executor
-  bump: patch
+  bump: minor
 - name: asset-hub-rococo-runtime
   bump: patch
 - name: asset-hub-westend-runtime
