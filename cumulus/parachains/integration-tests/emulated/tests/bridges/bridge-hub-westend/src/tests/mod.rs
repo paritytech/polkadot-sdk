@@ -21,12 +21,12 @@ mod register_bridged_assets;
 mod send_xcm;
 mod snowbridge;
 mod snowbridge_common;
+mod snowbridge_edge_case;
 mod snowbridge_v2;
 mod snowbridge_v2_outbound;
+mod snowbridge_v2_outbound_from_rococo;
 mod teleport;
 mod transact;
-
-mod snowbridge_edge_case;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {
 	Location::new(
