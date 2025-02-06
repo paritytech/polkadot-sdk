@@ -37,7 +37,6 @@ mod mock;
 mod test;
 
 pub use crate::weights::WeightInfo;
-use alloc::format;
 use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -56,7 +55,6 @@ use snowbridge_inbound_queue_primitives::{
 	EventProof, VerificationError, Verifier,
 };
 use sp_core::H160;
-use sp_io::hashing::blake2_256;
 use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -249,10 +247,7 @@ pub mod pallet {
 			// Verify the message has not been processed
 			ensure!(!Nonce::<T>::get(message.nonce.into()), Error::<T>::InvalidNonce);
 
-			let topic =
-				blake2_256(format!("snowbridge-inbound-queue:{}", message.nonce).as_bytes());
-
-			let xcm = T::MessageConverter::convert(message.clone(), topic)
+			let xcm = T::MessageConverter::convert(message.clone())
 				.map_err(|error| Error::<T>::from(error))?;
 
 			// Forward XCM to AH

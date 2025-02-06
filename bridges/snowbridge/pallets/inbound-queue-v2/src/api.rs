@@ -16,9 +16,8 @@ pub fn dry_run<T>(message: Message) -> Result<(Xcm<()>, T::Balance), DispatchErr
 where
 	T: Config,
 {
-	// Convert the inbound message into an XCM message. Passing `[0; 32]` here as a placeholder
-	// message_id
-	let xcm = T::MessageConverter::convert(message, [0; 32]).map_err(|e| Error::<T>::from(e))?;
+	// Convert the inbound message into an XCM message.
+	let xcm = T::MessageConverter::convert(message).map_err(|e| Error::<T>::from(e))?;
 
 	// Compute the base fee for submitting the extrinsic. This covers the cost of the "submit" call
 	// on our chain.

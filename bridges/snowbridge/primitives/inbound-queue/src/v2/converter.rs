@@ -12,6 +12,7 @@ use xcm::{
 	prelude::{Junction::*, *}, MAX_XCM_DECODE_DEPTH
 };
 use crate::v2::LOG_TARGET;
+use sp_io::hashing::blake2_256;
 
 use super::message::*;
 
@@ -28,7 +29,6 @@ pub enum ConvertMessageError {
 pub trait ConvertMessage {
 	fn convert(
 		message: Message,
-		topic: [u8; 32],
 	) -> Result<Xcm<()>, ConvertMessageError>;
 }
 
@@ -82,8 +82,7 @@ where
 	GlobalAssetHubLocation: Get<Location>,
 {
 	fn convert(
-		message: Message,
-		topic: [u8; 32]
+		message: Message
 	) -> Result<Xcm<()>, ConvertMessageError> {
 		let mut message_xcm: Xcm<()> = Xcm::new();
 		if message.xcm.len() > 0 {
@@ -189,10 +188,12 @@ where
 			));
 		}
 
+		let topic = blake2_256(&("snowbridge-inbound-queue:v2", message.nonce).encode());
+
 		// Add the XCM sent in the message to the end of the xcm instruction
 		instructions.extend(message_xcm.0);
 
-		instructions.push(SetTopic(topic));
+		instructions.push(SetTopic(topic.into()));
 		instructions.push(RefundSurplus);
 		// Refund excess fees to the claimer, if present, otherwise to the relayer.
 		instructions.push(DepositAsset {
