@@ -11,6 +11,8 @@ use crate::helpers::{assert_blocks_are_being_finalized, assert_para_throughput};
 use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, Id as ParaId, SessionIndex};
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
+use tokio::time::Duration;
+use tokio_util::time::FutureExt;
 use zombienet_sdk::NetworkConfigBuilder;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -37,9 +39,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 								"scheduler_params": {
 									"group_rotation_frequency": 3,
 									"max_validators_per_core": 1,
-									"lookahead": 2,
-									"max_candidate_depth": 3,
-									"allowed_ancestry_len": 2
+									"lookahead": 3,
 								},
 								"needed_approvals": 2
 							}
@@ -164,7 +164,10 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	assert_blocks_are_being_finalized(&relay_client).await?;
+	assert_blocks_are_being_finalized(&relay_client)
+		.timeout(Duration::from_secs(60))
+		.await?
+		.unwrap();
 
 	log::info!("Test finished successfully");
 

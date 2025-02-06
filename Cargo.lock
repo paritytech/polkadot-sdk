@@ -19868,6 +19868,7 @@ dependencies = [
  "subxt",
  "subxt-signer",
  "tokio",
+ "tokio-util",
  "zombienet-sdk",
 ]
 
