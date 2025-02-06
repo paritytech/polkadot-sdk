@@ -530,15 +530,15 @@ impl pallet_session::Config for Runtime {
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	// todo(ank4n): Recheck if this is correct. We probably need a modified historical root.
-	type SessionManager = Staking;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = AccountId;
-	type FullIdentificationOf = pallet_staking::IdentityOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 pub struct MaybeSignedPhase;

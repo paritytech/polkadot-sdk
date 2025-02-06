@@ -910,8 +910,8 @@ impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
 	T: pallet_session::historical::Config<
-		FullIdentification = <T as frame_system::Config>::AccountId,
-		FullIdentificationOf = IdentityOf<T>,
+		FullIdentification = (),
+		FullIdentificationOf = NullIdentity,
 	>,
 	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
@@ -1059,17 +1059,10 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	}
 }
 
-pub struct IdentityOf<T>(core::marker::PhantomData<T>);
-
-impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for IdentityOf<T> {
-	fn convert(validator: T::AccountId) -> Option<T::AccountId> {
-		ActiveEra::<T>::get().and_then(|active_era| {
-			if ErasStakersOverview::<T>::contains_key(&active_era.index, &validator) {
-				Some(validator)
-			} else {
-				None
-			}
-		})
+pub struct NullIdentity;
+impl<T> Convert<T, Option<()>> for NullIdentity {
+	fn convert(_: T) -> Option<()> {
+		Some(())
 	}
 }
 
