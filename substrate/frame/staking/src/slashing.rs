@@ -214,12 +214,6 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	/// times in the same era, and a new greater slash replaces the old one.
 	/// Invariant: slash > prior_slash
 	pub(crate) prior_slash: Perbill,
-	/// Determines whether the validator should be slashed.
-	///
-	/// Since a validator's total exposure can span multiple pages, we ensure the validator
-	/// is slashed only **once** per offence. This flag allows the caller to specify
-	/// whether the validator should be included in the slashing process.
-	pub(crate) should_slash_validator: bool,
 	/// The exposure of the stash and all nominators.
 	pub(crate) exposure: &'a PagedExposure<T::AccountId, BalanceOf<T>>,
 	/// The era where the offence occurred.
@@ -235,7 +229,7 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 
 /// Represents an offence record within the staking system, capturing details about a slashing
 /// event.
-#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, RuntimeDebug)]
 pub struct OffenceRecord<AccountId> {
 	/// The account ID of the entity that reported the offence.
 	pub reporter: Option<AccountId>,
@@ -244,6 +238,8 @@ pub struct OffenceRecord<AccountId> {
 	pub reported_era: EraIndex,
 
 	/// Era at which the offence actually occurred.
+
+	// todo(ank4n): redundant, can be removed.
 	pub offence_era: EraIndex,
 
 	/// The specific page of the validator's exposure currently being processed.
@@ -323,8 +319,14 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 
 	// If there are no offences left for the era, remove the era from `OffenceQueueEras`.
 	if offence_iter.next().is_none() {
-		eras.remove(0); // Remove the oldest era
-		OffenceQueueEras::<T>::put(eras);
+		if eras.len() == 1 {
+			// If there is only one era left, remove the entire queue.
+			OffenceQueueEras::<T>::kill();
+		} else {
+			// Remove the oldest era
+			eras.remove(0);
+			OffenceQueueEras::<T>::put(eras);
+		}
 	}
 
 	next_offence.map(|(v, o)| (oldest_era, v, o))
@@ -354,12 +356,6 @@ pub(crate) fn process_offence<T: Config>() {
 	};
 
 	let slash_page = offence_record.exposure_page;
-	// The validator is slashed only once per offence, specifically along with the last page of its
-	// exposure.
-	let exposure_pages = exposure.exposure_metadata.page_count;
-	let should_slash_validator =
-		exposure_pages == 0 || slash_page == exposure.exposure_metadata.page_count - 1;
-
 	let slash_defer_duration = T::SlashDeferDuration::get();
 	let slash_era = offence_era.saturating_add(slash_defer_duration);
 	let window_start = offence_record.reported_era.saturating_sub(T::BondingDuration::get());
@@ -368,7 +364,6 @@ pub(crate) fn process_offence<T: Config>() {
 		stash: &offender,
 		slash: offence_record.slash_fraction,
 		prior_slash: offence_record.prior_slash_fraction,
-		should_slash_validator,
 		exposure: &exposure,
 		slash_era: offence_era,
 		window_start,
@@ -446,10 +441,7 @@ pub(crate) fn process_offence<T: Config>() {
 ///
 /// If `nomintors_only` is set to `true`, only the nominator slashes will be computed.
 pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<UnappliedSlash<T>> {
-	let (val_slashed, mut reward_payout) = params
-		.should_slash_validator
-		.then(|| slash_validator::<T>(params.clone()))
-		.unwrap_or((Zero::zero(), Zero::zero()));
+	let (val_slashed, mut reward_payout) = slash_validator::<T>(params.clone());
 
 	let mut nominators_slashed = Vec::new();
 	let (nom_slashed, nom_reward_payout) =
@@ -514,7 +506,7 @@ pub(crate) fn add_offending_validator<T: Config>(
 						T::SessionInterface::disable_validator(offender_idx);
 						// Emit event that a validator got disabled
 						<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
-							stash: params.stash.clone(),
+							stash: stash.clone(),
 						});
 					}
 				},
@@ -544,6 +536,16 @@ pub(crate) fn add_offending_validator<T: Config>(
 /// Compute the slash for a validator. Returns the amount slashed and the reward payout.
 fn slash_validator<T: Config>(params: SlashParams<T>) -> (BalanceOf<T>, BalanceOf<T>) {
 	let own_slash = params.slash * params.exposure.exposure_metadata.own;
+	log!(
+		warn,
+		"🦹 slashing validator {:?} of stake: {:?} with {:?}% for {:?} in era {:?}",
+		params.stash,
+		params.exposure.exposure_metadata.own,
+		params.slash,
+		own_slash,
+		params.slash_era,
+	);
+
 	if own_slash == Zero::zero() {
 		// kick out the validator even if they won't be slashed,
 		// as long as the misbehavior is from their most recent slashing span.

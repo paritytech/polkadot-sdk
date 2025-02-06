@@ -988,13 +988,6 @@ pub mod pallet {
 			staker: T::AccountId,
 			amount: BalanceOf<T>,
 		},
-		/// A slash for the given validator, for the given percentage of their stake, at the given
-		/// era as been reported.
-		SlashReported {
-			validator: T::AccountId,
-			fraction: Perbill,
-			slash_era: EraIndex,
-		},
 		/// An old slashing report from a prior era was discarded because it could
 		/// not be processed.
 		OldSlashingReportDiscarded {
@@ -1086,12 +1079,25 @@ pub mod pallet {
 			page: PageIndex,
 			result: Result<u32, u32>,
 		},
+		/// An offence for the given validator, for the given percentage of their stake, at the
+		/// given era as been reported.
+		OffenceReported {
+			offence_era: EraIndex,
+			validator: T::AccountId,
+			fraction: Perbill,
+		},
 		/// An offence has been processed and the corresponding slash has been computed.
 		SlashComputed {
 			offence_era: EraIndex,
 			slash_era: EraIndex,
 			offender: T::AccountId,
 			page: u32,
+		},
+		/// An unapplied slash has been cancelled.
+		SlashCancelled {
+			slash_era: EraIndex,
+			slash_key: (T::AccountId, Perbill, u32),
+			payout: BalanceOf<T>,
 		},
 	}
 
@@ -1110,8 +1116,8 @@ pub mod pallet {
 		EmptyTargets,
 		/// Duplicate index.
 		DuplicateIndex,
-		/// Slash record index out of bounds.
-		InvalidSlashIndex,
+		/// Slash record not found.
+		InvalidSlashRecord,
 		/// Cannot have a validator or nominator role, with value less than the minimum defined by
 		/// governance (see `MinValidatorBond` and `MinNominatorBond`). If unbonding is the
 		/// intention, `chill` first to remove one's role as validator/nominator.
@@ -1126,8 +1132,6 @@ pub mod pallet {
 		InvalidEraToReward,
 		/// Invalid number of nominations.
 		InvalidNumberOfNominations,
-		/// Items are not sorted and unique.
-		NotSortedAndUnique,
 		/// Rewards for this era have already been claimed for this validator.
 		AlreadyClaimed,
 		/// No nominators exist on this page.
@@ -1168,6 +1172,8 @@ pub mod pallet {
 		CannotReapStash,
 		/// The stake of this account is already migrated to `Fungible` holds.
 		AlreadyMigrated,
+		/// Era not yet started.
+		EraNotStarted,
 	}
 
 	#[pallet::hooks]
@@ -1973,34 +1979,35 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Cancel enactment of a deferred slash.
+		/// Cancels scheduled slashes for a given era before they are applied.
 		///
-		/// Can be called by the `T::AdminOrigin`.
+		/// This function allows `T::AdminOrigin` to selectively remove pending slashes from
+		/// the `UnappliedSlashes` storage, preventing their enactment.
 		///
-		/// Parameters: era and indices of the slashes for that era to kill.
+		/// ## Parameters
+		/// - `era`: The staking era for which slashes were deferred.
+		/// - `slash_keys`: A list of slash keys identifying the slashes to remove. This is a tuple
+		/// of `(stash, slash_fraction, page_index)`.
 		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
+		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_keys.len() as u32))]
 		pub fn cancel_deferred_slash(
 			origin: OriginFor<T>,
-			_era: EraIndex,
-			slash_indices: Vec<u32>,
+			era: EraIndex,
+			slash_keys: Vec<(T::AccountId, Perbill, u32)>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(!slash_keys.is_empty(), Error::<T>::EmptyTargets);
 
-			ensure!(!slash_indices.is_empty(), Error::<T>::EmptyTargets);
-			ensure!(is_sorted_and_unique(&slash_indices), Error::<T>::NotSortedAndUnique);
-
-			// todo(ank4n): Refactor this to take vec of (stash, page), and kill `UnappliedSlashes`.
-			// let mut unapplied = UnappliedSlashes::<T>::get(&era);
-			// let last_item = slash_indices[slash_indices.len() - 1];
-			// ensure!((last_item as usize) < unapplied.len(), Error::<T>::InvalidSlashIndex);
-			//
-			// for (removed, index) in slash_indices.into_iter().enumerate() {
-			// 	let index = (index as usize) - removed;
-			// 	unapplied.remove(index);
-			// }
-			//
-			// UnappliedSlashes::<T>::insert(&era, &unapplied);
+			// Remove the unapplied slashes.
+			slash_keys.into_iter().for_each(|i| {
+				UnappliedSlashes::<T>::take(&era, &i).map(|unapplied_slash| {
+					Self::deposit_event(Event::<T>::SlashCancelled {
+						slash_era: era,
+						slash_key: i,
+						payout: unapplied_slash.payout,
+					});
+				});
+			});
 			Ok(())
 		}
 
@@ -2561,10 +2568,42 @@ pub mod pallet {
 			// Refund the transaction fee if successful.
 			Ok(Pays::No.into())
 		}
-	}
-}
 
-/// Check that list is sorted and has no duplicates.
-fn is_sorted_and_unique(list: &[u32]) -> bool {
-	list.windows(2).all(|w| w[0] < w[1])
+		/// Manually applies a deferred slash for a given era.
+		///
+		/// Normally, slashes are automatically applied shortly after the start of the `slash_era`.
+		/// This function exists as a **fallback mechanism** in case slashes were not applied due to
+		/// unexpected reasons. It allows anyone to manually apply an unapplied slash.
+		///
+		/// ## Parameters
+		/// - `slash_era`: The staking era in which the slash was originally scheduled.
+		/// - `slash_key`: A unique identifier for the slash, represented as a tuple:
+		///   - `stash`: The stash account of the validator being slashed.
+		///   - `slash_fraction`: The fraction of the stake that was slashed.
+		///   - `page_index`: The index of the exposure page being processed.
+		///
+		/// ## Behavior
+		/// - The function is **permissionless**—anyone can call it.
+		/// - The `slash_era` **must be the current era or a past era**. If it is in the future, the
+		///   call fails with `EraNotStarted`.
+		/// - The fee is waived if the slash is successfully applied.
+		// TODO(ank4n): Benchmark and update weight.
+		// Improvement: this can be called via OCW tasks.
+		#[pallet::call_index(31)]
+		#[pallet::weight(Weight::zero())]
+		pub fn apply_slash(
+			origin: OriginFor<T>,
+			slash_era: EraIndex,
+			slash_key: (T::AccountId, Perbill, u32),
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
+			ensure!(slash_era <= active_era, Error::<T>::EraNotStarted);
+			let unapplied_slash = UnappliedSlashes::<T>::get(&slash_era, &slash_key)
+				.ok_or(Error::<T>::InvalidSlashRecord)?;
+			slashing::apply_slash::<T>(unapplied_slash, slash_era);
+
+			Ok(Pays::No.into())
+		}
+	}
 }
