@@ -284,6 +284,10 @@ impl RelayChainInterface for Relaychain {
 	) -> RelayChainResult<Vec<u8>> {
 		unimplemented!("Not needed for test")
 	}
+
+	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn sproof_with_best_parent(client: &Client) -> RelayStateSproofBuilder {
