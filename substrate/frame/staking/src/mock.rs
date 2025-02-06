@@ -826,6 +826,7 @@ pub(crate) fn on_offence_in_era(
 	>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
+	advance_processing_blocks: bool,
 ) {
 	// counter to keep track of how many blocks we need to advance to process all the offences.
 	let mut process_blocks = 0u32;
@@ -837,7 +838,9 @@ pub(crate) fn on_offence_in_era(
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
 			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
-			advance_blocks(process_blocks as u64);
+			if advance_processing_blocks {
+				advance_blocks(process_blocks as u64);
+			}
 			return
 		} else if bonded_era > era {
 			break
@@ -850,7 +853,9 @@ pub(crate) fn on_offence_in_era(
 			slash_fraction,
 			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
 		);
-		advance_blocks(process_blocks as u64);
+		if advance_processing_blocks {
+			advance_blocks(process_blocks as u64);
+		}
 	} else {
 		panic!("cannot slash in era {}", era);
 	}
@@ -862,9 +867,10 @@ pub(crate) fn on_offence_now(
 		pallet_session::historical::IdentificationTuple<Test>,
 	>],
 	slash_fraction: &[Perbill],
+	advance_processing_blocks: bool,
 ) {
 	let now = pallet_staking::ActiveEra::<Test>::get().unwrap().index;
-	on_offence_in_era(offenders, slash_fraction, now);
+	on_offence_in_era(offenders, slash_fraction, now, advance_processing_blocks);
 }
 pub(crate) fn offence_from(
 	offender: AccountId,
@@ -877,7 +883,7 @@ pub(crate) fn offence_from(
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
-	on_offence_now(&[offence_from(*who, None)], &[Perbill::from_percent(10)]);
+	on_offence_now(&[offence_from(*who, None)], &[Perbill::from_percent(10)], true);
 }
 
 /// Make all validator and nominator request their payment

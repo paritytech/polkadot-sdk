@@ -31,7 +31,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use pallet_session::historical::IdentificationTuple;
-use pallet_staking::{BalanceOf, Exposure, ExposureOf, Pallet as Staking};
+use pallet_staking::Pallet as Staking;
 use sp_runtime::Perbill;
 use sp_staking::offence::OnOffenceHandler;
 
@@ -103,10 +103,6 @@ pub mod pallet {
 		fn get_offence_details(
 			offenders: Vec<(T::AccountId, Perbill)>,
 		) -> Result<Vec<OffenceDetails<T>>, DispatchError> {
-			let now = pallet_staking::ActiveEra::<T>::get()
-				.map(|e| e.index)
-				.ok_or(Error::<T>::FailedToGetActiveEra)?;
-
 			Ok(offenders
 				.clone()
 				.into_iter()
@@ -121,7 +117,7 @@ pub mod pallet {
 		fn submit_offence(offenders: &[OffenceDetails<T>], slash_fraction: &[Perbill]) {
 			let session_index = <pallet_session::Pallet<T> as frame_support::traits::ValidatorSet<T::AccountId>>::session_index();
 
-			<pallet_staking::Pallet<T> as OnOffenceHandler<
+			<Staking<T> as OnOffenceHandler<
 				T::AccountId,
 				IdentificationTuple<T>,
 				Weight,
