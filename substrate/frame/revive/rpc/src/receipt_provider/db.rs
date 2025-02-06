@@ -60,7 +60,7 @@ impl DBReceiptProvider {
 		.await
 		.ok()??;
 
-		let block_hash = result.block_hash.parse::<H256>().ok()?;
+		let block_hash = H256::from_slice(&result.block_hash[..]);
 		let transaction_index = result.transaction_index.try_into().ok()?;
 		Some((block_hash, transaction_index))
 	}
@@ -75,7 +75,7 @@ impl ReceiptProvider for DBReceiptProvider {
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
 		let block_hash_str = hex::encode(block_hash);
 		for (_, receipt) in receipts {
-			let transaction_hash = hex::encode(receipt.transaction_hash);
+			let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
 			let transaction_index = receipt.transaction_index.as_u32() as i32;
 
 			let result = query!(
@@ -161,7 +161,7 @@ impl ReceiptProvider for DBReceiptProvider {
 		.await
 		.ok()??;
 
-		let block_hash = result.block_hash.parse::<H256>().ok()?;
+		let block_hash = H256::from_slice(&result.block_hash[..]);
 		let transaction_index = result.transaction_index.try_into().ok()?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;

@@ -101,7 +101,7 @@ fn build_client(
 	abort_signal: Signals,
 ) -> anyhow::Result<Client> {
 	let fut = async {
-		let (api, rpc_client, rpc) = connect(&node_rpc_url).await?;
+		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
 		let block_provider: Arc<dyn BlockInfoProvider> =
 			Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
 
@@ -184,7 +184,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
 
 	let client = build_client(
-		&tokio_handle,
+		tokio_handle,
 		cache_size,
 		&node_rpc_url,
 		database_url.as_deref(),
