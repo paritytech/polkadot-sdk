@@ -99,8 +99,7 @@ impl BlockInfoProvider for BlockInfoProviderImpl {
 			return Ok(None);
 		};
 
-		let res = self.block_by_hash(&hash).await;
-		res
+		self.block_by_hash(&hash).await
 	}
 
 	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
