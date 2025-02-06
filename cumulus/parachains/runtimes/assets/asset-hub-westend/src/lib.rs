@@ -2050,12 +2050,8 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const RandomParaLocationDup: Location = Location {
-						parents: 1,
-						interior: Junctions::X1(Parachain(43211234)),
-					};
-				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RandomParaLocationDup::get(),
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
+					RandomParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
