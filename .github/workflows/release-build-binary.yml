@@ -41,7 +41,7 @@ jobs:
         id: set_runner
         shell: bash
         run: |
-          if [ "${{ inputs.binary }}" = "polkadot-parachain" ]; then
+          if [ "${{ inputs.binary }}" == "polkadot-parachain" ]; then
             echo "RUNNER=parity-large" >> GITHUB_OUTPUT
           else
             echo "RUNNER=ubuntu-latest" >> GITHUB_OUTPUT
