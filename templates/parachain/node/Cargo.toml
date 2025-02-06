@@ -18,7 +18,6 @@ futures = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
-
 polkadot-sdk = { workspace = true, features = ["node",  "sc-tracing", "sc-tracing-proc-macro"] }
 
 parachain-template-runtime = { workspace = true }
