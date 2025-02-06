@@ -1255,7 +1255,7 @@ fn import_approval_happy_path_v1_v2_peers() {
 				}
 			);
 
-			// send the an approval from peer_b
+			// send an approval from peer_b
 			let approval = IndirectSignedApprovalVoteV2 {
 				block_hash: hash,
 				candidate_indices: candidate_index.into(),
@@ -1385,7 +1385,7 @@ fn import_approval_happy_path_v2() {
 				}
 			);
 
-			// send the an approval from peer_b
+			// send an approval from peer_b
 			let approval = IndirectSignedApprovalVoteV2 {
 				block_hash: hash,
 				candidate_indices,
@@ -1893,7 +1893,7 @@ fn import_approval_bad() {
 				.unwrap()
 				.unwrap();
 
-			// send the an approval from peer_b, we don't have an assignment yet
+			// send an approval from peer_b, we don't have an assignment yet
 			let approval = IndirectSignedApprovalVoteV2 {
 				block_hash: hash,
 				candidate_indices: candidate_index.into(),
@@ -4172,7 +4172,7 @@ fn import_versioned_approval() {
 				}
 			);
 
-			// send the an approval from peer_a
+			// send an approval from peer_a
 			let approval = IndirectSignedApprovalVote {
 				block_hash: hash,
 				candidate_index,

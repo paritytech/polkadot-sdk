@@ -30,6 +30,7 @@ frame-try-runtime = { optional = true, workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-asset-conversion-ops = { workspace = true }
 pallet-asset-conversion-tx-payment = { workspace = true }
+pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-assets-freezer = { workspace = true }
 pallet-aura = { workspace = true }
@@ -39,7 +40,6 @@ pallet-message-queue = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nft-fractionalization = { workspace = true }
 pallet-nfts = { workspace = true }
-pallet-nfts-runtime-api = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-session = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -61,6 +61,7 @@ sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 sp-weights = { workspace = true }
+
 # num-traits feature needed for dex integer sq root:
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
@@ -123,6 +124,7 @@ runtime-benchmarks = [
 	"pallet-asset-conversion-ops/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-asset-rewards/runtime-benchmarks",
 	"pallet-assets-freezer/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -162,6 +164,7 @@ try-runtime = [
 	"pallet-asset-conversion-ops/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
+	"pallet-asset-rewards/try-runtime",
 	"pallet-assets-freezer/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
@@ -212,6 +215,7 @@ std = [
 	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
+	"pallet-asset-rewards/std",
 	"pallet-assets-freezer/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
@@ -221,7 +225,6 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
 	"pallet-nft-fractionalization/std",
-	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
