@@ -124,23 +124,23 @@ pub enum RelayerAccountAction<AccountId, Reward, LaneId> {
 	TypeInfo,
 )]
 #[scale_info(skip_type_params(Runtime, Config, LaneId))]
-pub struct BridgeRelayersTransactionExtension<Runtime, Config, LaneId>(
-	PhantomData<(Runtime, Config, LaneId)>,
+pub struct BridgeRelayersTransactionExtension<Runtime, Config>(
+	PhantomData<(Runtime, Config)>,
 );
 
-impl<R, C, LaneId> BridgeRelayersTransactionExtension<R, C, LaneId>
+impl<R, C> BridgeRelayersTransactionExtension<R, C>
 where
 	Self: 'static + Send + Sync,
 	R: RelayersConfig<C::BridgeRelayersPalletInstance>
-		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance>
 		+ TransactionPaymentConfig,
-	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
+	C: ExtensionConfig<Runtime = R>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<LaneIdOf<R, C::BridgeMessagesPalletInstance>>>,
-	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<C::LaneId>>,
+	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
 {
 	/// Returns number of bundled messages `Some(_)`, if the given call info is a:
 	///
@@ -152,7 +152,7 @@ where
 	/// virtually boosted. The relayer registration (we only boost priority for registered
 	/// relayer transactions) must be checked outside.
 	fn bundled_messages_for_priority_boost(
-		parsed_call: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, LaneId>,
+		parsed_call: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, C::LaneId>,
 	) -> Option<MessageNonce> {
 		// we only boost priority of message delivery transactions
 		if !parsed_call.is_receive_messages_proof_call() {
@@ -175,12 +175,12 @@ where
 	/// Given post-dispatch information, analyze the outcome of relayer call and return
 	/// actions that need to be performed on relayer account.
 	fn analyze_call_result(
-		pre: Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>,
+		pre: Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, C::LaneId>>,
 		info: &DispatchInfo,
 		post_info: &PostDispatchInfo,
 		len: usize,
 		result: &DispatchResult,
-	) -> RelayerAccountAction<R::AccountId, R::Reward, LaneId> {
+	) -> RelayerAccountAction<R::AccountId, R::Reward, C::LaneId> {
 		// We don't refund anything for transactions that we don't support.
 		let (relayer, call_info) = match pre {
 			Some(pre) => (pre.relayer, pre.call_info),
@@ -277,24 +277,24 @@ where
 	}
 }
 
-impl<R, C, LaneId> TransactionExtension<R::RuntimeCall>
-	for BridgeRelayersTransactionExtension<R, C, LaneId>
+impl<R, C> TransactionExtension<R::RuntimeCall>
+	for BridgeRelayersTransactionExtension<R, C>
 where
 	Self: 'static + Send + Sync,
 	R: RelayersConfig<C::BridgeRelayersPalletInstance>
-		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance>
 		+ TransactionPaymentConfig,
-	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
+	C: ExtensionConfig<Runtime = R>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<LaneIdOf<R, C::BridgeMessagesPalletInstance>>>,
-	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<C::LaneId>>,
+	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
 {
 	const IDENTIFIER: &'static str = C::IdProvider::STR;
 	type Implicit = ();
-	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>;
+	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, C::LaneId>>;
 	type Val = Self::Pre;
 
 	fn weight(&self, _call: &R::RuntimeCall) -> Weight {
@@ -509,7 +509,7 @@ mod tests {
 		ConstU64<1>,
 	>;
 	type TestGrandpaExtension =
-		BridgeRelayersTransactionExtension<TestRuntime, TestGrandpaExtensionConfig, TestLaneIdType>;
+		BridgeRelayersTransactionExtension<TestRuntime, TestGrandpaExtensionConfig>;
 	type TestExtensionConfig = parachain_adapter::WithParachainExtensionConfig<
 		StrTestExtension,
 		TestRuntime,
@@ -520,7 +520,7 @@ mod tests {
 		ConstU64<1>,
 	>;
 	type TestExtension =
-		BridgeRelayersTransactionExtension<TestRuntime, TestExtensionConfig, TestLaneIdType>;
+		BridgeRelayersTransactionExtension<TestRuntime, TestExtensionConfig>;
 	type TestMessagesExtensionConfig = messages_adapter::WithMessagesExtensionConfig<
 		StrTestMessagesExtension,
 		TestRuntime,
@@ -531,7 +531,6 @@ mod tests {
 	type TestMessagesExtension = BridgeRelayersTransactionExtension<
 		TestRuntime,
 		TestMessagesExtensionConfig,
-		TestLaneIdType,
 	>;
 
 	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {
