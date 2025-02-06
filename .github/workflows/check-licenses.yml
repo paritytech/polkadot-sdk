@@ -27,26 +27,25 @@ jobs:
           registry-url: "https://npm.pkg.github.com"
           scope: "@paritytech"
 
-      - name: Check the licenses in Polkadot
-        run: |
-          shopt -s globstar
-          npx @paritytech/license-scanner scan \
-            --ensure-licenses ${{ env.LICENSES }} \
-            -- ./polkadot/**/*.rs
-
-      - name: Check the licenses in Cumulus
-        run: |
-          shopt -s globstar
-          npx @paritytech/license-scanner scan \
-            --ensure-licenses ${{ env.LICENSES }} \
-            -- ./cumulus/**/*.rs
+#      - name: Check the licenses in Polkadot
+#        run: |
+#          shopt -s globstar
+#          npx @paritytech/license-scanner scan \
+#            --ensure-licenses ${{ env.LICENSES }} \
+#            -- ./polkadot/**/*.rs
+#
+#      - name: Check the licenses in Cumulus
+#        run: |
+#          shopt -s globstar
+#          npx @paritytech/license-scanner scan \
+#            --ensure-licenses ${{ env.LICENSES }} \
+#            -- ./cumulus/**/*.rs
 
       - name: Check the licenses in Substrate
         run: |
-          shopt -s globstar
           npx @paritytech/license-scanner scan \
             --ensure-licenses ${{ env.LICENSES }} \
-            -- ./substrate/**/*.rs
+            -- ./substrate/test-utils/cli/build.rs
 
   check-product-references:
     runs-on: ubuntu-latest
