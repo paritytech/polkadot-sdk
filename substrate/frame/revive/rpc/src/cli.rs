@@ -71,11 +71,6 @@ pub struct CliCommand {
 /// Initialize the logger
 #[cfg(not(test))]
 fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
-	if std::env::var("TOKIO_CONSOLE").is_ok() {
-		console_subscriber::init();
-		return Ok(())
-	}
-
 	let mut logger = sc_cli::LoggerBuilder::new(params.log_filters().join(","));
 	logger
 		.with_log_reloading(params.enable_log_reloading)
