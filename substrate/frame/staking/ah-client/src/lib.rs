@@ -115,8 +115,6 @@ pub mod pallet {
 		type AssetHubId: Get<u32>;
 		/// The XCM sender.
 		type SendXcm: SendXcm;
-		/// Maximum weight for any XCM transact call that should be executed on AssetHub.
-		type MaxXcmTransactWeight: Get<Weight>;
 	}
 
 	#[pallet::error]
@@ -311,7 +309,7 @@ pub mod pallet {
 	fn mk_asset_hub_call<T: Config>(call: StakingCalls) -> Instruction<()> {
 		Instruction::Transact {
 			origin_kind: OriginKind::Superuser,
-			fallback_max_weight: Some(T::MaxXcmTransactWeight::get()),
+			fallback_max_weight: None,
 			call: AssetHubRuntimePallets::RcClient(call).encode().into(),
 		}
 	}
