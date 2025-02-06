@@ -1,0 +1,23 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: On-demand credits
+
+doc:
+  - audience: [ Runtime User, Runtime Dev ]
+    description: |
+      The PR implements functionality on the relay chain for purchasing on-demand 
+      Coretime using credits. This means on-demand Coretime should no longer be 
+      purchased with the relay chain balance but rather with credits acquired 
+      on the Coretime chain. The extrinsic to use for purchasing Coretime is 
+      `place_order_with_credits`.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: major 
+  - name: rococo-runtime
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: polkadot-test-runtime
+    bump: patch
