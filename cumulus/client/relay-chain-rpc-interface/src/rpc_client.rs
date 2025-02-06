@@ -706,6 +706,14 @@ impl RelayChainRpcClient {
 		.await
 	}
 
+	pub async fn parachain_host_scheduling_lookahead(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_scheduling_lookahead", at, None::<()>)
+			.await
+	}
+
 	pub async fn validation_code_hash(
 		&self,
 		at: RelayHash,
