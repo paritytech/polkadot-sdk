@@ -260,6 +260,8 @@ use sp_runtime::{
 	DispatchError, ModuleError, PerThing, Perbill, RuntimeDebug, SaturatedConversion,
 };
 use sp_runtime::traits::BlockNumberProvider;
+use sp_core::U256;
+
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -828,10 +830,8 @@ pub mod pallet {
 			}
 		}
 
-		fn offchain_worker(_now: SystemBlockNumberFor<T>) {
+		fn offchain_worker(now: SystemBlockNumberFor<T>) {
 			use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
-			let now = T::BlockNumberProvider::current_block_number();
-
 			// Create a lock with the maximum deadline of number of blocks in the unsigned phase.
 			// This should only come useful in an **abrupt** termination of execution, otherwise the
 			// guard will be dropped upon successful execution.
@@ -843,6 +843,9 @@ pub mod pallet {
 
 			match lock.try_lock() {
 				Ok(_guard) => {
+					let now: U256 = now.into();
+					T::BlockNumberProvider::set_block_number(now);
+					let now = T::BlockNumberProvider::current_block_number();
 					Self::do_synchronized_offchain_worker(now);
 				},
 				Err(deadline) => {
