@@ -60,12 +60,13 @@ use std::{
 	time::{Duration, Instant},
 };
 
+/// Logging target for the file.
+const LOG_TARGET: &str = "sub-libp2p::notification::behaviour";
+
 /// Type representing a pending substream validation.
 type PendingInboundValidation =
 	BoxFuture<'static, (Result<ValidationResult, RecvError>, IncomingIndex)>;
 
-/// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p::notification::behaviour";
 /// Network behaviour that handles opening substreams for custom protocols with other peers.
 ///
 /// # How it works
