@@ -35,9 +35,9 @@ use frame_support::{
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight},
 };
 use pallet_transaction_payment::Multiplier;
-use sp_core::{ConstU64, ConstU8, H256};
+use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, ConstU32},
+	traits::{BlakeTwo256, ConstU32, ConstU64, ConstU8},
 	BuildStorage, FixedPointNumber, Perquintill, StateVersion,
 };
 
@@ -81,6 +81,8 @@ pub type TestLaneIdType = HashedLaneId;
 pub fn test_lane_id() -> TestLaneIdType {
 	TestLaneIdType::try_new(1, 2).unwrap()
 }
+/// Reward measurement type.
+pub type Reward = u64;
 
 /// Underlying chain of `ThisChain`.
 pub struct ThisUnderlyingChain;
@@ -280,10 +282,11 @@ impl pallet_bridge_messages::Config for TestRuntime {
 
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
-	type Reward = ThisChainBalance;
+	type Reward = Reward;
 	type RewardKind = RewardsAccountParams<pallet_bridge_messages::LaneIdOf<TestRuntime, ()>>;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
+	type Balance = ThisChainBalance;
 	type WeightInfo = ();
 }
 
@@ -297,16 +300,17 @@ impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
 		account_params: RewardsAccountParams<TestLaneIdType>,
 		reward: Self::Reward,
 	) {
-		let rewards_account = bp_relayers::PayRewardFromAccount::<
+		let rewards_account = PayRewardFromAccount::<
 			Balances,
 			ThisChainAccountId,
 			TestLaneIdType,
+			Reward,
 		>::rewards_account(account_params);
-		Self::deposit_account(rewards_account, reward);
+		Self::deposit_account(rewards_account, reward.into());
 	}
 
-	fn deposit_account(account: Self::AccountId, balance: Self::Reward) {
-		Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())).unwrap();
+	fn deposit_account(account: Self::AccountId, balance: Self::Balance) {
+		frame_support::assert_ok!(Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())));
 	}
 }
 
@@ -324,17 +328,17 @@ pub struct TestPaymentProcedure;
 
 impl TestPaymentProcedure {
 	pub fn rewards_account(params: RewardsAccountParams<TestLaneIdType>) -> ThisChainAccountId {
-		PayRewardFromAccount::<(), ThisChainAccountId, TestLaneIdType>::rewards_account(params)
+		PayRewardFromAccount::<(), ThisChainAccountId, TestLaneIdType, Reward>::rewards_account(params)
 	}
 }
 
-impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, ThisChainBalance> for TestPaymentProcedure {
+impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, Reward> for TestPaymentProcedure {
 	type Error = ();
 
 	fn pay_reward(
 		relayer: &ThisChainAccountId,
 		_reward_kind: RewardsAccountParams<TestLaneIdType>,
-		_reward: ThisChainBalance,
+		_reward: Reward,
 	) -> Result<(), Self::Error> {
 		match *relayer {
 			FAILING_RELAYER => Err(()),

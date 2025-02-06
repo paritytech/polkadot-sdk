@@ -70,7 +70,7 @@ pub type BridgedChainHeader =
 	sp_runtime::generic::Header<BridgedChainBlockNumber, BridgedChainHasher>;
 
 /// Rewards payment procedure.
-pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType>;
+pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, Reward>;
 /// Stake that we are using in tests.
 pub type TestStake = ConstU64<5_000>;
 /// Stake and slash mechanism to use in tests.
@@ -89,6 +89,8 @@ pub type TestLaneIdType = HashedLaneId;
 pub fn test_lane_id() -> TestLaneIdType {
 	TestLaneIdType::try_new(1, 2).unwrap()
 }
+/// Reward measurement type.
+pub type Reward = u32;
 
 /// Bridged chain id used in tests.
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
@@ -197,7 +199,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 		TestRuntime,
 		(),
 		(),
-		ConstU64<100_000>,
+		ConstU32<100_000>,
 	>;
 	type OnMessagesDelivered = ();
 
@@ -210,10 +212,11 @@ impl pallet_bridge_messages::Config for TestRuntime {
 
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
-	type Reward = ThisChainBalance;
+	type Reward = Reward;
 	type RewardKind = RewardsAccountParams<pallet_bridge_messages::LaneIdOf<TestRuntime, ()>>;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
+	type Balance = ThisChainBalance;
 	type WeightInfo = ();
 }
 

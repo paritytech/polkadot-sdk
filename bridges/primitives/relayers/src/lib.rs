@@ -116,9 +116,9 @@ impl<Relayer, RewardKind, Reward> PaymentProcedure<Relayer, RewardKind, Reward> 
 
 /// Reward payment procedure that does `balances::transfer` call from the account, derived from
 /// given `RewardsAccountParams` params.
-pub struct PayRewardFromAccount<T, Relayer, LaneId>(PhantomData<(T, Relayer, LaneId)>);
+pub struct PayRewardFromAccount<T, Relayer, LaneId, Reward>(PhantomData<(T, Relayer, LaneId, Reward)>);
 
-impl<T, Relayer, LaneId> PayRewardFromAccount<T, Relayer, LaneId>
+impl<T, Relayer, LaneId, Reward> PayRewardFromAccount<T, Relayer, LaneId, Reward>
 where
 	Relayer: Decode + Encode,
 	LaneId: Decode + Encode,
@@ -129,10 +129,11 @@ where
 	}
 }
 
-impl<T, Relayer, LaneId> PaymentProcedure<Relayer, RewardsAccountParams<LaneId>, T::Balance>
-	for PayRewardFromAccount<T, Relayer, LaneId>
+impl<T, Relayer, LaneId, Reward> PaymentProcedure<Relayer, RewardsAccountParams<LaneId>, Reward>
+	for PayRewardFromAccount<T, Relayer, LaneId, Reward>
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,
+	T::Balance: From<Reward>,
 	Relayer: Decode + Encode + Eq,
 	LaneId: Decode + Encode,
 {
@@ -141,12 +142,12 @@ where
 	fn pay_reward(
 		relayer: &Relayer,
 		reward_kind: RewardsAccountParams<LaneId>,
-		reward: T::Balance,
+		reward: Reward,
 	) -> Result<(), Self::Error> {
 		T::transfer(
 			&Self::rewards_account(reward_kind),
 			relayer,
-			reward,
+			reward.into(),
 			Preservation::Expendable,
 		)
 		.map(drop)

@@ -1490,6 +1490,7 @@ impl_runtime_apis! {
 						Balances,
 						AccountId,
 						bp_messages::LegacyLaneId,
+						Balance,
 					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::deposit_account(rewards_account, reward);
 				}
@@ -1517,6 +1518,7 @@ impl_runtime_apis! {
 						Balances,
 						AccountId,
 						bp_messages::HashedLaneId,
+						Balance,
 					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance>>::deposit_account(rewards_account, reward);
 				}

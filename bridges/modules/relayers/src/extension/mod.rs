@@ -138,8 +138,9 @@ where
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
-		OnChargeTransaction<R, Balance = R::Reward>,
+		OnChargeTransaction<R>,
 	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<C::LaneId>>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward: From<<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance>,
 	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
 {
 	/// Returns number of bundled messages `Some(_)`, if the given call info is a:
@@ -263,7 +264,7 @@ where
 		let refund = Self::compute_refund(info, &post_info, post_info_len, tip);
 
 		// we can finally reward relayer
-		RelayerAccountAction::Reward(relayer, reward_account_params, refund)
+		RelayerAccountAction::Reward(relayer, reward_account_params, refund.into())
 	}
 
 	/// Compute refund for the successful relayer transaction
@@ -271,8 +272,8 @@ where
 		info: &DispatchInfo,
 		post_info: &PostDispatchInfo,
 		len: usize,
-		tip: R::Reward,
-	) -> R::Reward {
+		tip: <<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
+	) -> <<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance {
 		TransactionPaymentPallet::<R>::compute_actual_fee(len as _, info, post_info, tip)
 	}
 }
@@ -288,8 +289,9 @@ where
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
-		OnChargeTransaction<R, Balance = R::Reward>,
+		OnChargeTransaction<R>,
 	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<C::LaneId>>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward: From<<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance>,
 	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
 {
 	const IDENTIFIER: &'static str = C::IdProvider::STR;
@@ -1217,7 +1219,7 @@ mod tests {
 		assert_eq!(post_dispatch_result, Ok(Weight::zero()));
 	}
 
-	fn expected_delivery_reward() -> ThisChainBalance {
+	fn expected_delivery_reward() -> Reward {
 		let mut post_dispatch_info = post_dispatch_info();
 		let extra_weight = <TestRuntime as RelayersConfig>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call();
 		post_dispatch_info.actual_weight =
@@ -1227,16 +1229,16 @@ mod tests {
 			&dispatch_info(),
 			&post_dispatch_info,
 			Zero::zero(),
-		)
+		) as _
 	}
 
-	fn expected_confirmation_reward() -> ThisChainBalance {
+	fn expected_confirmation_reward() -> Reward {
 		pallet_transaction_payment::Pallet::<TestRuntime>::compute_actual_fee(
 			1024,
 			&dispatch_info(),
 			&post_dispatch_info(),
 			Zero::zero(),
-		)
+		) as _
 	}
 
 	#[test]
@@ -1983,7 +1985,7 @@ mod tests {
 			TestLaneIdType,
 		>,
 		dispatch_result: DispatchResult,
-	) -> RelayerAccountAction<ThisChainAccountId, ThisChainBalance, TestLaneIdType> {
+	) -> RelayerAccountAction<ThisChainAccountId, Reward, TestLaneIdType> {
 		TestExtension::analyze_call_result(
 			Some(pre_dispatch_data),
 			&dispatch_info(),

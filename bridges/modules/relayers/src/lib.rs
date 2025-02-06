@@ -26,7 +26,7 @@ use bp_relayers::{
 };
 pub use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::StorageDoubleMapKeyProvider;
-use frame_support::fail;
+use frame_support::{fail, traits::tokens::Balance};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_runtime::{traits::{CheckedSub, IdentifyAccount}, Saturating};
 use sp_std::marker::PhantomData;
@@ -80,8 +80,12 @@ pub mod pallet {
 			Self::RewardKind,
 			Self::Reward,
 		>;
+
 		/// Stake and slash scheme.
-		type StakeAndSlash: StakeAndSlash<Self::AccountId, BlockNumberFor<Self>, Self::Reward>;
+		type StakeAndSlash: StakeAndSlash<Self::AccountId, BlockNumberFor<Self>, Self::Balance>;
+		/// Type for representing balance of an account used for `T::StakeAndSlash`.
+		type Balance: Balance;
+
 		/// Pallet call weights.
 		type WeightInfo: WeightInfoExt;
 	}
@@ -365,21 +369,21 @@ pub mod pallet {
 			<T::StakeAndSlash as StakeAndSlash<
 				T::AccountId,
 				BlockNumberFor<T>,
-				T::Reward,
+				T::Balance,
 			>>::RequiredRegistrationLease::get()
 		}
 
 		/// Return required stake.
-		pub(crate) fn required_stake() -> T::Reward {
+		pub(crate) fn required_stake() -> T::Balance {
 			<T::StakeAndSlash as StakeAndSlash<
 				T::AccountId,
 				BlockNumberFor<T>,
-				T::Reward,
+				T::Balance,
 			>>::RequiredStake::get()
 		}
 
 		/// `Unreserve` given amount on relayer account.
-		fn do_unreserve(relayer: &T::AccountId, amount: T::Reward) -> DispatchResult {
+		fn do_unreserve(relayer: &T::AccountId, amount: T::Balance) -> DispatchResult {
 			let failed_to_unreserve = T::StakeAndSlash::unreserve(relayer, amount);
 			if !failed_to_unreserve.is_zero() {
 				log::trace!(
@@ -423,7 +427,7 @@ pub mod pallet {
 			/// Relayer account that has been registered.
 			relayer: T::AccountId,
 			/// Relayer registration.
-			registration: Registration<BlockNumberFor<T>, T::Reward>,
+			registration: Registration<BlockNumberFor<T>, T::Balance>,
 		},
 		/// Relayer has been `deregistered`.
 		Deregistered {
@@ -435,7 +439,7 @@ pub mod pallet {
 			/// Relayer account that has been `deregistered`.
 			relayer: T::AccountId,
 			/// Registration that was removed.
-			registration: Registration<BlockNumberFor<T>, T::Reward>,
+			registration: Registration<BlockNumberFor<T>, T::Balance>,
 		},
 	}
 
@@ -485,7 +489,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		Registration<BlockNumberFor<T>, T::Reward>,
+		Registration<BlockNumberFor<T>, T::Balance>,
 		OptionQuery,
 	>;
 }

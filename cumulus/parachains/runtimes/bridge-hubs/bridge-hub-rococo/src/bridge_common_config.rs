@@ -76,6 +76,7 @@ impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> fo
 		pallet_balances::Pallet<Runtime>,
 		AccountId,
 		bp_messages::LegacyLaneId,
+		Self::Reward,
 	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
@@ -85,6 +86,7 @@ impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> fo
 		RequiredStakeForStakeAndSlash,
 		RelayerStakeLease,
 	>;
+	type Balance = Balance;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
 }
 
@@ -98,6 +100,7 @@ impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for 
 		pallet_balances::Pallet<Runtime>,
 		AccountId,
 		bp_messages::HashedLaneId,
+		Self::Reward,
 	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
@@ -107,6 +110,7 @@ impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for 
 		RequiredStakeForStakeAndSlash,
 		RelayerStakeLease,
 	>;
+	type Balance = Balance;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
 }
 

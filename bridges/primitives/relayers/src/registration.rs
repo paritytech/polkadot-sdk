@@ -70,7 +70,7 @@ impl<AccountId: Decode + Encode, LaneId: Decode + Encode> IdentifyAccount for Ex
 		match self {
 			ExplicitOrAccountParams::Explicit(account_id) => account_id,
 			ExplicitOrAccountParams::Params(params) =>
-				PayRewardFromAccount::<(), AccountId, LaneId>::rewards_account(params)
+				PayRewardFromAccount::<(), AccountId, LaneId, ()>::rewards_account(params)
 		}
 	}
 }

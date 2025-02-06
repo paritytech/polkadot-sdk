@@ -41,7 +41,7 @@ pub trait Config<I: 'static = ()>: crate::Config<I> {
 		reward: Self::Reward,
 	);
 	/// Give enough balance to given account.
-	fn deposit_account(account: Self::AccountId, balance: Self::Reward);
+	fn deposit_account(account: Self::AccountId, balance: Self::Balance);
 }
 
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as pallet::Config<I>>::RuntimeEvent) {

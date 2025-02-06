@@ -1330,6 +1330,7 @@ impl_runtime_apis! {
 						Balances,
 						AccountId,
 						bp_messages::LegacyLaneId,
+						u128,
 					>::rewards_account(reward_kind);
 					Self::deposit_account(rewards_account, reward);
 				}

@@ -115,6 +115,7 @@ mod tests {
 	use bp_messages::LaneIdType;
 	use bp_relayers::PaymentProcedure;
 	use frame_support::{
+		assert_ok,
 		traits::fungible::{Inspect, Mutate},
 	};
 
@@ -175,8 +176,7 @@ mod tests {
 	#[test]
 	fn pay_reward_from_account_actually_pays_reward() {
 		type Balances = pallet_balances::Pallet<TestRuntime>;
-		type PayLaneRewardFromAccount =
-		bp_relayers::PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType>;
+		type PayLaneRewardFromAccount = PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, Reward>;
 
 		run_test(|| {
 			let in_lane_0 = RewardsAccountParams::new(
@@ -193,18 +193,18 @@ mod tests {
 			let in_lane0_rewards_account = PayLaneRewardFromAccount::rewards_account(in_lane_0);
 			let out_lane1_rewards_account = PayLaneRewardFromAccount::rewards_account(out_lane_1);
 
-			Balances::mint_into(&in_lane0_rewards_account, 100).unwrap();
-			Balances::mint_into(&out_lane1_rewards_account, 100).unwrap();
+			assert_ok!(Balances::mint_into(&in_lane0_rewards_account, 100));
+			assert_ok!(Balances::mint_into(&out_lane1_rewards_account, 100));
 			assert_eq!(Balances::balance(&in_lane0_rewards_account), 100);
 			assert_eq!(Balances::balance(&out_lane1_rewards_account), 100);
 			assert_eq!(Balances::balance(&1), 0);
 
-			PayLaneRewardFromAccount::pay_reward(&1, in_lane_0, 100).unwrap();
+			assert_ok!(PayLaneRewardFromAccount::pay_reward(&1, in_lane_0, 100));
 			assert_eq!(Balances::balance(&in_lane0_rewards_account), 0);
 			assert_eq!(Balances::balance(&out_lane1_rewards_account), 100);
 			assert_eq!(Balances::balance(&1), 100);
 
-			PayLaneRewardFromAccount::pay_reward(&1, out_lane_1, 100).unwrap();
+			assert_ok!(PayLaneRewardFromAccount::pay_reward(&1, out_lane_1, 100));
 			assert_eq!(Balances::balance(&in_lane0_rewards_account), 0);
 			assert_eq!(Balances::balance(&out_lane1_rewards_account), 0);
 			assert_eq!(Balances::balance(&1), 200);
