@@ -67,6 +67,10 @@ impl DBReceiptProvider {
 
 #[async_trait]
 impl ReceiptProvider for DBReceiptProvider {
+	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
+		self.insert(block_hash, receipts).await;
+	}
+
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
 		let block_hash_str = hex::encode(block_hash);
 		for (_, receipt) in receipts {
@@ -97,8 +101,6 @@ impl ReceiptProvider for DBReceiptProvider {
 			}
 		}
 	}
-
-	async fn remove(&self, _block_hash: &H256) {}
 
 	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<usize> {
 		let block_hash = hex::encode(block_hash);

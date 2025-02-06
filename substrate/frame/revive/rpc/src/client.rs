@@ -266,11 +266,11 @@ impl Client {
 
 		loop {
 			let block_number = block.number();
-			log::debug!(target: LOG_TARGET, "Processing block {block_number}");
+			log::trace!(target: LOG_TARGET, "Processing past block #{block_number}");
 
 			let parent_hash = block.header().parent_hash;
 			let control_flow = callback(block).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
+				log::error!(target: LOG_TARGET, "Failed to process past block #{block_number}: {err:?}");
 			})?;
 
 			match control_flow {
@@ -355,6 +355,25 @@ impl Client {
 
 		if let Err(err) = res {
 			log::error!(target: LOG_TARGET, "Block subscription error: {err:?}");
+		}
+	}
+
+	/// Cache old blocks up to the given block number.
+	pub async fn cache_old_blocks(&self, oldest_block: SubstrateBlockNumber) {
+		let res = self
+			.subscribe_past_blocks(|block| async move {
+				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
+				self.receipt_provider.archive(&block.hash(), &receipts).await;
+				if block.number() <= oldest_block {
+					Ok(ControlFlow::Break(()))
+				} else {
+					Ok(ControlFlow::Continue(()))
+				}
+			})
+			.await;
+
+		if let Err(err) = res {
+			log::error!(target: LOG_TARGET, "Past Block subscription error: {err:?}");
 		}
 	}
 

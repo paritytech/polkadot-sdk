@@ -16,7 +16,7 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::{connect, native_to_eth_ratio, Client, SubscriptionType},
+	client::{connect, native_to_eth_ratio, Client, SubscriptionType, SubstrateBlockNumber},
 	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
 	EthRpcServer, EthRpcServerImpl, ReceiptExtractor, ReceiptProvider, SystemHealthRpcServer,
 	SystemHealthRpcServerImpl, LOG_TARGET,
@@ -54,6 +54,10 @@ pub struct CliCommand {
 	/// queries for transactions that are not in the in memory cache.
 	#[clap(long, env = "DATABASE_URL")]
 	pub database_url: Option<String>,
+
+	/// If not provided, only new blocks will be indexed
+	#[clap(long)]
+	pub index_until_block: Option<SubstrateBlockNumber>,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -142,6 +146,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		node_rpc_url,
 		cache_size,
 		database_url,
+		index_until_block,
 		shared_params,
 		..
 	} = cmd;
@@ -206,7 +211,13 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	task_manager
 		.spawn_essential_handle()
 		.spawn("block-subscription", None, async move {
-			client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks).await
+			let fut1 = client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks);
+			if let Some(index_until_block) = index_until_block {
+				let fut2 = client.cache_old_blocks(index_until_block);
+				tokio::join!(fut1, fut2);
+			} else {
+				fut1.await;
+			}
 		});
 
 	task_manager.keep_alive(rpc_server_handle);
