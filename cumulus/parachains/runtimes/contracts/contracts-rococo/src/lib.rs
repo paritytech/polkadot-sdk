@@ -801,6 +801,8 @@ impl_runtime_apis! {
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			use crate::xcm_config::RelayLocation;
+			use cumulus_primitives_core::ParaId;
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((

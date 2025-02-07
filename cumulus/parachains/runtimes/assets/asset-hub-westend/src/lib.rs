@@ -1307,7 +1307,7 @@ impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
 ///
 /// Ideally this would be done automatically (see
 /// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
-/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
+/// time, and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
 /// doing it manually.
 pub struct InitStorageVersions;
 
@@ -1360,7 +1360,7 @@ impl
 	fn create_asset_id_parameter(
 		seed: u32,
 	) -> (cumulus_primitives_core::Location, cumulus_primitives_core::Location) {
-		// Use a different parachain' foreign assets pallet so that the asset is indeed foreign.
+		// Use a different parachain foreign assets pallet so that the asset is indeed foreign.
 		let asset_id = cumulus_primitives_core::Location::new(
 			1,
 			[
@@ -2050,14 +2050,8 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const RandomParaLocationDup: Location = Location {
-					parents: 1,
-					interior: cumulus_primitives_core::Junctions::X1(
-						Parachain(43211234).into()
-					),
-				};
-				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RandomParaLocationDup::get(),
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
+					RandomParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;

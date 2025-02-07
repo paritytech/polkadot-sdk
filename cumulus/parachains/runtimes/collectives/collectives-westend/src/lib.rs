@@ -1134,7 +1134,7 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(WndLocation::get)
+							id: AssetId(WndLocation::get())
 						}.into(),
 						RandomParaLocation::get(),
 					))
