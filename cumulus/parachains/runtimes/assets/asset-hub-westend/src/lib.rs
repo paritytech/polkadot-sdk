@@ -1874,8 +1874,8 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			parameter_types! {
-				pub RandomParaId: ParaId = ParaId::new(43211234);
-				pub RandomParaLocation: Location = ParentThen(Parachain(
+				pub const RandomParaId: ParaId = ParaId::new(43211234);
+				pub const RandomParaLocation: Location = ParentThen(Parachain(
 					RandomParaId::get().into()).into()).into();
 
 				pub ExistentialDepositAsset: Option<Asset> = Some((
@@ -1925,7 +1925,7 @@ impl_runtime_apis! {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
-					let dest = RandomParaLocation::get();
+					let dest: Location = Some(RandomParaLocation::get()).unwrap();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
 					let fee_asset: Asset = (WestendLocation::get(), fee_amount).into();
@@ -2024,7 +2024,8 @@ impl_runtime_apis! {
 						ParachainSystem
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(RandomParaLocation::get())
+					let dest: Location = Some(RandomParaLocation::get()).unwrap();
+					Ok(dest)
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -2050,8 +2051,8 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					WestendLocation::get(),
+				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
+					RandomParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
