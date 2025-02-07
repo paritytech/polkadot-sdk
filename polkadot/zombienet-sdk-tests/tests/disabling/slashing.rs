@@ -68,9 +68,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 			p.with_id(1337)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![
-					"-lparachain=debug".into(),
-				])
+				.with_default_args(vec!["-lparachain=debug".into()])
 				.with_collator(|n| n.with_name("collator-1337"))
 		})
 		.build()
