@@ -364,5 +364,42 @@ for (const env of envs) {
 				],
 			})
 		})
+
+		test('logs', async () => {
+			let address = await getEventExampleAddr()
+			let { request } = await env.serverWallet.simulateContract({
+				address,
+				abi: EventExampleAbi,
+				functionName: 'triggerEvent',
+			})
+
+			let hash = await env.serverWallet.writeContract(request)
+			let receipt = await env.serverWallet.waitForTransactionReceipt({ hash })
+			const logs = await env.serverWallet.getLogs({
+				address,
+				blockHash: receipt.blockHash,
+			})
+			expect(logs).toHaveLength(1)
+			expect(logs[0]).toMatchObject({
+				address,
+				data: '0x00000000000000000000000000000000000000000000000000000000000030390000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000b48656c6c6f20776f726c64000000000000000000000000000000000000000000',
+				transactionHash: hash,
+			})
+
+			expect(
+				decodeEventLog({
+					abi: EventExampleAbi,
+					data: logs[0].data,
+					topics: logs[0].topics,
+				})
+			).toEqual({
+				eventName: 'ExampleEvent',
+				args: {
+					sender: env.serverWallet.account.address,
+					value: 12345n,
+					message: 'Hello world',
+				},
+			})
+		})
 	})
 }
