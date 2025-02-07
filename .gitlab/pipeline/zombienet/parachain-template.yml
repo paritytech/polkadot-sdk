@@ -43,4 +43,4 @@ zombienet-parachain-template-smoke:
     - ls -ltr $(pwd)/artifacts
     - cargo test -p template-zombienet-tests  --features zombienet --tests  minimal_template_block_production_test
     - cargo test -p template-zombienet-tests  --features zombienet --tests  parachain_template_block_production_test
-    # - cargo test -p template-zombienet-tests  --features zombienet --tests  solochain_template_block_production_test
+    - cargo test -p template-zombienet-tests  --features zombienet --tests  solochain_template_block_production_test

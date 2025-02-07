@@ -483,7 +483,7 @@ where
 			match sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
 				Ok(()) => {
 					transaction_pushed = true;
-					debug!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
+					trace!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
 				},
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
 					pending_iterator.report_invalid(&pending_tx);
@@ -565,20 +565,22 @@ where
 
 		if log::log_enabled!(log::Level::Info) {
 			info!(
-				"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; extrinsics_count: {}",
+				"🎁 Prepared block for proposing at {} ({} ms) hash: {:?}; parent_hash: {}; end: {:?}; extrinsics_count: {}",
 				block.header().number(),
 				block_took.as_millis(),
 				<Block as BlockT>::Hash::from(block.header().hash()),
 				block.header().parent_hash(),
+				end_reason,
 				extrinsics.len()
 			)
-		} else if log::log_enabled!(log::Level::Debug) {
-			debug!(
-				"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; {extrinsics_summary}",
+		} else if log::log_enabled!(log::Level::Trace) {
+			trace!(
+				"🎁 Prepared block for proposing at {} ({} ms) hash: {:?}; parent_hash: {}; end: {:?}; {extrinsics_summary}",
 				block.header().number(),
 				block_took.as_millis(),
 				<Block as BlockT>::Hash::from(block.header().hash()),
 				block.header().parent_hash(),
+				end_reason
 			);
 		}
 
@@ -908,8 +910,8 @@ mod tests {
 		let extrinsics_num = 5;
 		let extrinsics = std::iter::once(
 			Transfer {
-				from: AccountKeyring::Alice.into(),
-				to: AccountKeyring::Bob.into(),
+				from: Sr25519Keyring::Alice.into(),
+				to: Sr25519Keyring::Bob.into(),
 				amount: 100,
 				nonce: 0,
 			}
@@ -1014,7 +1016,7 @@ mod tests {
 		};
 		let huge = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(HUGE))
-				.signer(AccountKeyring::numeric(who))
+				.signer(Sr25519Keyring::numeric(who))
 				.build()
 		};
 
@@ -1080,13 +1082,13 @@ mod tests {
 
 		let tiny = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(TINY))
-				.signer(AccountKeyring::numeric(who))
+				.signer(Sr25519Keyring::numeric(who))
 				.nonce(1)
 				.build()
 		};
 		let huge = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(HUGE))
-				.signer(AccountKeyring::numeric(who))
+				.signer(Sr25519Keyring::numeric(who))
 				.build()
 		};
 

@@ -127,6 +127,12 @@ impl CoretimeInterface for CoretimeAllocator {
 		use crate::coretime::CoretimeProviderCalls::RequestCoreCount;
 		let request_core_count_call = RelayRuntimePallets::Coretime(RequestCoreCount(count));
 
+		// Weight for `request_core_count` from westend benchmarks:
+		// `ref_time` = 7889000 + (3 * 25000000) + (1 * 100000000) = 182889000
+		// `proof_size` = 1636
+		// Add 5% to each component and round to 2 significant figures.
+		let call_weight = Weight::from_parts(190_000_000, 1700);
+
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
@@ -135,6 +141,7 @@ impl CoretimeInterface for CoretimeAllocator {
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				call: request_core_count_call.encode().into(),
+				fallback_max_weight: Some(call_weight),
 			},
 		]);
 
@@ -164,6 +171,7 @@ impl CoretimeInterface for CoretimeAllocator {
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				call: request_revenue_info_at_call.encode().into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000_000, 200_000)),
 			},
 		]);
 
@@ -192,6 +200,7 @@ impl CoretimeInterface for CoretimeAllocator {
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				call: credit_account_call.encode().into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000_000, 200_000)),
 			},
 		]);
 
@@ -215,6 +224,12 @@ impl CoretimeInterface for CoretimeAllocator {
 		end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 		use crate::coretime::CoretimeProviderCalls::AssignCore;
+
+		// Weight for `assign_core` from westend benchmarks:
+		// `ref_time` = 10177115 + (1 * 25000000) + (2 * 100000000) + (57600 * 13932) = 937660315
+		// `proof_size` = 3612
+		// Add 5% to each component and round to 2 significant figures.
+		let call_weight = Weight::from_parts(980_000_000, 3800);
 
 		// The relay chain currently only allows `assign_core` to be called with a complete mask
 		// and only ever with increasing `begin`. The assignments must be truncated to avoid
@@ -256,6 +271,7 @@ impl CoretimeInterface for CoretimeAllocator {
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				call: assign_core_call.encode().into(),
+				fallback_max_weight: Some(call_weight),
 			},
 		]);
 

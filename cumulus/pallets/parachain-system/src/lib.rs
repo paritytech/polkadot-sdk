@@ -45,7 +45,7 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	defensive,
-	dispatch::{DispatchResult, Pays, PostDispatchInfo},
+	dispatch::DispatchResult,
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
 	traits::{Get, HandleMessage},
@@ -80,8 +80,7 @@ pub mod relay_state_snapshot;
 pub mod validate_block;
 
 use unincluded_segment::{
-	Ancestor, HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
-	UsedBandwidth,
+	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
 };
 
 pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
@@ -109,6 +108,7 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// ```
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
+pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
 pub use pallet::*;
 
@@ -309,8 +309,12 @@ pub mod pallet {
 			<UpgradeRestrictionSignal<T>>::kill();
 			let relay_upgrade_go_ahead = <UpgradeGoAhead<T>>::take();
 
-			let vfp = <ValidationData<T>>::get()
-				.expect("set_validation_data inherent needs to be present in every block!");
+			let vfp = <ValidationData<T>>::get().expect(
+				r"Missing required set_validation_data inherent. This inherent must be
+				present in every block. This error typically occurs when the set_validation_data
+				execution failed and was rejected by the block builder. Check earlier log entries
+				for the specific cause of the failure.",
+			);
 
 			LastRelayChainBlockNumber::<T>::put(vfp.relay_parent_number);
 
@@ -567,11 +571,12 @@ pub mod pallet {
 		/// if the appropriate time has come.
 		#[pallet::call_index(0)]
 		#[pallet::weight((0, DispatchClass::Mandatory))]
-		// TODO: This weight should be corrected.
+		// TODO: This weight should be corrected. Currently the weight is registered manually in the
+		// call with `register_extra_weight_unchecked`.
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
 			data: ParachainInherentData,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(
 				!<ValidationData<T>>::exists(),
@@ -692,7 +697,12 @@ pub mod pallet {
 				vfp.relay_parent_number,
 			));
 
-			Ok(PostDispatchInfo { actual_weight: Some(total_weight), pays_fee: Pays::No })
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				total_weight,
+				DispatchClass::Mandatory,
+			);
+
+			Ok(())
 		}
 
 		#[pallet::call_index(1)]
@@ -1636,7 +1646,7 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pallet<T> {
+impl<T: Config> polkadot_runtime_parachains::EnsureForParachain for Pallet<T> {
 	fn ensure(para_id: ParaId) {
 		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
 			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)

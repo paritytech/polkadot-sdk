@@ -27,6 +27,7 @@ use xcm::{
 
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmBalancesWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
+use sp_runtime::BoundedVec;
 use xcm::latest::AssetTransferFilter;
 
 /// Types of asset supported by the westend runtime.
@@ -114,7 +115,11 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmBalancesWeight::<Runtime>::transfer_reserve_asset())
 	}
-	fn transact(_origin_kind: &OriginKind, _call: &DoubleEncoded<RuntimeCall>) -> Weight {
+	fn transact(
+		_origin_kind: &OriginKind,
+		_fallback_max_weight: &Option<Weight>,
+		_call: &DoubleEncoded<RuntimeCall>,
+	) -> Weight {
 		XcmGeneric::<Runtime>::transact()
 	}
 	fn hrmp_new_channel_open_request(
@@ -204,11 +209,17 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn clear_error() -> Weight {
 		XcmGeneric::<Runtime>::clear_error()
 	}
-
-	fn set_asset_claimer(_location: &Location) -> Weight {
-		XcmGeneric::<Runtime>::set_asset_claimer()
+	fn set_hints(hints: &BoundedVec<Hint, HintNumVariants>) -> Weight {
+		let mut weight = Weight::zero();
+		for hint in hints {
+			match hint {
+				AssetClaimer { .. } => {
+					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
+				},
+			}
+		}
+		weight
 	}
-
 	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {
 		XcmGeneric::<Runtime>::claim_asset()
 	}
@@ -288,8 +299,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 		XcmGeneric::<Runtime>::clear_topic()
 	}
 	fn alias_origin(_: &Location) -> Weight {
-		// XCM Executor does not currently support alias origin operations
-		Weight::MAX
+		XcmGeneric::<Runtime>::alias_origin()
 	}
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()

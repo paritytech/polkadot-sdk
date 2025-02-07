@@ -1,0 +1,8 @@
+title: 'pallet-revive: disable host functions unused in solidity PolkaVM compiler'
+doc:
+- audience: Runtime Dev
+  description: Disables host functions in contracts that are not enabled
+    in solidity PolkaVM compiler to reduce surface of possible attack vectors.
+crates:
+- name: pallet-revive
+  bump: major
