@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use snowbridge_outbound_queue_primitives::Log;
-
-use sp_core::{RuntimeDebug, H160};
-use sp_std::prelude::*;
-
 use alloy_core::{primitives::B256, sol, sol_types::SolEvent};
 use codec::Decode;
 use frame_support::pallet_prelude::{Encode, TypeInfo};
+use snowbridge_outbound_queue_primitives::Log;
+use sp_core::{RuntimeDebug, H160};
+use sp_std::prelude::*;
 
 sol! {
 	event InboundMessageDispatched(uint64 indexed nonce, bool success, bytes32 reward_address);
 }
 
-/// An inbound message that has had its outer envelope decoded.
+/// Envelope of the delivery proof
 #[derive(Clone, RuntimeDebug)]
-pub struct Envelope {
+pub struct DeliveryProofEnvelope {
 	/// The address of the outbound queue on Ethereum that emitted this message as an event log
 	pub gateway: H160,
 	/// A nonce for enforcing replay protection and ordering.
@@ -32,7 +30,7 @@ pub enum EnvelopeDecodeError {
 	DecodeAccountFailed,
 }
 
-impl TryFrom<&Log> for Envelope {
+impl TryFrom<&Log> for DeliveryProofEnvelope {
 	type Error = EnvelopeDecodeError;
 
 	fn try_from(log: &Log) -> Result<Self, Self::Error> {

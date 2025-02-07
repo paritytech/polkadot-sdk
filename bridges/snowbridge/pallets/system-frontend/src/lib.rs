@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-//! Frontend for calling Snowbridge System Pallet on BridgeHub
+//! Frontend which will be deployed on AssetHub for calling the V2 system pallet
+//! on BridgeHub.
 //!
 //! # Extrinsics
 //!
-//! * [`Call::create_agent`]: Create agent for any sovereign location from non-system parachain
-//! * [`Call::register_token`]: Register a foreign token location from non-system parachain
+//! * [`Call::create_agent`]: Create agent for any kind of sovereign location on Polkadot network.
+//! * [`Call::register_token`]: Register Polkadot native asset as a wrapped ERC20 token on Ethereum.
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
 mod mock;
@@ -113,10 +114,9 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Call `create_agent` on Bridge Hub to instantiate a new agent contract representing
-		/// `origin`.
-		/// - `origin`: Must be `Location` from a sibling parachain
-		/// - `fee`: Fee in Ether
+		/// Call `create_agent` to instantiate a new agent contract representing `origin`.
+		/// - `origin`: Can be any sovereign `Location`
+		/// - `fee`: Fee in Ether paying for the execution cost on Ethreum
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::create_agent())]
 		pub fn create_agent(origin: OriginFor<T>, fee: u128) -> DispatchResult {
@@ -150,6 +150,7 @@ pub mod pallet {
 		/// - `origin`: Must be `Location` from a sibling parachain
 		/// - `asset_id`: Location of the asset (should starts from the dispatch origin)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
+		/// - `fee`: Fee in Ether paying for the execution cost on Ethreum
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::register_token())]
 		pub fn register_token(
