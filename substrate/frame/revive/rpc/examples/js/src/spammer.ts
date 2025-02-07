@@ -9,24 +9,6 @@ import {
 } from './util'
 import { FlipperAbi } from '../abi/Flipper'
 
-<<<<<<< HEAD
-if (process.env.START_KITCHENSINK) {
-	console.log('🚀 Start kitchensink...')
-	killProcessOnPort(9944)
-	spawn(
-		[
-			'./target/debug/substrate-node',
-			'--dev',
-			'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
-		],
-		{
-			stdout: Bun.file('/tmp/kitchensink.out.log'),
-			stderr: Bun.file('/tmp/kitchensink.err.log'),
-			cwd: polkadotSdkPath,
-		}
-	)
-}
-=======
 //Run the substate node
 console.log('🚀 Start substrate-node...')
 killProcessOnPort(9944)
@@ -42,7 +24,6 @@ spawn(
 		cwd: polkadotSdkPath,
 	}
 )
->>>>>>> pg/add-eth-get-logs
 
 if (process.env.START_ETH_INDEXER) {
 	console.log('🚀 Start indexer...')
