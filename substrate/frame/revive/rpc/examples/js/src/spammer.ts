@@ -9,6 +9,7 @@ import {
 } from './util'
 import { FlipperAbi } from '../abi/Flipper'
 
+<<<<<<< HEAD
 if (process.env.START_KITCHENSINK) {
 	console.log('🚀 Start kitchensink...')
 	killProcessOnPort(9944)
@@ -25,6 +26,23 @@ if (process.env.START_KITCHENSINK) {
 		}
 	)
 }
+=======
+//Run the substate node
+console.log('🚀 Start substrate-node...')
+killProcessOnPort(9944)
+spawn(
+	[
+		'./target/debug/substrate-node',
+		'--dev',
+		'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
+	],
+	{
+		stdout: Bun.file('/tmp/substrate-node.out.log'),
+		stderr: Bun.file('/tmp/substrate-node.err.log'),
+		cwd: polkadotSdkPath,
+	}
+)
+>>>>>>> pg/add-eth-get-logs
 
 if (process.env.START_ETH_INDEXER) {
 	console.log('🚀 Start indexer...')
@@ -64,7 +82,7 @@ if (process.env.START_ETH_RPC) {
 	await waitForHealth('http://localhost:8545').catch()
 }
 
-const env = await createEnv('kitchensink')
+const env = await createEnv('eth-rpc')
 const wallet = env.accountWallet
 
 console.log('🚀 Deploy flipper...')

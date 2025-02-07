@@ -7,15 +7,15 @@ import {
 	polkadotSdkPath,
 } from './util.ts'
 import { afterAll, afterEach, describe, expect, test } from 'bun:test'
-import { encodeFunctionData, Hex, parseEther } from 'viem'
+import { encodeFunctionData, Hex, parseEther, decodeEventLog, keccak256, toHex } from 'viem'
 import { ErrorsAbi } from '../abi/Errors'
-import { TracingCallerAbi } from '../abi/TracingCaller.ts'
-import { TracingCalleeAbi } from '../abi/TracingCallee.ts'
+import { EventExampleAbi } from '../abi/EventExample'
 import { Subprocess, spawn } from 'bun'
 import { fail } from 'node:assert'
 
 const procs: Subprocess[] = []
 if (process.env.START_GETH) {
+	process.env.USE_ETH_RPC = 'true'
 	procs.push(
 		// Run geth on port 8546
 		await (async () => {
@@ -47,8 +47,8 @@ if (process.env.START_SUBSTRATE_NODE) {
 					'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
 				],
 				{
-					stdout: Bun.file('/tmp/kitchensink.out.log'),
-					stderr: Bun.file('/tmp/kitchensink.err.log'),
+					stdout: Bun.file('/tmp/substrate-node.out.log'),
+					stderr: Bun.file('/tmp/substrate-node.err.log'),
 					cwd: polkadotSdkPath,
 				}
 			)
@@ -57,6 +57,7 @@ if (process.env.START_SUBSTRATE_NODE) {
 }
 
 if (process.env.START_ETH_RPC) {
+	process.env.USE_ETH_RPC = 'true'
 	// Run eth-rpc on 8545
 	procs.push(
 		await (async () => {
@@ -91,7 +92,7 @@ afterAll(async () => {
 
 const envs = await Promise.all([
 	...(process.env.USE_GETH ? [createEnv('geth')] : []),
-	...(process.env.USE_KITCHENSINK ? [createEnv('kitchensink')] : []),
+	...(process.env.USE_ETH_RPC ? [createEnv('eth-rpc')] : []),
 ])
 
 for (const env of envs) {
@@ -107,35 +108,26 @@ for (const env of envs) {
 					bytecode: getByteCode('Errors', env.evm),
 				})
 				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
-				if (!deployReceipt.contractAddress)
-					throw new Error('Contract address should be set')
-				contractAddress = deployReceipt.contractAddress
+				contractAddress = deployReceipt.contractAddress!
 				return contractAddress
 			}
+		})()
 
-			{
+		const getEventExampleAddr = (() => {
+			let contractAddress: Hex = '0x'
+			return async () => {
+				if (contractAddress !== '0x') {
+					return contractAddress
+				}
 				const hash = await env.serverWallet.deployContract({
-					abi: FlipperAbi,
-					bytecode: getByteCode('Flipper', env.evm),
+					abi: EventExampleAbi,
+					bytecode: getByteCode('EventExample', env.evm),
 				})
 				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
-				if (!deployReceipt.contractAddress)
-					throw new Error('Contract address should be set')
-				flipperAddr = deployReceipt.contractAddress
+				contractAddress = deployReceipt.contractAddress!
+				return contractAddress
 			}
-
-			{
-				const hash = await env.serverWallet.deployContract({
-					abi: FlipperCallerAbi,
-					args: [flipperAddr],
-					bytecode: getByteCode('FlipperCaller', env.evm),
-				})
-				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
-				if (!deployReceipt.contractAddress)
-					throw new Error('Contract address should be set')
-				flipperCallerAddr = deployReceipt.contractAddress
-			}
-		})
+		})()
 
 		test('triggerAssertError', async () => {
 			try {
@@ -234,7 +226,7 @@ for (const env of envs) {
 		test('eth_call (not enough funds)', async () => {
 			try {
 				await env.emptyWallet.simulateContract({
-					address: errorsAddr,
+					address: await getErrorTesterAddr(),
 					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
@@ -270,7 +262,7 @@ for (const env of envs) {
 		test('eth_estimate (not enough funds)', async () => {
 			try {
 				await env.emptyWallet.estimateContractGas({
-					address: errorsAddr,
+					address: await getErrorTesterAddr(),
 					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
@@ -288,7 +280,7 @@ for (const env of envs) {
 		test('eth_estimate call caller (not enough funds)', async () => {
 			try {
 				await env.emptyWallet.estimateContractGas({
-					address: errorsAddr,
+					address: await getErrorTesterAddr(),
 					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
@@ -337,7 +329,7 @@ for (const env of envs) {
 			expect(balance).toBe(0n)
 			try {
 				await env.emptyWallet.estimateContractGas({
-					address: errorsAddr,
+					address: await getErrorTesterAddr(),
 					abi: ErrorsAbi,
 					functionName: 'setState',
 					args: [true],
@@ -367,76 +359,47 @@ for (const env of envs) {
 					{
 						data,
 						from: env.emptyWallet.account.address,
-						to: errorsAddr,
+						to: await getErrorTesterAddr(),
 					},
 				],
 			})
 		})
 
-		test.skip('tracing', async () => {
-			const calleeAddress = await (async () => {
-				const hash = await env.serverWallet.deployContract({
-					abi: TracingCalleeAbi,
-					bytecode: getByteCode('TracingCallee', env.evm),
-				})
-				const receipt = await env.serverWallet.waitForTransactionReceipt({
-					hash,
-				})
-				return receipt.contractAddress!
-			})()
-
-			console.error('Callee address:', calleeAddress)
-
-			const callerAddress = await (async () => {
-				const hash = await env.serverWallet.deployContract({
-					abi: TracingCallerAbi,
-					args: [calleeAddress],
-					bytecode: getByteCode('TracingCaller', env.evm),
-					value: parseEther('10'),
-				})
-				const receipt = await env.serverWallet.waitForTransactionReceipt({
-					hash,
-				})
-				return receipt.contractAddress!
-			})()
-
-			console.log('Caller address:', callerAddress)
-			const receipt = await (async () => {
-				const { request } = await env.serverWallet.simulateContract({
-					address: callerAddress,
-					abi: TracingCallerAbi,
-					functionName: 'start',
-					args: [2n],
-				})
-
-				const hash = await env.serverWallet.writeContract(request)
-				return await env.serverWallet.waitForTransactionReceipt({ hash })
-			})()
-			console.log('Tx hash:', receipt.transactionHash)
-			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
-			Bun.write('/tmp/trace_transaction.json', JSON.stringify(res, null, 2))
-			console.log('Wrote /tmp/trace_transaction.json')
-
-			res = await env.debugClient.traceBlock(receipt.blockNumber)
-			Bun.write('/tmp/trace_block.json', JSON.stringify(res, null, 2))
-			console.log('Wrote /tmp/trace_block.json')
-		})
-
-		test.skip('tracing_transfer', async () => {
-			let hash = await env.serverWallet.sendTransaction({
-				to: '0x75E480dB528101a381Ce68544611C169Ad7EB342',
-				value: parseEther('1.0'),
+		test('logs', async () => {
+			let address = await getEventExampleAddr()
+			let { request } = await env.serverWallet.simulateContract({
+				address,
+				abi: EventExampleAbi,
+				functionName: 'triggerEvent',
 			})
-			const receipt = await env.serverWallet.waitForTransactionReceipt({ hash })
-			console.log('Tx hash:', receipt.transactionHash)
 
-			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
-			Bun.write('/tmp/trace_transfer_transaction.json', JSON.stringify(res, null, 2))
-			console.log('Wrote /tmp/trace_transfer_transaction.json')
+			let hash = await env.serverWallet.writeContract(request)
+			let receipt = await env.serverWallet.waitForTransactionReceipt({ hash })
+			const logs = await env.serverWallet.getLogs({
+				address,
+				blockHash: receipt.blockHash,
+			})
+			expect(logs).toHaveLength(1)
+			expect(logs[0]).toMatchObject({
+				address,
+				data: '0x00000000000000000000000000000000000000000000000000000000000030390000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000b48656c6c6f20776f726c64000000000000000000000000000000000000000000',
+				transactionHash: hash,
+			})
 
-			res = await env.debugClient.traceBlock(receipt.blockNumber)
-			Bun.write('/tmp/trace_transfer_block.json', JSON.stringify(res, null, 2))
-			console.log('Wrote /tmp/trace_transfer_block.json')
+			expect(
+				decodeEventLog({
+					abi: EventExampleAbi,
+					data: logs[0].data,
+					topics: logs[0].topics,
+				})
+			).toEqual({
+				eventName: 'ExampleEvent',
+				args: {
+					sender: env.serverWallet.account.address,
+					value: 12345n,
+					message: 'Hello world',
+				},
+			})
 		})
 	})
 }
