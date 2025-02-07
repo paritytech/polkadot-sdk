@@ -159,9 +159,11 @@ mod benchmarks {
 
 	#[benchmark]
 	fn claim_reward_for(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
+		let caller0: T::AccountId = account("caller", 1, SEED);
+		let caller1: T::AccountId = account("caller", 2, SEED);
+		let caller2: T::AccountId = account("caller", 3, SEED);
 		let account0: T::AccountId = account("project", r, SEED);
-		add_whitelisted_project::<T>(r, caller.clone())?;
+		add_whitelisted_project::<T>(r, caller0.clone())?;
 		let pot = setup_pot_account::<T>();
 		assert_eq!(T::NativeBalance::balance(&pot) > Zero::zero(), true);
 
@@ -170,19 +172,37 @@ mod benchmarks {
 			"Project_id not set up correctly."
 		);
 
-		//let mut when = T::BlockNumberProvider::current_block_number() + One::one();
-		//run_to_block::<T>(when);
 		ensure!(VotingRounds::<T>::get(0).is_some(), "Round not created!");
 		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
 
-		let _ = T::NativeBalance::mint_into(&caller, caller_balance);
+		let _ = T::NativeBalance::mint_into(&caller0, caller_balance);
+		let _ = T::NativeBalance::mint_into(&caller1, caller_balance);
+		let _ = T::NativeBalance::mint_into(&caller2, caller_balance);
 		let value: BalanceOf<T> = T::NativeBalance::minimum_balance()
+			.saturating_mul(1000u32.into())
+			.saturating_mul(r.into());
+		let value1: BalanceOf<T> = T::NativeBalance::minimum_balance()
 			.saturating_mul(100u32.into())
 			.saturating_mul(r.into());
+
 		Opf::<T>::vote(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller0.clone()).into(),
 			account0.clone(),
 			value,
+			true,
+			Conviction::Locked1x,
+		)?;
+		Opf::<T>::vote(
+			RawOrigin::Signed(caller1.clone()).into(),
+			account0.clone(),
+			value1,
+			true,
+			Conviction::Locked1x,
+		)?;
+		Opf::<T>::vote(
+			RawOrigin::Signed(caller2.clone()).into(),
+			account0.clone(),
+			value1,
 			true,
 			Conviction::Locked1x,
 		)?;
@@ -192,11 +212,17 @@ mod benchmarks {
 		run_to_block::<T>(round_end);
 		assert_eq!(Democracy::ReferendumCount::<T>::get(), r, "referenda not created");
 
+		#[block]
+		{
+			Opf::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
+		}
+
 		// go to claiming period
 		let when = round_end.saturating_add(<T as Config>::EnactmentPeriod::get());
 		T::BlockNumberProvider::set_block_number(when);
+
 		assert_ok!(Opf::<T>::on_registration(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller0.clone()).into(),
 			account0.clone()
 		));
 		assert_eq!(Spends::<T>::contains_key(&account0), true);
@@ -207,18 +233,13 @@ mod benchmarks {
 		assert_eq!(claim.valid_from == now, true);
 		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(&account0), true);
 		assert_ok!(Opf::<T>::claim_reward_for(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller0.clone()).into(),
 			account0.clone()
 		));
 		//Reward properly claimed
 		let claim_after = Spends::<T>::get(&account0).unwrap();
 		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(&account0), false);
 		assert_eq!(claim_after.claimed, true);
-
-		#[block]
-		{
-			Opf::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
-		}
 
 		Ok(())
 	}
