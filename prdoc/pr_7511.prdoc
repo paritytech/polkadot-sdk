@@ -1,0 +1,14 @@
+Title: feat(integration test): Test omni-node dev mode works with dev_chain_spec.json #7511
+
+Doc:
+
+Audience: Runtime Dev, Testing Team
+Description:
+            This PR adds a new integration test to verify that the omni-node operates correctly in dev mode when using the dev_chain_spec.json file.
+            The test ensures compatibility and proper functionality of the omni-node in this configuration.
+
+
+Crates:
+
+Name: polkadot-sdk-docs
+Bump: No version bump required (documentation-only change).
