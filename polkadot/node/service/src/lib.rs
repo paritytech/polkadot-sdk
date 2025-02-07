@@ -985,7 +985,7 @@ pub fn new_full<
 			col_meta: parachains_db::REAL_COLUMNS.col_availability_meta,
 			keep_finalized_for: if matches!(
 				config.chain_spec.identify_chain(),
-				Chain::Kusama | Chain::Polkadot
+				Chain::Kusama | Chain::Polkadot | Chain::Westend
 			) {
 				KEEP_FINALIZED_FOR_LIVE_NETWORKS
 			} else {
