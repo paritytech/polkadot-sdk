@@ -27,8 +27,8 @@ use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
-		self, base_pool::TimedTransactionSource, watcher::Watcher, ExtrinsicFor, ExtrinsicHash,
-		IsValidator, ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
+		self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash, IsValidator,
+		ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
@@ -155,6 +155,18 @@ where
 		}
 	}
 
+	/// Imports single unvalidated extrinsic into the view.
+	pub(super) async fn submit_one(
+		&self,
+		source: TimedTransactionSource,
+		xt: ExtrinsicFor<ChainApi>,
+	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
+		self.submit_many(std::iter::once((source, xt)))
+			.await
+			.pop()
+			.expect("There is exactly one result, qed.")
+	}
+
 	/// Imports many unvalidated extrinsics into the view.
 	pub(super) async fn submit_many(
 		&self,
@@ -162,26 +174,15 @@ where
 	) -> Vec<Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error>> {
 		if tracing::enabled!(target: LOG_TARGET, tracing::Level::TRACE) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
-			log_xt_trace!(target: LOG_TARGET, xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0), "view::submit_many at:{}", self.at.hash);
+			log_xt_trace!(
+				target: LOG_TARGET,
+				xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0),
+				"view::submit_many at:{}",
+				self.at.hash);
 			self.pool.submit_at(&self.at, xts).await
 		} else {
 			self.pool.submit_at(&self.at, xts).await
 		}
-	}
-
-	/// Import a single extrinsic and starts to watch its progress in the view.
-	pub(super) async fn submit_and_watch(
-		&self,
-		source: TimedTransactionSource,
-		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
-		trace!(
-			target: LOG_TARGET,
-			tx_hash = ?self.pool.validated_pool().api().hash_and_length(&xt).0,
-			view_at_hash = ?self.at.hash,
-			"view::submit_and_watch"
-		);
-		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
 
 	/// Synchronously imports single unvalidated extrinsics into the view.
@@ -235,18 +236,6 @@ where
 	/// Status of the pool associated with the view.
 	pub(super) fn status(&self) -> PoolStatus {
 		self.pool.validated_pool().status()
-	}
-
-	/// Creates a watcher for given transaction.
-	///
-	/// Intended to be called for the transaction that already exists in the pool
-	pub(super) fn create_watcher(
-		&self,
-		tx_hash: ExtrinsicHash<ChainApi>,
-	) -> Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>> {
-		//todo(minor): some assert could be added here - to make sure that transaction actually
-		// exists in the view.
-		self.pool.validated_pool().create_watcher(tx_hash)
 	}
 
 	/// Revalidates some part of transaction from the internal pool.

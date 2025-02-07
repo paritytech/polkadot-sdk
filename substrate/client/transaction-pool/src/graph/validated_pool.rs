@@ -747,10 +747,18 @@ impl<B: ChainApi> ValidatedPool<B> {
 		self.listener.write().retracted(block_hash)
 	}
 
+	/// Refer to [`Listener::create_dropped_by_limits_stream`] for details.
 	pub fn create_dropped_by_limits_stream(
 		&self,
-	) -> super::listener::DroppedByLimitsStream<ExtrinsicHash<B>, BlockHash<B>> {
+	) -> super::listener::AggregatedStream<ExtrinsicHash<B>, BlockHash<B>> {
 		self.listener.write().create_dropped_by_limits_stream()
+	}
+
+	/// Refer to [`Listener::create_aggregated_stream`]
+	pub fn create_aggregated_stream(
+		&self,
+	) -> super::listener::AggregatedStream<ExtrinsicHash<B>, BlockHash<B>> {
+		self.listener.write().create_aggregated_stream()
 	}
 
 	/// Resends ready and future events for all the ready and future transactions that are already

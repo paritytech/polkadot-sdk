@@ -17,11 +17,10 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 use crate::{
-	extract_receipts_from_block,
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, ReceiptProvider, TransactionInfo, LOG_TARGET,
+	BlockInfoProvider, ReceiptExtractor, ReceiptProvider, TransactionInfo, LOG_TARGET,
 };
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
@@ -170,6 +169,7 @@ pub struct Client {
 	rpc: LegacyRpcMethods<SrcChainConfig>,
 	receipt_provider: Arc<dyn ReceiptProvider>,
 	block_provider: Arc<dyn BlockInfoProvider>,
+	receipt_extractor: ReceiptExtractor,
 	chain_id: u64,
 	max_block_weight: Weight,
 }
@@ -177,6 +177,12 @@ pub struct Client {
 /// Fetch the chain ID from the substrate chain.
 async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError> {
 	let query = subxt_client::constants().revive().chain_id();
+	api.constants().at(&query).map_err(|err| err.into())
+}
+
+/// Fetch the native_to_eth_ratio
+pub async fn native_to_eth_ratio(api: &OnlineClient<SrcChainConfig>) -> Result<u32, ClientError> {
+	let query = subxt_client::constants().revive().native_to_eth_ratio();
 	api.constants().at(&query).map_err(|err| err.into())
 }
 
@@ -226,6 +232,7 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: Arc<dyn BlockInfoProvider>,
 		receipt_provider: Arc<dyn ReceiptProvider>,
+		receipt_extractor: ReceiptExtractor,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
@@ -236,6 +243,7 @@ impl Client {
 			rpc,
 			receipt_provider,
 			block_provider,
+			receipt_extractor,
 			chain_id,
 			max_block_weight,
 		})
@@ -320,7 +328,7 @@ impl Client {
 				},
 			};
 
-			log::debug!(target: LOG_TARGET, "Pushing block: {}", block.number());
+			log::trace!(target: LOG_TARGET, "Pushing block: {}", block.number());
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block: {err:?}");
 			}
@@ -336,7 +344,7 @@ impl Client {
 		spawn_handle.spawn("subscribe-blocks", None, async move {
 			let res = client
 				.subscribe_new_blocks(SubscriptionType::BestBlocks, |block| async {
-					let receipts = extract_receipts_from_block(&block).await?;
+					let receipts = client.receipt_extractor.extract_from_block(&block).await?;
 
 					client.receipt_provider.insert(&block.hash(), &receipts).await;
 					if let Some(pruned) = client.block_provider.cache_block(block).await {
@@ -360,9 +368,10 @@ impl Client {
 	) -> Result<(), ClientError> {
 		let new_blocks_fut =
 			self.subscribe_new_blocks(SubscriptionType::FinalizedBlocks, |block| async move {
-				let receipts = extract_receipts_from_block(&block).await.inspect_err(|err| {
-					log::error!(target: LOG_TARGET, "Failed to extract receipts from block: {err:?}");
-				})?;
+				let receipts =
+					self.receipt_extractor.extract_from_block(&block).await.inspect_err(|err| {
+						log::error!(target: LOG_TARGET, "Failed to extract receipts from block: {err:?}");
+					})?;
 				self.receipt_provider.insert(&block.hash(), &receipts).await;
 				Ok(())
 			});
@@ -370,7 +379,7 @@ impl Client {
 		let Some(oldest_block) = oldest_block else { return new_blocks_fut.await };
 
 		let old_blocks_fut = self.subscribe_past_blocks(|block| async move {
-			let receipts = extract_receipts_from_block(&block).await?;
+			let receipts = self.receipt_extractor.extract_from_block(&block).await?;
 			self.receipt_provider.insert(&block.hash(), &receipts).await;
 			if block.number() == oldest_block {
 				Ok(ControlFlow::Break(()))
@@ -481,7 +490,7 @@ impl Client {
 	pub async fn receipt_by_hash_and_index(
 		&self,
 		block_hash: &H256,
-		transaction_index: &U256,
+		transaction_index: usize,
 	) -> Option<ReceiptInfo> {
 		self.receipt_provider
 			.receipt_by_block_hash_and_index(block_hash, transaction_index)
@@ -641,6 +650,13 @@ impl Client {
 		self.block_provider.block_by_number(block_number).await
 	}
 
+	pub async fn gas_price(&self, at: &BlockNumberOrTagOrHash) -> Result<U256, ClientError> {
+		let runtime_api = self.runtime_api(at).await?;
+		let payload = subxt_client::apis().revive_api().gas_price();
+		let gas_price = runtime_api.call(payload).await?;
+		Ok(*gas_price)
+	}
+
 	/// Get the EVM block for the given hash.
 	pub async fn evm_block(
 		&self,
@@ -658,7 +674,7 @@ impl Client {
 		let state_root = header.state_root.0.into();
 		let extrinsics_root = header.extrinsics_root.0.into();
 
-		let receipts = extract_receipts_from_block(&block).await.unwrap_or_default();
+		let receipts = self.receipt_extractor.extract_from_block(&block).await.unwrap_or_default();
 		let gas_used =
 			receipts.iter().fold(U256::zero(), |acc, (_, receipt)| acc + receipt.gas_used);
 		let transactions = if hydrated_transactions {
@@ -683,7 +699,7 @@ impl Client {
 			number: header.number.into(),
 			timestamp: timestamp.into(),
 			difficulty: Some(0u32.into()),
-			base_fee_per_gas: Some(crate::GAS_PRICE.into()),
+			base_fee_per_gas: self.gas_price(&block.hash().into()).await.ok(),
 			gas_limit,
 			gas_used,
 			receipts_root: extrinsics_root,
