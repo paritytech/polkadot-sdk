@@ -65,7 +65,7 @@ pub mod benchmarking;
 const CONVICTION_VOTING_ID: LockIdentifier = *b"pyconvot";
 
 pub type BlockNumberFor<T, I> =
-<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BalanceOf<T, I = ()> =
@@ -97,9 +97,7 @@ pub mod pallet {
 		traits::ClassCountOf,
 		Twox64Concat,
 	};
-	use frame_system::pallet_prelude::{
-		ensure_signed, OriginFor,
-	};
+	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 	use sp_runtime::BoundedVec;
 
 	#[pallet::pallet]
