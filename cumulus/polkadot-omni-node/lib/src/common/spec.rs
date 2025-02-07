@@ -30,9 +30,11 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
+use futures::FutureExt;
 use parachains_common::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
+use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
@@ -41,6 +43,7 @@ use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
@@ -314,6 +317,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					announce_block: announce_block.clone(),
 					para_id,
 					relay_chain_interface: relay_chain_interface.clone(),
+<<<<<<< HEAD
 					task_manager: &mut task_manager,
 					da_recovery_profile: if validator {
 						DARecoveryProfile::Collator
@@ -321,6 +325,117 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						DARecoveryProfile::FullNode
 					},
 					import_queue: import_queue_service,
+=======
+					import_queue: params.import_queue,
+					sybil_resistance_level: Self::SYBIL_RESISTANCE,
+				})
+				.await?;
+
+			if parachain_config.offchain_worker.enabled {
+				let offchain_workers =
+					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+						runtime_api_provider: client.clone(),
+						keystore: Some(params.keystore_container.keystore()),
+						offchain_db: backend.offchain_storage(),
+						transaction_pool: Some(OffchainTransactionPoolFactory::new(
+							transaction_pool.clone(),
+						)),
+						network_provider: Arc::new(network.clone()),
+						is_validator: parachain_config.role.is_authority(),
+						enable_http_requests: false,
+						custom_extensions: move |_| vec![],
+					})?;
+				task_manager.spawn_handle().spawn(
+					"offchain-workers-runner",
+					"offchain-work",
+					offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+				);
+			}
+
+			let rpc_builder = {
+				let client = client.clone();
+				let transaction_pool = transaction_pool.clone();
+				let backend_for_rpc = backend.clone();
+
+				Box::new(move |_| {
+					Self::BuildRpcExtensions::build_rpc_extensions(
+						client.clone(),
+						backend_for_rpc.clone(),
+						transaction_pool.clone(),
+					)
+				})
+			};
+
+			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+				rpc_builder,
+				client: client.clone(),
+				transaction_pool: transaction_pool.clone(),
+				task_manager: &mut task_manager,
+				config: parachain_config,
+				keystore: params.keystore_container.keystore(),
+				backend: backend.clone(),
+				network: network.clone(),
+				sync_service: sync_service.clone(),
+				system_rpc_tx,
+				tx_handler_controller,
+				telemetry: telemetry.as_mut(),
+			})?;
+
+			if let Some(hwbench) = hwbench {
+				sc_sysinfo::print_hwbench(&hwbench);
+				if validator {
+					warn_if_slow_hardware(&hwbench);
+				}
+
+				if let Some(ref mut telemetry) = telemetry {
+					let telemetry_handle = telemetry.handle();
+					task_manager.spawn_handle().spawn(
+						"telemetry_hwbench",
+						None,
+						sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
+					);
+				}
+			}
+
+			let announce_block = {
+				let sync_service = sync_service.clone();
+				Arc::new(move |hash, data| sync_service.announce_block(hash, data))
+			};
+
+			let relay_chain_slot_duration = Duration::from_secs(6);
+
+			let overseer_handle = relay_chain_interface
+				.overseer_handle()
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+
+			start_relay_chain_tasks(StartRelayChainTasksParams {
+				client: client.clone(),
+				announce_block: announce_block.clone(),
+				para_id,
+				relay_chain_interface: relay_chain_interface.clone(),
+				task_manager: &mut task_manager,
+				da_recovery_profile: if validator {
+					DARecoveryProfile::Collator
+				} else {
+					DARecoveryProfile::FullNode
+				},
+				import_queue: import_queue_service,
+				relay_chain_slot_duration,
+				recovery_handle: Box::new(overseer_handle.clone()),
+				sync_service,
+			})?;
+
+			if validator {
+				Self::StartConsensus::start_consensus(
+					client.clone(),
+					block_import,
+					prometheus_registry.as_ref(),
+					telemetry.as_ref().map(|t| t.handle()),
+					&task_manager,
+					relay_chain_interface.clone(),
+					transaction_pool,
+					params.keystore_container.keystore(),
+>>>>>>> 87f4f3f0 (omni-node: add offchain worker (#7479))
 					relay_chain_slot_duration,
 					recovery_handle: Box::new(overseer_handle.clone()),
 					sync_service,
