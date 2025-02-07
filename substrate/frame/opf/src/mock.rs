@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Test environment for OPF pallet.
+//! # Test environment for OPF pallet.
 use crate as pallet_opf;
 use crate::Convert;
 use codec::{Decode, Encode};

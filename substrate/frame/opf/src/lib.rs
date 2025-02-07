@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! OPF pallet.
+//! # OPF pallet.
 //!
 //! The OPF Pallet handles the Optimistic Project Funding.
 //! It allows users to nominate projects (whitelisted in OpenGov) with their DOT.

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Types & Imports for Distribution pallet.
+//! # Types & Imports for Distribution pallet.
 
 pub use super::*;
 
