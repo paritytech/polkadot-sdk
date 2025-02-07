@@ -145,47 +145,49 @@ impl ReceiptProvider for DBReceiptProvider {
 		}
 	}
 
-	async fn logs(&self, filter: Filter) -> anyhow::Result<Vec<Log>> {
+	async fn logs(&self, filter: Option<Filter>) -> anyhow::Result<Vec<Log>> {
 		let mut qb = QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE 1=1");
 
-		if let Some(from_block) = filter.from_block {
-			qb.push(" AND block_number >= ").push_bind(from_block.as_u64() as i64);
-		}
-
-		if let Some(to_block) = filter.to_block {
-			qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
-		}
-
-		if let Some(addresses) = filter.address {
-			match addresses {
-				AddressOrAddresses::Address(addr) => {
-					qb.push(" AND address = ").push_bind(addr.0.to_vec());
-				},
-				AddressOrAddresses::Addresses(addrs) => {
-					qb.push(" AND address IN (");
-					let mut separated = qb.separated(", ");
-					for addr in addrs {
-						separated.push_bind(addr.0.to_vec());
-					}
-					separated.push_unseparated(")");
-				},
+		if let Some(filter) = filter {
+			if let Some(from_block) = filter.from_block {
+				qb.push(" AND block_number >= ").push_bind(from_block.as_u64() as i64);
 			}
-		}
 
-		if let Some(topics) = filter.topics {
-			for (i, topic) in topics.into_iter().enumerate() {
-				match topic {
-					FilterTopic::Single(hash) => {
-						qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
+			if let Some(to_block) = filter.to_block {
+				qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
+			}
+
+			if let Some(addresses) = filter.address {
+				match addresses {
+					AddressOrAddresses::Address(addr) => {
+						qb.push(" AND address = ").push_bind(addr.0.to_vec());
 					},
-					FilterTopic::Multiple(hashes) => {
-						qb.push(format_args!(" AND topic_{i} IN ("));
+					AddressOrAddresses::Addresses(addrs) => {
+						qb.push(" AND address IN (");
 						let mut separated = qb.separated(", ");
-						for hash in hashes {
-							separated.push_bind(hash.0.to_vec());
+						for addr in addrs {
+							separated.push_bind(addr.0.to_vec());
 						}
 						separated.push_unseparated(")");
 					},
+				}
+			}
+
+			if let Some(topics) = filter.topics {
+				for (i, topic) in topics.into_iter().enumerate() {
+					match topic {
+						FilterTopic::Single(hash) => {
+							qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
+						},
+						FilterTopic::Multiple(hashes) => {
+							qb.push(format_args!(" AND topic_{i} IN ("));
+							let mut separated = qb.separated(", ");
+							for hash in hashes {
+								separated.push_bind(hash.0.to_vec());
+							}
+							separated.push_unseparated(")");
+						},
+					}
 				}
 			}
 		}

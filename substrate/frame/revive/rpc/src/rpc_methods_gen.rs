@@ -97,7 +97,7 @@ pub trait EthRpc {
 
 	/// Returns an array of all logs matching filter with given id.
 	#[method(name = "eth_getLogs")]
-	async fn get_logs(&self, filter: Filter) -> RpcResult<FilterResults>;
+	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults>;
 
 	/// Returns the value from a storage position at a given address.
 	#[method(name = "eth_getStorageAt")]

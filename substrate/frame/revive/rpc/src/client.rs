@@ -717,7 +717,7 @@ impl Client {
 	}
 
 	/// Get the logs matching the given filter.
-	pub async fn logs(&self, filter: Filter) -> Result<Vec<Log>, ClientError> {
+	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
 		let logs =
 			self.receipt_provider.logs(filter).await.map_err(ClientError::LogFilterFailed)?;
 		Ok(logs)

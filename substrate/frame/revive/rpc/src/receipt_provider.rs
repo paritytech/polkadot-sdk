@@ -35,7 +35,7 @@ pub trait ReceiptProvider: Send + Sync {
 	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]);
 
 	/// Get logs that match the given filter.
-	async fn logs(&self, filter: Filter) -> anyhow::Result<Vec<Log>>;
+	async fn logs(&self, filter: Option<Filter>) -> anyhow::Result<Vec<Log>>;
 
 	/// Deletes receipts associated with the specified block hash.
 	async fn remove(&self, block_hash: &H256);
@@ -106,7 +106,7 @@ impl<Cache: ReceiptProvider, Archive: ReceiptProvider> ReceiptProvider for (Cach
 		self.1.signed_tx_by_hash(hash).await
 	}
 
-	async fn logs(&self, filter: Filter) -> anyhow::Result<Vec<Log>> {
+	async fn logs(&self, filter: Option<Filter>) -> anyhow::Result<Vec<Log>> {
 		self.1.logs(filter).await
 	}
 }
