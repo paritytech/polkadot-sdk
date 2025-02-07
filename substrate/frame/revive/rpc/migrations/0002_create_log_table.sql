@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS logs (
 	PRIMARY KEY (block_hash, transaction_index, log_index)
 );
 
-CREATE INDEX IF NOT EXISTS idx_topics ON logs (
+CREATE INDEX IF NOT EXISTS idx_block_number_address_topics ON logs (
+	block_number,
 	address,
 	topic_0,
 	topic_1,
@@ -23,8 +24,4 @@ CREATE INDEX IF NOT EXISTS idx_topics ON logs (
 
 CREATE INDEX IF NOT EXISTS idx_block_number ON logs (
 	block_number
-);
-
-CREATE INDEX IF NOT EXISTS idx_block_hash ON logs (
-	block_hash
 );
