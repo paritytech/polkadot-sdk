@@ -68,6 +68,8 @@ impl DBReceiptProvider {
 
 #[async_trait]
 impl ReceiptProvider for DBReceiptProvider {
+	async fn remove(&self, _block_hash: &H256) {}
+
 	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
 		self.insert(block_hash, receipts).await;
 	}
@@ -80,12 +82,8 @@ impl ReceiptProvider for DBReceiptProvider {
 
 			let result = query!(
 				r#"
-				INSERT INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+				INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
 				VALUES ($1, $2, $3)
-
-				ON CONFLICT(transaction_hash) DO UPDATE SET
-				block_hash = EXCLUDED.block_hash,
-				transaction_index = EXCLUDED.transaction_index
 				"#,
 				transaction_hash,
 				block_hash,
@@ -95,10 +93,7 @@ impl ReceiptProvider for DBReceiptProvider {
 			.await;
 
 			if let Err(err) = result {
-				log::error!(
-					"Error inserting transaction for block hash {block_hash:?}:  {:?}",
-					err
-				);
+				log::error!("Error inserting transaction for block hash {block_hash:?}: {err:?}");
 			}
 		}
 	}
