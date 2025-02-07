@@ -104,7 +104,7 @@ impl ReceiptProvider for DBReceiptProvider {
 				let block_number = log.block_number.as_u64() as i64;
 				let transaction_hash = log.transaction_hash.as_ref();
 
-				let topic_0 = log.topics.get(0).as_ref().map(|v| &v[..]);
+				let topic_0 = log.topics.first().as_ref().map(|v| &v[..]);
 				let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
 				let topic_2 = log.topics.get(2).as_ref().map(|v| &v[..]);
 				let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
