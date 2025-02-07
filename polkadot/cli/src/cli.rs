@@ -18,7 +18,7 @@
 
 pub use polkadot_node_primitives::NODE_VERSION;
 
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use std::path::PathBuf;
 
 #[allow(missing_docs)]
@@ -151,6 +151,16 @@ pub struct RunCmd {
 	/// TESTING ONLY: disable the version check between nodes and workers.
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,
+<<<<<<< HEAD
+=======
+
+	/// Enable approval-voting message processing in parallel.
+	///
+	/// This is a flag used for gradually enabling approval-voting-parallel in production,
+	/// should not be used unless explicitly advised to. It will be removed in the future.
+	#[arg(long, default_value = "true", action=ArgAction::Set)]
+	pub enable_approval_voting_parallel: bool,
+>>>>>>> e5e0a6d3 (enable approval-voting-parallel on polkadot (#7504))
 }
 
 #[allow(missing_docs)]
