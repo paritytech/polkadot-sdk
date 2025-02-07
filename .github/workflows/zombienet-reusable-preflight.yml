@@ -225,6 +225,7 @@ jobs:
         run: |
           gh --version
           export SHA=${{ github.event.pull_request.head.sha }}
+          if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
           while true; do
             STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
             echo "CI workflow status: $STATUS"
