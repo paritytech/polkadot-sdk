@@ -31,7 +31,10 @@ pub trait ReceiptProvider: Send + Sync {
 	/// Insert receipts into the provider.
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]);
 
-	/// Remove receipts with the given block hash.
+	/// Similar to `insert`, but intended for archiving receipts from historical blocks.
+	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]);
+
+	/// Deletes receipts associated with the specified block hash.
 	async fn remove(&self, block_hash: &H256);
 
 	/// Get the receipt for the given block hash and transaction index.
@@ -52,13 +55,17 @@ pub trait ReceiptProvider: Send + Sync {
 }
 
 #[async_trait]
-impl<Main: ReceiptProvider, Fallback: ReceiptProvider> ReceiptProvider for (Main, Fallback) {
+impl<Cache: ReceiptProvider, Archive: ReceiptProvider> ReceiptProvider for (Cache, Archive) {
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
 		join!(self.0.insert(block_hash, receipts), self.1.insert(block_hash, receipts));
 	}
 
+	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
+		self.1.insert(block_hash, receipts).await;
+	}
+
 	async fn remove(&self, block_hash: &H256) {
-		join!(self.0.remove(block_hash), self.1.remove(block_hash));
+		self.0.remove(block_hash).await;
 	}
 
 	async fn receipt_by_block_hash_and_index(

@@ -251,10 +251,10 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_block_by_number(
 		&self,
-		block: BlockNumberOrTag,
+		block_number: BlockNumberOrTag,
 		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
-		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
+		let Some(block) = self.client.block_by_number_or_tag(&block_number).await? else {
 			return Ok(None);
 		};
 		let block = self.client.evm_block(block, hydrated_transactions).await;
