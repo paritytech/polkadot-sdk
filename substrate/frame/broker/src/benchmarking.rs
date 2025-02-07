@@ -558,11 +558,15 @@ mod benches {
 		let beneficiary: RelayAccountIdOf<T> = account("beneficiary", 0, SEED);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 20_000_000u32.into(), beneficiary.clone());
+		_(RawOrigin::Signed(caller.clone()), T::MinimumCreditPurchase::get(), beneficiary.clone());
 
 		assert_last_event::<T>(
-			Event::CreditPurchased { who: caller, beneficiary, amount: 20_000_000u32.into() }
-				.into(),
+			Event::CreditPurchased {
+				who: caller,
+				beneficiary,
+				amount: T::MinimumCreditPurchase::get(),
+			}
+			.into(),
 		);
 
 		Ok(())

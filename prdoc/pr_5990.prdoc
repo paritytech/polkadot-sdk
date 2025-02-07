@@ -13,6 +13,8 @@ doc:
       `place_order_with_credits`.
 
 crates:
+  - name: pallet-broker
+    bump: major 
   - name: polkadot-runtime-parachains
     bump: major 
   - name: rococo-runtime
