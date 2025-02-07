@@ -260,33 +260,16 @@ pub mod migrations;
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::{
-	impl_ensure_origin_with_arg_ignoring_arg,
-	pallet_prelude::*,
-	storage::KeyLenOf,
-	traits::{
-		BalanceStatus, Currency, EnsureOrigin, EnsureOriginWithArg,
-		ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, Randomness, ReservableCurrency,
-		StorageVersion,
-	},
-	PalletId,
-};
-use frame_system::pallet_prelude::*;
+use frame::prelude::*;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaChaRng,
 };
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{
-		AccountIdConversion, CheckedAdd, CheckedSub, Hash, Saturating, StaticLookup,
-		TrailingZeroInput, Zero,
-	},
-	ArithmeticError::Overflow,
-	Percent, RuntimeDebug,
-};
 
 pub use weights::WeightInfo;
+use frame::runtime::prelude::storage::KeyLenOf;
+use frame::traits::Currency;
 
 pub use pallet::*;
 
@@ -469,7 +452,7 @@ pub type GroupParamsFor<T, I> = GroupParams<BalanceOf<T, I>>;
 
 pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -792,7 +775,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub pot: BalanceOf<T, I>,
 	}

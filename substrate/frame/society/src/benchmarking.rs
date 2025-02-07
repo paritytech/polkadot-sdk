@@ -21,11 +21,9 @@
 
 use super::*;
 
-use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
+use frame::benchmarking::prelude::{RawOrigin, *};
 
 use alloc::vec;
-use sp_runtime::traits::Bounded;
 
 use crate::Pallet as Society;
 
@@ -510,10 +508,12 @@ mod benchmarks {
 
 	impl_benchmark_test_suite!(
 		Society,
-		sp_io::TestExternalities::from(
-			<frame_system::GenesisConfig::<crate::mock::Test> as sp_runtime::BuildStorage>::build_storage(
-				&frame_system::GenesisConfig::default()).unwrap()
-			),
+		TestState::from(
+			<frame_system::GenesisConfig::<crate::mock::Test> as BuildStorage>::build_storage(
+				&frame_system::GenesisConfig::default()
+			)
+			.unwrap()
+		),
 		crate::mock::Test
 	);
 }

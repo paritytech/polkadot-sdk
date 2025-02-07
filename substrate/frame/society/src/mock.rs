@@ -20,19 +20,14 @@
 use super::*;
 use crate as pallet_society;
 
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
+use frame::testing_prelude::*;
 use frame_support_test::TestRandomness;
-use frame_system::EnsureSignedBy;
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 use RuntimeOrigin as Origin;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,

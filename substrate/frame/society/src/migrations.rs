@@ -20,10 +20,14 @@
 use super::*;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame_support::traits::{Defensive, DefensiveOption, Instance, UncheckedOnRuntimeUpgrade};
+
+use frame::testing_prelude::*;
+use frame::runtime::prelude::storage::unhashed;
+use frame::migration_prelude::VersionedMigration;
+use frame::traits::UncheckedOnRuntimeUpgrade;
 
 #[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 /// The log target.
 const TARGET: &'static str = "runtime::society::migration";
@@ -96,7 +100,7 @@ impl<
 
 /// [`VersionUncheckedMigrateToV2`] wrapped in a [`frame_support::migrations::VersionedMigration`],
 /// ensuring the migration is only performed when on-chain version is 0.
-pub type MigrateToV2<T, I, PastPayouts> = frame_support::migrations::VersionedMigration<
+pub type MigrateToV2<T, I, PastPayouts> = VersionedMigration<
 	0,
 	2,
 	VersionUncheckedMigrateToV2<T, I, PastPayouts>,
@@ -106,7 +110,6 @@ pub type MigrateToV2<T, I, PastPayouts> = frame_support::migrations::VersionedMi
 
 pub(crate) mod v0 {
 	use super::*;
-	use frame_support::storage_alias;
 
 	/// A vote by a member on a candidate application.
 	#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
@@ -226,7 +229,7 @@ pub fn assert_internal_consistency<T: Config<I>, I: Instance + 'static>() {
 	// Check all payouts are valid data.
 	for p in Payouts::<T, I>::iter_keys() {
 		let k = Payouts::<T, I>::hashed_key_for(&p);
-		let v = frame_support::storage::unhashed::get_raw(&k[..]).expect("value is in map");
+		let v = unhashed::get_raw(&k[..]).expect("value is in map");
 		assert!(PayoutRecordFor::<T, I>::decode(&mut &v[..]).is_ok());
 	}
 
@@ -293,7 +296,7 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 				if let Some(member) = m {
 					member.index = 0;
 				} else {
-					frame_support::defensive!(
+					defensive!(
 						"Member somehow disappeared from storage after it was inserted"
 					);
 				}
@@ -302,7 +305,7 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 				if let Some(member) = m {
 					member.index = member_count;
 				} else {
-					frame_support::defensive!(
+					defensive!(
 						"Member somehow disappeared from storage after it was queried"
 					);
 				}

@@ -202,10 +202,16 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::{
+		defensive, defensive_assert, impl_ensure_origin_with_arg_ignoring_arg,
+		traits::{
+			BalanceStatus, Contains, Defensive, DefensiveOption, EitherOf, EnsureOrigin,
+			EnsureOriginWithArg, EstimateNextSessionRotation, ExistenceRequirement::AllowDeath,
+			Imbalance, Instance, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OnUnbalanced,
+			OneSessionHandler, Randomness, RankedMembers, RankedMembersSwapHandler,
+			ReservableCurrency, StorageVersion,
+		},
+		PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -231,9 +237,14 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			AccountIdConversion, BlockNumberProvider, Bounded, CheckedAdd, CheckedSub, Convert,
+			DispatchInfoOf, Dispatchable, Hash, ReduceBy, ReplaceWithDefault, SaturatedConversion,
+			Saturating, StaticLookup, TrailingZeroInput, Zero,
+		},
+		ArithmeticError::Overflow,
+		BuildStorage, Percent, RuntimeDebug,
 	};
 
 	/// Bounded storage related types.
@@ -249,6 +260,10 @@ pub mod prelude {
 #[cfg(any(feature = "try-runtime", test))]
 pub mod try_runtime {
 	pub use sp_runtime::TryRuntimeError;
+}
+
+pub mod migration_prelude {
+	pub use frame_support::{traits::UncheckedOnRuntimeUpgrade, migrations::VersionedMigration};
 }
 
 /// Prelude to be included in the `benchmarking.rs` of a pallet.
@@ -583,6 +598,7 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_crypto_hashing;
 
 	pub use codec;
 	pub use scale_info;
