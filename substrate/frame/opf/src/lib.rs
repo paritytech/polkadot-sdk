@@ -38,8 +38,8 @@
 //! ## Interface
 //!
 //! ### Permissioned Calls
-//! * `register_projects_batch`: Allows a SubmitOrigin to register a list of whitelisted 
-//!   projects for funding allocation
+//! * `register_projects_batch`: Allows a SubmitOrigin to register a list of whitelisted projects
+//!   for funding allocation
 //! * `unregister_project`: Allows an AdminOrigin to unregister a previously whitelisted project
 //!
 //! ### Permissionless Calls
@@ -308,7 +308,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			projects_id: BoundedVec<ProjectId<T>, T::MaxProjects>,
 		) -> DispatchResult {
-			//T::AdminOrigin::ensure_origin_or_root(origin.clone())?;
 			let who = T::SubmitOrigin::ensure_origin(origin.clone())?;
 			// Only 1 batch submission per round
 			let mut round_index = NextVotingRoundNumber::<T>::get();
