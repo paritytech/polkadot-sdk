@@ -641,6 +641,13 @@ impl Client {
 		self.block_provider.block_by_number(block_number).await
 	}
 
+	pub async fn gas_price(&self, at: &BlockNumberOrTagOrHash) -> Result<U256, ClientError> {
+		let runtime_api = self.runtime_api(at).await?;
+		let payload = subxt_client::apis().revive_api().gas_price();
+		let gas_price = runtime_api.call(payload).await?;
+		Ok(*gas_price)
+	}
+
 	/// Get the EVM block for the given hash.
 	pub async fn evm_block(
 		&self,
@@ -683,7 +690,7 @@ impl Client {
 			number: header.number.into(),
 			timestamp: timestamp.into(),
 			difficulty: Some(0u32.into()),
-			base_fee_per_gas: Some(crate::GAS_PRICE.into()),
+			base_fee_per_gas: self.gas_price(&block.hash().into()).await.ok(),
 			gas_limit,
 			gas_used,
 			receipts_root: extrinsics_root,
