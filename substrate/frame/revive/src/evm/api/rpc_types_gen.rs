@@ -150,6 +150,9 @@ pub struct Filter {
 	/// to block
 	#[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
 	pub to_block: Option<U256>,
+	/// Restricts the logs returned to the single block
+	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
+	pub block_hash: Option<H256>,
 	/// Topics
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub topics: Option<FilterTopics>,

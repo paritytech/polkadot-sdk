@@ -147,47 +147,79 @@ impl ReceiptProvider for DBReceiptProvider {
 
 	async fn logs(&self, filter: Option<Filter>) -> anyhow::Result<Vec<Log>> {
 		let mut qb = QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE 1=1");
+		let filter = filter.unwrap_or_default();
 
-		if let Some(filter) = filter {
-			if let Some(from_block) = filter.from_block {
+		let latest_block =
+			U256::from(self.block_provider.latest_block_number().await.unwrap_or_default());
+
+		match (filter.from_block, filter.to_block, filter.block_hash) {
+			(Some(_), _, Some(_)) | (_, Some(_), Some(_)) => {
+				anyhow::bail!("block number and block hash cannot be used together");
+			},
+
+			(Some(block), _, _) | (_, Some(block), _) if block > latest_block => {
+				anyhow::bail!("block number exceeds latest block");
+			},
+			(Some(from_block), Some(to_block), None) if from_block > to_block => {
+				anyhow::bail!("invalid block range params");
+			},
+			(Some(from_block), Some(to_block), None) if from_block == to_block => {
+				qb.push(" AND block_number = ").push_bind(from_block.as_u64() as i64);
+			},
+			(Some(from_block), Some(to_block), None) => {
+				qb.push(" AND block_number BETWEEN ")
+					.push_bind(from_block.as_u64() as i64)
+					.push(" AND ")
+					.push_bind(to_block.as_u64() as i64);
+			},
+			(Some(from_block), None, None) => {
 				qb.push(" AND block_number >= ").push_bind(from_block.as_u64() as i64);
-			}
-
-			if let Some(to_block) = filter.to_block {
+			},
+			(None, Some(to_block), None) => {
 				qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
+			},
+			(None, None, Some(hash)) => {
+				qb.push(" AND block_hash = ").push_bind(hash.0.to_vec());
+			},
+			(None, None, None) => {
+				qb.push(" AND block_number = ").push_bind(latest_block.as_u64() as i64);
+			},
+		}
+
+		if let Some(addresses) = filter.address {
+			match addresses {
+				AddressOrAddresses::Address(addr) => {
+					qb.push(" AND address = ").push_bind(addr.0.to_vec());
+				},
+				AddressOrAddresses::Addresses(addrs) => {
+					qb.push(" AND address IN (");
+					let mut separated = qb.separated(", ");
+					for addr in addrs {
+						separated.push_bind(addr.0.to_vec());
+					}
+					separated.push_unseparated(")");
+				},
+			}
+		}
+
+		if let Some(topics) = filter.topics {
+			if topics.len() > 4 {
+				return Err(anyhow::anyhow!("exceed max topics"));
 			}
 
-			if let Some(addresses) = filter.address {
-				match addresses {
-					AddressOrAddresses::Address(addr) => {
-						qb.push(" AND address = ").push_bind(addr.0.to_vec());
+			for (i, topic) in topics.into_iter().enumerate() {
+				match topic {
+					FilterTopic::Single(hash) => {
+						qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
 					},
-					AddressOrAddresses::Addresses(addrs) => {
-						qb.push(" AND address IN (");
+					FilterTopic::Multiple(hashes) => {
+						qb.push(format_args!(" AND topic_{i} IN ("));
 						let mut separated = qb.separated(", ");
-						for addr in addrs {
-							separated.push_bind(addr.0.to_vec());
+						for hash in hashes {
+							separated.push_bind(hash.0.to_vec());
 						}
 						separated.push_unseparated(")");
 					},
-				}
-			}
-
-			if let Some(topics) = filter.topics {
-				for (i, topic) in topics.into_iter().enumerate() {
-					match topic {
-						FilterTopic::Single(hash) => {
-							qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
-						},
-						FilterTopic::Multiple(hashes) => {
-							qb.push(format_args!(" AND topic_{i} IN ("));
-							let mut separated = qb.separated(", ");
-							for hash in hashes {
-								separated.push_bind(hash.0.to_vec());
-							}
-							separated.push_unseparated(")");
-						},
-					}
 				}
 			}
 		}
@@ -355,7 +387,7 @@ mod tests {
 	async fn test_query_logs(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let log1 = Log {
-			block_hash: H256::default(),
+			block_hash: H256::from([1u8; 32]),
 			block_number: U256::from(1),
 			address: H160::from([1u8; 20]),
 			topics: vec![H256::from([1u8; 32]), H256::from([2u8; 32])],
@@ -366,7 +398,7 @@ mod tests {
 			..Default::default()
 		};
 		let log2 = Log {
-			block_hash: H256::default(),
+			block_hash: H256::from([2u8; 32]),
 			block_number: U256::from(2),
 			address: H160::from([2u8; 20]),
 			topics: vec![H256::from([2u8; 32]), H256::from([3u8; 32])],
@@ -396,74 +428,89 @@ mod tests {
 			.await;
 
 		// Empty filter
-		let logs = provider.logs(Default::default()).await?;
-		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+		let logs = provider.logs(None).await?;
+		assert_eq!(logs, vec![log2.clone()]);
 
 		// from_block filter
 		let logs = provider
-			.logs(Filter { from_block: Some(log2.block_number), ..Default::default() })
+			.logs(Some(Filter { from_block: Some(log2.block_number), ..Default::default() }))
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// to_block filter
 		let logs = provider
-			.logs(Filter { to_block: Some(log1.block_number), ..Default::default() })
+			.logs(Some(Filter { to_block: Some(log1.block_number), ..Default::default() }))
+			.await?;
+		assert_eq!(logs, vec![log1.clone()]);
+
+		// block_hash filter
+		let logs = provider
+			.logs(Some(Filter { block_hash: Some(log1.block_hash), ..Default::default() }))
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// single address
 		let logs = provider
-			.logs(Filter { address: Some(log1.address.into()), ..Default::default() })
+			.logs(Some(Filter {
+				from_block: Some(U256::from(0)),
+				address: Some(log1.address.into()),
+				..Default::default()
+			}))
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple addresses
 		let logs = provider
-			.logs(Filter {
+			.logs(Some(Filter {
+				from_block: Some(U256::from(0)),
 				address: Some(vec![log1.address, log2.address].into()),
 				..Default::default()
-			})
+			}))
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
 		// single topic
 		let logs = provider
-			.logs(Filter {
+			.logs(Some(Filter {
+				from_block: Some(U256::from(0)),
 				topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
 				..Default::default()
-			})
+			}))
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple topic
 		let logs = provider
-			.logs(Filter {
+			.logs(Some(Filter {
+				from_block: Some(U256::from(0)),
 				topics: Some(vec![
 					FilterTopic::Single(log1.topics[0]),
 					FilterTopic::Single(log1.topics[1]),
 				]),
 				..Default::default()
-			})
+			}))
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple topic for topic_0
 		let logs = provider
-			.logs(Filter {
+			.logs(Some(Filter {
+				from_block: Some(U256::from(0)),
 				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
 				..Default::default()
-			})
+			}))
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
 		// Altogether
 		let logs = provider
-			.logs(Filter {
+			.logs(Some(Filter {
 				from_block: Some(log1.block_number),
 				to_block: Some(log2.block_number),
+				block_hash: None,
 				address: Some(vec![log1.address, log2.address].into()),
 				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
-			})
+			}))
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 		Ok(())
