@@ -34,6 +34,7 @@ frame-system = { workspace = true, default-features = true }
 
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-delegated-staking = { workspace = true, default-features = true }
 pallet-election-provider-multi-phase = { workspace = true, default-features = true }
 pallet-nomination-pools = { workspace = true, default-features = true }
 pallet-session = { workspace = true, default-features = true }
@@ -47,6 +48,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-delegated-staking/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-session/try-runtime",

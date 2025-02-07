@@ -1974,6 +1974,51 @@ impl<T: Config> Pallet<T> {
 			.collect::<_>()
 	}
 
+	/// Simulate the execution of a block sequence up to a specified height, injecting the
+	/// provided hooks at each block.
+	///
+	/// `on_finalize` is always called before `on_initialize` with the current block number.
+	/// `on_initalize` is always called with the next block number.
+	///
+	/// These hooks allows custom logic to be executed at each block at specific location.
+	/// For example, you might use one of them to set a timestamp for each block.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	pub fn run_to_block_with<AllPalletsWithSystem>(
+		n: BlockNumberFor<T>,
+		mut hooks: RunToBlockHooks<T>,
+	) where
+		AllPalletsWithSystem: frame_support::traits::OnInitialize<BlockNumberFor<T>>
+			+ frame_support::traits::OnFinalize<BlockNumberFor<T>>,
+	{
+		let mut bn = Self::block_number();
+
+		while bn < n {
+			// Skip block 0.
+			if !bn.is_zero() {
+				(hooks.before_finalize)(bn);
+				AllPalletsWithSystem::on_finalize(bn);
+				(hooks.after_finalize)(bn);
+			}
+
+			bn += One::one();
+
+			Self::set_block_number(bn);
+			(hooks.before_initialize)(bn);
+			AllPalletsWithSystem::on_initialize(bn);
+			(hooks.after_initialize)(bn);
+		}
+	}
+
+	/// Simulate the execution of a block sequence up to a specified height.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	pub fn run_to_block<AllPalletsWithSystem>(n: BlockNumberFor<T>)
+	where
+		AllPalletsWithSystem: frame_support::traits::OnInitialize<BlockNumberFor<T>>
+			+ frame_support::traits::OnFinalize<BlockNumberFor<T>>,
+	{
+		Self::run_to_block_with::<AllPalletsWithSystem>(n, Default::default());
+	}
+
 	/// Set the block number to something in particular. Can be used as an alternative to
 	/// `initialize` for tests that don't need to bother with the other environment entries.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
@@ -2017,11 +2062,18 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[track_caller]
 	pub fn assert_has_event(event: T::RuntimeEvent) {
+		let warn = if Self::block_number().is_zero() {
+			"WARNING: block number is zero, and events are not registered at block number zero.\n"
+		} else {
+			""
+		};
+
 		let events = Self::events();
 		assert!(
 			events.iter().any(|record| record.event == event),
-			"expected event {event:?} not found in events {events:?}",
+			"{warn}expected event {event:?} not found in events {events:?}",
 		);
 	}
 
@@ -2029,11 +2081,22 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[track_caller]
 	pub fn assert_last_event(event: T::RuntimeEvent) {
-		let last_event = Self::events().last().expect("events expected").event.clone();
+		let warn = if Self::block_number().is_zero() {
+			"WARNING: block number is zero, and events are not registered at block number zero.\n"
+		} else {
+			""
+		};
+
+		let last_event = Self::events()
+			.last()
+			.expect(&alloc::format!("{warn}events expected"))
+			.event
+			.clone();
 		assert_eq!(
 			last_event, event,
-			"expected event {event:?} is not equal to the last event {last_event:?}",
+			"{warn}expected event {event:?} is not equal to the last event {last_event:?}",
 		);
 	}
 
@@ -2344,6 +2407,72 @@ impl<T: Config> Lookup for ChainContext<T> {
 
 	fn lookup(&self, s: Self::Source) -> Result<Self::Target, LookupError> {
 		<T::Lookup as StaticLookup>::lookup(s)
+	}
+}
+
+/// Hooks for the [`Pallet::run_to_block_with`] function.
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+pub struct RunToBlockHooks<'a, T>
+where
+	T: 'a + Config,
+{
+	before_initialize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
+	after_initialize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
+	before_finalize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
+	after_finalize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl<'a, T> RunToBlockHooks<'a, T>
+where
+	T: 'a + Config,
+{
+	/// Set the hook function logic before the initialization of the block.
+	pub fn before_initialize<F>(mut self, f: F) -> Self
+	where
+		F: 'a + FnMut(BlockNumberFor<T>),
+	{
+		self.before_initialize = Box::new(f);
+		self
+	}
+	/// Set the hook function logic after the initialization of the block.
+	pub fn after_initialize<F>(mut self, f: F) -> Self
+	where
+		F: 'a + FnMut(BlockNumberFor<T>),
+	{
+		self.after_initialize = Box::new(f);
+		self
+	}
+	/// Set the hook function logic before the finalization of the block.
+	pub fn before_finalize<F>(mut self, f: F) -> Self
+	where
+		F: 'a + FnMut(BlockNumberFor<T>),
+	{
+		self.before_finalize = Box::new(f);
+		self
+	}
+	/// Set the hook function logic after the finalization of the block.
+	pub fn after_finalize<F>(mut self, f: F) -> Self
+	where
+		F: 'a + FnMut(BlockNumberFor<T>),
+	{
+		self.after_finalize = Box::new(f);
+		self
+	}
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl<'a, T> Default for RunToBlockHooks<'a, T>
+where
+	T: Config,
+{
+	fn default() -> Self {
+		Self {
+			before_initialize: Box::new(|_| {}),
+			after_initialize: Box::new(|_| {}),
+			before_finalize: Box::new(|_| {}),
+			after_finalize: Box::new(|_| {}),
+		}
 	}
 }
 
