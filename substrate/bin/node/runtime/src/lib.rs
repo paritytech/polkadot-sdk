@@ -1073,6 +1073,7 @@ impl pallet_referenda::Config for Runtime {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 }
 
 impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
@@ -1093,6 +1094,7 @@ impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 }
 
 impl pallet_ranked_collective::Config for Runtime {
