@@ -14,10 +14,6 @@ name = "eth-rpc"
 path = "src/main.rs"
 
 [[bin]]
-name = "eth-indexer"
-path = "src/eth-indexer.rs"
-
-[[bin]]
 name = "eth-rpc-tester"
 path = "src/eth-rpc-tester.rs"
 
