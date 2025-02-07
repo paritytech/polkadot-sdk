@@ -58,23 +58,7 @@ pub fn fund_on_bh() {
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 }
 
-pub fn register_weth_on_ah() {
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			weth_location().try_into().unwrap(),
-			snowbridge_sovereign().into(),
-			true,
-			1,
-		));
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			weth_location().try_into().unwrap(),
-		));
-	});
-}
+pub fn register_assets_on_ah() {}
 pub fn register_relay_token_on_bh() {
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
@@ -97,12 +81,26 @@ pub fn register_relay_token_on_bh() {
 	});
 }
 
-pub fn register_weth_on_penpal() {
+pub fn register_assets_on_penpal() {
+	let ethereum_sovereign: AccountId =
+		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
+			2,
+			[GlobalConsensus(EthereumNetwork::get())],
+		))
+		.unwrap()
+		.into();
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			weth_location().try_into().unwrap(),
-			snowbridge_sovereign().into(),
+			ethereum_sovereign.clone().into(),
+			true,
+			1,
+		));
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
+			<PenpalB as Chain>::RuntimeOrigin::root(),
+			ethereum().try_into().unwrap(),
+			ethereum_sovereign.into(),
 			true,
 			1,
 		));
@@ -221,6 +219,21 @@ pub fn fund_on_penpal() {
 			&sudo_account,
 			INITIAL_FUND,
 		));
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
+			ethereum().try_into().unwrap(),
+			&PenpalBReceiver::get(),
+			INITIAL_FUND,
+		));
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
+			ethereum().try_into().unwrap(),
+			&PenpalBSender::get(),
+			INITIAL_FUND,
+		));
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
+			ethereum().try_into().unwrap(),
+			&sudo_account,
+			INITIAL_FUND,
+		));
 	});
 }
 
@@ -276,6 +289,27 @@ pub fn fund_on_ah() {
 			&AssetHubWestendSender::get(),
 			INITIAL_FUND,
 		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			ethereum().try_into().unwrap(),
+			&penpal_sovereign,
+			INITIAL_FUND,
+		));
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			ethereum().try_into().unwrap(),
+			&penpal_user_sovereign,
+			INITIAL_FUND,
+		));
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			ethereum().try_into().unwrap(),
+			&AssetHubWestendReceiver::get(),
+			INITIAL_FUND,
+		));
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			ethereum().try_into().unwrap(),
+			&AssetHubWestendSender::get(),
+			INITIAL_FUND,
+		));
 	});
 
 	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
@@ -289,6 +323,7 @@ pub fn create_pools_on_ah() {
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	create_pool_with_native_on!(AssetHubWestend, weth_location(), true, ethereum_sovereign.clone());
+	create_pool_with_native_on!(AssetHubWestend, ethereum(), true, ethereum_sovereign.clone());
 }
 
 pub(crate) fn set_up_eth_and_dot_pool() {

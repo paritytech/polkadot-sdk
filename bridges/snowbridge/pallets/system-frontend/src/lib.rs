@@ -42,7 +42,7 @@ pub enum ControlCall {
 #[allow(clippy::large_enum_variant)]
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum SnowbridgeControl {
-	#[codec(index = 85)]
+	#[codec(index = 90)]
 	Control(ControlCall),
 }
 
@@ -80,7 +80,7 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
 
-		type WETH: Get<Location>;
+		type FeeAsset: Get<Location>;
 
 		type DeliveryFee: Get<Asset>;
 
@@ -113,7 +113,8 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Call `create_agent` on Bridge Hub to instantiate a new agent contract representing `origin`.
+		/// Call `create_agent` on Bridge Hub to instantiate a new agent contract representing
+		/// `origin`.
 		/// - `origin`: Must be `Location` from a sibling parachain
 		/// - `fee`: Fee in Ether
 		#[pallet::call_index(1)]
@@ -202,7 +203,7 @@ pub mod pallet {
 			Ok(())
 		}
 		pub fn burn_fees(origin_location: Location, fee: u128) -> DispatchResult {
-			let ethereum_fee_asset = (T::WETH::get(), fee).into();
+			let ethereum_fee_asset = (T::FeeAsset::get(), fee).into();
 			T::AssetTransactor::withdraw_asset(&ethereum_fee_asset, &origin_location, None)
 				.map_err(|_| Error::<T>::FundsUnavailable)?;
 			T::AssetTransactor::withdraw_asset(&T::DeliveryFee::get(), &origin_location, None)

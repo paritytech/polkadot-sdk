@@ -73,16 +73,14 @@ use frame_support::{
 	weights::{Weight, WeightToFee},
 };
 pub use pallet::*;
-use snowbridge_core::{
-	BasicOperatingMode, PaymentProcedure, ether_asset, TokenId,
-};
+use snowbridge_core::{ether_asset, BasicOperatingMode, PaymentProcedure, TokenId};
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::{
-	EventProof, VerificationError, Verifier,
 	v2::{
 		abi::{CommandWrapper, OutboundMessageWrapper},
 		GasMeter, Message, OutboundCommandWrapper, OutboundMessage,
-	}
+	},
+	EventProof, VerificationError, Verifier,
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
@@ -143,8 +141,6 @@ pub mod pallet {
 		type ConvertAssetId: MaybeEquivalence<TokenId, Location>;
 
 		type EthereumNetwork: Get<NetworkId>;
-
-		type WETHAddress: Get<H160>;
 	}
 
 	#[pallet::event]
@@ -232,7 +228,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
-		T::AccountId: AsRef<[u8]>
+		T::AccountId: AsRef<[u8]>,
 	{
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			// Remove storage from previous block
@@ -276,8 +272,8 @@ pub mod pallet {
 				.map_err(|e| Error::<T>::Verification(e))?;
 
 			// Decode event log into an Envelope
-			let envelope = Envelope::<T>::try_from(&event.event_log)
-				.map_err(|_| Error::<T>::InvalidEnvelope)?;
+			let envelope =
+				Envelope::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
@@ -288,9 +284,8 @@ pub mod pallet {
 
 			// No fee for governance order
 			if !order.fee.is_zero() {
-				let account_bytes: [u8; 32] =
-					envelope.reward_address.encode().try_into().unwrap();
-				let reward_account_location = Location::new(0, AccountId32{id: account_bytes.into(), network: None});
+				let reward_account_location =
+					AccountId32 { id: envelope.reward_address.into(), network: None }.into();
 				let ether = ether_asset(T::EthereumNetwork::get(), order.fee);
 				T::RewardPayment::pay_reward(reward_account_location, ether)
 					.map_err(|_| Error::<T>::RewardPaymentFailed)?;

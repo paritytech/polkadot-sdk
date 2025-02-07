@@ -404,25 +404,6 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		(ethereum_sovereign.clone(), INITIAL_FUND),
 	]);
 
-	// Register ETH
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			origin_location.clone(),
-			ethereum_sovereign.into(),
-			true,
-			1000,
-		));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::ForceCreated { .. }) => {},
-			]
-		);
-	});
 	const ETH_AMOUNT: u128 = 1_000_000_000_000_000_000;
 
 	BridgeHubWestend::execute_with(|| {

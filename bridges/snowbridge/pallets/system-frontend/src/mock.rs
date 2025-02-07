@@ -191,7 +191,7 @@ impl crate::Config for Test {
 	type RegisterTokenOrigin = EnsureXcm<Everything>;
 	type XcmSender = MockXcmSender;
 	type AssetTransactor = SuccessfulTransactor;
-	type WETH = WETH;
+	type FeeAsset = WETH;
 	type DeliveryFee = DeliveryFee;
 }
 

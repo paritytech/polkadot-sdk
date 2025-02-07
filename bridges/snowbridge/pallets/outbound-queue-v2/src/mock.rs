@@ -11,15 +11,11 @@ use frame_support::{
 
 use hex_literal::hex;
 use snowbridge_core::{
-	gwei,
-	meth,
+	gwei, meth,
 	pricing::{PricingParameters, Rewards},
 	ParaId,
 };
-use snowbridge_outbound_queue_primitives::{
-	Log, Proof, VerificationError, Verifier,
-	v2::*
-};
+use snowbridge_outbound_queue_primitives::{v2::*, Log, Proof, VerificationError, Verifier};
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
@@ -96,7 +92,6 @@ parameter_types! {
 	};
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
-	pub storage WETHAddress: H160 = H160(hex_literal::hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"));
 }
 
 pub const DOT: u128 = 10_000_000_000;
@@ -115,7 +110,6 @@ impl crate::Config for Test {
 	type RewardPayment = ();
 	type ConvertAssetId = ();
 	type EthereumNetwork = EthereumNetwork;
-	type WETHAddress = WETHAddress;
 }
 
 fn setup() {

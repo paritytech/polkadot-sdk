@@ -102,7 +102,7 @@ use parachains_common::{
 use snowbridge_core::{AgentId, PricingParameters};
 use snowbridge_outbound_queue_primitives::{
 	v1::{Command, Fee},
-	v2::{OutboundMessage, DryRunError},
+	v2::{DryRunError, OutboundMessage},
 };
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};

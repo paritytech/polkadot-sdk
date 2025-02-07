@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(not(feature = "runtime-benchmarks"))]
-use crate::XcmRouter;
 use crate::{
 	xcm_config,
 	xcm_config::{TreasuryAccount, UniversalLocation},
@@ -26,22 +24,20 @@ use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
 use snowbridge_outbound_queue_primitives::{
-	v1::ConstantGasMeter, v2::ConstantGasMeter as ConstantGasMeterV2,
-};
-use snowbridge_outbound_queue_primitives::{
-	v1::EthereumBlobExporter, v2::EthereumBlobExporter as EthereumBlobExporterV2,
+	v1::{ConstantGasMeter, EthereumBlobExporter},
+	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
 use sp_core::H160;
 use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
 	snowbridge::{
-		AssetHubParaId, EthereumLocation, EthereumNetwork, WETHAddress,
-		INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
+		AssetHubParaId, EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX_V1,
+		INBOUND_QUEUE_PALLET_INDEX_V2,
 	},
 };
 
-use crate::xcm_config::RelayNetwork;
+use crate::xcm_config::{RelayNetwork, XcmConfig, XcmRouter};
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
@@ -50,9 +46,8 @@ use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
 	FixedU128,
 };
-use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain, PalletInstance};
+use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, PalletInstance, Parachain};
 use xcm_executor::XcmExecutor;
-use crate::xcm_config::XcmConfig;
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
 
@@ -71,7 +66,6 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	snowbridge_pallet_outbound_queue_v2::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
 	(EthereumSystem, EthereumSystemV2),
-	WETHAddress,
 	AssetHubParaId,
 >;
 
@@ -179,10 +173,8 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
 	type GatewayAddress = EthereumGatewayAddress;
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue_v2::WeightInfo<Runtime>;
-	//type RewardLedger = ();
 	type ConvertAssetId = EthereumSystem;
 	type EthereumNetwork = EthereumNetwork;
-	type WETHAddress = WETHAddress;
 	type RewardPayment = ();
 }
 
@@ -295,10 +287,17 @@ pub mod benchmark_helpers {
 	use codec::Encode;
 	use snowbridge_beacon_primitives::BeaconHeader;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
+	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as BenchmarkHelperV2;
 	use sp_core::H256;
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
+		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
+			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+		}
+	}
+
+	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelperV2<T> for Runtime {
 		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
 			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
 		}
