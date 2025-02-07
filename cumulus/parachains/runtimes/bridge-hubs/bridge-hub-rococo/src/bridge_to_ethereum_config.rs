@@ -171,7 +171,7 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("90000073"),
-			epoch: 219392, // Tentative epoch, source: https://discord.com/channels/595666850260713488/745077610685661265/1331992315106955444
+			epoch: 222464, // https://github.com/ethereum/EIPs/pull/9322/files
 		},
 	};
 }
