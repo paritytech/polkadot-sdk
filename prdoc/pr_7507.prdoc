@@ -3,8 +3,6 @@ doc:
 - audience: Runtime Dev
   description: This should fix some compilation warnings discovered under rustc 1.83
 crates:
-- name: pallet-bridge-grandpa
-  bump: minor
 - name: pallet-example-view-functions
   bump: minor
 - name: sp-consensus-beefy
