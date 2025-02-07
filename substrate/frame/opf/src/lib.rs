@@ -37,17 +37,17 @@
 //!
 //! ## Interface
 //!
-//! ### Permissionless Functions
+//! ### Permissioned Calls
+//! * `register_projects_batch`: Allows a SubmitOrigin to register a list of whitelisted 
+//!   projects for funding allocation
+//! * `unregister_project`: Allows an AdminOrigin to unregister a previously whitelisted project
 //!
-//! * `pot_account`: Output the pot account_id.
-//! * `spend`: Funds transfer from the Pot to a project account.
-//!
-//! ### Privileged Functions
-//!
+//! ### Permissionless Calls
 //! * `vote`: Allows users to [vote for/nominate] a whitelisted project using their funds.
 //! * `remove_vote`: Allows users to remove a casted vote.
 //! * `release_voter_funds`: Allows users to unlock funds related to a specific project.
 //! * `claim_reward_for`: Claim a reward for a nominated/whitelisted project.
+//! * `execute_call_dispatch`: Used for delayed calls execution
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
