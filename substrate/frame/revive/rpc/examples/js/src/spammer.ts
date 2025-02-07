@@ -25,23 +25,6 @@ spawn(
 	}
 )
 
-if (process.env.START_ETH_INDEXER) {
-	console.log('🚀 Start indexer...')
-	spawn(
-		[
-			'./target/debug/eth-indexer',
-			'--node-rpc-url=ws://localhost:9944',
-			'-l=eth-rpc=debug',
-			'--database-url ${polkadotSdkPath}/substrate/frame/revive/rpc/tx_hashes.db',
-		],
-		{
-			stdout: Bun.file('/tmp/eth-indexer.out.log'),
-			stderr: Bun.file('/tmp/eth-indexer.err.log'),
-			cwd: polkadotSdkPath,
-		}
-	)
-}
-
 // Run eth-rpc on 8545
 console.log('🚀 Start eth-rpc...')
 if (process.env.START_ETH_RPC) {
