@@ -231,7 +231,7 @@ pub mod test {
 		}
 
 		async fn latest_block_number(&self) -> Option<SubstrateBlockNumber> {
-			Some(2u32.into())
+			Some(2u32)
 		}
 
 		async fn block_by_number(
