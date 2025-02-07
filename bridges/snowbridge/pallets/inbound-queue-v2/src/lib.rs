@@ -95,7 +95,7 @@ pub mod pallet {
 		/// Handler for XCM fees.
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 		/// Relayer Reward Payment
-		type RewardPayment: PaymentProcedure;
+		type RewardPayment: PaymentProcedure<Self::AccountId>;
 		/// Ethereum NetworkId
 		type EthereumNetwork: Get<NetworkId>;
 		/// Address of the Gateway contract.
@@ -200,10 +200,7 @@ pub mod pallet {
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		Location: From<<T as frame_system::Config>::AccountId>,
-	{
+	impl<T: Config> Pallet<T> where T::AccountId: Into<Location> {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
@@ -219,7 +216,7 @@ pub mod pallet {
 			let message =
 				Message::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidMessage)?;
 
-			Self::process_message(who.into(), message)
+			Self::process_message(who, message)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
@@ -236,11 +233,8 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T>
-	where
-		Location: From<<T as frame_system::Config>::AccountId>,
-	{
-		pub fn process_message(relayer: Location, message: Message) -> DispatchResult {
+	impl<T: Config> Pallet<T> where T::AccountId: Into<Location> {
+		pub fn process_message(relayer: T::AccountId, message: Message) -> DispatchResult {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
 
@@ -273,7 +267,7 @@ pub mod pallet {
 
 		fn send_xcm(
 			dest: Location,
-			fee_payer: Location,
+			fee_payer: T::AccountId,
 			xcm: Xcm<()>,
 		) -> Result<XcmHash, SendError> {
 			let (ticket, fee) = validate_send::<T::XcmSender>(dest, xcm)?;
@@ -285,7 +279,7 @@ pub mod pallet {
 				);
 				SendError::Fees
 			})?;
-			Self::deposit_event(Event::FeesPaid { paying: fee_payer, fees: fee });
+			Self::deposit_event(Event::FeesPaid { paying: fee_payer.into(), fees: fee });
 			T::XcmSender::deliver(ticket)
 		}
 	}
