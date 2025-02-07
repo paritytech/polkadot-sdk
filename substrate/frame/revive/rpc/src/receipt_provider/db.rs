@@ -68,6 +68,8 @@ impl DBReceiptProvider {
 
 #[async_trait]
 impl ReceiptProvider for DBReceiptProvider {
+	async fn remove(&self, _block_hash: &H256) {}
+
 	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
 		self.insert(block_hash, receipts).await;
 	}

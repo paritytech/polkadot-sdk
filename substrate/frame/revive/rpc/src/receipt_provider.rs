@@ -32,8 +32,7 @@ pub trait ReceiptProvider: Send + Sync {
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]);
 
 	/// Similar to `insert`, but intended for archiving receipts from historical blocks.
-	/// Cache providers may use the default no-operation implementation.
-	async fn archive(&self, _block_hash: &H256, _receipts: &[(TransactionSigned, ReceiptInfo)]) {}
+	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]);
 
 	/// Get logs that match the given filter.
 	async fn logs(&self, _filter: Filter) -> anyhow::Result<Vec<Log>> {
@@ -41,8 +40,7 @@ pub trait ReceiptProvider: Send + Sync {
 	}
 
 	/// Deletes receipts associated with the specified block hash.
-	/// Archive providers can use the default no-operation implementation.
-	async fn remove(&self, _block_hash: &H256) {}
+	async fn remove(&self, block_hash: &H256);
 
 	/// Get the receipt for the given block hash and transaction index.
 	async fn receipt_by_block_hash_and_index(
