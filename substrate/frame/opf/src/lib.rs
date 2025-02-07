@@ -245,8 +245,6 @@ pub mod pallet {
 		TransferFailed,
 		/// Spend or Spend index does not exists
 		InexistentSpend,
-		/// No valid Account_id found
-		NoValidAccount,
 		/// No project found under this project_id
 		NoProjectAvailable,
 		/// The Funds transfer failed
@@ -273,6 +271,7 @@ pub mod pallet {
 		NoVoteData,
 		/// Not enough funds to process the transaction
 		NotEnoughFunds,
+		/// This referendum does not exists
 		ReferendumNotFound,
 	}
 
@@ -520,7 +519,6 @@ pub mod pallet {
 		///
 		/// ### Errors
 		/// - [`Error::<T>::InexistentSpend`]:Spend or Spend index does not exists
-		/// - [`Error::<T>::NoValidAccount`]:  No valid Account_id found
 		/// - [`Not Claiming Period`]: Still not in claiming period
 		///  
 		/// ## Events
