@@ -91,7 +91,6 @@ on:
         description: "Base memory (request) for pod runner."
 
 jobs:
-
   #
   #
   #
@@ -103,7 +102,6 @@ jobs:
       changes_polkadot: ${{ steps.set_changes.outputs.polkadot_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
       changes_bridges: ${{ steps.set_changes.outputs.bridges_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
       changes_templates: ${{ steps.set_changes.outputs.templates_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-
 
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
       ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
@@ -124,7 +122,6 @@ jobs:
       KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
 
     steps:
-
       - uses: actions/checkout@v4
 
       #
@@ -157,7 +154,6 @@ jobs:
               - '.github/workflows/zombienet-reusable-preflight.yml'
               - '.github/zombienet-env'
 
-
       #
       # Set environment vars (including runner/image)
       #
@@ -178,8 +174,7 @@ jobs:
         id: set_images_version
         shell: bash
         run: |
-          export BRANCH_NAME=${{ github.head_ref || github.ref_name }}
-          export DOCKER_IMAGES_VERSION=${BRANCH_NAME/\//-}
+          export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
           if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
           echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
 
@@ -244,4 +239,3 @@ jobs:
             sleep 10
           done
           echo "CI workflow is done."
-
