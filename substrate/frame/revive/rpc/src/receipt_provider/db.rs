@@ -143,7 +143,7 @@ impl ReceiptProvider for DBReceiptProvider {
 		}
 	}
 
-	async fn logs(&self, filter: Filter) -> anyhow::Result<Option<Vec<Log>>> {
+	async fn logs(&self, filter: Filter) -> anyhow::Result<Vec<Log>> {
 		let mut qb = QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE 1=1");
 
 		if let Some(from_block) = filter.from_block {
@@ -188,6 +188,8 @@ impl ReceiptProvider for DBReceiptProvider {
 			}
 		}
 
+		qb.push(" LIMIT 10000");
+
 		let logs = qb
 			.build()
 			.try_map(|row| {
@@ -223,7 +225,7 @@ impl ReceiptProvider for DBReceiptProvider {
 			.fetch_all(&self.pool)
 			.await?;
 
-		Ok(Some(logs))
+		Ok(logs)
 	}
 
 	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<usize> {
@@ -346,7 +348,7 @@ mod tests {
 	}
 
 	#[sqlx::test]
-	async fn test_query_logs(pool: SqlitePool) {
+	async fn test_query_logs(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let log1 = Log {
 			block_hash: H256::default(),
@@ -390,25 +392,25 @@ mod tests {
 			.await;
 
 		// Empty filter
-		let logs = provider.logs(Default::default()).await;
+		let logs = provider.logs(Default::default()).await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
 		// from_block filter
 		let logs = provider
 			.logs(Filter { from_block: Some(log2.block_number), ..Default::default() })
-			.await;
+			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// to_block filter
 		let logs = provider
 			.logs(Filter { to_block: Some(log1.block_number), ..Default::default() })
-			.await;
+			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// single address
 		let logs = provider
 			.logs(Filter { address: Some(log1.address.into()), ..Default::default() })
-			.await;
+			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple addresses
@@ -417,7 +419,7 @@ mod tests {
 				address: Some(vec![log1.address, log2.address].into()),
 				..Default::default()
 			})
-			.await;
+			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
 		// single topic
@@ -426,7 +428,7 @@ mod tests {
 				topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
 				..Default::default()
 			})
-			.await;
+			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple topic
@@ -438,16 +440,28 @@ mod tests {
 				]),
 				..Default::default()
 			})
-			.await;
+			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
-		// topic selections
+		// multiple topic for topic_0
 		let logs = provider
 			.logs(Filter {
 				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
 				..Default::default()
 			})
-			.await;
+			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		// Altogether
+		let logs = provider
+			.logs(Filter {
+				from_block: Some(log1.block_number),
+				to_block: Some(log2.block_number),
+				address: Some(vec![log1.address, log2.address].into()),
+				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
+			})
+			.await?;
+		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+		Ok(())
 	}
 }

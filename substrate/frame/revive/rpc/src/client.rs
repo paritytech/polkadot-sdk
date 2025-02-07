@@ -720,6 +720,6 @@ impl Client {
 	pub async fn logs(&self, filter: Filter) -> Result<Vec<Log>, ClientError> {
 		let logs =
 			self.receipt_provider.logs(filter).await.map_err(ClientError::LogFilterFailed)?;
-		Ok(logs.unwrap_or_default())
+		Ok(logs)
 	}
 }
