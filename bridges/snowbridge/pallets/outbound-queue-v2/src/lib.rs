@@ -55,7 +55,6 @@
 //! * `dry_run`: Convert xcm to InboundMessage
 #![cfg_attr(not(feature = "std"), no_std)]
 pub mod api;
-pub mod envelope;
 pub mod process_message_impl;
 pub mod send_message_impl;
 pub mod types;
@@ -76,19 +75,18 @@ use alloy_core::{
 };
 use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
 use codec::Decode;
-use envelope::DeliveryProofEnvelope;
 use frame_support::{
 	storage::StorageStreamIter,
 	traits::{tokens::Balance, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-pub use pallet::*;
 use snowbridge_core::{ether_asset, BasicOperatingMode, PaymentProcedure, TokenId};
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::{
 	v2::{
 		abi::{CommandWrapper, OutboundMessageWrapper},
 		GasMeter, Message, OutboundCommandWrapper, OutboundMessage,
+		MessageReceipt
 	},
 	EventProof, VerificationError, Verifier,
 };
@@ -100,7 +98,11 @@ use sp_runtime::{
 use sp_std::prelude::*;
 pub use types::{PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
-use xcm::prelude::{Location, NetworkId, *};
+use xcm::latest::{Location, NetworkId};
+
+type MessageReceiptOf<T> = MessageReceipt<<T as frame_system::Config>::AccountId>;
+
+pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -146,7 +148,7 @@ pub mod pallet {
 		type GatewayAddress: Get<H160>;
 
 		/// Means of paying a relayer
-		type RewardPayment: PaymentProcedure;
+		type RewardPayment: PaymentProcedure<Self::AccountId>;
 
 		type ConvertAssetId: MaybeEquivalence<TokenId, Location>;
 
@@ -254,7 +256,7 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T> where T::AccountId: From<[u8; 32]> {
 		/// Halt or resume all pallet operations. May only be called by root.
 		#[pallet::call_index(0)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
@@ -269,8 +271,8 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::submit_delivery_proof())]
-		pub fn submit_delivery_proof(
+		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
+		pub fn submit_delivery_receipt(
 			origin: OriginFor<T>,
 			event: Box<EventProof>,
 		) -> DispatchResult {
@@ -281,23 +283,19 @@ pub mod pallet {
 			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
-			// Decode event log into an Envelope
-			let envelope = DeliveryProofEnvelope::try_from(&event.event_log)
-				.map_err(|_| Error::<T>::InvalidEnvelope)?;
+			let receipt = MessageReceiptOf::<T>::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract
-			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
+			ensure!(T::GatewayAddress::get() == receipt.gateway, Error::<T>::InvalidGateway);
 
-			let nonce = envelope.nonce;
+			let nonce = receipt.nonce;
 
 			let order = <PendingOrders<T>>::get(nonce).ok_or(Error::<T>::InvalidPendingNonce)?;
 
 			// No fee for governance order
 			if !order.fee.is_zero() {
-				let reward_account_location =
-					AccountId32 { id: envelope.reward_address.into(), network: None }.into();
 				let ether = ether_asset(T::EthereumNetwork::get(), order.fee);
-				T::RewardPayment::pay_reward(reward_account_location, ether)
+				T::RewardPayment::pay_reward(receipt.reward_address, ether)
 					.map_err(|_| Error::<T>::RewardPaymentFailed)?;
 			}
 

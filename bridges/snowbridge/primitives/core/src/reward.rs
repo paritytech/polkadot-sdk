@@ -4,22 +4,22 @@
 use sp_runtime::traits::Debug;
 use xcm::latest::{NetworkId, Location, Asset, Junction::GlobalConsensus};
 
-pub trait PaymentProcedure {
+pub trait PaymentProcedure<AccountId> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
 
 	/// Pay reward to the relayer from the account with provided params.
 	fn pay_reward(
-		relayer: Location,
+		relayer: AccountId,
 		reward: Asset,
 	) -> Result<(), Self::Error>;
 }
 
-impl PaymentProcedure  for () {
+impl<AccountId> PaymentProcedure<AccountId> for () {
 	type Error = &'static str;
 
 	fn pay_reward(
-		_: Location,
+		_: AccountId,
 		_: Asset,
 	) -> Result<(), Self::Error> {
 		Ok(())

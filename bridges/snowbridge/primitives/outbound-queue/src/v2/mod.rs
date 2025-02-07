@@ -1,8 +1,10 @@
-pub mod message;
 pub mod converter;
+pub mod message;
+pub mod message_receipt;
 
-pub use message::*;
 pub use converter::*;
+pub use message::*;
+pub use message_receipt::*;
 
 use codec::{Encode, Decode};
 use scale_info::TypeInfo;

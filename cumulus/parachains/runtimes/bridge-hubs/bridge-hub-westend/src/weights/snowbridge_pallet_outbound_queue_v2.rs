@@ -85,7 +85,7 @@ impl<T: frame_system::Config> snowbridge_pallet_outbound_queue_v2::WeightInfo fo
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 
-	fn submit_delivery_proof() -> Weight {
+	fn submit_delivery_receipt() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `800`
 		//  Estimated: `7200`

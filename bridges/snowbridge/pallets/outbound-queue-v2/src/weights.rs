@@ -34,7 +34,7 @@ pub trait WeightInfo {
 	fn do_process_message() -> Weight;
 	fn commit() -> Weight;
 	fn commit_single() -> Weight;
-	fn submit_delivery_proof() -> Weight;
+	fn submit_delivery_receipt() -> Weight;
 }
 
 // For backwards compatibility and tests.
@@ -80,7 +80,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 
-	fn submit_delivery_proof() -> Weight {
+	fn submit_delivery_receipt() -> Weight {
 		Weight::from_parts(70_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3601))
 			.saturating_add(RocksDbWeight::get().reads(2))
