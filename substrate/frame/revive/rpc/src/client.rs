@@ -26,9 +26,9 @@ use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Filter,
-		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned,
-		H160, H256, U256,
+		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes, CallTrace,
+		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
+		TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
@@ -496,7 +496,7 @@ impl Client {
 	}
 
 	/// Get receipts count per block.
-	pub async fn receipts_count_per_block(&self, block_hash: &SubstrateBlockHash) -> Option<u32> {
+	pub async fn receipts_count_per_block(&self, block_hash: &SubstrateBlockHash) -> Option<usize> {
 		self.receipt_provider.receipts_count_per_block(block_hash).await
 	}
 
@@ -685,7 +685,7 @@ impl Client {
 		let traces = traces
 			.into_iter()
 			.filter_map(|(index, trace)| {
-				Some(TransactionTrace { tx_hash: hashes.remove(&index)?, trace })
+				Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
 			})
 			.collect();
 

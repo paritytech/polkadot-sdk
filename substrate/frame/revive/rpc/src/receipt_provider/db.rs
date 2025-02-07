@@ -21,7 +21,7 @@ use jsonrpsee::core::async_trait;
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
 use sqlx::{query, QueryBuilder, Row, Sqlite, SqlitePool};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 /// A `[ReceiptProvider]` that stores receipts in a SQLite database.
 #[derive(Clone)]
@@ -280,6 +280,30 @@ impl ReceiptProvider for DBReceiptProvider {
 
 		let count = row.count as usize;
 		Some(count)
+	}
+
+	async fn block_transaction_hashes(&self, block_hash: &H256) -> Option<HashMap<usize, H256>> {
+		let block_hash = block_hash.as_ref();
+		let rows = query!(
+			r#"
+		      SELECT transaction_index, transaction_hash
+		      FROM transaction_hashes
+		      WHERE block_hash = $1
+		      "#,
+			block_hash
+		)
+		.fetch_all(&self.pool)
+		.await
+		.ok()?;
+
+		let mut transaction_hashes = HashMap::new();
+		for row in rows {
+			let transaction_index: usize = row.transaction_index.try_into().ok()?;
+			let transaction_hash = H256::from_slice(&row.transaction_hash);
+			transaction_hashes.insert(transaction_index, transaction_hash);
+		}
+
+		Some(transaction_hashes)
 	}
 
 	async fn receipt_by_block_hash_and_index(

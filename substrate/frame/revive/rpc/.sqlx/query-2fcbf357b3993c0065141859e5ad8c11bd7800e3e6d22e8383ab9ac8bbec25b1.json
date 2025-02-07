@@ -11,7 +11,7 @@
       {
         "name": "transaction_hash",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Blob"
       }
     ],
     "parameters": {
