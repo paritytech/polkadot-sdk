@@ -28,8 +28,6 @@ pub mod api;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-mod types;
-
 pub mod weights;
 
 #[cfg(test)]
@@ -38,10 +36,18 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+pub use crate::weights::WeightInfo;
+use frame_support::{
+	traits::{
+		fungible::{Inspect, Mutate},
+		tokens::Balance,
+	},
+	weights::WeightToFee,
+};
 use frame_system::ensure_signed;
 use snowbridge_core::{
 	reward::{ether_asset, PaymentProcedure},
-	sparse_bitmap::SparseBitmap,
+	sparse_bitmap::{SparseBitmap, SparseBitmapImpl},
 	BasicOperatingMode,
 };
 use snowbridge_inbound_queue_primitives::{
@@ -49,9 +55,6 @@ use snowbridge_inbound_queue_primitives::{
 	EventProof, VerificationError, Verifier,
 };
 use sp_core::H160;
-use sp_runtime::traits::TryConvert;
-use types::Nonce;
-pub use weights::WeightInfo;
 use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -59,10 +62,13 @@ use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
 
 pub use pallet::*;
 
-pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
+pub const LOG_TARGET: &str = "snowbridge-pallet-inbound-queue-v2";
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+type BalanceOf<T> =
+	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
+pub type Nonce<T> = SparseBitmapImpl<crate::NonceBitmap<T>>;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -101,9 +107,12 @@ pub mod pallet {
 		type MessageConverter: ConvertMessage;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
+		/// Used for the dry run API implementation.
+		type Balance: Balance + From<u128>;
 		type WeightInfo: WeightInfo;
-
-		type AccountToLocation: for<'a> TryConvert<&'a Self::AccountId, Location>;
+		/// Convert a weight value into deductible balance type.
+		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
+		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
 	}
 
 	#[pallet::event]
@@ -181,7 +190,8 @@ pub mod pallet {
 		}
 	}
 
-	/// The nonce of the message been processed or not
+	/// StorageMap used for encoding a SparseBitmapImpl that tracks whether a specific nonce has
+	/// been processed or not. Message nonces are unique and never repeated.
 	#[pallet::storage]
 	pub type NonceBitmap<T: Config> = StorageMap<_, Twox64Concat, u128, u128, ValueQuery>;
 
@@ -190,12 +200,15 @@ pub mod pallet {
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		Location: From<<T as frame_system::Config>::AccountId>,
+	{
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
 		pub fn submit(origin: OriginFor<T>, event: Box<EventProof>) -> DispatchResult {
-			let who = ensure_signed(origin.clone())?;
+			let who = ensure_signed(origin)?;
 			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 
 			// submit message for verification
@@ -206,10 +219,7 @@ pub mod pallet {
 			let message =
 				Message::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidMessage)?;
 
-			let reward_account_location =
-				T::AccountToLocation::try_convert(&who).map_err(|_| Error::<T>::InvalidAccount)?;
-
-			Self::process_message(reward_account_location, message)
+			Self::process_message(who.into(), message)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
@@ -226,7 +236,10 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		Location: From<<T as frame_system::Config>::AccountId>,
+	{
 		pub fn process_message(relayer: Location, message: Message) -> DispatchResult {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
@@ -239,9 +252,9 @@ pub mod pallet {
 
 			// Forward XCM to AH
 			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
-			let message_id = Self::send_xcm(dest.clone(), relayer.clone(), xcm.clone())
-				.map_err(|error| {
-					tracing::error!(target: "snowbridge_pallet_inbound_queue_v2::submit", ?error, ?dest, ?xcm, "XCM send failed with error");
+			let message_id =
+				Self::send_xcm(dest.clone(), relayer.clone(), xcm.clone()).map_err(|error| {
+					tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
 					Error::<T>::from(error)
 				})?;
 
@@ -250,7 +263,7 @@ pub mod pallet {
 			T::RewardPayment::pay_reward(relayer, ether)
 				.map_err(|_| Error::<T>::RewardPaymentFailed)?;
 
-			// Mark message as as received
+			// Mark message as received
 			Nonce::<T>::set(message.nonce.into());
 
 			Self::deposit_event(Event::MessageReceived { nonce: message.nonce, message_id });
@@ -266,7 +279,7 @@ pub mod pallet {
 			let (ticket, fee) = validate_send::<T::XcmSender>(dest, xcm)?;
 			T::XcmExecutor::charge_fees(fee_payer.clone(), fee.clone()).map_err(|error| {
 				tracing::error!(
-					target: "snowbridge_pallet_inbound_queue_v2::send_xcm",
+					target: LOG_TARGET,
 					?error,
 					"Charging fees failed with error",
 				);

@@ -26,6 +26,7 @@ use rococo_westend_system_emulated_network::penpal_emulated_chain::{
 };
 use snowbridge_core::AssetMetadata;
 use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
+use sp_core::H160;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
 
@@ -39,20 +40,6 @@ pub const REMOTE_FEE_AMOUNT_IN_WETH: u128 = 400_000_000_000;
 pub const LOCAL_FEE_AMOUNT_IN_DOT: u128 = 800_000_000_000;
 
 pub const EXECUTION_WEIGHT: u64 = 8_000_000_000;
-
-pub fn weth_location() -> Location {
-	Location::new(
-		2,
-		[
-			GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
-			AccountKey20 { network: None, key: WETH },
-		],
-	)
-}
-
-pub fn ethereum() -> Location {
-	Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })])
-}
 
 pub fn beneficiary() -> Location {
 	Location::new(0, [AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }])
@@ -71,43 +58,7 @@ pub fn fund_on_bh() {
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 }
 
-pub fn register_assets_on_ah() {
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into();
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			ethereum().try_into().unwrap(),
-			ethereum_sovereign.clone().into(),
-			true,
-			1,
-		));
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			ethereum().try_into().unwrap(),
-		));
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			weth_location().try_into().unwrap(),
-			ethereum_sovereign.clone().into(),
-			true,
-			1,
-		));
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			weth_location().try_into().unwrap(),
-		));
-	});
-}
+pub fn register_assets_on_ah() {}
 pub fn register_relay_token_on_bh() {
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
@@ -131,14 +82,14 @@ pub fn register_relay_token_on_bh() {
 }
 
 pub fn register_assets_on_penpal() {
+	let ethereum_sovereign: AccountId =
+		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
+			2,
+			[GlobalConsensus(EthereumNetwork::get())],
+		))
+		.unwrap()
+		.into();
 	PenpalB::execute_with(|| {
-		let ethereum_sovereign: AccountId =
-			EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-				2,
-				[GlobalConsensus(EthereumNetwork::get())],
-			))
-			.unwrap()
-			.into();
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			weth_location().try_into().unwrap(),
@@ -152,6 +103,24 @@ pub fn register_assets_on_penpal() {
 			ethereum_sovereign.into(),
 			true,
 			1,
+		));
+	});
+}
+
+pub fn register_foreign_asset(token_location: Location) {
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			token_location.clone().try_into().unwrap(),
+			snowbridge_sovereign().into(),
+			true,
+			1000,
+		));
+
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
+			token_location.clone().try_into().unwrap(),
 		));
 	});
 }
@@ -343,31 +312,33 @@ pub fn fund_on_ah() {
 		));
 	});
 
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into();
-	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 	AssetHubWestend::fund_accounts(vec![(penpal_sovereign.clone(), INITIAL_FUND)]);
 	AssetHubWestend::fund_accounts(vec![(penpal_user_sovereign.clone(), INITIAL_FUND)]);
 }
 
 pub fn create_pools_on_ah() {
 	// We create a pool between WND and WETH in AssetHub to support paying for fees with WETH.
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into();
+	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	create_pool_with_native_on!(AssetHubWestend, weth_location(), true, ethereum_sovereign.clone());
 	create_pool_with_native_on!(AssetHubWestend, ethereum(), true, ethereum_sovereign.clone());
+}
+
+pub(crate) fn set_up_eth_and_dot_pool() {
+	// We create a pool between WND and WETH in AssetHub to support paying for fees with WETH.
+	let ethereum_sovereign = snowbridge_sovereign();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	create_pool_with_native_on!(AssetHubWestend, eth_location(), true, ethereum_sovereign.clone());
+}
+
+pub(crate) fn set_up_eth_and_dot_pool_on_penpal() {
+	let ethereum_sovereign = snowbridge_sovereign();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	create_pool_with_native_on!(PenpalB, eth_location(), true, ethereum_sovereign.clone());
 }
 
 pub fn register_pal_on_bh() {
@@ -456,4 +427,35 @@ pub fn register_penpal_agent_on_ethereum() {
 			vec![RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::CreateAgent{ .. }) => {},]
 		);
 	});
+}
+
+pub fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
+	EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&xcm::v5::Location::new(
+		2,
+		[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
+	))
+	.unwrap()
+	.into()
+}
+
+pub fn weth_location() -> Location {
+	erc20_token_location(WETH.into())
+}
+
+pub fn eth_location() -> Location {
+	Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })])
+}
+
+pub fn ethereum() -> Location {
+	eth_location()
+}
+
+pub fn erc20_token_location(token_id: H160) -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(EthereumNetwork::get().into()),
+			AccountKey20 { network: None, key: token_id.into() },
+		],
+	)
 }

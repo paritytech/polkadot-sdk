@@ -46,7 +46,7 @@ use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
 	FixedU128,
 };
-use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain};
+use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, PalletInstance, Parachain};
 use xcm_executor::XcmExecutor;
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
@@ -71,7 +71,7 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 
 // Ethereum Bridge
 parameter_types! {
-	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("b8ea8cb425d85536b158d661da1ef0895bb92f1d"));
+	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("b1185ede04202fe62d38f5db72f71e38ff3e8305"));
 }
 
 parameter_types! {
@@ -85,7 +85,7 @@ parameter_types! {
 	};
 	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
 	pub EthereumUniversalLocation: InteriorLocation = [GlobalConsensus(EthereumNetwork::get())].into();
-	pub WethAddress: H160 = H160(hex_literal::hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14"));
+	pub InboundQueueLocation: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
 }
 
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
@@ -126,24 +126,23 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
 	type GatewayAddress = EthereumGatewayAddress;
-	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
-	type AssetHubParaId = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
+	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
+	type AssetHubParaId = ConstU32<1000>;
+	type RewardPayment = ();
+	type EthereumNetwork = EthereumNetwork;
+	type XcmExecutor = XcmExecutor<XcmConfig>;
+	type Token = Balances;
+	type Balance = Balance;
+	type WeightToFee = WeightToFee;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		EthereumNetwork,
-		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V2>,
+		InboundQueueLocation,
 		EthereumSystem,
 		EthereumGatewayAddress,
 		EthereumUniversalLocation,
 		AssetHubFromEthereum,
-	>;
-	type RewardPayment = ();
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type EthereumNetwork = EthereumNetwork;
-	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
-		RelayNetwork,
-		<Runtime as frame_system::Config>::AccountId,
 	>;
 }
 

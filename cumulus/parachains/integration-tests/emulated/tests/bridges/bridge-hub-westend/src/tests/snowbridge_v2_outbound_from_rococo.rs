@@ -13,9 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rococo_westend_system_emulated_network::asset_hub_rococo_emulated_chain::asset_hub_rococo_runtime::xcm_config::bridging::to_westend::EthereumNetwork;
 use crate::{imports::*, tests::snowbridge_common::*};
 use snowbridge_core::AssetMetadata;
+use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 use xcm::latest::AssetTransferFilter;
+use xcm_executor::traits::ConvertLocation;
 
 pub(crate) fn asset_hub_westend_location() -> Location {
 	Location::new(
@@ -188,6 +191,23 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 
 	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
 	set_up_pool_with_wnd_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
+	AssetHubWestend::execute_with(|| {
+		let previous_owner = EthereumLocationsConverterFor::<[u8; 32]>::convert_location(
+			&Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+		)
+		.unwrap()
+		.into();
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::start_destroy(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(previous_owner),
+			ethereum()
+		));
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::finish_destroy(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestend::account_id_of(
+				ALICE
+			)),
+			ethereum()
+		));
+	});
 	create_foreign_on_ah_westend(ethereum(), true);
 	set_up_pool_with_wnd_on_ah_westend(ethereum(), true);
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 50_000_000_000_000_000);

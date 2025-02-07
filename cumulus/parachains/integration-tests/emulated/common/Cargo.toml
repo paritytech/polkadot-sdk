@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+hex-literal = { workspace = true }
 codec = { workspace = true }
 paste = { workspace = true, default-features = true }
 
