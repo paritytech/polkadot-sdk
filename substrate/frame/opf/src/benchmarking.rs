@@ -25,7 +25,7 @@ pub use frame_benchmarking::{
 	v1::{account, BenchmarkError},
 	v2::*,
 };
-use frame_support::{ensure, traits::Hooks};
+use frame_support::{assert_ok, ensure, traits::Hooks};
 use frame_system::RawOrigin;
 use sp_runtime::traits::One;
 
@@ -162,7 +162,8 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
-		let _pot = setup_pot_account::<T>();
+		let pot = setup_pot_account::<T>();
+		assert_eq!(T::NativeBalance::balance(&pot) > Zero::zero(), true);
 
 		ensure!(
 			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()),
@@ -194,8 +195,25 @@ mod benchmarks {
 		// go to claiming period
 		let when = round_end.saturating_add(<T as Config>::EnactmentPeriod::get());
 		T::BlockNumberProvider::set_block_number(when);
-		Opf::<T>::on_registration(RawOrigin::Signed(caller.clone()).into(), account0.clone())?;
-		Opf::<T>::claim_reward_for(RawOrigin::Signed(caller.clone()).into(), account0.clone())?;
+		assert_ok!(Opf::<T>::on_registration(
+			RawOrigin::Signed(caller.clone()).into(),
+			account0.clone()
+		));
+		assert_eq!(Spends::<T>::contains_key(&account0), true);
+		let claim = Spends::<T>::get(&account0).unwrap();
+		assert_eq!(claim.claimed, false);
+		let now = T::BlockNumberProvider::current_block_number();
+		assert_eq!(claim.expire > now, true);
+		assert_eq!(claim.valid_from == now, true);
+		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(&account0), true);
+		assert_ok!(Opf::<T>::claim_reward_for(
+			RawOrigin::Signed(caller.clone()).into(),
+			account0.clone()
+		));
+		//Reward properly claimed
+		let claim_after = Spends::<T>::get(&account0).unwrap();
+		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(&account0), false);
+		assert_eq!(claim_after.claimed, true);
 
 		#[block]
 		{

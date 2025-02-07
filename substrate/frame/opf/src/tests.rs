@@ -549,16 +549,27 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 		};
 		// Spend correctly created
 		assert_eq!(Spends::<Test>::get(101), Some(spend101));
-
+		let spend_101 = Spends::<Test>::get(101).unwrap();
+		assert_eq!(spend_101.amount > 0, true);
+		assert_eq!(spend_101.claimed, false);
+		let balance_101_before = <Test as Config>::NativeBalance::balance(&101);
 		// Claim works
 		assert_ok!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 101));
+		let balance_101_after = <Test as Config>::NativeBalance::balance(&101);
+
+		assert_eq!(balance_101_before < balance_101_after, true);
+
 		run_to_block(expire);
 		assert_ok!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 102));
 
 		// Claim does not work after claiming period
-		expect_events(vec![RuntimeEvent::Opf(Event::ExpiredClaim {
-			expired_when: expire,
-			project_id: 102,
-		})]);
+		expect_events(vec![
+			RuntimeEvent::Opf(Event::RewardClaimed {
+				when: now,
+				amount: spend_101.amount,
+				project_id: 101,
+			}),
+			RuntimeEvent::Opf(Event::ExpiredClaim { expired_when: expire, project_id: 102 }),
+		]);
 	})
 }

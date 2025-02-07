@@ -273,6 +273,7 @@ pub mod pallet {
 		NoVoteData,
 		/// Not enough funds to process the transaction
 		NotEnoughFunds,
+		ReferendumNotFound,
 	}
 
 	#[pallet::hooks]
@@ -529,13 +530,18 @@ pub mod pallet {
 		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let now = T::BlockNumberProvider::current_block_number();
-			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
+			let mut info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
+			Self::pot_check(info.amount)?;
 			if now >= info.expire {
 				Spends::<T>::remove(&project_id);
 				Self::deposit_event(Event::ExpiredClaim { expired_when: info.expire, project_id });
 				Ok(())
 			} else if now < info.expire {
 				// transfer the funds
+				Spends::<T>::mutate(project_id.clone(), |val| {
+					info.claimed = true;
+					*val = Some(info.clone())
+				});
 				Self::spend(info.amount, project_id.clone())?;
 				Self::deposit_event(Event::RewardClaimed {
 					when: now,
@@ -545,7 +551,7 @@ pub mod pallet {
 				WhiteListedProjectAccounts::<T>::remove(&project_id);
 				Ok(())
 			} else {
-				// Claimin before proposal enactment
+				// Claiming before proposal enactment
 				Err(Error::<T>::NotClaimingPeriod.into())
 			}
 		}
@@ -583,9 +589,10 @@ pub mod pallet {
 						Self::deposit_event(Event::ProjectFundingRejected { project_id }),
 					Democracy::ReferendumInfo::Ongoing(_) => (),
 				}
+				Ok(())
+			} else {
+				Err(Error::<T>::ReferendumNotFound.into())
 			}
-
-			Ok(())
 		}
 
 		/// User's funds unlock
