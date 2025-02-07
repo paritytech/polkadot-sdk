@@ -35,6 +35,8 @@ impl CacheReceiptProvider {
 
 #[async_trait]
 impl ReceiptProvider for CacheReceiptProvider {
+	async fn archive(&self, _block_hash: &H256, _receipts: &[(TransactionSigned, ReceiptInfo)]) {}
+
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
 		let mut cache = self.cache.write().await;
 		cache.insert(block_hash, receipts);

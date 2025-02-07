@@ -47,7 +47,7 @@ use subxt::{
 	Config, OnlineClient,
 };
 use thiserror::Error;
-use tokio::{sync::RwLock, try_join};
+use tokio::sync::RwLock;
 
 use crate::subxt_client::{self, SrcChainConfig};
 
@@ -212,12 +212,12 @@ pub async fn connect(
 	(OnlineClient<SrcChainConfig>, ReconnectingRpcClient, LegacyRpcMethods<SrcChainConfig>),
 	ClientError,
 > {
-	log::info!(target: LOG_TARGET, "Connecting to node at: {node_rpc_url} ...");
+	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
 		.build(node_rpc_url.to_string())
 		.await?;
-	log::info!(target: LOG_TARGET, "Connected to node at: {node_rpc_url}");
+	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
 	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
@@ -259,18 +259,18 @@ impl Client {
 		F: Fn(SubstrateBlock) -> Fut + Send + Sync,
 		Fut: std::future::Future<Output = Result<ControlFlow<()>, ClientError>> + Send,
 	{
-		log::info!(target: LOG_TARGET, "Subscribing to past blocks");
+		log::info!(target: LOG_TARGET, "🔍 Subscribing to past blocks");
 		let mut block = self.api.blocks().at_latest().await.inspect_err(|err| {
 			log::error!(target: LOG_TARGET, "Failed to fetch latest block: {err:?}");
 		})?;
 
 		loop {
 			let block_number = block.number();
-			log::debug!(target: LOG_TARGET, "Processing block {block_number}");
+			log::trace!(target: LOG_TARGET, "Processing past block #{block_number}");
 
 			let parent_hash = block.header().parent_hash;
 			let control_flow = callback(block).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
+				log::error!(target: LOG_TARGET, "Failed to process past block #{block_number}: {err:?}");
 			})?;
 
 			match control_flow {
@@ -302,7 +302,7 @@ impl Client {
 		F: Fn(SubstrateBlock) -> Fut + Send + Sync,
 		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
 	{
-		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
+		log::info!(target: LOG_TARGET, "🔍 Subscribing to new blocks");
 		let mut block_stream = match subscription_type {
 			SubscriptionType::BestBlocks => self.api.blocks().subscribe_best().await,
 			SubscriptionType::FinalizedBlocks => self.api.blocks().subscribe_finalized().await,
@@ -339,56 +339,42 @@ impl Client {
 	}
 
 	/// Start the block subscription, and populate the block cache.
-	pub fn subscribe_and_cache_blocks(&self, spawn_handle: &sc_service::SpawnEssentialTaskHandle) {
-		let client = self.clone();
-		spawn_handle.spawn("subscribe-blocks", None, async move {
-			let res = client
-				.subscribe_new_blocks(SubscriptionType::BestBlocks, |block| async {
-					let receipts = client.receipt_extractor.extract_from_block(&block).await?;
+	pub async fn subscribe_and_cache_new_blocks(&self, subscription_type: SubscriptionType) {
+		let res = self
+			.subscribe_new_blocks(subscription_type, |block| async {
+				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
 
-					client.receipt_provider.insert(&block.hash(), &receipts).await;
-					if let Some(pruned) = client.block_provider.cache_block(block).await {
-						client.receipt_provider.remove(&pruned).await;
-					}
+				self.receipt_provider.insert(&block.hash(), &receipts).await;
+				if let Some(pruned) = self.block_provider.cache_block(block).await {
+					self.receipt_provider.remove(&pruned).await;
+				}
 
-					Ok(())
-				})
-				.await;
+				Ok(())
+			})
+			.await;
 
-			if let Err(err) = res {
-				log::error!(target: LOG_TARGET, "Block subscription error: {err:?}");
-			}
-		});
+		if let Err(err) = res {
+			log::error!(target: LOG_TARGET, "Block subscription error: {err:?}");
+		}
 	}
 
-	/// Start the block subscription, and populate the block cache.
-	pub async fn subscribe_and_cache_receipts(
-		&self,
-		oldest_block: Option<SubstrateBlockNumber>,
-	) -> Result<(), ClientError> {
-		let new_blocks_fut =
-			self.subscribe_new_blocks(SubscriptionType::FinalizedBlocks, |block| async move {
-				let receipts =
-					self.receipt_extractor.extract_from_block(&block).await.inspect_err(|err| {
-						log::error!(target: LOG_TARGET, "Failed to extract receipts from block: {err:?}");
-					})?;
-				self.receipt_provider.insert(&block.hash(), &receipts).await;
-				Ok(())
-			});
+	/// Cache old blocks up to the given block number.
+	pub async fn cache_old_blocks(&self, oldest_block: SubstrateBlockNumber) {
+		let res = self
+			.subscribe_past_blocks(|block| async move {
+				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
+				self.receipt_provider.archive(&block.hash(), &receipts).await;
+				if block.number() <= oldest_block {
+					Ok(ControlFlow::Break(()))
+				} else {
+					Ok(ControlFlow::Continue(()))
+				}
+			})
+			.await;
 
-		let Some(oldest_block) = oldest_block else { return new_blocks_fut.await };
-
-		let old_blocks_fut = self.subscribe_past_blocks(|block| async move {
-			let receipts = self.receipt_extractor.extract_from_block(&block).await?;
-			self.receipt_provider.insert(&block.hash(), &receipts).await;
-			if block.number() == oldest_block {
-				Ok(ControlFlow::Break(()))
-			} else {
-				Ok(ControlFlow::Continue(()))
-			}
-		});
-
-		try_join!(new_blocks_fut, old_blocks_fut).map(|_| ())
+		if let Err(err) = res {
+			log::error!(target: LOG_TARGET, "Past Block subscription error: {err:?}");
+		}
 	}
 
 	/// Expose the storage API.
