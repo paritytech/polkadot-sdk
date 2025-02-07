@@ -1,4 +1,4 @@
-name: 'build and push image'
+name: "build and push image"
 inputs:
   dockerfile:
     description: "dockerfile to build"
@@ -8,14 +8,12 @@ inputs:
     required: true
 outputs:
   branch:
-    description: 'Branch name for the PR'
+    description: "Branch name for the PR"
     value: ${{ steps.branch.outputs.branch }}
-
 
 runs:
   using: "composite"
   steps:
-  
     # gcloud
     # https://github.com/paritytech/ci_cd/wiki/GitHub:-Push-Docker-image-to-GCP-Registry
     - name: "Set up Cloud SDK"
@@ -25,15 +23,14 @@ runs:
       run: "gcloud info"
     - name: "Auth in gcloud registry"
       shell: bash
-      run: "gcloud auth configure-docker europe-docker.pkg.dev --quiet"  
+      run: "gcloud auth configure-docker europe-docker.pkg.dev --quiet"
 
     - name: build
       shell: bash
       env:
         ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.105"
       run: |
-        export BRANCH_NAME=${{ github.head_ref || github.ref_name }}
-        export DOCKER_IMAGES_VERSION=${BRANCH_NAME/\//-}
+        export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
         if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
         docker build \
           --build-arg VCS_REF="${GITHUB_SHA}" \
@@ -44,4 +41,3 @@ runs:
           -f ${{ inputs.dockerfile }} \
           .
         docker push "${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION"
-
