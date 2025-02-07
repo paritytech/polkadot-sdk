@@ -17,8 +17,8 @@
 //! The Ethereum JSON-RPC server.
 use clap::Parser;
 use pallet_revive_eth_rpc::{
-	client::{connect, Client, SubstrateBlockNumber},
-	BlockInfoProvider, BlockInfoProviderImpl, DBReceiptProvider, ReceiptProvider,
+	client::{connect, native_to_eth_ratio, Client, SubstrateBlockNumber},
+	BlockInfoProvider, BlockInfoProviderImpl, DBReceiptProvider, ReceiptExtractor, ReceiptProvider,
 };
 use sc_cli::SharedParams;
 use std::sync::Arc;
@@ -78,10 +78,20 @@ pub async fn main() -> anyhow::Result<()> {
 	let (api, rpc_client, rpc) = connect(&node_rpc_url).await?;
 	let block_provider: Arc<dyn BlockInfoProvider> =
 		Arc::new(BlockInfoProviderImpl::new(0, api.clone(), rpc.clone()));
-	let receipt_provider: Arc<dyn ReceiptProvider> =
-		Arc::new(DBReceiptProvider::new(&database_url, false, block_provider.clone()).await?);
+	let receipt_extractor = ReceiptExtractor::new(native_to_eth_ratio(&api).await?);
+	let receipt_provider: Arc<dyn ReceiptProvider> = Arc::new(
+		DBReceiptProvider::new(
+			&database_url,
+			false,
+			block_provider.clone(),
+			receipt_extractor.clone(),
+		)
+		.await?,
+	);
 
-	let client = Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+	let client =
+		Client::new(api, rpc_client, rpc, block_provider, receipt_provider, receipt_extractor)
+			.await?;
 	client.subscribe_and_cache_receipts(oldest_block).await?;
 
 	Ok(())
