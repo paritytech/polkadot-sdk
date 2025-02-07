@@ -22,6 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_block_number_address_topics ON logs (
 	topic_3
 );
 
-CREATE INDEX IF NOT EXISTS idx_block_number ON logs (
-	block_number
+CREATE INDEX IF NOT EXISTS idx_block_hash ON logs (
+	block_hash
 );
+
