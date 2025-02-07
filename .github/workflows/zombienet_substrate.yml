@@ -5,7 +5,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
 concurrency:
@@ -52,7 +52,7 @@ jobs:
       - name: upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: zombienet-logs-${{ github.job }}
+          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
 
@@ -79,7 +79,7 @@ jobs:
       - name: upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: zombienet-logs-${{ github.job }}
+          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
 
@@ -107,7 +107,7 @@ jobs:
       - name: upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: zombienet-logs-${{ github.job }}
+          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
 
@@ -135,6 +135,6 @@ jobs:
       - name: upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: zombienet-logs-${{ github.job }}
+          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
