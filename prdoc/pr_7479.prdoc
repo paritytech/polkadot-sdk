@@ -1,0 +1,9 @@
+title: 'omni-node: add offchain worker'
+doc:
+- audience: [ Runtime Dev, Node Dev, Node Operator ]
+  description: |-
+    Added support for offchain worker to omni-node-lib for both aura and manual seal nodes.
+
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
