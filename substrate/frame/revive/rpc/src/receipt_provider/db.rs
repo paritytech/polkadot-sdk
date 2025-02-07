@@ -292,18 +292,16 @@ impl ReceiptProvider for DBReceiptProvider {
 		      "#,
 			block_hash
 		)
+		.map(|row| {
+			let transaction_index = row.transaction_index as usize;
+			let transaction_hash = H256::from_slice(&row.transaction_hash);
+			(transaction_index, transaction_hash)
+		})
 		.fetch_all(&self.pool)
 		.await
 		.ok()?;
 
-		let mut transaction_hashes = HashMap::new();
-		for row in rows {
-			let transaction_index: usize = row.transaction_index.try_into().ok()?;
-			let transaction_hash = H256::from_slice(&row.transaction_hash);
-			transaction_hashes.insert(transaction_index, transaction_hash);
-		}
-
-		Some(transaction_hashes)
+		Some(rows.into_iter().collect())
 	}
 
 	async fn receipt_by_block_hash_and_index(
