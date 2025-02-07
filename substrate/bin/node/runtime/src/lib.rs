@@ -1004,6 +1004,7 @@ impl pallet_conviction_voting::Config for Runtime {
 	type MaxVotes = ConstU32<512>;
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -1719,6 +1720,7 @@ impl pallet_society::Config for Runtime {
 	type ChallengePeriod = ChallengePeriod;
 	type MaxPayouts = MaxPayouts;
 	type MaxBids = MaxBids;
+	type BlockNumberProvider = System;
 	type WeightInfo = pallet_society::weights::SubstrateWeight<Runtime>;
 }
 
