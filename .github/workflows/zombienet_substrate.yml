@@ -7,7 +7,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
-  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -23,7 +22,6 @@ env:
   # After the issue is fixed, we should replace it with a pruned version of the DB.
   DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-9677807d738b951e9f6c82e5fd15518eb0ae0419.tgz"
   DB_BLOCK_HEIGHT: 56687
-
 
 jobs:
   preflight:
