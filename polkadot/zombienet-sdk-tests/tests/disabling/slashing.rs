@@ -39,7 +39,6 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 								"scheduler_params": {
 									"group_rotation_frequency": 3,
 									"max_validators_per_core": 1,
-									"lookahead": 3,
 								},
 								"needed_approvals": 2
 							}
@@ -70,7 +69,6 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
-					"--experimental-use-slot-based".into(),
 					"-lparachain=debug".into(),
 				])
 				.with_collator(|n| n.with_name("collator-1337"))
