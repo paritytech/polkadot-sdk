@@ -19,7 +19,6 @@ doc:
             For SelfSufficient (from HandleLifetime):
                 Use frame_system::inc_sufficients(t) for the Created method.
                 Use frame_system::dec_sufficients(t) for the Killed method.
-        These changes align with efforts to reduce abstraction overhead and improve the maintainability of the SDK by leveraging direct frame-system APIs for resource management.
 
 crates:
   - name: frame-support
