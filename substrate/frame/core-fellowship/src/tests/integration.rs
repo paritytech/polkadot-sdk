@@ -17,8 +17,10 @@
 
 //! Integration test together with the ranked-collective pallet.
 
+#![allow(deprecated)]
+
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
+	assert_noop, assert_ok, derive_impl, hypothetically, hypothetically_ok, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
 	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, NoOpPoll, TryMapSuccess},
@@ -171,6 +173,37 @@ fn evidence(e: u32) -> Evidence<Test, ()> {
 }
 
 #[test]
+fn import_simple_works() {
+	new_test_ext().execute_with(|| {
+		for i in 0u16..9 {
+			let acc = i as u64;
+
+			// Does not work yet
+			assert_noop!(CoreFellowship::import(signed(acc)), Error::<Test>::Unranked);
+			assert_noop!(
+				CoreFellowship::import_member(signed(acc + 1), acc),
+				Error::<Test>::Unranked
+			);
+
+			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
+			promote_n_times(acc, i);
+
+			hypothetically_ok!(CoreFellowship::import(signed(acc)));
+			hypothetically_ok!(CoreFellowship::import_member(signed(acc), acc));
+			// Works from other accounts
+			assert_ok!(CoreFellowship::import_member(signed(acc + 1), acc));
+
+			// Does not work again
+			assert_noop!(CoreFellowship::import(signed(acc)), Error::<Test>::AlreadyInducted);
+			assert_noop!(
+				CoreFellowship::import_member(signed(acc + 1), acc),
+				Error::<Test>::AlreadyInducted
+			);
+		}
+	});
+}
+
+#[test]
 fn swap_simple_works() {
 	new_test_ext().execute_with(|| {
 		for i in 0u16..9 {
@@ -178,7 +211,8 @@ fn swap_simple_works() {
 
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
 			promote_n_times(acc, i);
-			assert_ok!(CoreFellowship::import(signed(acc)));
+			hypothetically_ok!(CoreFellowship::import(signed(acc)));
+			assert_ok!(CoreFellowship::import_member(signed(acc), acc));
 
 			// Swapping normally works:
 			assert_ok!(Club::exchange_member(RuntimeOrigin::root(), acc, acc + 10));

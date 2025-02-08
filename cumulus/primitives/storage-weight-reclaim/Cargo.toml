@@ -27,9 +27,9 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true }
 docify = { workspace = true }
 
 [dev-dependencies]
+cumulus-test-runtime = { workspace = true }
 sp-io = { workspace = true }
 sp-trie = { workspace = true }
-cumulus-test-runtime = { workspace = true }
 
 [features]
 default = ["std"]

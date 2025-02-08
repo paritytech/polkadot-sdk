@@ -35,7 +35,7 @@ use codec::{
 	MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
-use derivative::Derivative;
+use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
@@ -65,8 +65,8 @@ pub const VERSION: super::Version = 4;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, TypeInfo)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive(Default, Encode, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
@@ -436,15 +436,8 @@ impl XcmContext {
 ///
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
-#[derive(
-	Derivative,
-	Encode,
-	Decode,
-	TypeInfo,
-	xcm_procedural::XcmWeightInfoTrait,
-	xcm_procedural::Builder,
-)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive(Encode, Decode, TypeInfo, xcm_procedural::XcmWeightInfoTrait, xcm_procedural::Builder)]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
@@ -1320,12 +1313,14 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				let require_weight_at_most = match call.take_decoded() {
 					Ok(decoded) => decoded.get_dispatch_info().call_weight,
 					Err(error) => {
-						log::error!(
+						let fallback_weight = fallback_max_weight.unwrap_or(Weight::MAX);
+						log::debug!(
 							target: "xcm::versions::v5Tov4",
-							"Couldn't decode call in Transact: {:?}, using fallback weight.",
+							"Couldn't decode call in Transact: {:?}, using fallback weight: {:?}",
 							error,
+							fallback_weight,
 						);
-						fallback_max_weight.unwrap_or(Weight::MAX)
+						fallback_weight
 					},
 				};
 				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
@@ -1435,7 +1430,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			},
 			InitiateTransfer { .. } |
 			PayFees { .. } |
-			SetAssetClaimer { .. } |
+			SetHints { .. } |
 			ExecuteWithOrigin { .. } => {
 				log::debug!(target: "xcm::versions::v5tov4", "`{new_instruction:?}` not supported by v4");
 				return Err(());

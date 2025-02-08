@@ -3,7 +3,6 @@ timeout = 1000
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
   max_validators_per_core = 2
-  lookahead = 2
   num_cores = 4
   group_rotation_frequency = 4
 
@@ -36,4 +35,4 @@ chain = "glutton-westend-local-2000"
     name = "collator-2000"
     image = "{{CUMULUS_IMAGE}}"
     command = "polkadot-parachain"
-    args = ["-lparachain=debug"]
+    args = ["-lparachain=debug", "--experimental-use-slot-based"]

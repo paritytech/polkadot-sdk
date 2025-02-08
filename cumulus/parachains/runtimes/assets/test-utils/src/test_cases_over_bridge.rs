@@ -551,10 +551,7 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 					Weight::zero(),
 				);
 				assert_ok!(outcome.ensure_complete());
-				assert_eq!(
-					is_congested,
-					<<Runtime as pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>>::LocalXcmChannelManager as pallet_xcm_bridge_hub_router::XcmChannelStatusProvider>::is_congested(&local_bridge_hub_location)
-				);
+				assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);
 			};
 
 			report_bridge_status(true);

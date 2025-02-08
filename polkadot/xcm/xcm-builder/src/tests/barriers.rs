@@ -334,6 +334,26 @@ fn allow_paid_should_deprivilege_origin() {
 }
 
 #[test]
+fn allow_paid_should_allow_hints() {
+	AllowPaidFrom::set(vec![Parent.into()]);
+	let fees = (Parent, 1).into();
+
+	let mut paying_message_with_hints = Xcm::<()>(vec![
+		ReserveAssetDeposited((Parent, 100).into()),
+		SetHints { hints: vec![AssetClaimer { location: Location::here() }].try_into().unwrap() },
+		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(30, 30)) },
+		DepositAsset { assets: AllCounted(1).into(), beneficiary: Here.into() },
+	]);
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_with_hints.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+}
+
+#[test]
 fn suspension_should_work() {
 	TestSuspender::set_suspended(true);
 	AllowUnpaidFrom::set(vec![Parent.into()]);
@@ -511,4 +531,236 @@ fn allow_hrmp_notifications_from_relay_chain_should_work() {
 		Location::parent(),
 		Ok(()),
 	);
+}
+
+#[test]
+fn deny_then_try_works() {
+	/// A dummy `DenyExecution` impl which returns `ProcessMessageError::Yield` when XCM contains
+	/// `ClearTransactStatus`
+	struct DenyClearTransactStatusAsYield;
+	impl DenyExecution for DenyClearTransactStatusAsYield {
+		fn deny_execution<RuntimeCall>(
+			_origin: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearTransactStatus { .. } => Err(ProcessMessageError::Yield),
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	/// A dummy `DenyExecution` impl which returns `ProcessMessageError::BadFormat` when XCM
+	/// contains `ClearOrigin` with origin location from `Here`
+	struct DenyClearOriginFromHereAsBadFormat;
+	impl DenyExecution for DenyClearOriginFromHereAsBadFormat {
+		fn deny_execution<RuntimeCall>(
+			origin: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearOrigin { .. } =>
+						if origin.clone() == Here.into_location() {
+							Err(ProcessMessageError::BadFormat)
+						} else {
+							Ok(ControlFlow::Continue(()))
+						},
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	/// A dummy `DenyExecution` impl which returns `ProcessMessageError::StackLimitReached` when XCM
+	/// contains a single `UnsubscribeVersion`
+	struct DenyUnsubscribeVersionAsStackLimitReached;
+	impl DenyExecution for DenyUnsubscribeVersionAsStackLimitReached {
+		fn deny_execution<RuntimeCall>(
+			_origin: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			if instructions.len() != 1 {
+				return Ok(())
+			}
+			match instructions.get(0).unwrap() {
+				UnsubscribeVersion { .. } => Err(ProcessMessageError::StackLimitReached),
+				_ => Ok(()),
+			}
+		}
+	}
+
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains a single `ClearError`,
+	/// else return `ProcessMessageError::Yield`
+	struct AllowSingleClearErrorOrYield;
+	impl ShouldExecute for AllowSingleClearErrorOrYield {
+		fn should_execute<Call>(
+			_origin: &Location,
+			instructions: &mut [Instruction<Call>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().assert_remaining_insts(1)?.match_next_inst(
+				|inst| match inst {
+					ClearError { .. } => Ok(()),
+					_ => Err(ProcessMessageError::Yield),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains `ClearTopic` and
+	/// origin from `Here`, else return `ProcessMessageError::Unsupported`
+	struct AllowClearTopicFromHere;
+	impl ShouldExecute for AllowClearTopicFromHere {
+		fn should_execute<Call>(
+			origin: &Location,
+			instructions: &mut [Instruction<Call>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			ensure!(origin.clone() == Here.into_location(), ProcessMessageError::Unsupported);
+			let mut found = false;
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearTopic { .. } => {
+						found = true;
+						Ok(ControlFlow::Break(()))
+					},
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			ensure!(found, ProcessMessageError::Unsupported);
+			Ok(())
+		}
+	}
+	// closure for (xcm, origin) testing with `DenyThenTry`
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		pub type Barrier = DenyThenTry<
+			(
+				DenyClearTransactStatusAsYield,
+				DenyClearOriginFromHereAsBadFormat,
+				DenyUnsubscribeVersionAsStackLimitReached,
+			),
+			(AllowSingleClearErrorOrYield, AllowClearTopicFromHere),
+		>;
+		assert_eq!(
+			Barrier::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+
+	// Deny cases:
+	// trigger DenyClearTransactStatusAsYield
+	assert_should_execute(
+		vec![ClearTransactStatus],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Yield),
+	);
+	// DenyClearTransactStatusAsYield wins against AllowSingleClearErrorOrYield
+	assert_should_execute(
+		vec![ClearError, ClearTransactStatus],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Yield),
+	);
+	// trigger DenyClearOriginFromHereAsBadFormat
+	assert_should_execute(
+		vec![ClearOrigin],
+		Here.into_location(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// trigger DenyUnsubscribeVersionAsStackLimitReached
+	assert_should_execute(
+		vec![UnsubscribeVersion],
+		Here.into_location(),
+		Err(ProcessMessageError::StackLimitReached),
+	);
+
+	// deny because none of the allow items match
+	assert_should_execute(
+		vec![ClearError, ClearTopic],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// ok
+	assert_should_execute(vec![ClearError], Parachain(1).into_location(), Ok(()));
+	assert_should_execute(vec![ClearTopic], Here.into(), Ok(()));
+	assert_should_execute(vec![ClearError, ClearTopic], Here.into_location(), Ok(()));
+}
+
+#[test]
+fn deny_reserve_transfer_to_relaychain_should_work() {
+	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			DenyReserveTransferToRelayChain::deny_execution(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+	// deny DepositReserveAsset to RelayChain
+	assert_deny_execution(
+		vec![DepositReserveAsset {
+			assets: Wild(All),
+			dest: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// deny InitiateReserveWithdraw to RelayChain
+	assert_deny_execution(
+		vec![InitiateReserveWithdraw {
+			assets: Wild(All),
+			reserve: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// deny TransferReserveAsset to RelayChain
+	assert_deny_execution(
+		vec![TransferReserveAsset {
+			assets: vec![].into(),
+			dest: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// accept DepositReserveAsset to destination other than RelayChain
+	assert_deny_execution(
+		vec![DepositReserveAsset {
+			assets: Wild(All),
+			dest: Here.into_location(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Ok(()),
+	);
+	// others instructions should pass
+	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
 }

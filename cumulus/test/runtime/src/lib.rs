@@ -27,6 +27,15 @@ pub mod wasm_spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
+pub mod elastic_scaling_500ms {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
+}
+pub mod elastic_scaling_mvp {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_mvp.rs"));
+}
+
 pub mod elastic_scaling {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
@@ -93,20 +102,20 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(not(feature = "elastic-scaling"))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
-#[cfg(not(feature = "elastic-scaling"))]
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-
-#[cfg(feature = "elastic-scaling")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
-#[cfg(feature = "elastic-scaling")]
-const BLOCK_PROCESSING_VELOCITY: u32 = 4;
-
-#[cfg(not(feature = "elastic-scaling"))]
+#[cfg(not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms")))]
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
-#[cfg(feature = "elastic-scaling")]
+
+#[cfg(all(feature = "elastic-scaling", not(feature = "elastic-scaling-500ms")))]
 pub const MILLISECS_PER_BLOCK: u64 = 2000;
+
+#[cfg(feature = "elastic-scaling-500ms")]
+pub const MILLISECS_PER_BLOCK: u64 = 500;
+
+const BLOCK_PROCESSING_VELOCITY: u32 =
+	RELAY_CHAIN_SLOT_DURATION_MILLIS / (MILLISECS_PER_BLOCK as u32);
+
+// The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 2 + 2;
 
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
@@ -227,6 +236,10 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
+	type WeightInfo = ();
+}
+
 parameter_types! {
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 	pub const PotId: PalletId = PalletId(*b"PotStake");
@@ -342,6 +355,7 @@ construct_runtime! {
 		Glutton: pallet_glutton,
 		Aura: pallet_aura,
 		AuraExt: cumulus_pallet_aura_ext,
+		WeightReclaim: cumulus_pallet_weight_reclaim,
 	}
 }
 
@@ -372,17 +386,19 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = (
-	frame_system::AuthorizeCall<Runtime>,
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
-);
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+	Runtime,
+	(
+		frame_system::AuthorizeCall<Runtime>,
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckEra<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	),
+>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;

@@ -24,8 +24,8 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{
-		AsTransactionAuthorizedOrigin, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		ValidateResult,
+		AsTransactionAuthorizedOrigin, Dispatchable, Implication, PostDispatchInfoOf,
+		TransactionExtension, ValidateResult,
 	},
 	transaction_validity::TransactionValidityError,
 };
@@ -58,7 +58,7 @@ where
 		_info: &DispatchInfo,
 		_len: usize,
 		_self_implicit: Self::Implicit,
-		_inherited_implication: &impl Encode,
+		_inherited_implication: &impl Implication,
 		source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if !origin.is_transaction_authorized() {
@@ -108,7 +108,7 @@ mod tests {
 	};
 	use sp_runtime::{
 		testing::UintAuthorityId,
-		traits::{Applyable, Checkable, TransactionExtension as _},
+		traits::{Applyable, Checkable, TransactionExtension as _, TxBaseImplication},
 		transaction_validity::{
 			InvalidTransaction, TransactionSource::External, TransactionValidityError,
 		},
@@ -318,7 +318,7 @@ mod tests {
 					&crate::DispatchInfo::default(),
 					Default::default(),
 					(),
-					&(),
+					&TxBaseImplication(()),
 					External,
 				)
 				.expect("valid");

@@ -117,8 +117,8 @@ async fn archive_body() {
 
 	builder
 		.push_transfer(runtime::Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 42,
 			nonce: 0,
 		})
@@ -151,8 +151,8 @@ async fn archive_header() {
 
 	builder
 		.push_transfer(runtime::Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 42,
 			nonce: 0,
 		})
@@ -249,8 +249,8 @@ async fn archive_hash_by_height() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -330,7 +330,7 @@ async fn archive_call() {
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
 	// Valid call.
-	let alice_id = AccountKeyring::Alice.to_account_id();
+	let alice_id = Sr25519Keyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
 	let result: MethodResult = api
@@ -929,8 +929,8 @@ async fn archive_storage_diff_deleted_changes() {
 		.unwrap();
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})

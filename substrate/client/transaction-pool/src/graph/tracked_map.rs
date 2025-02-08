@@ -120,11 +120,6 @@ where
 	pub fn len(&self) -> usize {
 		self.inner_guard.len()
 	}
-
-	/// Returns an iterator over all key-value pairs.
-	pub fn iter(&self) -> Iter<'_, K, V> {
-		self.inner_guard.iter()
-	}
 }
 
 pub struct TrackedMapWriteAccess<'a, K, V> {
@@ -172,6 +167,11 @@ where
 	/// Returns the number of elements in the map.
 	pub fn len(&mut self) -> usize {
 		self.inner_guard.len()
+	}
+
+	/// Returns an iterator over all key-value pairs.
+	pub fn iter(&self) -> Iter<'_, K, V> {
+		self.inner_guard.iter()
 	}
 }
 
