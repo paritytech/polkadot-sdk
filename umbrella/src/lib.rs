@@ -1164,6 +1164,9 @@ pub use sc_telemetry;
 #[cfg(feature = "sc-tracing")]
 pub use sc_tracing;
 
+#[cfg(feature = "with-tracing")]
+pub use sc_tracing as sc_tracing_with;
+
 /// Helper macros for Substrate's client CLI.
 #[cfg(feature = "sc-tracing-proc-macro")]
 pub use sc_tracing_proc_macro;
