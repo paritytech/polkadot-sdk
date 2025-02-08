@@ -269,6 +269,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -314,6 +315,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	let _ = pallet_balances::GenesisConfig::<Runtime> {
 		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
