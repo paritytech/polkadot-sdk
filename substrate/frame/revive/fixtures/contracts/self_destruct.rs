@@ -25,7 +25,10 @@ const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+pub extern "C" fn deploy() {
+	// make sure that the deposit for the immutable data is refunded
+	api::set_immutable_data(&[1, 2, 3, 4, 5])
+}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

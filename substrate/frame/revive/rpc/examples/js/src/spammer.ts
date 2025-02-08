@@ -11,7 +11,7 @@ import {
 import { FlipperAbi } from '../abi/Flipper'
 
 //Run the substate node
-console.log('🚀 Start kitchensink...')
+console.log('🚀 Start substrate-node...')
 killProcessOnPort(9944)
 spawn(
 	[
@@ -20,8 +20,8 @@ spawn(
 		'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
 	],
 	{
-		stdout: Bun.file('/tmp/kitchensink.out.log'),
-		stderr: Bun.file('/tmp/kitchensink.err.log'),
+		stdout: Bun.file('/tmp/substrate-node.out.log'),
+		stderr: Bun.file('/tmp/substrate-node.err.log'),
 		cwd: polkadotSdkPath,
 	}
 )
@@ -60,7 +60,7 @@ spawn(
 )
 await waitForHealth('http://localhost:8545').catch()
 
-const env = await createEnv('kitchensink')
+const env = await createEnv('eth-rpc')
 const wallet = env.accountWallet
 
 console.log('🚀 Deploy flipper...')
