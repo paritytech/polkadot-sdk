@@ -15,23 +15,34 @@ use crate::v2::LOG_TARGET;
 use sp_io::hashing::blake2_256;
 
 use super::message::*;
+use super::traits::*;
 
-
-/// Reason why a message conversion failed.
-#[derive(Copy, Clone, Encode, Decode, RuntimeDebug, PartialEq)]
-pub enum ConvertMessageError {
-	/// Invalid foreign ERC-20 token ID
-	InvalidAsset,
-	/// Cannot reachor a foreign ERC-20 asset location.
-	CannotReanchor,
+/// Representation of an intermediate parsed message, before final
+/// conversion to XCM.
+#[derive(Clone, RuntimeDebug)]
+pub struct PreparedMessage {
+	/// Ethereum account that initiated this messaging operation
+	pub origin: H160,
+	/// The claimer in the case that funds get trapped.
+	pub claimer: Option<Location>,
+	/// The assets bridged from Ethereum
+	pub assets: Vec<AssetTransfer>,
+	/// The XCM to execute on the destination
+	pub remote_xcm: Xcm<()>,
+	/// Fee in Ether to cover the xcm execution on AH.
+	pub execution_fee: Asset,
+	/// Topic for tracking and identification that is derived from message nonce
+	pub topic: [u8; 32],
 }
 
-pub trait ConvertMessage {
-	fn convert(
-		message: Message,
-	) -> Result<Xcm<()>, ConvertMessageError>;
+/// An asset transfer instruction
+#[derive(Clone, RuntimeDebug)]
+pub enum AssetTransfer {
+	ReserveDeposit(Asset),
+	ReserveWithdraw(Asset),
 }
 
+/// Concrete implementation of `ConvertMessage`
 pub struct MessageToXcm<
 	EthereumNetwork,
 	InboundQueueLocation,
@@ -39,14 +50,7 @@ pub struct MessageToXcm<
 	GatewayProxyAddress,
 	EthereumUniversalLocation,
 	GlobalAssetHubLocation,
-> where
-	EthereumNetwork: Get<NetworkId>,
-	InboundQueueLocation: Get<InteriorLocation>,
-	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	GatewayProxyAddress: Get<H160>,
-	EthereumUniversalLocation: Get<InteriorLocation>,
-	GlobalAssetHubLocation: Get<Location>,
-{
+> {
 	_phantom: PhantomData<(
 		EthereumNetwork,
 		InboundQueueLocation,
@@ -55,6 +59,107 @@ pub struct MessageToXcm<
 		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
 	)>,
+}
+
+impl<
+		EthereumNetwork,
+		InboundQueueLocation,
+		ConvertAssetId,
+		GatewayProxyAddress,
+		EthereumUniversalLocation,
+		GlobalAssetHubLocation,
+	> MessageToXcm<
+		EthereumNetwork,
+		InboundQueueLocation,
+		ConvertAssetId,
+		GatewayProxyAddress,
+		EthereumUniversalLocation,
+		GlobalAssetHubLocation,
+	>
+where
+	EthereumNetwork: Get<NetworkId>,
+	InboundQueueLocation: Get<InteriorLocation>,
+	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	GatewayProxyAddress: Get<H160>,
+	EthereumUniversalLocation: Get<InteriorLocation>,
+	GlobalAssetHubLocation: Get<Location>,
+{
+		/// Parse the message into an intermediate form, with all fields decoded
+		/// and prepared.
+		fn prepare(message: Message) -> Result<PreparedMessage, ConvertMessageError> {
+			let mut remote_xcm: Xcm<()> = Xcm::new();
+
+			// Allow xcm decode failure so that assets can be trapped on AH instead of this
+			// message failing but funds are already locked on Ethereum.
+			if let Ok(versioned_xcm) = VersionedXcm::<()>::decode_with_depth_limit(
+				MAX_XCM_DECODE_DEPTH,
+				&mut message.xcm.as_ref(),
+			) {
+				if let Ok(decoded_xcm) = versioned_xcm.try_into() {
+					remote_xcm = decoded_xcm;
+				}
+			}
+
+			let ether_location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
+
+			// Asset to cover XCM execution fee
+			let execution_fee_asset: Asset = (ether_location.clone(), message.execution_fee).into();
+
+			let mut assets = vec![];
+
+			let claimer: Option<Location> = match message.claimer {
+				Some(claimer_bytes) => Location::decode(&mut claimer_bytes.as_ref()).ok(),
+				None => None
+			};
+
+			if message.value > 0 {
+				// Asset for remaining ether
+				let remaining_ether_asset: Asset = (
+					ether_location.clone(),
+					message.value
+				).into();
+				assets.push(AssetTransfer::ReserveDeposit(remaining_ether_asset));
+			}
+
+			for asset in &message.assets {
+				match asset {
+					EthereumAsset::NativeTokenERC20 { token_id, value } => {
+						let token_location: Location = Location::new(
+							2,
+							[
+								GlobalConsensus(EthereumNetwork::get()),
+								AccountKey20 { network: None, key: (*token_id).into() },
+							],
+						);
+						let asset: Asset = (token_location, *value).into();
+						assets.push(AssetTransfer::ReserveDeposit(asset));
+					},
+					EthereumAsset::ForeignTokenERC20 { token_id, value } => {
+						let asset_loc = ConvertAssetId::convert(&token_id)
+							.ok_or(ConvertMessageError::InvalidAsset)?;
+						let mut reanchored_asset_loc = asset_loc.clone();
+						reanchored_asset_loc
+							.reanchor(&GlobalAssetHubLocation::get(), &EthereumUniversalLocation::get())
+							.map_err(|_| ConvertMessageError::CannotReanchor)?;
+						let asset: Asset = (reanchored_asset_loc, *value).into();
+						assets.push(AssetTransfer::ReserveWithdraw(asset));
+					},
+				}
+			}
+
+			let topic = blake2_256(&("SnowbridgeInboundQueueV2", message.nonce).encode());
+
+			let prepared_message = PreparedMessage {
+				origin: message.origin.clone(),
+				claimer,
+				assets,
+				remote_xcm,
+				execution_fee: execution_fee_asset,
+				topic
+			};
+
+			Ok(prepared_message)
+		}
 }
 
 impl<
@@ -82,46 +187,24 @@ where
 	GlobalAssetHubLocation: Get<Location>,
 {
 	fn convert(
-		message: Message
+		message: Message,
 	) -> Result<Xcm<()>, ConvertMessageError> {
-		let mut message_xcm: Xcm<()> = Xcm::new();
-		if message.xcm.len() > 0 {
-			// Allow xcm decode failure so that assets can be trapped on AH instead of this
-			// message failing but funds are already locked on Ethereum.
-			if let Ok(versioned_xcm) = VersionedXcm::<()>::decode_with_depth_limit(
-				MAX_XCM_DECODE_DEPTH,
-				&mut message.xcm.as_ref(),
-			) {
-				if let Ok(decoded_xcm) = versioned_xcm.try_into() {
-					message_xcm = decoded_xcm;
-				} else {
-					log::error!(target: LOG_TARGET,"unable to decode xcm");
-				}
-			} else {
-				log::error!(target: LOG_TARGET,"unable to decode versioned xcm");
-			}
-		}
 
-		log::trace!(target: LOG_TARGET,"xcm decoded as {:?}", message_xcm);
+		let message = Self::prepare(message)?;
+
+		log::trace!(target: LOG_TARGET,"prepared message: {:?}", message);
 
 		let network = EthereumNetwork::get();
 
-		// use eth as asset
-		let fee_asset_id = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-		let fee: Asset = (fee_asset_id.clone(), message.execution_fee).into();
-		let eth: Asset =
-			(fee_asset_id.clone(), message.execution_fee.saturating_add(message.value)).into();
 		let mut instructions = vec![
 			DescendOrigin(InboundQueueLocation::get()),
 			UniversalOrigin(GlobalConsensus(network)),
-			ReserveAssetDeposited(eth.into()),
-			PayFees { asset: fee },
+			ReserveAssetDeposited(message.execution_fee.clone().into()),
+			PayFees { asset: message.execution_fee.clone() },
 		];
-		let mut reserve_assets = vec![];
-		let mut withdraw_assets = vec![];
 
-		// Let origin account transact on AH directly to reclaim assets and surplus fees.
-		// This will be possible when AH gets full EVM support
+		// Make the origin account on AH the default claimer. This account can transact
+		// on AH once it gets full EVM support.
 		let default_claimer = Location::new(0, [
 			AccountKey20 {
 				// Set network to `None` to support future Plaza EVM chainid by default.
@@ -131,12 +214,7 @@ where
 			}
 		]);
 
-		// Derive an asset claimer, either from the origin location, or if specified in the message
-		// in the message
-		let claimer = message.claimer.map_or(
-			default_claimer.clone(),
-			|claimer_bytes| Location::decode(&mut claimer_bytes.as_ref()).unwrap_or(default_claimer.clone())
-		);
+		let claimer = message.claimer.unwrap_or(default_claimer);
 
 		instructions.push(
 			SetHints {
@@ -146,38 +224,20 @@ where
 			}
 		);
 
-		for asset in &message.assets {
+		let mut reserve_deposit_assets = vec![];
+		let mut reserve_withdraw_assets = vec![];
+
+		for asset in message.assets {
 			match asset {
-				EthereumAsset::NativeTokenERC20 { token_id, value } => {
-					let token_location: Location = Location::new(
-						2,
-						[
-							GlobalConsensus(EthereumNetwork::get()),
-							AccountKey20 { network: None, key: (*token_id).into() },
-						],
-					);
-					let asset: Asset = (token_location, *value).into();
-					reserve_assets.push(asset);
-				},
-				EthereumAsset::ForeignTokenERC20 { token_id, value } => {
-					let asset_loc = ConvertAssetId::convert(&token_id)
-						.ok_or(ConvertMessageError::InvalidAsset)?;
-					let mut reanchored_asset_loc = asset_loc.clone();
-					reanchored_asset_loc
-						.reanchor(&GlobalAssetHubLocation::get(), &EthereumUniversalLocation::get())
-						.map_err(|_| ConvertMessageError::CannotReanchor)?;
-					let asset: Asset = (reanchored_asset_loc, *value).into();
-					withdraw_assets.push(asset);
-				},
-			}
+				AssetTransfer::ReserveDeposit(asset) =>
+					reserve_deposit_assets.push(asset),
+				AssetTransfer::ReserveWithdraw(asset)  =>
+					reserve_withdraw_assets.push(asset),
+			};
 		}
 
-		if reserve_assets.len() > 0 {
-			instructions.push(ReserveAssetDeposited(reserve_assets.into()));
-		}
-		if withdraw_assets.len() > 0 {
-			instructions.push(WithdrawAsset(withdraw_assets.into()));
-		}
+		instructions.push(ReserveAssetDeposited(reserve_deposit_assets.into()));
+		instructions.push(WithdrawAsset(reserve_withdraw_assets.into()));
 
 		// If the message origin is not the gateway proxy contract, set the origin to
 		// the original sender on Ethereum. Important to be before the arbitrary XCM that is
@@ -188,22 +248,19 @@ where
 			));
 		}
 
-		let topic = blake2_256(&("snowbridge-inbound-queue:v2", message.nonce).encode());
-
 		// Add the XCM sent in the message to the end of the xcm instruction
-		instructions.extend(message_xcm.0);
-
-		instructions.push(SetTopic(topic.into()));
+		instructions.extend(message.remote_xcm.0);
 		instructions.push(RefundSurplus);
-		// Refund excess fees to the claimer, if present, otherwise to the relayer.
+		// Refund excess fees to the claimer
 		instructions.push(DepositAsset {
-			assets: Wild(AllOf { id: AssetId(fee_asset_id.into()), fun: WildFungible }),
+			assets: Wild(AllOf { id: message.execution_fee.id, fun: WildFungible }),
 			beneficiary: claimer,
 		});
+		instructions.push(SetTopic(message.topic));
 
-		log::trace!(target: LOG_TARGET,"converted message to xcm {:?}", instructions);
 		Ok(instructions.into())
 	}
+
 }
 
 #[cfg(test)]
@@ -218,6 +275,7 @@ mod tests {
 	use sp_runtime::traits::MaybeEquivalence;
 	use xcm::opaque::latest::WESTEND_GENESIS_HASH;
 	const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
+
 	parameter_types! {
 		pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 		pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
@@ -246,6 +304,24 @@ mod tests {
 			None
 		}
 	}
+
+	type Converter = MessageToXcm<
+		EthereumNetwork,
+		InboundQueueLocation,
+		MockTokenIdConvert,
+		GatewayAddress,
+		UniversalLocation,
+		AssetHubFromEthereum,
+	>;
+
+	type ConverterFailing = MessageToXcm<
+		EthereumNetwork,
+		InboundQueueLocation,
+		MockFailedTokenConvert,
+		GatewayAddress,
+		UniversalLocation,
+		AssetHubFromEthereum,
+	>;
 
 	#[test]
 	fn test_successful_message() {
@@ -284,14 +360,7 @@ mod tests {
 			relayer_fee,
 		};
 
-		let result = MessageToXcm::<
-			EthereumNetwork,
-			InboundQueueLocation,
-			MockTokenIdConvert,
-			GatewayAddress,
-			UniversalLocation,
-			AssetHubFromEthereum,
-		>::convert(message, [0; 32]);
+		let result = Converter::convert(message);
 
 		assert_ok!(result.clone());
 
@@ -332,7 +401,7 @@ mod tests {
 				reserve_deposited_found = reserve_deposited_found + 1;
 				if reserve_deposited_found == 1 {
 					let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-					let fee: Asset = (fee_asset, execution_fee + value).into();
+					let fee: Asset = (fee_asset, execution_fee).into();
 					let fee_assets: Assets = fee.into();
 					assert_eq!(fee_assets, reserve_assets.clone());
 				}
@@ -345,8 +414,14 @@ mod tests {
 						],
 					);
 					let token: Asset = (token_asset, token_value).into();
-					let token_assets: Assets = token.into();
-					assert_eq!(token_assets, reserve_assets.clone());
+
+					let remaining_ether_asset: Asset = (
+						Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+						value
+					).into();
+
+					let expected_assets: Assets = vec![token, remaining_ether_asset].into();
+					assert_eq!(expected_assets, reserve_assets.clone());
 				}
 			}
 			if let WithdrawAsset(ref withdraw_assets) = instruction {
@@ -393,8 +468,6 @@ mod tests {
 
 	#[test]
 	fn test_message_with_gateway_origin_does_not_descend_origin_into_sender() {
-		let origin_account =
-			Location::new(0, [AccountId32 { network: None, id: H256::random().into() }]);
 		let origin: H160 = GatewayAddress::get();
 		let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
 		let foreign_token_id: H256 =
@@ -432,14 +505,7 @@ mod tests {
 			relayer_fee,
 		};
 
-		let result = MessageToXcm::<
-			EthereumNetwork,
-			InboundQueueLocation,
-			MockTokenIdConvert,
-			GatewayAddress,
-			UniversalLocation,
-			AssetHubFromEthereum,
-		>::convert(message, [0; 32]);
+		let result = Converter::convert(message);
 
 		assert_ok!(result.clone());
 
@@ -475,7 +541,7 @@ mod tests {
 		let versioned_xcm = VersionedXcm::V5(xcm);
 		let claimer_account = AccountId32 { network: None, id: H256::random().into() };
 		let claimer: Option<Vec<u8>> = Some(claimer_account.clone().encode());
-		let value = 6_000_000_000_000u128;
+		let value = 0;
 		let execution_fee = 1_000_000_000_000u128;
 		let relayer_fee = 5_000_000_000_000u128;
 
@@ -491,22 +557,14 @@ mod tests {
 			relayer_fee,
 		};
 
-		let result = MessageToXcm::<
-			EthereumNetwork,
-			InboundQueueLocation,
-			MockFailedTokenConvert,
-			GatewayAddress,
-			UniversalLocation,
-			AssetHubFromEthereum,
-		>::convert(message, [0; 32]);
-
-		assert_err!(result.clone(), ConvertMessageError::InvalidAsset);
+		assert_err!(
+			ConverterFailing::convert(message),
+			ConvertMessageError::InvalidAsset
+		);
 	}
 
 	#[test]
 	fn test_invalid_claimer() {
-		let origin_account =
-			Location::new(0, [AccountId32 { network: None, id: H256::random().into() }]);
 		let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
 		let token_id: H256 =
 			hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
@@ -522,9 +580,8 @@ mod tests {
 		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_xcm = VersionedXcm::V5(xcm);
-		// Invalid claimer location, cannot be decoded into a Junction
-		let claimer: Option<Vec<u8>> =
-			Some(hex!("43581a7d43757158624921ab0e9e112a1d7da93cbe64782d563e8e1144a06c3c").to_vec());
+		// Invalid claimer location, cannot be decoded into a Location
+		let claimer: Option<Vec<u8>> = Some(vec![]);
 		let value = 6_000_000_000_000u128;
 		let execution_fee = 1_000_000_000_000u128;
 		let relayer_fee = 5_000_000_000_000u128;
@@ -541,14 +598,7 @@ mod tests {
 			relayer_fee,
 		};
 
-		let result = MessageToXcm::<
-			EthereumNetwork,
-			InboundQueueLocation,
-			MockTokenIdConvert,
-			GatewayAddress,
-			UniversalLocation,
-			AssetHubFromEthereum,
-		>::convert(message, [0; 32]);
+		let result = Converter::convert(message);
 
 		// Invalid claimer does not break the message conversion
 		assert_ok!(result.clone());
@@ -557,17 +607,23 @@ mod tests {
 
 		let mut result_instructions = xcm.clone().into_iter();
 
-		let mut found = false;
+		let mut actual_claimer: Option<Location> = None;
 		while let Some(instruction) = result_instructions.next() {
 			if let SetHints { ref hints } = instruction {
-				if let Some(AssetClaimer { .. }) = hints.clone().into_iter().next() {
-					found = true;
+				if let Some(AssetClaimer { location }) = hints.clone().into_iter().next() {
+					actual_claimer = Some(location);
 					break;
 				}
 			}
 		}
-		// SetAssetClaimer should not be in the message.
-		assert!(!found);
+
+		// actual claimer should default to message origin
+		assert_eq!(
+			actual_claimer,
+			Some(
+				Location::new(0, [AccountKey20 { network: None, key: origin.into() }])
+			)
+		);
 
 		// Find the last two instructions to check the appendix is correct.
 		let mut second_last = None;
@@ -584,11 +640,11 @@ mod tests {
 
 		let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 		assert_eq!(
-			last,
+			second_last,
 			Some(DepositAsset {
 				assets: Wild(AllOf { id: AssetId(fee_asset), fun: WildFungibility::Fungible }),
 				// beneficiary is the relayer
-				beneficiary: origin_account
+				beneficiary: Location::new(0, [AccountKey20 { network: None, key: origin.into() }])
 			})
 		);
 	}
@@ -620,14 +676,7 @@ mod tests {
 			relayer_fee,
 		};
 
-		let result = MessageToXcm::<
-			EthereumNetwork,
-			InboundQueueLocation,
-			MockTokenIdConvert,
-			GatewayAddress,
-			UniversalLocation,
-			AssetHubFromEthereum,
-		>::convert(message, [0; 32]);
+		let result = Converter::convert(message);
 
 		// Invalid xcm does not break the message, allowing funds to be trapped on AH.
 		assert_ok!(result.clone());
