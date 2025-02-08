@@ -1628,17 +1628,20 @@ mod tests {
 			// in the way.
 			let mut storage = StorageValueRef::persistent(&OFFCHAIN_LAST_BLOCK);
 
+			roll_to(24);
 			MultiPhase::offchain_worker(24);
 			assert!(pool.read().transactions.len().is_zero());
 			storage.clear();
 
 			// creates, caches, submits without expecting previous cache value
+			roll_to(25);
 			MultiPhase::offchain_worker(25);
 			assert_eq!(pool.read().transactions.len(), 1);
 			// assume that the tx has been processed
 			pool.try_write().unwrap().transactions.clear();
 
 			// locked, but also, has previously cached.
+			roll_to(26);
 			MultiPhase::offchain_worker(26);
 			assert!(pool.read().transactions.len().is_zero());
 		})
@@ -1675,13 +1678,15 @@ mod tests {
 
 			// after an election, the solution is not cleared
 			// we don't actually care about the result of the election
+			roll_to(block_plus(1));
 			let _ = MultiPhase::do_elect();
 			MultiPhase::offchain_worker(block_plus(1));
 			assert!(ocw_solution_exists::<Runtime>(), "elections does not clear the ocw cache");
 
 			// submit a solution with the offchain worker after the repeat interval
+			roll_to(block_plus(offchain_repeat + 1));
 			MultiPhase::offchain_worker(block_plus(offchain_repeat + 1));
-
+			dbg!("before cache 2");
 			// record the submitted tx,
 			let tx_cache_2 = pool.read().transactions[0].clone();
 			// and assume it has been processed.
@@ -1696,6 +1701,7 @@ mod tests {
 
 			// clear the cache and create a solution since we are on the first block of the unsigned
 			// phase.
+			roll_to(current_block);
 			MultiPhase::offchain_worker(current_block);
 			let tx_cache_3 = pool.read().transactions[0].clone();
 
@@ -1742,7 +1748,7 @@ mod tests {
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
 			let mut storage = StorageValueRef::persistent(&OFFCHAIN_LAST_BLOCK);
-
+			roll_to(block_plus(-1));
 			MultiPhase::offchain_worker(block_plus(-1));
 			assert!(pool.read().transactions.len().is_zero());
 			storage.clear();
@@ -1781,11 +1787,13 @@ mod tests {
 			// in the way.
 			let mut storage = StorageValueRef::persistent(&OFFCHAIN_LAST_BLOCK);
 
+			roll_to(block_plus(-1));
 			MultiPhase::offchain_worker(block_plus(-1));
 			assert!(pool.read().transactions.len().is_zero());
 			storage.clear();
 
 			// creates, caches, submits without expecting previous cache value
+			roll_to(BLOCK);
 			MultiPhase::offchain_worker(BLOCK);
 			assert_eq!(pool.read().transactions.len(), 1);
 			let tx_cache = pool.read().transactions[0].clone();
@@ -1802,6 +1810,7 @@ mod tests {
 			// attempts to resubmit the tx after the threshold has expired
 			// note that we have to add 1: the semantics forbid resubmission at
 			// BLOCK + offchain_repeat
+			roll_to(block_plus(1 + offchain_repeat as i32));
 			MultiPhase::offchain_worker(block_plus(1 + offchain_repeat as i32));
 			assert_eq!(pool.read().transactions.len(), 1);
 

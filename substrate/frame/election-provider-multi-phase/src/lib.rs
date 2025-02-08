@@ -1457,6 +1457,8 @@ impl<T: Config> Pallet<T> {
 		log!(trace, "lock for offchain worker acquired. Phase = {:?}", current_phase);
 		match current_phase {
 			Phase::Unsigned((true, opened)) if opened == now => {
+				dbg!(now);
+				dbg!(opened);
 				// Mine a new solution, cache it, and attempt to submit it
 				let initial_output = Self::ensure_offchain_repeat_frequency(now).and_then(|_| {
 					// This is executed at the beginning of each round. Any cache is now invalid.
@@ -1467,13 +1469,17 @@ impl<T: Config> Pallet<T> {
 				log!(debug, "initial offchain thread output: {:?}", initial_output);
 			},
 			Phase::Unsigned((true, opened)) if opened < now => {
+				dbg!(now);
+				dbg!(opened);
 				// Try and resubmit the cached solution, and recompute ONLY if it is not
 				// feasible.
 				let resubmit_output = Self::ensure_offchain_repeat_frequency(now)
 					.and_then(|_| Self::restore_or_compute_then_maybe_submit());
 				log!(debug, "resubmit offchain thread output: {:?}", resubmit_output);
 			},
-			_ => {},
+			_ => {
+				dbg!("none");
+			},
 		}
 	}
 
