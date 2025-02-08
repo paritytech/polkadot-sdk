@@ -228,7 +228,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			Pallet::<T>::phase_transition(Phase::Unsigned((true, now)));
 		}
 
@@ -353,7 +353,7 @@ mod benchmarks {
 		assert!(SnapshotMetadata::<T>::get().is_none());
 		assert_eq!(
 			CurrentPhase::<T>::get(),
-			<Phase<frame_system::pallet_prelude::BlockNumberFor::<T>>>::Off
+			<Phase<<<T as pallet::Config>::BlockNumberProvider as sp_runtime::traits::BlockNumberProvider>::BlockNumber>>::Off
 		);
 
 		Ok(())
@@ -498,14 +498,15 @@ mod benchmarks {
 		let t = T::BenchmarkingConfig::MAXIMUM_TARGETS;
 
 		set_up_data_provider::<T>(v, t);
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
+		let system_block_now = frame_system::Pallet::<T>::block_number();
 		CurrentPhase::<T>::put(Phase::Unsigned((true, now)));
 		Pallet::<T>::create_snapshot().unwrap();
 
 		#[block]
 		{
 			// we can't really verify this as it won't write anything to state, check logs.
-			Pallet::<T>::offchain_worker(now)
+			Pallet::<T>::offchain_worker(system_block_now)
 		}
 	}
 
