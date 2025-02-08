@@ -1016,7 +1016,7 @@ mod tests {
 	use crate::{
 		mock::{
 			multi_phase_events, roll_to, roll_to_signed, roll_to_unsigned, roll_to_with_ocw,
-			trim_helpers, witness, BlockNumber, ExtBuilder, Extrinsic, MinerMaxWeight, MultiPhase,
+			roll_to_block_without_current_block_number, trim_helpers, witness, BlockNumber, ExtBuilder, Extrinsic, MinerMaxWeight, MultiPhase,
 			Runtime, RuntimeCall, RuntimeOrigin, System, TestNposSolution, TrimHelpers,
 			UnsignedPhase,
 		},
@@ -1628,7 +1628,7 @@ mod tests {
 			// in the way.
 			let mut storage = StorageValueRef::persistent(&OFFCHAIN_LAST_BLOCK);
 
-			roll_to(24);
+			roll_to_block_without_current_block_number(24);
 			MultiPhase::offchain_worker(24);
 			assert!(pool.read().transactions.len().is_zero());
 			storage.clear();
@@ -1686,7 +1686,6 @@ mod tests {
 			// submit a solution with the offchain worker after the repeat interval
 			roll_to(block_plus(offchain_repeat + 1));
 			MultiPhase::offchain_worker(block_plus(offchain_repeat + 1));
-			dbg!("before cache 2");
 			// record the submitted tx,
 			let tx_cache_2 = pool.read().transactions[0].clone();
 			// and assume it has been processed.
@@ -1748,12 +1747,13 @@ mod tests {
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
 			let mut storage = StorageValueRef::persistent(&OFFCHAIN_LAST_BLOCK);
-			roll_to(block_plus(-1));
+			roll_to_block_without_current_block_number(block_plus(-1));
 			MultiPhase::offchain_worker(block_plus(-1));
 			assert!(pool.read().transactions.len().is_zero());
 			storage.clear();
 
 			// creates, caches, submits without expecting previous cache value
+			roll_to(BLOCK);
 			MultiPhase::offchain_worker(BLOCK);
 			assert_eq!(pool.read().transactions.len(), 1);
 			let tx_cache = pool.read().transactions[0].clone();
@@ -1763,6 +1763,7 @@ mod tests {
 			// attempts to resubmit the tx after the threshold has expired
 			// note that we have to add 1: the semantics forbid resubmission at
 			// BLOCK + offchain_repeat
+			roll_to(block_plus(1 + offchain_repeat as i32));
 			MultiPhase::offchain_worker(block_plus(1 + offchain_repeat as i32));
 			assert_eq!(pool.read().transactions.len(), 1);
 
@@ -1787,7 +1788,7 @@ mod tests {
 			// in the way.
 			let mut storage = StorageValueRef::persistent(&OFFCHAIN_LAST_BLOCK);
 
-			roll_to(block_plus(-1));
+			roll_to_block_without_current_block_number(block_plus(-1));
 			MultiPhase::offchain_worker(block_plus(-1));
 			assert!(pool.read().transactions.len().is_zero());
 			storage.clear();

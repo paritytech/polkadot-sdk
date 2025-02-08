@@ -86,6 +86,14 @@ pub(crate) fn multi_phase_events() -> Vec<super::Event<Runtime>> {
 pub fn roll_to(n: BlockNumber) {
 	let now = System::block_number();
 	for i in now + 1..=n {
+		dbg!(i);
+		System::set_block_number(i);
+		MultiPhase::on_initialize(i);
+	}
+}
+
+pub fn roll_to_block_without_current_block_number(n: BlockNumber) {
+	for i in 1..=n {
 		System::set_block_number(i);
 		MultiPhase::on_initialize(i);
 	}
