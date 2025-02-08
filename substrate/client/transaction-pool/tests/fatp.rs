@@ -30,7 +30,7 @@ use sc_transaction_pool_api::{
 };
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{sync::Arc, time::Duration};
-use substrate_test_runtime_client::AccountKeyring::*;
+use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 
 pub mod fatp_common;
@@ -2199,7 +2199,7 @@ fn import_sink_works3() {
 		pool.submit_one(genesis, SOURCE, xt1.clone()),
 	];
 
-	let x = block_on(futures::future::join_all(submissions));
+	block_on(futures::future::join_all(submissions));
 
 	let header01a = api.push_block(1, vec![], true);
 	let header01b = api.push_block(1, vec![], true);
@@ -2212,8 +2212,6 @@ fn import_sink_works3() {
 
 	assert_pool_status!(header01a.hash(), &pool, 1, 1);
 	assert_pool_status!(header01b.hash(), &pool, 1, 1);
-
-	log::debug!("xxx {x:#?}");
 
 	let import_events =
 		futures::executor::block_on_stream(import_stream).take(1).collect::<Vec<_>>();

@@ -14,11 +14,3 @@ workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
-
-[dependencies]
-futures = { workspace = true }
-tokio = { features = ["macros", "time"], workspace = true, default-features = true }
-
-[dev-dependencies]
-trybuild = { features = ["diff"], workspace = true }
-sc-service = { workspace = true, default-features = true }

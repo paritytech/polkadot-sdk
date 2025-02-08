@@ -139,6 +139,7 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -155,6 +156,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
+			(),
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -873,7 +875,7 @@ mod tests {
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
 	use sp_core::crypto::Pair;
 	use sp_inherents::InherentDataProvider;
-	use sp_keyring::AccountKeyring;
+	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::KeystorePtr;
 	use sp_runtime::{
 		generic::{self, Digest, Era, SignedPayload},
@@ -908,8 +910,8 @@ mod tests {
 		let mut slot = 1u64;
 
 		// For the extrinsics factory
-		let bob = Arc::new(AccountKeyring::Bob.pair());
-		let charlie = Arc::new(AccountKeyring::Charlie.pair());
+		let bob = Arc::new(Sr25519Keyring::Bob.pair());
+		let charlie = Arc::new(Sr25519Keyring::Charlie.pair());
 		let mut index = 0;
 
 		sc_service_test::sync(
@@ -1063,6 +1065,7 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
 					authorize_call,
@@ -1075,6 +1078,7 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
+					weight_reclaim,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
@@ -1090,6 +1094,7 @@ mod tests {
 						(),
 						(),
 						None,
+						(),
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));

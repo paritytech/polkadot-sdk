@@ -38,6 +38,7 @@ pub type TxExtension = (
 	frame_system::CheckMortality<Test>,
 	frame_system::CheckNonce<Test>,
 	frame_system::CheckWeight<Test>,
+	frame_system::WeightReclaim<Test>,
 );
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 pub type UncheckedExtrinsic =
