@@ -253,17 +253,13 @@ use sp_arithmetic::{
 };
 use sp_npos_elections::{BoundedSupports, ElectionScore, IdentifierT, Supports, VoteWeight};
 use sp_runtime::{
+	traits::BlockNumberProvider,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
 	},
 	DispatchError, ModuleError, PerThing, Perbill, RuntimeDebug, SaturatedConversion,
 };
-use sp_runtime::traits::BlockNumberProvider;
-use sp_core::U256;
-use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
-
-
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -290,7 +286,6 @@ use unsigned::VoterOf;
 pub use unsigned::{Miner, MinerConfig};
 pub use weights::WeightInfo;
 
-
 /// The solution type used by this crate.
 pub type SolutionOf<T> = <T as MinerConfig>::Solution;
 
@@ -305,7 +300,7 @@ pub type SolutionAccuracyOf<T> =
 pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProviderBase>::Error;
 
 pub type BlockNumberFor<T> =
-<<T as crate::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	<<T as crate::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// Configuration for the benchmarks of the pallet.
 pub trait BenchmarkingConfig {
@@ -582,8 +577,7 @@ pub mod pallet {
 	use frame_election_provider_support::{InstantElectionProvider, NposSolver};
 	use frame_support::{pallet_prelude::*, traits::EstimateCallFee};
 	use frame_system::pallet_prelude::{
-		ensure_signed, BlockNumberFor as SystemBlockNumberFor,
-		OriginFor,
+		ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
 	};
 	use sp_runtime::traits::Convert;
 

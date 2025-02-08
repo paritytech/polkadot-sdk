@@ -18,9 +18,9 @@
 //! The unsigned phase, and its miner.
 
 use crate::{
-	helpers, BlockNumberFor, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
-	Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot, Snapshot,
-	SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
+	helpers, BlockNumberFor, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error,
+	FeasibilityError, Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot,
+	Snapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
@@ -31,9 +31,7 @@ use frame_support::{
 	traits::{DefensiveResult, Get},
 	BoundedVec,
 };
-use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction}
-};
+use frame_system::offchain::{CreateInherent, SubmitTransaction};
 use scale_info::TypeInfo;
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized, ElectionResult,
@@ -1015,10 +1013,10 @@ mod tests {
 	use super::*;
 	use crate::{
 		mock::{
-			multi_phase_events, roll_to, roll_to_signed, roll_to_unsigned, roll_to_with_ocw,
-			roll_to_block_without_current_block_number, trim_helpers, witness, BlockNumber, ExtBuilder, Extrinsic, MinerMaxWeight, MultiPhase,
-			Runtime, RuntimeCall, RuntimeOrigin, System, TestNposSolution, TrimHelpers,
-			UnsignedPhase,
+			multi_phase_events, roll_to, roll_to_block_without_current_block_number,
+			roll_to_signed, roll_to_unsigned, roll_to_with_ocw, trim_helpers, witness, BlockNumber,
+			ExtBuilder, Extrinsic, MinerMaxWeight, MultiPhase, Runtime, RuntimeCall, RuntimeOrigin,
+			System, TestNposSolution, TrimHelpers, UnsignedPhase,
 		},
 		Event, InvalidTransaction, Phase, QueuedSolution, TransactionSource,
 		TransactionValidityError,
