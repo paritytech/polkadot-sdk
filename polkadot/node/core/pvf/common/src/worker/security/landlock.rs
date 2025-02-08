@@ -34,12 +34,12 @@ use crate::{
 use landlock::*;
 use std::path::{Path, PathBuf};
 
-/// Landlock ABI version. We use ABI V1 because:
+/// Landlock ABI version for FS restrictions. We use ABI V1 because:
 ///
 /// 1. It is supported by our reference kernel version.
 /// 2. Later versions do not (yet) provide additional security that would benefit us.
 ///
-/// # Versions (as of October 2023)
+/// # Versions (as of February 2025)
 ///
 /// - Polkadot reference kernel version: 5.16+
 ///
@@ -53,6 +53,11 @@ use std::path::{Path, PathBuf};
 ///   prevent attackers from affecting a symlinked artifact. We don't strictly need this as we
 ///   plan to check for file integrity anyway; see
 ///   <https://github.com/paritytech/polkadot-sdk/issues/677>.
+///
+/// - ABI V4: kernel 6.7 - Can restrict TCP bind and connect actions to only a set of allowed ports.
+///
+/// - ABI V5: kernel 6.10 - It is possible to restrict the use of ioctl(2) on character and block
+/// - devices.
 ///
 /// # Determinism
 ///
@@ -70,7 +75,14 @@ use std::path::{Path, PathBuf};
 /// from attackers. And, the risk with indeterminacy is low and there are other indeterminacy
 /// vectors anyway. So we will only upgrade to a new ABI if either the reference kernel version
 /// supports it or if it introduces some new feature that is beneficial to security.
-pub const LANDLOCK_ABI: ABI = ABI::V1;
+pub const LANDLOCK_ABI_FS: ABI = ABI::V1;
+/// Landlock ABI version for network restrictions. We use ABI V4 because it is the first ABI that
+/// offers network restrictions.
+///
+/// # See also
+///
+/// See [`LANDLOCK_ABI_FS`] for more info.
+pub const LANDLOCK_ABI_NET: ABI = ABI::V4;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -87,7 +99,7 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Try to enable landlock for the given kind of worker.
-pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
+pub fn enable_for_worker(worker_info: &WorkerInfo, abi: ABI) -> Result<()> {
 	let exceptions: Vec<(PathBuf, BitFlags<AccessFs>)> = match worker_info.kind {
 		WorkerKind::Prepare => {
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
@@ -106,14 +118,16 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 		exceptions,
 	);
 
-	try_restrict(exceptions)
+	try_restrict(exceptions, abi)
 }
 
 // TODO: <https://github.com/landlock-lsm/rust-landlock/issues/36>
 /// Runs a check for landlock in its own thread, and returns an error indicating whether the given
 /// landlock ABI is fully enabled on the current Linux environment.
-pub fn check_can_fully_enable() -> Result<()> {
-	match std::thread::spawn(|| try_restrict(std::iter::empty::<(PathBuf, AccessFs)>())).join() {
+pub fn check_can_fully_enable(abi: ABI) -> Result<()> {
+	match std::thread::spawn(move || try_restrict(std::iter::empty::<(PathBuf, AccessFs)>(), abi))
+		.join()
+	{
 		Ok(Ok(())) => Ok(()),
 		Ok(Err(err)) => Err(err),
 		Err(err) => Err(Error::Panic(stringify_panic_payload(err))),
@@ -131,14 +145,13 @@ pub fn check_can_fully_enable() -> Result<()> {
 /// # Returns
 ///
 /// The status of the restriction (whether it was fully, partially, or not-at-all enforced).
-fn try_restrict<I, P, A>(fs_exceptions: I) -> Result<()>
+fn try_restrict<I, P, A>(fs_exceptions: I, abi: ABI) -> Result<()>
 where
 	I: IntoIterator<Item = (P, A)>,
 	P: AsRef<Path>,
 	A: Into<BitFlags<AccessFs>>,
 {
-	let mut ruleset =
-		Ruleset::default().handle_access(AccessFs::from_all(LANDLOCK_ABI))?.create()?;
+	let mut ruleset = Ruleset::default().handle_access(AccessFs::from_all(abi))?.create()?;
 	for (fs_path, access_bits) in fs_exceptions {
 		let paths = &[fs_path.as_ref().to_owned()];
 		let mut rules = path_beneath_rules(paths, access_bits).peekable();
