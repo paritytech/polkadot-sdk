@@ -951,12 +951,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl snowbridge_inbound_queue_v2_runtime_api::InboundQueueApiV2<Block, Balance> for Runtime {
-		fn dry_run(message: Message) -> Result<(Xcm<()>, Balance), DispatchError> {
-			snowbridge_pallet_inbound_queue_v2::api::dry_run::<Runtime>(message)
-		}
-	}
-
 	impl snowbridge_system_runtime_api::ControlApi<Block> for Runtime {
 		fn agent_id(location: VersionedLocation) -> Option<AgentId> {
 			snowbridge_pallet_system::api::agent_id::<Runtime>(location)

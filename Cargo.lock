@@ -2975,7 +2975,6 @@ dependencies = [
  "snowbridge-beacon-primitives 0.2.0",
  "snowbridge-core 0.2.0",
  "snowbridge-inbound-queue-primitives",
- "snowbridge-inbound-queue-v2-runtime-api",
  "snowbridge-merkle-tree",
  "snowbridge-outbound-queue-primitives",
  "snowbridge-outbound-queue-runtime-api 0.2.0",
@@ -25073,18 +25072,6 @@ dependencies = [
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
-]
-
-[[package]]
-name = "snowbridge-inbound-queue-v2-runtime-api"
-version = "0.2.0"
-dependencies = [
- "frame-support 28.0.0",
- "snowbridge-core 0.2.0",
- "snowbridge-inbound-queue-primitives",
- "sp-api 26.0.0",
- "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
 ]
 
 [[package]]

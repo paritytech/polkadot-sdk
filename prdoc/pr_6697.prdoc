@@ -8,8 +8,6 @@ doc:
 crates:
 - name: snowbridge-pallet-inbound-queue-v2
   bump: minor
-- name: snowbridge-inbound-queue-v2-runtime-api
-  bump: minor
 - name: snowbridge-pallet-inbound-queue-fixtures-v2
   bump: minor
 - name: snowbridge-core
