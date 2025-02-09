@@ -5,10 +5,10 @@
 //! # Overview
 //!
 //! Messages come either from sibling parachains via XCM, or BridgeHub itself
-//! via the `snowbridge-pallet-system`:
+//! via the `snowbridge-pallet-system-v2`:
 //!
 //! 1. `snowbridge_outbound_queue_primitives::v2::EthereumBlobExporter::deliver`
-//! 2. `snowbridge_pallet_system::Pallet::send_v2`
+//! 2. `snowbridge_pallet_system_v2::Pallet::send`
 //!
 //! The message submission pipeline works like this:
 //! 1. The message is first validated via the implementation for
@@ -16,18 +16,27 @@
 //! 2. The message is then enqueued for later processing via the implementation for
 //!    [`snowbridge_outbound_queue_primitives::v2::SendMessage::deliver`]
 //! 3. The underlying message queue is implemented by [`Config::MessageQueue`]
-//! 4. The message queue delivers messages back to this pallet via the implementation for
+//! 4. The message queue delivers messages to this pallet via the implementation for
 //!    [`frame_support::traits::ProcessMessage::process_message`]
-//! 5. The message is processed in `Pallet::do_process_message`: a. Assigned a nonce b. ABI-encoded,
-//!    hashed, and stored in the `MessageLeaves` vector
-//! 6. At the end of the block, a merkle root is constructed from all the leaves in `MessageLeaves`.
+//! 5. The message is processed in `Pallet::do_process_message`:
+//! 	a. Convert to `OutboundMessage`, and stored into the `Messages` vector storage
+//! 	b. ABI-encoded the OutboundMessage, with commited hash stored into the `MessageLeaves` storage
+//! 	c. Generate `PendingOrder` with assigned nonce and fee attach, stored into the `PendingOrders`
+//! 	   map storage, with nonce as the key
+//! 	d. Increment nonce and update the `Nonce` storage
+//! 6. At the end of the block, a merkle root is constructed from all the leaves in `MessageLeaves`,
+//!    then `MessageLeaves` is dropped so that it is never committed to storage or included in PoV.
 //! 7. This merkle root is inserted into the parachain header as a digest item
-//! 8. Offchain relayers are able to relay the message to Ethereum after: a. Generating a merkle
-//!    proof for the committed message using the `prove_message` runtime API b. Reading the actual
-//!    message content from the `Messages` vector in storage
-//!
-//! On the Ethereum side, the message root is ultimately the thing being
-//! verified by the Polkadot light client.
+//! 8. Offchain relayers are able to relay the message to Ethereum after:
+//! 	a. Generating a merkle proof for the committed message using the `prove_message` runtime API
+//! 	b. Reading the actual message content from the `Messages` vector in storage
+//! 9. On the Ethereum side, the message root is ultimately the thing being verified by the Beefy
+//!    light client. When the message has been verified and executed, the relayer will call the
+//!    extrinsic `submit_delivery_proof` work the way as follows:
+//! 	a. Verify the message with proof for a transaction receipt containing the event log,
+//! 	   same as the inbound queue verification flow
+//! 	b. Fetch the pending order by nonce of the message, pay reward with fee attached in the order
+//!		c. Remove the order from `PendingOrders` map storage by nonce
 //!
 //! # Message Priorities
 //!
@@ -38,6 +47,7 @@
 //! # Extrinsics
 //!
 //! * [`Call::set_operating_mode`]: Set the operating mode
+//! * [`Call::submit_delivery_proof`]: Submit delivery proof
 //!
 //! # Runtime API
 //!
@@ -334,7 +344,7 @@ pub mod pallet {
 			let nonce = Nonce::<T>::get();
 
 			// Decode bytes into Message and
-			// a. Convert to InboundMessage and save into Messages
+			// a. Convert to OutboundMessage and save into Messages
 			// b. Convert to committed hash and save into MessageLeaves
 			// c. Save nonce&fee into PendingOrders
 			let message: Message = Message::decode(&mut message).map_err(|_| Corrupt)?;
@@ -367,12 +377,12 @@ pub mod pallet {
 				<T as Config>::Hashing::hash(&committed_message.abi_encode());
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
 
-			let inbound_message = OutboundMessage {
+			let outbound_message = OutboundMessage {
 				origin: message.origin,
 				nonce,
 				commands: commands.try_into().map_err(|_| Corrupt)?,
 			};
-			Messages::<T>::append(Box::new(inbound_message));
+			Messages::<T>::append(Box::new(outbound_message));
 
 			let order = PendingOrder {
 				nonce,
