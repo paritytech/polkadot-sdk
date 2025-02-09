@@ -114,7 +114,7 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, traits::FindAuthor};
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
 	use sp_runtime::Perbill;
@@ -188,6 +188,9 @@ pub mod pallet {
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
 		#[pallet::no_default_bounds]
 		type ChainExtension: chain_extension::ChainExtension<Self> + Default;
+
+		/// Find the author of the current block.
+		type FindAuthor: FindAuthor<Self::AccountId>;
 
 		/// The amount of balance a caller has to pay for each byte of storage.
 		///
@@ -362,6 +365,7 @@ pub mod pallet {
 			type ChainId = ConstU64<0>;
 			type NativeToEthRatio = ConstU32<1>;
 			type EthGasEncoder = ();
+			type FindAuthor = ();
 		}
 	}
 

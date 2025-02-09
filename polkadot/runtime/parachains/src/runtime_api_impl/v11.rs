@@ -420,12 +420,12 @@ pub(crate) fn backing_constraints<T: initializer::Config>(
 	{
 		shared::migration::v0::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
 			now,
-			config.async_backing_params.allowed_ancestry_len,
+			config.scheduler_params.lookahead.saturating_sub(1),
 		)
 	} else {
 		shared::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
 			now,
-			config.async_backing_params.allowed_ancestry_len,
+			config.scheduler_params.lookahead.saturating_sub(1),
 		)
 	};
 
@@ -508,6 +508,7 @@ pub fn backing_state<T: initializer::Config>(
 }
 
 /// Implementation for `AsyncBackingParams` function from the runtime API
+#[deprecated = "AsyncBackingParams are going to be removed and ignored by relay chain validators, in favour of dynamically computed values based on the claim queue assignments"]
 pub fn async_backing_params<T: configuration::Config>() -> AsyncBackingParams {
 	configuration::ActiveConfig::<T>::get().async_backing_params
 }
