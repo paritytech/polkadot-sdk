@@ -128,6 +128,35 @@ impl pallet_nis::Config for Test {
 	type BenchmarkSetup = ();
 }
 
+pub struct ExtBuilder {}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {}
+	}
+}
+
+impl ExtBuilder {
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		pallet_balances::GenesisConfig::<Test, Instance1> {
+			balances: vec![(1, 100), (2, 100), (3, 100), (4, 100)],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| System::run_to_block::<AllPalletsWithSystem>(0));
+		ext
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+		})
+	}
+}
+
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {

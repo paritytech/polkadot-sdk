@@ -345,12 +345,7 @@ pub mod pallet {
 		type BenchmarkSetup: crate::BenchmarkSetup;
 	}
 
-	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
-
 	#[pallet::pallet]
-	#[pallet::storage_version(STORAGE_VERSION)]
-
 	pub struct Pallet<T>(_);
 
 	/// A single bid, an item of a *queue* in `Queues`.
@@ -439,6 +434,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Receipts<T> =
 		StorageMap<_, Blake2_128Concat, ReceiptIndex, ReceiptRecordOf<T>, OptionQuery>;
+
+	#[pallet::storage]
+	pub type LastProcessedBlock<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -553,9 +551,14 @@ pub mod pallet {
 			let block_number = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter =
 				WeightCounter { used: Weight::zero(), limit: T::MaxIntakeWeight::get() };
-			if T::IntakePeriod::get().is_zero() || (block_number % T::IntakePeriod::get()).is_zero()
+			let last_processed = LastProcessedBlock::<T>::get();
+			let intake_period = T::IntakePeriod::get();
+			if intake_period.is_zero() ||
+				block_number.saturating_sub(last_processed) >= intake_period
 			{
 				if weight_counter.check_accrue(T::WeightInfo::process_queues()) {
+					LastProcessedBlock::<T>::put(block_number);
+					weight_counter.check_accrue(T::DbWeight::get().writes(1));
 					Self::process_queues(
 						T::Target::get(),
 						T::QueueCount::get(),

@@ -2,7 +2,7 @@ use crate::*;
 use core::marker::PhantomData;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Get, UncheckedOnRuntimeUpgrade},
+	traits::{Get, OnRuntimeUpgrade},
 };
 use sp_runtime::Weight;
 
@@ -11,9 +11,6 @@ use sp_runtime::TryRuntimeError;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
-
-/// The log target.
-const TARGET: &'static str = "runtime::nis::migration::v1";
 
 type SystemBlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
 
@@ -35,18 +32,21 @@ pub mod v0 {
 	pub type OldSummaryRecordOf<T> = SummaryRecord<SystemBlockNumberFor<T>, BalanceOf<T>>;
 }
 
-pub mod v1 {
+pub mod switch_block_number_provider {
 	use super::*;
 
-	pub trait BlockToRelayHeightConversion<T: Config> {
-		fn convert_block_number_to_relay_height(
-			block_number: SystemBlockNumberFor<T>,
-		) -> BlockNumberFor<T>;
+	/// The log target.
+	const TARGET: &'static str = "runtime::nis::migration::change_block_number_provider";
+
+	pub trait BlockNumberConversion<Old, New> {
+		fn convert_block_number(block_number: Old) -> New;
 	}
 
-	pub struct MigrateV0ToV1<T, BlockConversion>(PhantomData<T>, PhantomData<BlockConversion>);
-	impl<T: Config, BlockConversion: BlockToRelayHeightConversion<T>> UncheckedOnRuntimeUpgrade
-		for MigrateV0ToV1<T, BlockConversion>
+	pub struct MigrateBlockNumber<T, BlockConverter>(PhantomData<T>, PhantomData<BlockConverter>);
+	impl<
+			T: Config,
+			BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T>>,
+		> OnRuntimeUpgrade for MigrateBlockNumber<T, BlockConverter>
 	{
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -56,46 +56,9 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let mut weight = T::DbWeight::get().reads(1);
-
-			// Check if migration is needed (old storage version)
-			if StorageVersion::get::<Pallet<T>>() == 0 {
-				Receipts::<T>::translate(|index, old_receipt: v0::OldReceiptRecordOf<T>| {
-					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-					log::info!(target: TARGET, "migrating reciept record expiry #{:?}", &index);
-					let new_expiry =
-						BlockConversion::convert_block_number_to_relay_height(old_receipt.expiry);
-					Some(ReceiptRecord {
-						proportion: old_receipt.proportion,
-						owner: old_receipt.owner,
-						expiry: new_expiry,
-					})
-				});
-
-				// Read old value
-				let old_summary = v0::Summary::<T>::get();
-
-				let new_last_period =
-					BlockConversion::convert_block_number_to_relay_height(old_summary.last_period);
-				// Convert to new format
-				let new_summary = SummaryRecord {
-					proportion_owed: old_summary.proportion_owed,
-					index: old_summary.index,
-					thawed: old_summary.thawed,
-					last_period: new_last_period,
-					receipts_on_hold: old_summary.receipts_on_hold,
-				};
-				log::info!(target: TARGET, "migrating summary record, current thaw period's beginning.");
-				// Write new value
-				Summary::<T>::put(new_summary);
-				// Update storage version
-				StorageVersion::new(1).put::<Pallet<T>>();
-				// Return weight (adjust based on operations)
-				weight.saturating_add(T::DbWeight::get().reads_writes(1, 3))
-			} else {
-				log::info!(target: TARGET, "nill");
-				weight
-			}
+			let mut weight = Weight::zero();
+			weight.saturating_accrue(migrate_block_number::<T, BlockConverter>());
+			weight
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -112,9 +75,10 @@ pub mod v1 {
 					Receipts::<T>::get(index).ok_or("Receipt missing after migration")?;
 
 				// Verify expiry conversion
-				let expected_expiry =
-					BlockConversion::convert_block_number_to_relay_height(old_receipt.expiry);
-				ensure!(new_receipt.expiry == expected_expiry, "Receipt expiry conversion failed");
+				ensure!(
+					new_receipt.expiry == old_receipt.expiry,
+					"Receipt expiry conversion failed"
+				);
 
 				// Verify other fields unchanged
 				ensure!(
@@ -126,26 +90,124 @@ pub mod v1 {
 
 			// Verify Summary migration
 			let new_summary = Summary::<T>::get();
-			let old_summary_last_period =
-				BlockConversion::convert_block_number_to_relay_height(old_summary.last_period);
 			ensure!(
-				new_summary.last_period == old_summary_last_period,
+				new_summary.last_period == old_summary.last_period,
 				"Summary conversion failed"
 			);
-
-			// Verify storage version
-			ensure!(StorageVersion::get::<Pallet<T>>() == 1, "Storage version not updated");
-
+			log::info!(target: TARGET, "All reciept record expiry period and summary record thaw period begining migrated to new blok number provider");
 			Ok(())
+		}
+	}
+
+	pub fn migrate_block_number<T, BlockConverter>() -> Weight
+	where
+		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T>>,
+		T: Config,
+	{
+		let on_chain_version = Pallet::<T>::on_chain_storage_version();
+		let mut weight = T::DbWeight::get().reads(1);
+		log::info!(
+			target: TARGET,
+			"running migration with onchain storage version {:?}", on_chain_version
+		);
+
+		if on_chain_version == 0 {
+			Receipts::<T>::translate(|index, old_receipt: v0::OldReceiptRecordOf<T>| {
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+				log::info!(target: TARGET, "migrating reciept record expiry #{:?}", &index);
+				let new_expiry = BlockConverter::convert_block_number(old_receipt.expiry);
+				Some(ReceiptRecord {
+					proportion: old_receipt.proportion,
+					owner: old_receipt.owner,
+					expiry: new_expiry,
+				})
+			});
+
+			// Read old value
+			let old_summary = v0::Summary::<T>::get();
+
+			let new_last_period = BlockConverter::convert_block_number(old_summary.last_period);
+			// Convert to new format
+			let new_summary = SummaryRecord {
+				proportion_owed: old_summary.proportion_owed,
+				index: old_summary.index,
+				thawed: old_summary.thawed,
+				last_period: new_last_period,
+				receipts_on_hold: old_summary.receipts_on_hold,
+			};
+			log::info!(target: TARGET, "migrating summary record, current thaw period's beginning.");
+			// Write new value
+			Summary::<T>::put(new_summary);
+			// Return weight (adjust based on operations)
+			weight.saturating_add(T::DbWeight::get().reads_writes(1, 3))
+		} else {
+			log::info!(target: TARGET, "skipping migration from on-chain version {:?} to change_block_number_provider", on_chain_version);
+			weight
 		}
 	}
 }
 
-/// Migrate the pallet storage from `0` to `1`.
-pub type MigrateV0ToV1<T, BlockConversion> = frame_support::migrations::VersionedMigration<
-	0,
-	1,
-	v1::MigrateV0ToV1<T, BlockConversion>,
-	Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		migration::switch_block_number_provider::{migrate_block_number, BlockNumberConversion},
+		mock::{Test, *},
+	};
+	use sp_runtime::Perquintill;
+
+	#[test]
+	fn migration_works_with_receipts_and_summary() {
+		ExtBuilder::default().build_and_execute(|| {
+			pub struct TestConverter;
+
+			impl BlockNumberConversion<SystemBlockNumberFor<Test>, BlockNumberFor<Test>> for TestConverter {
+				fn convert_block_number(
+					block_number: SystemBlockNumberFor<Test>,
+				) -> BlockNumberFor<Test> {
+					block_number
+				}
+			}
+
+			let receipt1 = v0::OldReceiptRecordOf::<Test> {
+				proportion: Perquintill::from_percent(10),
+				owner: Some((1, 40)),
+				expiry: 5,
+			};
+			v0::Receipts::<Test>::insert(1, receipt1.clone());
+
+			let receipt2 = v0::OldReceiptRecordOf::<Test> {
+				proportion: Perquintill::from_percent(20),
+				owner: Some((2, 40)),
+				expiry: 10,
+			};
+			v0::Receipts::<Test>::insert(2, receipt2.clone());
+
+			// Set old summary
+			let old_summary = v0::OldSummaryRecordOf::<Test> {
+				proportion_owed: Perquintill::zero(),
+				index: 0,
+				thawed: Perquintill::zero(),
+				last_period: 15,
+				receipts_on_hold: 2,
+			};
+			v0::Summary::<Test>::put(old_summary.clone());
+
+			let _weights = migrate_block_number::<Test, TestConverter>();
+
+			// Check migrated receipts
+			let new_receipt1 = Receipts::<Test>::get(1).unwrap();
+			assert_eq!(new_receipt1.expiry, 5);
+			assert_eq!(new_receipt1.proportion, receipt1.proportion);
+			assert_eq!(new_receipt1.owner, receipt1.owner);
+
+			let new_receipt2 = Receipts::<Test>::get(2).unwrap();
+			assert_eq!(new_receipt2.expiry, 10);
+
+			// Check migrated summary
+			let new_summary = Summary::<Test>::get();
+			assert_eq!(new_summary.last_period, 15);
+			assert_eq!(new_summary.receipts_on_hold, old_summary.receipts_on_hold);
+		})
+	}
+}
