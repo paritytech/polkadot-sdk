@@ -65,8 +65,8 @@ pub mod switch_block_number_provider {
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// Decode pre-upgrade state
 			let (old_receipts, old_summary): (
-				Vec<(ReceiptIndex, v0::OldReceiptRecordOf<T>)>,
-				v0::OldSummaryRecordOf<T>,
+				Vec<(ReceiptIndex, ReceiptRecordOf<T>)>,
+				SummaryRecordOf<T>,
 			) = Decode::decode(&mut &state[..]).expect("pre_upgrade data must decode");
 
 			// Verify Receipts migration
