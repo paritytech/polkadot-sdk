@@ -25,9 +25,18 @@ use secp_utils::*;
 use crate::claims;
 use frame_support::{derive_impl, ord_parameter_types, parameter_types, traits::WithdrawReasons};
 use pallet_balances;
-use sp_runtime::{traits::Identity, BuildStorage};
+use sp_runtime::{testing::UintAuthorityId, traits::Identity, BuildStorage};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+pub type TransactionExtension = frame_system::AuthorizeCall<Test>;
+
+pub type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
+pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	UintAuthorityId,
+	TransactionExtension,
+>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -41,12 +50,8 @@ frame_support::construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]

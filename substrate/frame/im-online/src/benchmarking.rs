@@ -108,6 +108,22 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn authorize_hearbeat(k: Linear<1, MAX_KEYS>) -> Result<(), BenchmarkError> {
+		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
+		let call = Call::<T>::heartbeat { heartbeat: input_heartbeat, signature };
+
+		#[block]
+		{
+			use frame_support::traits::Authorize;
+			call.authorize(TransactionSource::External)
+				.expect("Call give some authorization")
+				.expect("Call is authorized");
+		}
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite! {
 		Pallet,
 		mock::new_test_ext(),

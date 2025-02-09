@@ -249,6 +249,20 @@ mod benchmarks {
 		}
 	}
 
+	#[benchmark]
+	fn authorize_include_pvf_check_statement() {
+		let (stmt, signature) = pvf_check::prepare_inclusion_bench::<T>();
+
+		#[block]
+		{
+			use frame_support::pallet_prelude::Authorize;
+			Call::<T>::include_pvf_check_statement_general { stmt, signature }
+				.authorize(TransactionSource::Local)
+				.expect("Call give some authorization")
+				.expect("Authorization is valid");
+		}
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(Default::default()),
