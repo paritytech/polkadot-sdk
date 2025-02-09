@@ -1748,6 +1748,61 @@ pub mod pallet_macros {
 	/// in the future to give information directly to [`frame_support::construct_runtime`].
 	pub use frame_support_procedural::validate_unsigned;
 
+	/// Allows defining	view functions on a pallet.
+	///
+	/// A pallet view function is a read-only function providing access to the state of the
+	/// pallet from both outside and inside the runtime. It should provide a _stable_ interface
+	/// for querying the state of the pallet, avoiding direct storage access and upgrading
+	/// along with the runtime.
+	///
+	/// ## Syntax
+	/// View functions methods must be read-only and always return some output. A
+	/// `view_functions_experimental` impl block only allows methods to be defined inside of
+	/// it.
+	///
+	/// ## Example
+	/// ```
+	/// #[frame_support::pallet]
+	/// pub mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	///  	#[pallet::config]
+	///  	pub trait Config: frame_system::Config {}
+	///
+	///  	#[pallet::pallet]
+	///  	pub struct Pallet<T>(_);
+	///
+	///     #[pallet::storage]
+	/// 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
+	///
+	///     #[pallet::view_functions_experimental]
+	///     impl<T: Config> Pallet<T> {
+	/// 		/// Retrieve a map storage value by key.
+	///         pub fn get_value_with_arg(key: u32) -> Option<u32> {
+	/// 			SomeMap::<T>::get(key)
+	/// 		}
+	///     }
+	/// }
+	/// ```
+	///
+	///
+	/// ## Usage and implementation details
+	/// To allow outside access to pallet view functions, you need to add a runtime API that
+	/// accepts view function queries and dispatches them to the right pallet. You can do that
+	/// by implementing the
+	/// [`RuntimeViewFunction`](frame_support::view_functions::runtime_api::RuntimeViewFunction)
+	/// trait for the runtime inside an [`impl_runtime_apis!`](sp_api::impl_runtime_apis)
+	/// block.
+	///
+	/// The `RuntimeViewFunction` trait implements a hashing-based dispatching mechanism to
+	/// dispatch view functions to the right method in the right pallet based on their IDs. A
+	/// view function ID depends both on its pallet and on its method signature, so it remains
+	/// stable as long as those two elements are not modified. In general, pallet view
+	/// functions should expose a _stable_ interface and changes to the method signature are
+	/// strongly discouraged. For more details on the dispatching mechanism, see the
+	/// [`DispatchViewFunction`](frame_support::view_functions::DispatchViewFunction) trait.
+	pub use frame_support_procedural::view_functions_experimental;
+
 	/// Allows defining a struct implementing the [`Get`](frame_support::traits::Get) trait to
 	/// ease the use of storage types.
 	///

@@ -9,10 +9,6 @@ requests = { memory = "2G", cpu = "1" }
 limits = { memory = "4G", cpu = "2" }
 requests = { memory = "2G", cpu = "1" }
 
-[relaychain.genesis.runtimeGenesis.patch.configuration.config.async_backing_params]
-  max_candidate_depth = 6
-  allowed_ancestry_len = 3
-
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
   max_validators_per_core = 1
   num_cores = 4
