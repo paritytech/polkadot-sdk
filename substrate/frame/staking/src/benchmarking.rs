@@ -19,7 +19,6 @@
 
 use super::*;
 use crate::{asset, ConfigOp, Pallet as Staking};
-use alloc::collections::btree_set::BTreeSet;
 use codec::Decode;
 pub use frame_benchmarking::{
 	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
@@ -33,7 +32,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
-	BoundedBTreeSet, Perbill, Percent, Saturating,
+	Perbill, Percent, Saturating,
 };
 use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
 use testing_utils::*;

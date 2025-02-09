@@ -35,7 +35,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet::*;
 use sp_npos_elections::{evaluate_support, ElectionScore, EvaluateSupport};
-use sp_runtime::{Perbill, RuntimeDebug};
+use sp_runtime::Perbill;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::BoundedSupports<
@@ -44,9 +44,12 @@ pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::Bounded
 	<V as Verifier>::MaxBackersPerWinner,
 >;
 
+pub(crate) type VerifierWeightsOf<T> = <T as Config>::WeightInfo;
+
 /// The status of this pallet.
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, RuntimeDebug)]
-#[cfg_attr(any(test, debug_assertions), derive(PartialEq, Eq))]
+#[derive(
+	Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, Debug, PartialEq, Eq,
+)]
 pub enum Status {
 	/// A verification is ongoing, and the next page that will be verified is indicated with the
 	/// inner value.
@@ -111,7 +114,8 @@ pub(crate) mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
-			+ TryInto<Event<Self>>;
+			+ TryInto<Event<Self>>
+			+ Clone;
 
 		/// The minimum amount of improvement to the solution score that defines a solution as
 		/// "better".
@@ -138,7 +142,7 @@ pub(crate) mod pallet {
 		>;
 
 		/// The weight information of this pallet.
-		type WeightInfo;
+		type WeightInfo: super::weights::WeightInfo;
 	}
 
 	#[pallet::event]
@@ -157,6 +161,11 @@ pub(crate) mod pallet {
 		/// A solution with the given score has replaced our current best solution.
 		Queued(ElectionScore, Option<ElectionScore>),
 	}
+
+	// TODO this has to be entirely re-done to take into account that for lazy deletions. We store
+	// the queued solutions per round and account id. if a solution is invalid, we just mark it as
+	// garbage and delete it later.
+	// we keep a pointer to (round, who) which stores the current best solution.
 
 	/// A wrapper interface for the storage items related to the queued solution.
 	///
@@ -246,8 +255,6 @@ pub(crate) mod pallet {
 		/// storage item group.
 		pub(crate) fn clear_invalid_and_backings_unchecked() {
 			// clear is safe as we delete at most `Pages` entries, and `Pages` is bounded.
-			// TODO: safe wrapper around this that clears exactly pages keys, and ensures none is
-			// left.
 			match Self::invalid() {
 				ValidSolution::X => clear_paged_map!(QueuedSolutionX::<T>),
 				ValidSolution::Y => clear_paged_map!(QueuedSolutionY::<T>),
@@ -385,7 +392,7 @@ pub(crate) mod pallet {
 		}
 	}
 
-	#[cfg(any(test, debug_assertions))]
+	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 	impl<T: Config> QueuedSolution<T> {
 		pub(crate) fn valid_iter(
 		) -> impl Iterator<Item = (PageIndex, SupportsOfVerifier<Pallet<T>>)> {
@@ -424,7 +431,7 @@ pub(crate) mod pallet {
 		}
 
 		/// Ensure this storage item group is in correct state.
-		pub(crate) fn sanity_check() -> Result<(), &'static str> {
+		pub(crate) fn sanity_check() -> Result<(), sp_runtime::DispatchError> {
 			// score is correct and better than min-score.
 			ensure!(
 				Pallet::<T>::minimum_score()
@@ -544,7 +551,7 @@ impl<T: Config> Pallet<T> {
 			let maybe_page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
 
-			if maybe_page_solution.is_none() {
+			if maybe_page_solution.as_ref().is_none() {
 				// the data provider has zilch, revert to a clean state, waiting for a new `start`.
 				sublog!(
 					error,
@@ -612,12 +619,11 @@ impl<T: Config> Pallet<T> {
 					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
 					StatusStorage::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
-					T::SolutionDataProvider::report_result(VerificationResult::Rejected)
+					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
 				},
 			}
 		}
 
-		// TODO: weight
 		Default::default()
 	}
 
@@ -736,8 +742,8 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	#[cfg(debug_assertions)]
-	pub(crate) fn sanity_check() -> Result<(), &'static str> {
+	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+	pub fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 		QueuedSolution::<T>::sanity_check()
 	}
 }

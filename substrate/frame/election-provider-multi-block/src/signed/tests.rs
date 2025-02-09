@@ -118,6 +118,77 @@ mod calls {
 	}
 
 	#[test]
+	fn page_submission_accumulates_fee() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+
+			// fee for register is recorded.
+			assert_eq!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
+				SubmissionMetadata {
+					claimed_score: score,
+					deposit: 5,
+					fee: 1,
+					pages: bounded_vec![false, false, false],
+					reward: 3
+				}
+			);
+
+			// fee for page submission is recorded.
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
+			assert_eq!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
+				SubmissionMetadata {
+					claimed_score: score,
+					deposit: 6,
+					fee: 2,
+					pages: bounded_vec![true, false, false],
+					reward: 3
+				}
+			);
+
+			// another fee for page submission is recorded.
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				1,
+				Some(Default::default())
+			));
+			assert_eq!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
+				SubmissionMetadata {
+					claimed_score: score,
+					deposit: 7,
+					fee: 3,
+					pages: bounded_vec![true, true, false],
+					reward: 3
+				}
+			);
+
+			// removal updates deposit but not the fee
+			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 1, None));
+
+			assert_eq!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
+				SubmissionMetadata {
+					claimed_score: score,
+					deposit: 6,
+					fee: 3,
+					pages: bounded_vec![true, false, false],
+					reward: 3
+				}
+			);
+		});
+	}
+
+	#[test]
 	fn metadata_submission_sorted_based_on_stake() {
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
@@ -429,7 +500,7 @@ mod e2e {
 						}
 					),
 					Event::Slashed(0, 92, 5),
-					Event::Rewarded(0, 999, 4),
+					Event::Rewarded(0, 999, 7),
 					Event::Discarded(0, 99)
 				]
 			);
@@ -456,7 +527,7 @@ mod e2e {
 			);
 
 			assert_eq!(balances(99), (100, 0));
-			assert_eq!(balances(999), (104, 0));
+			assert_eq!(balances(999), (107, 0));
 			assert_eq!(balances(92), (95, 0));
 
 			// signed pallet should be in 100% clean state.

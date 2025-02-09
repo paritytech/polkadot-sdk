@@ -81,8 +81,10 @@ use impls::SupportsOfVerifier;
 pub use impls::{feasibility_check_page_inner_with_snapshot, pallet::*, Status};
 use sp_core::Get;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*};
+
+/// Weights of this pallet.
+pub mod weights;
 
 /// Errors that can happen in the feasibility check.
 #[derive(Debug, Eq, PartialEq, codec::Encode, codec::Decode, scale_info::TypeInfo, Clone)]
@@ -112,7 +114,6 @@ pub enum FeasibilityError {
 	/// `MaxBackersPerWinnerFinal`
 	FailedToBoundSupport,
 	/// Internal error from the election crate.
-	#[codec(skip)]
 	NposElection(sp_npos_elections::Error),
 	/// The solution is incomplete, it has too few pages.
 	///
@@ -205,7 +206,7 @@ pub trait Verifier {
 }
 
 /// Simple enum to encapsulate the result of the verification of a candidate solution.
-#[derive(Clone, Copy, RuntimeDebug)]
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum VerificationResult {
 	/// Solution is valid and is queued.

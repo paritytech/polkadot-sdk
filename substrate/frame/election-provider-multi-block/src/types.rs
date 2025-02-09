@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use frame_support::{
-	BoundedVec, CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use sp_core::Get;
 use sp_std::{collections::btree_set::BTreeSet, fmt::Debug, prelude::*};
@@ -48,7 +48,7 @@ pub type AssignmentOf<T> =
 	TypeInfo,
 	Encode,
 	Decode,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	EqNoBound,
 	PartialEqNoBound,

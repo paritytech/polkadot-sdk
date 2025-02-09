@@ -196,6 +196,16 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 			{
 				#remove_weakest_sorted_impl
 			}
+
+			#[cfg(feature = "runtime-benchmarks")]
+			fn corrupt(&mut self) {
+				self.votes1.push(
+					(
+						_fepsp::sp_arithmetic::traits::Bounded::max_value(),
+						_fepsp::sp_arithmetic::traits::Bounded::max_value()
+					)
+				)
+			}
 		}
 
 		type __IndexAssignment = _feps::IndexAssignment<
@@ -203,6 +213,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 			<#ident as _feps::NposSolution>::TargetIndex,
 			<#ident as _feps::NposSolution>::Accuracy,
 		>;
+
 		impl _fepsp::codec::MaxEncodedLen for #ident {
 			fn max_encoded_len() -> usize {
 				use frame_support::traits::Get;
@@ -224,6 +235,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 					.saturating_add((s as usize).saturating_mul(max_element_size))
 			}
 		}
+
 		impl<'a> core::convert::TryFrom<&'a [__IndexAssignment]> for #ident {
 			type Error = _feps::Error;
 			fn try_from(index_assignments: &'a [__IndexAssignment]) -> Result<Self, Self::Error> {

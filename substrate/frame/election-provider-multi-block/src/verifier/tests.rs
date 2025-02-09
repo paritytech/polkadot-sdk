@@ -166,7 +166,6 @@ mod feasibility_check {
 
 				// First, check that voter at index 11 (40) actually voted for 3 (40) -- this is
 				// self vote. Then, change the vote to 2 (30).
-
 				assert_eq!(
 					paged.solution_pages[0]
 						.votes1

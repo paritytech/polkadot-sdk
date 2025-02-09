@@ -142,7 +142,8 @@ parameter_types! {
 
 	// by default we stick to 3 pages to host our 12 voters.
 	pub static VoterSnapshotPerBlock: VoterIndex = 4;
-	pub static TargetSnapshotPerBlock: TargetIndex = 8;
+	// and 4 targets, whom we fetch all.
+	pub static TargetSnapshotPerBlock: TargetIndex = 4;
 	pub static Lookahead: BlockNumber = 0;
 
 	// we have 12 voters in the default setting, this should be enough to make sure they are not
@@ -166,18 +167,11 @@ impl crate::verifier::Config for Runtime {
 	type WeightInfo = ();
 }
 
-pub struct MockUnsignedWeightInfo;
-impl crate::unsigned::WeightInfo for MockUnsignedWeightInfo {
-	fn submit_unsigned(_v: u32, _t: u32, a: u32, _d: u32) -> Weight {
-		Weight::from_parts(a as u64, 0)
-	}
-}
-
 impl crate::unsigned::Config for Runtime {
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainSolver = SequentialPhragmen<Self::AccountId, Perbill>;
-	type WeightInfo = MockUnsignedWeightInfo;
+	type WeightInfo = ();
 }
 
 impl MinerConfig for Runtime {
@@ -435,11 +429,10 @@ impl ExecuteWithSanityChecks for sp_io::TestExternalities {
 }
 
 fn all_pallets_sanity_checks() {
-	// TODO: refactor all to use try-runtime instead
 	let now = System::block_number();
-	let _ = VerifierPallet::sanity_check().unwrap();
-	let _ = UnsignedPallet::sanity_check().unwrap();
-	let _ = MultiBlock::sanity_check().unwrap();
+	let _ = VerifierPallet::do_try_state(now).unwrap();
+	let _ = UnsignedPallet::do_try_state(now).unwrap();
+	let _ = MultiBlock::do_try_state(now).unwrap();
 	let _ = SignedPallet::do_try_state(now).unwrap();
 }
 
@@ -570,21 +563,11 @@ pub fn verifier_events() -> Vec<crate::verifier::Event<Runtime>> {
 
 /// proceed block number to `n`.
 pub fn roll_to(n: BlockNumber) {
-	let now = System::block_number();
-	for i in now + 1..=n {
-		System::set_block_number(i);
-
-		MultiBlock::on_initialize(i);
-		VerifierPallet::on_initialize(i);
-		UnsignedPallet::on_initialize(i);
-
-		if matches!(SignedPhaseSwitch::get(), SignedSwitch::Real) {
-			SignedPallet::on_initialize(i);
-		}
-
-		// invariants must hold at the end of each block.
-		all_pallets_sanity_checks()
-	}
+	crate::Pallet::<Runtime>::roll_to(
+		n,
+		matches!(SignedPhaseSwitch::get(), SignedSwitch::Real),
+		true,
+	);
 }
 
 /// proceed block number to whenever the snapshot is fully created (`Phase::Snapshot(0)`).

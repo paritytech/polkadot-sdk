@@ -146,7 +146,7 @@ pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runt
 		assert_ok!(SignedPallet::submit_page(
 			RuntimeOrigin::signed(who),
 			page_index,
-			Some(solution_page.clone())
+			Some(Box::new(solution_page.clone()))
 		));
 	}
 

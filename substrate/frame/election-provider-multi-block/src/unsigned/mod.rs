@@ -65,8 +65,12 @@ mod benchmarking;
 /// The miner.
 pub mod miner;
 
+/// Weights of the pallet.
+pub mod weights;
+
 #[frame_support::pallet]
 mod pallet {
+	use super::weights::WeightInfo;
 	use crate::{
 		types::*,
 		unsigned::miner::{self},
@@ -85,15 +89,7 @@ mod pallet {
 		InvalidTransaction::Custom(index)
 	}
 
-	pub trait WeightInfo {
-		fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight;
-	}
-
-	impl WeightInfo for () {
-		fn submit_unsigned(_v: u32, _t: u32, _a: u32, _d: u32) -> Weight {
-			Default::default()
-		}
-	}
+	pub(crate) type UnsignedWeightsOf<T> = <T as Config>::WeightInfo;
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -112,6 +108,7 @@ mod pallet {
 		/// The priority of the unsigned transaction submitted in the unsigned-phase
 		type MinerTxPriority: Get<TransactionPriority>;
 
+		/// Runtime weight information of this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
@@ -128,7 +125,7 @@ mod pallet {
 		///
 		/// This is different from signed page submission mainly in that the solution page is
 		/// verified on the fly.
-		#[pallet::weight((0, DispatchClass::Operational))]
+		#[pallet::weight((UnsignedWeightsOf::<T>::submit_unsigned(), DispatchClass::Operational))]
 		#[pallet::call_index(0)]
 		pub fn submit_unsigned(
 			origin: OriginFor<T>,
@@ -224,6 +221,11 @@ mod pallet {
 		fn integrity_test() {
 			// TODO: weight of a single page verification should be well below what we desire to
 			// have.
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(now)
 		}
 
 		fn offchain_worker(now: BlockNumberFor<T>) {
@@ -326,8 +328,10 @@ mod pallet {
 			Ok(())
 		}
 
-		#[cfg(test)]
-		pub(crate) fn sanity_check() -> Result<(), &'static str> {
+		#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+		pub(crate) fn do_try_state(
+			_now: BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
 			// TODO
 			Ok(())
 		}

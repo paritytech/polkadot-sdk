@@ -1150,6 +1150,8 @@ impl<T: Config> Pallet<T> {
 		// all_voters should have not re-allocated.
 		debug_assert!(all_voters.capacity() == page_len_prediction as usize);
 
+		// TODO remove this and further instances of this, it will now be recorded in the EPM-MB
+		// pallet.
 		Self::register_weight(T::WeightInfo::get_npos_voters(validators_taken, nominators_taken));
 
 		let min_active_stake: T::CurrencyBalance =
@@ -1422,6 +1424,13 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+// TODO: this is a very bad design. A hack for now so we can do benchmarks. Once
+// `next_election_prediction` is reworked based on rc-client, get rid of it. For now, just know that
+// the only fn that can set this is only accessible in runtime benchmarks.
+frame_support::parameter_types! {
+	pub storage BenchmarkNextElection: Option<u32> = None;
+}
+
 impl<T: Config> ElectionDataProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
@@ -1509,6 +1518,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	}
 
 	fn next_election_prediction(now: BlockNumberFor<T>) -> BlockNumberFor<T> {
+		if let Some(override_value) = BenchmarkNextElection::get() {
+			return override_value.into()
+		}
+
 		let current_era = CurrentEra::<T>::get().unwrap_or(0);
 		let current_session = CurrentPlannedSession::<T>::get();
 		let current_era_start_session_index =
@@ -1553,6 +1566,14 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		now.saturating_add(
 			until_this_session_end.saturating_add(sessions_left.saturating_mul(session_length)),
 		)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_next_election(to: u32) {
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			BenchmarkNextElection::key().to_vec().into(),
+		);
+		BenchmarkNextElection::set(&Some(to));
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

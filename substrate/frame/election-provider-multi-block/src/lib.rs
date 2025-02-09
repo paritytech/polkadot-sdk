@@ -164,7 +164,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, EnsureOrigin},
-	Twox64Concat,
+	DebugNoBound, Twox64Concat,
 };
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
@@ -313,14 +313,7 @@ impl<T: Config> From<verifier::FeasibilityError> for ElectionError<T> {
 
 /// Different operations that the [`Config::AdminOrigin`] can perform on the pallet.
 #[derive(
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	RuntimeDebugNoBound,
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
+	Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, CloneNoBound, PartialEqNoBound, EqNoBound,
 )]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
@@ -435,7 +428,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::manage())]
 		#[pallet::call_index(0)]
 		pub fn manage(origin: OriginFor<T>, op: AdminOperation<T>) -> DispatchResultWithPostInfo {
 			use crate::verifier::Verifier;
@@ -488,9 +481,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			// TODO
-			let todo_weight: Weight = Default::default();
-
 			// first, calculate the main phase switches thresholds.
 			let unsigned_deadline = T::UnsignedPhase::get();
 			let signed_validation_deadline =
@@ -524,14 +514,14 @@ pub mod pallet {
 					Self::create_voters_snapshot_paged(remaining_pages)
 						.defensive_unwrap_or_default();
 					Self::phase_transition(Phase::Snapshot(remaining_pages));
-					todo_weight
+					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
 				Phase::Snapshot(x) if x > 0 => {
 					// we don't check block numbers here, snapshot creation is mandatory.
 					let remaining_pages = x.saturating_sub(1);
 					Self::create_voters_snapshot_paged(remaining_pages).unwrap();
 					Self::phase_transition(Phase::Snapshot(remaining_pages));
-					todo_weight
+					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},
 
 				// start signed.
@@ -544,7 +534,7 @@ pub mod pallet {
 					// phase, and there's not enough blocks to finalize it? that can happen under
 					// any circumstance and we should deal with it.
 					Self::phase_transition(Phase::Signed);
-					todo_weight
+					T::WeightInfo::on_initialize_into_signed()
 				},
 
 				// start signed verification.
@@ -556,7 +546,7 @@ pub mod pallet {
 					Self::phase_transition(Phase::SignedValidation(now));
 					// we don't do anything else here. We expect the signed sub-pallet to handle
 					// whatever else needs to be done.
-					todo_weight
+					T::WeightInfo::on_initialize_into_signed_validation()
 				},
 
 				// start unsigned
@@ -564,7 +554,7 @@ pub mod pallet {
 					if remaining_blocks <= unsigned_deadline && remaining_blocks > Zero::zero() =>
 				{
 					Self::phase_transition(Phase::Unsigned(now));
-					todo_weight
+					T::WeightInfo::on_initialize_into_unsigned()
 				},
 				_ => T::WeightInfo::on_initialize_nothing(),
 			}
@@ -624,6 +614,11 @@ pub mod pallet {
 				T::SignedValidationPhase::get() >= T::Pages::get().into(),
 				"signed validation phase should be at least as long as the number of pages."
 			);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(now).map_err(Into::into)
 		}
 	}
 
@@ -806,7 +801,7 @@ pub mod pallet {
 			PagedTargetSnapshotHash::<T>::get(Pallet::<T>::msp())
 		}
 
-		#[cfg(any(test, debug_assertions))]
+		#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 		pub(crate) fn ensure_snapshot(
 			exists: bool,
 			mut up_to_page: PageIndex,
@@ -860,7 +855,31 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[cfg(any(test, debug_assertions))]
+		#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+		pub(crate) fn ensure_full_snapshot() -> Result<(), &'static str> {
+			// if any number of pages supposed to exist, these must also exist.
+			ensure!(Self::desired_targets().is_some(), "desired target mismatch");
+			ensure!(Self::targets_hash().is_some(), "targets hash mismatch");
+			ensure!(
+				Self::targets_decode_len().unwrap_or_default() as u32 ==
+					T::TargetSnapshotPerBlock::get(),
+				"targets decode length mismatch"
+			);
+
+			// ensure that voter pages that should exist, indeed to exist..
+			for p in crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp() {
+				ensure!(
+					Self::voters_hash(p).is_some() &&
+						Self::voters_decode_len(p).unwrap_or_default() as u32 ==
+							T::VoterSnapshotPerBlock::get(),
+					"voter page existence mismatch"
+				);
+			}
+
+			Ok(())
+		}
+
+		#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
 			// check the snapshot existence based on the phase. This checks all of the needed
 			// conditions except for the metadata values.
@@ -1114,9 +1133,144 @@ impl<T: Config> Pallet<T> {
 			.map_err(|fe| ElectionError::Fallback(fe))
 	}
 
-	#[cfg(any(test, debug_assertions))]
-	pub(crate) fn sanity_check() -> Result<(), &'static str> {
+	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
 		Snapshot::<T>::sanity_check()
+	}
+}
+
+// helper code for testing and benchmarking
+#[cfg(any(feature = "runtime-benchmarks", test))]
+impl<T> Pallet<T>
+where
+	T: Config + crate::signed::Config + crate::unsigned::Config + crate::verifier::Config,
+	BlockNumberFor<T>: From<u32>,
+{
+	/// A reasonable next election block number.
+	///
+	/// This should be passed into `T::DataProvider::set_next_election` in benchmarking.
+	pub(crate) fn reasonable_next_election() -> u32 {
+		let signed: u32 = T::SignedPhase::get().saturated_into();
+		let unsigned: u32 = T::UnsignedPhase::get().saturated_into();
+		let signed_validation: u32 = T::SignedValidationPhase::get().saturated_into();
+		(T::Pages::get() + signed + unsigned + signed_validation) * 2
+	}
+
+	/// Progress blocks until the criteria is met.
+	pub(crate) fn roll_until_matches(criteria: impl FnOnce() -> bool + Copy) {
+		loop {
+			Self::roll_next(true, false);
+			if criteria() {
+				break
+			}
+		}
+	}
+
+	/// Progress blocks until one block before the criteria is met.
+	pub(crate) fn run_until_before_matches(criteria: impl FnOnce() -> bool + Copy) {
+		use frame_support::storage::TransactionOutcome;
+		loop {
+			let should_break = frame_support::storage::with_transaction(
+				|| -> TransactionOutcome<Result<_, DispatchError>> {
+					Pallet::<T>::roll_next(true, false);
+					if criteria() {
+						TransactionOutcome::Rollback(Ok(true))
+					} else {
+						TransactionOutcome::Commit(Ok(false))
+					}
+				},
+			)
+			.unwrap();
+
+			if should_break {
+				break
+			}
+		}
+	}
+
+	pub(crate) fn roll_to_signed_and_mine_full_solution() -> PagedRawSolution<T::MinerConfig> {
+		use unsigned::miner::OffchainWorkerMiner;
+		Self::roll_until_matches(|| Self::current_phase() == Phase::Signed);
+		// ensure snapshot is full.
+		crate::Snapshot::<T>::ensure_full_snapshot().expect("Snapshot is not full");
+		OffchainWorkerMiner::<T>::mine_solution(T::Pages::get(), true).unwrap()
+	}
+
+	pub(crate) fn submit_full_solution(
+		PagedRawSolution { score, solution_pages, .. }: PagedRawSolution<T::MinerConfig>,
+	) {
+		use frame_system::RawOrigin;
+		use sp_std::boxed::Box;
+		use types::Pagify;
+
+		// register alice
+		let alice = crate::Pallet::<T>::funded_account("alice", 0);
+		signed::Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score).unwrap();
+
+		// submit pages
+		solution_pages
+			.pagify(T::Pages::get())
+			.map(|(index, page)| {
+				signed::Pallet::<T>::submit_page(
+					RawOrigin::Signed(alice.clone()).into(),
+					index,
+					Some(Box::new(page.clone())),
+				)
+			})
+			.collect::<Result<Vec<_>, _>>()
+			.unwrap();
+	}
+
+	pub(crate) fn roll_to_signed_and_submit_full_solution() {
+		Self::submit_full_solution(Self::roll_to_signed_and_mine_full_solution());
+	}
+
+	fn funded_account(seed: &'static str, index: u32) -> T::AccountId {
+		use frame_benchmarking::whitelist;
+		use frame_support::traits::fungible::{Inspect, Mutate};
+		let who: T::AccountId = frame_benchmarking::account(seed, index, 777);
+		whitelist!(who);
+		let balance = T::Currency::minimum_balance() * 10000u32.into();
+		T::Currency::mint_into(&who, balance).unwrap();
+		who
+	}
+
+	/// Roll all pallets forward, for the given number of blocks.
+	pub(crate) fn roll_to(n: BlockNumberFor<T>, with_signed: bool, try_state: bool) {
+		let now = frame_system::Pallet::<T>::block_number();
+		assert!(n > now, "cannot roll to current or past block");
+		let one: BlockNumberFor<T> = 1u32.into();
+		let mut i = now + one;
+		while i <= n {
+			frame_system::Pallet::<T>::set_block_number(i);
+
+			Pallet::<T>::on_initialize(i);
+			verifier::Pallet::<T>::on_initialize(i);
+			unsigned::Pallet::<T>::on_initialize(i);
+
+			if with_signed {
+				signed::Pallet::<T>::on_initialize(i);
+			}
+
+			// invariants must hold at the end of each block.
+			if try_state {
+				Pallet::<T>::do_try_state(i).unwrap();
+				verifier::Pallet::<T>::do_try_state(i).unwrap();
+				unsigned::Pallet::<T>::do_try_state(i).unwrap();
+				signed::Pallet::<T>::do_try_state(i).unwrap();
+			}
+
+			i += one;
+		}
+	}
+
+	/// Roll to next block.
+	pub(crate) fn roll_next(with_signed: bool, try_state: bool) {
+		Self::roll_to(
+			frame_system::Pallet::<T>::block_number() + 1u32.into(),
+			with_signed,
+			try_state,
+		);
 	}
 }
 

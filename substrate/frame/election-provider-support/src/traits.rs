@@ -141,4 +141,8 @@ where
 	fn remove_weakest_sorted<F>(&mut self, voter_stake: F) -> Option<Self::VoterIndex>
 	where
 		F: FnMut(&Self::VoterIndex) -> VoteWeight;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	/// Make this solution corrupt. This should set the index of a voter to `Bounded::max_value()`.
+	fn corrupt(&mut self);
 }

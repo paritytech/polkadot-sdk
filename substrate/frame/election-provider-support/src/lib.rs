@@ -389,6 +389,9 @@ pub trait ElectionDataProvider {
 	) {
 	}
 
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn set_next_election(_to: u32) {}
+
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
 	/// else a noop.
 	///

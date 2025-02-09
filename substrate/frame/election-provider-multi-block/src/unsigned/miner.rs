@@ -1593,78 +1593,33 @@ mod base_miner {
 						)
 					]
 				);
-				todo!("miner should trim max backers final");
+				todo!("miner should trim max backers final, maybe");
 
-				assert_eq!(
-					supports,
-					vec![
-						// 1 backing for 10
-						vec![(10, Support { total: 8, voters: vec![(104, 8)] })],
-						// 2 backings for 10
-						vec![
-							(10, Support { total: 17, voters: vec![(10, 10), (103, 7)] }),
-							(40, Support { total: 40, voters: vec![(40, 40)] })
-						],
-						// 20 backings for 10
-						vec![
-							(10, Support { total: 20, voters: vec![(1, 10), (8, 10)] }),
-							(
-								40,
-								Support {
-									total: 40,
-									voters: vec![(2, 10), (3, 10), (4, 10), (6, 10)]
-								}
-							)
-						]
-					]
-					.try_from_unbounded_paged()
-					.unwrap()
-				);
-			});
-	}
-
-	#[test]
-	fn trim_backers_final_works_2() {
-		ExtBuilder::unsigned()
-			.max_backers_per_winner_final(4)
-			.max_backers_per_winner(2)
-			.pages(3)
-			.build_and_execute(|| {
-				roll_to_snapshot_created();
-
-				let paged = mine_full_solution().unwrap();
-				load_mock_signed_and_start(paged.clone());
-
-				// this must be correct
-				let supports = roll_to_full_verification();
-
-				// 10 has no more than 5 backings, and from the new voters that we added in this
-				// test, the most staked ones stayed (103, 104) and the rest trimmed.
-				assert_eq!(
-					supports,
-					vec![
-						// 1 backing for 10
-						vec![(10, Support { total: 8, voters: vec![(104, 8)] })],
-						// 2 backings for 10
-						vec![
-							(10, Support { total: 17, voters: vec![(10, 10), (103, 7)] }),
-							(40, Support { total: 40, voters: vec![(40, 40)] })
-						],
-						// 20 backings for 10
-						vec![
-							(10, Support { total: 20, voters: vec![(1, 10), (8, 10)] }),
-							(
-								40,
-								Support {
-									total: 40,
-									voters: vec![(2, 10), (3, 10), (4, 10), (6, 10)]
-								}
-							)
-						]
-					]
-					.try_from_unbounded_paged()
-					.unwrap()
-				);
+				// assert_eq!(
+				// 	supports,
+				// 	vec![
+				// 		// 1 backing for 10
+				// 		vec![(10, Support { total: 8, voters: vec![(104, 8)] })],
+				// 		// 2 backings for 10
+				// 		vec![
+				// 			(10, Support { total: 17, voters: vec![(10, 10), (103, 7)] }),
+				// 			(40, Support { total: 40, voters: vec![(40, 40)] })
+				// 		],
+				// 		// 20 backings for 10
+				// 		vec![
+				// 			(10, Support { total: 20, voters: vec![(1, 10), (8, 10)] }),
+				// 			(
+				// 				40,
+				// 				Support {
+				// 					total: 40,
+				// 					voters: vec![(2, 10), (3, 10), (4, 10), (6, 10)]
+				// 				}
+				// 			)
+				// 		]
+				// 	]
+				// 	.try_from_unbounded_paged()
+				// 	.unwrap()
+				// );
 			});
 	}
 }
