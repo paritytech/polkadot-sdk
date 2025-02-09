@@ -331,13 +331,13 @@ pub mod pallet {
 		/// # Example: Using Relay Chain Block Numbers
 		/// ```rust,ignore
 		/// impl Config for Runtime {
-		///     type BlockNumberProvider = RelayChainBlockNumber;
+		///     type BlockNumberProvider = frame_system::Pallet<Runtime>;
 		/// }
 		/// ```
 		///
 		/// # Warning
 		/// Only implement custom providers if you need alternative timekeeping - most
-		/// pallets should use the system block number through `frame_system::Pallet<T>`.
+		/// pallets should use the system block number through `frame_system::Pallet<Runtime>`.
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber: Default>;
 
 		/// Setup the state for benchmarking.
