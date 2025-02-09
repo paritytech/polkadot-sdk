@@ -59,6 +59,9 @@ pub use types::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod weights;
+
+pub use weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -69,7 +72,6 @@ mod tests;
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use frame_system::WeightInfo;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -303,7 +305,7 @@ pub mod pallet {
 		/// ## Events
 		/// Emits [`Event::<T>::Projectslisted`].
 		#[pallet::call_index(1)]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::register_projects_batch(T::MaxProjects::get()))]
 		pub fn register_projects_batch(
 			origin: OriginFor<T>,
 			projects_id: BoundedVec<ProjectId<T>, T::MaxProjects>,
@@ -381,7 +383,7 @@ pub mod pallet {
 		/// ## Events
 		/// Emits [`Event::<T>::ProjectUnlisted`].
 		#[pallet::call_index(2)]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_project(T::MaxProjects::get()))]
 		pub fn unregister_project(
 			origin: OriginFor<T>,
 			project_id: ProjectId<T>,
@@ -426,7 +428,7 @@ pub mod pallet {
 		/// - [`Event::<T>::VoteCasted { who, when, project_id }`]: User's vote successfully
 		///   submitted
 		#[pallet::call_index(3)]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::vote(T::MaxProjects::get()))]
 		pub fn vote(
 			origin: OriginFor<T>,
 			project_id: ProjectId<T>,
@@ -486,7 +488,7 @@ pub mod pallet {
 		/// - [`Event::<T>::VoteRemoved { who, when, project_id }`]: User's vote successfully
 		///   removed
 		#[pallet::call_index(4)]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_vote(T::MaxProjects::get()))]
 		pub fn remove_vote(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let voter = ensure_signed(origin.clone())?;
 			// Get current voting round & check if we are in voting period or not
@@ -524,7 +526,7 @@ pub mod pallet {
 		/// ## Events
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
 		#[pallet::call_index(5)]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
 		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let now = T::BlockNumberProvider::current_block_number();
@@ -555,7 +557,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(6)]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::on_registration(T::MaxProjects::get()))]
 		pub fn on_registration(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _who = T::SubmitOrigin::ensure_origin(origin.clone())?;
 			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
@@ -612,7 +614,7 @@ pub mod pallet {
 		///  
 		/// ## Events
 		#[pallet::call_index(7)]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::release_voter_funds(T::MaxProjects::get()))]
 		pub fn release_voter_funds(
 			origin: OriginFor<T>,
 			project_id: ProjectId<T>,
@@ -637,7 +639,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(8)]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_vote(T::MaxProjects::get()))]
 		pub fn execute_call_dispatch(
 			origin: OriginFor<T>,
 			caller: T::AccountId,

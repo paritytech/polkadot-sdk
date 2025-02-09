@@ -1668,7 +1668,7 @@ impl pallet_opf::Config for Runtime {
 	/// This should be calculated as a percentage of inflation.
 	type TemporaryRewards = TemporaryRewards;
 
-	type WeightInfo = (); //pallet_opf::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_authority_discovery::Config for Runtime {
