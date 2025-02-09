@@ -50,7 +50,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 /// - `Some(true)`: hash resolves into call if possible, plain call otherwise
 /// - `Some(false)`: plain call
 fn fill_schedule<T: Config>(
-	when: frame_system::pallet_prelude::BlockNumberFor<T>,
+	when: BlockNumberFor<T>,
 	n: u32,
 ) -> Result<(), &'static str> {
 	let t = DispatchTime::At(when);
