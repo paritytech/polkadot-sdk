@@ -355,6 +355,11 @@ where
 {
 	const ALLOWED_REGISTERS: usize = 6;
 
+	// too many arguments
+	if param_names.clone().count() > ALLOWED_REGISTERS {
+		panic!("Syscalls take a maximum of {ALLOWED_REGISTERS} arguments");
+	}
+
 	// all of them take one register but we truncate them before passing into the function
 	// it is important to not allow any type which has illegal bit patterns like 'bool'
 	if !param_types.clone().all(|ty| {
@@ -369,39 +374,7 @@ where
 		panic!("Only primitive unsigned integers are allowed as arguments to syscalls");
 	}
 
-	// too many arguments: pass as pointer to a struct in memory
-	if param_names.clone().count() > ALLOWED_REGISTERS {
-		let fields = param_names.clone().zip(param_types.clone()).map(|(name, ty)| {
-			quote! {
-				#name: #ty,
-			}
-		});
-		return quote! {
-			#[derive(Default)]
-			#[repr(C)]
-			struct Args {
-				#(#fields)*
-			}
-			let Args { #(#param_names,)* } = {
-				let len = ::core::mem::size_of::<Args>();
-				let mut args = Args::default();
-				let ptr = &mut args as *mut Args as *mut u8;
-				// Safety
-				// 1. The struct is initialized at all times.
-				// 2. We only allow primitive integers (no bools) as arguments so every bit pattern is safe.
-				// 3. The reference doesn't outlive the args field.
-				// 4. There is only the single reference to the args field.
-				// 5. The length of the generated slice is the same as the struct.
-				let reference = unsafe {
-					::core::slice::from_raw_parts_mut(ptr, len)
-				};
-				memory.read_into_buf(__a0__ as _, reference)?;
-				args
-			};
-		}
-	}
-
-	// otherwise: one argument per register
+	// one argument per register
 	let bindings = param_names.zip(param_types).enumerate().map(|(idx, (name, ty))| {
 		let reg = quote::format_ident!("__a{}__", idx);
 		quote! {
@@ -510,13 +483,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 			quote! {
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
-				if ::log::log_enabled!(target: "runtime::revive::strace", ::log::Level::Trace) {
-						use core::fmt::Write;
-						let mut w = sp_std::Writer::default();
-						let _ = core::write!(&mut w, #trace_fmt_str, #( #trace_fmt_args, )* result);
-						let msg = core::str::from_utf8(&w.inner()).unwrap_or_default();
-						self.ext().append_debug_buffer(msg);
-				}
+				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result);
 				result
 			}
 		};

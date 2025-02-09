@@ -87,7 +87,7 @@ pub struct Block {
 	/// Total difficulty
 	#[serde(rename = "totalDifficulty", skip_serializing_if = "Option::is_none")]
 	pub total_difficulty: Option<U256>,
-	pub transactions: H256OrTransactionInfo,
+	pub transactions: HashesOrTransactionInfos,
 	/// Transactions root
 	#[serde(rename = "transactionsRoot")]
 	pub transactions_root: H256,
@@ -357,15 +357,15 @@ pub enum BlockTag {
 	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
 )]
 #[serde(untagged)]
-pub enum H256OrTransactionInfo {
+pub enum HashesOrTransactionInfos {
 	/// Transaction hashes
-	H256s(Vec<H256>),
+	Hashes(Vec<H256>),
 	/// Full transactions
 	TransactionInfos(Vec<TransactionInfo>),
 }
-impl Default for H256OrTransactionInfo {
+impl Default for HashesOrTransactionInfos {
 	fn default() -> Self {
-		H256OrTransactionInfo::H256s(Default::default())
+		HashesOrTransactionInfos::Hashes(Default::default())
 	}
 }
 
@@ -377,17 +377,17 @@ pub struct Log {
 	/// address
 	pub address: Address,
 	/// block hash
-	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
-	pub block_hash: Option<H256>,
+	#[serde(rename = "blockHash")]
+	pub block_hash: H256,
 	/// block number
-	#[serde(rename = "blockNumber", skip_serializing_if = "Option::is_none")]
-	pub block_number: Option<U256>,
+	#[serde(rename = "blockNumber")]
+	pub block_number: U256,
 	/// data
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub data: Option<Bytes>,
 	/// log index
-	#[serde(rename = "logIndex", skip_serializing_if = "Option::is_none")]
-	pub log_index: Option<U256>,
+	#[serde(rename = "logIndex")]
+	pub log_index: U256,
 	/// removed
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub removed: Option<bool>,
@@ -398,8 +398,8 @@ pub struct Log {
 	#[serde(rename = "transactionHash")]
 	pub transaction_hash: H256,
 	/// transaction index
-	#[serde(rename = "transactionIndex", skip_serializing_if = "Option::is_none")]
-	pub transaction_index: Option<U256>,
+	#[serde(rename = "transactionIndex")]
+	pub transaction_index: U256,
 }
 
 /// Syncing progress

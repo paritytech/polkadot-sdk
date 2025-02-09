@@ -29,14 +29,13 @@ pub use crate::wasm::runtime::{ReturnData, TrapReason};
 pub use crate::wasm::runtime::{Memory, Runtime, RuntimeCosts};
 
 use crate::{
-	address::AddressMapper,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
 	limits,
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, Event, ExecError,
-	HoldReason, Pallet, PristineCode, Weight, LOG_TARGET,
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, ExecError, HoldReason,
+	PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -157,16 +156,9 @@ where
 					code_info.deposit,
 					BestEffort,
 				);
-				let deposit_released = code_info.deposit;
-				let remover = T::AddressMapper::to_address(&code_info.owner);
 
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
-				<Pallet<T>>::deposit_event(Event::CodeRemoved {
-					code_hash,
-					deposit_released,
-					remover,
-				});
 				Ok(())
 			} else {
 				Err(<Error<T>>::CodeNotFound.into())
@@ -193,20 +185,15 @@ where
 						&HoldReason::CodeUploadDepositReserve.into(),
 						&self.code_info.owner,
 						deposit,
-					) .map_err(|err| { log::debug!(target: LOG_TARGET, "failed to store code for owner: {:?}: {err:?}", self.code_info.owner);
-						<Error<T>>::StorageDepositNotEnoughFunds
+					) .map_err(|err| {
+							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
+							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
 					}
 
 					self.code_info.refcount = 0;
 					<PristineCode<T>>::insert(code_hash, &self.code);
 					*stored_code_info = Some(self.code_info.clone());
-					let uploader = T::AddressMapper::to_address(&self.code_info.owner);
-					<Pallet<T>>::deposit_event(Event::CodeStored {
-						code_hash,
-						deposit_held: deposit,
-						uploader,
-					});
 					Ok(deposit)
 				},
 			}
@@ -227,13 +214,9 @@ impl<T: Config> CodeInfo<T> {
 	}
 
 	/// Returns reference count of the module.
+	#[cfg(test)]
 	pub fn refcount(&self) -> u64 {
 		self.refcount
-	}
-
-	/// Return mutable reference to the refcount of the module.
-	pub fn refcount_mut(&mut self) -> &mut u64 {
-		&mut self.refcount
 	}
 
 	/// Returns the deposit of the module.
@@ -244,6 +227,47 @@ impl<T: Config> CodeInfo<T> {
 	/// Returns the code length.
 	pub fn code_len(&self) -> u64 {
 		self.code_len.into()
+	}
+
+	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
+	/// Increment the reference count of a stored code by one.
+	///
+	/// # Errors
+	///
+	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
+	/// `code_hash`.
+	pub fn increment_refcount(code_hash: H256) -> DispatchResult {
+		<CodeInfoOf<T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
+			if let Some(info) = existing {
+				info.refcount = info
+					.refcount
+					.checked_add(1)
+					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+				Ok(())
+			} else {
+				Err(Error::<T>::CodeNotFound.into())
+			}
+		})
+	}
+
+	/// Decrement the reference count of a stored code by one.
+	///
+	/// # Note
+	///
+	/// A contract whose reference count dropped to zero isn't automatically removed. A
+	/// `remove_code` transaction must be submitted by the original uploader to do so.
+	pub fn decrement_refcount(code_hash: H256) -> DispatchResult {
+		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
+			if let Some(info) = existing {
+				info.refcount = info
+					.refcount
+					.checked_sub(1)
+					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+				Ok(())
+			} else {
+				Err(Error::<T>::CodeNotFound.into())
+			}
+		})
 	}
 }
 
@@ -287,7 +311,7 @@ impl<T: Config> WasmBlob<T> {
 		}
 		let engine = polkavm::Engine::new(&config).expect(
 			"on-chain (no_std) use of interpreter is hard coded.
-				interpreter is available on all plattforms; qed",
+				interpreter is available on all platforms; qed",
 		);
 
 		let mut module_config = polkavm::ModuleConfig::new();
@@ -299,15 +323,6 @@ impl<T: Config> WasmBlob<T> {
 			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
 			Error::<T>::CodeRejected
 		})?;
-
-		// This is checked at deploy time but we also want to reject pre-existing
-		// 32bit programs.
-		// TODO: Remove when we reset the test net.
-		// https://github.com/paritytech/contract-issues/issues/11
-		if !module.is_64_bit() {
-			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
-			Err(Error::<T>::CodeRejected)?;
-		}
 
 		let entry_program_counter = module
 			.exports()
@@ -321,11 +336,6 @@ impl<T: Config> WasmBlob<T> {
 			log::debug!(target: LOG_TARGET, "failed to instantiate polkavm module: {err:?}");
 			Error::<T>::CodeRejected
 		})?;
-
-		// Increment before execution so that the constructor sees the correct refcount
-		if let ExportedFunction::Constructor = entry_point {
-			E::increment_refcount(self.code_hash)?;
-		}
 
 		instance.set_gas(gas_limit_polkavm);
 		instance.prepare_call_untyped(entry_program_counter, &[]);
