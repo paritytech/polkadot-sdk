@@ -12404,7 +12404,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -15401,8 +15401,6 @@ dependencies = [
  "pallet-remark",
  "pallet-revive",
  "pallet-revive-eth-rpc",
- "pallet-revive-fixtures",
- "pallet-revive-mock-network",
  "pallet-revive-proc-macro",
  "pallet-revive-uapi",
  "pallet-root-offences",
@@ -26923,10 +26921,13 @@ name = "xcm-executor-integration-tests"
 version = "1.0.0"
 dependencies = [
  "frame-support",
+ "frame-system",
  "futures",
+ "pallet-sudo",
  "pallet-transaction-payment",
  "pallet-xcm",
  "parity-scale-codec",
+ "polkadot-runtime-parachains",
  "polkadot-test-client",
  "polkadot-test-runtime",
  "polkadot-test-service",

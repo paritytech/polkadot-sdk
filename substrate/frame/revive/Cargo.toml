@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive"
-version = "0.3.0"
+version = "0.3.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,7 +9,6 @@ repository.workspace = true
 description = "FRAME pallet for PolkaVM contracts."
 readme = "README.md"
 include = ["CHANGELOG.md", "README.md", "build.rs", "src/**/*"]
-publish = false
 
 [lints]
 workspace = true
@@ -39,7 +38,6 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-balances = { optional = true, workspace = true }
-pallet-revive-fixtures = { workspace = true, optional = true, default-features = false }
 pallet-revive-uapi.workspace = true
 pallet-revive-uapi.default-features = true
 pallet-revive-proc-macro.workspace = true
@@ -91,7 +89,6 @@ std = [
 	"jsonrpsee",
 	"log/std",
 	"pallet-balances?/std",
-	"pallet-revive-fixtures?/std",
 	"pallet-transaction-payment/std",
 	"polkavm/std",
 	"rlp/std",
@@ -113,7 +110,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-revive-fixtures",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
