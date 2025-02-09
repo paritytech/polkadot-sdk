@@ -979,7 +979,7 @@ pub mod pallet {
 		/// Remove a lease.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
-		/// - `task`: The workload of the lease which should be removed.
+		/// - `task`: The task id of the lease which should be removed.
 		#[pallet::call_index(24)]
 		pub fn remove_lease(origin: OriginFor<T>, task: TaskId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
