@@ -194,10 +194,16 @@ mod benches {
 	#[benchmark]
 	fn remove_lease() -> Result<(), BenchmarkError> {
 		let task = 1u32;
-		let until = 10u32.into();
+		let until = 10u32;
 
 		// Assume Leases to be almost filled for worst case
-		setup_leases::<T>(T::MaxLeasedCores::get(), task, until);
+		let mut leases = vec![
+			LeaseRecordItem { task, until };
+			T::MaxLeasedCores::get().saturating_sub(1) as usize
+		];
+		let task = 2u32;
+		leases.push(LeaseRecordItem { task, until });
+		Leases::<T>::put(BoundedVec::try_from(leases).unwrap());
 
 		let origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
