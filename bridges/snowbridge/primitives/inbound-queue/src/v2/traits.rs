@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Snowfork <hello@snowfork.com>
 // SPDX-FileCopyrightText: 2021-2025 Parity Technologies (UK) Ltd.
-
-use codec::{Encode, Decode};
 use sp_core::RuntimeDebug;
 use xcm::latest::Xcm;
 use super::Message;
@@ -16,7 +14,7 @@ pub trait ConvertMessage {
 }
 
 /// Reason why a message conversion failed.
-#[derive(Copy, Clone, Encode, Decode, RuntimeDebug, PartialEq)]
+#[derive(Copy, Clone, RuntimeDebug, PartialEq)]
 pub enum ConvertMessageError {
 	/// Invalid foreign ERC-20 token ID
 	InvalidAsset,
