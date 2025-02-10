@@ -3394,7 +3394,7 @@ impl_runtime_apis! {
 				code,
 				storage_deposit_limit.unwrap_or(u128::MAX),
 			)
-
+		}
 
 		fn get_storage(
 			address: H160,
@@ -3415,6 +3415,9 @@ impl_runtime_apis! {
 			let mut tracer = config.build(Revive::evm_weight_to_gas);
 			let mut traces = vec![];
 			let (header, extrinsics) = block.deconstruct();
+
+			log::debug!(target: "runtime::revive", "Tracing headers {header:?}");
+			log::debug!(target: "runtime::revive", "Tracing extrinsics {extrinsics:?}");
 
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {

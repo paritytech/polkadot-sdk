@@ -26,12 +26,13 @@ use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes, CallTrace,
-		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
+		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, CallTrace, Filter,
+		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
 		TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
+use sp_runtime::OpaqueExtrinsic;
 use sp_weights::Weight;
 use std::{ops::ControlFlow, sync::Arc, time::Duration};
 use subxt::{
@@ -226,10 +227,6 @@ pub async fn connect(
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
 	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
 	Ok((api, rpc_client, rpc))
-}
-
-fn to_hex(bytes: impl AsRef<[u8]>) -> String {
-	format!("0x{}", hex::encode(bytes.as_ref()))
 }
 
 impl Client {
@@ -663,11 +660,17 @@ impl Client {
 				self.get_block_hash(block_number).await?
 			},
 			BlockNumberOrTag::BlockTag(_) => self.latest_block().await.map(|b| b.hash()),
-		};
-		let block_hash = block_hash.ok_or(ClientError::BlockNotFound)?;
+		}
+		.ok_or(ClientError::BlockNotFound)?;
 
-		let block = self.block_by_hash(&block_hash).await.ok_or(ClientError::BlockNotFound)?;
-		let header = block.header();
+		let block = self
+			.rpc
+			.chain_get_block(Some(block_hash))
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
+
+		let header = block.block.header;
+		let parent_hash = header.parent_hash;
 		let exts = block
 			.block
 			.extrinsics
@@ -675,17 +678,17 @@ impl Client {
 			.filter_map(|e| OpaqueExtrinsic::decode(&mut &e[..]).ok())
 			.collect::<Vec<_>>();
 
-		let params =
-			subxt::rpc_params![to_hex((header, exts).encode()), to_hex(tracer_config.encode())];
+		let params = ((header, exts), tracer_config).encode();
 
-		let bytes: Bytes = self
-			.state_call("ReviveApi_trace_block", params, block_hash)
+		let bytes = self
+			.rpc
+			.state_call("ReviveApi_trace_block", Some(&params), Some(parent_hash))
 			.await
 			.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
 			})?;
 
-		let traces = Vec::<(u32, CallTrace)>::decode(&mut &bytes.0[..])?;
+		let traces = Vec::<(u32, CallTrace)>::decode(&mut &bytes[..])?;
 
 		let mut hashes = self
 			.receipt_provider
@@ -715,10 +718,17 @@ impl Client {
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		log::debug!(target: LOG_TARGET, "Found eth_tx at {block_hash:?} index: {transaction_index:?}");
+		log::debug!(target: LOG_TARGET, "Found eth_tx at {block_hash:?} index:
+		 {transaction_index:?}");
 
-		let block = self.block_by_hash(&block_hash).await.ok_or(ClientError::BlockNotFound)?;
-		let header = block.header();
+		let block = self
+			.rpc
+			.chain_get_block(Some(block_hash))
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
+
+		let header = block.block.header;
+		let parent_hash = header.parent_hash;
 		let exts = block
 			.block
 			.extrinsics
@@ -726,18 +736,16 @@ impl Client {
 			.filter_map(|e| OpaqueExtrinsic::decode(&mut &e[..]).ok())
 			.collect::<Vec<_>>();
 
-		let params = subxt::rpc_params![
-			to_hex((header, exts).encode()),
-			to_hex(transaction_index.as_u32()),
-			to_hex(tracer_config.encode())
-		];
-
-		let bytes: Bytes =
-			self.state_call("ReviveApi_trace_tx", params).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
+		let params = ((header, exts), transaction_index.as_u32(), tracer_config).encode();
+		let bytes = self
+			.rpc
+			.state_call("ReviveApi_trace_tx", Some(&params), Some(parent_hash))
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
 			})?;
 
-		let trace = Option::<CallTrace>::decode(&mut &bytes.0[..])?;
+		let trace = Option::<CallTrace>::decode(&mut &bytes[..])?;
 		Ok(trace.ok_or(ClientError::EthExtrinsicNotFound)?)
 	}
 

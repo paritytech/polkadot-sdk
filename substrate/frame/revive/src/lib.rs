@@ -41,7 +41,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, GasEncoder, GenericTransaction},
+	evm::{runtime::GAS_PRICE, CallTrace, GasEncoder, GenericTransaction, TracerConfig},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -1329,7 +1329,7 @@ where
 	}
 
 	/// Convert a weight to a gas value.
-	fn evm_gas_to_fee(weight: Weight) -> U256 {
+	pub fn evm_weight_to_gas(weight: Weight) -> U256 {
 		let fee = T::WeightPrice::convert(weight);
 		Self::evm_fee_to_gas(fee)
 	}
@@ -1341,7 +1341,7 @@ where
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		Self::evm_gas_to_fee(max_block_weight)
+		Self::evm_weight_to_gas(max_block_weight)
 	}
 
 	/// Get the gas price.
