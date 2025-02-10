@@ -557,12 +557,13 @@ where
 
 	/// Creates a new [`MultiViewListener`] instance along with its associated worker task.
 	///
-	/// This function instantiates the new `MultiViewListener` and provides the worker task that relays messages to the
-	/// external transactions listeners. The task shall be polled by caller.
+	/// This function instantiates the new `MultiViewListener` and provides the worker task that
+	/// relays messages to the external transactions listeners. The task shall be polled by caller.
 	///
-	/// The `events_metrics_collector` is an instance of `EventsMetricsCollector` that is responsible for collecting and
-	/// managing metrics related to transaction events. Newly created instance of `MultiViewListener` will report
-	/// transaction status updates and its timestamps to the given metrics collector.
+	/// The `events_metrics_collector` is an instance of `EventsMetricsCollector` that is
+	/// responsible for collecting and managing metrics related to transaction events. Newly
+	/// created instance of `MultiViewListener` will report transaction status updates and its
+	/// timestamps to the given metrics collector.
 	///
 	/// Returns a tuple containing the [`MultiViewListener`] and the
 	/// [`MultiViewListenerTask`].

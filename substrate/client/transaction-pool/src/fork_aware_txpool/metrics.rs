@@ -18,12 +18,12 @@
 
 //! Prometheus's metrics for a fork-aware transaction pool.
 
+use super::tx_mem_pool::InsertionInfo;
 use crate::{
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
 	graph::{self, BlockHash, ExtrinsicHash},
 	LOG_TARGET,
 };
-use super::tx_mem_pool::InsertionInfo;
 use futures::{FutureExt, StreamExt};
 use prometheus_endpoint::{
 	exponential_buckets, histogram_opts, linear_buckets, register, Counter, Gauge, Histogram,
@@ -395,14 +395,13 @@ impl<ChainApi: graph::ChainApi> EventsMetricsCollector<ChainApi> {
 	// pub fn report_submitted(&self, tx_hash: ExtrinsicHash<ChainApi>, timestamp: Instant) {
 	pub fn report_submitted(&self, insertion_info: &InsertionInfo<ExtrinsicHash<ChainApi>>) {
 		self.metrics_message_sink.as_ref().map(|sink| {
-			if let Err(error) =
-				sink.unbounded_send(EventMetricsMessage::Submitted(
-						insertion_info
-							.source
-							.timestamp
-							.expect("timestamp is set in fork-aware pool. qed"),
-						insertion_info.hash))
-			{
+			if let Err(error) = sink.unbounded_send(EventMetricsMessage::Submitted(
+				insertion_info
+					.source
+					.timestamp
+					.expect("timestamp is set in fork-aware pool. qed"),
+				insertion_info.hash,
+			)) {
 				trace!(target: LOG_TARGET, %error, "tx status metrics message send failed")
 			}
 		});
