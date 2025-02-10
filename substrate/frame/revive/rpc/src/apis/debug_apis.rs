@@ -8,7 +8,7 @@ pub trait DebugRpc {
 	///
 	/// ## References
 	///
-	/// - https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtraceblockbynumber
+	/// - <https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtraceblockbynumb>er
 	#[method(name = "debug_traceBlockByNumber")]
 	async fn trace_block_by_number(
 		&self,
@@ -21,7 +21,7 @@ pub trait DebugRpc {
 	///
 	/// ## References
 	///
-	/// - https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracetransaction
+	/// - <https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracetransaction>
 	#[method(name = "debug_traceTransaction")]
 	async fn trace_transaction(
 		&self,
