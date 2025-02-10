@@ -98,6 +98,9 @@ define_error_codes! {
 	XcmExecutionFailed = 9,
 	/// The `xcm_send` call failed.
 	XcmSendFailed = 10,
+	/// Contract instantiation failed because the address already exists.
+	/// Occurs when instantiating the same contract with the same salt more than once.
+	DuplicateContractAddress = 11,
 }
 
 /// The raw return code returned by the host side.
