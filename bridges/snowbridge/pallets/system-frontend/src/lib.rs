@@ -24,7 +24,6 @@ use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
 use sp_std::prelude::*;
 use xcm::prelude::*;
-use xcm_executor::traits::TransactAsset;
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::OriginTrait;
@@ -75,8 +74,8 @@ pub mod pallet {
 		/// XCM message sender
 		type XcmSender: SendXcm;
 
-		/// To withdraw and deposit an asset.
-		type AssetTransactor: TransactAsset;
+		/// Handler for XCM fees.
+		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 
 		/// Fee asset for the execution cost on ethereum
 		type FeeAsset: Get<Location>;
@@ -107,7 +106,7 @@ pub mod pallet {
 		/// Convert versioned location failure
 		UnsupportedLocationVersion,
 		/// Check location failure, should start from the dispatch origin as owner
-		OwnerCheck,
+		InvalidAssetOwner,
 		/// Send xcm message failure
 		Send,
 		/// Withdraw fee asset failure
@@ -142,9 +141,9 @@ pub mod pallet {
 			]
 			.into();
 
-			Self::send(xcm)?;
+			Self::send(origin_location.clone(), xcm)?;
 
-			Self::deposit_event(Event::<T>::CreateAgent { location: origin_location.clone() });
+			Self::deposit_event(Event::<T>::CreateAgent { location: origin_location });
 			Ok(())
 		}
 
@@ -170,7 +169,7 @@ pub mod pallet {
 			if asset_location.eq(&origin_location) || asset_location.starts_with(&origin_location) {
 				checked = true
 			}
-			ensure!(checked, <Error<T>>::OwnerCheck);
+			ensure!(checked, <Error<T>>::InvalidAssetOwner);
 
 			Self::burn_fees(origin_location.clone(), fee)?;
 
@@ -191,7 +190,7 @@ pub mod pallet {
 			]
 			.into();
 
-			Self::send(xcm)?;
+			Self::send(origin_location, xcm)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken { location: asset_location });
 
@@ -200,21 +199,19 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn send(xcm: Xcm<()>) -> DispatchResult {
+		pub fn send(origin: Location, xcm: Xcm<()>) -> DispatchResult {
 			let bridgehub = Location::new(1, [Parachain(1002)]);
-			send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
+			let (_, price) =
+				send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
+			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;
 			Ok(())
 		}
 		pub fn burn_fees(origin_location: Location, fee: u128) -> DispatchResult {
 			let ethereum_fee_asset = (T::FeeAsset::get(), fee).into();
-			T::AssetTransactor::withdraw_asset(&ethereum_fee_asset, &origin_location, None)
+			T::XcmExecutor::charge_fees(origin_location.clone(), ethereum_fee_asset)
 				.map_err(|_| Error::<T>::FundsUnavailable)?;
-			T::AssetTransactor::withdraw_asset(
-				&T::RemoteExecutionFee::get(),
-				&origin_location,
-				None,
-			)
-			.map_err(|_| Error::<T>::FundsUnavailable)?;
+			T::XcmExecutor::charge_fees(origin_location, T::RemoteExecutionFee::get().into())
+				.map_err(|_| Error::<T>::FundsUnavailable)?;
 			Ok(())
 		}
 	}

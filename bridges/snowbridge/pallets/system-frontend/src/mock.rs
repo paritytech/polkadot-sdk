@@ -11,7 +11,6 @@ use sp_runtime::{
 	AccountId32, BuildStorage,
 };
 use xcm::prelude::*;
-use xcm_executor::{traits::TransactAsset, AssetsInHolding};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::BenchmarkHelper;
@@ -136,50 +135,35 @@ impl SendXcm for MockXcmSender {
 	}
 }
 
-pub struct SuccessfulTransactor;
-impl TransactAsset for SuccessfulTransactor {
-	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-		Ok(())
-	}
-
-	fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-		Ok(())
-	}
-
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
-		Ok(())
-	}
-
-	fn withdraw_asset(
-		_what: &Asset,
-		_who: &Location,
-		_context: Option<&XcmContext>,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
-	}
-
-	fn internal_transfer_asset(
-		_what: &Asset,
-		_from: &Location,
-		_to: &Location,
-		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
-	}
-}
-
 parameter_types! {
-	pub storage WETH: Location = Location::new(
+	pub storage Ether: Location = Location::new(
 				2,
 				[
 					GlobalConsensus(Ethereum { chain_id: 11155111 }),
-					AccountKey20 {
-						network: None,
-						key: hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"),
-					},
 				],
 	);
 	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
+}
+
+pub enum Weightless {}
+impl PreparedMessage for Weightless {
+	fn weight_of(&self) -> Weight {
+		unreachable!();
+	}
+}
+
+pub struct MockXcmExecutor;
+impl<C> ExecuteXcm<C> for MockXcmExecutor {
+	type Prepared = Weightless;
+	fn prepare(message: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
+		Err(message)
+	}
+	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
+		unreachable!()
+	}
+	fn charge_fees(_: impl Into<Location>, _: Assets) -> xcm::latest::Result {
+		Ok(())
+	}
 }
 
 impl crate::Config for Test {
@@ -190,9 +174,9 @@ impl crate::Config for Test {
 	type CreateAgentOrigin = EnsureXcm<Everything>;
 	type RegisterTokenOrigin = EnsureXcm<Everything>;
 	type XcmSender = MockXcmSender;
-	type AssetTransactor = SuccessfulTransactor;
-	type FeeAsset = WETH;
+	type FeeAsset = Ether;
 	type RemoteExecutionFee = DeliveryFee;
+	type XcmExecutor = MockXcmExecutor;
 }
 
 // Build genesis storage according to the mock runtime.
