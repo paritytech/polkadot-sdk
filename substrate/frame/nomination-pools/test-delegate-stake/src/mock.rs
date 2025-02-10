@@ -269,6 +269,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
