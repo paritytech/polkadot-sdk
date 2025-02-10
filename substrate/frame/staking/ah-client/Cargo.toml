@@ -15,6 +15,7 @@ log = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-session = { features = [	"historical",], workspace = true }
 pallet-staking = { workspace = true}
+pallet-staking-rc-client = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
@@ -33,6 +34,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-session/std",
 	"pallet-staking/std",
+	"pallet-staking-rc-client/std",
 	"polkadot-primitives/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -44,6 +46,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-staking-rc-client/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -55,5 +58,6 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
+	"pallet-staking-rc-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]
