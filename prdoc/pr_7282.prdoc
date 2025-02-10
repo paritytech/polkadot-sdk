@@ -1,0 +1,96 @@
+title: '[AHM] Multi-block staking election pallet'
+doc:
+- audience: Todo
+  description: |-
+    ## Replaces
+
+    - [x] https://github.com/paritytech/polkadot-sdk/pull/6034
+    - [ ] https://github.com/paritytech/polkadot-sdk/pull/5272
+    - [ ] https://github.com/paritytech/polkadot-sdk/pull/6520
+
+    ## Related PRs:
+
+    - [ ] https://github.com/paritytech/polkadot-sdk/pull/6445
+    - [ ] https://github.com/paritytech/polkadot-sdk/pull/7357
+    - [ ] https://github.com/paritytech/polkadot-sdk/pull/6788
+    - [ ] https://github.com/paritytech/polkadot-staking-miner/pull/955
+
+    This branch can be periodically merged into https://github.com/paritytech/polkadot-sdk/pull/7358 -> https://github.com/paritytech/polkadot-sdk/pull/6996
+
+    ## TODOs:
+
+    - [x] rebase to master
+    - Benchmarking for staking critical path
+      - [x] snapshot
+      - [x] election result
+    - Benchmarking for EPMB critical path
+      - [x] snapshot
+      - [x] verification
+      - [x] submission
+      - [x] unsigned submission
+      - [ ] election results fetching
+    - [ ] Fix deletion weights. Either of
+      - [ ] Garbage collector + lazy removal of all paged storage items
+      - [ ] Confirm that deletion is small PoV footprint.
+    - [ ] integrity checks for bounds
+    - [x] add try-state to all pallets
+    - [x] Staking to allow genesis dev accounts to be created internally
+    - [x] Decouple miner config so @niklasad1 can work on the miner 72841b731727e69db38f9bd616190aa8d50a56ba
+    - [ ] duplicate snapshot page reported by @niklasad1
+crates:
+- name: pallet-election-provider-multi-block
+  bump: major
+- name: frame-election-provider-support
+  bump: major
+- name: frame-election-provider-solution-type
+  bump: major
+- name: sp-npos-elections
+  bump: major
+- name: sp-staking
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-delegated-staking
+  bump: major
+- name: pallet-fast-unstake
+  bump: major
+- name: pallet-session-benchmarking
+  bump: major
+- name: sc-consensus-grandpa
+  bump: major
+- name: pallet-babe
+  bump: major
+- name: pallet-beefy
+  bump: major
+- name: pallet-grandpa
+  bump: major
+- name: pallet-nomination-pools
+  bump: major
+- name: pallet-root-offences
+  bump: major
+- name: pallet-nomination-pools-benchmarking
+  bump: major
+- name: pallet-offences-benchmarking
+  bump: major
+- name: cumulus-pov-validator
+  bump: major
+- name: polkadot-sdk
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: pallet-bags-list
+  bump: major
+- name: frame-benchmarking
+  bump: major
+- name: frame-support-procedural
+  bump: major
+- name: frame-support
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
