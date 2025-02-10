@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use super::*;
-use crate::BlockInfoProvider;
+use crate::{BlockInfoProvider, ReceiptExtractor};
 use jsonrpsee::core::async_trait;
 use pallet_revive::evm::{ReceiptInfo, TransactionSigned};
-use sp_core::{H256, U256};
+use sp_core::H256;
 use sqlx::{query, SqlitePool};
 use std::sync::Arc;
 
@@ -30,23 +30,24 @@ pub struct DBReceiptProvider {
 	pool: SqlitePool,
 	/// The block provider used to fetch blocks, and reconstruct receipts.
 	block_provider: Arc<dyn BlockInfoProvider>,
-	/// weather or not we should write to the DB.
-	read_only: bool,
+	/// A means to extract receipts from extrinsics.
+	receipt_extractor: ReceiptExtractor,
 }
 
 impl DBReceiptProvider {
 	/// Create a new `DBReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
 		database_url: &str,
-		read_only: bool,
 		block_provider: Arc<dyn BlockInfoProvider>,
+		receipt_extractor: ReceiptExtractor,
 	) -> Result<Self, sqlx::Error> {
 		let pool = SqlitePool::connect(database_url).await?;
-		Ok(Self { pool, block_provider, read_only })
+		sqlx::migrate!().run(&pool).await?;
+		Ok(Self { pool, block_provider, receipt_extractor })
 	}
 
 	async fn fetch_row(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
-		let transaction_hash = hex::encode(transaction_hash);
+		let transaction_hash = transaction_hash.as_ref();
 		let result = query!(
 			r#"
 			SELECT block_hash, transaction_index
@@ -59,7 +60,7 @@ impl DBReceiptProvider {
 		.await
 		.ok()??;
 
-		let block_hash = result.block_hash.parse::<H256>().ok()?;
+		let block_hash = H256::from_slice(&result.block_hash[..]);
 		let transaction_index = result.transaction_index.try_into().ok()?;
 		Some((block_hash, transaction_index))
 	}
@@ -67,45 +68,38 @@ impl DBReceiptProvider {
 
 #[async_trait]
 impl ReceiptProvider for DBReceiptProvider {
-	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
-		if self.read_only {
-			return
-		}
+	async fn remove(&self, _block_hash: &H256) {}
 
-		let block_hash_str = hex::encode(block_hash);
+	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
+		self.insert(block_hash, receipts).await;
+	}
+
+	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
+		let block_hash = block_hash.as_ref();
 		for (_, receipt) in receipts {
-			let transaction_hash = hex::encode(receipt.transaction_hash);
+			let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
 			let transaction_index = receipt.transaction_index.as_u32() as i32;
 
 			let result = query!(
 				r#"
-				INSERT INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+				INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
 				VALUES ($1, $2, $3)
-
-				ON CONFLICT(transaction_hash) DO UPDATE SET
-				block_hash = EXCLUDED.block_hash,
-				transaction_index = EXCLUDED.transaction_index
 				"#,
 				transaction_hash,
-				block_hash_str,
+				block_hash,
 				transaction_index
 			)
 			.execute(&self.pool)
 			.await;
 
 			if let Err(err) = result {
-				log::error!(
-					"Error inserting transaction for block hash {block_hash:?}:  {:?}",
-					err
-				);
+				log::error!("Error inserting transaction for block hash {block_hash:?}: {err:?}");
 			}
 		}
 	}
 
-	async fn remove(&self, _block_hash: &H256) {}
-
 	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<usize> {
-		let block_hash = hex::encode(block_hash);
+		let block_hash = block_hash.as_ref();
 		let row = query!(
 			r#"
             SELECT COUNT(*) as count
@@ -125,12 +119,14 @@ impl ReceiptProvider for DBReceiptProvider {
 	async fn receipt_by_block_hash_and_index(
 		&self,
 		block_hash: &H256,
-		transaction_index: &U256,
+		transaction_index: usize,
 	) -> Option<ReceiptInfo> {
 		let block = self.block_provider.block_by_hash(block_hash).await.ok()??;
-		let transaction_index: usize = transaction_index.as_usize(); // TODO: check for overflow
-		let (_, receipt) =
-			extract_receipts_from_transaction(&block, transaction_index).await.ok()?;
+		let (_, receipt) = self
+			.receipt_extractor
+			.extract_from_transaction(&block, transaction_index)
+			.await
+			.ok()?;
 		Some(receipt)
 	}
 
@@ -138,13 +134,16 @@ impl ReceiptProvider for DBReceiptProvider {
 		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let (_, receipt) =
-			extract_receipts_from_transaction(&block, transaction_index).await.ok()?;
+		let (_, receipt) = self
+			.receipt_extractor
+			.extract_from_transaction(&block, transaction_index)
+			.await
+			.ok()?;
 		Some(receipt)
 	}
 
 	async fn signed_tx_by_hash(&self, transaction_hash: &H256) -> Option<TransactionSigned> {
-		let transaction_hash = hex::encode(transaction_hash);
+		let transaction_hash = transaction_hash.as_ref();
 		let result = query!(
 			r#"
 			SELECT block_hash, transaction_index
@@ -157,12 +156,15 @@ impl ReceiptProvider for DBReceiptProvider {
 		.await
 		.ok()??;
 
-		let block_hash = result.block_hash.parse::<H256>().ok()?;
+		let block_hash = H256::from_slice(&result.block_hash[..]);
 		let transaction_index = result.transaction_index.try_into().ok()?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let (signed_tx, _) =
-			extract_receipts_from_transaction(&block, transaction_index).await.ok()?;
+		let (signed_tx, _) = self
+			.receipt_extractor
+			.extract_from_transaction(&block, transaction_index)
+			.await
+			.ok()?;
 		Some(signed_tx)
 	}
 }
@@ -179,7 +181,7 @@ mod tests {
 		DBReceiptProvider {
 			pool,
 			block_provider: Arc::new(MockBlockInfoProvider {}),
-			read_only: false,
+			receipt_extractor: ReceiptExtractor::new(1_000_000),
 		}
 	}
 

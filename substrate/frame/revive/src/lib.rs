@@ -42,7 +42,7 @@ pub mod weights;
 
 use crate::{
 	evm::{runtime::GAS_PRICE, GasEncoder, GenericTransaction},
-	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
@@ -52,7 +52,7 @@ use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
 	dispatch::{
-		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
+		DispatchErrorWithPostInfo, DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
 		PostDispatchInfo, RawOrigin,
 	},
 	ensure,
@@ -70,7 +70,6 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	Pallet as System,
 };
-use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
@@ -92,7 +91,6 @@ pub use crate::wasm::SyscallDoc;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
-type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 
@@ -211,9 +209,8 @@ pub mod pallet {
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
-		/// Instantiating a contract, or calling [`chain_extension::Ext::lock_delegate_dependency`]
-		/// protects the code from being removed. In order to prevent abuse these actions are
-		/// protected with a percentage of the code deposit.
+		/// Instantiating a contract, protects the code from being removed. In order to prevent
+		/// abuse these actions are protected with a percentage of the code deposit.
 		#[pallet::constant]
 		type CodeHashLockupDepositPercent: Get<Perbill>;
 
@@ -493,6 +490,8 @@ pub mod pallet {
 		AccountAlreadyMapped,
 		/// The transaction used to dry-run a contract is invalid.
 		InvalidGenericTransaction,
+		/// The refcount of a code either over or underflowed.
+		RefcountOverOrUnderflow,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -908,8 +907,8 @@ pub mod pallet {
 				} else {
 					return Err(<Error<T>>::ContractNotFound.into());
 				};
-				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
-				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
+				<CodeInfo<T>>::increment_refcount(code_hash)?;
+				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
 				Ok(())
 			})
@@ -1110,24 +1109,21 @@ where
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
-	/// - `utx_encoded_size`: A function that takes a call and returns the encoded size of the
-	///   unchecked extrinsic.
+	/// - `tx_fee`: A function that returns the fee for the given call and dispatch info.
 	pub fn bare_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
-		utx_encoded_size: impl Fn(Call<T>) -> u32,
+		tx_fee: impl Fn(Call<T>, DispatchInfo) -> BalanceOf<T>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
-		T: pallet_transaction_payment::Config,
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
 		<T as Config>::RuntimeCall: From<crate::Call<T>>,
 		<T as Config>::RuntimeCall: Encode,
-		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		T::Nonce: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
 	{
-		log::debug!(target: LOG_TARGET, "bare_eth_transact: tx: {tx:?} gas_limit: {gas_limit:?}");
+		log::trace!(target: LOG_TARGET, "bare_eth_transact: tx: {tx:?} gas_limit: {gas_limit:?}");
 
 		let from = tx.from.unwrap_or_default();
 		let origin = T::AddressMapper::to_account_id(&from);
@@ -1297,19 +1293,12 @@ where
 
 		let eth_dispatch_call =
 			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
-
-		let encoded_len = utx_encoded_size(eth_dispatch_call);
-		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
-			encoded_len,
-			&dispatch_info,
-			0u32.into(),
-		)
-		.into();
-		let eth_gas = Self::evm_fee_to_gas(fee);
+		let fee = tx_fee(eth_dispatch_call, dispatch_info);
+		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
-			T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
+			T::EthGasEncoder::encode(raw_gas, result.gas_required, result.storage_deposit);
 
-		log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");
+		log::trace!(target: LOG_TARGET, "bare_eth_call: raw_gas: {raw_gas:?} eth_gas: {eth_gas:?}");
 		result.eth_gas = eth_gas;
 		Ok(result)
 	}
@@ -1320,7 +1309,7 @@ where
 		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
 	}
 
-	/// Convert an EVM fee into a gas value, using the fixed `GAS_PRICE`.
+	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
 		let fee = Self::convert_native_to_evm(fee);
@@ -1333,6 +1322,13 @@ where
 		}
 	}
 
+	/// Convert a gas value into a substrate fee
+	fn evm_gas_to_fee(gas: U256, gas_price: U256) -> Result<BalanceOf<T>, Error<T>> {
+		let fee = gas.saturating_mul(gas_price);
+		Self::convert_evm_to_native(fee, ConversionPrecision::RoundUp)
+	}
+
+	/// Get the block gas limit.
 	pub fn evm_block_gas_limit() -> U256 {
 		let max_block_weight = T::BlockWeights::get()
 			.get(DispatchClass::Normal)
@@ -1341,6 +1337,11 @@ where
 
 		let fee = T::WeightPrice::convert(max_block_weight);
 		Self::evm_fee_to_gas(fee)
+	}
+
+	/// Get the gas price.
+	pub fn evm_gas_price() -> U256 {
+		GAS_PRICE.into()
 	}
 
 	/// A generalized version of [`Self::upload_code`].
@@ -1452,6 +1453,9 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns the free balance of the given `[H160]` address, using EVM decimals.
 		fn balance(address: H160) -> U256;
+
+		/// Returns the gas price.
+		fn gas_price() -> U256;
 
 		/// Returns the nonce of the given `[H160]` address.
 		fn nonce(address: H160) -> Nonce;
