@@ -17,17 +17,12 @@
 
 use crate::CheckMetadataHash;
 use codec::{Decode, Encode};
+use frame::testing_prelude::*;
 use frame_metadata::RuntimeMetadataPrefixed;
-use frame_support::{
-	derive_impl,
-	pallet_prelude::{InvalidTransaction, TransactionValidityError},
-};
+
+use frame::deps::sp_api::{Metadata, ProvideRuntimeApi};
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
-use sp_api::{Metadata, ProvideRuntimeApi};
-use sp_runtime::{
-	traits::{ExtrinsicLike, TransactionExtension},
-	transaction_validity::{TransactionSource, UnknownTransaction},
-};
+
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use substrate_test_runtime_client::{
 	prelude::*,
@@ -35,9 +30,9 @@ use substrate_test_runtime_client::{
 	DefaultTestClientBuilderExt, TestClientBuilder,
 };
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime! {
+construct_runtime! {
 	pub enum Test {
 		System: frame_system,
 	}
@@ -126,7 +121,8 @@ mod docs {
 
 	#[docify::export]
 	mod add_metadata_hash_extension {
-		frame_support::construct_runtime! {
+		use frame::testing_prelude::*;
+		construct_runtime! {
 			pub enum Runtime {
 				System: frame_system,
 			}
@@ -153,8 +149,12 @@ mod docs {
 		type Signature = ();
 
 		/// Unchecked extrinsic type as expected by this runtime.
-		pub type UncheckedExtrinsic =
-			sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+		pub type UncheckedExtrinsic = frame::deps::sp_runtime::generic::UncheckedExtrinsic<
+			Address,
+			RuntimeCall,
+			Signature,
+			TxExtension,
+		>;
 	}
 
 	// Put here to not have it in the docs as well.
