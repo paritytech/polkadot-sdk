@@ -13,7 +13,7 @@ sol! {
 
 /// Envelope of the delivery proof
 #[derive(Clone, RuntimeDebug)]
-pub struct MessageReceipt<AccountId>
+pub struct DeliveryReceipt<AccountId>
 where
 	AccountId: From<[u8; 32]> + Clone,
 {
@@ -33,7 +33,7 @@ pub enum DeliveryReceiptDecodeError {
 	DecodeAccountFailed,
 }
 
-impl<AccountId> TryFrom<&Log> for MessageReceipt<AccountId>
+impl<AccountId> TryFrom<&Log> for DeliveryReceipt<AccountId>
 where
 	AccountId: From<[u8; 32]> + Clone,
 {

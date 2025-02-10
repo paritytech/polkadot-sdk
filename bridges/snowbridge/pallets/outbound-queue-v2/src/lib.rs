@@ -85,7 +85,7 @@ use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::{
 	v2::{
 		abi::{CommandWrapper, OutboundMessageWrapper},
-		GasMeter, Message, MessageReceipt, OutboundCommandWrapper, OutboundMessage,
+		DeliveryReceipt, GasMeter, Message, OutboundCommandWrapper, OutboundMessage,
 	},
 	EventProof, VerificationError, Verifier,
 };
@@ -99,7 +99,7 @@ pub use types::{PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 use xcm::latest::{Location, NetworkId};
 
-type MessageReceiptOf<T> = MessageReceipt<<T as frame_system::Config>::AccountId>;
+type MessageReceiptOf<T> = DeliveryReceipt<<T as frame_system::Config>::AccountId>;
 
 pub use pallet::*;
 
