@@ -747,7 +747,7 @@ impl Client {
 			})?;
 
 		let trace = Option::<CallTrace>::decode(&mut &bytes[..])?;
-		Ok(trace.ok_or(ClientError::EthExtrinsicNotFound)?)
+		trace.ok_or(ClientError::EthExtrinsicNotFound)
 	}
 
 	/// Get the EVM block for the given hash.
