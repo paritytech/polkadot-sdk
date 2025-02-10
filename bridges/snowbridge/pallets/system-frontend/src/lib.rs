@@ -83,8 +83,12 @@ pub mod pallet {
 		/// RemoteExecutionFee for the execution cost on bridge hub
 		type RemoteExecutionFee: Get<Asset>;
 
+		/// Location of bridge hub
+		type BridgeHub: Get<Location>;
+
 		type WeightInfo: WeightInfo;
 
+		/// A set of helper functions for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
 	}
@@ -202,7 +206,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		pub fn send(origin: Location, xcm: Xcm<()>) -> DispatchResult {
-			let bridgehub = Location::new(1, [Parachain(1002)]);
+			let bridgehub = T::BridgeHub::get();
 			let (_, price) =
 				send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
 			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;

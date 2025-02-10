@@ -143,6 +143,7 @@ parameter_types! {
 				],
 	);
 	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
+	pub BridgeHub: Location = Location::new(1, [Parachain(1002)]);
 }
 
 pub enum Weightless {}
@@ -177,6 +178,7 @@ impl crate::Config for Test {
 	type FeeAsset = Ether;
 	type RemoteExecutionFee = DeliveryFee;
 	type XcmExecutor = MockXcmExecutor;
+	type BridgeHub = BridgeHub;
 }
 
 // Build genesis storage according to the mock runtime.
