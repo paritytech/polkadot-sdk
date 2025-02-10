@@ -80,7 +80,7 @@ use std::{
 };
 pub use test_state::TestState;
 
-mod network_utils;
+use crate::network_utils;
 mod test_state;
 
 // TODO: use same index for all nodes
