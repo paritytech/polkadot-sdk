@@ -11,11 +11,13 @@ repository.workspace = true
 codec = { workspace = true, features = ["derive"] }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
 pallet-session = { features = [	"historical",], workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-core = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
+xcm = { workspace = true }
 
 [features]
 default = ["std"]
@@ -23,17 +25,20 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-session/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

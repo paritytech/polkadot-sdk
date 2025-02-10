@@ -26,6 +26,7 @@ use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
 use sp_core::crypto::AccountId32;
 use sp_runtime::Perbill;
+use xcm::prelude::*;
 
 const LOG_TARGET: &str = "runtime::staking::rc-client";
 
@@ -58,8 +59,8 @@ enum RelayChainRuntimePallets {
 /// Call encoding for the calls needed from the Broker pallet.
 #[derive(Encode, Decode)]
 enum SessionCalls {
-	#[codec(index = 1)]
-	NewValidators(SessionIndex),
+	#[codec(index = 0)]
+	NewValidators(Vec<AccountId32>),
 }
 
 // Based on [`sp_staking::offence::OffenceDetails`].
@@ -83,6 +84,7 @@ impl Offence {
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
+	use alloc::vec;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::SessionManager;
 	use sp_staking::SessionIndex;
@@ -98,7 +100,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		// type AdminOrigin = EnsureRoot<AccountId>;
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// A stable ID for a validator.
 		type ValidatorId: Member
 			+ Parameter
@@ -108,14 +109,27 @@ pub mod pallet {
 
 		/// Handler for managing new session.
 		type SessionManager: SessionManager<Self::ValidatorId>;
-
 		/// Handler for staking calls
 		type StakingApi: StakingApi;
+		/// The XCM sender.
+		type SendXcm: SendXcm;
 	}
 
-	impl<T, ValidatorId> SessionApi<ValidatorId> for Pallet<T> {
+	impl<T: Config, ValidatorId: Into<AccountId32>> SessionApi<ValidatorId> for Pallet<T> {
 		fn handle_election_result(result: Vec<ValidatorId>) {
-			//send `new_validators` XCM to session/ah_client
+			let new_validator_set = result.into_iter().map(Into::into).collect::<Vec<_>>();
+
+			let message = Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				mk_relay_chain_call::<T>(SessionCalls::NewValidators(new_validator_set)),
+			]);
+
+			if let Err(err) = send_xcm::<T::SendXcm>(Location::new(1, Here), message) {
+				log::error!(target: LOG_TARGET, "Sending `NewValidators` to relay chain failed: {:?}", err);
+			}
 		}
 	}
 
@@ -148,6 +162,14 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			T::StakingApi::note_new_offences(offences);
 			Ok(())
+		}
+	}
+
+	fn mk_relay_chain_call<T: Config>(call: SessionCalls) -> Instruction<()> {
+		Instruction::Transact {
+			origin_kind: OriginKind::Superuser,
+			fallback_max_weight: None,
+			call: RelayChainRuntimePallets::AhClient(call).encode().into(),
 		}
 	}
 }
