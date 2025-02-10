@@ -164,8 +164,8 @@ pub type Migrations = (
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<
 		Runtime,
-		bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance,
-		bp_messages::LegacyLaneId,
+		bridge_common_config::BridgeRelayersInstance,
+		bp_messages::LegacyLaneId
 	>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
@@ -1233,12 +1233,14 @@ impl_runtime_apis! {
 					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>::bench_lane_id();
 					use bp_runtime::Chain;
 					let bridged_chain_id =<Self as pallet_bridge_messages::Config<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>::BridgedChain::ID;
-					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+					pallet_bridge_relayers::Pallet::<Runtime, bridge_common_config::BridgeRelayersInstance>::relayer_reward(
 						relayer,
-						bp_relayers::RewardsAccountParams::new(
-							bench_lane_id,
-							bridged_chain_id,
-							bp_relayers::RewardsAccountOwner::BridgedChain
+						bridge_common_config::BridgeRewardKind::RococoWestend(
+							bp_relayers::RewardsAccountParams::new(
+								bench_lane_id,
+								bridged_chain_id,
+								bp_relayers::RewardsAccountOwner::BridgedChain
+							)
 						)
 					).is_some()
 				}
@@ -1313,19 +1315,22 @@ impl_runtime_apis! {
 				}
 			}
 
-			impl BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
+			impl BridgeRelayersConfig<bridge_common_config::BridgeRelayersInstance> for Runtime {
 				fn bench_reward_kind() -> Self::RewardKind {
 					bp_relayers::RewardsAccountParams::new(
 						bp_messages::LegacyLaneId::default(),
 						*b"test",
 						bp_relayers::RewardsAccountOwner::ThisChain
-					)
+					).into()
 				}
 
 				fn prepare_rewards_account(
 					reward_kind: Self::RewardKind,
 					reward: Balance,
 				) {
+					let bridge_common_config::BridgeRewardKind::RococoWestend(reward_kind) = reward_kind else {
+						panic!("Unexpected reward_kind: {:?} - not compatible with `bench_reward_kind`!", reward_kind);
+					};
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,

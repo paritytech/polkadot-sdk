@@ -24,28 +24,58 @@
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use bp_messages::LegacyLaneId;
 use bp_relayers::RewardsAccountParams;
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
+use scale_info::TypeInfo;
 
 parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
 	pub const RelayerStakeLease: u32 = 8;
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
+}
 
-	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
+/// Showcasing that we can handle multiple different rewards with the same pallet.
+#[derive(Clone, Copy, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+pub enum BridgeRewardKind {
+	/// Rewards for the R/W bridge—distinguished by the `RewardsAccountParams` key.
+	RococoWestend(RewardsAccountParams<LegacyLaneId>),
+	/// Rewards for Snowbridge.
+	Snowbridge,
+}
+
+impl From<RewardsAccountParams<LegacyLaneId>> for BridgeRewardKind {
+	fn from(value: RewardsAccountParams<LegacyLaneId>) -> Self {
+		Self::RococoWestend(value)
+	}
+}
+
+/// Implementation of `bp_relayers::PaymentProcedure` as a pay/claim rewards scheme.
+pub struct BridgeRewardPayer;
+impl bp_relayers::PaymentProcedure<AccountId, BridgeRewardKind, u128> for BridgeRewardPayer {
+	type Error = sp_runtime::DispatchError;
+
+	fn pay_reward(relayer: &AccountId, reward_kind: BridgeRewardKind, reward: u128) -> Result<(), Self::Error> {
+		match reward_kind {
+			BridgeRewardKind::RococoWestend(lane_params) => bp_relayers::PayRewardFromAccount::<
+				Balances,
+				AccountId,
+				LegacyLaneId,
+				u128,
+			>::pay_reward(relayer, lane_params, reward),
+			BridgeRewardKind::Snowbridge => Err(sp_runtime::DispatchError::Other("Not implemented yet!"))
+		}
+	}
 }
 
 /// Allows collect and claim rewards for relayers
-pub type RelayersForLegacyLaneIdsMessagesInstance = ();
-impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
+pub type BridgeRelayersInstance = ();
+impl pallet_bridge_relayers::Config<BridgeRelayersInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+
 	type Reward = u128;
-	type RewardKind = RewardsAccountParams<LegacyLaneId>;
-	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
-		pallet_balances::Pallet<Runtime>,
-		AccountId,
-		LegacyLaneId,
-		Self::Reward,
-	>;
+	type RewardKind = BridgeRewardKind;
+	type PaymentProcedure = BridgeRewardPayer;
+
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
 		BlockNumber,

@@ -64,8 +64,6 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
 }
 
-// TODO: FAIL-CI - now we can merge/migrate all instance `pallet_bridge_relayers` to the one
-
 /// Allows collect and claim rewards for relayers
 pub type RelayersForLegacyLaneIdsMessagesInstance = ();
 impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> for Runtime {

@@ -18,10 +18,7 @@
 
 use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
-use bridge_common_config::{
-	DeliveryRewardInBalance, RelayersForLegacyLaneIdsMessagesInstance,
-	RequiredStakeForStakeAndSlash,
-};
+use bridge_common_config::{BridgeRelayersInstance, RequiredStakeForStakeAndSlash};
 use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
@@ -33,7 +30,7 @@ use bridge_hub_westend_runtime::{
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
-	WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
+	DeliveryRewardInBalance, WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
@@ -69,7 +66,7 @@ type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
 	BridgeGrandpaRococoInstance,
 	BridgeParachainRococoInstance,
 	WithBridgeHubRococoMessagesInstance,
-	RelayersForLegacyLaneIdsMessagesInstance,
+	BridgeRelayersInstance,
 >;
 
 parameter_types! {

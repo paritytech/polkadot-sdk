@@ -1348,7 +1348,7 @@ impl_runtime_apis! {
 					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>::bench_lane_id();
 					use bp_runtime::Chain;
 					let bridged_chain_id =<Self as pallet_bridge_messages::Config<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>::BridgedChain::ID;
-					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+					pallet_bridge_relayers::Pallet::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>::relayer_reward(
 						relayer,
 						bp_relayers::RewardsAccountParams::new(
 							bench_lane_id,
