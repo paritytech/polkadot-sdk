@@ -50,7 +50,7 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	asset, log, BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure,
+	asset, BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure,
 	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
 	UnappliedSlash, ValidatorSlashInEra,
 };
@@ -340,19 +340,14 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 				},
 				Err(index) => {
 					// Offender is not disabled, add to `DisabledValidators` and disable it
-					if disabled.try_insert(index, (offender_idx, new_severity)).is_ok() {
+					if disabled.try_insert(index, (offender_idx, new_severity)).defensive().is_ok()
+					{
 						// Propagate disablement to session level
 						T::SessionInterface::disable_validator(offender_idx);
 						// Emit event that a validator got disabled
 						<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
 							stash: params.stash.clone(),
 						});
-					} else {
-						log!(
-							warn,
-							"Validator with index {} could not be disabled: reached limit of MaxDisabledValidators",
-							index
-						)
 					}
 				},
 			}

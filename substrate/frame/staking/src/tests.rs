@@ -4342,7 +4342,6 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		}
 
 		// verify we no longer track rewards in `legacy_claimed_rewards` vec
-		let ledger = Staking::ledger(11.into());
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -6776,8 +6775,8 @@ fn test_runtime_api_pending_rewards() {
 		};
 
 		// add exposure for validators
-		EraInfo::<Test>::set_exposure(0, &validator_one, exposure.clone());
-		EraInfo::<Test>::set_exposure(0, &validator_two, exposure.clone());
+		EraInfo::<Test>::upsert_exposure(0, &validator_one, exposure.clone());
+		EraInfo::<Test>::upsert_exposure(0, &validator_two, exposure.clone());
 
 		// add some reward to be distributed
 		ErasValidatorReward::<Test>::insert(0, 1000);
@@ -8579,7 +8578,8 @@ mod getters {
 		ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, ForceEra, Forcing, Nominations,
 		Nominators, Perbill, SlashRewardFraction, SlashingSpans, ValidatorPrefs, Validators,
 	};
-	use sp_staking::{EraIndex, Exposure, IndividualExposure, Page, SessionIndex};
+	use frame_support::BoundedVec;
+	use sp_staking::{EraIndex, Page, SessionIndex};
 
 	#[test]
 	fn get_validator_count_returns_value_from_storage() {
