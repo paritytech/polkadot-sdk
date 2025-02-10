@@ -1351,3 +1351,90 @@ mod genesis_config {
 			.build();
 	}
 }
+
+mod vesting_info {
+	use super::*;
+
+	#[test]
+	fn merge_vesting_handles_per_block_0() {
+		ExtBuilder::default()
+			.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+			.build()
+			.execute_with(|| {
+				let sched0 = VestingInfo::new(
+					MINIMUM_BALANCE,
+					0, // Vesting over 256 blocks.
+					1,
+				);
+				assert_eq!(sched0.ending_block_as_balance::<Identity>(), 257);
+				let sched1 = VestingInfo::new(
+					MINIMUM_BALANCE * 2,
+					0, // Vesting over 512 blocks.
+					10,
+				);
+				assert_eq!(sched1.ending_block_as_balance::<Identity>(), 512u64 + 10);
+
+				let merged = VestingInfo::new(764, 1, 10);
+				assert_eq!(AssetsVesting::merge_vesting_info(5, sched0, sched1), Some(merged));
+			});
+	}
+
+	#[test]
+	fn vesting_info_validate_works() {
+		let min_transfer = MIN_VESTED_TRANSFER;
+		// Does not check for min transfer.
+		assert_eq!(VestingInfo::new(min_transfer - 1, 1u64, 10u64).is_valid(), true);
+
+		// `locked` cannot be 0.
+		assert_eq!(VestingInfo::new(0, 1u64, 10u64).is_valid(), false);
+
+		// `per_block` cannot be 0.
+		assert_eq!(VestingInfo::new(min_transfer + 1, 0u64, 10u64).is_valid(), false);
+
+		// With valid inputs it does not error.
+		assert_eq!(VestingInfo::new(min_transfer, 1u64, 10u64).is_valid(), true);
+	}
+
+	#[test]
+	fn vesting_info_ending_block_as_balance_works() {
+		// Treats `per_block` 0 as 1.
+		let per_block_0 = VestingInfo::new(256u32, 0u32, 10u32);
+		assert_eq!(per_block_0.ending_block_as_balance::<Identity>(), 256 + 10);
+
+		// `per_block >= locked` always results in a schedule ending the block after it starts
+		let per_block_gt_locked = VestingInfo::new(256u32, 256 * 2u32, 10u32);
+		assert_eq!(
+			per_block_gt_locked.ending_block_as_balance::<Identity>(),
+			1 + per_block_gt_locked.starting_block()
+		);
+		let per_block_eq_locked = VestingInfo::new(256u32, 256u32, 10u32);
+		assert_eq!(
+			per_block_gt_locked.ending_block_as_balance::<Identity>(),
+			per_block_eq_locked.ending_block_as_balance::<Identity>()
+		);
+
+		// Correctly calcs end if `locked % per_block != 0`. (We need a block to unlock the
+		// remainder).
+		let imperfect_per_block = VestingInfo::new(256u32, 250u32, 10u32);
+		assert_eq!(
+			imperfect_per_block.ending_block_as_balance::<Identity>(),
+			imperfect_per_block.starting_block() + 2u32,
+		);
+		assert_eq!(
+			imperfect_per_block
+				.locked_at::<Identity>(imperfect_per_block.ending_block_as_balance::<Identity>()),
+			0
+		);
+	}
+
+	#[test]
+	fn per_block_works() {
+		let per_block_0 = VestingInfo::new(256u32, 0u32, 10u32);
+		assert_eq!(per_block_0.per_block(), 1u32);
+		assert_eq!(per_block_0.raw_per_block(), 0u32);
+
+		let per_block_1 = VestingInfo::new(256u32, 1u32, 10u32);
+		assert_eq!(per_block_1.per_block(), 1u32);
+		assert_eq!(per_block_1.raw_per_block(), 1u32);
+	}
+}
