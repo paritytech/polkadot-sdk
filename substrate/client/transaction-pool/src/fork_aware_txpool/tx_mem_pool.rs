@@ -276,7 +276,7 @@ where
 	) -> Self {
 		Self {
 			api,
-			listener: Arc::from(MultiViewListener::new_with_worker().0),
+			listener: Arc::from(MultiViewListener::new_with_worker(Default::default()).0),
 			transactions: Default::default(),
 			metrics: Default::default(),
 			max_transactions_count,
