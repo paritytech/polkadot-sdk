@@ -9,8 +9,6 @@ pub trait DebugRpc {
 	/// ## References
 	///
 	/// - https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtraceblockbynumber
-	/// - https://docs.alchemy.com/reference/what-is-trace_block
-	/// - https://docs.chainstack.com/reference/ethereum-traceblockbynumber
 	#[method(name = "debug_traceBlockByNumber")]
 	async fn trace_block_by_number(
 		&self,
@@ -24,8 +22,6 @@ pub trait DebugRpc {
 	/// ## References
 	///
 	/// - https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracetransaction
-	/// - https://docs.alchemy.com/reference/debug-tracetransaction
-	/// - https://docs.chainstack.com/reference/ethereum-tracetransaction
 	#[method(name = "debug_traceTransaction")]
 	async fn trace_transaction(
 		&self,

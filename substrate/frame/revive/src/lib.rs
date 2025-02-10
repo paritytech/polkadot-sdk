@@ -1515,17 +1515,23 @@ sp_api::decl_runtime_apis! {
 		) -> GetStorageResult;
 
 
-		/// Replay the block with the given hash.
-		/// This is intended to be called through `state_debugBlock` RPC. Using [`tracing::trace`]
-		/// function to record traces.
+		/// Traces the execution of an entire block and returns call traces.
+		///
+		/// This is intended to be called through `state_call` to replay the block from the
+		/// parent block.
+		///
+		/// See eth-rpc `debug_traceBlockByNumber` for usage.
 		fn trace_block(
 			block: Block,
 			config: TracerConfig
 		) -> Vec<(u32, CallTrace)>;
 
-		/// Replay the block with the given hash.
-		/// This is intended to be called through `state_debugBlock` RPC. Using [`tracing::trace`]
-		/// function to record trace for the specified transaction index in the block.
+		/// Traces the execution of a specific transaction within a block.
+		///
+		/// This is intended to be called through `state_call` to replay the block from the
+		/// parent hash up to the transaction.
+		///
+		/// See eth-rpc `debug_traceTransaction` for usage.
 		fn trace_tx(
 			block: Block,
 			tx_index: u32,
