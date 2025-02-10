@@ -5,6 +5,7 @@ import {
 	killProcessOnPort,
 	waitForHealth,
 	polkadotSdkPath,
+    visit,
 } from './util.ts'
 import { afterAll, afterEach, describe, expect, test } from 'bun:test'
 import { encodeFunctionData, Hex, parseEther, decodeEventLog } from 'viem'
@@ -440,10 +441,10 @@ for (const env of envs) {
 		})
 
 		test.only('tracing', async () => {
-			let [callerAddress] = await getTracingExampleAddrs()
+			let [callerAddr, calleeAddr] = await getTracingExampleAddrs()
 			const receipt = await (async () => {
 				const { request } = await env.serverWallet.simulateContract({
-					address: callerAddress,
+					address: callerAddr,
 					abi: TracingCallerAbi,
 					functionName: 'start',
 					args: [2n],
@@ -453,19 +454,41 @@ for (const env of envs) {
 				return await env.serverWallet.waitForTransactionReceipt({ hash })
 			})()
 
+		    const visitor: Parameters<typeof visit>[1] = (key, value) => {
+				switch (key) {
+					case "address":
+					case "from":
+					case "to": {
+						if (value === callerAddr) {
+							return "<contract_addr>"
+						} else if (value === calleeAddr) {
+							return "<contract_callee_addr>"
+						} else if (value == env.serverWallet.account.address.toLowerCase()) {
+							return "<caller>"
+						}
+
+						return value
+					}
+					case "gas":
+					case "gasUsed": {
+						return "0x42";
+					}
+					case "txHash": {
+						return "<hash>"
+					}
+					default: {
+						return value;
+					}
+				}
+			}
+
+			let fixture = await Bun.file('./src/fixtures/trace_transaction.json').json()
 			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
-			Bun.write(
-				`/tmp/trace_${env.serverWallet.chain.name}_transaction.json`,
-				JSON.stringify(res, null, 2)
-			)
-			console.log('Wrote /tmp/trace_transaction.json')
+			expect(visit(res, visitor)).toEqual(fixture)
 
 			res = await env.debugClient.traceBlock(receipt.blockNumber)
-			Bun.write(
-				`/tmp/trace_${env.serverWallet.chain.name}_block.json`,
-				JSON.stringify(res, null, 2)
-			)
-			console.log('Wrote /tmp/trace_block.json')
+			fixture = await Bun.file('./src/fixtures/trace_block.json').json()
+			expect(visit(res, visitor)).toEqual(fixture)
 		})
 	})
 }

@@ -19,14 +19,10 @@ contract TracingCaller {
         callee.transfer(paymentAmount);
 
         emit TraceEvent(counter, "before");
-        TracingCallee(callee).consumeGas();
+		TracingCallee(callee).consumeGas(counter);
 		emit TraceEvent(counter, "after");
 
-        try TracingCallee(callee).failingFunction() {
-        } catch {
-        }
-
-        try TracingCallee(callee).consumeGas{gas: 100}() {
+        try TracingCallee(callee).failingFunction{value: paymentAmount}() {
         } catch {
         }
 
@@ -35,18 +31,18 @@ contract TracingCaller {
 }
 
 contract TracingCallee {
-    event GasConsumed(address indexed caller);
+    event CalleeCalled(uint256 counter);
 
-    function consumeGas() external {
+    function consumeGas(uint256 counter) external {
 		// burn some gas
         for (uint256 i = 0; i < 10; i++) {
 			uint256(keccak256(abi.encodePacked(i)));
         }
 
-        emit GasConsumed(msg.sender);
+        emit CalleeCalled(counter);
     }
 
-    function failingFunction() external pure {
+function failingFunction() external payable {
         require(false, "This function always fails");
     }
 
