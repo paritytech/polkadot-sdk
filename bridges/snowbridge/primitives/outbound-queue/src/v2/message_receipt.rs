@@ -28,7 +28,7 @@ where
 }
 
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-pub enum MessageReceiptDecodeError {
+pub enum DeliveryReceiptDecodeError {
 	DecodeLogFailed,
 	DecodeAccountFailed,
 }
@@ -37,13 +37,13 @@ impl<AccountId> TryFrom<&Log> for MessageReceipt<AccountId>
 where
 	AccountId: From<[u8; 32]> + Clone,
 {
-	type Error = MessageReceiptDecodeError;
+	type Error = DeliveryReceiptDecodeError;
 
 	fn try_from(log: &Log) -> Result<Self, Self::Error> {
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
 		let event = InboundMessageDispatched::decode_raw_log(topics, &log.data, true)
-			.map_err(|_| MessageReceiptDecodeError::DecodeLogFailed)?;
+			.map_err(|_| DeliveryReceiptDecodeError::DecodeLogFailed)?;
 
 		let account: AccountId = AccountId::from(event.reward_address.0);
 
