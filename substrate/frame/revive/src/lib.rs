@@ -1328,6 +1328,12 @@ where
 		Self::convert_evm_to_native(fee, ConversionPrecision::RoundUp)
 	}
 
+	/// Convert a weight to a gas value.
+	fn evm_gas_to_fee(weight: Weight) -> U256 {
+		let fee = T::WeightPrice::convert(weight);
+		Self::evm_fee_to_gas(fee)
+	}
+
 	/// Get the block gas limit.
 	pub fn evm_block_gas_limit() -> U256 {
 		let max_block_weight = T::BlockWeights::get()
@@ -1335,8 +1341,7 @@ where
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		let fee = T::WeightPrice::convert(max_block_weight);
-		Self::evm_fee_to_gas(fee)
+		Self::evm_gas_to_fee(max_block_weight)
 	}
 
 	/// Get the gas price.
@@ -1509,5 +1514,23 @@ sp_api::decl_runtime_apis! {
 			address: H160,
 			key: [u8; 32],
 		) -> GetStorageResult;
+
+
+		/// Replay the block with the given hash.
+		/// This is intended to be called through `state_debugBlock` RPC. Using [`tracing::trace`]
+		/// function to record traces.
+		fn trace_block(
+			block: Block,
+			config: TracerConfig
+		) -> Vec<(u32, CallTrace)>;
+
+		/// Replay the block with the given hash.
+		/// This is intended to be called through `state_debugBlock` RPC. Using [`tracing::trace`]
+		/// function to record trace for the specified transaction index in the block.
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+			config: TracerConfig
+		) -> Option<CallTrace>;
 	}
 }

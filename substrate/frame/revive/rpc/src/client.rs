@@ -666,11 +666,22 @@ impl Client {
 		};
 		let block_hash = block_hash.ok_or(ClientError::BlockNotFound)?;
 
-		let rpc_client = RpcClient::new(self.rpc_client.clone());
+		let block = self.block_by_hash(&block_hash).await.ok_or(ClientError::BlockNotFound)?;
+		let header = block.header();
+		let exts = block
+			.block
+			.extrinsics
+			.into_iter()
+			.filter_map(|e| OpaqueExtrinsic::decode(&mut &e[..]).ok())
+			.collect::<Vec<_>>();
+
 		let params =
-			subxt::rpc_params!["ReviveApi_trace_block", block_hash, to_hex(tracer_config.encode())];
-		let bytes: Bytes =
-			rpc_client.request("state_debugBlock", params).await.inspect_err(|err| {
+			subxt::rpc_params![to_hex((header, exts).encode()), to_hex(tracer_config.encode())];
+
+		let bytes: Bytes = self
+			.state_call("ReviveApi_trace_block", params, block_hash)
+			.await
+			.inspect_err(|err| {
 				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
 			})?;
 
@@ -698,8 +709,6 @@ impl Client {
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
 	) -> Result<CallTrace, ClientError> {
-		let rpc_client = RpcClient::new(self.rpc_client.clone());
-
 		let ReceiptInfo { block_hash, transaction_index, .. } = self
 			.receipt_provider
 			.receipt_by_hash(&transaction_hash)
@@ -707,13 +716,24 @@ impl Client {
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
 		log::debug!(target: LOG_TARGET, "Found eth_tx at {block_hash:?} index: {transaction_index:?}");
+
+		let block = self.block_by_hash(&block_hash).await.ok_or(ClientError::BlockNotFound)?;
+		let header = block.header();
+		let exts = block
+			.block
+			.extrinsics
+			.into_iter()
+			.filter_map(|e| OpaqueExtrinsic::decode(&mut &e[..]).ok())
+			.collect::<Vec<_>>();
+
 		let params = subxt::rpc_params![
-			"ReviveApi_trace_tx",
-			block_hash,
-			to_hex((transaction_index.as_u32(), tracer_config).encode())
+			to_hex((header, exts).encode()),
+			to_hex(transaction_index.as_u32()),
+			to_hex(tracer_config.encode())
 		];
+
 		let bytes: Bytes =
-			rpc_client.request("state_debugBlock", params).await.inspect_err(|err| {
+			self.state_call("ReviveApi_trace_tx", params).await.inspect_err(|err| {
 				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
 			})?;
 
