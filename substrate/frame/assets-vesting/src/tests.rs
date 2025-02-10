@@ -1438,3 +1438,166 @@ mod vesting_info {
 		assert_eq!(per_block_1.raw_per_block(), 1u32);
 	}
 }
+
+// When an accounts free balance + schedule.locked is less than ED, the vested transfer will fail.
+#[test]
+fn vested_transfer_less_than_existential_deposit_fails() {
+	use frame::traits::fungibles::Inspect;
+
+	ExtBuilder::default()
+		.with_min_balance(ASSET_ID, 4 * MINIMUM_BALANCE)
+		.build()
+		.execute_with(|| {
+			// MinVestedTransfer is less the ED.
+			assert!(Assets::minimum_balance(ASSET_ID) > MIN_VESTED_TRANSFER);
+
+			let sched = VestingInfo::new(MIN_VESTED_TRANSFER, 1u64, 10u64);
+			// The new account balance with the schedule's locked amount would be less than ED.
+			assert!(
+				Assets::balance(ASSET_ID, &99) + sched.locked() < Assets::minimum_balance(ASSET_ID)
+			);
+
+			// vested_transfer fails.
+			assert_noop!(
+				AssetsVesting::vested_transfer(Some(3).into(), ASSET_ID, 99, sched),
+				TokenError::BelowMinimum,
+			);
+			// force_vested_transfer fails.
+			assert_noop!(
+				AssetsVesting::force_vested_transfer(
+					RawOrigin::Root.into(),
+					ASSET_ID,
+					3,
+					99,
+					sched
+				),
+				TokenError::BelowMinimum,
+			);
+		});
+}
+
+#[test]
+fn remove_vesting_schedule() {
+	ExtBuilder::default()
+		.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+		.build()
+		.execute_with(|| {
+			assert_eq!(Assets::balance(ASSET_ID, &3), 256 * 30);
+			assert_eq!(Assets::balance(ASSET_ID, &4), 256 * 40);
+			// Account 4 should not have any vesting yet.
+			assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &4), None);
+			// Make the schedule for the new transfer.
+			let new_vesting_schedule = VestingInfo::new(
+				MINIMUM_BALANCE * 5,
+				(MINIMUM_BALANCE * 5) / 20, // Vesting over 20 blocks
+				10,
+			);
+			assert_ok!(AssetsVesting::vested_transfer(
+				Some(3).into(),
+				ASSET_ID,
+				4,
+				new_vesting_schedule
+			));
+			// Now account 4 should have vesting.
+			assert_eq!(
+				VestingStorage::<Test>::get(ASSET_ID, &4).unwrap(),
+				vec![new_vesting_schedule]
+			);
+			// Account 4 has 5 * 256 locked.
+			assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &4), Some(256 * 5));
+			// Verify only root can call.
+			assert_noop!(
+				AssetsVesting::force_remove_vesting_schedule(Some(4).into(), ASSET_ID, 4, 0),
+				BadOrigin
+			);
+			// Verify that root can remove the schedule.
+			assert_ok!(AssetsVesting::force_remove_vesting_schedule(
+				RawOrigin::Root.into(),
+				ASSET_ID,
+				4,
+				0
+			));
+			// Verify that last event is VestingCompleted.
+			System::assert_last_event(
+				crate::Event::<Test>::VestingCompleted { asset: ASSET_ID, account: 4 }.into(),
+			);
+			// Appropriate storage is cleaned up.
+			assert!(!<VestingStorage<Test>>::contains_key(ASSET_ID, 4));
+			// Check the vesting balance is zero.
+			assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &4), None);
+			// Verifies that trying to remove a schedule when it doesnt exist throws error.
+			assert_noop!(
+				AssetsVesting::force_remove_vesting_schedule(
+					RawOrigin::Root.into(),
+					ASSET_ID,
+					4,
+					0
+				),
+				Error::<Test>::InvalidScheduleParams
+			);
+		});
+}
+
+#[test]
+fn vested_transfer_impl_works() {
+	use frame::traits::fungibles::VestedTransfer;
+
+	ExtBuilder::default()
+		.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+		.build()
+		.execute_with(|| {
+			assert_eq!(Assets::balance(ASSET_ID, &3), 256 * 30);
+			assert_eq!(Assets::balance(ASSET_ID, &4), 256 * 40);
+			// Account 4 should not have any vesting yet.
+			assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &4), None);
+
+			// Basic working scenario
+			assert_ok!(<AssetsVesting as VestedTransfer<_>>::vested_transfer(
+				ASSET_ID,
+				&3,
+				&4,
+				MINIMUM_BALANCE * 5,
+				MINIMUM_BALANCE * 5 / 20,
+				10
+			));
+			// Now account 4 should have vesting.
+			let new_vesting_schedule = VestingInfo::new(
+				MINIMUM_BALANCE * 5,
+				(MINIMUM_BALANCE * 5) / 20, // Vesting over 20 blocks
+				10,
+			);
+			assert_eq!(
+				VestingStorage::<Test>::get(ASSET_ID, &4).unwrap(),
+				vec![new_vesting_schedule]
+			);
+			// Account 4 has 5 * 256 locked.
+			assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &4), Some(256 * 5));
+
+			// If the transfer fails (because they don't have enough balance), no storage is
+			// changed.
+			assert_noop!(
+				<AssetsVesting as VestedTransfer<_>>::vested_transfer(
+					ASSET_ID,
+					&3,
+					&4,
+					MINIMUM_BALANCE * 9999,
+					MINIMUM_BALANCE * 5 / 20,
+					10
+				),
+				TokenError::FundsUnavailable
+			);
+
+			// If applying the vesting schedule fails (per block is 0), no storage is changed.
+			assert_noop!(
+				<AssetsVesting as VestedTransfer<_>>::vested_transfer(
+					ASSET_ID,
+					&3,
+					&4,
+					MINIMUM_BALANCE * 5,
+					0,
+					10
+				),
+				Error::<Test>::InvalidScheduleParams
+			);
+		});
+}
