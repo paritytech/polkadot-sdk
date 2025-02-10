@@ -14920,8 +14920,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame 0.1.0",
  "scale-info",
- "sp-api 26.0.0",
- "sp-runtime-interface 24.0.0",
 ]
 
 [[package]]
