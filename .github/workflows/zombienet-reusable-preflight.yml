@@ -239,4 +239,12 @@ jobs:
             fi
             sleep 10
           done
-          echo "CI workflow is done."
+
+          #check if the build succeeded
+          CONCLUSION=$(gh run ls -c $SHA -w "Build and push images" --json name,conclusion --jq '.[] | select(.name == "Build and push images") | .conclusion')
+          if [[ $CONCLISION == "success"]]; then
+            echo "CI workflow is done."
+          else
+            echo "::warning:: CI workflow ('Build and push images') fails"
+            exit 1
+          fi;
