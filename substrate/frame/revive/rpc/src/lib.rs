@@ -287,6 +287,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(self.client.receipts_count_per_block(&block.hash).await.map(U256::from))
 	}
 
+	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults> {
+		let logs = self.client.logs(filter).await?;
+		Ok(FilterResults::Logs(logs))
+	}
+
 	async fn get_storage_at(
 		&self,
 		address: H160,

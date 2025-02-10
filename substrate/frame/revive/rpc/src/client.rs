@@ -25,9 +25,9 @@ use crate::{
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash,
-		GenericTransaction, ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned, H160,
-		H256, U256,
+		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Filter,
+		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned,
+		H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
@@ -132,6 +132,9 @@ pub enum ClientError {
 	/// The cache is empty.
 	#[error("cache is empty")]
 	CacheEmpty,
+	/// Failed to filter logs.
+	#[error("Failed to filter logs")]
+	LogFilterFailed(#[from] anyhow::Error),
 }
 
 const REVERT_CODE: i32 = 3;
@@ -711,5 +714,12 @@ impl Client {
 	/// Get the Max Block Weight.
 	pub fn max_block_weight(&self) -> Weight {
 		self.max_block_weight
+	}
+
+	/// Get the logs matching the given filter.
+	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
+		let logs =
+			self.receipt_provider.logs(filter).await.map_err(ClientError::LogFilterFailed)?;
+		Ok(logs)
 	}
 }
