@@ -192,7 +192,7 @@ mod tests {
 	#[test]
 	fn different_lanes_are_using_different_accounts() {
 		assert_eq!(
-			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+			PayRewardFromAccount::<(), H256, HashedLaneId, ()>::rewards_account(
 				RewardsAccountParams::new(
 					HashedLaneId::try_new(1, 2).unwrap(),
 					*b"test",
@@ -204,7 +204,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+			PayRewardFromAccount::<(), H256, HashedLaneId, ()>::rewards_account(
 				RewardsAccountParams::new(
 					HashedLaneId::try_new(1, 3).unwrap(),
 					*b"test",
@@ -219,7 +219,7 @@ mod tests {
 	#[test]
 	fn different_directions_are_using_different_accounts() {
 		assert_eq!(
-			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+			PayRewardFromAccount::<(), H256, HashedLaneId, ()>::rewards_account(
 				RewardsAccountParams::new(
 					HashedLaneId::try_new(1, 2).unwrap(),
 					*b"test",
@@ -231,7 +231,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+			PayRewardFromAccount::<(), H256, HashedLaneId, ()>::rewards_account(
 				RewardsAccountParams::new(
 					HashedLaneId::try_new(1, 2).unwrap(),
 					*b"test",
@@ -307,6 +307,7 @@ mod tests {
 					[u8; 32],
 					[u8; 32],
 					LegacyLaneId,
+					(),
 				>::rewards_account(RewardsAccountParams::new(
 					lane_id,
 					*bridged_chain_id,
