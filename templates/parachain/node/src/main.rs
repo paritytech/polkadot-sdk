@@ -2,8 +2,7 @@
 
 #![warn(missing_docs)]
 
-use polkadot_sdk::*;
-use polkadot_sdk::sc_tracing;
+use polkadot_sdk::{sc_tracing, *};
 
 mod chain_spec;
 mod cli;

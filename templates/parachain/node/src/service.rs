@@ -9,8 +9,7 @@ use parachain_template_runtime::{
 	opaque::{Block, Hash},
 };
 
-use polkadot_sdk::*;
-use polkadot_sdk::sc_tracing_with::*;
+use polkadot_sdk::{sc_tracing_with::*, *};
 // Cumulus Imports
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
