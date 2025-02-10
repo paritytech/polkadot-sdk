@@ -1579,7 +1579,7 @@ mod base_miner {
 				load_mock_signed_and_start(paged.clone());
 
 				// this must be correct
-				let supports = roll_to_full_verification();
+				let _supports = roll_to_full_verification();
 
 				assert_eq!(
 					verifier_events(),

@@ -363,6 +363,7 @@ impl ExtBuilder {
 		SignedValidationPhase::set(d);
 		self
 	}
+	#[allow(unused)]
 	pub(crate) fn add_voter(self, who: AccountId, stake: Balance, targets: Vec<AccountId>) -> Self {
 		staking::VOTERS.with(|v| v.borrow_mut().push((who, stake, targets.try_into().unwrap())));
 		self

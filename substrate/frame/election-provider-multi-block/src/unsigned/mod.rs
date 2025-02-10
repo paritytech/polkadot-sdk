@@ -58,6 +58,7 @@
 
 /// Exports of this pallet
 pub use pallet::*;
+pub use weights::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

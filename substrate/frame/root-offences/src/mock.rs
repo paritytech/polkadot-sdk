@@ -26,6 +26,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, OneSessionHandler},
+	BoundedVec,
 };
 use pallet_staking::StakerStatus;
 use sp_core::ConstBool;

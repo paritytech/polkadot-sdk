@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::f32::consts::E;
+
 use super::*;
 use crate::{
 	helpers,
@@ -37,6 +39,7 @@ use pallet::*;
 use sp_npos_elections::{evaluate_support, ElectionScore, EvaluateSupport};
 use sp_runtime::Perbill;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use weights::WeightInfo;
 
 pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::BoundedSupports<
 	<V as Verifier>::AccountId,
@@ -392,7 +395,7 @@ pub(crate) mod pallet {
 		}
 	}
 
-	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime", debug_assertions))]
 	impl<T: Config> QueuedSolution<T> {
 		pub(crate) fn valid_iter(
 		) -> impl Iterator<Item = (PageIndex, SupportsOfVerifier<Pallet<T>>)> {
@@ -588,6 +591,7 @@ impl<T: Config> Pallet<T> {
 					if current_page > crate::Pallet::<T>::lsp() {
 						// not last page, just tick forward.
 						StatusStorage::<T>::put(Status::Ongoing(current_page.saturating_sub(1)));
+						VerifierWeightsOf::<T>::on_initialize_valid_non_terminal()
 					} else {
 						// last page, finalize everything. Solution data provider must always have a
 						// score for us at this point. Not much point in reporting a result, we just
@@ -612,6 +616,7 @@ impl<T: Config> Pallet<T> {
 								QueuedSolution::<T>::clear_invalid_and_backings();
 							},
 						}
+						VerifierWeightsOf::<T>::on_initialize_valid_terminal()
 					}
 				},
 				Err(err) => {
@@ -620,11 +625,14 @@ impl<T: Config> Pallet<T> {
 					StatusStorage::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
 					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+					// TODO: use lower weight if non-terminal.
+					VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
 				},
 			}
+		} else {
+			// TODO: weight for when nothing happens
+			Default::default()
 		}
-
-		Default::default()
 	}
 
 	fn do_verify_synchronous(

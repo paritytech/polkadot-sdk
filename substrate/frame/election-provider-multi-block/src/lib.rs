@@ -202,6 +202,7 @@ pub mod types;
 pub mod unsigned;
 pub mod verifier;
 pub mod weights;
+pub mod zero_weights;
 
 pub use pallet::*;
 pub use types::*;
@@ -1139,8 +1140,8 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-// helper code for testing and benchmarking
 #[cfg(any(feature = "runtime-benchmarks", test))]
+// helper code for testing and benchmarking
 impl<T> Pallet<T>
 where
 	T: Config + crate::signed::Config + crate::unsigned::Config + crate::verifier::Config,

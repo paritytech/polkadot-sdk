@@ -52,11 +52,11 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 	fn on_initialize_noop() -> Weight {
 	    Default::default()
 	}
-	fn do_elect_paged(_v: u32,) -> Weight {
-	    Default::default()
-	}
 	fn clear_election_metadata() -> Weight {
 	    Default::default()
+	}
+	fn do_elect_paged_inner(v: u32,) -> Weight {
+		Default::default()
 	}
 	/// Storage: `Staking::Bonded` (r:1 w:1)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)

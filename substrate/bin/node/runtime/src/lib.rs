@@ -977,7 +977,7 @@ pub(crate) mod multi_block_impls {
 		type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 		type Verifier = MultiBlockVerifier;
 		type MinerConfig = Self;
-		type WeightInfo = ();
+		type WeightInfo = multi_block::zero_weights::AllZeroWeights;
 	}
 
 	impl multi_block::verifier::Config for Runtime {
@@ -987,7 +987,7 @@ pub(crate) mod multi_block_impls {
 		type RuntimeEvent = RuntimeEvent;
 		type SolutionDataProvider = MultiBlockSigned;
 		type SolutionImprovementThreshold = ();
-		type WeightInfo = ();
+		type WeightInfo = multi_block::zero_weights::AllZeroWeights;
 	}
 
 	parameter_types! {
@@ -1007,7 +1007,7 @@ pub(crate) mod multi_block_impls {
 
 		type RuntimeEvent = RuntimeEvent;
 		type RuntimeHoldReason = RuntimeHoldReason;
-		type WeightInfo = ();
+		type WeightInfo = multi_block::zero_weights::AllZeroWeights;
 	}
 
 	impl multi_block::unsigned::Config for Runtime {
@@ -1017,7 +1017,7 @@ pub(crate) mod multi_block_impls {
 		// TODO: this needs to be an educated number: "estimate mining time per page * pages"
 		type OffchainRepeat = ConstU32<5>;
 
-		type WeightInfo = ();
+		type WeightInfo = multi_block::zero_weights::AllZeroWeights;
 	}
 }
 

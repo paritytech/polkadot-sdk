@@ -566,7 +566,7 @@ pub mod pallet {
 		}
 	}
 
-	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks", debug_assertions))]
 	impl<T: Config> Submissions<T> {
 		pub fn submissions_iter(
 			round: u32,
