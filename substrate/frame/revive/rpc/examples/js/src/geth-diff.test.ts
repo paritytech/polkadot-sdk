@@ -7,7 +7,7 @@ import {
 	polkadotSdkPath,
 } from './util.ts'
 import { afterAll, afterEach, describe, expect, test } from 'bun:test'
-import { encodeFunctionData, Hex, parseEther, decodeEventLog, keccak256, toHex } from 'viem'
+import { encodeFunctionData, Hex, parseEther, decodeEventLog } from 'viem'
 import { ErrorsAbi } from '../abi/Errors'
 import { EventExampleAbi } from '../abi/EventExample'
 import { Subprocess, spawn } from 'bun'
@@ -15,7 +15,7 @@ import { fail } from 'node:assert'
 
 const procs: Subprocess[] = []
 if (process.env.START_GETH) {
-	process.env.USE_ETH_RPC = 'true'
+	process.env.USE_GETH = 'true'
 	procs.push(
 		// Run geth on port 8546
 		await (async () => {
