@@ -9590,7 +9590,7 @@ dependencies = [
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk 0.0.0",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
@@ -10815,7 +10815,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk 0.0.0",
  "serde_json",
 ]
 
@@ -10825,7 +10825,7 @@ version = "0.0.0"
 dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk 0.0.0",
  "scale-info",
  "serde_json",
 ]
@@ -13354,7 +13354,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-multi-block"
-version = "4.0.0-dev"
+version = "0.9.0"
 dependencies = [
  "frame-benchmarking 28.0.0",
  "frame-election-provider-support 28.0.0",
@@ -14072,7 +14072,7 @@ name = "pallet-minimal-template"
 version = "0.0.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk 0.0.0",
  "scale-info",
 ]
 
@@ -16261,7 +16261,7 @@ dependencies = [
  "log",
  "parachain-template-runtime",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk 0.0.0",
  "sc-tracing",
  "serde",
  "serde_json",
@@ -16278,7 +16278,7 @@ dependencies = [
  "log",
  "pallet-parachain-template",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk 0.0.0",
  "scale-info",
  "serde_json",
  "smallvec",
@@ -18647,7 +18647,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "asset-test-utils 7.0.0",
  "assets-common 0.7.0",
@@ -19315,7 +19315,7 @@ dependencies = [
  "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk 0.0.0",
  "polkadot-sdk-docs-first-pallet",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame 0.1.0",
@@ -28219,7 +28219,7 @@ dependencies = [
  "node-rpc",
  "node-testing",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk 0.0.0",
  "pretty_assertions",
  "rand",
  "regex",
