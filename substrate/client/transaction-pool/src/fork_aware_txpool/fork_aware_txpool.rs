@@ -142,6 +142,8 @@ where
 
 	/// Prometheus's metrics endpoint.
 	metrics: PrometheusMetrics,
+
+	/// Collector of transaction statuses updates, reports transaction events metrics.
 	events_metrics_collector: EventsMetricsCollector<ChainApi>,
 
 	/// Util tracking best and finalized block.
