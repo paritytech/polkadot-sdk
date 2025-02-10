@@ -79,7 +79,7 @@ pub mod pallet {
 		/// Send messages to Ethereum
 		type OutboundQueue: SendMessage;
 
-		/// Origin check for XCM locations that can create agents
+		/// Origin check for XCM locations that transact with this pallet
 		type SiblingOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
 
 		/// Converts Location to AgentId
