@@ -295,8 +295,10 @@ pub mod pallet {
 		/// The preimage provider with which we look up call hashes to get the call.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-		// Suggested value: Use the system block number or if you expect the parachain to execute very regularly you can use the relay chain block number.
-		// Warning: This value must not be too much out of sync with the local block number. Between every block the increment of this number should be reasonably small to avoid performance degradation and added latency
+		// Suggested value: Use the system block number or if you expect the parachain to execute
+		// very regularly you can use the relay chain block number. Warning: This value must not
+		// be too much out of sync with the local block number. Between every block the increment of
+		// this number should be reasonably small to avoid performance degradation and added latency
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
