@@ -41,6 +41,9 @@ pub use block_info_provider::*;
 mod receipt_provider;
 pub use receipt_provider::*;
 
+mod receipt_extractor;
+pub use receipt_extractor::*;
+
 mod rpc_health;
 pub use rpc_health::*;
 
@@ -248,10 +251,10 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_block_by_number(
 		&self,
-		block: BlockNumberOrTag,
+		block_number: BlockNumberOrTag,
 		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
-		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
+		let Some(block) = self.client.block_by_number_or_tag(&block_number).await? else {
 			return Ok(None);
 		};
 		let block = self.client.evm_block(block, hydrated_transactions).await;
@@ -299,8 +302,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		block_hash: H256,
 		transaction_index: U256,
 	) -> RpcResult<Option<TransactionInfo>> {
-		let Some(receipt) =
-			self.client.receipt_by_hash_and_index(&block_hash, &transaction_index).await
+		let Some(receipt) = self
+			.client
+			.receipt_by_hash_and_index(&block_hash, transaction_index.as_usize())
+			.await
 		else {
 			return Ok(None);
 		};
