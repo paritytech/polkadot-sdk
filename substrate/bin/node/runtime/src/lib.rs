@@ -3416,9 +3416,6 @@ impl_runtime_apis! {
 			let mut traces = vec![];
 			let (header, extrinsics) = block.deconstruct();
 
-			log::debug!(target: "runtime::revive", "Tracing headers {header:?}");
-			log::debug!(target: "runtime::revive", "Tracing extrinsics {extrinsics:?}");
-
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
 				trace(&mut tracer, || {
