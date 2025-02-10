@@ -201,12 +201,17 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::dispatch::{
+		DispatchErrorWithPostInfo, GetDispatchInfo, PostDispatchInfo,
 	};
+	pub use frame_support::{
+		defensive, defensive_assert,
+		storage::unhashed,
+		traits::{
+			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			StorageInfo, UnfilteredDispatchable,
+		},
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -231,9 +236,13 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			AppVerify, BlakeTwo256, BlockNumberProvider, Bounded, Convert, DispatchInfoOf,
+			Dispatchable, Hash, IdentityLookup, ReduceBy, ReplaceWithDefault, SaturatedConversion,
+			Saturating, StaticLookup, TrailingZeroInput, TrailingZeroInput, Zero,
+		},
+		BuildStorage, DispatchError, RuntimeAppPublic, StateVersion,
 	};
 
 	/// Bounded storage related types.
@@ -583,6 +592,9 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_storage;
+	pub use sp_api;
+	pub use sp_application_crypto;
 
 	pub use codec;
 	pub use scale_info;
