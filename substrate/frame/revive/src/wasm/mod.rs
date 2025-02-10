@@ -115,6 +115,11 @@ impl<T: Config> Token<T> for CodeLoadToken {
 	}
 }
 
+#[cfg(test)]
+pub fn code_load_weight(code_len: u32) -> Weight {
+	Token::<crate::tests::Test>::weight(&CodeLoadToken(code_len))
+}
+
 impl<T: Config> WasmBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
