@@ -1,0 +1,10 @@
+title: '`fatxpool`: metrics - initial sketch'
+doc:
+- audience: Node Dev
+  description: |-
+    tbd
+
+    fixes: #7355, #7448
+crates:
+- name: sc-transaction-pool
+  bump: minor
