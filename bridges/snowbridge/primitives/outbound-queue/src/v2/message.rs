@@ -326,8 +326,3 @@ impl GasMeter for () {
 pub fn primary_governance_origin() -> H256 {
 	hex!("0000000000000000000000000000000000000000000000000000000000000001").into()
 }
-
-// Origin for lower-priority governance commands
-pub fn second_governance_origin() -> H256 {
-	hex!("0000000000000000000000000000000000000000000000000000000000000002").into()
-}
