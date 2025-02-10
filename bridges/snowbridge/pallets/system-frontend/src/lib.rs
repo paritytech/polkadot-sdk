@@ -131,6 +131,8 @@ pub mod pallet {
 			});
 
 			let xcm: Xcm<()> = vec![
+				// Burn some DOT fees from the origin on AH and teleport to BH which pays for
+				// the execution of Transacts on BH.
 				ReceiveTeleportedAsset(T::RemoteExecutionFee::get().into()),
 				PayFees { asset: T::RemoteExecutionFee::get() },
 				Transact {
