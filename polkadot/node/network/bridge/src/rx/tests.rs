@@ -15,9 +15,15 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use bitvec::prelude::Lsb0;
 use futures::{channel::oneshot, executor};
-use polkadot_node_network_protocol::{self as net_protocol, OurView};
+use polkadot_node_network_protocol::{
+	self as net_protocol,
+	v3::{BackedCandidateManifest, StatementFilter},
+	OurView,
+};
 use polkadot_node_subsystem::messages::NetworkBridgeEvent;
+use polkadot_primitives::Id as ParaId;
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
@@ -49,7 +55,7 @@ use polkadot_node_subsystem_test_helpers::{
 	mock::new_leaf, SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::metered;
-use polkadot_primitives::{AuthorityDiscoveryId, Hash};
+use polkadot_primitives::{AuthorityDiscoveryId, GroupIndex, Hash};
 
 use sp_keyring::Sr25519Keyring;
 
@@ -1604,16 +1610,19 @@ fn network_protocol_versioning_subsystem_msg() {
 			}
 		);
 
-		let metadata = protocol_v1::StatementMetadata {
+		let manifest = BackedCandidateManifest {
 			relay_parent: Hash::zero(),
 			candidate_hash: CandidateHash::default(),
-			signed_by: ValidatorIndex(0),
-			signature: sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
+			group_index: GroupIndex::from(0),
+			para_id: ParaId::from(0),
+			parent_head_data_hash: Hash::zero(),
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 1, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+			},
 		};
 		let statement_distribution_message =
-			protocol_v2::StatementDistributionMessage::V1Compatibility(
-				protocol_v1::StatementDistributionMessage::LargeStatement(metadata),
-			);
+			protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest);
 		let msg = protocol_v3::ValidationProtocol::StatementDistribution(
 			statement_distribution_message.clone(),
 		);
