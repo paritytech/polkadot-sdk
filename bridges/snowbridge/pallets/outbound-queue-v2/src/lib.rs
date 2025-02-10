@@ -36,7 +36,7 @@
 //! 	a. Verify the message with proof for a transaction receipt containing the event log,
 //! 	   same as the inbound queue verification flow
 //! 	b. Fetch the pending order by nonce of the message, pay reward with fee attached in the order
-//!		c. Remove the order from `PendingOrders` map storage by nonce
+//!    	c. Remove the order from `PendingOrders` map storage by nonce
 //!
 //! # Message Priorities
 //!
@@ -85,8 +85,7 @@ use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::{
 	v2::{
 		abi::{CommandWrapper, OutboundMessageWrapper},
-		GasMeter, Message, OutboundCommandWrapper, OutboundMessage,
-		MessageReceipt
+		GasMeter, Message, MessageReceipt, OutboundCommandWrapper, OutboundMessage,
 	},
 	EventProof, VerificationError, Verifier,
 };
@@ -256,7 +255,10 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> where T::AccountId: From<[u8; 32]> {
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: From<[u8; 32]>,
+	{
 		/// Halt or resume all pallet operations. May only be called by root.
 		#[pallet::call_index(0)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
@@ -283,7 +285,8 @@ pub mod pallet {
 			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
-			let receipt = MessageReceiptOf::<T>::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+			let receipt = MessageReceiptOf::<T>::try_from(&event.event_log)
+				.map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == receipt.gateway, Error::<T>::InvalidGateway);
@@ -312,7 +315,7 @@ pub mod pallet {
 		pub(crate) fn commit() {
 			let count = MessageLeaves::<T>::decode_len().unwrap_or_default() as u64;
 			if count == 0 {
-				return
+				return;
 			}
 
 			// Create merkle root of messages
@@ -384,6 +387,11 @@ pub mod pallet {
 			};
 			Messages::<T>::append(Box::new(outbound_message));
 
+			// Generate `PendingOrder` with fee attached in the message, stored
+			// into the `PendingOrders` map storage, with assigned nonce as the key.
+			// When the message is processed on ethereum side, the relayer will send the nonce
+			// back with delivery proof, only after that the order can
+			// be resolved and the fee will be rewarded to the relayer.
 			let order = PendingOrder {
 				nonce,
 				fee: message.fee,
