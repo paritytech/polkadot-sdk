@@ -56,6 +56,8 @@ pub struct Metrics {
 	pub unwatched_txs: Gauge<U64>,
 	/// Total number of transactions reported as invalid.
 	pub removed_invalid_txs: Counter<U64>,
+	/// Total number of transactions from imported blocks that are unknown to the pool.
+	pub unknown_from_block_import_txs: Counter<U64>,
 	/// Total number of finalized transactions.
 	pub finalized_txs: Counter<U64>,
 	/// Histogram of maintain durations.
@@ -257,6 +259,13 @@ impl MetricsRegistrant for Metrics {
 				Counter::new(
 					"substrate_sub_txpool_removed_invalid_txs_total",
 					"Total number of transactions reported as invalid.",
+				)?,
+				registry,
+			)?,
+			unknown_from_block_import_txs: register(
+				Counter::new(
+					"substrate_sub_txpool_unknown_from_block_import_txs_total",
+					"Total number of transactions from imported blocks that are unknown to the pool.",
 				)?,
 				registry,
 			)?,

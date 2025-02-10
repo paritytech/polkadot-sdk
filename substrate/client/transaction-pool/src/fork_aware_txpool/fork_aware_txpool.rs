@@ -1283,6 +1283,12 @@ where
 			pruned_log.extend(enacted_log);
 		});
 
+		self.metrics.report(|metrics| {
+			metrics
+				.unknown_from_block_import_txs
+				.inc_by(self.mempool.count_unknown_transactions(pruned_log.iter()) as _)
+		});
+
 		//resubmit
 		{
 			let mut resubmit_transactions = Vec::new();

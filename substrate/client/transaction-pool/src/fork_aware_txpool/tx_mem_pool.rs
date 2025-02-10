@@ -599,6 +599,16 @@ where
 				.map(|p| *p.priority.write() = Some(priority))
 		});
 	}
+
+	/// Counts the number of transactions in the provided iterator of hashes
+	/// that are not known to the pool.
+	pub(super) fn count_unknown_transactions<'a>(
+		&self,
+		hashes: impl Iterator<Item = &'a ExtrinsicHash<ChainApi>>,
+	) -> usize {
+		let transactions = self.transactions.read();
+		hashes.filter(|tx_hash| !transactions.contains_key(tx_hash)).count()
+	}
 }
 
 #[cfg(test)]
