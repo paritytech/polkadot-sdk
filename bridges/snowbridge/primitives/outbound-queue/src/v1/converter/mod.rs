@@ -9,9 +9,9 @@ use core::slice::Iter;
 
 use codec::{Decode, Encode};
 
+use super::message::{AgentExecuteCommand, Command, Message, SendMessage};
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{AgentId, ChannelId, ParaId, TokenId, TokenIdOf};
-use super::message::{AgentExecuteCommand, Command, Message, SendMessage};
 use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
@@ -175,6 +175,9 @@ enum XcmConverterError {
 	UnexpectedInstruction,
 }
 
+/// Macro used for capturing values when the pattern matches.
+/// Specifically here for matching against xcm instructions and capture the params in that
+/// instruction
 macro_rules! match_expression {
 	($expression:expr, $(|)? $( $pattern:pat_param )|+ $( if $guard: expr )?, $value:expr $(,)?) => {
 		match $expression {
