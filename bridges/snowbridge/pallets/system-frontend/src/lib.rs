@@ -32,7 +32,7 @@ pub use pallet::*;
 use snowbridge_core::AssetMetadata;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum ControlCall {
+pub enum EthereumSystemCall {
 	#[codec(index = 1)]
 	CreateAgent { location: Box<VersionedLocation>, fee: u128 },
 	#[codec(index = 2)]
@@ -41,9 +41,9 @@ pub enum ControlCall {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum SnowbridgeControl {
+pub enum BridgeHubRuntime {
 	#[codec(index = 90)]
-	Control(ControlCall),
+	Control(EthereumSystemCall),
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -129,7 +129,7 @@ pub mod pallet {
 
 			Self::burn_fees(origin_location.clone(), fee)?;
 
-			let call = SnowbridgeControl::Control(ControlCall::CreateAgent {
+			let call = BridgeHubRuntime::Control(EthereumSystemCall::CreateAgent {
 				location: Box::new(VersionedLocation::from(origin_location.clone())),
 				fee,
 			});
@@ -179,7 +179,7 @@ pub mod pallet {
 
 			Self::burn_fees(origin_location.clone(), fee)?;
 
-			let call = SnowbridgeControl::Control(ControlCall::RegisterToken {
+			let call = BridgeHubRuntime::Control(EthereumSystemCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(asset_location.clone())),
 				metadata,
 				fee,
