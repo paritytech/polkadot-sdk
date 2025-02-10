@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Pallet and transaction extensions to reclaim PoV proof size weight after an extrinsic has been
 //! applied.
@@ -29,7 +29,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_storage_weight_reclaim::get_proof_size;
-use derivative::Derivative;
+use derive_where::derive_where;
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::Weight,
@@ -83,13 +83,8 @@ pub mod pallet {
 /// calculates the unused weight using the post information and reclaim the unused weight.
 /// So this extension can be used as a drop-in replacement for `WeightReclaim` extension for
 /// parachains.
-#[derive(Encode, Decode, TypeInfo, Derivative)]
-#[derivative(
-	Clone(bound = "S: Clone"),
-	Eq(bound = "S: Eq"),
-	PartialEq(bound = "S: PartialEq"),
-	Default(bound = "S: Default")
-)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Default; S)]
 #[scale_info(skip_type_params(T))]
 pub struct StorageWeightReclaim<T, S>(pub S, core::marker::PhantomData<T>);
 

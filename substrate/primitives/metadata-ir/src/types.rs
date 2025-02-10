@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Compact, Encode};
+use codec::{Compact, Decode, Encode};
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
 	prelude::{collections::BTreeMap, vec::Vec},
@@ -118,6 +118,58 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 	}
 }
 
+/// Metadata of a pallet view function method.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct PalletViewFunctionMethodMetadataIR<T: Form = MetaForm> {
+	/// Method name.
+	pub name: T::String,
+	/// Method id.
+	pub id: [u8; 32],
+	/// Method parameters.
+	pub inputs: Vec<PalletViewFunctionMethodParamMetadataIR<T>>,
+	/// Method output.
+	pub output: T::Type,
+	/// Method documentation.
+	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationStatusIR<T>,
+}
+
+impl IntoPortable for PalletViewFunctionMethodMetadataIR {
+	type Output = PalletViewFunctionMethodMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		PalletViewFunctionMethodMetadataIR {
+			name: self.name.into_portable(registry),
+			id: self.id,
+			inputs: registry.map_into_portable(self.inputs),
+			output: registry.register_type(&self.output),
+			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+		}
+	}
+}
+
+/// Metadata of a pallet view function method argument.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct PalletViewFunctionMethodParamMetadataIR<T: Form = MetaForm> {
+	/// Parameter name.
+	pub name: T::String,
+	/// Parameter type.
+	pub ty: T::Type,
+}
+
+impl IntoPortable for PalletViewFunctionMethodParamMetadataIR {
+	type Output = PalletViewFunctionMethodParamMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		PalletViewFunctionMethodParamMetadataIR {
+			name: self.name.into_portable(registry),
+			ty: registry.register_type(&self.ty),
+		}
+	}
+}
+
 /// The intermediate representation for a pallet metadata.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct PalletMetadataIR<T: Form = MetaForm> {
@@ -127,6 +179,8 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	pub storage: Option<PalletStorageMetadataIR<T>>,
 	/// Pallet calls metadata.
 	pub calls: Option<PalletCallMetadataIR<T>>,
+	/// Pallet view functions metadata.
+	pub view_functions: Vec<PalletViewFunctionMethodMetadataIR<T>>,
 	/// Pallet event metadata.
 	pub event: Option<PalletEventMetadataIR<T>>,
 	/// Pallet constants metadata.
@@ -152,6 +206,11 @@ impl IntoPortable for PalletMetadataIR {
 			name: self.name.into_portable(registry),
 			storage: self.storage.map(|storage| storage.into_portable(registry)),
 			calls: self.calls.map(|calls| calls.into_portable(registry)),
+			view_functions: self
+				.view_functions
+				.into_iter()
+				.map(|view_functions| view_functions.into_portable(registry))
+				.collect(),
 			event: self.event.map(|event| event.into_portable(registry)),
 			constants: registry.map_into_portable(self.constants),
 			error: self.error.map(|error| error.into_portable(registry)),
