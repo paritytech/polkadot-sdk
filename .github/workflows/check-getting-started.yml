@@ -185,6 +185,7 @@ jobs:
         timeout-minutes: 5
 
   check-getting-started-macos:
+    needs: isdraft
     strategy:
       fail-fast: true
       matrix:
