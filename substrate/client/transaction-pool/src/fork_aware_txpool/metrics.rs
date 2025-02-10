@@ -392,7 +392,6 @@ impl<ChainApi: graph::ChainApi> EventsMetricsCollector<ChainApi> {
 	///
 	/// Takes a transaction hash and its submission timestamp, and attempts to
 	/// send a submission message to the metrics messages processing task.
-	// pub fn report_submitted(&self, tx_hash: ExtrinsicHash<ChainApi>, timestamp: Instant) {
 	pub fn report_submitted(&self, insertion_info: &InsertionInfo<ExtrinsicHash<ChainApi>>) {
 		self.metrics_message_sink.as_ref().map(|sink| {
 			if let Err(error) = sink.unbounded_send(EventMetricsMessage::Submitted(
