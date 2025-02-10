@@ -83,6 +83,7 @@ jobs:
 
   build-implementers-guide:
     runs-on: ubuntu-latest
+    needs: isdraft
     container:
       image: paritytech/mdbook-utils:e14aae4a-20221123
       options: --user root
