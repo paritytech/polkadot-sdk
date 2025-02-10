@@ -186,11 +186,11 @@ pub enum Command {
 	CallContract {
 		/// Target contract address
 		target: H160,
-		/// The call data to the contract
-		data: Vec<u8>,
-		/// The dynamic gas component that needs to be specified when executing the contract
-		gas_limit: u64,
-		/// Ether Value(require to prefund the agent first)
+		/// ABI-encoded calldata
+		calldata: Vec<u8>,
+		/// Maximum gas to forward to target contract
+		gas: u64,
+		/// Include ether held by agent contract
 		value: u128,
 	},
 }
@@ -244,7 +244,7 @@ impl Command {
 				amount: *amount,
 			}
 			.abi_encode(),
-			Command::CallContract { target, data, value, .. } => CallContractParams {
+			Command::CallContract { target, calldata: data, value, .. } => CallContractParams {
 				target: Address::from(target.as_fixed_bytes()),
 				data: Bytes::from(data.to_vec()),
 				value: U256::try_from(*value).unwrap(),
@@ -311,7 +311,7 @@ impl GasMeter for ConstantGasMeter {
 			Command::UnlockNativeToken { .. } => 100_000,
 			Command::RegisterForeignToken { .. } => 1_200_000,
 			Command::MintForeignToken { .. } => 100_000,
-			Command::CallContract { gas_limit, .. } => *gas_limit,
+			Command::CallContract { gas: gas_limit, .. } => *gas_limit,
 		}
 	}
 }

@@ -19,7 +19,7 @@ use frame_support::pallet_prelude::TypeInfo;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
 use snowbridge_core::AssetMetadata;
 use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
-use snowbridge_outbound_queue_primitives::v2::TransactInfo;
+use snowbridge_outbound_queue_primitives::v2::ContractCall;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
 
@@ -261,10 +261,10 @@ fn transact_with_agent() {
 		let beneficiary =
 			Location::new(0, [AccountKey20 { network: None, key: AGENT_ADDRESS.into() }]);
 
-		let transact_info = TransactInfo {
+		let transact_info = ContractCall {
 			target: Default::default(),
 			data: vec![],
-			gas_limit: 40000,
+			gas: 40000,
 			// value should be less than the transfer amount, require validation on BH Exporter
 			value: 4 * (TOKEN_AMOUNT - REMOTE_FEE_AMOUNT_IN_WETH) / 5,
 		};
@@ -356,7 +356,7 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 		];
 
 		let transact_info =
-			TransactInfo { target: Default::default(), data: vec![], gas_limit: 40000, value: 0 };
+			ContractCall { target: Default::default(), data: vec![], gas: 40000, value: 0 };
 
 		let xcm = VersionedXcm::from(Xcm(vec![
 			WithdrawAsset(assets.clone().into()),

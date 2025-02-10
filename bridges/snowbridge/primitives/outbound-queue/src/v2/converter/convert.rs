@@ -9,7 +9,7 @@ use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
 
 use crate::v2::{
 	message::{Command, Message},
-	TransactInfo,
+	ContractCall,
 };
 
 use sp_core::H160;
@@ -239,14 +239,12 @@ where
 		if let Some(transact_call) = transact_call {
 			let _ = self.next();
 			let transact =
-				TransactInfo::decode_all(&mut transact_call.clone().into_encoded().as_slice())
+				ContractCall::decode_all(&mut transact_call.clone().into_encoded().as_slice())
 					.map_err(|_| TransactDecodeFailed)?;
-			commands.push(Command::CallContract {
-				target: transact.target,
-				data: transact.data,
-				gas_limit: transact.gas_limit,
-				value: transact.value,
-			});
+			match transact {
+				ContractCall::V1 { target, calldata, gas, value } => commands
+					.push(Command::CallContract { target: target.into(), calldata, gas, value }),
+			}
 		}
 
 		// ensure SetTopic exists
