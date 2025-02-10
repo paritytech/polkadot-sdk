@@ -7,15 +7,17 @@ import {
 	polkadotSdkPath,
 } from './util.ts'
 import { afterAll, afterEach, describe, expect, test } from 'bun:test'
-import { encodeFunctionData, Hex, parseEther, decodeEventLog, keccak256, toHex } from 'viem'
+import { encodeFunctionData, Hex, parseEther, decodeEventLog } from 'viem'
 import { ErrorsAbi } from '../abi/Errors'
 import { EventExampleAbi } from '../abi/EventExample'
+import { TracingCallerAbi } from '../abi/TracingCaller'
+import { TracingCalleeAbi } from '../abi/TracingCallee'
 import { Subprocess, spawn } from 'bun'
 import { fail } from 'node:assert'
 
 const procs: Subprocess[] = []
 if (process.env.START_GETH) {
-	process.env.USE_ETH_RPC = 'true'
+	process.env.USE_GETH = 'true'
 	procs.push(
 		// Run geth on port 8546
 		await (async () => {
@@ -126,6 +128,41 @@ for (const env of envs) {
 				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
 				contractAddress = deployReceipt.contractAddress!
 				return contractAddress
+			}
+		})()
+
+		const getTracingExampleAddrs = (() => {
+			let callerAddr: Hex = '0x'
+			let calleeAddr: Hex = '0x'
+			return async () => {
+				if (callerAddr !== '0x') {
+					return [callerAddr, calleeAddr]
+				}
+				calleeAddr = await (async () => {
+					const hash = await env.serverWallet.deployContract({
+						abi: TracingCalleeAbi,
+						bytecode: getByteCode('TracingCallee', env.evm),
+					})
+					const receipt = await env.serverWallet.waitForTransactionReceipt({
+						hash,
+					})
+					return receipt.contractAddress!
+				})()
+
+				callerAddr = await (async () => {
+					const hash = await env.serverWallet.deployContract({
+						abi: TracingCallerAbi,
+						args: [calleeAddr],
+						bytecode: getByteCode('TracingCaller', env.evm),
+						value: parseEther('10'),
+					})
+					const receipt = await env.serverWallet.waitForTransactionReceipt({
+						hash,
+					})
+					return receipt.contractAddress!
+				})()
+
+				return [callerAddr, calleeAddr]
 			}
 		})()
 
@@ -400,6 +437,35 @@ for (const env of envs) {
 					message: 'Hello world',
 				},
 			})
+		})
+
+		test.only('tracing', async () => {
+			let [callerAddress] = await getTracingExampleAddrs()
+			const receipt = await (async () => {
+				const { request } = await env.serverWallet.simulateContract({
+					address: callerAddress,
+					abi: TracingCallerAbi,
+					functionName: 'start',
+					args: [2n],
+				})
+
+				const hash = await env.serverWallet.writeContract(request)
+				return await env.serverWallet.waitForTransactionReceipt({ hash })
+			})()
+
+			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
+			Bun.write(
+				`/tmp/trace_${env.serverWallet.chain.name}_transaction.json`,
+				JSON.stringify(res, null, 2)
+			)
+			console.log('Wrote /tmp/trace_transaction.json')
+
+			res = await env.debugClient.traceBlock(receipt.blockNumber)
+			Bun.write(
+				`/tmp/trace_${env.serverWallet.chain.name}_block.json`,
+				JSON.stringify(res, null, 2)
+			)
+			console.log('Wrote /tmp/trace_block.json')
 		})
 	})
 }
