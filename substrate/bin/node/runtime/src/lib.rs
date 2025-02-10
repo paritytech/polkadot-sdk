@@ -927,10 +927,10 @@ pub(crate) mod multi_block_impls {
 		pub VoterSnapshotPerBlock: u32 = 22500 / Pages::get();
 		// validator snapshot size
 		pub TargetSnapshotPerBlock: u32 = 1000;
-		pub SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+		pub SignedPhase: u32 = 3 * EPOCH_DURATION_IN_BLOCKS / 4;
 		// 2 signed solutions to be validate
 		pub SignedValidation: u32 = Pages::get() * 2;
-		pub UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+		pub UnsignedPhase: u32 = 10;
 		pub MaxWinnersPerPage: u32 = 1000;
 		pub MaxBackersPerWinner: u32 = 128;
 		pub MaxExposurePageSize: u32 = 32;
