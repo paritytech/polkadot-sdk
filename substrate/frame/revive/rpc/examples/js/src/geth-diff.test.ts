@@ -5,7 +5,7 @@ import {
 	killProcessOnPort,
 	waitForHealth,
 	polkadotSdkPath,
-    visit,
+	visit,
 } from './util.ts'
 import { afterAll, afterEach, describe, expect, test } from 'bun:test'
 import { encodeFunctionData, Hex, parseEther, decodeEventLog } from 'viem'
@@ -440,7 +440,7 @@ for (const env of envs) {
 			})
 		})
 
-		test.only('tracing', async () => {
+		test('tracing', async () => {
 			let [callerAddr, calleeAddr] = await getTracingExampleAddrs()
 			const receipt = await (async () => {
 				const { request } = await env.serverWallet.simulateContract({
@@ -454,30 +454,30 @@ for (const env of envs) {
 				return await env.serverWallet.waitForTransactionReceipt({ hash })
 			})()
 
-		    const visitor: Parameters<typeof visit>[1] = (key, value) => {
+			const visitor: Parameters<typeof visit>[1] = (key, value) => {
 				switch (key) {
-					case "address":
-					case "from":
-					case "to": {
+					case 'address':
+					case 'from':
+					case 'to': {
 						if (value === callerAddr) {
-							return "<contract_addr>"
+							return '<contract_addr>'
 						} else if (value === calleeAddr) {
-							return "<contract_callee_addr>"
+							return '<contract_callee_addr>'
 						} else if (value == env.serverWallet.account.address.toLowerCase()) {
-							return "<caller>"
+							return '<caller>'
 						}
 
 						return value
 					}
-					case "gas":
-					case "gasUsed": {
-						return "0x42";
+					case 'gas':
+					case 'gasUsed': {
+						return '0x42'
 					}
-					case "txHash": {
-						return "<hash>"
+					case 'txHash': {
+						return '<hash>'
 					}
 					default: {
-						return value;
+						return value
 					}
 				}
 			}

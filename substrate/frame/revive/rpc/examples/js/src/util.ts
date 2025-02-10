@@ -186,19 +186,15 @@ export function waitForHealth(url: string) {
 	})
 }
 
-export function visit(
-  obj: any,
-  callback: (key: string, value: any) => any
-): any {
-  if (Array.isArray(obj)) {
-    return obj.map(item => visit(item, callback));
-  } else if (typeof obj === 'object' && obj !== null) {
-    return Object.keys(obj).reduce((acc, key) => {
-      acc[key] = visit(callback(key, obj[key]), callback);
-      return acc;
-    }, {} as any);
-  } else {
-    return obj;
-  }
+export function visit(obj: any, callback: (key: string, value: any) => any): any {
+	if (Array.isArray(obj)) {
+		return obj.map((item) => visit(item, callback))
+	} else if (typeof obj === 'object' && obj !== null) {
+		return Object.keys(obj).reduce((acc, key) => {
+			acc[key] = visit(callback(key, obj[key]), callback)
+			return acc
+		}, {} as any)
+	} else {
+		return obj
+	}
 }
-
