@@ -4,9 +4,7 @@ doc:
   description: |-
     Follow up from https://github.com/paritytech/polkadot-sdk/pull/6362#issuecomment-2629744365
 
-    The goal of this PR is to have the scheduler pallet work on a parachain which does not produce blocks on a regular schedule, thus can use the relay chain as a block provider.
-
-    Because blocks are not produced regularly, we cannot make the assumption that block number increases monotonically, and thus have new logic to handle multiple spend periods passing between blocks.
+        The goal of this PR is to have the treasury pallet work on a parachain which does not produce blocks on a regular schedule, thus can use the relay chain as a block provider. Because blocks are not produced regularly, we cannot make the assumption that block number increases monotonically, and thus have new logic to handle multiple spend periods passing between blocks
 
     Requirement:
 
@@ -23,4 +21,4 @@ crates:
 - name: pallet-referenda
   bump: minor
 - name: pallet-scheduler
-  bump: minor
+  bump: major
