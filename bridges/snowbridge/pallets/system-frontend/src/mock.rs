@@ -192,7 +192,7 @@ impl crate::Config for Test {
 	type XcmSender = MockXcmSender;
 	type AssetTransactor = SuccessfulTransactor;
 	type FeeAsset = WETH;
-	type DeliveryFee = DeliveryFee;
+	type RemoteExecutionFee = DeliveryFee;
 }
 
 // Build genesis storage according to the mock runtime.

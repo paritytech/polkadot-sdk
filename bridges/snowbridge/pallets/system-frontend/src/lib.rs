@@ -80,7 +80,7 @@ pub mod pallet {
 
 		type FeeAsset: Get<Location>;
 
-		type DeliveryFee: Get<Asset>;
+		type RemoteExecutionFee: Get<Asset>;
 
 		type WeightInfo: WeightInfo;
 
@@ -130,8 +130,8 @@ pub mod pallet {
 			});
 
 			let xcm: Xcm<()> = vec![
-				ReceiveTeleportedAsset(T::DeliveryFee::get().into()),
-				PayFees { asset: T::DeliveryFee::get() },
+				ReceiveTeleportedAsset(T::RemoteExecutionFee::get().into()),
+				PayFees { asset: T::RemoteExecutionFee::get() },
 				Transact {
 					origin_kind: OriginKind::Xcm,
 					call: call.encode().into(),
@@ -179,8 +179,8 @@ pub mod pallet {
 			});
 
 			let xcm: Xcm<()> = vec![
-				ReceiveTeleportedAsset(T::DeliveryFee::get().into()),
-				PayFees { asset: T::DeliveryFee::get() },
+				ReceiveTeleportedAsset(T::RemoteExecutionFee::get().into()),
+				PayFees { asset: T::RemoteExecutionFee::get() },
 				Transact {
 					origin_kind: OriginKind::Xcm,
 					call: call.encode().into(),
@@ -207,7 +207,7 @@ pub mod pallet {
 			let ethereum_fee_asset = (T::FeeAsset::get(), fee).into();
 			T::AssetTransactor::withdraw_asset(&ethereum_fee_asset, &origin_location, None)
 				.map_err(|_| Error::<T>::FundsUnavailable)?;
-			T::AssetTransactor::withdraw_asset(&T::DeliveryFee::get(), &origin_location, None)
+			T::AssetTransactor::withdraw_asset(&T::RemoteExecutionFee::get(), &origin_location, None)
 				.map_err(|_| Error::<T>::FundsUnavailable)?;
 			Ok(())
 		}

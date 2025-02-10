@@ -77,5 +77,5 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type XcmSender = DoNothingRouter;
 	type AssetTransactor = AssetTransactors;
 	type FeeAsset = FeeAsset;
-	type DeliveryFee = DeliveryFee;
+	type RemoteExecutionFee = DeliveryFee;
 }
