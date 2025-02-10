@@ -1,42 +1,11 @@
 title: '[AHM] Multi-block staking election pallet'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
-    ## Replaces
+    Adds the multi-block implementation of staking election.
 
-    - [x] https://github.com/paritytech/polkadot-sdk/pull/6034
-    - [ ] https://github.com/paritytech/polkadot-sdk/pull/5272
-    - [ ] https://github.com/paritytech/polkadot-sdk/pull/6520
-
-    ## Related PRs:
-
-    - [ ] https://github.com/paritytech/polkadot-sdk/pull/6445
-    - [ ] https://github.com/paritytech/polkadot-sdk/pull/7357
-    - [ ] https://github.com/paritytech/polkadot-sdk/pull/6788
-    - [ ] https://github.com/paritytech/polkadot-staking-miner/pull/955
-
-    This branch can be periodically merged into https://github.com/paritytech/polkadot-sdk/pull/7358 -> https://github.com/paritytech/polkadot-sdk/pull/6996
-
-    ## TODOs:
-
-    - [x] rebase to master
-    - Benchmarking for staking critical path
-      - [x] snapshot
-      - [x] election result
-    - Benchmarking for EPMB critical path
-      - [x] snapshot
-      - [x] verification
-      - [x] submission
-      - [x] unsigned submission
-      - [ ] election results fetching
-    - [ ] Fix deletion weights. Either of
-      - [ ] Garbage collector + lazy removal of all paged storage items
-      - [ ] Confirm that deletion is small PoV footprint.
-    - [ ] integrity checks for bounds
-    - [x] add try-state to all pallets
-    - [x] Staking to allow genesis dev accounts to be created internally
-    - [x] Decouple miner config so @niklasad1 can work on the miner 72841b731727e69db38f9bd616190aa8d50a56ba
-    - [ ] duplicate snapshot page reported by @niklasad1
+    This PR is the starting point of making the staking pallet customized for Asset-Hub Migration,
+    in a non-backwards-compatible way.
 crates:
 - name: pallet-election-provider-multi-block
   bump: major
