@@ -14894,6 +14894,7 @@ dependencies = [
  "pallet-revive 0.1.0",
  "pallet-revive-fixtures 0.1.0",
  "parity-scale-codec",
+ "pretty_assertions",
  "rlp 0.6.1",
  "sc-cli",
  "sc-rpc",
