@@ -2,6 +2,7 @@ name: Check licenses
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 
 concurrency:
@@ -12,8 +13,14 @@ permissions:
   packages: read
 
 jobs:
+  isdraft:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - run: echo "PR is not draft, starting CI"
   check-licenses:
     runs-on: ubuntu-latest
+    needs: isdraft
     timeout-minutes: 10
     env:
       LICENSES: "'Apache-2.0' 'GPL-3.0-only' 'GPL-3.0-or-later WITH Classpath-exception-2.0' 'MIT-0' 'Unlicense'"

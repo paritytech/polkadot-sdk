@@ -28,7 +28,6 @@ on:
       - "scripts/getting-started.sh"
   schedule:
     - cron: "0 5 * * *"
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
