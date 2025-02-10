@@ -124,9 +124,7 @@ pub enum RelayerAccountAction<AccountId, Reward, LaneId> {
 	TypeInfo,
 )]
 #[scale_info(skip_type_params(Runtime, Config, LaneId))]
-pub struct BridgeRelayersTransactionExtension<Runtime, Config>(
-	PhantomData<(Runtime, Config)>,
-);
+pub struct BridgeRelayersTransactionExtension<Runtime, Config>(PhantomData<(Runtime, Config)>);
 
 impl<R, C> BridgeRelayersTransactionExtension<R, C>
 where
@@ -137,10 +135,12 @@ where
 	C: ExtensionConfig<Runtime = R>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
-	<R as TransactionPaymentConfig>::OnChargeTransaction:
-		OnChargeTransaction<R>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<C::LaneId>>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward: From<<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance>,
+	<R as TransactionPaymentConfig>::OnChargeTransaction: OnChargeTransaction<R>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind:
+		From<RewardsAccountParams<C::LaneId>>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward: From<
+		<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
+	>,
 	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
 {
 	/// Returns number of bundled messages `Some(_)`, if the given call info is a:
@@ -273,13 +273,13 @@ where
 		post_info: &PostDispatchInfo,
 		len: usize,
 		tip: <<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
-	) -> <<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance {
+	) -> <<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance
+	{
 		TransactionPaymentPallet::<R>::compute_actual_fee(len as _, info, post_info, tip)
 	}
 }
 
-impl<R, C> TransactionExtension<R::RuntimeCall>
-	for BridgeRelayersTransactionExtension<R, C>
+impl<R, C> TransactionExtension<R::RuntimeCall> for BridgeRelayersTransactionExtension<R, C>
 where
 	Self: 'static + Send + Sync,
 	R: RelayersConfig<C::BridgeRelayersPalletInstance>
@@ -288,10 +288,12 @@ where
 	C: ExtensionConfig<Runtime = R>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
-	<R as TransactionPaymentConfig>::OnChargeTransaction:
-		OnChargeTransaction<R>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind: From<RewardsAccountParams<C::LaneId>>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward: From<<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance>,
+	<R as TransactionPaymentConfig>::OnChargeTransaction: OnChargeTransaction<R>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind:
+		From<RewardsAccountParams<C::LaneId>>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward: From<
+		<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
+	>,
 	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
 {
 	const IDENTIFIER: &'static str = C::IdProvider::STR;
@@ -521,8 +523,7 @@ mod tests {
 		(),
 		ConstU64<1>,
 	>;
-	type TestExtension =
-		BridgeRelayersTransactionExtension<TestRuntime, TestExtensionConfig>;
+	type TestExtension = BridgeRelayersTransactionExtension<TestRuntime, TestExtensionConfig>;
 	type TestMessagesExtensionConfig = messages_adapter::WithMessagesExtensionConfig<
 		StrTestMessagesExtension,
 		TestRuntime,
@@ -530,10 +531,8 @@ mod tests {
 		(),
 		ConstU64<1>,
 	>;
-	type TestMessagesExtension = BridgeRelayersTransactionExtension<
-		TestRuntime,
-		TestMessagesExtensionConfig,
-	>;
+	type TestMessagesExtension =
+		BridgeRelayersTransactionExtension<TestRuntime, TestMessagesExtensionConfig>;
 
 	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {
 		let test_stake: ThisChainBalance = Stake::get();

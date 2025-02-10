@@ -107,30 +107,23 @@ pub trait PaymentProcedure<Relayer, RewardKind, Reward> {
 /// This ledger allows registering rewards for a relayer, categorized by a specific `RewardKind`.
 /// The registered rewards can be claimed later through an appropriate payment procedure.
 pub trait RewardLedger<Relayer, RewardKind, Reward> {
-
 	/// Registers a reward for a given relayer.
-	fn register_reward(
-		relayer: &Relayer,
-		reward_kind: RewardKind,
-		reward: Reward,
-	);
+	fn register_reward(relayer: &Relayer, reward_kind: RewardKind, reward: Reward);
 }
 
 impl<Relayer, RewardKind, Reward> PaymentProcedure<Relayer, RewardKind, Reward> for () {
 	type Error = &'static str;
 
-	fn pay_reward(
-		_: &Relayer,
-		_: RewardKind,
-		_: Reward,
-	) -> Result<(), Self::Error> {
+	fn pay_reward(_: &Relayer, _: RewardKind, _: Reward) -> Result<(), Self::Error> {
 		Ok(())
 	}
 }
 
 /// Reward payment procedure that does `balances::transfer` call from the account, derived from
 /// given `RewardsAccountParams` params.
-pub struct PayRewardFromAccount<T, Relayer, LaneId, Reward>(PhantomData<(T, Relayer, LaneId, Reward)>);
+pub struct PayRewardFromAccount<T, Relayer, LaneId, Reward>(
+	PhantomData<(T, Relayer, LaneId, Reward)>,
+);
 
 impl<T, Relayer, LaneId, Reward> PayRewardFromAccount<T, Relayer, LaneId, Reward>
 where

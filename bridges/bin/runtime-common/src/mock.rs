@@ -70,7 +70,8 @@ pub type BridgedChainHeader =
 	sp_runtime::generic::Header<BridgedChainBlockNumber, BridgedChainHasher>;
 
 /// Rewards payment procedure.
-pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, Reward>;
+pub type TestPaymentProcedure =
+	PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, Reward>;
 /// Stake that we are using in tests.
 pub type TestStake = ConstU64<5_000>;
 /// Stake and slash mechanism to use in tests.

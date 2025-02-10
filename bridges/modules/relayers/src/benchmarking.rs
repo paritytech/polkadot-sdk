@@ -36,15 +36,14 @@ pub trait Config<I: 'static = ()>: crate::Config<I> {
 	/// `T::RewardKind` to use in benchmarks.
 	fn bench_reward_kind() -> Self::RewardKind;
 	/// Prepare environment for paying given reward for serving given lane.
-	fn prepare_rewards_account(
-		reward_kind: Self::RewardKind,
-		reward: Self::Reward,
-	);
+	fn prepare_rewards_account(reward_kind: Self::RewardKind, reward: Self::Reward);
 	/// Give enough balance to given account.
 	fn deposit_account(account: Self::AccountId, balance: Self::Balance);
 }
 
-fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as pallet::Config<I>>::RuntimeEvent) {
+fn assert_last_event<T: Config<I>, I: 'static>(
+	generic_event: <T as pallet::Config<I>>::RuntimeEvent,
+) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 

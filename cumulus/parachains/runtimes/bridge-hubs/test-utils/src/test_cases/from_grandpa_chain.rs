@@ -83,7 +83,8 @@ where
 		> + pallet_bridge_relayers::Config<RPI>,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
-	<Runtime as pallet_bridge_relayers::Config<RPI>>::RewardKind: From<RewardsAccountParams<LaneIdOf<Runtime, MPI>>>,
+	<Runtime as pallet_bridge_relayers::Config<RPI>>::RewardKind:
+		From<RewardsAccountParams<LaneIdOf<Runtime, MPI>>>,
 	GPI: 'static,
 	MPI: 'static,
 	RPI: 'static,

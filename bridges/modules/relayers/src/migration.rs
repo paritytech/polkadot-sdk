@@ -133,7 +133,12 @@ pub mod v1 {
 	#[cfg(feature = "try-runtime")]
 	const LOG_TARGET: &str = "runtime::bridge-relayers-migration";
 
-	impl<T: Config<I, RewardKind = RewardsAccountParams<LaneId>>, I: 'static, LaneId: LaneIdType + Send + Sync> UncheckedOnRuntimeUpgrade for UncheckedMigrationV0ToV1<T, I, LaneId> {
+	impl<
+			T: Config<I, RewardKind = RewardsAccountParams<LaneId>>,
+			I: 'static,
+			LaneId: LaneIdType + Send + Sync,
+		> UncheckedOnRuntimeUpgrade for UncheckedMigrationV0ToV1<T, I, LaneId>
+	{
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = T::DbWeight::get().reads(1);
 

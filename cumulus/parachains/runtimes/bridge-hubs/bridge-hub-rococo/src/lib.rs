@@ -184,7 +184,7 @@ pub type Migrations = (
 	pallet_bridge_relayers::migration::v1::MigrationToV1<
 		Runtime,
 		bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance,
-		bp_messages::LegacyLaneId
+		bp_messages::LegacyLaneId,
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,

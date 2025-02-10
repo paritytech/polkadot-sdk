@@ -20,15 +20,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
-use bp_relayers::{
-	PaymentProcedure, Registration, RelayerRewardsKeyProvider,
-	StakeAndSlash,
-};
-pub use bp_relayers::{RewardsAccountOwner, RewardsAccountParams, RewardLedger};
+use bp_relayers::{PaymentProcedure, Registration, RelayerRewardsKeyProvider, StakeAndSlash};
+pub use bp_relayers::{RewardLedger, RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::{fail, traits::tokens::Balance};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
-use sp_runtime::{traits::{CheckedSub, IdentifyAccount}, Saturating};
+use sp_runtime::{
+	traits::{CheckedSub, IdentifyAccount},
+	Saturating,
+};
 use sp_std::marker::PhantomData;
 
 pub use pallet::*;
@@ -71,15 +71,12 @@ pub mod pallet {
 
 		/// Type of relayer reward.
 		type Reward: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
-		/// Reward discriminator type. The pallet can collect different types of rewards for a single account.
+		/// Reward discriminator type. The pallet can collect different types of rewards for a
+		/// single account.
 		type RewardKind: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
 
 		/// Pay rewards scheme.
-		type PaymentProcedure: PaymentProcedure<
-			Self::AccountId,
-			Self::RewardKind,
-			Self::Reward,
-		>;
+		type PaymentProcedure: PaymentProcedure<Self::AccountId, Self::RewardKind, Self::Reward>;
 
 		/// Stake and slash scheme.
 		type StakeAndSlash: StakeAndSlash<Self::AccountId, BlockNumberFor<Self>, Self::Balance>;
@@ -99,10 +96,7 @@ pub mod pallet {
 		/// Claim accumulated rewards.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim_rewards())]
-		pub fn claim_rewards(
-			origin: OriginFor<T>,
-			reward_kind: T::RewardKind,
-		) -> DispatchResult {
+		pub fn claim_rewards(origin: OriginFor<T>, reward_kind: T::RewardKind) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 
 			RelayerRewards::<T, I>::try_mutate_exists(
@@ -110,8 +104,8 @@ pub mod pallet {
 				reward_kind,
 				|maybe_reward| -> DispatchResult {
 					let reward = maybe_reward.take().ok_or(Error::<T, I>::NoRewardForRelayer)?;
-					T::PaymentProcedure::pay_reward(&relayer, reward_kind, reward)
-						.map_err(|e| {
+					T::PaymentProcedure::pay_reward(&relayer, reward_kind, reward).map_err(
+						|e| {
 							log::trace!(
 								target: LOG_TARGET,
 								"Failed to pay ({:?} / {:?}) rewards to {:?}: {:?}",
@@ -121,7 +115,8 @@ pub mod pallet {
 								e,
 							);
 							Error::<T, I>::FailedToPayReward
-						})?;
+						},
+					)?;
 
 					Self::deposit_event(Event::<T, I>::RewardPaid {
 						relayer: relayer.clone(),
@@ -495,15 +490,19 @@ pub mod pallet {
 }
 
 /// Implementation of `RewardLedger` for the pallet.
-impl<T: Config<I>, I: 'static, Relayer, RewardKind, Reward> RewardLedger<Relayer, RewardKind, Reward> for Pallet<T, I>
+impl<T: Config<I>, I: 'static, Relayer, RewardKind, Reward>
+	RewardLedger<Relayer, RewardKind, Reward> for Pallet<T, I>
 where
 	Relayer: AsRef<T::AccountId>,
 	RewardKind: Into<T::RewardKind>,
 	Reward: Into<T::Reward>,
 {
-
 	fn register_reward(relayer: &Relayer, reward_kind: RewardKind, reward: Reward) {
-		Pallet::<T, I>::register_relayer_reward(reward_kind.into(), relayer.as_ref(), reward.into());
+		Pallet::<T, I>::register_relayer_reward(
+			reward_kind.into(),
+			relayer.as_ref(),
+			reward.into(),
+		);
 	}
 }
 
@@ -512,10 +511,7 @@ mod tests {
 	use super::*;
 	use mock::{RuntimeEvent as TestEvent, *};
 
-	use frame_support::{
-		assert_noop, assert_ok,
-		traits::fungible::Mutate,
-	};
+	use frame_support::{assert_noop, assert_ok, traits::fungible::Mutate};
 	use frame_system::{EventRecord, Pallet as System, Phase};
 	use sp_runtime::DispatchError;
 

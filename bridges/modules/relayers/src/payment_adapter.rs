@@ -83,8 +83,9 @@ fn register_relayers_rewards<
 	relayers_rewards: RelayersRewards<T::AccountId>,
 	lane_id: RewardsAccountParams<LaneIdOf<T, MI>>,
 	delivery_fee: T::Reward,
-)
-where <T as Config<RI>>::RewardKind: From<RewardsAccountParams<LaneIdOf<T, MI>>> {
+) where
+	<T as Config<RI>>::RewardKind: From<RewardsAccountParams<LaneIdOf<T, MI>>>,
+{
 	// reward every relayer except `confirmation_relayer`
 	let mut confirmation_relayer_reward = T::Reward::zero();
 	for (relayer, messages) in relayers_rewards {
@@ -176,7 +177,8 @@ mod tests {
 	#[test]
 	fn pay_reward_from_account_actually_pays_reward() {
 		type Balances = pallet_balances::Pallet<TestRuntime>;
-		type PayLaneRewardFromAccount = PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, Reward>;
+		type PayLaneRewardFromAccount =
+			PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, Reward>;
 
 		run_test(|| {
 			let in_lane_0 = RewardsAccountParams::new(

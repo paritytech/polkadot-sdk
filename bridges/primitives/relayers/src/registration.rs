@@ -63,14 +63,16 @@ impl<AccountId, LaneId: Decode + Encode> From<RewardsAccountParams<LaneId>>
 	}
 }
 
-impl<AccountId: Decode + Encode, LaneId: Decode + Encode> IdentifyAccount for ExplicitOrAccountParams<AccountId, LaneId> {
+impl<AccountId: Decode + Encode, LaneId: Decode + Encode> IdentifyAccount
+	for ExplicitOrAccountParams<AccountId, LaneId>
+{
 	type AccountId = AccountId;
 
 	fn into_account(self) -> Self::AccountId {
 		match self {
 			ExplicitOrAccountParams::Explicit(account_id) => account_id,
 			ExplicitOrAccountParams::Params(params) =>
-				PayRewardFromAccount::<(), AccountId, LaneId, ()>::rewards_account(params)
+				PayRewardFromAccount::<(), AccountId, LaneId, ()>::rewards_account(params),
 		}
 	}
 }

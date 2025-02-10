@@ -293,7 +293,11 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
 	fn bench_reward_kind() -> Self::RewardKind {
-		RewardsAccountParams::new(TestLaneIdType::default(), *b"test", RewardsAccountOwner::ThisChain)
+		RewardsAccountParams::new(
+			TestLaneIdType::default(),
+			*b"test",
+			RewardsAccountOwner::ThisChain,
+		)
 	}
 
 	fn prepare_rewards_account(
@@ -310,7 +314,10 @@ impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
 	}
 
 	fn deposit_account(account: Self::AccountId, balance: Self::Balance) {
-		frame_support::assert_ok!(Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())));
+		frame_support::assert_ok!(Balances::mint_into(
+			&account,
+			balance.saturating_add(ExistentialDeposit::get())
+		));
 	}
 }
 
@@ -328,11 +335,15 @@ pub struct TestPaymentProcedure;
 
 impl TestPaymentProcedure {
 	pub fn rewards_account(params: RewardsAccountParams<TestLaneIdType>) -> ThisChainAccountId {
-		PayRewardFromAccount::<(), ThisChainAccountId, TestLaneIdType, Reward>::rewards_account(params)
+		PayRewardFromAccount::<(), ThisChainAccountId, TestLaneIdType, Reward>::rewards_account(
+			params,
+		)
 	}
 }
 
-impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, Reward> for TestPaymentProcedure {
+impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, Reward>
+	for TestPaymentProcedure
+{
 	type Error = ();
 
 	fn pay_reward(
