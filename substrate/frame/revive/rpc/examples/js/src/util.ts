@@ -35,10 +35,10 @@ export function killProcessOnPort(port: number) {
 }
 
 export let jsonRpcErrors: JsonRpcError[] = []
-export async function createEnv(name: 'geth' | 'kitchensink') {
+export async function createEnv(name: 'geth' | 'eth-rpc') {
 	const gethPort = process.env.GETH_PORT || '8546'
-	const kitchensinkPort = process.env.KITCHENSINK_PORT || '8545'
-	const url = `http://localhost:${name == 'geth' ? gethPort : kitchensinkPort}`
+	const ethRpcPort = process.env.ETH_RPC_PORT || '8545'
+	const url = `http://localhost:${name == 'geth' ? gethPort : ethRpcPort}`
 	const chain = defineChain({
 		id: name == 'geth' ? 1337 : 420420420,
 		name,
