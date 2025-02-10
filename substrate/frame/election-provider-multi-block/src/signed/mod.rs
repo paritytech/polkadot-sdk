@@ -566,6 +566,7 @@ pub mod pallet {
 		}
 	}
 
+	#[allow(unused)]
 	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks", debug_assertions))]
 	impl<T: Config> Submissions<T> {
 		pub fn submissions_iter(

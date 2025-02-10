@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::f32::consts::E;
-
 use super::*;
 use crate::{
 	helpers,
@@ -395,6 +393,7 @@ pub(crate) mod pallet {
 		}
 	}
 
+	#[allow(unused)]
 	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime", debug_assertions))]
 	impl<T: Config> QueuedSolution<T> {
 		pub(crate) fn valid_iter(

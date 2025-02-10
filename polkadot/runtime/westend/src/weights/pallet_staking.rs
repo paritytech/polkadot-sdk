@@ -55,7 +55,7 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 	fn clear_election_metadata() -> Weight {
 	    Default::default()
 	}
-	fn do_elect_paged_inner(v: u32,) -> Weight {
+	fn do_elect_paged_inner(_v: u32,) -> Weight {
 		Default::default()
 	}
 	/// Storage: `Staking::Bonded` (r:1 w:1)

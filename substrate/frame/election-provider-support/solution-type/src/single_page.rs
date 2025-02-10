@@ -197,7 +197,6 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 				#remove_weakest_sorted_impl
 			}
 
-			#[cfg(feature = "runtime-benchmarks")]
 			fn corrupt(&mut self) {
 				self.votes1.push(
 					(
