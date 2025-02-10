@@ -202,11 +202,18 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::{
+		defensive, defensive_assert,
+		traits::{
+			Contains, Defensive, DefensiveSaturating, DefensiveTruncateFrom, EitherOf,
+			EnqueueMessage, EstimateNextSessionRotation, ExecuteOverweightError, Footprint, Get,
+			IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, ProcessMessage,
+			ProcessMessageError, QueueFootprint, QueuePausedQuery, RankedMembers,
+			RankedMembersSwapHandler, ServiceQueues,
+		},
 	};
+
+	pub use frame_support::storage::TransactionOutcome;
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -233,7 +240,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
 		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
@@ -326,7 +334,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, ensure, hypothetically, storage_alias,
+		assert_storage_noop, ensure, hypothetically, storage_alias, StorageNoopGuard,
 	};
 
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
@@ -385,7 +393,7 @@ pub mod runtime {
 		};
 
 		/// Used for simple fee calculation.
-		pub use frame_support::weights::{self, FixedFee, NoFee};
+		pub use frame_support::weights::{self, FixedFee, NoFee, WeightMeter};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
@@ -535,6 +543,7 @@ pub mod traits {
 /// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+	pub use sp_runtime::traits::{Zero, One};
 }
 
 /// All derive macros used in frame.
@@ -544,8 +553,8 @@ pub mod derive {
 	pub use codec::{Decode, Encode};
 	pub use core::fmt::Debug;
 	pub use frame_support::{
-		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
-		PartialOrdNoBound, RuntimeDebugNoBound,
+		BoundedSlice, CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound,
+		PartialEqNoBound, PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;

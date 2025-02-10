@@ -22,10 +22,7 @@
 
 use super::{mock_helpers::*, Pallet as MessageQueue, *};
 
-use frame_benchmarking::v2::*;
-use frame_support::traits::Get;
-use frame_system::RawOrigin;
-use sp_io::hashing::blake2_256;
+use frame::benchmarking::prelude::*;
 
 #[benchmarks(
 	where

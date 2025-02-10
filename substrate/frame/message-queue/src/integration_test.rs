@@ -37,14 +37,14 @@ use crate::{
 };
 
 use crate as pallet_message_queue;
-use frame_support::{derive_impl, parameter_types};
+use frame::testing_prelude::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rand_distr::Pareto;
 use std::collections::{BTreeMap, BTreeSet};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,

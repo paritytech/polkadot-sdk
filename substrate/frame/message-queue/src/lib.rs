@@ -208,27 +208,15 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
-use frame_support::{
-	defensive,
-	pallet_prelude::*,
-	traits::{
-		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
-		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
-		QueuePausedQuery, ServiceQueues,
-	},
-	BoundedSlice, CloneNoBound, DefaultNoBound,
-};
-use frame_system::pallet_prelude::*;
+
+use frame::{prelude::*, runtime::prelude::WeightMeter};
 pub use pallet::*;
 use scale_info::TypeInfo;
-use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-use sp_core::{defer, H256};
-use sp_runtime::{
-	traits::{One, Zero},
-	SaturatedConversion, Saturating, TransactionOutcome,
-};
-use sp_weights::WeightMeter;
+
 pub use weights::WeightInfo;
+
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 /// Type for identifying a page.
 type PageIndex = u32;
@@ -462,7 +450,7 @@ impl<Id> OnQueueChanged<Id> for () {
 	fn on_queue_changed(_: Id, _: QueueFootprint) {}
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -1347,8 +1335,9 @@ impl<T: Config> Pallet<T> {
 	/// * `remaining_size` > 0
 	/// * `first` <= `last`
 	/// * Every page can be decoded into peek_* functions
+	
 	#[cfg(any(test, feature = "try-runtime", feature = "std"))]
-	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+	pub fn do_try_state() -> Result<(), frame::try_runtime::TryRuntimeError> {
 		// Checking memory corruption for BookStateFor
 		ensure!(
 			BookStateFor::<T>::iter_keys().count() == BookStateFor::<T>::iter_values().count(),
@@ -1500,7 +1489,7 @@ impl<T: Config> Pallet<T> {
 		meter: &mut WeightMeter,
 		overweight_limit: Weight,
 	) -> MessageExecutionStatus {
-		let mut id = sp_io::hashing::blake2_256(message);
+		let mut id = blake2_256(message);
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 
@@ -1626,7 +1615,7 @@ pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
 		let hold = token::with(|t| t.take()).ok_or(()).defensive()?.ok_or(())?;
 
 		// Put the token back when we're done.
-		defer! {
+		frame::deps::sp_core::defer! {
 			token::with(|t| {
 				*t = Some(hold);
 			});

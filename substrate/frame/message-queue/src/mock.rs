@@ -24,12 +24,12 @@ use super::*;
 
 use crate as pallet_message_queue;
 use alloc::collections::btree_map::BTreeMap;
-use frame_support::{derive_impl, parameter_types};
-use sp_runtime::BuildStorage;
+use frame::testing_prelude::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+type Block = MockBlock<Test>;
+
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -298,7 +298,7 @@ impl QueuePausedQuery<MessageOrigin> for MockedQueuePauser {
 /// Create new test externalities.
 ///
 /// Is generic since it is used by the unit test, integration tests and benchmarks.
-pub fn new_test_ext<T: Config>() -> sp_io::TestExternalities
+pub fn new_test_ext<T: Config>() -> TestState
 where
 	frame_system::pallet_prelude::BlockNumberFor<T>: From<u32>,
 {
@@ -307,7 +307,7 @@ where
 	QueueChanges::take();
 	NumMessagesErrored::take();
 	let t = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestState::new(t);
 	ext.execute_with(|| frame_system::Pallet::<T>::set_block_number(1.into()));
 	ext
 }
