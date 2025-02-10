@@ -85,14 +85,13 @@ pub mod pallet {
 		/// Converts Location to AgentId
 		type AgentIdOf: ConvertLocation<AgentId>;
 
-		type WeightInfo: WeightInfo;
-
 		/// This chain's Universal Location.
 		type UniversalLocation: Get<InteriorLocation>;
 
-		// The bridges configured Ethereum location
+		/// The bridges configured Ethereum location
 		type EthereumLocation: Get<Location>;
 
+		type WeightInfo: WeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
 	}
