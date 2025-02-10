@@ -498,13 +498,17 @@ where
 					T::Currency::resolve_creating(&pot, amt);
 				},
 				PaymentType::Credits => {
+					let credits = Credits::<T>::get(&sender);
+
 					// Charge the sending account the spot price in credits.
-					Credits::<T>::try_mutate(&sender, |credits| -> DispatchResult {
-						*credits = credits
-							.checked_sub(&spot_price)
-							.ok_or(Error::<T>::InsufficientCredits)?;
-						Ok(())
-					})?;
+					let new_credits_value =
+						credits.checked_sub(&spot_price).ok_or(Error::<T>::InsufficientCredits)?;
+
+					if new_credits_value.is_zero() {
+						Credits::<T>::remove(&sender);
+					} else {
+						Credits::<T>::insert(&sender, new_credits_value);
+					}
 				},
 			}
 
