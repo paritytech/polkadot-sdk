@@ -464,7 +464,7 @@ impl TransactionEventMetricsData {
 			TransactionStatus::Ready => &mut self.ready_seen,
 			TransactionStatus::Future => &mut self.future_seen,
 			TransactionStatus::Broadcast(..) => &mut self.broadcast_seen,
-			_ => return None,
+			_ => return Some(self.submit_timestamp),
 		};
 		Self::set_true_once(flag).then_some(self.submit_timestamp)
 	}
