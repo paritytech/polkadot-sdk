@@ -69,7 +69,7 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeRewardKind, u128> for Bridge
 				relayer, lane_params, reward
 			),
 			BridgeRewardKind::Snowbridge =>
-				Err(sp_runtime::DispatchError::Other("Not implemented yet!"))
+				Err(sp_runtime::DispatchError::Other("Not implemented yet!")),
 		}
 	}
 }

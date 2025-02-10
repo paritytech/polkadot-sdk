@@ -497,11 +497,7 @@ where
 	Reward: Into<T::Reward>,
 {
 	fn register_reward(relayer: &T::AccountId, reward_kind: RewardKind, reward: Reward) {
-		Pallet::<T, I>::register_relayer_reward(
-			reward_kind.into(),
-			relayer,
-			reward.into(),
-		);
+		Self::register_relayer_reward(reward_kind.into(), relayer, reward.into());
 	}
 }
 
