@@ -20,28 +20,100 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
+extern crate alloc;
 
-pub trait ElectionResultHandler<ValidatorId> {
+use alloc::vec::Vec;
+use frame_support::pallet_prelude::*;
+use sp_core::crypto::AccountId32;
+use sp_runtime::Perbill;
+
+const LOG_TARGET: &str = "runtime::staking::rc-client";
+
+// API provided by this pallet which mimics the session one.
+// TODO: definitely pick a better name.
+pub trait SessionApi<ValidatorId> {
 	fn handle_election_result(result: Vec<ValidatorId>);
+}
+
+// API provided by the staking pallet which is used by this one.
+pub trait StakingApi {
+	/// Note the block authors for the current session.
+	fn note_authors(authors: Vec<(AccountId32, u32)>);
+
+	/// Report one or more offences
+	fn note_new_offences(offences: Vec<Offence>);
+}
+
+/// `pallet-staking-ah-client` pallet index on Relay chain. Used to construct remote calls.
+///
+/// The codec index must
+/// correspond to the index of `pallet-staking-ah-client` in the `construct_runtime` of the Relay
+/// chain.
+#[derive(Encode, Decode)]
+enum RelayChainRuntimePallets {
+	#[codec(index = 50)]
+	AhClient(SessionCalls),
+}
+
+/// Call encoding for the calls needed from the Broker pallet.
+#[derive(Encode, Decode)]
+enum SessionCalls {
+	#[codec(index = 1)]
+	NewValidators(SessionIndex),
+}
+
+// Based on [`sp_staking::offence::OffenceDetails`].
+#[derive(Encode, Decode, Debug, Clone, PartialEq, TypeInfo)]
+pub struct Offence {
+	offender: AccountId32,
+	reporters: Vec<AccountId32>,
+	slash_fraction: Perbill,
+}
+
+impl Offence {
+	pub fn new(
+		offender: AccountId32,
+		reporters: Vec<AccountId32>,
+		slash_fraction: Perbill,
+	) -> Self {
+		Self { offender, reporters, slash_fraction }
+	}
 }
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_staking::{Exposure, SessionIndex};
+	use pallet_session::SessionManager;
+	use sp_staking::SessionIndex;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: frame_system::Config {
+		// type AdminOrigin = EnsureRoot<AccountId>;
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-	impl<T, ValidatorId> ElectionResultHandler<ValidatorId> for Pallet<T> {
+		/// A stable ID for a validator.
+		type ValidatorId: Member
+			+ Parameter
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ TryFrom<Self::AccountId>;
+
+		/// Handler for managing new session.
+		type SessionManager: SessionManager<Self::ValidatorId>;
+
+		/// Handler for staking calls
+		type StakingApi: StakingApi;
+	}
+
+	impl<T, ValidatorId> SessionApi<ValidatorId> for Pallet<T> {
 		fn handle_election_result(result: Vec<ValidatorId>) {
 			//send `new_validators` XCM to session/ah_client
 		}
@@ -51,16 +123,31 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
-		pub fn end_session(origin: OriginFor<T>, end_index: SessionIndex) -> DispatchResult {
-			// call staking pallet
-			todo!()
+		pub fn start_session(origin: OriginFor<T>, start_index: SessionIndex) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			T::SessionManager::start_session(start_index);
+			Ok(())
 		}
 
 		#[pallet::call_index(1)]
 		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
-		pub fn start_session(origin: OriginFor<T>, start_index: SessionIndex) -> DispatchResult {
-			// call start_session from rc-client
-			todo!()
+		pub fn end_session(
+			origin: OriginFor<T>,
+			end_index: SessionIndex,
+			block_authors: Vec<(AccountId32, u32)>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			T::StakingApi::note_authors(block_authors);
+			T::SessionManager::end_session(end_index);
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
+		pub fn new_offence(origin: OriginFor<T>, offences: Vec<Offence>) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			T::StakingApi::note_new_offences(offences);
+			Ok(())
 		}
 	}
 }

@@ -24,8 +24,9 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
+use pallet_staking_rc_client::Offence;
 use sp_core::crypto::AccountId32;
-use sp_runtime::{traits::Convert, Perbill};
+use sp_runtime::traits::Convert;
 use sp_staking::{offence::OffenceDetails, Exposure, SessionIndex};
 use xcm::prelude::*;
 
@@ -47,20 +48,12 @@ enum AssetHubRuntimePallets {
 /// Call encoding for the calls needed from the Broker pallet.
 #[derive(Encode, Decode)]
 enum StakingCalls {
-	#[codec(index = 1)]
+	#[codec(index = 0)]
 	StartSession(SessionIndex),
-	#[codec(index = 2)]
+	#[codec(index = 1)]
 	EndSession(SessionIndex, Vec<(AccountId32, u32)>),
-	#[codec(index = 3)]
-	NewOffence(SessionIndex, Vec<Offence>),
-}
-
-// Based on [`sp_staking::offence::OffenceDetails`].
-#[derive(Encode, Decode)]
-struct Offence {
-	offender: AccountId32,
-	reporters: Vec<AccountId32>,
-	slash_fraction: Perbill,
+	#[codec(index = 2)]
+	NewOffences(SessionIndex, Vec<Offence>),
 }
 
 #[frame_support::pallet(dev_mode)]
@@ -197,8 +190,6 @@ pub mod pallet {
 		}
 
 		fn start_session(session_index: u32) {
-			// TODO: pass active validator set somehow???
-
 			let message = Xcm(vec![
 				Instruction::UnpaidExecution {
 					weight_limit: WeightLimit::Unlimited,
@@ -257,10 +248,12 @@ pub mod pallet {
 				.iter()
 				.cloned()
 				.zip(slash_fraction)
-				.map(|(offence, fraction)| Offence {
-					offender: offence.offender.0.into(),
-					reporters: offence.reporters.into_iter().map(|r| r.into()).collect(),
-					slash_fraction: *fraction,
+				.map(|(offence, fraction)| {
+					Offence::new(
+						offence.offender.0.into(),
+						offence.reporters.into_iter().map(|r| r.into()).collect(),
+						*fraction,
+					)
 				})
 				.collect::<Vec<_>>();
 
@@ -270,7 +263,7 @@ pub mod pallet {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_asset_hub_call::<T>(StakingCalls::NewOffence(
+				mk_asset_hub_call::<T>(StakingCalls::NewOffences(
 					slash_session,
 					offenders_and_slashes,
 				)),
