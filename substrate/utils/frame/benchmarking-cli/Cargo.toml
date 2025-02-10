@@ -25,10 +25,12 @@ comfy-table = { workspace = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 frame-benchmarking = { workspace = true, default-features = true }
+frame-remote-externalities = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 gethostname = { workspace = true }
 handlebars = { workspace = true }
+futures = { workspace = true }
 hex = { workspace = true, default-features = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }

@@ -19,6 +19,8 @@ use super::{
 	types::{ComponentRange, ComponentRangeMap},
 	writer, ListOutput, PalletCmd,
 };
+use sp_storage::Storage;
+use std::path::PathBuf;
 use crate::{
 	pallet::{types::FetchedCode, GenesisBuilderPolicy},
 	shared::{
@@ -26,6 +28,7 @@ use crate::{
 		genesis_state::{GenesisStateHandler, SpecGenesisSource, WARN_SPEC_GENESIS_CTOR},
 	},
 };
+use frame_remote_externalities::{Builder, Mode, OfflineConfig, RemoteExternalities};
 use clap::{error::ErrorKind, CommandFactory};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
@@ -158,6 +161,13 @@ This could mean that you either did not build the node correctly with the \
 `--features runtime-benchmarks` flag, or the chain spec that you are using was \
 not created by a node that was compiled with the flag";
 
+// We need to use any kind of `Block` type to make the compiler happy, not
+// relevant for the `ID`.
+pub type AnyBlock<Hasher> = sp_runtime::generic::Block<
+	sp_runtime::generic::Header<u32, Hasher>,
+	sp_runtime::generic::UncheckedExtrinsic<(), (), (), ()>,
+>;
+
 impl PalletCmd {
 	/// Runs the command and benchmarks a pallet.
 	#[deprecated(
@@ -228,6 +238,44 @@ impl PalletCmd {
 		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
 	}
 
+	pub fn remote_ext_test_setup<Block: sp_runtime::traits::Block>(snap: &PathBuf) -> Result<RemoteExternalities<Block>> {
+		//let abs = std::path::absolute(snap.clone());
+
+		let ext = futures::executor::block_on(Builder::<Block>::default()
+			.mode(Mode::Offline(OfflineConfig { state_snapshot: snap.clone().into() }))
+			.build());
+		let ext = ext.map_err(|e| {
+			eprintln!("Could not load from snapshot: {:?}: {:?}", snap, e);
+		})
+		.unwrap();
+
+		Ok(ext)
+	}
+
+	fn insert_snapshot<Hasher>(genesis_storage: &mut Storage, snap_path: &PathBuf) -> Result<()>
+	where
+		Hasher: Hash,
+	{
+		let mut inserted = 0;
+		let mut ext = Self::remote_ext_test_setup::<AnyBlock<Hasher>>(snap_path)?;
+		ext.execute_with(|| {
+			let mut next_key = Vec::new();
+
+			while let Some(key) = sp_io::storage::next_key(&next_key) {
+				let Some(value) = sp_io::storage::get(&key) else {
+					continue;
+				};
+				// TODO check if we should rather insert into the child trie
+				genesis_storage.top.insert(key.clone(), value.to_vec());
+				next_key = key;
+				inserted += 1;
+			}
+		});
+		log::info!("Inserted {} snapshot items into the genesis storage", inserted);
+
+		Ok(())
+	}
+
 	/// Runs the pallet benchmarking command.
 	pub fn run_with_spec<Hasher, ExtraHostFunctions>(
 		&self,
@@ -268,8 +316,11 @@ impl PalletCmd {
 
 		let state_handler =
 			self.state_handler_from_cli::<SubstrateAndExtraHF<ExtraHostFunctions>>(chain_spec)?;
-		let genesis_storage =
+		let mut genesis_storage =
 			state_handler.build_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(None)?;
+		if let Some(snap_path) = &self.snapshot_path {
+			Self::insert_snapshot::<Hasher>(&mut genesis_storage, snap_path)?;
+		}
 
 		let cache_size = Some(self.database_cache_size as usize);
 		let state_with_tracking = BenchmarkingState::<Hasher>::new(
@@ -287,6 +338,17 @@ impl PalletCmd {
 			// Proof recording depends on CLI settings
 			!self.disable_proof_recording,
 			// Do not enable storage tracking
+			false,
+		)?;
+
+		let mut rc_genesis_storage = Default::default();
+		if let Some(snap_path) = &self.rc_snapshot_path {
+			Self::insert_snapshot::<Hasher>(&mut rc_genesis_storage, snap_path)?;
+		}
+		let rc_state = BenchmarkingState::<Hasher>::new(
+			rc_genesis_storage,
+			cache_size,
+			false,
 			false,
 		)?;
 
@@ -317,19 +379,14 @@ impl PalletCmd {
 				&mut Self::build_extensions(executor.clone(), state.recorder()),
 				&runtime_code,
 				CallContext::Offchain,
-			),
+			).with_rc_backend(&rc_state),
 			"Could not find `Core::version` runtime api.",
 		)?;
 
 		let benchmark_api_version = runtime_version
 			.api_version(
 				&<dyn frame_benchmarking::Benchmark<
-					// We need to use any kind of `Block` type to make the compiler happy, not
-					// relevant for the `ID`.
-					sp_runtime::generic::Block<
-						sp_runtime::generic::Header<u32, Hasher>,
-						sp_runtime::generic::UncheckedExtrinsic<(), (), (), ()>,
-					>,
+					AnyBlock<Hasher>,
 				> as sp_api::RuntimeApiInfo>::ID,
 			)
 			.ok_or_else(|| ERROR_API_NOT_FOUND)?;
@@ -345,7 +402,7 @@ impl PalletCmd {
 					&mut Self::build_extensions(executor.clone(), state.recorder()),
 					&runtime_code,
 					CallContext::Offchain,
-				),
+				).with_rc_backend(&rc_state),
 				ERROR_API_NOT_FOUND,
 			)?;
 
@@ -463,7 +520,7 @@ impl PalletCmd {
 							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
-						),
+						).with_rc_backend(&rc_state),
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
@@ -496,7 +553,7 @@ impl PalletCmd {
 							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
-						),
+						).with_rc_backend(&rc_state),
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
@@ -531,7 +588,7 @@ impl PalletCmd {
 							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
-						),
+						).with_rc_backend(&rc_state),
 						"dispatch a benchmark",
 					) {
 						Err(e) => {

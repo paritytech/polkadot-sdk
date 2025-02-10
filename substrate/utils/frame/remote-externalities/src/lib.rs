@@ -294,6 +294,12 @@ impl From<String> for SnapshotConfig {
 	}
 }
 
+impl From<PathBuf> for SnapshotConfig {
+	fn from(path: PathBuf) -> Self {
+		Self { path }
+	}
+}
+
 impl Default for SnapshotConfig {
 	fn default() -> Self {
 		Self { path: Path::new("SNAPSHOT").into() }

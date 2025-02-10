@@ -200,6 +200,7 @@ mod execution {
 		B: Backend<H>,
 	{
 		backend: &'a B,
+		rc_backend: Option<&'a B>,
 		exec: &'a Exec,
 		method: &'a str,
 		call_data: &'a [u8],
@@ -244,6 +245,7 @@ mod execution {
 		) -> Self {
 			Self {
 				backend,
+				rc_backend: None,
 				exec,
 				method,
 				call_data,
@@ -254,6 +256,11 @@ mod execution {
 				parent_hash: None,
 				context,
 			}
+		}
+
+		pub fn with_rc_backend(mut self, rc_backend: &'a B) -> Self {
+			self.rc_backend = Some(rc_backend);
+			self
 		}
 
 		/// Set the given `parent_hash` as the hash of the parent block.
@@ -278,6 +285,9 @@ mod execution {
 				.expect("StateMachine is never called from the runtime; qed");
 
 			let mut ext = Ext::new(self.overlay, self.backend, Some(self.extensions));
+			if let Some(rc_backend) = self.rc_backend {
+				ext.set_rc_backend(rc_backend);
+			}
 
 			let ext_id = ext.id;
 

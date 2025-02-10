@@ -98,6 +98,9 @@ where
 	overlay: &'a mut OverlayedChanges<H>,
 	/// The storage backend to read from.
 	backend: &'a B,
+	/// Relay chain storage backend.
+	rc_backend: Option<&'a B>,
+	rc_enabled: bool,
 	/// Pseudo-unique id used for tracing.
 	pub id: u16,
 	/// Extensions registered with this instance.
@@ -113,7 +116,7 @@ where
 	/// Create a new `Ext`.
 	#[cfg(not(feature = "std"))]
 	pub fn new(overlay: &'a mut OverlayedChanges<H>, backend: &'a B) -> Self {
-		Ext { overlay, backend, id: 0 }
+		Ext { overlay, backend, rc_backend: None, rc_enabled: false, id: 0 }
 	}
 
 	/// Create a new `Ext` from overlayed changes and read-only backend
@@ -126,9 +129,16 @@ where
 		Self {
 			overlay,
 			backend,
+			rc_backend: None,
+			rc_enabled: false,
 			id: rand::random(),
 			extensions: extensions.map(OverlayedExtensions::new),
 		}
+	}
+
+	#[cfg(feature = "std")]
+	pub fn set_rc_backend(&mut self, rc_backend: &'a B) {
+		self.rc_backend = Some(rc_backend);
 	}
 }
 
@@ -167,6 +177,25 @@ where
 
 	fn storage(&mut self, key: &[u8]) -> Option<StorageValue> {
 		let _guard = guard();
+
+		match key {
+			b"relay_chain_enable" => {
+				self.rc_enabled = true;
+				log::info!("Relay chain enabled");
+				return None;
+			}
+			b"relay_chain_disable" => {
+				self.rc_enabled = false;
+				log::info!("Relay chain disabled");
+				return None;
+			}
+			_ => {}
+		}
+
+		if self.rc_enabled {
+			return self.rc_backend.as_ref().unwrap().storage(key).expect(EXT_NOT_ALLOWED_TO_FAIL);
+		}
+
 		let result = self
 			.overlay
 			.storage(key)
@@ -294,8 +323,12 @@ where
 	}
 
 	fn next_storage_key(&mut self, key: &[u8]) -> Option<StorageKey> {
+		if self.rc_enabled {
+			return self.rc_backend.as_ref().unwrap().next_storage_key(key).expect(EXT_NOT_ALLOWED_TO_FAIL);
+		}
+
 		let mut next_backend_key =
-			self.backend.next_storage_key(key).expect(EXT_NOT_ALLOWED_TO_FAIL);
+			self.backend.next_storage_key(key).expect(EXT_NOT_ALLOWED_TO_FAIL);			
 		let mut overlay_changes = self.overlay.iter_after(key).peekable();
 
 		match (&next_backend_key, overlay_changes.peek()) {

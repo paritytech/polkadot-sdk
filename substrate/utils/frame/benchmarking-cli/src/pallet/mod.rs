@@ -193,6 +193,14 @@ pub struct PalletCmd {
 	#[arg(long, default_value = sp_genesis_builder::DEV_RUNTIME_PRESET)]
 	pub genesis_builder_preset: String,
 
+	/// Path to a try-runtime snapshot to use for benchmarking.
+	#[arg(long = "snap")]
+	pub snapshot_path: Option<PathBuf>,
+
+	/// Path to a try-runtime snapshot to use for benchmarking.
+	#[arg(long = "rc-snap")]
+	pub rc_snapshot_path: Option<PathBuf>,
+
 	/// DEPRECATED: This argument has no effect.
 	#[arg(long = "execution")]
 	pub execution: Option<String>,
