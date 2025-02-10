@@ -331,7 +331,7 @@ pub mod pallet {
 		}
 
 		/// Register reward for given relayer.
-		pub fn register_relayer_reward(
+		pub(crate) fn register_relayer_reward(
 			reward_kind: T::RewardKind,
 			relayer: &T::AccountId,
 			reward: T::Reward,
