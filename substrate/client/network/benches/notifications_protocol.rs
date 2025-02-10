@@ -36,7 +36,7 @@ use std::{sync::Arc, time::Duration};
 use substrate_test_runtime_client::runtime;
 use tokio::{sync::Mutex, task::JoinHandle};
 
-const NUMBER_OF_NOTIFICATIONS: usize = 100;
+const NUMBER_OF_NOTIFICATIONS: usize = 1000;
 const PAYLOAD: &[(u32, &'static str)] = &[
 	// (Exponent of size, label)
 	(6, "64B"),
