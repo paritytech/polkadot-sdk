@@ -2,7 +2,7 @@ title: '`fatxpool`: metrics - initial sketch'
 doc:
 - audience: Node Dev
   description: |-
-    tbd
+    This PR introduces a new mechanism to capture and report Prometheus metrics related to timings of transaction lifecycle events, which are currently not available. By exposing these timings, we aim to augment transaction-pool reliability dashboards and extend existing Grafana boards.
 
     fixes: #7355, #7448
 crates:
