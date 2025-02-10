@@ -12,11 +12,13 @@ use crate::v2::{
 	ContractCall,
 };
 
+use crate::v2::convert::XcmConverterError::{AssetResolutionFailed, FilterDoesNotConsumeAllAssets};
 use sp_core::H160;
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
+use XcmConverterError::*;
 
 /// Errors that can be thrown to the pattern matching step.
 #[derive(PartialEq, Debug)]
@@ -109,6 +111,75 @@ where
 		Ok(fee_amount)
 	}
 
+	/// Extract ethereum native assets
+	fn extract_enas(
+		&mut self,
+		enas: &Assets,
+		deposit_assets: &AssetFilter,
+		recipient: H160,
+	) -> Result<Vec<Command>, XcmConverterError> {
+		let mut commands: Vec<Command> = Vec::new();
+		for ena in enas.clone().inner().iter() {
+			// Check the the deposit asset filter matches what was reserved.
+			if !deposit_assets.matches(ena) {
+				return Err(FilterDoesNotConsumeAllAssets);
+			}
+
+			// only fungible asset is allowed
+			let (token, amount) = match ena {
+				Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+					match inner_location.unpack() {
+						(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
+							Some((H160(*key), *amount)),
+						_ => None,
+					},
+				_ => None,
+			}
+			.ok_or(AssetResolutionFailed)?;
+
+			// transfer amount must be greater than 0.
+			ensure!(amount > 0, ZeroAssetTransfer);
+
+			commands.push(Command::UnlockNativeToken { token, recipient, amount });
+		}
+		Ok(commands)
+	}
+
+	/// Extract PNA
+	fn extract_pnas(
+		&mut self,
+		pnas: &Assets,
+		deposit_assets: &AssetFilter,
+		recipient: H160,
+	) -> Result<Vec<Command>, XcmConverterError> {
+		let mut commands: Vec<Command> = Vec::new();
+		ensure!(pnas.len() > 0, NoReserveAssets);
+		for pna in pnas.clone().inner().iter() {
+			if !deposit_assets.matches(pna) {
+				return Err(FilterDoesNotConsumeAllAssets);
+			}
+
+			// Only fungible is allowed
+			let (asset_id, amount) = match pna {
+				Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+					Some((inner_location.clone(), *amount)),
+				_ => None,
+			}
+			.ok_or(AssetResolutionFailed)?;
+
+			// transfer amount must be greater than 0.
+			ensure!(amount > 0, ZeroAssetTransfer);
+
+			// Ensure PNA already registered
+			let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
+			let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
+			ensure!(asset_id == expected_asset_id, InvalidAsset);
+
+			commands.push(Command::MintForeignToken { token_id, recipient, amount });
+		}
+		Ok(commands)
+	}
+
 	/// Convert the xcm into an outbound message which can be dispatched to
 	/// the Gateway contract on Ethereum
 	///
@@ -137,8 +208,6 @@ where
 	/// 	it's required also for dispatching transact from that specific origin.
 	/// d. SetTopic is required for tracing the message all the way along.
 	fn to_ethereum_message(&mut self) -> Result<Message, XcmConverterError> {
-		use XcmConverterError::*;
-
 		// Get fee amount
 		let fee_amount = self.extract_remote_fee()?;
 
@@ -190,66 +259,19 @@ where
 
 		// Make sure there are reserved assets.
 		if enas.is_none() && pnas.is_none() {
-			return Err(NoReserveAssets)
+			return Err(NoReserveAssets);
 		}
 
 		let mut commands: Vec<Command> = Vec::new();
 
 		// ENA transfer commands
 		if let Some(enas) = enas {
-			for ena in enas.clone().inner().iter() {
-				// Check the the deposit asset filter matches what was reserved.
-				if !deposit_assets.matches(ena) {
-					return Err(FilterDoesNotConsumeAllAssets)
-				}
-
-				// only fungible asset is allowed
-				let (token, amount) = match ena {
-					Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
-						match inner_location.unpack() {
-							(0, [AccountKey20 { network, key }])
-								if self.network_matches(network) =>
-								Some((H160(*key), *amount)),
-							_ => None,
-						},
-					_ => None,
-				}
-				.ok_or(AssetResolutionFailed)?;
-
-				// transfer amount must be greater than 0.
-				ensure!(amount > 0, ZeroAssetTransfer);
-
-				commands.push(Command::UnlockNativeToken { token, recipient, amount });
-			}
+			commands.append(&mut self.extract_enas(enas, deposit_assets, recipient)?);
 		}
 
 		// PNA transfer commands
 		if let Some(pnas) = pnas {
-			ensure!(pnas.len() > 0, NoReserveAssets);
-			for pna in pnas.clone().inner().iter() {
-				// Check the the deposit asset filter matches what was reserved.
-				if !deposit_assets.matches(pna) {
-					return Err(FilterDoesNotConsumeAllAssets)
-				}
-
-				// Only fungible is allowed
-				let (asset_id, amount) = match pna {
-					Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
-						Some((inner_location.clone(), *amount)),
-					_ => None,
-				}
-				.ok_or(AssetResolutionFailed)?;
-
-				// transfer amount must be greater than 0.
-				ensure!(amount > 0, ZeroAssetTransfer);
-
-				// Ensure PNA already registered
-				let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
-				let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
-				ensure!(asset_id == expected_asset_id, InvalidAsset);
-
-				commands.push(Command::MintForeignToken { token_id, recipient, amount });
-			}
+			commands.append(&mut self.extract_pnas(pnas, deposit_assets, recipient)?);
 		}
 
 		// Transact commands
@@ -278,7 +300,7 @@ where
 
 		// All xcm instructions must be consumed before exit.
 		if self.next().is_ok() {
-			return Err(EndOfXcmMessageExpected)
+			return Err(EndOfXcmMessageExpected);
 		}
 
 		Ok(message)
