@@ -201,13 +201,14 @@ fn end_memory_tracking() -> isize {
 /// 8. Send the result of preparation back to the host, including the checksum of the artifact. If
 ///    any error occurred in the above steps, we send that in the `PrepareWorkerResult`.
 pub fn worker_entrypoint(
+	worker_kind: WorkerKind,
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
 ) {
 	run_worker(
-		WorkerKind::Prepare,
+		worker_kind,
 		socket_path,
 		worker_dir_path,
 		node_version,

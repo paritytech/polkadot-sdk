@@ -96,7 +96,11 @@ pub const DEFAULT_CONFIG: Config = Config {
 	},
 };
 
-const LOG_TARGET: &str = "parachain::pvf-common";
+fn prepare_externalities() -> ValidationExternalities {
+	let mut extensions = sp_externalities::Extensions::new();
+	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
+	ValidationExternalities(extensions)
+}
 
 /// Executes the given PVF in the form of a compiled artifact and returns the result of
 /// execution upon success.
@@ -108,39 +112,41 @@ const LOG_TARGET: &str = "parachain::pvf-common";
 ///   2) was not modified,
 ///
 /// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
-pub unsafe fn execute_code(
+pub unsafe fn execute_wasm(
 	code: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
 ) -> Result<Vec<u8>, ExecuteError> {
-	let mut extensions = sp_externalities::Extensions::new();
+	let mut ext = prepare_externalities();
 
-	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
+	match sc_executor::with_externalities_safe(&mut ext, || {
+		let runtime = create_runtime_from_artifact_bytes(code, executor_params)?;
+		runtime.new_instance()?.call("validate_block", params)
+	}) {
+		Ok(Ok(ok)) => Ok(ok),
+		Ok(Err(err)) | Err(err) => Err(err),
+	}
+}
 
-	let mut ext = ValidationExternalities(extensions);
+pub fn execute_pvm(
+	code: &[u8],
+	_executor_params: &ExecutorParams,
+	params: &[u8],
+) -> Result<Vec<u8>, ExecuteError> {
+	let mut ext = prepare_externalities();
 
-	if code.starts_with(b"PVM\0") {
-		match sc_executor::with_externalities_safe(&mut ext, || {
-			let blob = RuntimeBlob::new(code)?;
-			// TODO: Executor params
-			let runtime = sc_executor_polkavm::create_runtime::<HostFunctions>(
-				blob.as_polkavm_blob()
-					.ok_or(ExecuteError::Other("PVM blob creation failure".to_owned()))?,
-			)?;
+	match sc_executor::with_externalities_safe(&mut ext, || {
+		let blob = RuntimeBlob::new(code)?;
+		// TODO: Executor params
+		let runtime = sc_executor_polkavm::create_runtime::<HostFunctions>(
+			blob.as_polkavm_blob()
+				.ok_or(ExecuteError::Other("PVM blob creation failure".to_owned()))?,
+		)?;
 
-			runtime.new_instance()?.call("validate_block", params)
-		}) {
-			Ok(Ok(ok)) => Ok(ok),
-			Ok(Err(err)) | Err(err) => Err(err),
-		}
-	} else {
-		match sc_executor::with_externalities_safe(&mut ext, || {
-			let runtime = create_runtime_from_artifact_bytes(code, executor_params)?;
-			runtime.new_instance()?.call("validate_block", params)
-		}) {
-			Ok(Ok(ok)) => Ok(ok),
-			Ok(Err(err)) | Err(err) => Err(err),
-		}
+		runtime.new_instance()?.call("validate_block", params)
+	}) {
+		Ok(Ok(ok)) => Ok(ok),
+		Ok(Err(err)) | Err(err) => Err(err),
 	}
 }
 

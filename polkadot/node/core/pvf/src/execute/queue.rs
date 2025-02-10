@@ -18,7 +18,7 @@
 
 use super::worker_interface::{Error as WorkerInterfaceError, Response as WorkerInterfaceResponse};
 use crate::{
-	artifacts::{ArtifactId, ArtifactPathId},
+	artifacts::ArtifactId,
 	host::{Executable, ResultSender},
 	metrics::Metrics,
 	worker_interface::{IdleWorker, WorkerHandle},
@@ -32,6 +32,7 @@ use futures::{
 };
 use polkadot_node_core_pvf_common::{
 	execute::{JobResponse, WorkerError, WorkerResponse},
+	worker::WorkerKind,
 	SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
@@ -95,6 +96,7 @@ struct WorkerData {
 	idle: Option<IdleWorker>,
 	handle: WorkerHandle,
 	executor_params_hash: ExecutorParamsHash,
+	worker_kind: WorkerKind,
 }
 
 impl fmt::Debug for WorkerData {
@@ -119,9 +121,16 @@ impl Workers {
 		self.spawn_inflight + self.running.len() < self.capacity
 	}
 
-	fn find_available(&self, executor_params_hash: ExecutorParamsHash) -> Option<Worker> {
+	fn find_available(
+		&self,
+		executor_params_hash: ExecutorParamsHash,
+		worker_kind: WorkerKind,
+	) -> Option<Worker> {
 		self.running.iter().find_map(|d| {
-			if d.1.idle.is_some() && d.1.executor_params_hash == executor_params_hash {
+			if d.1.idle.is_some() &&
+				d.1.executor_params_hash == executor_params_hash &&
+				d.1.worker_kind == worker_kind
+			{
 				Some(d.0)
 			} else {
 				None
@@ -254,7 +263,9 @@ impl Queue {
 			if let Some(finished_worker) = finished_worker {
 				if let Some(worker_data) = self.workers.running.get(finished_worker) {
 					for (i, job) in queue.iter().enumerate() {
-						if worker_data.executor_params_hash == job.executor_params.hash() {
+						if worker_data.executor_params_hash == job.executor_params.hash() &&
+							worker_data.worker_kind == job.executable.worker_kind()
+						{
 							(worker, job_index) = (Some(finished_worker), i);
 							break
 						}
@@ -265,7 +276,10 @@ impl Queue {
 
 		if worker.is_none() {
 			// Try to obtain a worker for the job
-			worker = self.workers.find_available(queue[job_index].executor_params.hash());
+			worker = self.workers.find_available(
+				queue[job_index].executor_params.hash(),
+				queue[job_index].executable.worker_kind(),
+			);
 		}
 
 		if worker.is_none() {
@@ -427,9 +441,10 @@ fn handle_worker_spawned(
 		idle: Some(idle),
 		handle,
 		executor_params_hash: job.executor_params.hash(),
+		worker_kind: job.executable.worker_kind(),
 	});
 
-	gum::debug!(target: LOG_TARGET, ?worker, "execute worker spawned");
+	gum::debug!(target: LOG_TARGET, ?worker, "execute worker spawned: {:?}", job.executable.worker_kind());
 
 	assign(queue, worker, job);
 }
@@ -490,23 +505,31 @@ async fn handle_job_finish(
 				queue
 					.from_queue_tx
 					.unbounded_send(FromQueue::RemoveArtifact {
-					artifact: artifact.id.clone(),
-					reply_to: result_tx,
-				})
-				.expect("from execute queue receiver is listened by the host; qed");
+						artifact: artifact.id.clone(),
+						reply_to: result_tx,
+					})
+					.expect("from execute queue receiver is listened by the host; qed");
 				(
 					Some(idle_worker),
-					Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(
-						err,
-					))),
+					Err(ValidationError::PossiblyInvalid(
+						PossiblyInvalidError::RuntimeConstruction(err),
+					)),
 					None,
 					Some(result_rx),
 					None,
 				)
 			} else {
-				// Something went wrong: runtime construction should never fail for non-Wasm runtimes
-				// Treat as a job error and reap the worker
-				(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("Runtime construction failed for non-Wasm runtime".to_string()))), None, None, None)
+				// Something went wrong: runtime construction should never fail for non-Wasm
+				// runtimes Treat as a job error and reap the worker
+				(
+					None,
+					Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(
+						"Runtime construction failed for non-Wasm runtime".to_string(),
+					))),
+					None,
+					None,
+					None,
+				)
 			}
 		},
 
@@ -635,6 +658,7 @@ async fn spawn_worker_task(
 
 	loop {
 		match super::worker_interface::spawn(
+			job.executable.worker_kind(),
 			&program_path,
 			&cache_path,
 			job.executor_params.clone(),
@@ -667,15 +691,15 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 		"assigning the execute worker",
 	);
 
-	debug_assert_eq!(
-		queue
+	debug_assert!({
+		let worker_data = queue
 			.workers
 			.running
 			.get(worker)
-			.expect("caller must provide existing worker; qed")
-			.executor_params_hash,
-		job.executor_params.hash()
-	);
+			.expect("caller must provide existing worker; qed");
+		worker_data.executor_params_hash == job.executor_params.hash() &&
+			worker_data.worker_kind == job.executable.worker_kind()
+	});
 
 	let idle = queue.workers.claim_idle(worker).expect(
 		"this caller must supply a worker which is idle and running;
@@ -899,7 +923,6 @@ mod tests {
 	use sp_core::H256;
 
 	use super::*;
-	use crate::testing::artifact_id;
 	use std::time::Duration;
 
 	fn create_execution_job() -> ExecuteJob {
@@ -912,7 +935,7 @@ mod tests {
 		});
 		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 		ExecuteJob {
-			executable: Executable::Wasm { artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() } },
+			executable: Executable::default(),
 			exec_timeout: Duration::from_secs(10),
 			exec_kind: PvfExecKind::Approval,
 			pvd,
@@ -1076,7 +1099,7 @@ mod tests {
 		let mut result_rxs = vec![];
 		let (result_tx, _result_rx) = oneshot::channel();
 		let relevant_job = ExecuteJob {
-			executable: Executable::Wasm { artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() } },
+			executable: Executable::default(),
 			exec_timeout: Duration::from_secs(1),
 			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
 			pvd: Arc::new(PersistedValidationData::default()),
@@ -1089,7 +1112,7 @@ mod tests {
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();
 			let expired_job = ExecuteJob {
-				executable: Executable::Wasm { artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() } },
+				executable: Executable::default(),
 				exec_timeout: Duration::from_secs(1),
 				exec_kind: PvfExecKind::Backing(old_relay_parent),
 				pvd: Arc::new(PersistedValidationData::default()),

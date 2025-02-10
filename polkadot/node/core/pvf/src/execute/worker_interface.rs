@@ -17,10 +17,12 @@
 //! Host interface to the execute worker.
 
 use crate::{
-	artifacts::ArtifactPathId, host::Executable, worker_interface::{
+	host::Executable,
+	worker_interface::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
-		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
-	}, LOG_TARGET
+		SpawnErr, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	},
+	LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use futures::FutureExt;
@@ -28,6 +30,7 @@ use futures_timer::Delay;
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Execution, Handshake, WorkerError, WorkerResponse},
+	worker::WorkerKind,
 	worker_dir, SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
@@ -39,6 +42,7 @@ use tokio::{io, net::UnixStream};
 ///
 /// Sends a handshake message to the worker as soon as it is spawned.
 pub async fn spawn(
+	worker_kind: WorkerKind,
 	program_path: &Path,
 	cache_path: &Path,
 	executor_params: ExecutorParams,
@@ -49,6 +53,9 @@ pub async fn spawn(
 	let mut extra_args = vec!["execute-worker"];
 	if let Some(node_version) = node_version {
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
+	}
+	if matches!(worker_kind, WorkerKind::ExecutePvm) {
+		extra_args.push("--polkavm");
 	}
 
 	let (mut idle_worker, worker_handle) = spawn_with_program_path(
@@ -139,10 +146,9 @@ pub async fn start_work(
 	);
 
 	if let Executable::Wasm { artifact } = &executable {
-
-		// Cheaply create a hard link to the artifact. The artifact is always at a known location in the
-		// worker cache, and the child can't access any other artifacts or gain any information from the
-		// original filename.
+		// Cheaply create a hard link to the artifact. The artifact is always at a known location in
+		// the worker cache, and the child can't access any other artifacts or gain any
+		// information from the original filename.
 		let link_path = worker_dir::execute_artifact(worker_dir.path());
 		if let Err(err) = tokio::fs::hard_link(artifact.path.clone(), link_path).await {
 			gum::warn!(
@@ -158,7 +164,9 @@ pub async fn start_work(
 
 	let execution = Execution::from(executable);
 
-	send_request(&mut stream, execution, pvd, pov, execution_timeout).await.map_err(|error| {
+	send_request(&mut stream, execution, pvd, pov, execution_timeout)
+		.await
+		.map_err(|error| {
 			gum::warn!(
 				target: LOG_TARGET,
 				worker_pid = %pid,
@@ -169,53 +177,51 @@ pub async fn start_work(
 			Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
 		})?;
 
-		// We use a generous timeout here. This is in addition to the one in the child process, in
-		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
-		// in the child. We want to use CPU time because it varies less than wall clock time under
-		// load, but the CPU resources of the child can only be measured from the parent after the
-		// child process terminates.
-		let timeout = execution_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
-		let worker_result = futures::select! {
-			worker_result = recv_result(&mut stream).fuse() => {
-				match worker_result {
-					Ok(result) =>
-						handle_result(
-							result,
-							pid,
-							execution_timeout,
-						)
-							.await,
-					Err(error) => {
-						gum::warn!(
-							target: LOG_TARGET,
-							worker_pid = %pid,
-							validation_code_hash = ?code_hash,
-							"failed to recv an execute result: {}",
-							error,
-						);
+	// We use a generous timeout here. This is in addition to the one in the child process, in
+	// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
+	// in the child. We want to use CPU time because it varies less than wall clock time under
+	// load, but the CPU resources of the child can only be measured from the parent after the
+	// child process terminates.
+	let timeout = execution_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
+	let worker_result = futures::select! {
+		worker_result = recv_result(&mut stream).fuse() => {
+			match worker_result {
+				Ok(result) =>
+					handle_result(
+						result,
+						pid,
+						execution_timeout,
+					)
+						.await,
+				Err(error) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						worker_pid = %pid,
+						validation_code_hash = ?code_hash,
+						"failed to recv an execute result: {}",
+						error,
+					);
 
-						return Err(Error::CommunicationErr(error))
-					},
-				}
-			},
-			_ = Delay::new(timeout).fuse() => {
-				gum::warn!(
-					target: LOG_TARGET,
-					worker_pid = %pid,
-					validation_code_hash = ?code_hash,
-					"execution worker exceeded lenient timeout for execution, child worker likely stalled",
-				);
-				return Err(Error::HardTimeout)
-			},
-		};
+					return Err(Error::CommunicationErr(error))
+				},
+			}
+		},
+		_ = Delay::new(timeout).fuse() => {
+			gum::warn!(
+				target: LOG_TARGET,
+				worker_pid = %pid,
+				validation_code_hash = ?code_hash,
+				"execution worker exceeded lenient timeout for execution, child worker likely stalled",
+			);
+			return Err(Error::HardTimeout)
+		},
+	};
 
-		let result = match worker_result {
-			Ok(worker_response) => Ok(Response {
-				worker_response,
-				idle_worker: IdleWorker { stream, pid, worker_dir },
-			}),
-			Err(worker_error) => Err(worker_error.into()),
-		};
+	let result = match worker_result {
+		Ok(worker_response) =>
+			Ok(Response { worker_response, idle_worker: IdleWorker { stream, pid, worker_dir } }),
+		Err(worker_error) => Err(worker_error.into()),
+	};
 
 	// Try to clear the worker dir.
 	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {

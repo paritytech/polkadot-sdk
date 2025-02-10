@@ -20,7 +20,8 @@
 #![warn(missing_docs)]
 
 pub use polkadot_node_core_pvf_common::{
-	error::ExecuteError, executor_interface::execute_code,
+	error::ExecuteError,
+	executor_interface::{execute_pvm, execute_wasm},
 };
 use polkadot_parachain_primitives::primitives::ValidationParams;
 
@@ -40,7 +41,9 @@ use nix::{
 };
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Execution, Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},
+	execute::{
+		Execution, Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse,
+	},
 	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
@@ -87,7 +90,9 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	Ok(handshake)
 }
 
-fn recv_request(stream: &mut UnixStream) -> io::Result<(Execution, PersistedValidationData, PoV, Duration)> {
+fn recv_request(
+	stream: &mut UnixStream,
+) -> io::Result<(Execution, PersistedValidationData, PoV, Duration)> {
 	let execution = framed_recv_blocking(stream)?;
 	let execution = Execution::decode(&mut &execution[..]).map_err(|_| {
 		io::Error::new(
@@ -145,13 +150,14 @@ macro_rules! map_and_send_err {
 ///
 /// - `worker_version`: see above
 pub fn worker_entrypoint(
+	worker_kind: WorkerKind,
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
 ) {
 	run_worker(
-		WorkerKind::Execute,
+		worker_kind,
 		socket_path,
 		worker_dir_path,
 		node_version,
@@ -171,72 +177,15 @@ pub fn worker_entrypoint(
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-				let (execution, pvd, pov, execution_timeout) = recv_request(&mut stream).map_err(|e| {
-					map_and_send_err!(
-						e,
-						InternalValidationError::HostCommunication,
-						&mut stream,
-						worker_info
-					)
-				})?;
-
-				let code = match execution {
-					Execution::Wasm => {
-						let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
-						
-						gum::debug!(
-							target: LOG_TARGET,
-							?worker_info,
-							?security_status,
-							"worker: validating artifact {}",
-							artifact_path.display(),
-						);
-
-						// Get the artifact bytes.
-						let compiled_artifact_blob = std::fs::read(&artifact_path).map_err(|e| {
-							map_and_send_err!(
-								e,
-								InternalValidationError::CouldNotOpenFile,
-								&mut stream,
-								worker_info
-							)
-						})?;
-						Arc::new(compiled_artifact_blob)
-					}
-					Execution::Pvm(code) => {
-						let code = sp_maybe_compressed_blob::decompress(&code, VALIDATION_CODE_BOMB_LIMIT)
-							.map_err(|e| {
-								map_and_send_err!(
-									e,
-									InternalValidationError::CouldNotDecompressPvmCode,
-									&mut stream,
-									worker_info
-								)
-							})?;
-						Arc::new(code.to_vec())
-					}
-				};
-
-				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
-					map_and_send_err!(
-						e,
-						InternalValidationError::CouldNotCreatePipe,
-						&mut stream,
-						worker_info
-					)
-				})?;
-
-				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
-					.map_err(|errno| {
-						let e = stringify_errno("getrusage before", errno);
+				let (execution, pvd, pov, execution_timeout) =
+					recv_request(&mut stream).map_err(|e| {
 						map_and_send_err!(
 							e,
-							InternalValidationError::Kernel,
+							InternalValidationError::HostCommunication,
 							&mut stream,
 							worker_info
 						)
 					})?;
-				let stream_fd = stream.as_raw_fd();
 
 				let raw_block_data =
 					match sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT) {
@@ -264,6 +213,114 @@ pub fn worker_entrypoint(
 					relay_parent_storage_root: pvd.relay_parent_storage_root,
 				};
 				let params = Arc::new(params.encode());
+
+				if let Execution::Pvm(ref code) = execution {
+					// PolkaVM handles sandboxing and forking itself.
+					let code =
+						sp_maybe_compressed_blob::decompress(&code, VALIDATION_CODE_BOMB_LIMIT)
+							.map_err(|e| {
+								map_and_send_err!(
+									e,
+									InternalValidationError::CouldNotDecompressPvmCode,
+									&mut stream,
+									worker_info
+								)
+							})?;
+
+					let now = std::time::Instant::now();
+					let descriptor_bytes = match execute_pvm(&code, &executor_params, &params) {
+						Err(err) => {
+							send_result::<WorkerResponse, WorkerError>(
+								&mut stream,
+								Ok(WorkerResponse {
+									job_response: JobResponse::format_invalid(
+										"execute",
+										&err.to_string(),
+									),
+									duration: Duration::ZERO,
+									pov_size: 0,
+								}),
+								worker_info,
+							)?;
+							continue;
+						},
+						Ok(d) => d,
+					};
+					let elapsed = now.elapsed();
+
+					let result_descriptor =
+						match ValidationResult::decode(&mut &descriptor_bytes[..]) {
+							Err(err) => {
+								send_result::<WorkerResponse, WorkerError>(
+									&mut stream,
+									Ok(WorkerResponse {
+										job_response: JobResponse::format_invalid(
+											"validation result decoding failed",
+											&err.to_string(),
+										),
+										duration: Duration::ZERO,
+										pov_size: 0,
+									}),
+									worker_info,
+								)?;
+								continue;
+							},
+							Ok(r) => r,
+						};
+
+					send_result::<WorkerResponse, WorkerError>(
+						&mut stream,
+						Ok(WorkerResponse {
+							job_response: JobResponse::Ok { result_descriptor },
+							duration: elapsed,
+							pov_size: 0,
+						}),
+						worker_info,
+					)?;
+					continue;
+				}
+
+				let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
+
+				gum::debug!(
+					target: LOG_TARGET,
+					?worker_info,
+					?security_status,
+					"worker: validating artifact {}",
+					artifact_path.display(),
+				);
+
+				// Get the artifact bytes.
+				let compiled_artifact_blob = std::fs::read(&artifact_path).map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::CouldNotOpenFile,
+						&mut stream,
+						worker_info
+					)
+				})?;
+				let code = Arc::new(compiled_artifact_blob);
+
+				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::CouldNotCreatePipe,
+						&mut stream,
+						worker_info
+					)
+				})?;
+
+				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
+					.map_err(|errno| {
+						let e = stringify_errno("getrusage before", errno);
+						map_and_send_err!(
+							e,
+							InternalValidationError::Kernel,
+							&mut stream,
+							worker_info
+						)
+					})?;
+				let stream_fd = stream.as_raw_fd();
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
@@ -336,7 +393,7 @@ fn validate_using_code(
 		// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
 		//         [`executor_interface::prepare`].
-		execute_code(code, executor_params, params)
+		execute_wasm(code, executor_params, params)
 	} {
 		Err(ExecuteError::RuntimeConstruction(wasmerr)) =>
 			return JobResponse::runtime_construction("execute", &wasmerr.to_string()),

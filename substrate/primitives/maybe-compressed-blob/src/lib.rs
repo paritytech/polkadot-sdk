@@ -115,7 +115,7 @@ pub fn compress_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) 
 pub fn blob_type(blob: &[u8]) -> Result<MaybeCompressedBlobType, Error> {
 	if blob.starts_with(&ZSTD_PREFIX_PVM) {
 		Ok(MaybeCompressedBlobType::Pvm)
-	} else if blob.starts_with(&ZSTD_PREFIX_OTHER) {
+	} else if blob.starts_with(&ZSTD_PREFIX_OTHER) || blob.starts_with(b"\x00asm") {
 		Ok(MaybeCompressedBlobType::Other)
 	} else {
 		Err(Error::Invalid)

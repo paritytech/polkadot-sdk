@@ -27,23 +27,30 @@ use crate::{
 	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
-use codec::{Decode, Encode};
 use futures::{
 	channel::{mpsc, oneshot},
 	Future, FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_core_pvf_common::{
-	error::{PrecheckResult, PrepareError}, execute::Execution, prepare::PrepareSuccess, pvf::PvfPrepData
+	error::{PrecheckResult, PrepareError},
+	execute::Execution,
+	prepare::PrepareSuccess,
+	pvf::PvfPrepData,
+	worker::WorkerKind,
 };
-use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
+use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{
 	messages::PvfExecKind, ActiveLeavesUpdate, SubsystemError, SubsystemResult,
 };
-use polkadot_parachain_primitives::primitives::{ValidationParams, ValidationResult};
+use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{Hash, PersistedValidationData, ValidationCodeHash};
 use sp_maybe_compressed_blob::{blob_type, MaybeCompressedBlobType};
 use std::{
-	collections::HashMap, fmt::{Debug, Display}, path::PathBuf, sync::Arc, time::{Duration, SystemTime}
+	collections::HashMap,
+	fmt::{Debug, Display},
+	path::PathBuf,
+	sync::Arc,
+	time::{Duration, SystemTime},
 };
 
 /// The time period after which a failed preparation artifact is considered ready to be retried.
@@ -548,17 +555,23 @@ async fn handle_precheck_pvf(
 #[derive(Clone)]
 pub enum Executable {
 	Wasm { artifact: ArtifactPathId },
-	Pvm {
-		code: Arc<Vec<u8>>,
-		code_hash: ValidationCodeHash,
-	},
+	Pvm { code: Arc<Vec<u8>>, code_hash: ValidationCodeHash },
 }
 
 impl Executable {
 	pub fn code_hash(&self) -> ValidationCodeHash {
 		match self {
-			Executable::Wasm { artifact: ArtifactPathId { id: ArtifactId { code_hash, .. }, .. } } => *code_hash,
+			Executable::Wasm {
+				artifact: ArtifactPathId { id: ArtifactId { code_hash, .. }, .. },
+			} => *code_hash,
 			Executable::Pvm { code_hash, .. } => *code_hash,
+		}
+	}
+
+	pub fn worker_kind(&self) -> WorkerKind {
+		match self {
+			Executable::Wasm { .. } => WorkerKind::ExecuteWasm,
+			Executable::Pvm { .. } => WorkerKind::ExecutePvm,
 		}
 	}
 }
@@ -590,6 +603,16 @@ impl From<Executable> for Execution {
 	}
 }
 
+// For tests only
+#[cfg(feature = "test-utils")]
+impl Default for Executable {
+	fn default() -> Self {
+		Executable::Wasm {
+			artifact: ArtifactPathId::new(crate::testing::artifact_id(0), &PathBuf::new()),
+		}
+	}
+}
+
 /// Handles PVF execution.
 ///
 /// This will try to prepare the PVF, if a prepared artifact does not already exist. If there is
@@ -614,11 +637,22 @@ async fn handle_execute_pvf(
 	let code = pvf.maybe_compressed_code();
 	let executor_params = (*pvf.executor_params()).clone();
 
-	if matches!(blob_type(&code).map_err(|_| Fatal)?, MaybeCompressedBlobType::Pvm) {
-		gum::warn!(
+	if matches!(
+		blob_type(&code).map_err(|_| {
+			gum::error!(
+				target: LOG_TARGET,
+				?pvf,
+				"handle_execute_pvf: Failed to determine blob type: {:?}",
+				&code[0..7],
+			);
+			Fatal
+		})?,
+		MaybeCompressedBlobType::Pvm
+	) {
+		gum::trace!(
 			target: LOG_TARGET,
 			?pvf,
-			"handle_execute_pvf: Executing with PVM executor interface 🤟",
+			"handle_execute_pvf: Executing PVM code",
 		);
 
 		send_execute(
@@ -634,7 +668,8 @@ async fn handle_execute_pvf(
 					result_tx,
 				},
 			},
-		).await?;
+		)
+		.await?;
 
 		return Ok(());
 	}
@@ -653,7 +688,9 @@ async fn handle_execute_pvf(
 					send_execute(
 						execute_queue,
 						execute::ToQueue::Enqueue {
-							executable: Executable::Wasm { artifact: ArtifactPathId::new(artifact_id, path) },
+							executable: Executable::Wasm {
+								artifact: ArtifactPathId::new(artifact_id, path),
+							},
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
 								pvd,
@@ -908,7 +945,9 @@ async fn handle_prepare_done(
 		send_execute(
 			execute_queue,
 			execute::ToQueue::Enqueue {
-				executable: Executable::Wasm { artifact: ArtifactPathId::new(artifact_id.clone(), &path) },
+				executable: Executable::Wasm {
+					artifact: ArtifactPathId::new(artifact_id.clone(), &path),
+				},
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
 					pvd,
