@@ -602,8 +602,8 @@ pub mod pallet {
 		}
 
 		/// Check if one `ProxyType` is a subset of another `ProxyType`.
-		pub fn is_superset(type_a: T::ProxyType, type_b: T::ProxyType) -> bool {
-			type_a >= type_b
+		pub fn is_superset(type_a: T::ProxyType, against: T::ProxyType) -> bool {
+			type_a.is_superset(&against)
 		}
 	}
 }
