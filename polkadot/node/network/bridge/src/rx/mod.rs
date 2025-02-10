@@ -65,8 +65,7 @@ use super::validator_discovery;
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
-	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, send_validation_message_v3, Network,
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v3, Network,
 };
 use crate::{network::get_peer_id_by_authority_id, WireMessage};
 
@@ -288,21 +287,9 @@ async fn handle_validation_message<AD>(
 			match ValidationVersion::try_from(version)
 				.expect("try_get_protocol has already checked version is known; qed")
 			{
-				ValidationVersion::V1 => send_validation_message_v1(
-					vec![peer],
-					WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(local_view),
-					metrics,
-					notification_sinks,
-				),
 				ValidationVersion::V3 => send_validation_message_v3(
 					vec![peer],
 					WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(local_view),
-					metrics,
-					notification_sinks,
-				),
-				ValidationVersion::V2 => send_validation_message_v2(
-					vec![peer],
-					WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(local_view),
 					metrics,
 					notification_sinks,
 				),
@@ -359,47 +346,28 @@ async fn handle_validation_message<AD>(
 				?peer,
 			);
 
-			let (events, reports) = if expected_versions[PeerSet::Validation] ==
-				Some(ValidationVersion::V1.into())
-			{
-				handle_peer_messages::<protocol_v1::ValidationProtocol, _>(
-					peer,
-					PeerSet::Validation,
-					&mut shared.0.lock().validation_peers,
-					vec![notification.into()],
-					metrics,
-				)
-			} else if expected_versions[PeerSet::Validation] == Some(ValidationVersion::V2.into()) {
-				handle_peer_messages::<protocol_v2::ValidationProtocol, _>(
-					peer,
-					PeerSet::Validation,
-					&mut shared.0.lock().validation_peers,
-					vec![notification.into()],
-					metrics,
-				)
-			} else if expected_versions[PeerSet::Validation] == Some(ValidationVersion::V3.into()) {
-				handle_peer_messages::<protocol_v3::ValidationProtocol, _>(
-					peer,
-					PeerSet::Validation,
-					&mut shared.0.lock().validation_peers,
-					vec![notification.into()],
-					metrics,
-				)
-			} else {
-				gum::warn!(
-					target: LOG_TARGET,
-					version = ?expected_versions[PeerSet::Validation],
-					"Major logic bug. Peer somehow has unsupported validation protocol version."
-				);
+			let (events, reports) =
+				if expected_versions[PeerSet::Validation] == Some(ValidationVersion::V3.into()) {
+					handle_peer_messages::<protocol_v3::ValidationProtocol, _>(
+						peer,
+						PeerSet::Validation,
+						&mut shared.0.lock().validation_peers,
+						vec![notification.into()],
+						metrics,
+					)
+				} else {
+					gum::warn!(
+						target: LOG_TARGET,
+						version = ?expected_versions[PeerSet::Validation],
+						"Major logic bug. Peer somehow has unsupported validation protocol version."
+					);
 
-				never!(
-					"Only versions 1 and 2 are supported; peer set connection checked above; qed"
-				);
+					never!("Only version 3 is supported; peer set connection checked above; qed");
 
-				// If a peer somehow triggers this, we'll disconnect them
-				// eventually.
-				(Vec::new(), vec![UNCONNECTED_PEERSET_COST])
-			};
+					// If a peer somehow triggers this, we'll disconnect them
+					// eventually.
+					(Vec::new(), vec![UNCONNECTED_PEERSET_COST])
+				};
 
 			for report in reports {
 				network_service.report_peer(peer, report.into());
@@ -1001,33 +969,15 @@ fn update_our_view<Context>(
 		ctx.sender(),
 	);
 
-	let v1_validation_peers =
-		filter_by_peer_version(&validation_peers, ValidationVersion::V1.into());
 	let v1_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V1.into());
 
-	let v2_validation_peers =
-		filter_by_peer_version(&validation_peers, ValidationVersion::V2.into());
 	let v2_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V2.into());
 
 	let v3_validation_peers =
 		filter_by_peer_version(&validation_peers, ValidationVersion::V3.into());
 
-	send_validation_message_v1(
-		v1_validation_peers,
-		WireMessage::ViewUpdate(new_view.clone()),
-		metrics,
-		notification_sinks,
-	);
-
 	send_collation_message_v1(
 		v1_collation_peers,
-		WireMessage::ViewUpdate(new_view.clone()),
-		metrics,
-		notification_sinks,
-	);
-
-	send_validation_message_v2(
-		v2_validation_peers,
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 		notification_sinks,

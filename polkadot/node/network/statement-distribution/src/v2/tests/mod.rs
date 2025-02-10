@@ -46,7 +46,7 @@ use sp_keyring::Sr25519Keyring;
 use assert_matches::assert_matches;
 use codec::Encode;
 use futures::Future;
-use rand::{Rng, SeedableRng};
+use polkadot_primitives_test_helpers::rand::{Rng, SeedableRng};
 use test_helpers::mock::new_leaf;
 
 use std::sync::Arc;
@@ -388,10 +388,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		Arc::new(LocalKeystore::in_memory()) as KeystorePtr
 	};
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver::<
-		Block,
-		sc_network::NetworkWorker<Block, Hash>,
-	>(&req_protocol_names);
 	let (candidate_req_receiver, req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
 		sc_network::NetworkWorker<Block, Hash>,
@@ -405,10 +401,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let subsystem = async move {
 		let subsystem = crate::StatementDistributionSubsystem {
 			keystore,
-			v1_req_receiver: Some(statement_req_receiver),
 			req_receiver: Some(candidate_req_receiver),
 			metrics: Default::default(),
-			rng,
 			reputation: ReputationAggregator::new(|_| true),
 		};
 
@@ -776,6 +770,7 @@ async fn answer_expected_hypothetical_membership_request(
 	)
 }
 
+/// Asserts that a peer has been reported with the expected behavior.
 #[macro_export]
 macro_rules! assert_peer_reported {
 	($virtual_overseer:expr, $peer_id:expr, $rep_change:expr $(,)*) => {
@@ -818,7 +813,7 @@ async fn send_manifest_from_peer(
 	send_peer_message(
 		virtual_overseer,
 		peer_id,
-		protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+		protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 	)
 	.await;
 }
@@ -831,7 +826,7 @@ async fn send_ack_from_peer(
 	send_peer_message(
 		virtual_overseer,
 		peer_id,
-		protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack),
+		protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack),
 	)
 	.await;
 }
@@ -851,7 +846,7 @@ async fn connect_peer(
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Authority,
-					ValidationVersion::V2.into(),
+					ValidationVersion::V3.into(),
 					authority_ids,
 				),
 			),
@@ -884,12 +879,12 @@ async fn send_peer_view_change(virtual_overseer: &mut VirtualOverseer, peer: Pee
 async fn send_peer_message(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: PeerId,
-	message: protocol_v2::StatementDistributionMessage,
+	message: protocol_v3::StatementDistributionMessage,
 ) {
 	virtual_overseer
 		.send(FromOrchestra::Communication {
 			msg: StatementDistributionMessage::NetworkBridgeUpdate(
-				NetworkBridgeEvent::PeerMessage(peer, Versioned::V2(message)),
+				NetworkBridgeEvent::PeerMessage(peer, Versioned::V3(message)),
 			),
 		})
 		.await;

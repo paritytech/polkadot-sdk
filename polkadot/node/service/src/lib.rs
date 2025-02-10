@@ -953,9 +953,6 @@ pub fn new_full<
 		} else {
 			None
 		};
-		let (statement_req_receiver, cfg) =
-			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
-		net_config.add_request_response_protocol(cfg);
 		let (candidate_req_v2_receiver, cfg) =
 			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
@@ -987,7 +984,6 @@ pub fn new_full<
 			pov_req_receiver,
 			chunk_req_v1_receiver,
 			chunk_req_v2_receiver,
-			statement_req_receiver,
 			candidate_req_v2_receiver,
 			approval_voting_config,
 			dispute_req_receiver,
