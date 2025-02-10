@@ -4,11 +4,8 @@ doc:
   description: |-
     Follow up from https://github.com/paritytech/polkadot-sdk/pull/6362#issuecomment-2629744365
 
-        The goal of this PR is to have the treasury pallet work on a parachain which does not produce blocks on a regular schedule, thus can use the relay chain as a block provider. Because blocks are not produced regularly, we cannot make the assumption that block number increases monotonically, and thus have new logic to handle multiple spend periods passing between blocks
+        This PR modifies the pallet_scheduler to support parachains that do not produce blocks on a regular schedule. Since block numbers may not increase monotonically in such environments, the scheduler cannot rely on frame_system::Pallet::<T>::block_number(). Instead, this update introduces BlockNumberProvider = frame_system::Pallet<Runtime> in pallet_scheduler::Config, allowing the scheduler to use an external provider, such as the relay chain, for block numbers.
 
-    Requirement:
-
-     instead of using the hard coded system block number. We add an associated type BlockNumberProvider
 crates:
 - name: collectives-westend-runtime
   bump: minor
