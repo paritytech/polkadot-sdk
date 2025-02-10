@@ -109,15 +109,33 @@ where
 		Ok(fee_amount)
 	}
 
-	/// Convert the xcm into the Message which will be executed
-	/// on Ethereum Gateway contract, we expect an input of the form:
-	/// # WithdrawAsset(WETH)
-	/// # PayFees(WETH)
-	/// # ReserveAssetDeposited(PNA) | WithdrawAsset(ENA)
-	/// # AliasOrigin(Origin)
-	/// # DepositAsset(PNA|ENA)
-	/// # Transact() ---Optional
-	/// # SetTopic
+	/// Convert the xcm into an outbound message which can be dispatched to
+	/// the Gateway contract on Ethereum
+	///
+	/// Assets being transferred can either be Polkadot-native assets (PNA)
+	/// or Ethereum-native assets (ENA).
+	///
+	/// Expected Input Syntax:
+	/// ```ignore
+	/// WithdrawAsset(ETH)
+	/// PayFees(ETH)
+	/// ReserveAssetDeposited(PNA) | WithdrawAsset(ENA)
+	/// AliasOrigin(Origin)
+	/// DepositAsset(Asset)
+	/// Transact() [OPTIONAL]
+	/// SetTopic(Topic)
+	/// ```
+	/// Notes:
+	/// a. Fee asset will be checked and currently only Ether is allowed
+	/// b. For a specific transfer, either `ReserveAssetDeposited` or `WithdrawAsset` should be
+	/// 	present
+	/// c. `ReserveAssetDeposited` and `WithdrawAsset` can also be present in whatever
+	/// 	order in one message
+	/// d. Currently, teleport asset is not allowed, transfer types other than
+	/// 	above will cause the conversion to fail
+	/// e. Currently, `AliasOrigin` is always required, can distinguish the V2 process from V1.
+	/// 	it's required also for dispatching transact from that specific origin.
+	/// d. SetTopic is required for tracing the message all the way along.
 	fn to_ethereum_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
 
