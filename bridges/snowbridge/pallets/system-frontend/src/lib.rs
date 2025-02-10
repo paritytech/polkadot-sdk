@@ -78,14 +78,14 @@ pub mod pallet {
 		/// To withdraw and deposit an asset.
 		type AssetTransactor: TransactAsset;
 
-		#[cfg(feature = "runtime-benchmarks")]
-		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
-
 		type FeeAsset: Get<Location>;
 
 		type DeliveryFee: Get<Asset>;
 
 		type WeightInfo: WeightInfo;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
 	}
 
 	#[pallet::event]
