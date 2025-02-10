@@ -36,6 +36,7 @@ impl CacheReceiptProvider {
 #[async_trait]
 impl ReceiptProvider for CacheReceiptProvider {
 	async fn archive(&self, _block_hash: &H256, _receipts: &[(TransactionSigned, ReceiptInfo)]) {}
+
 	async fn logs(&self, _filter: Option<Filter>) -> anyhow::Result<Vec<Log>> {
 		anyhow::bail!("Not implemented")
 	}

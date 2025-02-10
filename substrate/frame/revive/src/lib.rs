@@ -723,7 +723,6 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			log::info!(target: LOG_TARGET, "Call: {:?} {:?} {:?}", dest, value, data);
 			let mut output = Self::bare_call(
 				origin,
 				dest,
