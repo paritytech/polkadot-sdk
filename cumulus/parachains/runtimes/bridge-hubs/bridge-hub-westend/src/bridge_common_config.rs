@@ -54,15 +54,22 @@ pub struct BridgeRewardPayer;
 impl bp_relayers::PaymentProcedure<AccountId, BridgeRewardKind, u128> for BridgeRewardPayer {
 	type Error = sp_runtime::DispatchError;
 
-	fn pay_reward(relayer: &AccountId, reward_kind: BridgeRewardKind, reward: u128) -> Result<(), Self::Error> {
+	fn pay_reward(
+		relayer: &AccountId,
+		reward_kind: BridgeRewardKind,
+		reward: u128,
+	) -> Result<(), Self::Error> {
 		match reward_kind {
 			BridgeRewardKind::RococoWestend(lane_params) => bp_relayers::PayRewardFromAccount::<
 				Balances,
 				AccountId,
 				LegacyLaneId,
 				u128,
-			>::pay_reward(relayer, lane_params, reward),
-			BridgeRewardKind::Snowbridge => Err(sp_runtime::DispatchError::Other("Not implemented yet!"))
+			>::pay_reward(
+				relayer, lane_params, reward
+			),
+			BridgeRewardKind::Snowbridge =>
+				Err(sp_runtime::DispatchError::Other("Not implemented yet!"))
 		}
 	}
 }

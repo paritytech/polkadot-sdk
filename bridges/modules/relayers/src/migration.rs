@@ -124,12 +124,11 @@ pub mod v1 {
 	use bp_runtime::StorageDoubleMapKeyProvider;
 	use codec::{Codec, EncodeLike};
 	use frame_benchmarking::__private::Zero;
-	use frame_support::pallet_prelude::OptionQuery;
-	use frame_support::traits::UncheckedOnRuntimeUpgrade;
-	use frame_support::{Blake2_128Concat, Identity};
+	use frame_support::{
+		pallet_prelude::OptionQuery, traits::UncheckedOnRuntimeUpgrade, Blake2_128Concat, Identity,
+	};
 	use sp_std::marker::PhantomData;
 
-	#[cfg(feature = "try-runtime")]
 	pub(crate) struct RelayerRewardsKeyProvider<AccountId, Reward, LaneId>(
 		PhantomData<(AccountId, Reward, LaneId)>,
 	);

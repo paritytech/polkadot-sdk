@@ -490,17 +490,16 @@ pub mod pallet {
 }
 
 /// Implementation of `RewardLedger` for the pallet.
-impl<T: Config<I>, I: 'static, Relayer, RewardKind, Reward>
-	RewardLedger<Relayer, RewardKind, Reward> for Pallet<T, I>
+impl<T: Config<I>, I: 'static, RewardKind, Reward>
+	RewardLedger<T::AccountId, RewardKind, Reward> for Pallet<T, I>
 where
-	Relayer: AsRef<T::AccountId>,
 	RewardKind: Into<T::RewardKind>,
 	Reward: Into<T::Reward>,
 {
-	fn register_reward(relayer: &Relayer, reward_kind: RewardKind, reward: Reward) {
+	fn register_reward(relayer: &T::AccountId, reward_kind: RewardKind, reward: Reward) {
 		Pallet::<T, I>::register_relayer_reward(
 			reward_kind.into(),
-			relayer.as_ref(),
+			relayer,
 			reward.into(),
 		);
 	}
