@@ -86,7 +86,8 @@ where
 				FloatStorageValueMetric::new(
 					AccountBalance::<C> { token_decimals, _phantom: Default::default() },
 					client.clone(),
-					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, BalanceOf<C>, LaneId>::final_key(
+					// TODO: FAIL-CI - `RewardsAccountParams` externalize
+					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, RewardsAccountParams<LaneId>, BalanceOf<C>>::final_key(
 						relayers_pallet_name,
 						account.id(),
 						&RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::ThisChain),
@@ -98,7 +99,7 @@ where
 				FloatStorageValueMetric::new(
 					AccountBalance::<C> { token_decimals, _phantom: Default::default() },
 					client.clone(),
-					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, BalanceOf<C>, LaneId>::final_key(
+					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, RewardsAccountParams<LaneId>, BalanceOf<C>>::final_key(
 						relayers_pallet_name,
 						account.id(),
 						&RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::BridgedChain),
