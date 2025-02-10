@@ -154,8 +154,11 @@ impl From<ClientError> for ErrorObjectOwned {
 				)
 			},
 			ClientError::Reverted(EthTransactError::Data(data)) => {
-				let revert_reason = extract_revert_reason(&data).unwrap_or_default();
-				let msg = format!("execution reverted: {revert_reason}");
+				let msg = match extract_revert_reason(&data) {
+					Some(reason) => format!("execution reverted: {reason}"),
+					None => "execution reverted".to_string(),
+				};
+
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
