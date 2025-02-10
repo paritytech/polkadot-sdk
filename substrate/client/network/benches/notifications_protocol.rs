@@ -37,15 +37,29 @@ use substrate_test_runtime_client::runtime;
 use tokio::{sync::Mutex, task::JoinHandle};
 
 const NUMBER_OF_NOTIFICATIONS: usize = 100;
+
+// libp2p/64KB    44421256 ns
+// litep2p/64KB   46879477 ns
+// libp2p/256KB   359526580 ns
+// litep2p/256KB  413041795 ns
+// const NUMBER_OF_NOTIFICATIONS: usize = 1000;
+
+// libp2p/64KB    220405786 ns
+// litep2p/64KB   247287037 ns
+// libp2p/256KB   1814364552 ns
+// litep2p/256KB  2008662039 ns
+// const NUMBER_OF_NOTIFICATIONS: usize = 5000;
+
+// libp2p/64KB:    443843240 ns
+// libp2p/256KB:   3564711134 ns
+// litep2p/64KB:   485836412 ns
+// litep2p/256KB:  3834542336 ns
+// const NUMBER_OF_NOTIFICATIONS: usize = 10000;
+
 const PAYLOAD: &[(u32, &'static str)] = &[
 	// (Exponent of size, label)
-	(6, "64B"),
-	(9, "512B"),
-	(12, "4KB"),
 	(15, "64KB"),
 	(18, "256KB"),
-	(21, "2MB"),
-	(24, "16MB"),
 ];
 const MAX_SIZE: u64 = 2u64.pow(30);
 
@@ -270,10 +284,6 @@ fn run_benchmark(c: &mut Criterion) {
 	for &(exponent, label) in PAYLOAD.iter() {
 		let size = 2usize.pow(exponent);
 		group.throughput(Throughput::Bytes(NUMBER_OF_NOTIFICATIONS as u64 * size as u64));
-		group.bench_with_input(BenchmarkId::new("libp2p/serially", label), &size, |b, &size| {
-			b.to_async(&rt)
-				.iter(|| run_serially(Arc::clone(&libp2p_setup), size, NUMBER_OF_NOTIFICATIONS));
-		});
 		group.bench_with_input(
 			BenchmarkId::new("libp2p/with_backpressure", label),
 			&size,
@@ -290,10 +300,6 @@ fn run_benchmark(c: &mut Criterion) {
 	for &(exponent, label) in PAYLOAD.iter() {
 		let size = 2usize.pow(exponent);
 		group.throughput(Throughput::Bytes(NUMBER_OF_NOTIFICATIONS as u64 * size as u64));
-		group.bench_with_input(BenchmarkId::new("litep2p/serially", label), &size, |b, &size| {
-			b.to_async(&rt)
-				.iter(|| run_serially(Arc::clone(&litep2p_setup), size, NUMBER_OF_NOTIFICATIONS));
-		});
 		group.bench_with_input(
 			BenchmarkId::new("litep2p/with_backpressure", label),
 			&size,
