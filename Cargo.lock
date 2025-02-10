@@ -1231,7 +1231,10 @@ dependencies = [
  "pallet-balances 28.0.0",
  "pallet-collator-selection 9.0.0",
  "pallet-message-queue 31.0.0",
+<<<<<<< HEAD
  "pallet-migrations 1.0.0",
+=======
+>>>>>>> a283ea5cbe (revert changes)
  "pallet-multisig 28.0.0",
  "pallet-nft-fractionalization 10.0.0",
  "pallet-nfts 22.0.0",
@@ -8940,7 +8943,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d191583f3da1305256f22463b9bb0471acad48a4e534a5218b9963e9c1f59b2"
 dependencies = [
  "futures-util",
+<<<<<<< HEAD
  "http 1.1.0",
+=======
+ "http 1.2.0",
+>>>>>>> a283ea5cbe (revert changes)
  "hyper 1.6.0",
  "hyper-util",
  "log",
@@ -8987,8 +8994,13 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
+<<<<<<< HEAD
  "http 1.1.0",
  "http-body 1.0.0",
+=======
+ "http 1.2.0",
+ "http-body 1.0.1",
+>>>>>>> a283ea5cbe (revert changes)
  "hyper 1.6.0",
  "pin-project-lite",
  "socket2 0.5.8",
@@ -14290,7 +14302,10 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkadot-sdk-frame 0.1.0",
+=======
+>>>>>>> a283ea5cbe (revert changes)
  "pretty_assertions",
  "scale-info",
  "sp-api 26.0.0",
@@ -15171,7 +15186,10 @@ dependencies = [
  "pallet-revive 0.1.0",
  "pallet-revive-fixtures 0.1.0",
  "parity-scale-codec",
+<<<<<<< HEAD
  "pretty_assertions",
+=======
+>>>>>>> a283ea5cbe (revert changes)
  "rlp 0.6.1",
  "sc-cli",
  "sc-rpc",
@@ -18419,7 +18437,10 @@ dependencies = [
  "sc-consensus-manual-seal",
  "sc-executor 0.32.0",
  "sc-network",
+<<<<<<< HEAD
  "sc-offchain",
+=======
+>>>>>>> a283ea5cbe (revert changes)
  "sc-rpc",
  "sc-runtime-utilities",
  "sc-service",
@@ -18427,7 +18448,10 @@ dependencies = [
  "sc-telemetry",
  "sc-tracing",
  "sc-transaction-pool",
+<<<<<<< HEAD
  "sc-transaction-pool-api",
+=======
+>>>>>>> a283ea5cbe (revert changes)
  "scale-info",
  "serde",
  "serde_json",
@@ -18440,7 +18464,10 @@ dependencies = [
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
  "sp-keystore 0.34.0",
+<<<<<<< HEAD
  "sp-offchain 26.0.0",
+=======
+>>>>>>> a283ea5cbe (revert changes)
  "sp-runtime 31.0.1",
  "sp-session 27.0.0",
  "sp-storage 19.0.0",
@@ -21617,7 +21644,11 @@ dependencies = [
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.6.0",
+<<<<<<< HEAD
  "hyper-rustls 0.27.3",
+=======
+ "hyper-rustls 0.27.5",
+>>>>>>> a283ea5cbe (revert changes)
  "hyper-util",
  "ipnet",
  "js-sys",
@@ -23633,7 +23664,11 @@ dependencies = [
  "futures-timer",
  "http-body-util",
  "hyper 1.6.0",
+<<<<<<< HEAD
  "hyper-rustls 0.27.3",
+=======
+ "hyper-rustls 0.27.5",
+>>>>>>> a283ea5cbe (revert changes)
  "hyper-util",
  "log",
  "num_cpus",
