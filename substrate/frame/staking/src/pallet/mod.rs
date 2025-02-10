@@ -59,10 +59,10 @@ pub use impls::*;
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
-	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
-	UnlockChunk, ValidatorPrefs,
+	DisablingStrategy, EraPayout, EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -172,10 +172,9 @@ pub mod pallet {
 		/// Number of eras to keep in history.
 		///
 		/// Following information is kept for eras in `[current_era -
-		/// HistoryDepth, current_era]`: `ErasStakers`, `ErasStakersClipped`,
-		/// `ErasValidatorPrefs`, `ErasValidatorReward`, `ErasRewardPoints`,
-		/// `ErasTotalStake`, `ErasStartSessionIndex`, `ClaimedRewards`, `ErasStakersPaged`,
-		/// `ErasStakersOverview`.
+		/// HistoryDepth, current_era]`: `ErasValidatorPrefs`, `ErasValidatorReward`,
+		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasStartSessionIndex`, `ClaimedRewards`,
+		/// `ErasStakersPaged`, `ErasStakersOverview`.
 		///
 		/// Must be more than the number of eras delayed by session.
 		/// I.e. active era must always be in history. I.e. `active_era >
@@ -330,6 +329,14 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type DisablingStrategy: DisablingStrategy<Self>;
 
+		/// Maximum number of invulnerable validators.
+		#[pallet::constant]
+		type MaxInvulnerables: Get<u32>;
+
+		/// Maximum number of disabled validators.
+		#[pallet::constant]
+		type MaxDisabledValidators: Get<u32>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -386,6 +393,8 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
+			type MaxInvulnerables = ConstU32<20>;
+			type MaxDisabledValidators = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			#[cfg(feature = "std")]
@@ -406,8 +415,8 @@ pub mod pallet {
 	/// easy to initialize and the performance hit is minimal (we expect no more than four
 	/// invulnerables) and restricted to testnets.
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type Invulnerables<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+	pub type Invulnerables<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
 	/// Map from all locked "stash" accounts to the controller account.
 	///
@@ -519,26 +528,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
-	/// Exposure of validator at era.
-	///
-	/// This is keyed first by the era index to allow bulk deletion and then the stash account.
-	///
-	/// Is it removed after [`Config::HistoryDepth`] eras.
-	/// If stakers hasn't been set or has been removed then empty exposure is returned.
-	///
-	/// Note: Deprecated since v14. Use `EraInfo` instead to work with exposures.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type ErasStakers<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		T::AccountId,
-		Exposure<T::AccountId, BalanceOf<T>>,
-		ValueQuery,
-	>;
-
 	/// Summary of validator exposure at a given era.
 	///
 	/// This contains the total stake in support of the validator and their own stake. In addition,
@@ -560,34 +549,6 @@ pub mod pallet {
 		T::AccountId,
 		PagedExposureMetadata<BalanceOf<T>>,
 		OptionQuery,
-	>;
-
-	/// Clipped Exposure of validator at era.
-	///
-	/// Note: This is deprecated, should be used as read-only and will be removed in the future.
-	/// New `Exposure`s are stored in a paged manner in `ErasStakersPaged` instead.
-	///
-	/// This is similar to [`ErasStakers`] but number of nominators exposed is reduced to the
-	/// `T::MaxExposurePageSize` biggest stakers.
-	/// (Note: the field `total` and `own` of the exposure remains unchanged).
-	/// This is used to limit the i/o cost for the nominator payout.
-	///
-	/// This is keyed fist by the era index to allow bulk deletion and then the stash account.
-	///
-	/// It is removed after [`Config::HistoryDepth`] eras.
-	/// If stakers hasn't been set or has been removed then empty exposure is returned.
-	///
-	/// Note: Deprecated since v14. Use `EraInfo` instead to work with exposures.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type ErasStakersClipped<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		T::AccountId,
-		Exposure<T::AccountId, BalanceOf<T>>,
-		ValueQuery,
 	>;
 
 	/// Paginated exposure of a validator at given era.
@@ -627,7 +588,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Similar to `ErasStakers`, this holds the preferences of validators.
+	/// Exposure of validator at era with the preferences of validators.
 	///
 	/// This is keyed first by the era index to allow bulk deletion and then the stash account.
 	///
@@ -755,9 +716,8 @@ pub mod pallet {
 	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
 	/// represents how severe is the offence that got the validator disabled.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type DisabledValidators<T: Config> =
-		StorageValue<_, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+		StorageValue<_, BoundedVec<(u32, OffenceSeverity), T::MaxDisabledValidators>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -792,7 +752,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub validator_count: u32,
 		pub minimum_validator_count: u32,
-		pub invulnerables: Vec<T::AccountId>,
+		pub invulnerables: BoundedVec<T::AccountId, T::MaxInvulnerables>,
 		pub force_era: Forcing,
 		pub slash_reward_fraction: Perbill,
 		pub canceled_payout: BalanceOf<T>,
@@ -842,7 +802,11 @@ pub mod pallet {
 		fn build(&self) {
 			ValidatorCount::<T>::put(self.validator_count);
 			MinimumValidatorCount::<T>::put(self.minimum_validator_count);
-			Invulnerables::<T>::put(&self.invulnerables);
+			assert!(
+				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
+				"Too many invulnerable validators at genesis."
+			);
+			<Invulnerables<T>>::put(&self.invulnerables);
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
@@ -1240,7 +1204,7 @@ pub mod pallet {
 		}
 
 		/// Get the validators that may never be slashed or forcibly kicked out.
-		pub fn invulnerables() -> Vec<T::AccountId> {
+		pub fn invulnerables() -> BoundedVec<T::AccountId, T::MaxInvulnerables> {
 			Invulnerables::<T>::get()
 		}
 
@@ -1281,18 +1245,6 @@ pub mod pallet {
 			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 		{
 			ErasStartSessionIndex::<T>::get(era_index)
-		}
-
-		/// Get the clipped exposure of a given validator at an era.
-		pub fn eras_stakers_clipped<EncodeLikeEraIndex, EncodeLikeAccountId>(
-			era_index: EncodeLikeEraIndex,
-			account_id: EncodeLikeAccountId,
-		) -> Exposure<T::AccountId, BalanceOf<T>>
-		where
-			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
-			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			ErasStakersClipped::<T>::get(era_index, account_id)
 		}
 
 		/// Get the paged history of claimed rewards by era for given validator.
@@ -1917,6 +1869,8 @@ pub mod pallet {
 			invulnerables: Vec<T::AccountId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			let invulnerables =
+				BoundedVec::try_from(invulnerables).map_err(|_| Error::<T>::BoundNotMet)?;
 			<Invulnerables<T>>::put(invulnerables);
 			Ok(())
 		}

@@ -769,6 +769,8 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
+	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1867,7 +1869,6 @@ pub mod migrations {
 		parachains_shared::migration::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
 		pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
-		pallet_staking::migrations::v17::MigrateV16ToV17<Runtime>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);

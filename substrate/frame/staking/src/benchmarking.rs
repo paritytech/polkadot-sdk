@@ -725,7 +725,7 @@ mod benchmarks {
 
 	#[benchmark]
 	// Worst case scenario, the list of invulnerables is very long.
-	fn set_invulnerables(v: Linear<0, { BenchMaxValidators::<T>::get() }>) {
+	fn set_invulnerables(v: Linear<0, { T::MaxInvulnerables::get() }>) {
 		let mut invulnerables = Vec::new();
 		for i in 0..v {
 			invulnerables.push(account("invulnerable", i, SEED));

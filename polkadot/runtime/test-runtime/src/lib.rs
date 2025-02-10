@@ -403,6 +403,8 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxValidatorSet = MaxAuthorities;
+	type MaxInvulnerables = ConstU32<20>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 parameter_types! {
