@@ -121,11 +121,85 @@ pub mod v1 {
 	use crate::{Config, Pallet};
 	use bp_messages::LaneIdType;
 	use bp_relayers::RewardsAccountParams;
+	use bp_runtime::StorageDoubleMapKeyProvider;
+	use codec::{Codec, EncodeLike};
+	use frame_benchmarking::__private::Zero;
+	use frame_support::pallet_prelude::OptionQuery;
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+	use frame_support::{Blake2_128Concat, Identity};
 	use sp_std::marker::PhantomData;
 
 	#[cfg(feature = "try-runtime")]
-	use crate::RelayerRewards;
+	pub(crate) struct RelayerRewardsKeyProvider<AccountId, Reward, LaneId>(
+		PhantomData<(AccountId, Reward, LaneId)>,
+	);
+
+	impl<AccountId, Reward, LaneId> StorageDoubleMapKeyProvider
+		for RelayerRewardsKeyProvider<AccountId, Reward, LaneId>
+	where
+		AccountId: 'static + Codec + EncodeLike + Send + Sync,
+		Reward: 'static + Codec + EncodeLike + Send + Sync,
+		LaneId: Codec + EncodeLike + Send + Sync,
+	{
+		const MAP_NAME: &'static str = "RelayerRewards";
+
+		type Hasher1 = Blake2_128Concat;
+		type Key1 = AccountId;
+		type Hasher2 = Identity;
+		type Key2 = v1::RewardsAccountParams<LaneId>;
+		type Value = Reward;
+	}
+
+	pub(crate) type RelayerRewardsKeyProviderOf<T, I, LaneId> = RelayerRewardsKeyProvider<
+		<T as frame_system::Config>::AccountId,
+		<T as Config<I>>::Reward,
+		LaneId,
+	>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type RelayerRewards<T: Config<I>, I: 'static, LaneId> = StorageDoubleMap<
+		Pallet<T, I>,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Hasher1,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Key1,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Hasher2,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Key2,
+		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Value,
+		OptionQuery,
+	>;
+
+	// Copy of `Pallet::<T, I>::register_relayer_reward` compatible with v1.
+	fn register_relayer_reward_for_v1<
+		T: Config<I>,
+		I: 'static,
+		LaneId: LaneIdType + Send + Sync,
+	>(
+		rewards_account_params: v1::RewardsAccountParams<LaneId>,
+		relayer: &T::AccountId,
+		reward: T::Reward,
+	) {
+		use sp_runtime::Saturating;
+
+		if reward.is_zero() {
+			return
+		}
+
+		v1::RelayerRewards::<T, I, LaneId>::mutate(
+			relayer,
+			rewards_account_params,
+			|old_reward: &mut Option<T::Reward>| {
+				let new_reward = old_reward.unwrap_or_else(Zero::zero).saturating_add(reward);
+				*old_reward = Some(new_reward);
+
+				log::trace!(
+					target: crate::LOG_TARGET,
+					"Relayer {:?} can now claim reward for serving payer {:?}: {:?}",
+					relayer,
+					rewards_account_params,
+					new_reward,
+				);
+			},
+		);
+	}
 
 	/// Migrates the pallet storage to v1.
 	pub struct UncheckedMigrationV0ToV1<T, I, LaneId>(PhantomData<(T, I, LaneId)>);
@@ -133,11 +207,8 @@ pub mod v1 {
 	#[cfg(feature = "try-runtime")]
 	const LOG_TARGET: &str = "runtime::bridge-relayers-migration";
 
-	impl<
-			T: Config<I, RewardKind = RewardsAccountParams<LaneId>>,
-			I: 'static,
-			LaneId: LaneIdType + Send + Sync,
-		> UncheckedOnRuntimeUpgrade for UncheckedMigrationV0ToV1<T, I, LaneId>
+	impl<T: Config<I>, I: 'static, LaneId: LaneIdType + Send + Sync> UncheckedOnRuntimeUpgrade
+		for UncheckedMigrationV0ToV1<T, I, LaneId>
 	{
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = T::DbWeight::get().reads(1);
@@ -156,7 +227,7 @@ pub mod v1 {
 				let v0::RewardsAccountParams { owner, lane_id, bridged_chain_id } = key2;
 
 				// re-register reward
-				Pallet::<T, I>::register_relayer_reward(
+				register_relayer_reward_for_v1::<T, I, LaneId>(
 					v1::RewardsAccountParams::new(lane_id, bridged_chain_id, owner),
 					&key1,
 					reward,
@@ -213,7 +284,7 @@ pub mod v1 {
 				T::Reward,
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
-			for (key1, key2, reward) in v1::RelayerRewards::<T, I>::iter() {
+			for (key1, key2, reward) in v1::RelayerRewards::<T, I, LaneId>::iter() {
 				log::info!(target: LOG_TARGET, "Migrated rewards: {key1:?}::{key2:?} - {reward:?}");
 				rewards_after = rewards_after
 					.try_mutate(|inner| {
