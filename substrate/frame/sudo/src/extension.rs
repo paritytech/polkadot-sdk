@@ -18,16 +18,8 @@
 use crate::{Config, Key};
 use codec::{Decode, Encode};
 use core::{fmt, marker::PhantomData};
-use frame_support::{dispatch::DispatchInfo, ensure, pallet_prelude::TransactionSource};
+use frame::prelude::*;
 use scale_info::TypeInfo;
-use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionValidityError, UnknownTransaction,
-		ValidTransaction,
-	},
-};
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///
@@ -78,10 +70,7 @@ where
 	type Pre = ();
 	type Val = ();
 
-	fn weight(
-		&self,
-		_: &<T as frame_system::Config>::RuntimeCall,
-	) -> frame_support::weights::Weight {
+	fn weight(&self, _: &<T as frame_system::Config>::RuntimeCall) -> Weight {
 		use crate::weights::WeightInfo;
 		T::WeightInfo::check_only_sudo_account()
 	}

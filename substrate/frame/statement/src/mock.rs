@@ -20,21 +20,16 @@
 use super::*;
 
 use crate as pallet_statement;
-use frame_support::{
-	derive_impl, ord_parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::Pair;
-use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
+use frame::testing_prelude::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 pub const MIN_ALLOWED_STATEMENTS: u32 = 4;
 pub const MAX_ALLOWED_STATEMENTS: u32 = 10;
 pub const MIN_ALLOWED_BYTES: u32 = 1024;
 pub const MAX_ALLOWED_BYTES: u32 = 4096;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -72,7 +67,7 @@ impl Config for Test {
 	type MaxAllowedBytes = ConstU32<MAX_ALLOWED_BYTES>;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let balances = pallet_balances::GenesisConfig::<Test> {
 		balances: vec![

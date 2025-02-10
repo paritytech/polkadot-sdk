@@ -19,15 +19,11 @@
 
 use super::*;
 use crate as sudo;
-use frame_support::{derive_impl, traits::Contains};
-use sp_io;
-use sp_runtime::BuildStorage;
+use frame::testing_prelude::*;
 
 // Logger module to track execution.
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod logger {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -86,9 +82,9 @@ pub mod logger {
 	pub(super) type I32Log<T> = StorageValue<_, BoundedVec<i32, ConstU32<1_000>>, ValueQuery>;
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -127,17 +123,17 @@ pub type SudoCall = sudo::Call<Test>;
 pub type LoggerCall = logger::Call<Test>;
 
 // Build test environment by setting the root `key` for the Genesis.
-pub fn new_test_ext(root_key: u64) -> sp_io::TestExternalities {
+pub fn new_test_ext(root_key: u64) -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	sudo::GenesisConfig::<Test> { key: Some(root_key) }
 		.assimilate_storage(&mut t)
 		.unwrap();
-	let mut ext: sp_io::TestExternalities = t.into();
+	let mut ext: TestExternalities = t.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub fn new_bench_ext() -> sp_io::TestExternalities {
+pub fn new_bench_ext() -> TestState {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
