@@ -78,8 +78,10 @@ pub mod pallet {
 		/// To withdraw and deposit an asset.
 		type AssetTransactor: TransactAsset;
 
+		/// Fee asset for the execution cost on ethereum
 		type FeeAsset: Get<Location>;
 
+		/// RemoteExecutionFee for the execution cost on bridge hub
 		type RemoteExecutionFee: Get<Asset>;
 
 		type WeightInfo: WeightInfo;
@@ -207,8 +209,12 @@ pub mod pallet {
 			let ethereum_fee_asset = (T::FeeAsset::get(), fee).into();
 			T::AssetTransactor::withdraw_asset(&ethereum_fee_asset, &origin_location, None)
 				.map_err(|_| Error::<T>::FundsUnavailable)?;
-			T::AssetTransactor::withdraw_asset(&T::RemoteExecutionFee::get(), &origin_location, None)
-				.map_err(|_| Error::<T>::FundsUnavailable)?;
+			T::AssetTransactor::withdraw_asset(
+				&T::RemoteExecutionFee::get(),
+				&origin_location,
+				None,
+			)
+			.map_err(|_| Error::<T>::FundsUnavailable)?;
 			Ok(())
 		}
 	}
