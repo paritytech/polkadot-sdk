@@ -1286,3 +1286,68 @@ mod merge_schedules {
 			});
 	}
 }
+
+mod genesis_config {
+	use super::*;
+
+	#[test]
+	fn generates_multiple_schedules_from_genesis_config() {
+		ExtBuilder::default()
+			.with_asset(
+				ASSET_ID,
+				1,
+				MINIMUM_BALANCE,
+				vec![
+					(1, 10 * MINIMUM_BALANCE),
+					(2, 20 * MINIMUM_BALANCE),
+					(12, 10 * MINIMUM_BALANCE),
+				],
+			)
+			// 5 * existential deposit locked.
+			.with_vesting_genesis_config((ASSET_ID, 1, 0, 10, 5 * MINIMUM_BALANCE))
+			// 1 * existential deposit locked.
+			.with_vesting_genesis_config((ASSET_ID, 2, 10, 20, 19 * MINIMUM_BALANCE))
+			// 2 * existential deposit locked.
+			.with_vesting_genesis_config((ASSET_ID, 2, 10, 20, 18 * MINIMUM_BALANCE))
+			// 1 * existential deposit locked.
+			.with_vesting_genesis_config((ASSET_ID, 12, 10, 20, 9 * MINIMUM_BALANCE))
+			// 2 * existential deposit locked.
+			.with_vesting_genesis_config((ASSET_ID, 12, 10, 20, 8 * MINIMUM_BALANCE))
+			// 3 * existential deposit locked.
+			.with_vesting_genesis_config((ASSET_ID, 12, 10, 20, 7 * MINIMUM_BALANCE))
+			.build()
+			.execute_with(|| {
+				let user1_sched1 = VestingInfo::new(5 * MINIMUM_BALANCE, 128, 0u64);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &1).unwrap(), vec![user1_sched1]);
+
+				let user2_sched1 = VestingInfo::new(1 * MINIMUM_BALANCE, 12, 10u64);
+				let user2_sched2 = VestingInfo::new(2 * MINIMUM_BALANCE, 25, 10u64);
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![user2_sched1, user2_sched2]
+				);
+
+				let user12_sched1 = VestingInfo::new(1 * MINIMUM_BALANCE, 12, 10u64);
+				let user12_sched2 = VestingInfo::new(2 * MINIMUM_BALANCE, 25, 10u64);
+				let user12_sched3 = VestingInfo::new(3 * MINIMUM_BALANCE, 38, 10u64);
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &12).unwrap(),
+					vec![user12_sched1, user12_sched2, user12_sched3]
+				);
+			});
+	}
+
+	#[test]
+	#[should_panic(expected = "Too many vesting schedules at genesis.: ()")]
+	fn multiple_schedules_from_genesis_config_errors() {
+		// MaxVestingSchedules is 3, but this config has 4 for account 12 so we panic when building
+		// from genesis.
+		ExtBuilder::default()
+			.with_asset(ASSET_ID, 1, MINIMUM_BALANCE, vec![(12, 5 * MINIMUM_BALANCE)])
+			.with_vesting_genesis_config((ASSET_ID, 12, 10, 20, MINIMUM_BALANCE))
+			.with_vesting_genesis_config((ASSET_ID, 12, 10, 20, MINIMUM_BALANCE))
+			.with_vesting_genesis_config((ASSET_ID, 12, 10, 20, MINIMUM_BALANCE))
+			.with_vesting_genesis_config((ASSET_ID, 12, 10, 20, MINIMUM_BALANCE))
+			.build();
+	}
+}
