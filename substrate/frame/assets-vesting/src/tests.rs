@@ -760,3 +760,529 @@ mod force_vested_transfer {
 			});
 	}
 }
+
+mod merge_schedules {
+	use super::*;
+	use frame::traits::{
+		fungibles::Inspect,
+		tokens::{Fortitude::Polite, Preservation::Preserve},
+	};
+
+	#[test]
+	fn merge_schedules_that_have_not_started() {
+		ExtBuilder::default()
+			.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+			.build()
+			.execute_with(|| {
+				// Account 2 should already have a vesting schedule.
+				let sched0 = VestingInfo::new(
+					MINIMUM_BALANCE * 20,
+					MINIMUM_BALANCE, // Vest over 20 blocks.
+					10,
+				);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched0]);
+				assert_eq!(Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite), 0);
+
+				// Add a schedule that is identical to the one that already exists.
+				assert_ok!(AssetsVesting::vested_transfer(Some(3).into(), ASSET_ID, 2, sched0));
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![sched0, sched0]
+				);
+				assert_eq!(Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite), 0);
+				assert_ok!(AssetsVesting::merge_schedules(Some(2).into(), ASSET_ID, 0, 1));
+
+				// Since we merged identical schedules, the new schedule finishes at the same
+				// time as the original, just with double the amount.
+				let sched1 = VestingInfo::new(
+					sched0.locked() * 2,
+					sched0.per_block() * 2,
+					10, // Starts at the block the schedules are merged/
+				);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched1]);
+
+				assert_eq!(Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite), 0);
+			});
+	}
+
+	#[test]
+	fn merge_ongoing_schedules() {
+		// Merging two schedules that have started will vest both before merging.
+		ExtBuilder::default()
+			.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+			.build()
+			.execute_with(|| {
+				// Account 2 should already have a vesting schedule.
+				let sched0 = VestingInfo::new(
+					MINIMUM_BALANCE * 20,
+					MINIMUM_BALANCE, // Vest over 20 blocks.
+					10,
+				);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched0]);
+
+				let sched1 = VestingInfo::new(
+					MINIMUM_BALANCE * 10,
+					// Vest over 10 blocks.
+					MINIMUM_BALANCE,
+					// Start at block 15.
+					sched0.starting_block() + 5,
+				);
+				assert_ok!(AssetsVesting::vested_transfer(Some(4).into(), ASSET_ID, 2, sched1));
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![sched0, sched1]
+				);
+
+				// Got to half way through the second schedule where both schedules are actively
+				// vesting.
+				let cur_block = 20;
+				System::set_block_number(cur_block);
+
+				// Account 2 has no usable balances prior to the merge because they have not
+				// unlocked with `vest` yet.
+				assert_eq!(Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite), 0);
+
+				assert_ok!(AssetsVesting::merge_schedules(Some(2).into(), ASSET_ID, 0, 1));
+
+				// Merging schedules un-vests all pre-existing schedules prior to merging, which is
+				// reflected in account 2's updated usable balance.
+				let sched0_vested_now = sched0.per_block() * (cur_block - sched0.starting_block());
+				let sched1_vested_now = sched1.per_block() * (cur_block - sched1.starting_block());
+				assert_eq!(
+					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
+					// TODO: this `- MINIMUM_BALANCE` should be removed once #4530 is merged.
+					sched0_vested_now + sched1_vested_now - MINIMUM_BALANCE
+				);
+
+				// The locked amount is the sum of what both schedules have locked at the current
+				// block.
+				let sched2_locked = sched1
+					.locked_at::<Identity>(cur_block)
+					.saturating_add(sched0.locked_at::<Identity>(cur_block));
+				// End block of the new schedule is the greater of either merged schedule.
+				let sched2_end = sched1
+					.ending_block_as_balance::<Identity>()
+					.max(sched0.ending_block_as_balance::<Identity>());
+				let sched2_duration = sched2_end - cur_block;
+				// Based off the new schedules total locked and its duration, we can calculate the
+				// amount to unlock per block.
+				let sched2_per_block = sched2_locked / sched2_duration;
+
+				let sched2 = VestingInfo::new(sched2_locked, sched2_per_block, cur_block);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched2]);
+
+				// And just to double check, we assert the new merged schedule we be cleaned up as
+				// expected.
+				System::set_block_number(30);
+				vest_and_assert_no_vesting::<Test, ()>(ASSET_ID, 2);
+			});
+	}
+
+	#[test]
+	fn merging_shifts_other_schedules_index() {
+		// Schedules being merged are filtered out, schedules to the right of any merged
+		// schedule shift left and the merged schedule is always last.
+		ExtBuilder::default()
+			.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+			.build()
+			.execute_with(|| {
+				let sched0 = VestingInfo::new(
+					MINIMUM_BALANCE * 10,
+					MINIMUM_BALANCE, // Vesting over 10 blocks.
+					10,
+				);
+				let sched1 = VestingInfo::new(
+					MINIMUM_BALANCE * 11,
+					MINIMUM_BALANCE, // Vesting over 11 blocks.
+					11,
+				);
+				let sched2 = VestingInfo::new(
+					MINIMUM_BALANCE * 12,
+					MINIMUM_BALANCE, // Vesting over 12 blocks.
+					12,
+				);
+
+				// Account 3 starts out with no schedules,
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &3), None);
+				// and some usable balance.
+				let usable_balance = Assets::reducible_balance(ASSET_ID, &3, Preserve, Polite);
+				// TODO: this value should be changed to 30 * MINIMUM_BALANCE once #4530 is merged
+				assert_eq!(usable_balance, 29 * MINIMUM_BALANCE);
+
+				let cur_block = 1;
+				assert_eq!(System::block_number(), cur_block);
+
+				// Transfer the above 3 schedules to account 3.
+				assert_ok!(AssetsVesting::vested_transfer(Some(4).into(), ASSET_ID, 3, sched0));
+				assert_ok!(AssetsVesting::vested_transfer(Some(4).into(), ASSET_ID, 3, sched1));
+				assert_ok!(AssetsVesting::vested_transfer(Some(4).into(), ASSET_ID, 3, sched2));
+
+				// With no schedules vested or merged they are in the order they are created
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &3).unwrap(),
+					vec![sched0, sched1, sched2]
+				);
+				// and the usable balance has not changed.
+				assert_eq!(
+					usable_balance,
+					Assets::reducible_balance(ASSET_ID, &3, Preserve, Polite)
+				);
+
+				assert_ok!(AssetsVesting::merge_schedules(Some(3).into(), ASSET_ID, 0, 2));
+
+				// Create the merged schedule of sched0 & sched2.
+				// The merged schedule will have the max possible starting block,
+				let sched3_start = sched1.starting_block().max(sched2.starting_block());
+				// `locked` equal to the sum of the two schedules locked through the current block,
+				let sched3_locked = sched2.locked_at::<Identity>(cur_block) +
+					sched0.locked_at::<Identity>(cur_block);
+				// and will end at the max possible block.
+				let sched3_end = sched2
+					.ending_block_as_balance::<Identity>()
+					.max(sched0.ending_block_as_balance::<Identity>());
+				let sched3_duration = sched3_end - sched3_start;
+				let sched3_per_block = sched3_locked / sched3_duration;
+				let sched3 = VestingInfo::new(sched3_locked, sched3_per_block, sched3_start);
+
+				// The not touched schedule moves left and the new merged schedule is appended.
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &3).unwrap(),
+					vec![sched1, sched3]
+				);
+				// The usable balance hasn't changed since none of the schedules have started.
+				assert_eq!(
+					Assets::reducible_balance(ASSET_ID, &3, Preserve, Polite),
+					usable_balance
+				);
+			});
+	}
+
+	#[test]
+	fn merge_ongoing_and_yet_to_be_started_schedules() {
+		// Merge an ongoing schedule that has had `vest` called and a schedule that has not already
+		// started.
+		ExtBuilder::default()
+			.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+			.build()
+			.execute_with(|| {
+				// Account 2 should already have a vesting schedule.
+				let sched0 = VestingInfo::new(
+					MINIMUM_BALANCE * 20,
+					MINIMUM_BALANCE, // Vesting over 20 blocks
+					10,
+				);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched0]);
+
+				// Fast forward to half way through the life of sched1.
+				let mut cur_block =
+					(sched0.starting_block() + sched0.ending_block_as_balance::<Identity>()) / 2;
+				assert_eq!(cur_block, 20);
+				System::set_block_number(cur_block);
+
+				// Prior to vesting there is no usable balance.
+				let mut reducible_balance = 0;
+				assert_eq!(
+					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
+					reducible_balance
+				);
+				// Vest the current schedules (which is just sched0 now).
+				AssetsVesting::vest(Some(2).into(), ASSET_ID).unwrap();
+
+				// After vesting the usable balance increases by the unlocked amount.
+				let sched0_vested_now = sched0.locked() - sched0.locked_at::<Identity>(cur_block);
+				reducible_balance += sched0_vested_now;
+				assert_eq!(
+					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
+					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
+					// is merged.
+					reducible_balance - MINIMUM_BALANCE
+				);
+
+				// Go forward a block.
+				cur_block += 1;
+				System::set_block_number(cur_block);
+
+				// And add a schedule that starts after this block, but before sched0 finishes.
+				let sched1 = VestingInfo::new(
+					MINIMUM_BALANCE * 10,
+					1, // Vesting over 256 * 10 (2560) blocks
+					cur_block + 1,
+				);
+				assert_ok!(AssetsVesting::vested_transfer(Some(4).into(), ASSET_ID, 2, sched1));
+
+				// Merge the schedules before sched1 starts.
+				assert_ok!(AssetsVesting::merge_schedules(Some(2).into(), ASSET_ID, 0, 1));
+				// After merging, the usable balance only changes by the amount sched0 vested since
+				// we last called `vest` (which is just 1 block). The usable balance is not
+				// affected by sched1 because it has not started yet.
+				reducible_balance += sched0.per_block();
+				assert_eq!(
+					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
+					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
+					// is merged.
+					reducible_balance - MINIMUM_BALANCE
+				);
+
+				// The resulting schedule will have the later starting block of the two,
+				let sched2_start = sched1.starting_block();
+				// `locked` equal to the sum of the two schedules locked through the current block,
+				let sched2_locked = sched0.locked_at::<Identity>(cur_block) +
+					sched1.locked_at::<Identity>(cur_block);
+				// and will end at the max possible block.
+				let sched2_end = sched0
+					.ending_block_as_balance::<Identity>()
+					.max(sched1.ending_block_as_balance::<Identity>());
+				let sched2_duration = sched2_end - sched2_start;
+				let sched2_per_block = sched2_locked / sched2_duration;
+
+				let sched2 = VestingInfo::new(sched2_locked, sched2_per_block, sched2_start);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched2]);
+			});
+	}
+
+	#[test]
+	fn merge_finished_and_ongoing_schedules() {
+		// If a schedule finishes by the current block we treat the ongoing schedule,
+		// without any alterations, as the merged one.
+		ExtBuilder::default()
+			.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+			.build()
+			.execute_with(|| {
+				// Account 2 should already have a vesting schedule.
+				let sched0 = VestingInfo::new(
+					MINIMUM_BALANCE * 20,
+					MINIMUM_BALANCE, // Vesting over 20 blocks.
+					10,
+				);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched0]);
+
+				let sched1 = VestingInfo::new(
+					MINIMUM_BALANCE * 40,
+					MINIMUM_BALANCE, // Vesting over 40 blocks.
+					10,
+				);
+				assert_ok!(AssetsVesting::vested_transfer(Some(4).into(), ASSET_ID, 2, sched1));
+
+				// Transfer a 3rd schedule, so we can demonstrate how schedule indices change.
+				// (We are not merging this schedule.)
+				let sched2 = VestingInfo::new(
+					MINIMUM_BALANCE * 30,
+					MINIMUM_BALANCE, // Vesting over 30 blocks.
+					10,
+				);
+				assert_ok!(AssetsVesting::vested_transfer(Some(3).into(), ASSET_ID, 2, sched2));
+
+				// The schedules are in expected order prior to merging.
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![sched0, sched1, sched2]
+				);
+
+				// Fast forward to sched0's end block.
+				let cur_block = sched0.ending_block_as_balance::<Identity>();
+				System::set_block_number(cur_block);
+				assert_eq!(System::block_number(), 30);
+
+				// Prior to `merge_schedules` and with no vest/vest_other called the user has no
+				// usable balance.
+				assert_eq!(Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite), 0);
+				assert_ok!(AssetsVesting::merge_schedules(Some(2).into(), ASSET_ID, 0, 1));
+
+				// sched2 is now the first, since sched0 & sched1 get filtered out while "merging".
+				// sched1 gets treated like the new merged schedule by getting pushed onto back
+				// of the vesting schedules vec. Note: sched0 finished at the current block.
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![sched2, sched1]
+				);
+
+				// sched0 has finished, so its funds are fully unlocked.
+				let sched0_unlocked_now = sched0.locked();
+				// The remaining schedules are ongoing, so their funds are partially unlocked.
+				let sched1_unlocked_now = sched1.locked() - sched1.locked_at::<Identity>(cur_block);
+				let sched2_unlocked_now = sched2.locked() - sched2.locked_at::<Identity>(cur_block);
+
+				// Since merging also vests all the schedules, the users usable balance after
+				// merging includes all pre-existing schedules unlocked through the current
+				// block, including schedules not merged.
+				assert_eq!(
+					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
+					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
+					// is merged.
+					sched0_unlocked_now + sched1_unlocked_now + sched2_unlocked_now -
+						MINIMUM_BALANCE,
+				);
+			});
+	}
+
+	#[test]
+	fn merge_finishing_schedules_does_not_create_a_new_one() {
+		// If both schedules finish by the current block we don't create new one
+		ExtBuilder::default()
+			.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+			.build()
+			.execute_with(|| {
+				// Account 2 should already have a vesting schedule.
+				let sched0 = VestingInfo::new(
+					MINIMUM_BALANCE * 20,
+					MINIMUM_BALANCE, // 20 block duration.
+					10,
+				);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched0]);
+
+				// Create sched1 and transfer it to account 2.
+				let sched1 = VestingInfo::new(
+					MINIMUM_BALANCE * 30,
+					MINIMUM_BALANCE, // 30 block duration.
+					10,
+				);
+				assert_ok!(AssetsVesting::vested_transfer(Some(3).into(), ASSET_ID, 2, sched1));
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![sched0, sched1]
+				);
+
+				let all_scheds_end = sched0
+					.ending_block_as_balance::<Identity>()
+					.max(sched1.ending_block_as_balance::<Identity>());
+
+				assert_eq!(all_scheds_end, 40);
+				System::set_block_number(all_scheds_end);
+
+				// Prior to merge_schedules and with no vest/vest_other called the user has no
+				// usable balance.
+				assert_eq!(Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite), 0);
+
+				// Merge schedule 0 and 1.
+				assert_ok!(AssetsVesting::merge_schedules(Some(2).into(), ASSET_ID, 0, 1));
+				// The user no longer has any more vesting schedules because they both ended at the
+				// block they where merged,
+				assert!(!<VestingStorage<Test>>::contains_key(ASSET_ID, &2));
+				// and their usable balance has increased by the total amount locked in the merged
+				// schedules.
+				assert_eq!(
+					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
+					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
+					// is merged.
+					sched0.locked() + sched1.locked() - MINIMUM_BALANCE
+				);
+			});
+	}
+
+	#[test]
+	fn merge_finished_and_yet_to_be_started_schedules() {
+		ExtBuilder::default()
+			.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+			.build()
+			.execute_with(|| {
+				// Account 2 should already have a vesting schedule.
+				let sched0 = VestingInfo::new(
+					MINIMUM_BALANCE * 20,
+					MINIMUM_BALANCE, // 20 block duration.
+					10,              // Ends at block 30
+				);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched0]);
+
+				let sched1 = VestingInfo::new(
+					MINIMUM_BALANCE * 30,
+					MINIMUM_BALANCE * 2, // 30 block duration.
+					35,
+				);
+				assert_ok!(AssetsVesting::vested_transfer(Some(13).into(), ASSET_ID, 2, sched1));
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![sched0, sched1]
+				);
+
+				let sched2 = VestingInfo::new(
+					MINIMUM_BALANCE * 40,
+					MINIMUM_BALANCE, // 40 block duration.
+					30,
+				);
+				// Add a 3rd schedule to demonstrate how sched1 shifts.
+				assert_ok!(AssetsVesting::vested_transfer(Some(13).into(), ASSET_ID, 2, sched2));
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![sched0, sched1, sched2]
+				);
+
+				System::set_block_number(30);
+
+				// At block 30, sched0 has finished unlocking while sched1 and sched2 are still
+				// fully locked,
+				assert_eq!(
+					AssetsVesting::vesting_balance(ASSET_ID, &2),
+					Some(sched1.locked() + sched2.locked())
+				);
+				// but since we have not vested usable balance is still 0.
+				assert_eq!(Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite), 0);
+
+				// Merge schedule 0 and 1.
+				assert_ok!(AssetsVesting::merge_schedules(Some(2).into(), ASSET_ID, 0, 1));
+
+				// sched0 is removed since it finished, and sched1 is removed and then pushed on the
+				// back because it is treated as the merged schedule
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![sched2, sched1]
+				);
+
+				// The usable balance is updated because merging fully unlocked sched0.
+				assert_eq!(
+					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
+					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
+					// is merged.
+					sched0.locked() - MINIMUM_BALANCE
+				);
+			});
+	}
+
+	#[test]
+	fn merge_schedules_throws_proper_errors() {
+		ExtBuilder::default()
+			.with_min_balance(ASSET_ID, MINIMUM_BALANCE)
+			.build()
+			.execute_with(|| {
+				// Account 2 should already have a vesting schedule.
+				let sched0 = VestingInfo::new(
+					MINIMUM_BALANCE * 20,
+					MINIMUM_BALANCE, // 20 block duration.
+					10,
+				);
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(), vec![sched0]);
+
+				// Account 2 only has 1 vesting schedule.
+				assert_noop!(
+					AssetsVesting::merge_schedules(Some(2).into(), ASSET_ID, 0, 1),
+					Error::<Test>::ScheduleIndexOutOfBounds
+				);
+
+				// Account 4 has 0 vesting schedules.
+				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &4), None);
+				assert_noop!(
+					AssetsVesting::merge_schedules(Some(4).into(), ASSET_ID, 0, 1),
+					Error::<Test>::NotVesting
+				);
+
+				// There are enough schedules to merge but an index is non-existent.
+				AssetsVesting::vested_transfer(Some(3).into(), ASSET_ID, 2, sched0).unwrap();
+				assert_eq!(
+					VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+					vec![sched0, sched0]
+				);
+				assert_noop!(
+					AssetsVesting::merge_schedules(Some(2).into(), ASSET_ID, 0, 2),
+					Error::<Test>::ScheduleIndexOutOfBounds
+				);
+
+				// It is a storage noop with no errors if the indexes are the same.
+				assert_storage_noop!(AssetsVesting::merge_schedules(
+					Some(2).into(),
+					ASSET_ID,
+					0,
+					0
+				)
+				.unwrap());
+			});
+	}
+}
