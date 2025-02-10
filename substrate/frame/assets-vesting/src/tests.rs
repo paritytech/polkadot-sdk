@@ -1,4 +1,5 @@
 use super::{mock::*, AccountIdOf, AssetIdOf, Error, Vesting as VestingStorage, VestingInfo};
+use crate::mock::frame_system::RawOrigin;
 use codec::EncodeLike;
 use frame::traits::fungibles::VestingSchedule;
 
@@ -503,6 +504,184 @@ fn vested_transfer_allows_max_schedules() {
 
 		// Account 4 has fully vested when all the schedules end,
 		System::set_block_number(MIN_VESTED_TRANSFER + sched.starting_block());
+		assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &4), Some(0));
+		// and after unlocking its schedules are removed from storage.
+		vest_and_assert_no_vesting::<Test, ()>(ASSET_ID, 4);
+	});
+}
+
+#[test]
+fn force_vested_transfer_works() {
+	const ED: Balance = 256;
+	ExtBuilder::default().with_min_balance(ASSET_ID, ED).build().execute_with(|| {
+		let user3_account_balance = Assets::balance(ASSET_ID, &3);
+		let user4_account_balance = Assets::balance(ASSET_ID, &4);
+		assert_eq!(user3_account_balance, ED * 30);
+		assert_eq!(user4_account_balance, ED * 40);
+		// Account 4 should not have any vesting yet.
+		assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &4), None);
+		// Make the schedule for the new transfer.
+		let new_vesting_schedule = VestingInfo::new(
+			ED * 5,
+			64, // Vesting over 20 blocks
+			10,
+		);
+
+		assert_noop!(
+			AssetsVesting::force_vested_transfer(
+				Some(4).into(),
+				ASSET_ID,
+				3,
+				4,
+				new_vesting_schedule
+			),
+			BadOrigin
+		);
+		assert_ok!(AssetsVesting::force_vested_transfer(
+			RawOrigin::Root.into(),
+			ASSET_ID,
+			3,
+			4,
+			new_vesting_schedule
+		));
+		// Now account 4 should have vesting.
+		assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &4).unwrap()[0], new_vesting_schedule);
+		assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &4).unwrap().len(), 1);
+		// Ensure the transfer happened correctly.
+		let user3_account_balance_updated = Assets::balance(ASSET_ID, &3);
+		assert_eq!(user3_account_balance_updated, ED * 25);
+		let user4_account_balance_updated = Assets::balance(ASSET_ID, &4);
+		assert_eq!(user4_account_balance_updated, ED * 45);
+		// Account 4 has 5 * ED locked.
+		assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &4), Some(ED * 5));
+
+		System::set_block_number(20);
+		assert_eq!(System::block_number(), 20);
+
+		// Account 4 has 5 * 64 units vested by block 20.
+		assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &4), Some(10 * 64));
+
+		System::set_block_number(30);
+		assert_eq!(System::block_number(), 30);
+
+		// Account 4 has fully vested,
+		assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &4), Some(0));
+		// and after unlocking its schedules are removed from storage.
+		vest_and_assert_no_vesting::<Test, ()>(ASSET_ID, 4);
+	});
+}
+
+#[test]
+fn force_vested_transfer_correctly_fails() {
+	const ED: Balance = 256;
+	const MIN_VESTED_TRANSFER: Balance = <Test as crate::Config>::MinVestedTransfer::get();
+
+	ExtBuilder::default().with_min_balance(ASSET_ID, ED).build().execute_with(|| {
+		let user2_account_balance = Assets::balance(ASSET_ID, &2);
+		let user4_account_balance = Assets::balance(ASSET_ID, &4);
+		assert_eq!(user2_account_balance, ED * 20);
+		assert_eq!(user4_account_balance, ED * 40);
+		// Account 2 should already have a vesting schedule.
+		let user2_vesting_schedule = VestingInfo::new(
+			ED * 20,
+			ED, // Vesting over 20 blocks
+			10,
+		);
+		assert_eq!(
+			VestingStorage::<Test>::get(ASSET_ID, &2).unwrap(),
+			vec![user2_vesting_schedule]
+		);
+
+		// Too low transfer amount.
+		let new_vesting_schedule_too_low = VestingInfo::new(MIN_VESTED_TRANSFER - 1, 64, 10);
+		assert_noop!(
+			AssetsVesting::force_vested_transfer(
+				RawOrigin::Root.into(),
+				ASSET_ID,
+				3,
+				4,
+				new_vesting_schedule_too_low
+			),
+			Error::<Test>::AmountLow,
+		);
+
+		// `per_block` is 0.
+		let schedule_per_block_0 = VestingInfo::new(MIN_VESTED_TRANSFER, 0, 10);
+		assert_noop!(
+			AssetsVesting::force_vested_transfer(
+				RawOrigin::Root.into(),
+				ASSET_ID,
+				13,
+				4,
+				schedule_per_block_0
+			),
+			Error::<Test>::InvalidScheduleParams,
+		);
+
+		// `locked` is 0.
+		let schedule_locked_0 = VestingInfo::new(0, 1, 10);
+		assert_noop!(
+			AssetsVesting::force_vested_transfer(
+				RawOrigin::Root.into(),
+				ASSET_ID,
+				3,
+				4,
+				schedule_locked_0
+			),
+			Error::<Test>::AmountLow,
+		);
+
+		// Verify no currency transfer happened.
+		assert_eq!(user2_account_balance, Assets::balance(ASSET_ID, &2));
+		assert_eq!(user4_account_balance, Assets::balance(ASSET_ID, &4));
+		// Account 4 has no schedules.
+		vest_and_assert_no_vesting::<Test, ()>(ASSET_ID, 4);
+	});
+}
+
+#[test]
+fn force_vested_transfer_allows_max_schedules() {
+	const ED: Balance = 256;
+	const MIN_VESTED_TRANSFER: Balance = <Test as crate::Config>::MinVestedTransfer::get();
+	const MAX_VESTING_SCHEDULES: u32 = <Test as crate::Config>::MAX_VESTING_SCHEDULES;
+
+	ExtBuilder::default().with_min_balance(ASSET_ID, ED).build().execute_with(|| {
+		let mut user_4_account_balance = Assets::balance(ASSET_ID, &4);
+		let max_schedules = MAX_VESTING_SCHEDULES;
+		let sched = VestingInfo::new(
+			MIN_VESTED_TRANSFER,
+			1, // Vest over 2 * 256 blocks.
+			10,
+		);
+
+		// Add max amount schedules to user 4.
+		for _ in 0..max_schedules {
+			assert_ok!(AssetsVesting::force_vested_transfer(
+				RawOrigin::Root.into(),
+				ASSET_ID,
+				13,
+				4,
+				sched
+			));
+		}
+
+		// The schedules count towards vesting balance.
+		let transferred_amount = MIN_VESTED_TRANSFER * max_schedules as u64;
+		assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &4), Some(transferred_amount));
+		// and free balance.
+		user_4_account_balance += transferred_amount;
+		assert_eq!(Assets::balance(ASSET_ID, &4), user_4_account_balance);
+
+		// Cannot insert a 4th vesting schedule when `MaxVestingSchedules` === 3
+		assert_noop!(
+			AssetsVesting::force_vested_transfer(RawOrigin::Root.into(), ASSET_ID, 3, 4, sched),
+			Error::<Test>::AtMaxVestingSchedules,
+		);
+		// so the free balance does not change.
+		assert_eq!(Assets::balance(ASSET_ID, &4), user_4_account_balance);
+
+		// Account 4 has fully vested when all the schedules end,
+		System::set_block_number(MIN_VESTED_TRANSFER + 10);
 		assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &4), Some(0));
 		// and after unlocking its schedules are removed from storage.
 		vest_and_assert_no_vesting::<Test, ()>(ASSET_ID, 4);
