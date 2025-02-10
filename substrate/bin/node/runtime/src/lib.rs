@@ -3416,17 +3416,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_proxy::ProxyApi<Block> for Runtime {
-		fn check_permissions(call: RuntimeCall, proxy_type: ProxyType) -> bool {
-			Proxy::check_permissions(call, proxy_type)
-		}
-	
-		fn is_superset(proxy_type: ProxyType, against: ProxyType) -> bool {
-			Proxy::is_superset(proxy_type, against)
-		}
-	}
-	
-
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
