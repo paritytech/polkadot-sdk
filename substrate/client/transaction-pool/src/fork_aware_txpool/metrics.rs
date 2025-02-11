@@ -520,18 +520,22 @@ where
 			HashMap::<ExtrinsicHash<ChainApi>, TransactionEventMetricsData>::default();
 
 		loop {
-			tokio::select! {
-				biased;
-				cmd = rx.next() => {
-					match cmd {
-						Some(EventMetricsMessage::Submitted(timestamp, hash)) => {
-							submitted_timestamp_map.insert(hash, TransactionEventMetricsData::new(timestamp));
-						},
-						Some(EventMetricsMessage::Status(timestamp,hash,status)) => {
-							Self::handle_status(hash, status, timestamp, &mut submitted_timestamp_map, &metrics);
-						},
-						None => { return /* ? */ }
-					}
+			match rx.next().await {
+				Some(EventMetricsMessage::Submitted(timestamp, hash)) => {
+					submitted_timestamp_map
+						.insert(hash, TransactionEventMetricsData::new(timestamp));
+				},
+				Some(EventMetricsMessage::Status(timestamp, hash, status)) => {
+					Self::handle_status(
+						hash,
+						status,
+						timestamp,
+						&mut submitted_timestamp_map,
+						&metrics,
+					);
+				},
+				None => {
+					return /* ? */
 				},
 			};
 		}
