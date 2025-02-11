@@ -32,8 +32,7 @@ pub trait DebugRpc {
 		tracer_config: TracerConfig,
 	) -> RpcResult<Vec<TransactionTrace>>;
 
-	/// Returns a transaction's traces by replaying it. This method provides a detailed
-	/// breakdown of every step in the execution of a transaction
+	/// Returns a transaction's traces by replaying it.
 	///
 	/// ## References
 	///
@@ -42,6 +41,19 @@ pub trait DebugRpc {
 	async fn trace_transaction(
 		&self,
 		transaction_hash: H256,
+		tracer_config: TracerConfig,
+	) -> RpcResult<CallTrace>;
+
+	/// Dry run a call and returns the transaction's traces.
+	///
+	/// ## References
+	///
+	/// - <https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall>
+	#[method(name = "debug_traceCall")]
+	async fn trace_call(
+		&self,
+		transaction: GenericTransaction,
+		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> RpcResult<CallTrace>;
 }
@@ -74,6 +86,17 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		tracer_config: TracerConfig,
 	) -> RpcResult<CallTrace> {
 		let trace = self.client.trace_transaction(transaction_hash, tracer_config).await?;
+		Ok(trace)
+	}
+
+	async fn trace_call(
+		&self,
+		transaction: GenericTransaction,
+		block: BlockNumberOrTag,
+		tracer_config: TracerConfig,
+	) -> RpcResult<CallTrace> {
+		log::debug!(target: crate::LOG_TARGET, "trace_call: {transaction:?} block: {block:?} config: {tracer_config:?}");
+		let trace = self.client.trace_call(transaction, block, tracer_config).await?;
 		Ok(trace)
 	}
 }

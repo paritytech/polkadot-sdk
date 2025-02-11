@@ -1537,5 +1537,11 @@ sp_api::decl_runtime_apis! {
 			tx_index: u32,
 			config: TracerConfig
 		) -> Option<CallTrace>;
+
+		/// Dry run and return the trace of the given call.
+		///
+		/// See eth-rpc `debug_traceCall` for usage.
+		fn trace_call(tx: GenericTransaction, config: TracerConfig) -> Result<CallTrace, EthTransactError>;
+
 	}
 }

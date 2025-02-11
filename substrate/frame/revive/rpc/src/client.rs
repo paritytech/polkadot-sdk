@@ -110,9 +110,9 @@ pub enum ClientError {
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
-	/// Contract reverted
+	/// Transcact call failed.
 	#[error("contract reverted")]
-	Reverted(EthTransactError),
+	TransactError(EthTransactError),
 	/// A decimal conversion failed.
 	#[error("conversion failed")]
 	ConversionFailed,
@@ -153,7 +153,7 @@ impl From<ClientError> for ErrorObjectOwned {
 					None,
 				)
 			},
-			ClientError::Reverted(EthTransactError::Data(data)) => {
+			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match extract_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
 					None => "execution reverted".to_string(),
@@ -162,7 +162,7 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::Reverted(EthTransactError::Message(msg)) =>
+			ClientError::TransactError(EthTransactError::Message(msg)) =>
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
 			_ =>
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
@@ -576,7 +576,7 @@ impl Client {
 		match result {
 			Err(err) => {
 				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
-				Err(ClientError::Reverted(err.0))
+				Err(ClientError::TransactError(err.0))
 			},
 			Ok(result) => Ok(result.0),
 		}
@@ -753,6 +753,34 @@ impl Client {
 		trace.ok_or(ClientError::EthExtrinsicNotFound)
 	}
 
+	/// Get the transaction traces for the given block.
+	pub async fn trace_call(
+		&self,
+		transaction: GenericTransaction,
+		block: BlockNumberOrTag,
+		tracer_config: TracerConfig,
+	) -> Result<CallTrace, ClientError> {
+		let block_hash = match block {
+			BlockNumberOrTag::U256(n) => {
+				let block_number: SubstrateBlockNumber =
+					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
+				self.get_block_hash(block_number).await?
+			},
+			BlockNumberOrTag::BlockTag(_) => self.latest_block().await.map(|b| b.hash()),
+		};
+
+		let params = (transaction, tracer_config).encode();
+		let bytes = self
+			.rpc
+			.state_call("ReviveApi_trace_call", Some(&params), block_hash)
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
+			})?;
+
+		Result::<CallTrace, EthTransactError>::decode(&mut &bytes[..])?
+			.map_err(ClientError::TransactError)
+	}
 	/// Get the EVM block for the given hash.
 	pub async fn evm_block(
 		&self,

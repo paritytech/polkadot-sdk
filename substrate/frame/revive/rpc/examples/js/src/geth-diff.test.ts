@@ -440,7 +440,7 @@ for (const env of envs) {
 			})
 		})
 
-		test.only('tracing', async () => {
+		test('tracing', async () => {
 			let [callerAddr, calleeAddr] = await getTracingExampleAddrs()
 
 			const receipt = await (async () => {
