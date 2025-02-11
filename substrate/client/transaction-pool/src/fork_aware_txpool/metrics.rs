@@ -427,6 +427,10 @@ struct TransactionEventMetricsData {
 	broadcast_seen: bool,
 	/// Flag indicating if the transaction was seen as `Future`.
 	future_seen: bool,
+	/// Flag indicating if the transaction was seen as `InBlock`.
+	in_block_seen: bool,
+	/// Flag indicating if the transaction was seen as `Retracted`.
+	retracted_seen: bool,
 	/// Timestamp when the transaction was submitted.
 	///
 	/// Used to to compute a time elapsed until events are reported.
@@ -436,7 +440,14 @@ struct TransactionEventMetricsData {
 impl TransactionEventMetricsData {
 	/// Creates a new `TransactionEventMetricsData` with the given timestamp.
 	fn new(submit_timestamp: Instant) -> Self {
-		Self { submit_timestamp, future_seen: false, ready_seen: false, broadcast_seen: false }
+		Self {
+			submit_timestamp,
+			future_seen: false,
+			ready_seen: false,
+			broadcast_seen: false,
+			in_block_seen: false,
+			retracted_seen: false,
+		}
 	}
 
 	/// Sets flag to true once.
@@ -462,6 +473,8 @@ impl TransactionEventMetricsData {
 			TransactionStatus::Ready => &mut self.ready_seen,
 			TransactionStatus::Future => &mut self.future_seen,
 			TransactionStatus::Broadcast(..) => &mut self.broadcast_seen,
+			TransactionStatus::InBlock(..) => &mut self.in_block_seen,
+			TransactionStatus::Retracted(..) => &mut self.retracted_seen,
 			_ => return Some(self.submit_timestamp),
 		};
 		Self::set_true_once(flag).then_some(self.submit_timestamp)
