@@ -6,7 +6,8 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"prettier": "prettier --write ."
 	},
 	"dependencies": {
 		"@parity/revive": "^0.0.9",
