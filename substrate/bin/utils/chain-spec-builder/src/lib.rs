@@ -93,7 +93,7 @@ pub struct CreateCmd {
 	///
 	/// The first uses comma as separation and the second passes the argument multiple times. Both
 	/// styles can also be mixed.
-	#[arg(long)]
+	#[arg(long, default_value = "tokenSymbol=UNIT,tokenDecimals=12")]
 	pub properties: Vec<String>,
 	#[command(subcommand)]
 	action: GenesisBuildAction,
@@ -432,14 +432,9 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 	let chain_type = &cmd.chain_type;
 
 	let mut properties = sc_chain_spec::Properties::new();
-	if !cmd.properties.is_empty() {
-		for raw in &cmd.properties {
-			parse_properties(raw, &mut properties)?;
-		}
-	} else {
-		properties.insert("tokenSymbol".into(), "UNIT".into());
-		properties.insert("tokenDecimals".into(), 12.into());
-	};
+	for raw in &cmd.properties {
+		parse_properties(raw, &mut properties)?;
+	}
 
 	let builder = ChainSpec::builder(&code[..], Default::default())
 		.with_name(&cmd.chain_name[..])
