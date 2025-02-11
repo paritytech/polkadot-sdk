@@ -747,10 +747,6 @@ pub mod pallet {
 			PagedVoterSnapshot::<T>::get(page)
 		}
 
-		pub(crate) fn voters_hash(page: PageIndex) -> Option<T::Hash> {
-			PagedVoterSnapshotHash::<T>::get(page)
-		}
-
 		pub(crate) fn targets() -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
 			// NOTE: targets always have one index, which is 0, aka lsp.
 			PagedTargetSnapshot::<T>::get(Pallet::<T>::msp())
@@ -880,6 +876,10 @@ pub mod pallet {
 
 		pub(crate) fn targets_decode_len() -> Option<usize> {
 			PagedTargetSnapshot::<T>::decode_len(Pallet::<T>::msp())
+		}
+
+		pub(crate) fn voters_hash(page: PageIndex) -> Option<T::Hash> {
+			PagedVoterSnapshotHash::<T>::get(page)
 		}
 
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
