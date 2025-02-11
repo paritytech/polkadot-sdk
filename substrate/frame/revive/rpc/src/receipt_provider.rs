@@ -72,7 +72,7 @@ impl<Cache: ReceiptProvider, Archive: ReceiptProvider> ReceiptProvider for (Cach
 	}
 
 	async fn remove(&self, block_hash: &H256) {
-		self.0.remove(block_hash).await;
+		join!(self.0.remove(block_hash), self.1.remove(block_hash));
 	}
 
 	async fn receipt_by_block_hash_and_index(

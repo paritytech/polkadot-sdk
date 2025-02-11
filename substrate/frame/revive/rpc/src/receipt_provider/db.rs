@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use super::*;
-use crate::{Address, AddressOrAddresses, BlockInfoProvider, Bytes, FilterTopic, ReceiptExtractor};
+use crate::{
+	Address, AddressOrAddresses, BlockInfoProvider, Bytes, FilterTopic, ReceiptExtractor,
+	LOG_TARGET,
+};
 use jsonrpsee::core::async_trait;
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
@@ -32,6 +35,8 @@ pub struct DBReceiptProvider {
 	block_provider: Arc<dyn BlockInfoProvider>,
 	/// A means to extract receipts from extrinsics.
 	receipt_extractor: ReceiptExtractor,
+	/// Whether to prune old blocks.
+	prune_old_blocks: bool,
 }
 
 impl DBReceiptProvider {
@@ -40,10 +45,11 @@ impl DBReceiptProvider {
 		database_url: &str,
 		block_provider: Arc<dyn BlockInfoProvider>,
 		receipt_extractor: ReceiptExtractor,
+		prune_old_blocks: bool,
 	) -> Result<Self, sqlx::Error> {
 		let pool = SqlitePool::connect(database_url).await?;
 		sqlx::migrate!().run(&pool).await?;
-		Ok(Self { pool, block_provider, receipt_extractor })
+		Ok(Self { pool, block_provider, receipt_extractor, prune_old_blocks })
 	}
 
 	async fn fetch_row(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
@@ -68,7 +74,41 @@ impl DBReceiptProvider {
 
 #[async_trait]
 impl ReceiptProvider for DBReceiptProvider {
-	async fn remove(&self, _block_hash: &H256) {}
+	async fn remove(&self, block_hash: &H256) {
+		if !self.prune_old_blocks {
+			return;
+		}
+
+		let block_hash = block_hash.as_ref();
+
+		let delete_transaction_hashes = query!(
+			r#"
+        DELETE FROM transaction_hashes
+        WHERE block_hash = $1
+        "#,
+			block_hash
+		)
+		.execute(&self.pool);
+
+		let delete_logs = query!(
+			r#"
+        DELETE FROM logs
+        WHERE block_hash = $1
+        "#,
+			block_hash
+		)
+		.execute(&self.pool);
+
+		let (tx_result, logs_result) = tokio::join!(delete_transaction_hashes, delete_logs);
+
+		if let Err(err) = tx_result {
+			log::error!(target: LOG_TARGET, "Error removing transaction hashes for block hash {block_hash:?}: {err:?}");
+		}
+
+		if let Err(err) = logs_result {
+			log::error!(target: LOG_TARGET, "Error removing logs for block hash {block_hash:?}: {err:?}");
+		}
+	}
 
 	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
 		self.insert(block_hash, receipts).await;

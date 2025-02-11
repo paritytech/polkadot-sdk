@@ -107,11 +107,21 @@ fn build_client(
 		let block_provider: Arc<dyn BlockInfoProvider> =
 			Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
 
+		let prune_old_blocks = database_url == IN_MEMORY_DB;
+		if prune_old_blocks {
+			log::info!( target: LOG_TARGET, "Using in-memory database, keeping only {cache_size} blocks in memory");
+		}
+
 		let receipt_extractor = ReceiptExtractor::new(native_to_eth_ratio(&api).await?);
 		let receipt_provider: Arc<dyn ReceiptProvider> = Arc::new((
 			CacheReceiptProvider::default(),
-			DBReceiptProvider::new(database_url, block_provider.clone(), receipt_extractor.clone())
-				.await?,
+			DBReceiptProvider::new(
+				database_url,
+				block_provider.clone(),
+				receipt_extractor.clone(),
+				prune_old_blocks,
+			)
+			.await?,
 		));
 
 		let client =
@@ -174,13 +184,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let tokio_runtime = sc_cli::build_runtime()?;
 	let tokio_handle = tokio_runtime.handle();
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
-
-	if !is_dev && database_url == IN_MEMORY_DB {
-		log::warn!(
-			target: LOG_TARGET,
-			"⚠️ Database URL is set to in-memory mode, this is not recommended for production use."
-		);
-	}
 
 	let client = build_client(
 		tokio_handle,
