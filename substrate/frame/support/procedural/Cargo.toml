@@ -37,6 +37,7 @@ codec = { features = [
 	"derive",
 	"max-encoded-len",
 ], workspace = true }
+frame-benchmarking = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pretty_assertions = { workspace = true }
@@ -49,7 +50,6 @@ sp-runtime = { features = [
 	"serde",
 ], workspace = true }
 static_assertions = { workspace = true }
-frame-benchmarking = { workspace = true }
 
 [features]
 default = ["std"]

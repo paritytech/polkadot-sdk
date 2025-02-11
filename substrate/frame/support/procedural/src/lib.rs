@@ -1466,9 +1466,8 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///   function. This attribute is similar to `#[pallet::weight]`:
 ///   * it can be ignore in `dev_mode`
 ///   * it can be automatically infered from weight info. For the call `foo` the function
-///     `authorize_foo` in the weight info will be used.
-///     (weight info needs to be provided in the call attribute:
-///     `#[pallet::call(weight = T::WeightInfo)]).
+///     `authorize_foo` in the weight info will be used. (weight info needs to be provided in the
+///     call attribute: `#[pallet::call(weight = T::WeightInfo)]`).
 ///   * it can be a fixed value like `Weight::from_all(0)` (not recommended in production).
 ///
 ///   The weight must be small enough so that nodes don't get DDOS by validating transactions.
