@@ -34,7 +34,7 @@ pub use weights::*;
 
 use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
-use snowbridge_core::{AgentId, AssetMetadata, TokenId, TokenIdOf};
+use snowbridge_core::{AgentId, AgentIdOf, AssetMetadata, TokenId, TokenIdOf};
 use snowbridge_outbound_queue_primitives::{
 	v2::{Command, Message, SendMessage},
 	SendError,
@@ -169,7 +169,7 @@ pub mod pallet {
 
 			let command = Command::CreateAgent {};
 
-			Self::send(origin_location.clone(), command, fee)?;
+			Self::send(agent_id, command, fee)?;
 
 			Self::deposit_event(Event::<T>::CreateAgent {
 				location: Box::new(origin_location),
@@ -195,6 +195,8 @@ pub mod pallet {
 			fee: u128,
 		) -> DispatchResult {
 			let origin_location = T::SiblingOrigin::ensure_origin(origin)?;
+			let origin = AgentIdOf::convert_location(&origin_location)
+				.ok_or(Error::<T>::LocationConversionFailed)?;
 
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
@@ -220,7 +222,7 @@ pub mod pallet {
 				symbol: metadata.symbol.into_inner(),
 				decimals: metadata.decimals,
 			};
-			Self::send(origin_location, command, fee)?;
+			Self::send(origin, command, fee)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken {
 				location: location.clone().into(),
@@ -233,9 +235,8 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Send `command` to the Gateway on the Channel identified by `channel_id`
-		fn send(origin: H256, command: Command, fee: u128) -> DispatchResult {
+		fn send(origin: AgentId, command: Command, fee: u128) -> DispatchResult {
 			let mut message = Message {
-				origin_location,
 				origin,
 				id: Default::default(),
 				fee,

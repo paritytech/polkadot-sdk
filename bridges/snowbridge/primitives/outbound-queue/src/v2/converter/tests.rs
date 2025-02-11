@@ -1170,7 +1170,6 @@ fn xcm_converter_transfer_native_token_success() {
 	let expected_payload =
 		Command::MintForeignToken { recipient: beneficiary_address.into(), amount, token_id };
 	let expected_message = Message {
-		origin_location: Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)]),
 		id: [0; 32].into(),
 		origin: hex!("aa16eddac8725928eaeda4aae518bf10d02bee80382517d21464a5cdf8d1d8e1").into(),
 		fee: 1000,

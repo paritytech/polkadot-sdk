@@ -19,7 +19,6 @@ use alloy_core::{
 	primitives::{Address, Bytes, FixedBytes, U256},
 	sol_types::SolValue,
 };
-use xcm::prelude::Location;
 
 pub mod abi {
 	use alloy_core::sol;
@@ -122,8 +121,6 @@ pub const MAX_COMMANDS: u32 = 8;
 /// A message which can be accepted by implementations of `/[`SendMessage`\]`
 #[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
 pub struct Message {
-	/// Origin Location
-	pub origin_location: Location,
 	/// Origin
 	pub origin: H256,
 	/// ID
