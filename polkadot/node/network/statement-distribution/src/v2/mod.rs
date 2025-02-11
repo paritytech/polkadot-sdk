@@ -917,6 +917,14 @@ fn pending_statement_network_message(
 				protocol_v3::StatementDistributionMessage::Statement(relay_parent, signed)
 			})
 			.map(|msg| (vec![peer.0], Versioned::V3(msg).into())),
+		_ => {
+			gum::warn!(
+				target: LOG_TARGET,
+				peer_id = %peer.0,
+				"Received statement distribution message with unsupported protocol version",
+			);
+			None
+		},
 	}
 }
 
@@ -1044,6 +1052,13 @@ async fn send_pending_grid_messages<Context>(
 						)
 						.into(),
 					)),
+					_ => {
+						gum::warn!(
+							target: LOG_TARGET,
+							peer_id = %peer_id.0,
+							"Can't send statement distribution message with unsupported protocol version",
+						);
+					},
 				};
 			},
 			grid::ManifestKind::Acknowledgement => {
@@ -2408,6 +2423,13 @@ fn post_acknowledgement_statement_messages(
 				)
 				.into(),
 			)),
+			_ => {
+				gum::warn!(
+					target: LOG_TARGET,
+					peer_id = %peer.0,
+					"Can't send statement distribution message with unsupported protocol version",
+				);
+			},
 		};
 	}
 
@@ -2546,6 +2568,14 @@ fn acknowledgement_and_statement_messages(
 			))
 			.into(),
 		)],
+		_ => {
+			gum::warn!(
+				target: LOG_TARGET,
+				peer_id = %peer.0,
+				"Can't send statement distribution message with unsupported protocol version",
+			);
+			vec![]
+		},
 	};
 
 	local_validator.grid_tracker.manifest_sent_to(
