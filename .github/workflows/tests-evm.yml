@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: paritytech/evm-test-suite
-          ref: 6f95f703b1bc25d7eb2ca9377bd2c422e7a50ce9
+          ref: 7762a35a380023a800d213b8ff98f3fb45500661
           path: evm-test-suite
 
       - uses: actions/setup-node@v4
@@ -48,6 +48,9 @@ jobs:
           node-version: 22
 
       - name: script
+        env:
+          # EVM tests don't work with batchSize 300 on self-hosted runners in docker container
+          BATCH_SIZE: 100
         run: |
           echo "Change to the evm-test-suite directory"
           cd evm-test-suite
@@ -72,8 +75,6 @@ jobs:
           chmod +x solc-static-linux
           mv solc-static-linux /usr/local/bin/solc
           echo "Run the tests"
-          # Tests don't work with batchSize 300 on self-hosted runners in docker container
-          sed -i 's/batchSize: 300,/batchSize: 100,/' matter-labs-tests/hardhat.config.ts
           echo "bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
           bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
 
