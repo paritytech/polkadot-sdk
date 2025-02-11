@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{xcm_config::AssetTransactors, Runtime, RuntimeEvent};
+use crate::{
+	xcm_config::{AssetTransactors, XcmConfig},
+	Runtime, RuntimeEvent,
+};
 use frame_support::{parameter_types, traits::Everything};
 use pallet_xcm::EnsureXcm;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
@@ -25,7 +28,6 @@ use xcm_executor::XcmExecutor;
 use crate::xcm_config::XcmRouter;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
-use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
