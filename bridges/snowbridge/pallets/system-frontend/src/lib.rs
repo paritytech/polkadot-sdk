@@ -209,8 +209,8 @@ pub mod pallet {
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
 			let mut checked = false;
-			/// Check asset_location should start from the origin_location, except for the sudo
-			/// call when origin_location is Here
+			// Check asset_location should start from the origin_location, except for the sudo
+			// call when origin_location is Here
 			if origin_location.eq(&Here.into()) ||
 				asset_location.eq(&origin_location) ||
 				asset_location.starts_with(&origin_location)
@@ -219,21 +219,23 @@ pub mod pallet {
 			}
 			ensure!(checked, <Error<T>>::InvalidAssetOwner);
 
-			// Burn Ether Fee for the cost on ethereum
-			T::AssetTransactor::withdraw_asset(
-				&(T::FeeAsset::get(), fee).into(),
-				&origin_location,
-				None,
-			)
-			.map_err(|_| Error::<T>::FundsUnavailable)?;
+			if !origin_location.eq(&Here.into()) {
+				// Burn Ether Fee for the cost on ethereum
+				T::AssetTransactor::withdraw_asset(
+					&(T::FeeAsset::get(), fee).into(),
+					&origin_location,
+					None,
+				)
+				.map_err(|_| Error::<T>::FundsUnavailable)?;
 
-			// Burn RemoteExecutionFee for the cost on bridge hub
-			T::AssetTransactor::withdraw_asset(
-				&T::RemoteExecutionFee::get(),
-				&origin_location,
-				None,
-			)
-			.map_err(|_| Error::<T>::FundsUnavailable)?;
+				// Burn RemoteExecutionFee for the cost on bridge hub
+				T::AssetTransactor::withdraw_asset(
+					&T::RemoteExecutionFee::get(),
+					&origin_location,
+					None,
+				)
+				.map_err(|_| Error::<T>::FundsUnavailable)?;
+			}
 
 			let reanchored_asset_location = asset_location
 				.clone()

@@ -91,7 +91,8 @@ fn transfer_relay_token_from_ah() {
 
 	fund_on_bh();
 
-	register_relay_token_on_bh();
+	// register_relay_token_on_bh();
+	register_relay_token_from_asset_hub();
 
 	register_assets_on_ah();
 
@@ -233,12 +234,69 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 }
 
 #[test]
-fn transact_with_agent() {
+pub fn register_relay_token_from_asset_hub() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
+				RuntimeOrigin::root(),
+				bx!(VersionedLocation::from(Location { parents: 1, interior: [].into() })),
+				AssetMetadata {
+					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 12,
+				},
+				REMOTE_FEE_AMOUNT_IN_WETH
+			)
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn register_agent_from_asset_hub() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::create_agent(
+				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				REMOTE_FEE_AMOUNT_IN_WETH
+			)
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn transact_with_agent_from_asset_hub() {
 	let weth_asset_location: Location = weth_location();
 
 	fund_on_bh();
 
-	register_ah_user_agent_on_ethereum();
+	register_agent_from_asset_hub();
 
 	register_assets_on_ah();
 
@@ -310,10 +368,124 @@ fn transact_with_agent() {
 	});
 }
 
+#[test]
+fn register_agent_from_penpal() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::create_agent(
+				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				REMOTE_FEE_AMOUNT_IN_WETH
+			)
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn register_user_agent_from_penpal() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	create_pools_on_ah();
+	set_trust_reserve_on_penpal();
+	register_assets_on_penpal();
+	fund_on_penpal();
+	let penpal_user_location = Location::new(
+		1,
+		[
+			Parachain(PenpalB::para_id().into()),
+			AccountId32 {
+				network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
+				id: PenpalBSender::get().into(),
+			},
+		],
+	);
+	PenpalB::execute_with(|| {
+		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
+
+		let local_fee_asset_on_penpal =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+
+		let remote_fee_asset_on_ah =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+
+		let remote_fee_asset_on_ethereum =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+
+		let call = SnowbridgeControlFrontend::Control(ControlFrontendCall::CreateAgent {
+			fee: REMOTE_FEE_AMOUNT_IN_WETH,
+		});
+
+		let assets = vec![
+			local_fee_asset_on_penpal.clone(),
+			remote_fee_asset_on_ah.clone(),
+			remote_fee_asset_on_ethereum.clone(),
+		];
+
+		let xcm = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset_on_penpal.clone() },
+			InitiateTransfer {
+				destination: asset_hub(),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset_on_ah.clone().into(),
+				))),
+				preserve_origin: true,
+				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset_on_ethereum.clone().into(),
+				))],
+				remote_xcm: Xcm(vec![
+					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						call: call.encode().into(),
+						fallback_max_weight: None,
+					},
+					ExpectTransactStatus(MaybeErrorCode::Success),
+				]),
+			},
+		]));
+
+		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(PenpalBSender::get()),
+			bx!(xcm.clone()),
+			Weight::from(EXECUTION_WEIGHT),
+		));
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { .. }) => {},]
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
 fn send_message_from_penpal_to_ethereum(sudo: bool) {
 	// bh
 	fund_on_bh();
-	register_penpal_agent_on_ethereum();
+	register_agent_from_penpal();
 	// ah
 	register_assets_on_ah();
 	register_pal_on_ah();
@@ -462,93 +634,4 @@ pub enum ControlFrontendCall {
 pub enum SnowbridgeControlFrontend {
 	#[codec(index = 80)]
 	Control(ControlFrontendCall),
-}
-
-#[test]
-fn create_user_agent_from_penpal() {
-	fund_on_bh();
-	register_assets_on_ah();
-	fund_on_ah();
-	create_pools_on_ah();
-	set_trust_reserve_on_penpal();
-	register_assets_on_penpal();
-	fund_on_penpal();
-	let penpal_user_location = Location::new(
-		1,
-		[
-			Parachain(PenpalB::para_id().into()),
-			AccountId32 {
-				network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
-				id: PenpalBSender::get().into(),
-			},
-		],
-	);
-	PenpalB::execute_with(|| {
-		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
-
-		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
-
-		let remote_fee_asset_on_ah =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
-
-		let remote_fee_asset_on_ethereum =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
-
-		let call = SnowbridgeControlFrontend::Control(ControlFrontendCall::CreateAgent {
-			fee: REMOTE_FEE_AMOUNT_IN_WETH,
-		});
-
-		let assets = vec![
-			local_fee_asset_on_penpal.clone(),
-			remote_fee_asset_on_ah.clone(),
-			remote_fee_asset_on_ethereum.clone(),
-		];
-
-		let xcm = VersionedXcm::from(Xcm(vec![
-			WithdrawAsset(assets.clone().into()),
-			PayFees { asset: local_fee_asset_on_penpal.clone() },
-			InitiateTransfer {
-				destination: asset_hub(),
-				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset_on_ah.clone().into(),
-				))),
-				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset_on_ethereum.clone().into(),
-				))],
-				remote_xcm: Xcm(vec![
-					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
-					Transact {
-						origin_kind: OriginKind::Xcm,
-						call: call.encode().into(),
-						fallback_max_weight: None,
-					},
-					ExpectTransactStatus(MaybeErrorCode::Success),
-				]),
-			},
-		]));
-
-		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(PenpalBSender::get()),
-			bx!(xcm.clone()),
-			Weight::from(EXECUTION_WEIGHT),
-		));
-	});
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { .. }) => {},]
-		);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
-		);
-	});
 }
