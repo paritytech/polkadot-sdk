@@ -466,7 +466,7 @@ where
 		};
 
 		if let Ok((Some(best_tree_route), Some(best_view))) = best_result {
-			let tmp_view: View<ChainApi> =
+			let (tmp_view, _, _): (View<ChainApi>, _, _) =
 				View::new_from_other(&best_view, &HashAndNumber { hash: at, number: block_number });
 
 			let mut all_extrinsics = vec![];
@@ -1056,26 +1056,28 @@ where
 			?tree_route,
 			"build_new_view"
 		);
-		let mut view = if let Some(origin_view) = origin_view {
-			let mut view = View::new_from_other(&origin_view, at);
-			if !tree_route.retracted().is_empty() {
-				view.pool.clear_recently_pruned();
-			}
-			view
-		} else {
-			debug!(
-				target: LOG_TARGET,
-				?at,
-				"creating non-cloned view"
-			);
-			View::new(
-				self.api.clone(),
-				at.clone(),
-				self.options.clone(),
-				self.metrics.clone(),
-				self.is_validator.clone(),
-			)
-		};
+		let (mut view, view_dropped_stream, view_aggregated_stream) =
+			if let Some(origin_view) = origin_view {
+				let (mut view, view_dropped_stream, view_aggragated_stream) =
+					View::new_from_other(&origin_view, at);
+				if !tree_route.retracted().is_empty() {
+					view.pool.clear_recently_pruned();
+				}
+				(view, view_dropped_stream, view_aggragated_stream)
+			} else {
+				debug!(
+					target: LOG_TARGET,
+					?at,
+					"creating non-cloned view"
+				);
+				View::new(
+					self.api.clone(),
+					at.clone(),
+					self.options.clone(),
+					self.metrics.clone(),
+					self.is_validator.clone(),
+				)
+			};
 
 		let start = Instant::now();
 		// 1. Capture all import notification from the very beginning, so first register all
@@ -1085,15 +1087,13 @@ where
 			view.pool.validated_pool().import_notification_stream().boxed(),
 		);
 
-		self.view_store.dropped_stream_controller.add_view(
-			view.at.hash,
-			view.pool.validated_pool().create_dropped_by_limits_stream().boxed(),
-		);
+		self.view_store
+			.dropped_stream_controller
+			.add_view(view.at.hash, view_dropped_stream.boxed());
 
-		self.view_store.listener.add_view_aggregated_stream(
-			view.at.hash,
-			view.pool.validated_pool().create_aggregated_stream().boxed(),
-		);
+		self.view_store
+			.listener
+			.add_view_aggregated_stream(view.at.hash, view_aggregated_stream.boxed());
 		// sync the transactions statuses and referencing views in all the listeners with newly
 		// cloned view.
 		view.pool.validated_pool().retrigger_notifications();
