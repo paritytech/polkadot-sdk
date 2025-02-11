@@ -23,6 +23,8 @@ use prometheus_endpoint::{
 	histogram_opts, linear_buckets, register, Counter, Gauge, Histogram, PrometheusError, Registry,
 	U64,
 };
+#[cfg(doc)]
+use sc_transaction_pool_api::TransactionPool;
 
 /// A helper alias for the Prometheus's metrics endpoint.
 pub type MetricsLink = GenericMetricsLink<Metrics>;
@@ -40,6 +42,9 @@ pub struct Metrics {
 	/// Total number of unwatched transactions in txpool.
 	pub unwatched_txs: Gauge<U64>,
 	/// Total number of transactions reported as invalid.
+	///
+	/// This only includes transaction reported as invalid by the
+	/// [`TransactionPool::report_invalid`] method.
 	pub reported_invalid_txs: Counter<U64>,
 	/// Total number of transactions removed as invalid.
 	pub removed_invalid_txs: Counter<U64>,
@@ -104,7 +109,7 @@ impl MetricsRegistrant for Metrics {
 			reported_invalid_txs: register(
 				Counter::new(
 					"substrate_sub_txpool_reported_invalid_txs_total",
-					"Total number of transactions reported as invalid.",
+					"Total number of transactions reported as invalid by external entities using TxPool API.",
 				)?,
 				registry,
 			)?,

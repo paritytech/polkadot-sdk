@@ -112,6 +112,25 @@ where
 		}
 	}
 }
+impl<ChainApi> Into<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>>
+	for TransactionStatusUpdate<ChainApi>
+where
+	ChainApi: graph::ChainApi,
+{
+	fn into(self) -> TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>> {
+		match self {
+			Self::TransactionInvalidated(..) => TransactionStatus::Invalid,
+			Self::TransactionFinalized(_, block, index) =>
+				TransactionStatus::Finalized((block, index)),
+			Self::TransactionBroadcasted(_, peers) => TransactionStatus::Broadcast(peers),
+			Self::TransactionDropped(_, DroppedReason::LimitsEnforced) =>
+				TransactionStatus::Dropped,
+			Self::TransactionDropped(_, DroppedReason::Usurped(by)) =>
+				TransactionStatus::Usurped(by),
+			Self::TransactionDropped(_, DroppedReason::Invalid) => TransactionStatus::Invalid,
+		}
+	}
+}
 
 impl<ChainApi> std::fmt::Debug for TransactionStatusUpdate<ChainApi>
 where
@@ -288,30 +307,9 @@ where
 		&mut self,
 		request: TransactionStatusUpdate<ChainApi>,
 	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
-		match request {
-			TransactionStatusUpdate::TransactionInvalidated(..) => {
-				self.terminate = true;
-				return Some(TransactionStatus::Invalid)
-			},
-			TransactionStatusUpdate::TransactionFinalized(_, block, index) => {
-				self.terminate = true;
-				return Some(TransactionStatus::Finalized((block, index)))
-			},
-			TransactionStatusUpdate::TransactionBroadcasted(_, peers) =>
-				return Some(TransactionStatus::Broadcast(peers)),
-			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::LimitsEnforced) => {
-				self.terminate = true;
-				return Some(TransactionStatus::Dropped)
-			},
-			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Usurped(by)) => {
-				self.terminate = true;
-				return Some(TransactionStatus::Usurped(by))
-			},
-			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Invalid) => {
-				self.terminate = true;
-				return Some(TransactionStatus::Invalid)
-			},
-		};
+		let status = Into::<TransactionStatus<_, _>>::into(request);
+		status.is_final().then(|| self.terminate = true);
+		return Some(status);
 	}
 
 	/// Handles various transaction status updates from individual views and manages internal states

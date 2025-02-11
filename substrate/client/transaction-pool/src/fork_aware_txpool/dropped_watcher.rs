@@ -262,7 +262,12 @@ where
 		let (tx_hash, status) = event;
 		match status {
 			TransactionStatus::Future => {
-				self.future_transaction_views.entry(tx_hash).or_default().insert(block_hash);
+				// see note below:
+				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
+					views_keeping_tx_valid.get_mut().insert(block_hash);
+				} else {
+					self.future_transaction_views.entry(tx_hash).or_default().insert(block_hash);
+				}
 			},
 			TransactionStatus::Ready | TransactionStatus::InBlock(..) => {
 				// note: if future transaction was once seen as the ready we may want to treat it
