@@ -161,7 +161,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 		.await?;
 
 	assert_blocks_are_being_finalized(&relay_client)
-		.timeout(Duration::from_secs(360))
+		.timeout(Duration::from_secs(400)) // enough for the aggression to kick in
 		.await?
 		.unwrap();
 
