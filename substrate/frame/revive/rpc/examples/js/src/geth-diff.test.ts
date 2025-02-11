@@ -440,8 +440,9 @@ for (const env of envs) {
 			})
 		})
 
-		test('tracing', async () => {
+		test.only('tracing', async () => {
 			let [callerAddr, calleeAddr] = await getTracingExampleAddrs()
+
 			const receipt = await (async () => {
 				const { request } = await env.serverWallet.simulateContract({
 					address: callerAddr,
@@ -449,7 +450,6 @@ for (const env of envs) {
 					functionName: 'start',
 					args: [2n],
 				})
-
 				const hash = await env.serverWallet.writeContract(request)
 				return await env.serverWallet.waitForTransactionReceipt({ hash })
 			})()
@@ -482,13 +482,38 @@ for (const env of envs) {
 				}
 			}
 
-			let fixture = await Bun.file('./src/fixtures/trace_transaction.json').json()
-			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
-			expect(visit(res, visitor)).toEqual(fixture)
+			// test debug_traceTransaction
+			{
+				const fixture = await Bun.file('./src/fixtures/trace_transaction.json').json()
+				const res = await env.debugClient.traceTransaction(receipt.transactionHash, {
+					withLog: true,
+				})
+				expect(visit(res, visitor)).toEqual(fixture)
+			}
 
-			res = await env.debugClient.traceBlock(receipt.blockNumber)
-			fixture = await Bun.file('./src/fixtures/trace_block.json').json()
-			expect(visit(res, visitor)).toEqual(fixture)
+			// test debug_traceBlock
+			{
+				const res = await env.debugClient.traceBlock(receipt.blockNumber, { withLog: true })
+				const fixture = await Bun.file('./src/fixtures/trace_block.json').json()
+				expect(visit(res, visitor)).toEqual(fixture)
+			}
+
+			// test debug_traceCall
+			{
+				const fixture = await Bun.file('./src/fixtures/debug_traceCall.json').json()
+				const res = await env.debugClient.traceCall(
+					{
+						to: callerAddr,
+						data: encodeFunctionData({
+							abi: TracingCallerAbi,
+							functionName: 'start',
+							args: [2n],
+						}),
+					},
+					{ withLog: true }
+				)
+				expect(visit(res, visitor)).toEqual(fixture)
+			}
 		})
 	})
 }

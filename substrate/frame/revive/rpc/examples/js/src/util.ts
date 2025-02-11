@@ -103,18 +103,17 @@ export async function createEnv(name: 'geth' | 'eth-rpc') {
 		chain,
 	}).extend(publicActions)
 
-	const tracerConfig = { withLog: true }
 	const debugClient = createClient({
 		chain,
 		transport,
 	}).extend((client) => ({
-		async traceTransaction(txHash: Hex) {
+		async traceTransaction(txHash: Hex, tracerConfig: { withLog: boolean }) {
 			return client.request({
 				method: 'debug_traceTransaction' as any,
 				params: [txHash, { tracer: 'callTracer', tracerConfig } as any],
 			})
 		},
-		async traceBlock(blockNumber: bigint) {
+		async traceBlock(blockNumber: bigint, tracerConfig: { withLog: boolean }) {
 			return client.request({
 				method: 'debug_traceBlockByNumber' as any,
 				params: [
@@ -124,7 +123,7 @@ export async function createEnv(name: 'geth' | 'eth-rpc') {
 			})
 		},
 
-		async traceCall(args: CallParameters) {
+		async traceCall(args: CallParameters, tracerConfig: { withLog: boolean }) {
 			return client.request({
 				method: 'debug_traceCall' as any,
 				params: [
@@ -134,7 +133,6 @@ export async function createEnv(name: 'geth' | 'eth-rpc') {
 				],
 			})
 		},
-		// ...
 	}))
 
 	return { debugClient, emptyWallet, serverWallet, accountWallet, evm: name == 'geth' }
