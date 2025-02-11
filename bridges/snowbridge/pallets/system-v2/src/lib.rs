@@ -67,7 +67,6 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::dispatch::RawOrigin;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
