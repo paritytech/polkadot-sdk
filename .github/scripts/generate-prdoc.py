@@ -36,6 +36,21 @@ def from_pr_number(n, audience, bump, force):
 
 	create_prdoc(n, audience, pr.title, pr.body, patch, bump, force)
 
+def translate_audience(audience):
+	aliases = {
+		'runtime_dev': 'Runtime Dev',
+		'runtime_user': 'Runtime Operator',
+		'node_dev': 'Node Dev',
+		'node_user': 'Node User',
+	}
+
+	if audience in aliases:
+		to = aliases[audience]
+		print(f"Translated audience '{audience}' to '{to}'")
+		audience = to
+
+	return audience
+
 def create_prdoc(pr, audience, title, description, patch, bump, force):
 	path = f"prdoc/pr_{pr}.prdoc"
 
@@ -49,6 +64,7 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 		print(f"No preexisting PrDoc for PR {pr}")
 
 	prdoc = { "title": title, "doc": [{}], "crates": [] }
+	audience = translate_audience(audience)
 
 	prdoc["doc"][0]["audience"] = audience
 	prdoc["doc"][0]["description"] = description
@@ -70,10 +86,10 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 			if p == '/':
 				exit(1)
 			p = os.path.dirname(p)
-		
+
 		with open(os.path.join(p, "Cargo.toml")) as f:
 			manifest = toml.load(f)
-		
+
 		if not "package" in manifest:
 			continue
 		
@@ -117,7 +133,7 @@ def setup_parser(parser=None, pr_required=True):
 		parser = argparse.ArgumentParser()
 	parser.add_argument("--pr", type=int, required=pr_required, help="The PR number to generate the PrDoc for.")
 	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["todo"], help="The audience of whom the changes may concern. Example: --audience runtime_dev node_dev")
-	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "no_change"], help="A default bump level for all crates. Example: --bump patch")
+	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "none"], help="A default bump level for all crates. Example: --bump patch")
 	parser.add_argument("--force", action="store_true", help="Whether to overwrite any existing PrDoc.")
 	return parser
 

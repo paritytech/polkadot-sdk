@@ -444,6 +444,9 @@ pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 1_000_000_000;
 /// prior to v9 configuration migration.
 pub const LEGACY_MIN_BACKING_VOTES: u32 = 2;
 
+/// Default value for `SchedulerParams.lookahead`
+pub const DEFAULT_SCHEDULING_LOOKAHEAD: u32 = 3;
+
 // The public key of a keypair used by a validator for determining assignments
 /// to approve included parachain candidates.
 mod assignment_app {
@@ -1900,7 +1903,7 @@ pub struct SessionInfo {
 	/// participating in parachain consensus. See
 	/// [`max_validators`](https://github.com/paritytech/polkadot/blob/a52dca2be7840b23c19c153cf7e110b1e3e475f8/runtime/parachains/src/configuration.rs#L148).
 	///
-	/// `SessionInfo::validators` will be limited to to `max_validators` when set.
+	/// `SessionInfo::validators` will be limited to `max_validators` when set.
 	pub validators: IndexedVec<ValidatorIndex, ValidatorId>,
 	/// Validators' authority discovery keys for the session in canonical ordering.
 	///
@@ -2132,11 +2135,13 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 #[cfg(test)]
+/// Test helpers
 pub mod tests {
 	use super::*;
 	use bitvec::bitvec;
 	use sp_core::sr25519;
 
+	/// Create a dummy committed candidate receipt
 	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
 		let zeros = Hash::zero();
 

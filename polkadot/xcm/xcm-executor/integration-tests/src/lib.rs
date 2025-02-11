@@ -375,6 +375,26 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 
 	let mut block_builder = client.init_polkadot_block_builder();
 
+	// Make the para available, so that `DMP` doesn't reject the XCM because the para is unknown.
+	let make_para_available =
+		construct_extrinsic(
+			&client,
+			polkadot_test_runtime::RuntimeCall::Sudo(pallet_sudo::Call::sudo {
+				call: Box::new(polkadot_test_runtime::RuntimeCall::System(
+					frame_system::Call::set_storage {
+						items: vec![(
+							polkadot_runtime_parachains::paras::Heads::<
+								polkadot_test_runtime::Runtime,
+							>::hashed_key_for(2000u32),
+							vec![1, 2, 3],
+						)],
+					},
+				)),
+			}),
+			sp_keyring::Sr25519Keyring::Alice,
+			0,
+		);
+
 	// Simulate execution of an incoming XCM message at the reserve chain
 	let execute = construct_extrinsic(
 		&client,
@@ -383,9 +403,12 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 			max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 		}),
 		sp_keyring::Sr25519Keyring::Alice,
-		0,
+		1,
 	);
 
+	block_builder
+		.push_polkadot_extrinsic(make_para_available)
+		.expect("pushes extrinsic");
 	block_builder.push_polkadot_extrinsic(execute).expect("pushes extrinsic");
 
 	let block = block_builder.build().expect("Finalizes the block").block;

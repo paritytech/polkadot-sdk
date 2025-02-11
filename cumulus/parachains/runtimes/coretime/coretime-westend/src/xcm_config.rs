@@ -1,18 +1,18 @@
-// Copyright 2023 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, Broker, FeeAssetId, ParachainInfo,
@@ -39,7 +39,8 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
+	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
@@ -54,6 +55,7 @@ use xcm_executor::XcmExecutor;
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const TokenRelayLocation: Location = Location::parent();
+	pub AssetHubLocation: Location = Location::new(1, [Parachain(1000)]);
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
@@ -191,6 +193,10 @@ pub type WaivedLocations = (
 	Equals<RelayTreasuryLocation>,
 );
 
+/// We allow locations to alias into their own child locations, as well as
+/// AssetHub to alias into anything.
+pub type Aliasers = (AliasChildLocation, AliasOriginRootUsingFilter<AssetHubLocation, Everything>);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -232,7 +238,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
+	type Aliasers = Aliasers;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
