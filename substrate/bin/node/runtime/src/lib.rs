@@ -3412,7 +3412,6 @@ impl_runtime_apis! {
 			config: pallet_revive::evm::TracerConfig
 		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
 			use pallet_revive::tracing::trace;
-			log::debug!(target: "runtime::revive", "Tracing block {:?}", block.header().number);
 			let mut tracer = config.build(Revive::evm_gas_from_weight);
 			let mut traces = vec![];
 			let (header, extrinsics) = block.deconstruct();
