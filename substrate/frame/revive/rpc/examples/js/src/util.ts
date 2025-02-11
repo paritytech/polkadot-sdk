@@ -8,6 +8,7 @@ import {
 	defineChain,
 	formatTransactionRequest,
 	type Hex,
+	hexToNumber,
 	http,
 	publicActions,
 } from 'viem'
@@ -48,8 +49,21 @@ export async function createEnv(name: 'geth' | 'eth-rpc') {
 	const gethPort = process.env.GETH_PORT || '8546'
 	const ethRpcPort = process.env.ETH_RPC_PORT || '8545'
 	const url = `http://localhost:${name == 'geth' ? gethPort : ethRpcPort}`
+
+	let id = await (async () => {
+		const resp = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', id: 1 }),
+		})
+		let { result } = await resp.json()
+		return hexToNumber(result)
+	})()
+
 	const chain = defineChain({
-		id: name == 'geth' ? 1337 : 420420420,
+		id,
 		name,
 		nativeCurrency: {
 			name: 'Westie',
