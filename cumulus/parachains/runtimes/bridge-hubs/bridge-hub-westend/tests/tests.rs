@@ -22,8 +22,10 @@ use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParam
 use bridge_common_config::{
 	BridgeRelayersInstance, BridgeRewardKind, RequiredStakeForStakeAndSlash,
 };
-use bridge_hub_test_utils::test_cases::run_test;
-use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
+use bridge_hub_test_utils::{
+	test_cases::{from_parachain, run_test},
+	SlotDurations,
+};
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	bridge_to_rococo_config::RococoGlobalConsensusNetwork,
@@ -38,9 +40,14 @@ use bridge_to_rococo_config::{
 	DeliveryRewardInBalance, WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
-use frame_support::traits::fungible::{Inspect, Mutate};
 use frame_support::{
-	assert_err, assert_ok, dispatch::GetDispatchInfo, parameter_types, traits::ConstU8,
+	assert_err, assert_ok,
+	dispatch::GetDispatchInfo,
+	parameter_types,
+	traits::{
+		fungible::{Inspect, Mutate},
+		ConstU8,
+	},
 };
 use parachains_common::{AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
