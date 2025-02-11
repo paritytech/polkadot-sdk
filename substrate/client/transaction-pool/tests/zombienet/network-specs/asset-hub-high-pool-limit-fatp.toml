@@ -1,3 +1,6 @@
+[settings]
+timeout = 1500
+
 [relaychain]
 # single-state
 # fork-aware
@@ -36,8 +39,9 @@ default_args = [
 	"-lsync=trace",
 	"-ltxpool=trace",
 ]
+[parachains.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
-	20000,
+	100,
 	1000000000000000000,
 	"//Sender//{}",
 ]

@@ -1,3 +1,6 @@
+[settings]
+timeout = 1500
+
 [relaychain]
 default_image = "parity/polkadot:latest"
 default_command = "polkadot"
@@ -33,8 +36,9 @@ default_args = [
 	"-lsync=info",
 	"-ltxpool=info",
 ]
+[parachains.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
-	20000,
+	100,
 	1000000000000000000,
 	"//Sender//{}",
 ]
