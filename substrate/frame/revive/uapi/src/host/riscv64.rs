@@ -120,6 +120,7 @@ mod sys {
 		pub fn call_data_size() -> u64;
 		pub fn block_number(out_ptr: *mut u8);
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
+		pub fn block_author(out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -146,8 +147,6 @@ mod sys {
 		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
-		pub fn lock_delegate_dependency(code_hash_ptr: *const u8);
-		pub fn unlock_delegate_dependency(code_hash_ptr: *const u8);
 		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32) -> ReturnCode;
 		pub fn xcm_send(
 			dest_ptr: *const u8,
@@ -394,6 +393,10 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::block_number(output.as_mut_ptr()) }
 	}
 
+	fn block_author(output: &mut [u8; 20]) {
+		unsafe { sys::block_author(output.as_mut_ptr()) }
+	}
+
 	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]) {
 		unsafe { sys::weight_to_fee(ref_time_limit, proof_size_limit, output.as_mut_ptr()) };
 	}
@@ -547,11 +550,6 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn lock_delegate_dependency(code_hash: &[u8; 32]) {
-		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
-	}
-
-	#[unstable_hostfn]
 	fn minimum_balance(output: &mut [u8; 32]) {
 		unsafe { sys::minimum_balance(output.as_mut_ptr()) }
 	}
@@ -601,11 +599,6 @@ impl HostFn for HostFnImpl {
 	fn terminate(beneficiary: &[u8; 20]) -> ! {
 		unsafe { sys::terminate(beneficiary.as_ptr()) }
 		panic!("terminate does not return");
-	}
-
-	#[unstable_hostfn]
-	fn unlock_delegate_dependency(code_hash: &[u8; 32]) {
-		unsafe { sys::unlock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
 	#[unstable_hostfn]

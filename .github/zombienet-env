@@ -1,9 +1,10 @@
-    ZOMBIENET_IMAGE="docker.io/paritytech/zombienet:v1.3.116"
-    ZOMBIE_RUNNER="zombienet-arc-runner"
-    PUSHGATEWAY_URL="http://zombienet-prometheus-pushgateway.managed-monitoring:9091/metrics/job/zombie-metrics"
-    DEBUG="zombie,zombie::network-node,zombie::kube::client::logs"
-    ZOMBIE_PROVIDER="k8s"
-    RUST_LOG="info,zombienet_orchestrator=debug"
-    RUN_IN_CI="1"
-    KUBERNETES_CPU_REQUEST="512m"
-    KUBERNETES_MEMORY_REQUEST="1Gi"
+ZOMBIENET_IMAGE=docker.io/paritytech/zombienet:v1.3.119
+ZOMBIENET_RUNNER=zombienet-arc-runner
+PUSHGATEWAY_URL=http://zombienet-prometheus-pushgateway.managed-monitoring:9091/metrics/job/zombie-metrics
+DEBUG=zombie,zombie::network-node,zombie::kube::client::logs
+ZOMBIE_PROVIDER=k8s
+RUST_LOG=info,zombienet_orchestrator=debug
+RUN_IN_CI=1
+KUBERNETES_CPU_REQUEST=512m
+KUBERNETES_MEMORY_REQUEST=1Gi
+TEMP_IMAGES_BASE=europe-docker.pkg.dev/parity-ci-2024/temp-images
