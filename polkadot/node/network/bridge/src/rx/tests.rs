@@ -1552,10 +1552,10 @@ fn network_new_topology_update() {
 
 		let peer_ids: Vec<_> = (0..4).map(|_| PeerId::random()).collect();
 		let peers = [
-			(peer_ids[0], PeerSet::Validation, ValidationVersion::V2),
-			(peer_ids[1], PeerSet::Validation, ValidationVersion::V1),
-			(peer_ids[2], PeerSet::Validation, ValidationVersion::V1),
-			(peer_ids[3], PeerSet::Collation, ValidationVersion::V2),
+			(peer_ids[0], PeerSet::Validation, ValidationVersion::V3.into()),
+			(peer_ids[1], PeerSet::Validation, ValidationVersion::V3.into()),
+			(peer_ids[2], PeerSet::Validation, ValidationVersion::V3.into()),
+			(peer_ids[3], PeerSet::Collation, CollationVersion::V1.into()),
 		];
 
 		let head = Hash::repeat_byte(1);
