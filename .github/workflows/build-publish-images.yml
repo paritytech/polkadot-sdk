@@ -19,8 +19,6 @@ jobs:
   #
   #
   preflight:
-    ## TODO: remove when ready
-    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
     uses: ./.github/workflows/reusable-preflight.yml
 
   ### Build ########################
