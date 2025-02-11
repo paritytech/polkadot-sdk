@@ -183,7 +183,8 @@ for (const env of envs) {
 				)
 				expect(lastJsonRpcError?.message).toBeOneOf([
 					'execution reverted: assert(false)',
-					'execution reverted: panic: assertion failed (0x01)'])
+					'execution reverted: panic: assertion failed (0x01)',
+				])
 			}
 		})
 
@@ -224,7 +225,7 @@ for (const env of envs) {
 				)
 				expect(lastJsonRpcError?.message).toBeOneOf([
 					'execution reverted: division or modulo by zero',
-					'execution reverted: panic: division or modulo by zero (0x12)'
+					'execution reverted: panic: division or modulo by zero (0x12)',
 				])
 			}
 		})
@@ -243,12 +244,10 @@ for (const env of envs) {
 				expect(lastJsonRpcError?.data).toBe(
 					'0x4e487b710000000000000000000000000000000000000000000000000000000000000032'
 				)
-				expect(lastJsonRpcError?.message).toBeOneOf(
-					[
-						'execution reverted: out-of-bounds access of an array or bytesN',
-						"execution reverted: panic: array out-of-bounds access (0x32)"
-					]
-				)
+				expect(lastJsonRpcError?.message).toBeOneOf([
+					'execution reverted: out-of-bounds access of an array or bytesN',
+					'execution reverted: panic: array out-of-bounds access (0x32)',
+				])
 			}
 		})
 
@@ -357,9 +356,8 @@ for (const env of envs) {
 				expect(lastJsonRpcError?.code).toBe(3)
 				expect(lastJsonRpcError?.message).toBeOneOf([
 					'execution reverted: msg.value does not match value',
-					"execution reverted: revert: msg.value does not match value"
-				]
-				)
+					'execution reverted: revert: msg.value does not match value',
+				])
 				expect(lastJsonRpcError?.data).toBe(
 					'0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001e6d73672e76616c756520646f6573206e6f74206d617463682076616c75650000'
 				)
@@ -481,7 +479,7 @@ for (const env of envs) {
 						return value
 					}
 					case 'revertReason':
-						return value.startsWith('revert: ') ? value.slice('revert: '.length) : value;
+						return value.startsWith('revert: ') ? value.slice('revert: '.length) : value
 
 					case 'gas':
 					case 'gasUsed': {
