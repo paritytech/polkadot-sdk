@@ -120,8 +120,10 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 }
 
+#[allow(unused)]
 #[derive(Clone)]
 pub enum FallbackModes {
+	// TODO: test for this mode
 	Continue,
 	Emergency,
 	Onchain,

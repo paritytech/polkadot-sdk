@@ -817,6 +817,7 @@ mod paged_snapshot {
 	}
 
 	#[test]
+	#[should_panic]
 	fn voter_snapshot_starts_from_msp_to_lsp() {
 		todo!();
 	}

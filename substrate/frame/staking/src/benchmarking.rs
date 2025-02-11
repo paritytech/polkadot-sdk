@@ -27,7 +27,7 @@ use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProv
 use frame_support::{
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
-	traits::{Get, Imbalance, UnfilteredDispatchable},
+	traits::{Get, Imbalance},
 };
 use frame_system::RawOrigin;
 use sp_runtime::{
@@ -945,68 +945,6 @@ mod benchmarks {
 
 		assert!(!Bonded::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
-
-		Ok(())
-	}
-
-	#[benchmark(extra)]
-	fn payout_all(v: Linear<1, 10>, n: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		create_validators_with_nominators_for_era::<T>(
-			v,
-			n,
-			MaxNominationsOf::<T>::get() as usize,
-			false,
-			None,
-		)?;
-		// Start a new Era
-		let new_validators = Staking::<T>::try_plan_new_era(SessionIndex::one(), true).unwrap();
-		assert!(new_validators.len() == v as usize);
-
-		let current_era = CurrentEra::<T>::get().unwrap();
-		let mut points_total = 0;
-		let mut points_individual = Vec::new();
-		let mut payout_calls_arg = Vec::new();
-
-		for validator in new_validators.iter() {
-			points_total += 10;
-			points_individual.push((validator.clone(), 10));
-			payout_calls_arg.push((validator.clone(), current_era));
-		}
-
-		// Give Era Points
-		let reward = EraRewardPoints::<T::AccountId> {
-			total: points_total,
-			individual: points_individual.into_iter().collect(),
-		};
-
-		ErasRewardPoints::<T>::insert(current_era, reward);
-
-		// Create reward pool
-		let total_payout = asset::existential_deposit::<T>() * 1000u32.into();
-		<ErasValidatorReward<T>>::insert(current_era, total_payout);
-
-		let caller: T::AccountId = whitelisted_caller();
-		let origin = RawOrigin::Signed(caller);
-		let calls: Vec<_> = payout_calls_arg
-			.iter()
-			.map(|arg| {
-				Call::<T>::payout_stakers_by_page {
-					validator_stash: arg.0.clone(),
-					era: arg.1,
-					page: 0,
-				}
-				.encode()
-			})
-			.collect();
-
-		#[block]
-		{
-			for call in calls {
-				<Call<T> as Decode>::decode(&mut &*call)
-					.expect("call is encoded above, encoding must be correct")
-					.dispatch_bypass_filter(origin.clone().into())?;
-			}
-		}
 
 		Ok(())
 	}

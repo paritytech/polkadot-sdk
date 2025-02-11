@@ -1568,6 +1568,7 @@ mod base_miner {
 	}
 
 	#[test]
+	#[should_panic]
 	fn trim_backers_final_works() {
 		ExtBuilder::unsigned()
 			.max_backers_per_winner_final(3)

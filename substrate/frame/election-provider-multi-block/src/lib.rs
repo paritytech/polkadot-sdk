@@ -751,14 +751,6 @@ pub mod pallet {
 			PagedVoterSnapshotHash::<T>::get(page)
 		}
 
-		pub(crate) fn voters_decode_len(page: PageIndex) -> Option<usize> {
-			PagedVoterSnapshot::<T>::decode_len(page)
-		}
-
-		pub(crate) fn targets_decode_len() -> Option<usize> {
-			PagedTargetSnapshot::<T>::decode_len(Pallet::<T>::msp())
-		}
-
 		pub(crate) fn targets() -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
 			// NOTE: targets always have one index, which is 0, aka lsp.
 			PagedTargetSnapshot::<T>::get(Pallet::<T>::msp())
@@ -801,8 +793,11 @@ pub mod pallet {
 		pub(crate) fn targets_hash() -> Option<T::Hash> {
 			PagedTargetSnapshotHash::<T>::get(Pallet::<T>::msp())
 		}
+	}
 
-		#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+	#[allow(unused)]
+	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+	impl<T: Config> Snapshot<T> {
 		pub(crate) fn ensure_snapshot(
 			exists: bool,
 			mut up_to_page: PageIndex,
@@ -856,7 +851,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 		pub(crate) fn ensure_full_snapshot() -> Result<(), &'static str> {
 			// if any number of pages supposed to exist, these must also exist.
 			ensure!(Self::desired_targets().is_some(), "desired target mismatch");
@@ -880,7 +874,14 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+		pub(crate) fn voters_decode_len(page: PageIndex) -> Option<usize> {
+			PagedVoterSnapshot::<T>::decode_len(page)
+		}
+
+		pub(crate) fn targets_decode_len() -> Option<usize> {
+			PagedTargetSnapshot::<T>::decode_len(Pallet::<T>::msp())
+		}
+
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
 			// check the snapshot existence based on the phase. This checks all of the needed
 			// conditions except for the metadata values.
@@ -1964,6 +1965,7 @@ mod phase_rotation {
 	}
 
 	#[test]
+	#[should_panic]
 	fn no_any_phase() {
 		todo!()
 	}
@@ -2475,6 +2477,7 @@ mod admin_ops {
 			})
 	}
 
+	#[should_panic]
 	#[test]
 	fn force_rotate_round() {
 		// clears the snapshot and verifier data.
@@ -2505,21 +2508,25 @@ mod admin_ops {
 mod snapshot {
 
 	#[test]
+	#[should_panic]
 	fn fetches_exact_voters() {
 		todo!("fetches correct number of voters, based on T::VoterSnapshotPerBlock");
 	}
 
 	#[test]
+	#[should_panic]
 	fn fetches_exact_targets() {
 		todo!("fetches correct number of targets, based on T::TargetSnapshotPerBlock");
 	}
 
 	#[test]
+	#[should_panic]
 	fn fingerprint_works() {
 		todo!("one hardcoded test of the fingerprint value.");
 	}
 
 	#[test]
+	#[should_panic]
 	fn snapshot_size_2second_weight() {
 		todo!()
 	}

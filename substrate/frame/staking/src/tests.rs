@@ -4489,6 +4489,7 @@ fn test_page_count_and_size() {
 		mock::start_active_era(1);
 
 		// Since max exposure page size is 64, 2 pages of nominators are created.
+		assert_eq!(MaxExposurePageSize::get(), 64);
 		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 2);
 
 		// first page has 64 nominators

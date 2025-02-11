@@ -226,7 +226,8 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 parameter_types! {
 	// default is single page EP.
 	pub static Pages: PageIndex = 1;
-	pub static MaxBackersPerWinner: u32 = 10_000;
+	// Should be large enough to pass all tests, but not too big to cause benchmarking tests to be too slow.
+	pub static MaxBackersPerWinner: u32 = 256;
 	// If set, the `SingleOrMultipageElectionProvider` will return these exact values, per page
 	// index. If not, it will behave is per the code.
 	pub static CustomElectionSupports: Option<Vec<Result<BoundedSupportsOf<<Test as Config>::ElectionProvider>, onchain::Error>>> = None;
@@ -239,7 +240,7 @@ impl<
 		SP: ElectionProvider<
 			AccountId = AccountId,
 			MaxWinnersPerPage = MaxWinnersPerPage,
-			MaxBackersPerWinner = ConstU32<{ u32::MAX }>,
+			MaxBackersPerWinner = MaxBackersPerWinner,
 			Error = onchain::Error,
 		>,
 	> ElectionProvider for SingleOrMultipageElectionProvider<SP>
@@ -247,7 +248,7 @@ impl<
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
-	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type Pages = Pages;
 	type DataProvider = Staking;
 	type Error = onchain::Error;
@@ -300,7 +301,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type WeightInfo = ();
 	type Bounds = ElectionsBounds;
 	type Sort = ConstBool<true>;
-	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 }
 
