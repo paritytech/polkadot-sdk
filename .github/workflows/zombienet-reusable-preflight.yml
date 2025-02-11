@@ -242,9 +242,9 @@ jobs:
 
           #check if the build succeeded
           CONCLUSION=$(gh run ls -c $SHA -w "Build and push images" --json name,conclusion --jq '.[] | select(.name == "Build and push images") | .conclusion')
-          if [[ $CONCLISION == "success" ]]; then
+          if [[ $CONCLUSION == "success" ]]; then
             echo "CI workflow succeeded."
           else
-            echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLISION"
+            echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLUSION"
             exit 1
           fi;
