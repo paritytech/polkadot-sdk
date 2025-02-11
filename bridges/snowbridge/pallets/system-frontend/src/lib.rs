@@ -116,7 +116,7 @@ pub mod pallet {
 		/// Convert versioned location failure
 		UnsupportedLocationVersion,
 		/// Check location failure, should start from the dispatch origin as owner
-		OwnerCheck,
+		InvalidAssetOwner,
 		/// Send xcm message failure
 		Send,
 		/// Withdraw fee asset failure
@@ -202,7 +202,7 @@ pub mod pallet {
 			if asset_location.eq(&origin_location) || asset_location.starts_with(&origin_location) {
 				checked = true
 			}
-			ensure!(checked, <Error<T>>::OwnerCheck);
+			ensure!(checked, <Error<T>>::InvalidAssetOwner);
 
 			// Burn Ether Fee for the cost on ethereum
 			T::AssetTransactor::withdraw_asset(
