@@ -416,7 +416,7 @@ mod tests {
 	}
 
 	#[sqlx::test]
-	async fn test_insert(pool: SqlitePool) {
+	async fn test_insert_remove(pool: SqlitePool) {
 		let provider = setup_sqlite_provider(pool).await;
 		let block_hash = H256::default();
 		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
@@ -424,6 +424,34 @@ mod tests {
 		provider.insert(&block_hash, &receipts).await;
 		let row = provider.fetch_row(&receipts[0].1.transaction_hash).await;
 		assert_eq!(row, Some((block_hash, 0)));
+
+		provider.remove(&block_hash).await;
+
+		let transaction_count: i64 = sqlx::query_scalar(
+			r#"
+        SELECT COUNT(*)
+        FROM transaction_hashes
+        WHERE block_hash = ?
+        "#,
+		)
+		.bind(block_hash.as_ref())
+		.fetch_one(&provider.pool)
+		.await
+		.unwrap();
+		assert_eq!(transaction_count, 0);
+
+		let logs_count: i64 = sqlx::query_scalar(
+			r#"
+        SELECT COUNT(*)
+        FROM logs
+        WHERE block_hash = ?
+        "#,
+		)
+		.bind(block_hash.as_ref())
+		.fetch_one(&provider.pool)
+		.await
+		.unwrap();
+		assert_eq!(logs_count, 0);
 	}
 
 	#[sqlx::test]
