@@ -18,26 +18,32 @@
 
 use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
-use bridge_common_config::{BridgeRelayersInstance, RequiredStakeForStakeAndSlash};
+use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
+use bridge_common_config::{BridgeRelayersInstance, BridgeRewardKind, RequiredStakeForStakeAndSlash};
+use bridge_hub_test_utils::test_cases::run_test;
 use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	bridge_to_rococo_config::RococoGlobalConsensusNetwork,
 	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
-	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
-	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
+	AllPalletsWithoutSystem, Balances, Block, BridgeRejectObsoleteHeadersAndMessages,
+	BridgeRelayers, Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension,
+	UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
 	DeliveryRewardInBalance, WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
-use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
+use frame_support::traits::fungible::{Inspect, Mutate};
+use frame_support::{
+	assert_err, assert_ok, dispatch::GetDispatchInfo, parameter_types, traits::ConstU8,
+};
 use parachains_common::{AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_keyring::Sr25519Keyring::Alice;
+use sp_keyring::Sr25519Keyring::{Alice, Bob};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32, Perbill,
@@ -530,4 +536,91 @@ fn xcm_payment_api_works() {
 		RuntimeOrigin,
 		Block,
 	>();
+}
+
+#[test]
+pub fn bridge_rewards_works() {
+	run_test::<Runtime, _>(
+		collator_session_keys(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		vec![],
+		|| {
+			// reward in WNDs
+			let reward1: u128 = 2_000_000_000;
+			// reward in WETH
+			let reward2: u128 = 3_000_000_000;
+
+			// prepare accounts
+			let account1 = AccountId32::from(Alice);
+			let account2 = AccountId32::from(Bob);
+			let reward1_for = RewardsAccountParams::new(
+				LegacyLaneId([1; 4]),
+				*b"test",
+				RewardsAccountOwner::ThisChain,
+			);
+			let expected_reward1_account =
+				PayRewardFromAccount::<(), AccountId, LegacyLaneId, ()>::rewards_account(
+					reward1_for,
+				);
+			assert_ok!(Balances::mint_into(&expected_reward1_account, ExistentialDeposit::get()));
+			assert_ok!(Balances::mint_into(&expected_reward1_account, reward1.into()));
+			assert_ok!(Balances::mint_into(&account1, ExistentialDeposit::get()));
+
+			// register rewards
+			use bp_relayers::RewardLedger;
+			BridgeRelayers::register_reward(
+				&account1,
+				BridgeRewardKind::from(reward1_for),
+				reward1,
+			);
+			BridgeRelayers::register_reward(&account2, BridgeRewardKind::Snowbridge, reward2);
+
+			// check stored rewards
+			assert_eq!(
+				BridgeRelayers::relayer_reward(&account1, BridgeRewardKind::from(reward1_for)),
+				Some(reward1)
+			);
+			assert_eq!(
+				BridgeRelayers::relayer_reward(&account1, BridgeRewardKind::Snowbridge),
+				None,
+			);
+			assert_eq!(
+				BridgeRelayers::relayer_reward(&account2, BridgeRewardKind::Snowbridge),
+				Some(reward2),
+			);
+			assert_eq!(
+				BridgeRelayers::relayer_reward(&account2, BridgeRewardKind::from(reward1_for)),
+				None,
+			);
+
+			// claim rewards
+			assert_ok!(BridgeRelayers::claim_rewards(
+				RuntimeOrigin::signed(account1.clone()),
+				reward1_for.into()
+			));
+			assert_eq!(Balances::total_balance(&account1), ExistentialDeposit::get() + reward1);
+			assert_eq!(
+				BridgeRelayers::relayer_reward(&account1, BridgeRewardKind::from(reward1_for)),
+				None,
+			);
+
+			// already claimed
+			assert_err!(
+				BridgeRelayers::claim_rewards(
+					RuntimeOrigin::signed(account1.clone()),
+					reward1_for.into()
+				),
+				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::NoRewardForRelayer
+			);
+
+			// not yet implemented for Snowbridge
+			assert_err!(
+				BridgeRelayers::claim_rewards(
+					RuntimeOrigin::signed(account2.clone()),
+					BridgeRewardKind::Snowbridge
+				),
+				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
+			);
+		},
+	);
 }

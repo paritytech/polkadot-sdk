@@ -490,8 +490,8 @@ pub mod pallet {
 }
 
 /// Implementation of `RewardLedger` for the pallet.
-impl<T: Config<I>, I: 'static, RewardKind, Reward>
-	RewardLedger<T::AccountId, RewardKind, Reward> for Pallet<T, I>
+impl<T: Config<I>, I: 'static, RewardKind, Reward> RewardLedger<T::AccountId, RewardKind, Reward>
+	for Pallet<T, I>
 where
 	RewardKind: Into<T::RewardKind>,
 	Reward: Into<T::Reward>,
