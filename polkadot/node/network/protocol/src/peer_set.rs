@@ -167,7 +167,11 @@ impl PeerSet {
 		// for all protocol versions here.
 		match self {
 			PeerSet::Validation =>
-				if version == ValidationVersion::V3.into() {
+				if version == ValidationVersion::V1.into() {
+					Some("validation/1")
+				} else if version == ValidationVersion::V2.into() {
+					Some("validation/2")
+				} else if version == ValidationVersion::V3.into() {
 					Some("validation/3")
 				} else {
 					None
@@ -243,8 +247,15 @@ impl From<ProtocolVersion> for u32 {
 }
 
 /// Supported validation protocol versions. Only versions defined here must be used in the codebase.
+/// The first and second versions are no longer used and can be removed once the changes in PR:
+/// https://github.com/paritytech/polkadot-sdk/pull/7449 are released. They could not be removed
+/// in that PR because CI tests running on stable releases were still using these versions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum ValidationVersion {
+	/// The first version.
+	V1 = 1,
+	/// The second version.
+	V2 = 2,
 	/// The third version.
 	V3 = 3,
 }
@@ -538,14 +549,6 @@ mod tests {
 		]);
 		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
 
-		// Ensure that there are 3 protocol names:
-		// 1 for validation (V3) and 2 for collation (V1 and V2).
-		assert_eq!(protocol_names.names.len(), 3);
-
-		// Ensure that there are 5 protocols in total,
-		// including 2 legacy protocols: V3 for validation and V1 for collation.
-		assert_eq!(protocol_names.protocols.len(), 5);
-
 		let validation_main =
 			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/validation/3";
 		assert_eq!(
@@ -564,13 +567,6 @@ mod tests {
 		assert_eq!(
 			protocol_names.try_get_protocol(&collation_main.into()),
 			Some((PeerSet::Collation, TestVersion(1).into())),
-		);
-
-		let collation_main =
-			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/collation/2";
-		assert_eq!(
-			protocol_names.try_get_protocol(&collation_main.into()),
-			Some((PeerSet::Collation, TestVersion(2).into())),
 		);
 
 		let collation_legacy = "/polkadot/collation/1";
