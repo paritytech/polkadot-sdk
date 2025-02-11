@@ -99,7 +99,7 @@ pub use types::{PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 use xcm::latest::{Location, NetworkId};
 
-type MessageReceiptOf<T> = DeliveryReceipt<<T as frame_system::Config>::AccountId>;
+type DeliveryReceiptOf<T> = DeliveryReceipt<<T as frame_system::Config>::AccountId>;
 
 pub use pallet::*;
 
@@ -285,7 +285,7 @@ pub mod pallet {
 			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
-			let receipt = MessageReceiptOf::<T>::try_from(&event.event_log)
+			let receipt = DeliveryReceiptOf::<T>::try_from(&event.event_log)
 				.map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract
