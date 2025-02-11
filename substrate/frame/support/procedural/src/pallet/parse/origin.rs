@@ -33,7 +33,7 @@ pub struct OriginDef {
 impl OriginDef {
 	pub fn try_from(item: &mut syn::Item) -> syn::Result<Self> {
 		let item_span = item.span();
-		let (vis, ident, generics) = match item {
+		let (vis, ident, generics) = match &item {
 			syn::Item::Enum(item) => (&item.vis, &item.ident, &item.generics),
 			syn::Item::Struct(item) => (&item.vis, &item.ident, &item.generics),
 			syn::Item::Type(item) => (&item.vis, &item.ident, &item.generics),
@@ -46,7 +46,7 @@ impl OriginDef {
 		let is_generic = !generics.params.is_empty();
 
 		let mut instances = vec![];
-		if let Some(u) = helper::check_type_def_optional_gen(generics, item_span)? {
+		if let Some(u) = helper::check_type_def_optional_gen(generics, item.span())? {
 			instances.push(u);
 		} else {
 			// construct_runtime only allow generic event for instantiable pallet.
