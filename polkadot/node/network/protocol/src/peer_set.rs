@@ -247,8 +247,7 @@ impl From<ProtocolVersion> for u32 {
 }
 
 /// Supported validation protocol versions. Only versions defined here must be used in the codebase.
-/// The first and second versions are no longer used and can be removed once the changes in PR:
-/// https://github.com/paritytech/polkadot-sdk/pull/7449 are released. They could not be removed
+/// The first and second versions are no longer used and can be removed once the changes in [this PR](https://github.com/paritytech/polkadot-sdk/pull/7449) are released. They could not be removed
 /// in that PR because CI tests running on stable releases were still using these versions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum ValidationVersion {
