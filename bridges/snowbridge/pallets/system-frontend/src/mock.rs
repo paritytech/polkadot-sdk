@@ -216,7 +216,7 @@ impl crate::Config for Test {
 	type FeeAsset = WETH;
 	type RemoteExecutionFee = DeliveryFee;
 	type XcmExecutor = MockXcmExecutor;
-	type BridgeHub = BridgeHub;
+	type BridgeHubLocation = BridgeHub;
 }
 
 // Build genesis storage according to the mock runtime.

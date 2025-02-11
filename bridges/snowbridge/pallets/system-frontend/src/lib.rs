@@ -78,6 +78,7 @@ pub mod pallet {
 		/// To withdraw and deposit an asset.
 		type AssetTransactor: TransactAsset;
 
+		/// To charge XCM delivery fees
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 
 		/// Fee asset for the execution cost on ethereum
@@ -87,7 +88,7 @@ pub mod pallet {
 		type RemoteExecutionFee: Get<Asset>;
 
 		/// Location of bridge hub
-		type BridgeHub: Get<Location>;
+		type BridgeHubLocation: Get<Location>;
 
 		type WeightInfo: WeightInfo;
 
@@ -237,7 +238,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		pub fn send(origin: Location, xcm: Xcm<()>) -> DispatchResult {
-			let bridgehub = T::BridgeHub::get();
+			let bridgehub = T::BridgeHubLocation::get();
 			let (_, price) =
 				send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
 			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;
