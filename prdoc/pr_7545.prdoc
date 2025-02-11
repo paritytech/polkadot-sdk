@@ -3,18 +3,8 @@ doc:
 - audience: Node Dev
   description: |-
     #### Overview
-
-    This pull request refactors the transaction pool `graph` module by renaming components for better clarity. The `EventHandler` trait was introduced to enhance flexibility in handling transaction lifecycle events. Changes include renaming  `graph::Listener` to `graph::EventDispatcher`  and moving certain functionalities from `graph` to `view` module in order to decouple `graph` from `view`-related specifics.
-
+    This pull request refactors the transaction pool `graph` module by renaming components for better clarity and decouples `graph` module from `view` module related specifics.
     This PR does not introduce changes in the logic.
-
-    #### Notes for Reviewers
-    All the changes looks dense at first, but in fact following was done:
-    - The `graph::Listener` was renamed to [`graph::EventDispatcher`](https://github.com/paritytech/polkadot-sdk/blob/515cb4042d097581ed6b4195e57b04494e385a17/substrate/client/transaction-pool/src/graph/listener.rs#L74C12-L74C27), to better reflect its role in dispatching transaction-related events from `ValidatedPool`. The `EventDispatcher` now utilizes the `L: EventHandler` generic type to handle transaction status events.
-    - The new [`EventHandler`](https://github.com/paritytech/polkadot-sdk/blob/515cb4042d097581ed6b4195e57b04494e385a17/substrate/client/transaction-pool/src/graph/listener.rs#L34) trait was introduced to handle transaction lifecycle events, improving implementation flexibility and providing clearer role descriptions within the system. Introduction of this trait allowed the removal of `View` related entities (e.g. streams) from the `ValidatedPool`'s event dispatcher (previously _listener_).
-    - The _dropped monitoring_ and _aggregated events_ stream [functionalities](https://github.com/paritytech/polkadot-sdk/blob/515cb4042d097581ed6b4195e57b04494e385a17/substrate/client/transaction-pool/src/fork_aware_txpool/view.rs#L157-L188) and [related types](https://github.com/paritytech/polkadot-sdk/blob/515cb4042d097581ed6b4195e57b04494e385a17/substrate/client/transaction-pool/src/fork_aware_txpool/view.rs#L112-L121) were moved from `graph::listener` to the `view` module. The [`ViewPoolObserver`](https://github.com/paritytech/polkadot-sdk/blob/515cb4042d097581ed6b4195e57b04494e385a17/substrate/client/transaction-pool/src/fork_aware_txpool/view.rs#L128C19-L128C35), which implements `EventHandler`, now provides the implementation of streams feeding.
-    - Fields, arguments, and variables previously named `listener` were renamed to `event_dispatcher` to align with their purpose and type naming.
-    - Various structs such as `Pool` and `ValidatedPool` were updated to include a generic `L: EventHandler` across the codebase.
 crates:
 - name: sc-transaction-pool
   bump: minor
