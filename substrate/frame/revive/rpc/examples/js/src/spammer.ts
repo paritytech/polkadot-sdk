@@ -26,9 +26,8 @@ spawn(
 )
 
 // Run eth-rpc on 8545
-console.log('🚀 Start eth-rpc...')
 if (process.env.START_ETH_RPC) {
-	console.log('🔍 Start eth-rpc...')
+	console.log('🚀 Start eth-rpc...')
 	killProcessOnPort(8545)
 	spawn(
 		[
