@@ -17,13 +17,13 @@
 //! The [`EthRpcServer`] RPC server implementation
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-use crate::runtime::GAS_PRICE;
 use client::ClientError;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
+use sp_arithmetic::Permill;
 use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
 
@@ -40,6 +40,9 @@ pub use block_info_provider::*;
 
 mod receipt_provider;
 pub use receipt_provider::*;
+
+mod receipt_extractor;
+pub use receipt_extractor::*;
 
 mod rpc_health;
 pub use rpc_health::*;
@@ -127,7 +130,12 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
-		log::debug!(target: LOG_TARGET, "transaction_receipt for {transaction_hash:?}: {}", receipt.is_some());
+		log::debug!(
+			target: LOG_TARGET,
+			"transaction_receipt for {transaction_hash:?}: received: {received} - success: {success:?}",
+			received = receipt.is_some(),
+			success = receipt.as_ref().map(|r| r.status == Some(U256::one()))
+		);
 		Ok(receipt)
 	}
 
@@ -208,7 +216,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let Some(block) = self.client.block_by_hash(&block_hash).await? else {
 			return Ok(None);
 		};
-		let block = self.client.evm_block(block, hydrated_transactions).await?;
+		let block = self.client.evm_block(block, hydrated_transactions).await;
 		Ok(Some(block))
 	}
 
@@ -223,7 +231,13 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn gas_price(&self) -> RpcResult<U256> {
-		Ok(U256::from(GAS_PRICE))
+		Ok(self.client.gas_price(&BlockTag::Latest.into()).await?)
+	}
+
+	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
+		// TODO: Provide better estimation
+		let gas_price = self.gas_price().await?;
+		Ok(Permill::from_percent(20).mul_ceil(gas_price))
 	}
 
 	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
@@ -237,13 +251,13 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_block_by_number(
 		&self,
-		block: BlockNumberOrTag,
+		block_number: BlockNumberOrTag,
 		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
-		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
+		let Some(block) = self.client.block_by_number_or_tag(&block_number).await? else {
 			return Ok(None);
 		};
-		let block = self.client.evm_block(block, hydrated_transactions).await?;
+		let block = self.client.evm_block(block, hydrated_transactions).await;
 		Ok(Some(block))
 	}
 
@@ -273,6 +287,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(self.client.receipts_count_per_block(&block.hash).await.map(U256::from))
 	}
 
+	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults> {
+		let logs = self.client.logs(filter).await?;
+		Ok(FilterResults::Logs(logs))
+	}
+
 	async fn get_storage_at(
 		&self,
 		address: H160,
@@ -288,8 +307,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		block_hash: H256,
 		transaction_index: U256,
 	) -> RpcResult<Option<TransactionInfo>> {
-		let Some(receipt) =
-			self.client.receipt_by_hash_and_index(&block_hash, &transaction_index).await
+		let Some(receipt) = self
+			.client
+			.receipt_by_hash_and_index(&block_hash, transaction_index.as_usize())
+			.await
 		else {
 			return Ok(None);
 		};

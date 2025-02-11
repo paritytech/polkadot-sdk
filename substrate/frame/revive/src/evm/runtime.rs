@@ -20,7 +20,8 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf, Pallet,
+	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -38,7 +39,7 @@ use sp_runtime::{
 		IdentifyAccount, Member, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	OpaqueExtrinsic, RuntimeDebug, Saturating,
+	OpaqueExtrinsic, RuntimeDebug,
 };
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
@@ -54,23 +55,7 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// - Not too high, ensuring the gas value is large enough (at least 7 digits) to encode the
 ///   ref_time, proof_size, and deposit into the less significant (6 lower) digits of the gas value.
 /// - Not too low, enabling users to adjust the gas price to define a tip.
-pub const GAS_PRICE: u32 = 100_000u32;
-
-/// Convert a `Balance` into a gas value, using the fixed `GAS_PRICE`.
-/// The gas is calculated as `balance / GAS_PRICE`, rounded up to the nearest integer.
-pub fn gas_from_fee<Balance>(fee: Balance) -> U256
-where
-	u32: Into<Balance>,
-	Balance: Into<U256> + AtLeast32BitUnsigned + Copy,
-{
-	let gas_price = GAS_PRICE.into();
-	let remainder = fee % gas_price;
-	if remainder.is_zero() {
-		(fee / gas_price).into()
-	} else {
-		(fee.saturating_add(gas_price) / gas_price).into()
-	}
-}
+pub(crate) const GAS_PRICE: u64 = 1_000u64;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
@@ -324,26 +309,32 @@ pub trait EthExtra {
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			GenericTransaction::from_signed(tx, None);
 
+		let Some(gas) = gas else {
+			log::debug!(target: LOG_TARGET, "No gas provided");
+			return Err(InvalidTransaction::Call);
+		};
+
 		if chain_id.unwrap_or_default() != <Self::Config as Config>::ChainId::get().into() {
 			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(value.unwrap_or_default())
-			.map_err(|err| {
-				log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
-				InvalidTransaction::Call
-			})?;
+		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(
+			value.unwrap_or_default(),
+			ConversionPrecision::Exact,
+		)
+		.map_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
+			InvalidTransaction::Call
+		})?;
 
 		let data = input.unwrap_or_default().0;
 
-		let (gas_limit, storage_deposit_limit) = <Self::Config as Config>::EthGasEncoder::decode(
-			gas.unwrap_or_default(),
-		)
-		.ok_or_else(|| {
-			log::debug!(target: LOG_TARGET, "Failed to decode gas: {gas:?}");
-			InvalidTransaction::Call
-		})?;
+		let (gas_limit, storage_deposit_limit) =
+			<Self::Config as Config>::EthGasEncoder::decode(gas).ok_or_else(|| {
+				log::debug!(target: LOG_TARGET, "Failed to decode gas: {gas:?}");
+				InvalidTransaction::Call
+			})?;
 
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
@@ -375,25 +366,16 @@ pub trait EthExtra {
 			}
 		};
 
-		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
-
-		// Fees calculated with the fixed `GAS_PRICE`
-		// When we dry-run the transaction, we set the gas to `Fee / GAS_PRICE`
-		let eth_fee_no_tip = U256::from(GAS_PRICE)
-			.saturating_mul(gas.unwrap_or_default())
-			.try_into()
-			.map_err(|_| InvalidTransaction::Call)?;
-
-		// Fees with the actual gas_price from the transaction.
-		let eth_fee: BalanceOf<Self::Config> = U256::from(gas_price.unwrap_or_default())
-			.saturating_mul(gas.unwrap_or_default())
-			.try_into()
-			.map_err(|_| InvalidTransaction::Call)?;
-
-		let info = call.get_dispatch_info();
+		let mut info = call.get_dispatch_info();
 		let function: CallOf<Self::Config> = call.into();
+		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
+		let gas_price = gas_price.unwrap_or_default();
+
+		let eth_fee = Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price)
+			.map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees calculated from the extrinsic, without the tip.
+		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&function);
 		let actual_fee: BalanceOf<Self::Config> =
 			pallet_transaction_payment::Pallet::<Self::Config>::compute_fee(
 				encoded_len as u32,
@@ -410,12 +392,11 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Payment.into())
 		}
 
-		if eth_fee_no_tip > actual_fee.saturating_mul(2u32.into()) {
-			log::debug!(target: LOG_TARGET, "actual fees: {actual_fee:?} too high, base eth fees: {eth_fee_no_tip:?}");
-			return Err(InvalidTransaction::Call.into())
-		}
+		let tip =
+			Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price.saturating_sub(GAS_PRICE.into()))
+				.unwrap_or_default()
+				.min(actual_fee);
 
-		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
 			format: ExtrinsicFormat::Signed(signer.into(), Self::get_eth_extension(nonce, tip)),
@@ -473,8 +454,6 @@ mod test {
 	#[derive(Clone)]
 	struct UncheckedExtrinsicBuilder {
 		tx: GenericTransaction,
-		gas_limit: Weight,
-		storage_deposit_limit: BalanceOf<Test>,
 		before_validate: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
 	}
 
@@ -488,19 +467,25 @@ mod test {
 					gas_price: Some(U256::from(GAS_PRICE)),
 					..Default::default()
 				},
-				gas_limit: Weight::zero(),
-				storage_deposit_limit: 0,
 				before_validate: None,
 			}
 		}
 
 		fn estimate_gas(&mut self) {
-			let dry_run =
-				crate::Pallet::<Test>::bare_eth_transact(self.tx.clone(), Weight::MAX, |call| {
+			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
+				self.tx.clone(),
+				Weight::MAX,
+				|call, mut info| {
 					let call = RuntimeCall::Contracts(call);
+					info.extension_weight = Extra::get_eth_extension(0, 0u32.into()).weight(&call);
 					let uxt: Ex = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
-					uxt.encoded_size() as u32
-				});
+					pallet_transaction_payment::Pallet::<Test>::compute_fee(
+						uxt.encoded_size() as u32,
+						&info,
+						Default::default(),
+					)
+				},
+			);
 
 			match dry_run {
 				Ok(dry_run) => {
@@ -522,7 +507,6 @@ mod test {
 		fn call_with(dest: H160) -> Self {
 			let mut builder = Self::new();
 			builder.tx.to = Some(dest);
-			ExtBuilder::default().build().execute_with(|| builder.estimate_gas());
 			builder
 		}
 
@@ -530,23 +514,28 @@ mod test {
 		fn instantiate_with(code: Vec<u8>, data: Vec<u8>) -> Self {
 			let mut builder = Self::new();
 			builder.tx.input = Some(Bytes(code.into_iter().chain(data.into_iter()).collect()));
-			ExtBuilder::default().build().execute_with(|| builder.estimate_gas());
 			builder
 		}
 
-		/// Update the transaction with the given function.
-		fn update(mut self, f: impl FnOnce(&mut GenericTransaction) -> ()) -> Self {
-			f(&mut self.tx);
-			self
-		}
 		/// Set before_validate function.
 		fn before_validate(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
 			self.before_validate = Some(std::sync::Arc::new(f));
 			self
 		}
 
+		fn check(
+			self,
+		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction), TransactionValidityError> {
+			self.mutate_estimate_and_check(Box::new(|_| ()))
+		}
+
 		/// Call `check` on the unchecked extrinsic, and `pre_dispatch` on the signed extension.
-		fn check(&self) -> Result<(RuntimeCall, SignedExtra), TransactionValidityError> {
+		fn mutate_estimate_and_check(
+			mut self,
+			f: Box<dyn FnOnce(&mut GenericTransaction) -> ()>,
+		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction), TransactionValidityError> {
+			ExtBuilder::default().build().execute_with(|| self.estimate_gas());
+			f(&mut self.tx);
 			ExtBuilder::default().build().execute_with(|| {
 				let UncheckedExtrinsicBuilder { tx, before_validate, .. } = self.clone();
 
@@ -557,8 +546,9 @@ mod test {
 					100_000_000_000_000,
 				);
 
-				let payload =
-					account.sign_transaction(tx.try_into_unsigned().unwrap()).signed_payload();
+				let payload = account
+					.sign_transaction(tx.clone().try_into_unsigned().unwrap())
+					.signed_payload();
 				let call = RuntimeCall::Contracts(crate::Call::eth_transact { payload });
 
 				let encoded_len = call.encoded_size();
@@ -578,7 +568,7 @@ mod test {
 					0,
 				)?;
 
-				Ok((result.function, extra))
+				Ok((result.function, extra, tx))
 			})
 		}
 	}
@@ -586,14 +576,18 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
+		let (call, _, tx) = builder.check().unwrap();
+		let (gas_limit, storage_deposit_limit) =
+			<<Test as Config>::EthGasEncoder as GasEncoder<_>>::decode(tx.gas.unwrap()).unwrap();
+
 		assert_eq!(
-			builder.check().unwrap().0,
+			call,
 			crate::Call::call::<Test> {
-				dest: builder.tx.to.unwrap(),
-				value: builder.tx.value.unwrap_or_default().as_u64(),
-				gas_limit: builder.gas_limit,
-				storage_deposit_limit: builder.storage_deposit_limit,
-				data: builder.tx.input.unwrap_or_default().0
+				dest: tx.to.unwrap(),
+				value: tx.value.unwrap_or_default().as_u64(),
+				data: tx.input.unwrap_or_default().0,
+				gas_limit,
+				storage_deposit_limit
 			}
 			.into()
 		);
@@ -604,16 +598,19 @@ mod test {
 		let (code, _) = compile_module("dummy").unwrap();
 		let data = vec![];
 		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
+		let (call, _, tx) = builder.check().unwrap();
+		let (gas_limit, storage_deposit_limit) =
+			<<Test as Config>::EthGasEncoder as GasEncoder<_>>::decode(tx.gas.unwrap()).unwrap();
 
 		assert_eq!(
-			builder.check().unwrap().0,
+			call,
 			crate::Call::instantiate_with_code::<Test> {
-				value: builder.tx.value.unwrap_or_default().as_u64(),
-				gas_limit: builder.gas_limit,
-				storage_deposit_limit: builder.storage_deposit_limit,
+				value: tx.value.unwrap_or_default().as_u64(),
 				code,
 				data,
-				salt: None
+				salt: None,
+				gas_limit,
+				storage_deposit_limit
 			}
 			.into()
 		);
@@ -621,11 +618,10 @@ mod test {
 
 	#[test]
 	fn check_eth_transact_nonce_works() {
-		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
-			.update(|tx| tx.nonce = Some(1u32.into()));
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
 
 		assert_eq!(
-			builder.check(),
+			builder.mutate_estimate_and_check(Box::new(|tx| tx.nonce = Some(1u32.into()))),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Future))
 		);
 
@@ -642,11 +638,10 @@ mod test {
 
 	#[test]
 	fn check_eth_transact_chain_id_works() {
-		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
-			.update(|tx| tx.chain_id = Some(42.into()));
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
 
 		assert_eq!(
-			builder.check(),
+			builder.mutate_estimate_and_check(Box::new(|tx| tx.chain_id = Some(42.into()))),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		);
 	}
@@ -659,7 +654,7 @@ mod test {
 
 		// Fail because the tx input fail to get the blob length
 		assert_eq!(
-			builder.clone().update(|tx| tx.input = Some(Bytes(vec![1, 2, 3]))).check(),
+			builder.mutate_estimate_and_check(Box::new(|tx| tx.input = Some(Bytes(vec![1, 2, 3])))),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		);
 	}
@@ -675,13 +670,6 @@ mod test {
 				InvalidTransaction::Payment,
 			),
 			(
-				"Gas fees too high",
-				Box::new(|tx| {
-					tx.gas = Some(tx.gas.unwrap() * 2);
-				}),
-				InvalidTransaction::Call,
-			),
-			(
 				"Gas fees too low",
 				Box::new(|tx| {
 					tx.gas = Some(tx.gas.unwrap() / 2);
@@ -691,10 +679,10 @@ mod test {
 		];
 
 		for (msg, update_tx, err) in scenarios {
-			let builder =
-				UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20])).update(update_tx);
+			let res = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
+				.mutate_estimate_and_check(update_tx);
 
-			assert_eq!(builder.check(), Err(TransactionValidityError::Invalid(err)), "{}", msg);
+			assert_eq!(res, Err(TransactionValidityError::Invalid(err)), "{}", msg);
 		}
 	}
 
@@ -702,16 +690,15 @@ mod test {
 	fn check_transaction_tip() {
 		let (code, _) = compile_module("dummy").unwrap();
 		let data = vec![];
-		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
-			.update(|tx| {
-				tx.gas_price = Some(tx.gas_price.unwrap() * 103 / 100);
-				log::debug!(target: LOG_TARGET, "Gas price: {:?}", tx.gas_price);
-			});
-
-		let tx = &builder.tx;
-		let expected_tip =
-			tx.gas_price.unwrap() * tx.gas.unwrap() - U256::from(GAS_PRICE) * tx.gas.unwrap();
-		let (_, extra) = builder.check().unwrap();
-		assert_eq!(U256::from(extra.1.tip()), expected_tip);
+		let (_, extra, tx) =
+			UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
+				.mutate_estimate_and_check(Box::new(|tx| {
+					tx.gas_price = Some(tx.gas_price.unwrap() * 103 / 100);
+					log::debug!(target: LOG_TARGET, "Gas price: {:?}", tx.gas_price);
+				}))
+				.unwrap();
+		let diff = tx.gas_price.unwrap() - U256::from(GAS_PRICE);
+		let expected_tip = crate::Pallet::<Test>::evm_gas_to_fee(tx.gas.unwrap(), diff).unwrap();
+		assert_eq!(extra.1.tip(), expected_tip);
 	}
 }

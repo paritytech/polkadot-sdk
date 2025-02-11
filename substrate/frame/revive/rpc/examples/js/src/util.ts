@@ -35,10 +35,10 @@ export function killProcessOnPort(port: number) {
 }
 
 export let jsonRpcErrors: JsonRpcError[] = []
-export async function createEnv(name: 'geth' | 'kitchensink') {
+export async function createEnv(name: 'geth' | 'eth-rpc') {
 	const gethPort = process.env.GETH_PORT || '8546'
-	const kitchensinkPort = process.env.KITCHENSINK_PORT || '8545'
-	const url = `http://localhost:${name == 'geth' ? gethPort : kitchensinkPort}`
+	const ethRpcPort = process.env.ETH_RPC_PORT || '8545'
+	const url = `http://localhost:${name == 'geth' ? gethPort : ethRpcPort}`
 	const chain = defineChain({
 		id: name == 'geth' ? 1337 : 420420420,
 		name,
@@ -85,7 +85,24 @@ export async function createEnv(name: 'geth' | 'kitchensink') {
 		chain,
 	}).extend(publicActions)
 
-	return { serverWallet, accountWallet, evm: name == 'geth' }
+	const emptyWallet = createWalletClient({
+		account: privateKeyToAccount(
+			'0x4450c571bae82da0528ecf76fcf7079e12ecc46dc873c9cacb6db8b75ed22f41',
+			{ nonceManager }
+		),
+		transport,
+		chain,
+	}).extend(publicActions)
+
+	return { serverWallet, emptyWallet, accountWallet, evm: name == 'geth' }
+}
+
+export function wait(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export function timeout(ms: number) {
+	return new Promise((_resolve, reject) => setTimeout(() => reject(new Error('timeout hit')), ms))
 }
 
 export function wait(ms: number) {

@@ -37,19 +37,16 @@ use substrate_test_runtime_client::runtime;
 use tokio::{sync::Mutex, task::JoinHandle};
 
 const MAX_SIZE: u64 = 2u64.pow(30);
-const SMALL_PAYLOAD: &[(u32, usize, &'static str)] = &[
-	// (Exponent of size, number of requests, label)
-	(6, 100, "64B"),
-	(9, 100, "512B"),
-	(12, 100, "4KB"),
-	(15, 100, "64KB"),
-];
-const LARGE_PAYLOAD: &[(u32, usize, &'static str)] = &[
-	// (Exponent of size, number of requests, label)
-	(18, 10, "256KB"),
-	(21, 10, "2MB"),
-	(24, 10, "16MB"),
-	(27, 10, "128MB"),
+const NUMBER_OF_REQUESTS: usize = 100;
+const PAYLOAD: &[(u32, &'static str)] = &[
+	// (Exponent of size, label)
+	(6, "64B"),
+	(9, "512B"),
+	(12, "4KB"),
+	(15, "64KB"),
+	(18, "256KB"),
+	(21, "2MB"),
+	(24, "16MB"),
 ];
 
 pub fn create_network_worker<B, H, N>() -> (
@@ -154,6 +151,21 @@ where
 	let handle1 = tokio::spawn(worker1.run());
 	let handle2 = tokio::spawn(worker2.run());
 
+	let _ = tokio::spawn({
+		let rx2 = rx2.clone();
+
+		async move {
+			let req = rx2.recv().await.unwrap();
+			req.pending_response
+				.send(OutgoingResponse {
+					result: Ok(vec![0; 2usize.pow(25)]),
+					reputation_changes: vec![],
+					sent_feedback: None,
+				})
+				.unwrap();
+		}
+	});
+
 	let ready = tokio::spawn({
 		let network_service1 = Arc::clone(&network_service1);
 
@@ -165,6 +177,16 @@ where
 				network_service2.listen_addresses()[0].clone()
 			};
 			network_service1.add_known_address(peer_id2, listen_address2.into());
+			let _ = network_service1
+				.request(
+					peer_id2.into(),
+					"/request-response/1".into(),
+					vec![0; 2],
+					None,
+					IfDisconnected::TryConnect,
+				)
+				.await
+				.unwrap();
 		}
 	});
 
@@ -210,8 +232,8 @@ async fn run_serially(setup: Arc<BenchSetup>, size: usize, limit: usize) {
 		async move {
 			loop {
 				tokio::select! {
-					res = rx2.recv() => {
-						let IncomingRequest { pending_response, .. } = res.unwrap();
+					req = rx2.recv() => {
+						let IncomingRequest { pending_response, .. } = req.unwrap();
 						pending_response.send(OutgoingResponse {
 							result: Ok(vec![0; size]),
 							reputation_changes: vec![],
@@ -269,49 +291,35 @@ async fn run_with_backpressure(setup: Arc<BenchSetup>, size: usize, limit: usize
 	let _ = tokio::join!(network1, network2);
 }
 
-fn run_benchmark(c: &mut Criterion, payload: &[(u32, usize, &'static str)], group: &str) {
+fn run_benchmark(c: &mut Criterion) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
 	let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
-	let mut group = c.benchmark_group(group);
+	let mut group = c.benchmark_group("request_response_protocol");
 	group.plot_config(plot_config);
+	group.sample_size(10);
 
 	let libp2p_setup = setup_workers::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(&rt);
-	for &(exponent, limit, label) in payload.iter() {
+	for &(exponent, label) in PAYLOAD.iter() {
 		let size = 2usize.pow(exponent);
-		group.throughput(Throughput::Bytes(limit as u64 * size as u64));
-		group.bench_with_input(
-			BenchmarkId::new("libp2p/serially", label),
-			&(size, limit),
-			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| run_serially(Arc::clone(&libp2p_setup), size, limit));
-			},
-		);
+		group.throughput(Throughput::Bytes(NUMBER_OF_REQUESTS as u64 * size as u64));
+		group.bench_with_input(BenchmarkId::new("libp2p/serially", label), &size, |b, &size| {
+			b.to_async(&rt)
+				.iter(|| run_serially(Arc::clone(&libp2p_setup), size, NUMBER_OF_REQUESTS));
+		});
 	}
 	drop(libp2p_setup);
 
-	// TODO: NetworkRequest::request should be implemented for Litep2pNetworkService
 	let litep2p_setup = setup_workers::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>(&rt);
-	// for &(exponent, limit, label) in payload.iter() {
-	// 	let size = 2usize.pow(exponent);
-	// 	group.throughput(Throughput::Bytes(limit as u64 * size as u64));
-	// 	group.bench_with_input(
-	// 		BenchmarkId::new("litep2p/serially", label),
-	// 		&(size, limit),
-	// 		|b, &(size, limit)| {
-	// 			b.to_async(&rt).iter(|| run_serially(Arc::clone(&litep2p_setup), size, limit));
-	// 		},
-	// 	);
-	// }
+	for &(exponent, label) in PAYLOAD.iter() {
+		let size = 2usize.pow(exponent);
+		group.throughput(Throughput::Bytes(NUMBER_OF_REQUESTS as u64 * size as u64));
+		group.bench_with_input(BenchmarkId::new("litep2p/serially", label), &size, |b, &size| {
+			b.to_async(&rt)
+				.iter(|| run_serially(Arc::clone(&litep2p_setup), size, NUMBER_OF_REQUESTS));
+		});
+	}
 	drop(litep2p_setup);
 }
 
-fn run_benchmark_with_small_payload(c: &mut Criterion) {
-	run_benchmark(c, SMALL_PAYLOAD, "request_response_benchmark/small_payload");
-}
-
-fn run_benchmark_with_large_payload(c: &mut Criterion) {
-	run_benchmark(c, LARGE_PAYLOAD, "request_response_benchmark/large_payload");
-}
-
-criterion_group!(benches, run_benchmark_with_small_payload, run_benchmark_with_large_payload);
+criterion_group!(benches, run_benchmark);
 criterion_main!(benches);
