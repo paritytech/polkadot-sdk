@@ -1638,7 +1638,7 @@ fn on_initialize_weight_is_correct() {
 		// Will include the named periodic only
 		System::set_block_number(1);
 		assert_eq!(
-			Scheduler::on_initialize(1),
+			Scheduler::on_initialize(0),
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, true) +
@@ -1651,7 +1651,7 @@ fn on_initialize_weight_is_correct() {
 		// Will include anon and anon periodic
 		System::set_block_number(2);
 		assert_eq!(
-			Scheduler::on_initialize(2),
+			Scheduler::on_initialize(0),
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(2) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, false, true) +
@@ -1667,7 +1667,7 @@ fn on_initialize_weight_is_correct() {
 		// Will include named only
 		System::set_block_number(3);
 		assert_eq!(
-			Scheduler::on_initialize(3),
+			Scheduler::on_initialize(0),
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, false) +
@@ -1682,7 +1682,7 @@ fn on_initialize_weight_is_correct() {
 
 		// Will contain none
 		System::set_block_number(4);
-		let actual_weight = Scheduler::on_initialize(4);
+		let actual_weight = Scheduler::on_initialize(0);
 		assert_eq!(
 			actual_weight,
 			TestWeightInfo::service_agendas_base() + TestWeightInfo::service_agenda_base(0)
