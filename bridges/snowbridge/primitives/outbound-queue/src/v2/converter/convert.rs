@@ -112,7 +112,7 @@ where
 	}
 
 	/// Extract ethereum native assets
-	fn extract_enas(
+	fn extract_ethereum_native_assets(
 		&mut self,
 		enas: &Assets,
 		deposit_assets: &AssetFilter,
@@ -145,8 +145,8 @@ where
 		Ok(commands)
 	}
 
-	/// Extract PNA
-	fn extract_pnas(
+	/// Extract polkadot native assets
+	fn extract_polkadot_native_assets(
 		&mut self,
 		pnas: &Assets,
 		deposit_assets: &AssetFilter,
@@ -266,12 +266,20 @@ where
 
 		// ENA transfer commands
 		if let Some(enas) = enas {
-			commands.append(&mut self.extract_enas(enas, deposit_assets, recipient)?);
+			commands.append(&mut self.extract_ethereum_native_assets(
+				enas,
+				deposit_assets,
+				recipient,
+			)?);
 		}
 
 		// PNA transfer commands
 		if let Some(pnas) = pnas {
-			commands.append(&mut self.extract_pnas(pnas, deposit_assets, recipient)?);
+			commands.append(&mut self.extract_polkadot_native_assets(
+				pnas,
+				deposit_assets,
+				recipient,
+			)?);
 		}
 
 		// Transact commands
