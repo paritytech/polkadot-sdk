@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use jsonrpsee::core::async_trait;
-use pallet_revive::evm::{ReceiptInfo, TransactionSigned, H256};
+use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned, H256};
 use tokio::join;
 
 mod cache;
@@ -33,6 +33,9 @@ pub trait ReceiptProvider: Send + Sync {
 
 	/// Similar to `insert`, but intended for archiving receipts from historical blocks.
 	async fn archive(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]);
+
+	/// Get logs that match the given filter.
+	async fn logs(&self, filter: Option<Filter>) -> anyhow::Result<Vec<Log>>;
 
 	/// Deletes receipts associated with the specified block hash.
 	async fn remove(&self, block_hash: &H256);
@@ -101,5 +104,9 @@ impl<Cache: ReceiptProvider, Archive: ReceiptProvider> ReceiptProvider for (Cach
 			return Some(tx);
 		}
 		self.1.signed_tx_by_hash(hash).await
+	}
+
+	async fn logs(&self, filter: Option<Filter>) -> anyhow::Result<Vec<Log>> {
+		self.1.logs(filter).await
 	}
 }

@@ -7,7 +7,7 @@ import {
 	polkadotSdkPath,
 } from './util.ts'
 import { afterAll, afterEach, describe, expect, test } from 'bun:test'
-import { encodeFunctionData, Hex, parseEther, decodeEventLog, keccak256, toHex } from 'viem'
+import { encodeFunctionData, Hex, parseEther, decodeEventLog } from 'viem'
 import { ErrorsAbi } from '../abi/Errors'
 import { EventExampleAbi } from '../abi/EventExample'
 import { Subprocess, spawn } from 'bun'
@@ -15,7 +15,7 @@ import { fail } from 'node:assert'
 
 const procs: Subprocess[] = []
 if (process.env.START_GETH) {
-	process.env.USE_ETH_RPC = 'true'
+	process.env.USE_GETH = 'true'
 	procs.push(
 		// Run geth on port 8546
 		await (async () => {
@@ -362,6 +362,43 @@ for (const env of envs) {
 						to: await getErrorTesterAddr(),
 					},
 				],
+			})
+		})
+
+		test('logs', async () => {
+			let address = await getEventExampleAddr()
+			let { request } = await env.serverWallet.simulateContract({
+				address,
+				abi: EventExampleAbi,
+				functionName: 'triggerEvent',
+			})
+
+			let hash = await env.serverWallet.writeContract(request)
+			let receipt = await env.serverWallet.waitForTransactionReceipt({ hash })
+			const logs = await env.serverWallet.getLogs({
+				address,
+				blockHash: receipt.blockHash,
+			})
+			expect(logs).toHaveLength(1)
+			expect(logs[0]).toMatchObject({
+				address,
+				data: '0x00000000000000000000000000000000000000000000000000000000000030390000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000b48656c6c6f20776f726c64000000000000000000000000000000000000000000',
+				transactionHash: hash,
+			})
+
+			expect(
+				decodeEventLog({
+					abi: EventExampleAbi,
+					data: logs[0].data,
+					topics: logs[0].topics,
+				})
+			).toEqual({
+				eventName: 'ExampleEvent',
+				args: {
+					sender: env.serverWallet.account.address,
+					value: 12345n,
+					message: 'Hello world',
+				},
 			})
 		})
 	})
