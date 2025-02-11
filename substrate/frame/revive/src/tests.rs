@@ -4514,9 +4514,7 @@ fn tracing_works() {
 							output: hex_literal::hex!(
 										"08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001a546869732066756e6374696f6e20616c77617973206661696c73000000000000"
 									).to_vec().into(),
-							revert_reason: Some(
-								"This function always fails".to_string()
-							),
+							revert_reason: Some("revert: This function always fails".to_string()),
 							error: Some("execution reverted".to_string()),
 							call_type: Call,
 							..Default::default()
