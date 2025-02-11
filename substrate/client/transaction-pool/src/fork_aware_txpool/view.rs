@@ -172,7 +172,7 @@ impl<C: graph::ChainApi> graph::EventHandler<C> for ViewPoolObserver<C> {
 	}
 
 	fn usurped(&self, tx: ExtrinsicHash<C>, by: ExtrinsicHash<C>) {
-		let status = TransactionStatus::Usurped(by.clone());
+		let status = TransactionStatus::Usurped(by);
 		self.send_to_dropped_stream_sink(tx, status);
 	}
 
@@ -218,7 +218,7 @@ impl<ChainApi: graph::ChainApi> ViewPoolObserver<ChainApi> {
 		tx: ExtrinsicHash<ChainApi>,
 		status: TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
 	) {
-		if let Err(e) = self.dropped_stream_sink.unbounded_send((tx.clone(), status.clone())) {
+		if let Err(e) = self.dropped_stream_sink.unbounded_send((tx, status.clone())) {
 			trace!(target: LOG_TARGET, "[{:?}] dropped_sink: {:?} send message failed: {:?}", tx, status, e);
 		}
 	}
@@ -229,7 +229,7 @@ impl<ChainApi: graph::ChainApi> ViewPoolObserver<ChainApi> {
 		tx: ExtrinsicHash<ChainApi>,
 		status: TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
 	) {
-		if let Err(e) = self.aggregated_stream_sink.unbounded_send((tx.clone(), status.clone())) {
+		if let Err(e) = self.aggregated_stream_sink.unbounded_send((tx, status.clone())) {
 			trace!(target: LOG_TARGET, "[{:?}] aggregated_stream {:?} send message failed: {:?}", tx, status, e);
 		}
 	}

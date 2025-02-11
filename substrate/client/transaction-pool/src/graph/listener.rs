@@ -125,7 +125,7 @@ impl<C: ChainApi, L: EventHandler<C>> EventDispatcher<ExtrinsicHash<C>, C, L> {
 		&mut self,
 		hash: ExtrinsicHash<C>,
 	) -> watcher::Watcher<ExtrinsicHash<C>, ExtrinsicHash<C>> {
-		let sender = self.watchers.entry(hash.clone()).or_insert_with(watcher::Sender::default);
+		let sender = self.watchers.entry(hash).or_insert_with(watcher::Sender::default);
 		sender.new_watcher(hash)
 	}
 
@@ -141,7 +141,7 @@ impl<C: ChainApi, L: EventHandler<C>> EventDispatcher<ExtrinsicHash<C>, C, L> {
 		trace!(target: LOG_TARGET, "[{:?}] Ready (replaced with {:?})", *tx, old);
 		self.fire(tx, |watcher| watcher.ready());
 		if let Some(old) = old {
-			self.fire(old, |watcher| watcher.usurped(tx.clone()));
+			self.fire(old, |watcher| watcher.usurped(*tx));
 		}
 
 		self.event_handler.as_ref().map(|l| l.ready(*tx));
@@ -166,7 +166,7 @@ impl<C: ChainApi, L: EventHandler<C>> EventDispatcher<ExtrinsicHash<C>, C, L> {
 	/// Transaction was replaced with other extrinsic.
 	pub fn usurped(&mut self, tx: &ExtrinsicHash<C>, by: &ExtrinsicHash<C>) {
 		trace!(target: LOG_TARGET, "[{:?}] Dropped (replaced with {:?})", tx, by);
-		self.fire(tx, |watcher| watcher.usurped(by.clone()));
+		self.fire(tx, |watcher| watcher.usurped(*by));
 
 		self.event_handler.as_ref().map(|l| l.usurped(*tx, *by));
 	}
@@ -191,7 +191,7 @@ impl<C: ChainApi, L: EventHandler<C>> EventDispatcher<ExtrinsicHash<C>, C, L> {
 		trace!(target: LOG_TARGET, "[{:?}] Pruned at {:?}", tx, block_hash);
 		// Get the transactions included in the given block hash.
 		let txs = self.finality_watchers.entry(block_hash).or_insert(vec![]);
-		txs.push(tx.clone());
+		txs.push(*tx);
 		// Current transaction is the last one included.
 		let tx_index = txs.len() - 1;
 
