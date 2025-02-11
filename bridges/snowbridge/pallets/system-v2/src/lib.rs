@@ -156,12 +156,12 @@ pub mod pallet {
 
 			let ethereum_location = T::EthereumLocation::get();
 			// reanchor to Ethereum context
-			let location = origin_location
+			let reanchored_location = origin_location
 				.clone()
 				.reanchored(&ethereum_location, &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)?;
 
-			let agent_id = agent_id_of::<T>(&location)?;
+			let agent_id = agent_id_of::<T>(&reanchored_location)?;
 
 			// Record the agent id or fail if it has already been created
 			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);
@@ -233,9 +233,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Send `command` to the Gateway on the Channel identified by `channel_id`
-		fn send(origin_location: Location, command: Command, fee: u128) -> DispatchResult {
-			let origin = agent_id_of::<T>(&origin_location)?;
-
+		fn send(origin: H256, command: Command, fee: u128) -> DispatchResult {
 			let mut message = Message {
 				origin_location,
 				origin,

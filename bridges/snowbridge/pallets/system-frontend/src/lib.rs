@@ -91,6 +91,9 @@ pub mod pallet {
 		/// Location of bridge hub
 		type BridgeHubLocation: Get<Location>;
 
+		/// Universal location of this runtime.
+		type UniversalLocation: Get<InteriorLocation>;
+
 		type WeightInfo: WeightInfo;
 
 		/// A set of helper functions for benchmarking.
@@ -121,6 +124,8 @@ pub mod pallet {
 		Send,
 		/// Withdraw fee asset failure
 		FundsUnavailable,
+		/// Convert to reanchored location failure
+		LocationConversionFailed,
 	}
 
 	#[pallet::call]
@@ -149,8 +154,13 @@ pub mod pallet {
 			)
 			.map_err(|_| Error::<T>::FundsUnavailable)?;
 
+			let reanchored_location = origin_location
+				.clone()
+				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
+				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+
 			let call = BridgeHubRuntime::Control(EthereumSystemCall::CreateAgent {
-				location: Box::new(VersionedLocation::from(origin_location.clone())),
+				location: Box::new(VersionedLocation::from(reanchored_location.clone())),
 				fee,
 			});
 
@@ -199,7 +209,12 @@ pub mod pallet {
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
 			let mut checked = false;
-			if asset_location.eq(&origin_location) || asset_location.starts_with(&origin_location) {
+			/// Check asset_location should start from the origin_location, except for the sudo
+			/// call when origin_location is Here
+			if origin_location.eq(&Here.into()) ||
+				asset_location.eq(&origin_location) ||
+				asset_location.starts_with(&origin_location)
+			{
 				checked = true
 			}
 			ensure!(checked, <Error<T>>::InvalidAssetOwner);
@@ -220,8 +235,13 @@ pub mod pallet {
 			)
 			.map_err(|_| Error::<T>::FundsUnavailable)?;
 
+			let reanchored_asset_location = asset_location
+				.clone()
+				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
+				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+
 			let call = BridgeHubRuntime::Control(EthereumSystemCall::RegisterToken {
-				asset_id: Box::new(VersionedLocation::from(asset_location.clone())),
+				asset_id: Box::new(VersionedLocation::from(reanchored_asset_location.clone())),
 				metadata,
 				fee,
 			});
@@ -257,7 +277,11 @@ pub mod pallet {
 			let bridgehub = T::BridgeHubLocation::get();
 			let (_, price) =
 				send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
-			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;
+			// Ignore fee charges for sudo call
+			if origin.clone() != Here.into() {
+				T::XcmExecutor::charge_fees(origin, price)
+					.map_err(|_| Error::<T>::FundsUnavailable)?;
+			}
 			Ok(())
 		}
 	}

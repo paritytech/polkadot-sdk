@@ -16,7 +16,7 @@
 
 use crate::{
 	xcm_config::{AssetTransactors, XcmConfig},
-	Runtime, RuntimeEvent,
+	Runtime, RuntimeEvent, RuntimeOrigin,
 };
 use frame_support::{parameter_types, traits::Everything};
 use pallet_xcm::EnsureXcm;
@@ -26,8 +26,11 @@ use xcm_executor::XcmExecutor;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 use crate::xcm_config::XcmRouter;
+use crate::xcm_config::{LocalOriginToLocation, UniversalLocation};
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
+use frame_support::traits::EitherOf;
+use xcm_builder::EnsureXcmOrigin;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
@@ -74,8 +77,10 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
-	type CreateAgentOrigin = EnsureXcm<Everything>;
-	type RegisterTokenOrigin = EnsureXcm<Everything>;
+	type CreateAgentOrigin =
+		EitherOf<EnsureXcm<Everything>, EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>>;
+	type RegisterTokenOrigin =
+		EitherOf<EnsureXcm<Everything>, EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -85,4 +90,5 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type RemoteExecutionFee = DeliveryFee;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type BridgeHubLocation = BridgeHubLocation;
+	type UniversalLocation = UniversalLocation;
 }
