@@ -33,6 +33,7 @@ serde = { features = [
 	"alloc",
 	"derive",
 ], workspace = true, default-features = false }
+alloy-core = { workspace = true, features = ["sol-types"] }
 
 # Polkadot SDK Dependencies
 frame-benchmarking = { optional = true, workspace = true }

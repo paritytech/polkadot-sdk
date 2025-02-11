@@ -24,44 +24,4 @@ pub use tracing::*;
 mod gas_encoder;
 pub use gas_encoder::*;
 pub mod runtime;
-
-use crate::alloc::{format, string::*};
-
-/// Extract the revert message from a revert("msg") solidity statement.
-pub fn extract_revert_reason(exec_data: &[u8]) -> Option<String> {
-	let error_selector = exec_data.get(0..4)?;
-
-	match error_selector {
-		// assert(false)
-		[0x4E, 0x48, 0x7B, 0x71] => {
-			let panic_code: u32 = U256::from_big_endian(exec_data.get(4..36)?).try_into().ok()?;
-
-			// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
-			return Some(match panic_code {
-				0x00 => "generic panic".to_string(),
-				0x01 => "assert(false)".to_string(),
-				0x11 => "arithmetic underflow or overflow".to_string(),
-				0x12 => "division or modulo by zero".to_string(),
-				0x21 => "enum overflow".to_string(),
-				0x22 => "invalid encoded storage byte array accessed".to_string(),
-				0x31 => "out-of-bounds array access; popping on an empty array".to_string(),
-				0x32 => "out-of-bounds access of an array or bytesN".to_string(),
-				0x41 => "out of memory".to_string(),
-				0x51 => "uninitialized function".to_string(),
-				code => format!("unknown panic code: {code:#x}"),
-			})
-		},
-		// revert(string)
-		[0x08, 0xC3, 0x79, 0xA0] => {
-			let decoded = ethabi::decode(&[ethabi::ParamKind::String], &exec_data[4..]).ok()?;
-			if let Some(ethabi::Token::String(msg)) = decoded.first() {
-				return Some(String::from_utf8_lossy(msg).to_string());
-			}
-			None
-		},
-		_ => {
-			log::debug!(target: crate::LOG_TARGET, "Unknown revert function selector: {error_selector:?}");
-			None
-		},
-	}
-}
+pub use alloy_core::sol_types::decode_revert_reason;

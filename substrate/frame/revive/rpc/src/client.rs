@@ -26,7 +26,7 @@ use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		extract_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, CallTrace, Filter,
+		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, CallTrace, Filter,
 		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
 		TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
@@ -154,7 +154,7 @@ impl From<ClientError> for ErrorObjectOwned {
 				)
 			},
 			ClientError::TransactError(EthTransactError::Data(data)) => {
-				let msg = match extract_revert_reason(&data) {
+				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
 					None => "execution reverted".to_string(),
 				};
