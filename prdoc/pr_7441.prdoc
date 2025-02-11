@@ -2,9 +2,9 @@ title: 'Update Scheduler to have a configurable block provider #7434'
 doc:
 - audience: Runtime Dev
   description: |-
-    Follow up from https://github.com/paritytech/polkadot-sdk/pull/6362#issuecomment-2629744365
+    This PR makes `pallet_scheduler` configurable by introducing `BlockNumberProvider` in `pallet_scheduler::Config`. Instead of relying solely on `frame_system::Pallet::<T>::block_number()`, the scheduler can now use any block number source, including external providers like the relay chain.
 
-        This PR modifies the pallet_scheduler to support parachains that do not produce blocks on a regular schedule. Since block numbers may not increase monotonically in such environments, the scheduler cannot rely on frame_system::Pallet::<T>::block_number(). Instead, this update introduces BlockNumberProvider = frame_system::Pallet<Runtime> in pallet_scheduler::Config, allowing the scheduler to use an external provider, such as the relay chain, for block numbers.
+    Parachains can continue using `frame_system::Pallet::<Runtime>::block_number()` without issue. To retain the previous behavior, set `BlockNumberProvider` to `frame_system::Pallet::<Runtime>`.
 
 crates:
 - name: collectives-westend-runtime
