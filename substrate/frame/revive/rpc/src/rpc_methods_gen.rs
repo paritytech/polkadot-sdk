@@ -95,6 +95,10 @@ pub trait EthRpc {
 	#[method(name = "eth_getCode")]
 	async fn get_code(&self, address: Address, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes>;
 
+	/// Returns an array of all logs matching filter with given id.
+	#[method(name = "eth_getLogs")]
+	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults>;
+
 	/// Returns the value from a storage position at a given address.
 	#[method(name = "eth_getStorageAt")]
 	async fn get_storage_at(
