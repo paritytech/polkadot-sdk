@@ -123,10 +123,10 @@ pub mod v1 {
 	use bp_relayers::RewardsAccountParams;
 	use bp_runtime::StorageDoubleMapKeyProvider;
 	use codec::{Codec, EncodeLike};
-	use frame_benchmarking::__private::Zero;
 	use frame_support::{
 		pallet_prelude::OptionQuery, traits::UncheckedOnRuntimeUpgrade, Blake2_128Concat, Identity,
 	};
+	use sp_arithmetic::traits::Zero;
 	use sp_std::marker::PhantomData;
 
 	pub(crate) struct RelayerRewardsKeyProvider<AccountId, Reward, LaneId>(

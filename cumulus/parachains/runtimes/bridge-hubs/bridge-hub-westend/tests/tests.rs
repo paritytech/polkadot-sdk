@@ -19,7 +19,9 @@
 use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
-use bridge_common_config::{BridgeRelayersInstance, BridgeRewardKind, RequiredStakeForStakeAndSlash};
+use bridge_common_config::{
+	BridgeRelayersInstance, BridgeRewardKind, RequiredStakeForStakeAndSlash,
+};
 use bridge_hub_test_utils::test_cases::run_test;
 use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
