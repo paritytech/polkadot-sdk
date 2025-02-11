@@ -2355,6 +2355,20 @@ impl_runtime_apis! {
 
 			tracer.collect_traces().pop()
 		}
+
+		fn trace_call(
+			tx: pallet_revive::evm::GenericTransaction,
+			config: pallet_revive::evm::TracerConfig)
+			-> Result<pallet_revive::evm::CallTrace, pallet_revive::EthTransactError>
+		{
+			use pallet_revive::tracing::trace;
+			let mut tracer = config.build(Revive::evm_weight_to_gas);
+			trace(&mut tracer, || {
+				Self::eth_transact(tx)
+			})?;
+
+			Ok(tracer.collect_traces().pop().expect("eth_transact succeeded, trace must exist, qed"))
+		}
 	}
 }
 
