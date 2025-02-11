@@ -35,6 +35,18 @@ jobs:
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+  prdoc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [preflight]
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - name: prdoc check
+        id: required
+        run: RUST_LOG=info prdoc check
+
   check-dependency-rules:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -210,6 +222,7 @@ jobs:
     # If any new job gets added, be sure to add it to this array
     needs:
       - fmt
+      - prdoc
       - check-dependency-rules
       - check-rust-feature-propagation
       - test-rust-features
