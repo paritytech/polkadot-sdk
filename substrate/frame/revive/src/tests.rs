@@ -1005,6 +1005,7 @@ fn transient_storage_limit_in_call() {
 fn deploy_and_call_other_contract() {
 	let (caller_wasm, _caller_code_hash) = compile_module("caller_contract").unwrap();
 	let (callee_wasm, callee_code_hash) = compile_module("return_with_data").unwrap();
+	let code_load_weight = crate::wasm::code_load_weight(callee_wasm.len() as u32);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -1032,7 +1033,9 @@ fn deploy_and_call_other_contract() {
 
 		// Call BOB contract, which attempts to instantiate and call the callee contract and
 		// makes various assertions on the results from those calls.
-		assert_ok!(builder::call(caller_addr).data(callee_code_hash.as_ref().to_vec()).build());
+		assert_ok!(builder::call(caller_addr)
+			.data((callee_code_hash, code_load_weight.ref_time()).encode())
+			.build());
 
 		assert_eq!(
 			System::events(),
@@ -4442,20 +4445,19 @@ fn tracing_works_for_transfers() {
 }
 
 #[test]
-#[ignore = "does not collect the gas_used properly"]
 fn tracing_works() {
 	use crate::evm::*;
 	use CallType::*;
 	let (code, _code_hash) = compile_module("tracing").unwrap();
 	let (wasm_callee, _) = compile_module("tracing_callee").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 
 		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
 
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(code)).value(10_000_000).build_and_unwrap_contract();
 
 		let tracer_options = vec![
 			( false , vec![]),
@@ -4553,6 +4555,15 @@ fn tracing_works() {
 											to: addr,
 											input: (0u32, addr_callee).encode(),
 											call_type: Call,
+											calls: vec![
+												CallTrace {
+													from: addr,
+													to: BOB_ADDR,
+													value: U256::from(100),
+													call_type: CallType::Call,
+													..Default::default()
+												}
+											],
 											..Default::default()
 										},
 									],
