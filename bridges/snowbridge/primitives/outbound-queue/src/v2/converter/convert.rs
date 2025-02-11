@@ -300,7 +300,6 @@ where
 
 		let message = Message {
 			id: (*topic_id).into(),
-			origin_location: origin_location.clone(),
 			origin,
 			fee: fee_amount,
 			commands: BoundedVec::try_from(commands).map_err(|_| TooManyCommands)?,

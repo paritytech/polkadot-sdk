@@ -69,7 +69,6 @@ fn process_message_yields_on_max_messages_per_block() {
 		let _channel_id: ChannelId = ParaId::from(1000).into();
 		let origin = AggregateMessageOrigin::SnowbridgeV2(H256::zero());
 		let message = Message {
-			origin_location: Default::default(),
 			origin: Default::default(),
 			id: Default::default(),
 			fee: 0,
