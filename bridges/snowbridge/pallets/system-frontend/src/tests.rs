@@ -48,7 +48,7 @@ fn register_token_fail_for_owner_check() {
 		};
 		assert_noop!(
 			EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata, 100),
-			Error::<Test>::InvalidAssetOwner
+			Error::<Test>::OwnerCheck
 		);
 	});
 }

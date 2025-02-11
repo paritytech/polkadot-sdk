@@ -24,6 +24,7 @@ use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
 use sp_std::prelude::*;
 use xcm::prelude::*;
+use xcm_executor::traits::TransactAsset;
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::OriginTrait;
@@ -74,7 +75,9 @@ pub mod pallet {
 		/// XCM message sender
 		type XcmSender: SendXcm;
 
-		/// Handler for XCM fees.
+		/// To withdraw and deposit an asset.
+		type AssetTransactor: TransactAsset;
+
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 
 		/// Fee asset for the execution cost on ethereum
@@ -110,7 +113,7 @@ pub mod pallet {
 		/// Convert versioned location failure
 		UnsupportedLocationVersion,
 		/// Check location failure, should start from the dispatch origin as owner
-		InvalidAssetOwner,
+		OwnerCheck,
 		/// Send xcm message failure
 		Send,
 		/// Withdraw fee asset failure
@@ -127,7 +130,21 @@ pub mod pallet {
 		pub fn create_agent(origin: OriginFor<T>, fee: u128) -> DispatchResult {
 			let origin_location = T::CreateAgentOrigin::ensure_origin(origin)?;
 
-			Self::burn_fees(origin_location.clone(), fee)?;
+			// Burn Ether Fee for the cost on ethereum
+			T::AssetTransactor::withdraw_asset(
+				&(T::FeeAsset::get(), fee).into(),
+				&origin_location,
+				None,
+			)
+			.map_err(|_| Error::<T>::FundsUnavailable)?;
+
+			// Burn RemoteExecutionFee for the cost on bridge hub
+			T::AssetTransactor::withdraw_asset(
+				&T::RemoteExecutionFee::get(),
+				&origin_location,
+				None,
+			)
+			.map_err(|_| Error::<T>::FundsUnavailable)?;
 
 			let call = BridgeHubRuntime::Control(EthereumSystemCall::CreateAgent {
 				location: Box::new(VersionedLocation::from(origin_location.clone())),
@@ -175,9 +192,23 @@ pub mod pallet {
 			if asset_location.eq(&origin_location) || asset_location.starts_with(&origin_location) {
 				checked = true
 			}
-			ensure!(checked, <Error<T>>::InvalidAssetOwner);
+			ensure!(checked, <Error<T>>::OwnerCheck);
 
-			Self::burn_fees(origin_location.clone(), fee)?;
+			// Burn Ether Fee for the cost on ethereum
+			T::AssetTransactor::withdraw_asset(
+				&(T::FeeAsset::get(), fee).into(),
+				&origin_location,
+				None,
+			)
+			.map_err(|_| Error::<T>::FundsUnavailable)?;
+
+			// Burn RemoteExecutionFee for the cost on bridge hub
+			T::AssetTransactor::withdraw_asset(
+				&T::RemoteExecutionFee::get(),
+				&origin_location,
+				None,
+			)
+			.map_err(|_| Error::<T>::FundsUnavailable)?;
 
 			let call = BridgeHubRuntime::Control(EthereumSystemCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(asset_location.clone())),
@@ -196,7 +227,7 @@ pub mod pallet {
 			]
 			.into();
 
-			Self::send(origin_location, xcm)?;
+			Self::send(origin_location.clone(), xcm)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken { location: asset_location });
 
@@ -210,14 +241,6 @@ pub mod pallet {
 			let (_, price) =
 				send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
 			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;
-			Ok(())
-		}
-		pub fn burn_fees(origin_location: Location, fee: u128) -> DispatchResult {
-			let ethereum_fee_asset = (T::FeeAsset::get(), fee).into();
-			T::XcmExecutor::charge_fees(origin_location.clone(), ethereum_fee_asset)
-				.map_err(|_| Error::<T>::FundsUnavailable)?;
-			T::XcmExecutor::charge_fees(origin_location, T::RemoteExecutionFee::get().into())
-				.map_err(|_| Error::<T>::FundsUnavailable)?;
 			Ok(())
 		}
 	}
