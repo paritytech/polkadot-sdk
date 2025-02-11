@@ -419,7 +419,13 @@ mod tests {
 	async fn test_insert_remove(pool: SqlitePool) {
 		let provider = setup_sqlite_provider(pool).await;
 		let block_hash = H256::default();
-		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+		let receipts = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				logs: vec![Log { block_hash, ..Default::default() }],
+				..Default::default()
+			},
+		)];
 
 		provider.insert(&block_hash, &receipts).await;
 		let row = provider.fetch_row(&receipts[0].1.transaction_hash).await;
