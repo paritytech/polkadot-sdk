@@ -154,8 +154,8 @@ pub mod pallet {
 			let origin_location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let ethereum_location = T::EthereumLocation::get();
 			// reanchor to Ethereum context
+			let ethereum_location = T::EthereumLocation::get();
 			let reanchored_location = origin_location
 				.clone()
 				.reanchored(&ethereum_location, &T::UniversalLocation::get())

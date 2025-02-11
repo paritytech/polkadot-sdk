@@ -23,6 +23,21 @@ use snowbridge_outbound_queue_primitives::v2::ContractCall;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
 
+#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
+pub enum ControlFrontendCall {
+	#[codec(index = 1)]
+	CreateAgent { fee: u128 },
+	#[codec(index = 2)]
+	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata, fee: u128 },
+}
+
+#[allow(clippy::large_enum_variant)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
+pub enum SnowbridgeControlFrontend {
+	#[codec(index = 80)]
+	Control(ControlFrontendCall),
+}
+
 #[test]
 fn send_weth_from_asset_hub_to_ethereum() {
 	fund_on_bh();
@@ -83,6 +98,68 @@ fn send_weth_from_asset_hub_to_ethereum() {
 }
 
 #[test]
+pub fn register_relay_token_from_asset_hub_with_sudo() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
+				RuntimeOrigin::root(),
+				bx!(VersionedLocation::from(Location { parents: 1, interior: [].into() })),
+				AssetMetadata {
+					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 12,
+				},
+				REMOTE_FEE_AMOUNT_IN_WETH
+			)
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+pub fn register_relay_token_from_asset_hub_user_origin() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
+				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				bx!(VersionedLocation::from(Location { parents: 1, interior: [].into() })),
+				AssetMetadata {
+					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 12,
+				},
+				REMOTE_FEE_AMOUNT_IN_WETH
+			)
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
 fn transfer_relay_token_from_ah() {
 	let ethereum_sovereign: AccountId =
 		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&ethereum())
@@ -91,8 +168,11 @@ fn transfer_relay_token_from_ah() {
 
 	fund_on_bh();
 
-	// register_relay_token_on_bh();
-	register_relay_token_from_asset_hub();
+	// register token in either of the follow way should work
+	// a. register_relay_token_on_bh();
+	// b. register_relay_token_from_asset_hub_with_sudo();
+	// c. register_relay_token_from_asset_hub_user_origin();
+	register_relay_token_from_asset_hub_user_origin();
 
 	register_assets_on_ah();
 
@@ -234,23 +314,16 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 }
 
 #[test]
-pub fn register_relay_token_from_asset_hub() {
+fn register_token_from_penpal() {
 	fund_on_bh();
 	register_assets_on_ah();
 	fund_on_ah();
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		assert_ok!(
-			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
-				RuntimeOrigin::root(),
-				bx!(VersionedLocation::from(Location { parents: 1, interior: [].into() })),
-				AssetMetadata {
-					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
-					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
-					decimals: 12,
-				},
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::create_agent(
+				RuntimeOrigin::signed(AssetHubWestendSender::get()),
 				REMOTE_FEE_AMOUNT_IN_WETH
 			)
 		);
@@ -369,31 +442,6 @@ fn transact_with_agent_from_asset_hub() {
 }
 
 #[test]
-fn register_agent_from_penpal() {
-	fund_on_bh();
-	register_assets_on_ah();
-	fund_on_ah();
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(
-			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::create_agent(
-				RuntimeOrigin::signed(AssetHubWestendSender::get()),
-				REMOTE_FEE_AMOUNT_IN_WETH
-			)
-		);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
-		);
-	});
-}
-
-#[test]
 fn register_user_agent_from_penpal() {
 	fund_on_bh();
 	register_assets_on_ah();
@@ -485,16 +533,14 @@ fn register_user_agent_from_penpal() {
 fn send_message_from_penpal_to_ethereum(sudo: bool) {
 	// bh
 	fund_on_bh();
-	register_agent_from_penpal();
+	register_user_agent_from_penpal();
 	// ah
 	register_assets_on_ah();
 	register_pal_on_ah();
 	register_pal_on_bh();
 	fund_on_ah();
-	create_pools_on_ah();
 	// penpal
 	set_trust_reserve_on_penpal();
-	register_assets_on_penpal();
 	fund_on_penpal();
 
 	PenpalB::execute_with(|| {
@@ -619,19 +665,4 @@ fn send_message_from_penpal_to_ethereum_with_sudo() {
 #[test]
 fn send_message_from_penpal_to_ethereum_with_user_origin() {
 	send_message_from_penpal_to_ethereum(false)
-}
-
-#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum ControlFrontendCall {
-	#[codec(index = 1)]
-	CreateAgent { fee: u128 },
-	#[codec(index = 2)]
-	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata, fee: u128 },
-}
-
-#[allow(clippy::large_enum_variant)]
-#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum SnowbridgeControlFrontend {
-	#[codec(index = 80)]
-	Control(ControlFrontendCall),
 }

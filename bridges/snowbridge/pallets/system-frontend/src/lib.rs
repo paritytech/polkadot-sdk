@@ -208,17 +208,6 @@ pub mod pallet {
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let mut checked = false;
-			// Check asset_location should start from the origin_location, except for the sudo
-			// call when origin_location is Here
-			if origin_location.eq(&Here.into()) ||
-				asset_location.eq(&origin_location) ||
-				asset_location.starts_with(&origin_location)
-			{
-				checked = true
-			}
-			ensure!(checked, <Error<T>>::InvalidAssetOwner);
-
 			if !origin_location.eq(&Here.into()) {
 				// Burn Ether Fee for the cost on ethereum
 				T::AssetTransactor::withdraw_asset(
