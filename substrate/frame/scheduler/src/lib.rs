@@ -390,7 +390,7 @@ pub mod pallet {
 		fn on_initialize(_n: SystemBlockNumberFor<T>) -> Weight {
 			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
-			Self::service_agendas(&mut weight_counter, now, u32::MAX());
+			Self::service_agendas(&mut weight_counter, now, u32::MAX);
 			weight_counter.consumed()
 		}
 	}
@@ -1176,7 +1176,7 @@ impl<T: Config> Pallet<T> {
 		let mut count_down = max;
 		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
 		while count_down > 0 && when <= now && weight.can_consume(service_agenda_base_weight) {
-			if !Self::service_agenda(weight, &mut executed, now, when, u32::max_value()) {
+			if !Self::service_agenda(weight, &mut executed, now, when, u32::MAX) {
 				incomplete_since = incomplete_since.min(when);
 			}
 			when.saturating_inc();
