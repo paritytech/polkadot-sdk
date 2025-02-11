@@ -295,10 +295,13 @@ pub mod pallet {
 		/// The preimage provider with which we look up call hashes to get the call.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-		/// Suggested value: Use the system block number or if you expect the parachain to execute
-		/// very regularly you can use the relay chain block number. Warning: This value must not
-		/// be too much out of sync with the local block number. Between every block the increment of
-		/// this number should be reasonably small to avoid performance degradation and added latency
+		/// Suggested value: Use the system block number or, if the parachain executes frequently,
+		/// the relay chain block number.
+		///
+		/// # Warning
+		/// Ensure this value stays closely synchronized with the local block number.
+		/// A significant deviation can cause performance degradation and increased latency.
+		/// Ideally, the difference between consecutive blocks should remain minimal.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
@@ -384,10 +387,10 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
-		fn on_initialize(_do_not_use_local_block_number: SystemBlockNumberFor<T>) -> Weight {
+		fn on_initialize(_n: SystemBlockNumberFor<T>) -> Weight {
 			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
-			Self::service_agendas(&mut weight_counter, now, u32::max_value());
+			Self::service_agendas(&mut weight_counter, now, u32::MAX());
 			weight_counter.consumed()
 		}
 	}
@@ -934,11 +937,11 @@ impl<T: Config> Pallet<T> {
 		let mut agenda = Agenda::<T>::get(when);
 		let index = if (agenda.len() as u32) < T::MaxScheduledPerBlock::get() {
 			// will always succeed due to the above check.
-			let _ = agenda.try_push(Some(what.clone()));
+			let _ = agenda.try_push(Some(what));
 			agenda.len() as u32 - 1
 		} else {
 			if let Some(hole_index) = agenda.iter().position(|i| i.is_none()) {
-				agenda[hole_index] = Some(what.clone());
+				agenda[hole_index] = Some(what);
 				hole_index as u32
 			} else {
 				return Err((DispatchError::Exhausted, what))
