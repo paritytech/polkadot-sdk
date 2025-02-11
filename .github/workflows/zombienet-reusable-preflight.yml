@@ -245,6 +245,6 @@ jobs:
           if [[ $CONCLISION == "success"]]; then
             echo "CI workflow is done."
           else
-            echo "::warning:: CI workflow ('Build and push images') fails"
+            echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLISION"
             exit 1
           fi;
