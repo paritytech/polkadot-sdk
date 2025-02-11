@@ -5,7 +5,7 @@ contract TracingCaller {
 	event TraceEvent(uint256 value, string message);
     address payable public callee;
 
-	constructor(address payable _callee) payable {
+	constructor(address payable _callee) public payable {
         require(_callee != address(0), "Callee address cannot be zero");
         callee = _callee;
     }
@@ -42,7 +42,7 @@ contract TracingCallee {
         emit CalleeCalled(counter);
     }
 
-function failingFunction() external payable {
+	function failingFunction() external payable {
         require(false, "This function always fails");
     }
 
