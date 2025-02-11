@@ -2314,7 +2314,7 @@ impl_runtime_apis! {
 		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
 			use pallet_revive::tracing::trace;
 			log::debug!(target: "runtime::revive", "Tracing block {:?}", block.header().number);
-			let mut tracer = config.build(Revive::evm_weight_to_gas);
+			let mut tracer = config.build(Revive::evm_gas_from_weight);
 			let mut traces = vec![];
 			let (header, extrinsics) = block.deconstruct();
 
@@ -2338,7 +2338,7 @@ impl_runtime_apis! {
 			config: pallet_revive::evm::TracerConfig
 		) -> Option<pallet_revive::evm::CallTrace> {
 			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_weight_to_gas);
+			let mut tracer = config.build(Revive::evm_gas_from_weight);
 			let (header, extrinsics) = block.deconstruct();
 
 			Executive::initialize_block(&header);
@@ -2362,7 +2362,7 @@ impl_runtime_apis! {
 			-> Result<pallet_revive::evm::CallTrace, pallet_revive::EthTransactError>
 		{
 			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_weight_to_gas);
+			let mut tracer = config.build(Revive::evm_gas_from_weight);
 			trace(&mut tracer, || {
 				Self::eth_transact(tx)
 			})?;

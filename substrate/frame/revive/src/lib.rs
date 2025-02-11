@@ -1328,7 +1328,7 @@ where
 	}
 
 	/// Convert a weight to a gas value.
-	pub fn evm_weight_to_gas(weight: Weight) -> U256 {
+	pub fn evm_gas_from_weight(weight: Weight) -> U256 {
 		let fee = T::WeightPrice::convert(weight);
 		Self::evm_fee_to_gas(fee)
 	}
@@ -1340,7 +1340,7 @@ where
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		Self::evm_weight_to_gas(max_block_weight)
+		Self::evm_gas_from_weight(max_block_weight)
 	}
 
 	/// Get the gas price.
