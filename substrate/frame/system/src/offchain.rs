@@ -520,7 +520,7 @@ pub trait SignMessage<T: SigningTypes> {
 /// Interface for creating a transaction for a call that will be authorized.
 ///
 /// Authorized calls are calls that has some specific validation logic execute in the transaction
-/// extension: [`crate::extensions::AuthorizeCall`].
+/// extension: [`crate::AuthorizeCall`].
 /// The authorization logic is defined on the call with the attribute:
 /// [`frame_support::pallet_macros::authorize`].
 ///
