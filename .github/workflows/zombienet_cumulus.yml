@@ -41,9 +41,9 @@ jobs:
           echo "RELAY_IMAGE: $RELAY_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
           export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-            --local-dir="$(pwd)/$LOCAL_DIR"
-            --concurrency=1
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_DIR" \
+            --concurrency=1 \
             --test="0001-sync_blocks_from_tip_without_connected_collator.zndsl"
 
       - name: upload logs
@@ -72,9 +72,9 @@ jobs:
           echo "RELAY_IMAGE: $RELAY_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
           export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-            --local-dir="$(pwd)/$LOCAL_DIR"
-            --concurrency=1
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_DIR" \
+            --concurrency=1 \
             --test="0002-pov_recovery.zndsl"
 
       - name: upload logs
@@ -84,7 +84,6 @@ jobs:
           path: |
             /tmp/zombie*/logs/*
 
-  #
   zombienet-cumulus-0003-full_node_catching_up:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
@@ -104,9 +103,9 @@ jobs:
           echo "RELAY_IMAGE: $RELAY_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
           export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-            --local-dir="$(pwd)/$LOCAL_DIR"
-            --concurrency=1
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_DIR" \
+            --concurrency=1 \
             --test="0003-full_node_catching_up.zndsl"
 
       - name: upload logs
@@ -115,8 +114,7 @@ jobs:
           name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
-  #
-  #
+
   zombienet-cumulus-0004-runtime_upgrade:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
@@ -146,9 +144,9 @@ jobs:
           cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
           ls /tmp
           export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-            --local-dir="$(pwd)/$LOCAL_DIR"
-            --concurrency=1
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_DIR" \
+            --concurrency=1 \
             --test="0004-runtime_upgrade.zndsl"
 
       - name: upload logs
@@ -157,8 +155,8 @@ jobs:
           name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
-  #
-  #
+
+
   zombienet-cumulus-0005-migrate_solo_to_para:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
@@ -178,9 +176,9 @@ jobs:
           echo "RELAY_IMAGE: $RELAY_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
           export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-            --local-dir="$(pwd)/$LOCAL_DIR"
-            --concurrency=1
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_DIR" \
+            --concurrency=1 \
             --test="0005-migrate_solo_to_para.zndsl"
 
       - name: upload logs
@@ -189,7 +187,7 @@ jobs:
           name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
-  #
+
   zombienet-cumulus-0006-rpc_collator_builds_blocks:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
@@ -209,9 +207,9 @@ jobs:
           echo "RELAY_IMAGE: $RELAY_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
           export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-            --local-dir="$(pwd)/$LOCAL_DIR"
-            --concurrency=1
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_DIR" \
+            --concurrency=1 \
             --test="0006-rpc_collator_builds_blocks.zndsl"
 
       - name: upload logs
@@ -220,7 +218,7 @@ jobs:
           name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
-  #
+
   zombienet-cumulus-0007-full_node_warp_sync:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
@@ -240,9 +238,9 @@ jobs:
           echo "RELAY_IMAGE: $RELAY_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
           export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-            --local-dir="$(pwd)/$LOCAL_DIR"
-            --concurrency=1
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_DIR" \
+            --concurrency=1 \
             --test="0007-full_node_warp_sync.zndsl"
 
       - name: upload logs
@@ -251,7 +249,7 @@ jobs:
           name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
-  #
+
   zombienet-cumulus-0008-elastic_authoring:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
@@ -271,9 +269,9 @@ jobs:
           echo "RELAY_IMAGE: $RELAY_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
           export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-            --local-dir="$(pwd)/$LOCAL_DIR"
-            --concurrency=1
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_DIR" \
+            --concurrency=1 \
             --test="0008-elastic_authoring.zndsl"
 
       - name: upload logs
@@ -282,7 +280,7 @@ jobs:
           name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
-  #
+
   zombienet-cumulus-0009-elastic_pov_recovery:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
@@ -302,9 +300,9 @@ jobs:
           echo "RELAY_IMAGE: $RELAY_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
           export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-            --local-dir="$(pwd)/$LOCAL_DIR"
-            --concurrency=1
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_DIR" \
+            --concurrency=1 \
             --test="0009-elastic_pov_recovery.zndsl"
 
       - name: upload logs
