@@ -22,6 +22,9 @@ pub use weights::*;
 
 use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
+use snowbridge_core::AssetMetadata;
+use sp_core::H256;
+use sp_io::hashing::blake2_256;
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::TransactAsset;
@@ -30,7 +33,6 @@ use xcm_executor::traits::TransactAsset;
 use frame_support::traits::OriginTrait;
 
 pub use pallet::*;
-use snowbridge_core::AssetMetadata;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemCall {
@@ -58,7 +60,6 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
@@ -101,11 +102,12 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A `CreateAgent` message was sent to Bridge Hub
-		CreateAgent { location: Location },
+		CreateAgent { location: Location, message_id: H256 },
 		/// A message to register a Polkadot-native token was sent to Bridge Hub
 		RegisterToken {
 			/// Location of Polkadot-native token
 			location: Location,
+			message_id: H256,
 		},
 	}
 
@@ -152,6 +154,8 @@ pub mod pallet {
 				fee,
 			});
 
+			let topic = blake2_256(&("SnowbridgeFrontend", call.clone()).encode());
+
 			let xcm: Xcm<()> = vec![
 				// Burn some DOT fees from the origin on AH and teleport to BH which pays for
 				// the execution of Transacts on BH.
@@ -162,12 +166,17 @@ pub mod pallet {
 					call: call.encode().into(),
 					fallback_max_weight: None,
 				},
+				ExpectTransactStatus(MaybeErrorCode::Success),
+				SetTopic(topic),
 			]
 			.into();
 
 			Self::send(origin_location.clone(), xcm)?;
 
-			Self::deposit_event(Event::<T>::CreateAgent { location: origin_location });
+			Self::deposit_event(Event::<T>::CreateAgent {
+				location: origin_location,
+				message_id: topic.into(),
+			});
 			Ok(())
 		}
 
@@ -217,6 +226,8 @@ pub mod pallet {
 				fee,
 			});
 
+			let topic = blake2_256(&("SnowbridgeFrontend", call.clone()).encode());
+
 			let xcm: Xcm<()> = vec![
 				ReceiveTeleportedAsset(T::RemoteExecutionFee::get().into()),
 				PayFees { asset: T::RemoteExecutionFee::get() },
@@ -225,12 +236,17 @@ pub mod pallet {
 					call: call.encode().into(),
 					fallback_max_weight: None,
 				},
+				ExpectTransactStatus(MaybeErrorCode::Success),
+				SetTopic(topic),
 			]
 			.into();
 
 			Self::send(origin_location.clone(), xcm)?;
 
-			Self::deposit_event(Event::<T>::RegisterToken { location: asset_location });
+			Self::deposit_event(Event::<T>::RegisterToken {
+				location: asset_location,
+				message_id: topic.into(),
+			});
 
 			Ok(())
 		}
