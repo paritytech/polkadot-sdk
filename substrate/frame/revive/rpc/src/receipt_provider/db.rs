@@ -411,6 +411,7 @@ mod tests {
 			pool,
 			block_provider: Arc::new(MockBlockInfoProvider {}),
 			receipt_extractor: ReceiptExtractor::new(1_000_000),
+			prune_old_blocks: true,
 		}
 	}
 
