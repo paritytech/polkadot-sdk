@@ -1387,8 +1387,13 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///     impl<T: Config> Pallet<T> {
 ///         #[pallet::weight(Weight::zero())]
 ///         #[pallet::authorize(|_source, foo| if *foo == 42 {
+///             // The amount to refund, here we refund nothing
 ///             let refund = Weight::zero();
-///             let validity = ValidTransaction::default();
+///             // The validity, here we accept the call and it provides itself.
+///             // See `ValidTransaction` for more information.
+///             let validity = ValidTransaction::with_tag_prefix("my-pallet")
+///                 .and_provides("some_call")
+///                 .into();
 ///             Ok((validity, refund))
 ///         } else {
 ///             Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
@@ -1462,6 +1467,8 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///   * it can be ignore in `dev_mode`
 ///   * it can be automatically infered from weight info. For the call `foo` the function
 ///     `authorize_foo` in the weight info will be used.
+///     (weight info needs to be provided in the call attribute:
+///     `#[pallet::call(weight = T::WeightInfo)]).
 ///   * it can be a fixed value like `Weight::from_all(0)` (not recommended in production).
 ///
 ///   The weight must be small enough so that nodes don't get DDOS by validating transactions.

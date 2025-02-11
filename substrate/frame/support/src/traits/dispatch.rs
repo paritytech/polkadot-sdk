@@ -567,10 +567,13 @@ pub trait OriginTrait: Sized {
 	}
 }
 
-/// A trait to allow calls to authorize themselves from origin `None`.
+/// A trait to allow calls to authorize themselves from the origin `None`.
 ///
-/// It is usually implemented by the [`crate::pallet`] macro and used by the
+/// It is implemented by the [`crate::pallet`] macro and used by the
 /// `frame_system::AuthorizeCall` transaction extension.
+///
+/// Pallet writers can declare the authorization logic for a call using the call attribute:
+/// [`crate::pallet_macros::authorize`].
 pub trait Authorize {
 	/// The authorize function.
 	///

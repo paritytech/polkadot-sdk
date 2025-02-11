@@ -288,6 +288,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		Err(e) => return e.into_compile_error(),
 	};
 
+	// Implementation of the authorize function for each call
 	let authorize_fn = methods.iter().zip(args_name.iter()).zip(args_type.iter()).map(
 		|((method, arg_name), arg_type)| {
 			if let Some(authorize_def) = &method.authorize {
@@ -331,6 +332,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		},
 	);
 
+	// Implementation of the authorize function weight for each call
 	let mut authorize_fn_weight = Vec::<TokenStream2>::new();
 	for method in &methods {
 		let w = match &method.authorize {
