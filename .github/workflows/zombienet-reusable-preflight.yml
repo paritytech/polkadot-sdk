@@ -66,7 +66,7 @@ on:
         value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
 
       BUILD_RUN_ID:
-        value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
+        value: ${{ jobs.wait_build_images.outputs.BUILD_RUN_ID }}
         description: |
           Id of the build run, needed to download the artifacts.
 
