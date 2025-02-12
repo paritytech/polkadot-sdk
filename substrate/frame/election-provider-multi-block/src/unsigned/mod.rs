@@ -15,9 +15,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The unsigned phase, and its miner.
+//! ## The unsigned phase, and its miner.
 //!
-//! TODO: the following is the idea of how to implement multi-page unsigned, which we don't have.
+//! This pallet deals with unsigned submissions. These are backup, single page submissions from
+//! validators.
+//!
+//! This pallet has two miners:
+//!
+//! * [`unsigned::miner::BaseMiner`], which is the basis of how the mining works. It can be used by
+//!   a separate crate by providing an implementation of [`unsigned::miner::MinerConfig`]. And, it
+//!   is used in:
+//! * `Miner::OffchainWorkerMiner`, which is a specialized miner for the single page mining by
+//!   validators in the `offchain_worker` hook.
+//!
+//! ## Future Idea: Multi-Page unsigned submission
+//!
+//! the following is the idea of how to implement multi-page unsigned, which we don't have.
 //!
 //! ## Multi-block unsigned submission
 //!
@@ -145,11 +158,14 @@ mod pallet {
 				.solution_pages
 				.into_inner()
 				.pop()
-				.expect("length of `solution_pages` is always `T::Pages`, `T::Pages` is always greater than 1, can be popped; qed.");
+				.expect("length of `solution_pages` is always `1`, can be popped; qed.");
 			let claimed_score = paged_solution.score;
+			// `verify_synchronous` will internall queue and save the solution, we don't need to do
+			// it.
 			let _supports = <T::Verifier as Verifier>::verify_synchronous(
 				only_page,
 				claimed_score,
+				// must be valid against the msp
 				crate::Pallet::<T>::msp(),
 			)
 			.expect(error_message);
@@ -161,6 +177,7 @@ mod pallet {
 				claimed_score,
 				_supports.len()
 			);
+
 			Ok(None.into())
 		}
 	}
@@ -220,8 +237,10 @@ mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			// TODO: weight of a single page verification should be well below what we desire to
-			// have.
+			assert!(
+				UnsignedWeightsOf::<T>::submit_unsigned().all_lte(T::BlockWeights::get().max_block),
+				"weight of `submit_unsigned` is too high"
+			)
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -333,7 +352,6 @@ mod pallet {
 		pub(crate) fn do_try_state(
 			_now: BlockNumberFor<T>,
 		) -> Result<(), sp_runtime::TryRuntimeError> {
-			// TODO
 			Ok(())
 		}
 	}

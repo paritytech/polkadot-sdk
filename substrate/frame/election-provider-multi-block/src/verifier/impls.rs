@@ -750,7 +750,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
-	pub fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 		QueuedSolution::<T>::sanity_check()
 	}
 }
@@ -884,13 +884,6 @@ impl<T: Config> Verifier for Pallet<T> {
 				Err(fe)
 			},
 		}
-	}
-
-	fn feasibility_check_page(
-		partial_solution: Self::Solution,
-		page: PageIndex,
-	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
-		Self::feasibility_check_page_inner(partial_solution, page)
 	}
 
 	fn force_set_single_page_valid(

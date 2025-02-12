@@ -157,7 +157,6 @@
 //   operations should happen with the wrapper types.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![warn(missing_docs)]
 
 use crate::types::*;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -1028,7 +1027,7 @@ impl<T: Config> Pallet<T> {
 		<CurrentPhase<T>>::put(to);
 	}
 
-	/// Perform all the basic checks that are independent of the snapshot. TO be more specific,
+	/// Perform all the basic checks that are independent of the snapshot. To be more specific,
 	/// these are all the checks that you can do without the need to read the massive blob of the
 	/// actual snapshot. This function only contains a handful of storage reads, with bounded size.
 	///
@@ -1037,7 +1036,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Moreover, we do optionally check the fingerprint of the snapshot, if provided.
 	///
-	/// These compliment a feasibility-check, which is exactly the opposite: snapshot-dependent
+	/// These complement a feasibility-check, which is exactly the opposite: snapshot-dependent
 	/// checks.
 	pub(crate) fn snapshot_independent_checks(
 		paged_solution: &PagedRawSolution<T::MinerConfig>,
@@ -1082,10 +1081,8 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Creates the target snapshot. Writes new data to:
-	///
-	/// Returns `Ok(num_created)` if operation is okay.
-	pub fn create_targets_snapshot() -> Result<(), ElectionError<T>> {
+	/// Creates the target snapshot.
+	pub(crate) fn create_targets_snapshot() -> Result<(), ElectionError<T>> {
 		// if requested, get the targets as well.
 		Snapshot::<T>::set_desired_targets(
 			T::DataProvider::desired_targets().map_err(ElectionError::DataProvider)?,
@@ -1105,10 +1102,10 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Creates the voter snapshot. Writes new data to:
-	///
-	/// Returns `Ok(num_created)` if operation is okay.
-	pub fn create_voters_snapshot_paged(remaining: PageIndex) -> Result<(), ElectionError<T>> {
+	/// Creates the voter snapshot.
+	pub(crate) fn create_voters_snapshot_paged(
+		remaining: PageIndex,
+	) -> Result<(), ElectionError<T>> {
 		let count = T::VoterSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
@@ -1128,7 +1125,7 @@ impl<T: Config> Pallet<T> {
 	/// 1. Increment round.
 	/// 2. Change phase to [`Phase::Off`]
 	/// 3. Clear all snapshot data.
-	fn rotate_round() {
+	pub(crate) fn rotate_round() {
 		// Inc round.
 		<Round<T>>::mutate(|r| *r += 1);
 
@@ -1142,6 +1139,11 @@ impl<T: Config> Pallet<T> {
 		Snapshot::<T>::kill();
 	}
 
+	/// Call fallback for the given page.
+	///
+	/// This uses the [`ElectionProvider::bother`] to check if the fallback is actually going to do
+	/// anything. If so, it will re-collect the associated snapshot page and do the fallback. Else,
+	/// it will early return without touching the snapshot.
 	fn fallback_for_page(page: PageIndex) -> Result<BoundedSupportsOf<Self>, ElectionError<T>> {
 		use frame_election_provider_support::InstantElectionProvider;
 		let (voters, targets, desired_targets) = if T::Fallback::bother() {

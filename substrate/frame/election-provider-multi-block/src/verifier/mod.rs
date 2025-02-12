@@ -53,21 +53,13 @@
 //!
 //! Both of this, plus some helper functions, is exposed via the [`Verifier`] trait.
 //!
-//! ### Synchronous verification
-//!
-//! ### Asynchronous verification
-//!
 //! ## Queued Solution
 //!
-//! once a solution has been verified, it is called a *queued solution*. It is sitting in a single
-//! spot queue, waiting for either of:
+//! once a solution has been verified, it is called a *queued solution*. It is sitting in a queue,
+//! waiting for either of:
 //!
 //! 1. being challenged and potentially replaced by better solution, if any.
 //! 2. being exported as the final outcome of the election.
-//!
-//! ## Future Plans:
-//!
-//! - TODO: allow less winners, and backport it.
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -186,19 +178,10 @@ pub trait Verifier {
 		page: PageIndex,
 	) -> Result<SupportsOfVerifier<Self>, FeasibilityError>;
 
-	/// Just perform a single-page feasibility-check, based on the standards of this pallet, without
-	/// writing anything to anywhere.
-	///
-	/// No score check is part of this.
-	fn feasibility_check_page(
-		partial_solution: Self::Solution,
-		page: PageIndex,
-	) -> Result<SupportsOfVerifier<Self>, FeasibilityError>;
-
 	/// Force set a single page solution as the valid one.
 	///
-	/// Will erase any previous solution. Should only be used in case of emergency fallbacks and
-	/// similar.
+	/// Will erase any previous solution. Should only be used in case of emergency fallbacks,
+	/// trusted governance solutions and so on.
 	fn force_set_single_page_valid(
 		partial_supports: SupportsOfVerifier<Self>,
 		page: PageIndex,
