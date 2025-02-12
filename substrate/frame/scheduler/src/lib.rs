@@ -297,15 +297,17 @@ pub mod pallet {
 
 		/// Query the current block number.
 		///
+		/// Must return monotonically increasing values when called from consecutive blocks. It is
+		/// generally expected that the values also do not differ "too much" between consecutive
+		/// blocks. A future addition to this pallet will allow bigger difference between
+		/// consecutive blocks to make it possible to be utilized by parachains with *Agile
+		/// Coretime*. *Agile Coretime* parachains are currently not supported and must continue to
+		/// use their local block number provider.
+		///
 		/// Can be configured to return either:
 		/// - the local block number of the runtime via `frame_system::Pallet`
 		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
 		/// - an arbitrary value through a custom implementation of the trait
-		///
-		/// Must return monotonically increasing values on consecutive blocks. It is generally
-		/// expected that the values also do not differ "too much" between consecutive blocks. A
-		/// future addition to this pallet will allow bigger difference between consecutive blocks
-		/// to make it possible to be utilized by parachains with *Agile Coretime*.
 		///
 		/// Suggested values:
 		/// - Solo- and Relay-chains should use `frame_system::Pallet`. There are no concerns with
@@ -314,7 +316,7 @@ pub mod pallet {
 		///   pallet is not yet ready for the case that big numbers of blocks are skipped. In an
 		///   *Agile Coretime* chain with relay chain number provider configured, it could otherwise
 		///   happen that the scheduler will not be able to catch up to its agendas, since too many
-		///   relay blocks are missing if the chain only produces blocks rarely.
+		///   relay blocks are missing if the parachain only produces blocks rarely.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
