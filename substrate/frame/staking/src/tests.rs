@@ -6173,6 +6173,14 @@ fn change_of_absolute_max_nominations() {
 			);
 			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 3);
 
+			// No one can be chilled on account of non-decodable keys.
+			for k in Nominators::<Test>::iter_keys() {
+				assert_noop!(
+					Staking::chill_other(RuntimeOrigin::signed(1), k),
+					Error::<Test>::CannotChillOther
+				);
+			}
+
 			// abrupt change from 4 to 3, everyone should be fine.
 			AbsoluteMaxNominations::set(3);
 
@@ -6184,7 +6192,7 @@ fn change_of_absolute_max_nominations() {
 			);
 			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 3);
 
-			// No one can be chilled by another account on account of non-decodable keys
+			// As before, no one can be chilled on account of non-decodable keys.
 			for k in Nominators::<Test>::iter_keys() {
 				assert_noop!(
 					Staking::chill_other(RuntimeOrigin::signed(1), k),
