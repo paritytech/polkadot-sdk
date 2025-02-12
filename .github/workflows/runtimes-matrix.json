@@ -94,7 +94,7 @@
     "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "bench_features": "runtime-benchmarks",
-    "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm",
+    "bench_flags": "",
     "uri": "wss://rococo-contracts-rpc.polkadot.io:443",
     "is_relay": false
   },
