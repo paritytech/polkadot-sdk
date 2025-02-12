@@ -4,7 +4,7 @@ doc:
   description: "Fix issue where any user was allowed to set the `remote_fees` field\
     \ of `InitiateTransfer` to `None` and skip fees.\r\n"
 crates:
-- name: staging-xcm
+- name: staging-xcm-builder
   bump: patch
 - name: staging-xcm-executor
   bump: patch
