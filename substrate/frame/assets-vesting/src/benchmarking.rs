@@ -338,7 +338,7 @@ mod benchmarks {
 
 		assert_eq!(
 			Pallet::<T, I>::vesting_balance(id.clone(), &caller),
-			Some(expected_balance.clone()),
+			Some(expected_balance),
 			"Vesting balance should reflect that we are half way through all schedules duration",
 		);
 		assert_eq!(
@@ -348,14 +348,8 @@ mod benchmarks {
 		);
 
 		// The balance is not actually transferable because it has not been unlocked.
-		assert!(T::Assets::transfer(
-			id.clone(),
-			&caller,
-			&test_dest,
-			expected_balance.clone(),
-			Preserve
-		)
-		.is_err());
+		assert!(T::Assets::transfer(id.clone(), &caller, &test_dest, expected_balance, Preserve)
+			.is_err());
 
 		#[extrinsic_call]
 		merge_schedules(RawOrigin::Signed(caller.clone()), id.clone(), 0, s - 1);
@@ -373,7 +367,7 @@ mod benchmarks {
 		);
 		assert_eq!(
 			Pallet::<T, I>::vesting_balance(id.clone(), &caller),
-			Some(expected_balance.clone()),
+			Some(expected_balance),
 			"Vesting balance should equal half total locked of all schedules",
 		);
 		assert_eq!(
