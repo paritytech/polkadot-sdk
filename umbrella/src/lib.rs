@@ -328,6 +328,10 @@ pub use pallet_assets;
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
 
+/// FRAME pallet for manage vesting on Assets.
+#[cfg(feature = "pallet-assets-vesting")]
+pub use pallet_assets_vesting;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
