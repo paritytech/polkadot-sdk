@@ -1493,7 +1493,7 @@ parameter_types! {
 	pub const DesiredMembers: u32 = 13;
 	pub const DesiredRunnersUp: u32 = 7;
 	pub const MaxVotesPerVoter: u32 = 16;
-	pub const MaxVoters: u32 = 64;
+	pub const MaxVoters: u32 = 256;
 	pub const MaxCandidates: u32 = 128;
 	pub const ElectionsPhragmenPalletId: LockIdentifier = *b"phrelect";
 }

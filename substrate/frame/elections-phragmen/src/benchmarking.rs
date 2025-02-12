@@ -466,7 +466,7 @@ mod benchmarks {
 		let all_candidates = submit_candidates_with_self_vote::<T>(c, "candidates")?;
 		let _ =
 			distribute_voters::<T>(all_candidates, v.saturating_sub(c), votes_per_voter as usize)?;
-		log::info!(target: crate::LOG_TARGET, "voters: {:?}",v.saturating_sub(c));
+		log::info!(target: crate::LOG_TARGET, "[v = {:?}]voters: {:?}",v, v.saturating_sub(c));
 		log::info!(target: crate::LOG_TARGET, "votes_per_voter: {:?}",votes_per_voter);
 		log::info!(target: crate::LOG_TARGET, "candidates: {:?}",c);
 
