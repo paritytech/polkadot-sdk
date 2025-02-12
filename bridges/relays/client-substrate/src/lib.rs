@@ -34,10 +34,10 @@ use std::time::Duration;
 pub use crate::{
 	chain::{
 		AccountKeyPairOf, BlockWithJustification, CallOf, Chain, ChainWithBalances,
-		ChainWithGrandpa, ChainWithMessages, ChainWithRuntimeVersion, ChainWithTransactions,
-		ChainWithUtilityPallet, FullRuntimeUtilityPallet, MockedRuntimeUtilityPallet, Parachain,
-		RelayChain, SignParam, SignedBlockOf, TransactionStatusOf, UnsignedTransaction,
-		UtilityPallet,
+		ChainWithGrandpa, ChainWithMessages, ChainWithRewards, ChainWithRuntimeVersion,
+		ChainWithTransactions, ChainWithUtilityPallet, FullRuntimeUtilityPallet,
+		MockedRuntimeUtilityPallet, Parachain, RelayChain, SignParam, SignedBlockOf,
+		TransactionStatusOf, UnsignedTransaction, UtilityPallet,
 	},
 	client::{
 		is_ancient_block, rpc_with_caching as new, ChainRuntimeVersion, Client,
