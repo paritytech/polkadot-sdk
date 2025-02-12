@@ -38,9 +38,8 @@ jobs:
   prdoc:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [preflight]
     container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
+      image: docker.io/paritytech/prdoc:v0.1.1
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: prdoc check
