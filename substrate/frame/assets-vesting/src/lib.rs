@@ -67,6 +67,9 @@ pub use pallet::*;
 pub use types::*;
 pub use weights::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame::traits::fungibles::Create;
+
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
@@ -81,7 +84,14 @@ pub mod pallet {
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Type represents interactions between assets
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Assets: Inspect<AccountIdOf<Self>> + Mutate<AccountIdOf<Self>>;
+
+		/// Type represents interactions between assets
+		#[cfg(feature = "runtime-benchmarks")]
+		type Assets: Inspect<AccountIdOf<Self>>
+			+ Mutate<AccountIdOf<Self>>
+			+ Create<AccountIdOf<Self>>;
 
 		/// Type allows handling fungibles' freezes.
 		type Freezer: Inspect<AccountIdOf<Self>, AssetId = AssetIdOf<Self, I>, Balance = BalanceOf<Self, I>>
@@ -229,8 +239,8 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::vest_locked(1, T::MAX_VESTING_SCHEDULES)
-				.max(T::WeightInfo::vest_unlocked(1, T::MAX_VESTING_SCHEDULES))
+		#[pallet::weight(T::WeightInfo::vest_locked(T::MAX_VESTING_SCHEDULES)
+				.max(T::WeightInfo::vest_unlocked(T::MAX_VESTING_SCHEDULES))
 		)]
 		pub fn vest(origin: OriginFor<T>, asset: AssetIdOf<T, I>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -250,8 +260,8 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::vest_other_locked(1, T::MAX_VESTING_SCHEDULES)
-				.max(T::WeightInfo::vest_other_unlocked(1, T::MAX_VESTING_SCHEDULES))
+		#[pallet::weight(T::WeightInfo::vest_other_locked(T::MAX_VESTING_SCHEDULES)
+				.max(T::WeightInfo::vest_other_unlocked(T::MAX_VESTING_SCHEDULES))
 			)]
 		pub fn vest_other(
 			origin: OriginFor<T>,
@@ -278,7 +288,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::vested_transfer(1, T::MAX_VESTING_SCHEDULES))]
+		#[pallet::weight(T::WeightInfo::vested_transfer(T::MAX_VESTING_SCHEDULES))]
 		pub fn vested_transfer(
 			origin: OriginFor<T>,
 			asset: AssetIdOf<T, I>,
@@ -306,7 +316,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::force_vested_transfer(1, T::MAX_VESTING_SCHEDULES))]
+		#[pallet::weight(T::WeightInfo::force_vested_transfer(T::MAX_VESTING_SCHEDULES))]
 		pub fn force_vested_transfer(
 			origin: OriginFor<T>,
 			asset: AssetIdOf<T, I>,
@@ -343,8 +353,8 @@ pub mod pallet {
 		/// - `schedule2_index`: index of the second schedule to merge.
 		#[pallet::call_index(4)]
 		#[pallet::weight(
-				T::WeightInfo::not_unlocking_merge_schedules(1, T::MAX_VESTING_SCHEDULES)
-					.max(T::WeightInfo::unlocking_merge_schedules(1, T::MAX_VESTING_SCHEDULES))
+				T::WeightInfo::not_unlocking_merge_schedules(T::MAX_VESTING_SCHEDULES)
+					.max(T::WeightInfo::unlocking_merge_schedules(T::MAX_VESTING_SCHEDULES))
 			)]
 		pub fn merge_schedules(
 			origin: OriginFor<T>,
@@ -379,10 +389,7 @@ pub mod pallet {
 		/// - `target`: An account that has a vesting schedule
 		/// - `schedule_index`: The vesting schedule index that should be removed
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::force_remove_vesting_schedule(
-			1,
-			T::MAX_VESTING_SCHEDULES
-		))]
+		#[pallet::weight(T::WeightInfo::force_remove_vesting_schedule(T::MAX_VESTING_SCHEDULES))]
 		pub fn force_remove_vesting_schedule(
 			origin: OriginFor<T>,
 			asset: AssetIdOf<T, I>,
@@ -398,11 +405,7 @@ pub mod pallet {
 
 			Self::remove_vesting_schedule(asset, &who, schedule_index)?;
 
-			Ok(Some(T::WeightInfo::force_remove_vesting_schedule(
-				T::MAX_VESTING_SCHEDULES,
-				schedules_count as u32,
-			))
-			.into())
+			Ok(Some(T::WeightInfo::force_remove_vesting_schedule(schedules_count as u32)).into())
 		}
 	}
 }
