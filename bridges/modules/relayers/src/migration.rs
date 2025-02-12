@@ -322,10 +322,11 @@ pub mod v1 {
 /// This migration essentially converts existing `RewardsAccountParams` keys to the generic type `T::RewardKind`.
 pub mod v2 {
 	use super::*;
-	use crate::{Config, Pallet, RelayerRewards};
+	#[cfg(feature = "try-runtime")]
+	use crate::RelayerRewards;
+	use crate::{Config, Pallet};
 	use bp_messages::LaneIdType;
 	use bp_relayers::RewardsAccountParams;
-	use codec::Encode;
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 	use sp_std::marker::PhantomData;
 
@@ -366,6 +367,7 @@ pub mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::DispatchError> {
+			use codec::Encode;
 			use frame_support::BoundedBTreeMap;
 			use sp_runtime::traits::ConstU32;
 
@@ -394,7 +396,7 @@ pub mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			use codec::Decode;
+			use codec::{Decode, Encode};
 			use frame_support::BoundedBTreeMap;
 			use sp_runtime::traits::ConstU32;
 
