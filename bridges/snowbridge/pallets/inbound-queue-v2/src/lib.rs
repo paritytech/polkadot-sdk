@@ -199,10 +199,7 @@ pub mod pallet {
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: Into<Location>,
-	{
+	impl<T: Config> Pallet<T> where T::AccountId: Into<Location> {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
@@ -235,10 +232,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: Into<Location>,
-	{
+	impl<T: Config> Pallet<T> where T::AccountId: Into<Location> {
 		pub fn process_message(relayer: T::AccountId, message: Message) -> DispatchResult {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);

@@ -43,14 +43,13 @@ use bridge_runtime_common::extensions::{
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::traits::Contains;
-use snowbridge_inbound_queue_primitives::v2::Message;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, DispatchError,
+	ApplyExtrinsicResult,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;

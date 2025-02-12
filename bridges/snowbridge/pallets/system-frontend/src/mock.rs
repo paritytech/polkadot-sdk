@@ -4,7 +4,6 @@ use crate as snowbridge_system_frontend;
 use crate::mock::pallet_xcm_origin::EnsureXcm;
 use codec::Encode;
 use frame_support::{derive_impl, parameter_types, traits::Everything};
-use hex_literal::hex;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},

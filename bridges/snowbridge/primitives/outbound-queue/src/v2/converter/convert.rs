@@ -200,13 +200,13 @@ where
 	/// a. Fee asset will be checked and currently only Ether is allowed
 	/// b. For a specific transfer, either `ReserveAssetDeposited` or `WithdrawAsset` should be
 	/// 	present
-	/// c. `ReserveAssetDeposited` and `WithdrawAsset` can also be present in whatever
-	/// 	order in one message
+	/// c. `ReserveAssetDeposited` and `WithdrawAsset` can also be present in any order within the
+	/// 	same message
 	/// d. Currently, teleport asset is not allowed, transfer types other than
 	/// 	above will cause the conversion to fail
 	/// e. Currently, `AliasOrigin` is always required, can distinguish the V2 process from V1.
 	/// 	it's required also for dispatching transact from that specific origin.
-	/// d. SetTopic is required for tracing the message all the way along.
+	/// f. SetTopic is required for tracing the message all the way along.
 	fn to_ethereum_message(&mut self) -> Result<Message, XcmConverterError> {
 		// Get fee amount
 		let fee_amount = self.extract_remote_fee()?;
