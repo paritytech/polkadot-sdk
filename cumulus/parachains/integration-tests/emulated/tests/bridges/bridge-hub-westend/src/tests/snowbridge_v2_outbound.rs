@@ -33,9 +33,9 @@ pub enum EthereumSystemFrontendCall {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum SnowbridgeControlFrontend {
+pub enum EthereumSystemFrontend {
 	#[codec(index = 80)]
-	Control(EthereumSystemFrontendCall),
+	EthereumSystemFrontend(EthereumSystemFrontendCall),
 }
 
 #[test]
@@ -451,11 +451,13 @@ fn register_token_from_penpal() {
 		let remote_fee_asset_on_ethereum =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
-		let call = SnowbridgeControlFrontend::Control(EthereumSystemFrontendCall::RegisterToken {
-			asset_id: Box::new(VersionedLocation::from(foreign_asset_at_asset_hub)),
-			metadata: Default::default(),
-			fee: REMOTE_FEE_AMOUNT_IN_ETHER,
-		});
+		let call = EthereumSystemFrontend::EthereumSystemFrontend(
+			EthereumSystemFrontendCall::RegisterToken {
+				asset_id: Box::new(VersionedLocation::from(foreign_asset_at_asset_hub)),
+				metadata: Default::default(),
+				fee: REMOTE_FEE_AMOUNT_IN_ETHER,
+			},
+		);
 
 		let assets = vec![
 			local_fee_asset_on_penpal.clone(),
@@ -542,9 +544,9 @@ fn register_user_agent_from_penpal() {
 		let remote_fee_asset_on_ethereum =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
-		let call = SnowbridgeControlFrontend::Control(EthereumSystemFrontendCall::CreateAgent {
-			fee: REMOTE_FEE_AMOUNT_IN_ETHER,
-		});
+		let call = EthereumSystemFrontend::EthereumSystemFrontend(
+			EthereumSystemFrontendCall::CreateAgent { fee: REMOTE_FEE_AMOUNT_IN_ETHER },
+		);
 
 		let assets = vec![
 			local_fee_asset_on_penpal.clone(),
