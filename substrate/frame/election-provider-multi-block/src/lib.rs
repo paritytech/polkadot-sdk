@@ -1141,6 +1141,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+#[allow(unused)]
 #[cfg(any(feature = "runtime-benchmarks", test))]
 // helper code for testing and benchmarking
 impl<T> Pallet<T>
