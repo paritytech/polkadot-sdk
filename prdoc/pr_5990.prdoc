@@ -10,7 +10,8 @@ doc:
       Coretime using credits. This means on-demand Coretime should no longer be 
       purchased with the relay chain balance but rather with credits acquired 
       on the Coretime chain. The extrinsic to use for purchasing Coretime is 
-      `place_order_with_credits`.
+      `place_order_with_credits`. It is worth noting that the PR also introduces
+      a minimum credit purchase requirement to prevent potential attacks.
 
 crates:
   - name: pallet-broker
@@ -23,3 +24,7 @@ crates:
     bump: patch
   - name: polkadot-test-runtime
     bump: patch
+  - name: coretime-rococo-runtime
+    bump: major 
+  - name: coretime-westend-runtime
+    bump: major 
