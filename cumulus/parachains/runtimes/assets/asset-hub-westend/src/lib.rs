@@ -1488,6 +1488,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_assets, Local]
+		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
 		[pallet_assets_vesting, LocalVesting]
 		[pallet_assets_vesting, ForeignVesting]

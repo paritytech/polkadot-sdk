@@ -5,12 +5,12 @@ doc:
     This Pull Request introduces `pallet-assets-vesting`, allowing runtimes to add vesting schedules to assets.
 crates:
 - name: asset-hub-rococo-runtime
-  bump: minor
+  bump: major
 - name: asset-hub-westend-runtime
-  bump: minor
+  bump: major
 - name: frame-support
   bump: minor
 - name: pallet-assets-vesting
-  bump: major
+  bump: patch
 - name: polkadot-sdk
   bump: minor
