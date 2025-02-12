@@ -37,7 +37,6 @@
 //!    storage, and it is ONLY EVER removed, when after that round number is over. This can happen
 //!    for more or less free by the submitter itself, and by anyone else as well, in which case they
 //!    get a share of the the sum deposit. The share increases as times goes on.
-//!
 //! **Metadata update**: imagine you mis-computed your score.
 
 use crate::{
@@ -306,16 +305,6 @@ pub mod pallet {
 	>;
 
 	/// Triple map from (round, account, page) to a solution page.
-	// TODO: we should delete this async and once the round is passed.
-	// Registration would consequently be as follows:
-	// - If you get ejected, and you are lazy removed, a percentage of your deposit is burned. If we
-	//   set this to 100%, we will not have bad submissions after the queue is full. The queue can
-	//   be made full by purely an attacker, in which case the sum of deposits should be large
-	//   enough to cover the fact that we will have a bad election.
-	// - whitelisted accounts who will not pay deposits are needed. They can still be ejected, but
-	//   for free.
-	// - Deposit should exponentially increase, and in general we should not allow for more than say
-	//   8 signed submissions.
 	#[pallet::storage]
 	type SubmissionStorage<T: Config> = StorageNMap<
 		_,

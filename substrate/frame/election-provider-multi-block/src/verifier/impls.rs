@@ -544,6 +544,11 @@ pub(crate) mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			Self::do_on_initialize()
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(_now)
+		}
 	}
 }
 
