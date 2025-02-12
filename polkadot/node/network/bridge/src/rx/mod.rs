@@ -57,6 +57,7 @@ use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, ValidatorInde
 use std::{
 	collections::{hash_map, HashMap},
 	iter::ExactSizeIterator,
+	u32,
 };
 
 use super::validator_discovery;
@@ -750,7 +751,7 @@ where
 	// This is kept sorted, descending, by block number.
 	let mut live_heads: Vec<ActivatedLeaf> = Vec::with_capacity(MAX_VIEW_HEADS);
 	let mut finalized_number = 0;
-
+	let mut newest_session = u32::MIN;
 	let mut mode = Mode::Syncing(sync_oracle);
 	loop {
 		match ctx.recv().fuse().await? {
@@ -775,15 +776,29 @@ where
 					flesh_out_topology_peers(&mut authority_discovery_service, canonical_shuffling)
 						.await;
 
-				dispatch_validation_event_to_all_unbounded(
-					NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
-						session,
-						topology: SessionGridTopology::new(shuffled_indices, topology_peers),
-						local_index,
-					}),
-					ctx.sender(),
-					approval_voting_parallel_enabled,
-				);
+				if session >= newest_session {
+					dispatch_validation_event_to_all_unbounded(
+						NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+							session,
+							topology: SessionGridTopology::new(shuffled_indices, topology_peers),
+							local_index,
+						}),
+						ctx.sender(),
+						approval_voting_parallel_enabled,
+					);
+				} else {
+					dispatch_validation_event_to_approval_unbounded(
+						&NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+							session,
+							topology: SessionGridTopology::new(shuffled_indices, topology_peers),
+							local_index,
+						}),
+						ctx.sender(),
+						approval_voting_parallel_enabled,
+					);
+				}
+
+				newest_session = newest_session.max(session);
 			},
 			FromOrchestra::Communication {
 				msg: NetworkBridgeRxMessage::UpdatedAuthorityIds { peer_id, authority_ids },
@@ -1123,6 +1138,26 @@ async fn dispatch_collation_event_to_all(
 	dispatch_collation_events_to_all(std::iter::once(event), ctx).await
 }
 
+fn dispatch_validation_event_to_approval_unbounded(
+	event: &NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>,
+	sender: &mut impl overseer::NetworkBridgeRxSenderTrait,
+	approval_voting_parallel_enabled: bool,
+) {
+	if approval_voting_parallel_enabled {
+		event
+			.focus()
+			.ok()
+			.map(ApprovalVotingParallelMessage::from)
+			.and_then(|msg| Some(sender.send_unbounded_message(msg)));
+	} else {
+		event
+			.focus()
+			.ok()
+			.map(ApprovalDistributionMessage::from)
+			.and_then(|msg| Some(sender.send_unbounded_message(msg)));
+	}
+}
+
 fn dispatch_validation_event_to_all_unbounded(
 	event: NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>,
 	sender: &mut impl overseer::NetworkBridgeRxSenderTrait,
@@ -1139,19 +1174,12 @@ fn dispatch_validation_event_to_all_unbounded(
 		.map(BitfieldDistributionMessage::from)
 		.and_then(|msg| Some(sender.send_unbounded_message(msg)));
 
-	if approval_voting_parallel_enabled {
-		event
-			.focus()
-			.ok()
-			.map(ApprovalVotingParallelMessage::from)
-			.and_then(|msg| Some(sender.send_unbounded_message(msg)));
-	} else {
-		event
-			.focus()
-			.ok()
-			.map(ApprovalDistributionMessage::from)
-			.and_then(|msg| Some(sender.send_unbounded_message(msg)));
-	}
+	dispatch_validation_event_to_approval_unbounded(
+		&event,
+		sender,
+		approval_voting_parallel_enabled,
+	);
+
 	event
 		.focus()
 		.ok()
