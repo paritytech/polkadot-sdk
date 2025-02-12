@@ -17,8 +17,8 @@
 
 //! Assets vesting pallet benchmarking.
 
-use crate::{mock::assert_ok, *};
-use frame::{benchmarking::prelude::*, testing_prelude::TestExternalities};
+use crate::*;
+use frame::benchmarking::prelude::*;
 
 const SEED: u32 = 0;
 
@@ -88,7 +88,10 @@ where
 )]
 mod benchmarks {
 	use super::*;
-	use frame::traits::tokens::Preservation::Preserve;
+	use frame::{
+		testing_prelude::{assert_ok, TestExternalities},
+		traits::tokens::Preservation::Preserve,
+	};
 
 	#[benchmark]
 	fn vest_locked(s: Linear<1, T::MAX_VESTING_SCHEDULES>) -> Result<(), BenchmarkError> {
