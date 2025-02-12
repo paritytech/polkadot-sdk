@@ -34,7 +34,7 @@ where
 	T: crate::Config<I> + pallet_assets::Config<I>,
 {
 	// Its ok for this to fail because the user may already have no schedules.
-	let _result = AssetsVesting::vest(Some(account).into(), asset.clone());
+	let _result = AssetsVesting::vest(Some(account).into(), asset);
 	assert!(!<VestingStorage<T, I>>::contains_key(asset, account));
 }
 
