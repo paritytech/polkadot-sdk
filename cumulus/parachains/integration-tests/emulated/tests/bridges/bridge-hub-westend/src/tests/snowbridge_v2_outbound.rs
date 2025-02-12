@@ -24,7 +24,7 @@ use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum ControlFrontendCall {
+pub enum EthereumSystemFrontendCall {
 	#[codec(index = 1)]
 	CreateAgent { fee: u128 },
 	#[codec(index = 2)]
@@ -35,7 +35,7 @@ pub enum ControlFrontendCall {
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum SnowbridgeControlFrontend {
 	#[codec(index = 80)]
-	Control(ControlFrontendCall),
+	Control(EthereumSystemFrontendCall),
 }
 
 #[test]
@@ -451,7 +451,7 @@ fn register_token_from_penpal() {
 		let remote_fee_asset_on_ethereum =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
-		let call = SnowbridgeControlFrontend::Control(ControlFrontendCall::RegisterToken {
+		let call = SnowbridgeControlFrontend::Control(EthereumSystemFrontendCall::RegisterToken {
 			asset_id: Box::new(VersionedLocation::from(foreign_asset_at_asset_hub)),
 			metadata: Default::default(),
 			fee: REMOTE_FEE_AMOUNT_IN_ETHER,
@@ -542,7 +542,7 @@ fn register_user_agent_from_penpal() {
 		let remote_fee_asset_on_ethereum =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
-		let call = SnowbridgeControlFrontend::Control(ControlFrontendCall::CreateAgent {
+		let call = SnowbridgeControlFrontend::Control(EthereumSystemFrontendCall::CreateAgent {
 			fee: REMOTE_FEE_AMOUNT_IN_ETHER,
 		});
 
