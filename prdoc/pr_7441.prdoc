@@ -12,14 +12,14 @@ doc:
 
 crates:
 - name: collectives-westend-runtime
-  bump: minor
+  bump: patch
 - name: rococo-runtime
-  bump: minor
+  bump: patch
 - name: westend-runtime
-  bump: minor
+  bump: patch
 - name: pallet-democracy
-  bump: minor
+  bump: patch
 - name: pallet-referenda
-  bump: minor
+  bump: patch
 - name: pallet-scheduler
   bump: major
