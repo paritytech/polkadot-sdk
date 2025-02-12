@@ -70,6 +70,11 @@ impl ReceiptProvider for CacheReceiptProvider {
 		cache.transaction_hashes_by_block_and_index.get(block_hash).map(|v| v.len())
 	}
 
+	async fn block_transaction_hashes(&self, block_hash: &H256) -> Option<HashMap<usize, H256>> {
+		let cache = self.cache().await;
+		cache.transaction_hashes_by_block_and_index.get(block_hash).cloned()
+	}
+
 	async fn receipt_by_hash(&self, hash: &H256) -> Option<ReceiptInfo> {
 		let cache = self.cache().await;
 		cache.receipts_by_hash.get(hash).cloned()
