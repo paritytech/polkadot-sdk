@@ -532,49 +532,6 @@ where
 		None
 	}
 
-	/// The pre-finalization event handle for the view store.
-	///
-	/// This function removes the references to the views that will be removed during finalization
-	/// from the dropped stream controller. This will allow for correct dispatching of `Dropped`
-	/// events.
-	pub(crate) async fn handle_pre_finalized(&self, finalized_hash: Block::Hash) {
-		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
-		let mut removed_views = vec![];
-
-		{
-			let active_views = self.active_views.read();
-			let inactive_views = self.inactive_views.read();
-
-			active_views
-				.iter()
-				.filter(|(hash, v)| !match finalized_number {
-					Err(_) | Ok(None) => **hash == finalized_hash,
-					Ok(Some(n)) if v.at.number == n => **hash == finalized_hash,
-					Ok(Some(n)) => v.at.number > n,
-				})
-				.map(|(_, v)| removed_views.push(v.at.hash))
-				.for_each(drop);
-
-			inactive_views
-				.iter()
-				.filter(|(_, v)| !match finalized_number {
-					Err(_) | Ok(None) => false,
-					Ok(Some(n)) => v.at.number >= n,
-				})
-				.map(|(_, v)| removed_views.push(v.at.hash))
-				.for_each(drop);
-		}
-
-		trace!(
-			target: LOG_TARGET,
-			?removed_views,
-			"handle_pre_finalized"
-		);
-		removed_views.iter().for_each(|view| {
-			self.dropped_stream_controller.remove_view(*view);
-		});
-	}
-
 	/// The finalization event handle for the view store.
 	///
 	/// Views that have associated block number less than finalized block number are removed from
