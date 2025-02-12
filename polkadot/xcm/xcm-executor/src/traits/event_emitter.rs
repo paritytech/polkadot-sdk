@@ -16,12 +16,22 @@
 
 use xcm::latest::prelude::*;
 
+/// Defines the event emitter for the XCM executor.
 pub trait EventEmitter {
     fn emit_sent_event(
         origin: Location,
         destination: Location,
-        message: Xcm<()>,
         message_id: XcmHash,
+    );
+
+    fn emit_sent_failure_event(
+        origin: Location,
+        destination: Location,
+        error: SendError,
+    );
+    fn emit_process_failure_event(
+        origin: Location,
+        error: XcmError
     );
 }
 
@@ -29,7 +39,17 @@ impl EventEmitter for () {
     fn emit_sent_event(
         _origin: Location,
         _destination: Location,
-        _message: Xcm<()>,
         _message_id: XcmHash,
+    ) {}
+
+    fn emit_sent_failure_event(
+        _origin: Location,
+        _destination: Location,
+        _error: SendError,
+    ) {}
+
+    fn emit_process_failure_event(
+        _origin: Location,
+        _error: XcmError
     ) {}
 }
