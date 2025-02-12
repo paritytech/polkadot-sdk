@@ -78,6 +78,7 @@ xcm-builder = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-core/std",
 	"codec/std",
 	"environmental/std",
 	"ethabi/std",
@@ -110,7 +111,6 @@ std = [
 	"subxt-signer",
 	"xcm-builder/std",
 	"xcm/std",
-	"alloy-core/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
