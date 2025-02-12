@@ -436,7 +436,7 @@ pub mod v2 {
 		}
 	}
 
-	/// [`UncheckedMigrationV0ToV1`] wrapped in a
+	/// [`UncheckedMigrationV1ToV2`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 0.
 	pub type MigrationToV2<T, I, LaneId> = frame_support::migrations::VersionedMigration<
