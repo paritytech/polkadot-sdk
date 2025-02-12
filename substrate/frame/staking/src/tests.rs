@@ -5969,7 +5969,9 @@ fn chill_other_works() {
 				let b = 4 * i;
 				let d = 4 * i + 2;
 				assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), b));
+				assert_eq!(*staking_events().last().unwrap(), Event::Chilled { stash: b });
 				assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), d));
+				assert_eq!(*staking_events().last().unwrap(), Event::Chilled { stash: d });
 			}
 
 			// chill a nominator. Limit is not reached, not chill-able
@@ -6253,6 +6255,7 @@ fn change_of_absolute_max_nominations() {
 			assert!(Nominators::<Test>::contains_key(101));
 			assert!(Nominators::<Test>::get(101).is_none());
 			assert_ok!(Staking::chill_other(RuntimeOrigin::signed(71), 101));
+			assert_eq!(*staking_events().last().unwrap(), Event::Chilled { stash: 101 });
 			assert!(!Nominators::<Test>::contains_key(101));
 			assert!(Nominators::<Test>::get(101).is_none());
 		})
