@@ -244,11 +244,9 @@ pub mod pallet {
 			let bridgehub = T::BridgeHubLocation::get();
 			let (_, price) =
 				send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
-			// Ignore fee charges for sudo call
-			if origin.clone() != Here.into() {
-				T::XcmExecutor::charge_fees(origin, price)
-					.map_err(|_| Error::<T>::FundsUnavailable)?;
-			}
+
+			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;
+
 			Ok(())
 		}
 
