@@ -22,6 +22,7 @@
 // SOFTWARE.
 
 use super::*;
+use frame::prelude::storage::StorageDoubleMap;
 use pallet_assets::FrozenBalance;
 
 // Implements [`FrozenBalance`] from [`pallet-assets`], so it can understand how much of an
