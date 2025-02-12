@@ -170,12 +170,9 @@ pub mod pallet {
 			]
 			.into();
 
-			Self::send(origin_location.clone(), xcm)?;
+			let message_id = Self::send(origin_location.clone(), xcm)?;
 
-			Self::deposit_event(Event::<T>::CreateAgent {
-				location: origin_location,
-				message_id: topic.into(),
-			});
+			Self::deposit_event(Event::<T>::CreateAgent { location: origin_location, message_id });
 			Ok(())
 		}
 
@@ -228,26 +225,23 @@ pub mod pallet {
 			]
 			.into();
 
-			Self::send(origin_location.clone(), xcm)?;
+			let message_id = Self::send(origin_location.clone(), xcm)?;
 
-			Self::deposit_event(Event::<T>::RegisterToken {
-				location: asset_location,
-				message_id: topic.into(),
-			});
+			Self::deposit_event(Event::<T>::RegisterToken { location: asset_location, message_id });
 
 			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn send(origin: Location, xcm: Xcm<()>) -> DispatchResult {
+		pub fn send(origin: Location, xcm: Xcm<()>) -> Result<H256, Error<T>> {
 			let bridgehub = T::BridgeHubLocation::get();
-			let (_, price) =
+			let (hash, price) =
 				send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
 
 			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;
 
-			Ok(())
+			Ok(hash.into())
 		}
 
 		pub fn burn_for_teleport(origin: &Location, fee: &Asset) -> DispatchResult {
