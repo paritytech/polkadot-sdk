@@ -3,7 +3,7 @@ name = "pallet-assets-vesting"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
-license = "MIT-0"
+license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet for manage vesting on Assets"
@@ -22,8 +22,8 @@ scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
 pallet-assets = { workspace = true }
-pallet-balances = { workspace = true }
 pallet-assets-freezer = { workspace = true }
+pallet-balances = { workspace = true }
 
 [features]
 default = ["std"]
