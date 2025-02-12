@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use crate::{mock::*, Error};
-use frame_support::{assert_noop, assert_ok};
+use crate::mock::*;
+use frame_support::assert_ok;
 use snowbridge_core::AssetMetadata;
 use xcm::{
 	latest::Location,

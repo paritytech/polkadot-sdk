@@ -144,20 +144,10 @@ pub mod pallet {
 			// Ignore fee charges for sudo call
 			if !origin_location.eq(&Here.into()) {
 				// Burn Ether Fee for the cost on ethereum
-				T::AssetTransactor::withdraw_asset(
-					&(T::FeeAsset::get(), fee).into(),
-					&origin_location,
-					None,
-				)
-				.map_err(|_| Error::<T>::FundsUnavailable)?;
+				Self::burn_for_teleport(&origin_location, &(T::FeeAsset::get(), fee).into())?;
 
 				// Burn RemoteExecutionFee for the cost on bridge hub
-				T::AssetTransactor::withdraw_asset(
-					&T::RemoteExecutionFee::get(),
-					&origin_location,
-					None,
-				)
-				.map_err(|_| Error::<T>::FundsUnavailable)?;
+				Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;
 			}
 
 			let reanchored_location = origin_location
@@ -220,20 +210,10 @@ pub mod pallet {
 			// Ignore fee charges for sudo call
 			if !origin_location.eq(&Here.into()) {
 				// Burn Ether Fee for the cost on ethereum
-				T::AssetTransactor::withdraw_asset(
-					&(T::FeeAsset::get(), fee).into(),
-					&origin_location,
-					None,
-				)
-				.map_err(|_| Error::<T>::FundsUnavailable)?;
+				Self::burn_for_teleport(&origin_location, &(T::FeeAsset::get(), fee).into())?;
 
 				// Burn RemoteExecutionFee for the cost on bridge hub
-				T::AssetTransactor::withdraw_asset(
-					&T::RemoteExecutionFee::get(),
-					&origin_location,
-					None,
-				)
-				.map_err(|_| Error::<T>::FundsUnavailable)?;
+				Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;
 			}
 
 			let reanchored_asset_location = asset_location
@@ -283,6 +263,20 @@ pub mod pallet {
 				T::XcmExecutor::charge_fees(origin, price)
 					.map_err(|_| Error::<T>::FundsUnavailable)?;
 			}
+			Ok(())
+		}
+
+		pub fn burn_for_teleport(origin: &Location, fee: &Asset) -> DispatchResult {
+			let dummy_context =
+				XcmContext { origin: None, message_id: Default::default(), topic: None };
+
+			T::AssetTransactor::can_check_out(origin, fee, &dummy_context)
+				.map_err(|_| Error::<T>::FundsUnavailable)?;
+			T::AssetTransactor::check_out(origin, fee, &dummy_context);
+
+			T::AssetTransactor::withdraw_asset(fee, origin, None)
+				.map_err(|_| Error::<T>::FundsUnavailable)?;
+
 			Ok(())
 		}
 	}
