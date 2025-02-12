@@ -87,6 +87,6 @@ async fn send_future_and_then_ready_from_many_accounts() {
 		future_logs.values().filter_map(|default_log| default_log.finalized()).count();
 	let finalized_ready =
 		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
-	assert_eq!(finalized_future, 100);
-	assert_eq!(finalized_ready, 100);
+	assert_eq!(finalized_future, 10_000);
+	assert_eq!(finalized_ready, 10_000);
 }
