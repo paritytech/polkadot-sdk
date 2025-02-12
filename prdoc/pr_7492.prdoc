@@ -1,0 +1,24 @@
+title: Make `pallet-bridge-rewards` generic over `RewardKind`
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/7272
+    Relates to: https://github.com/paritytech/polkadot-sdk/pull/6578
+    Relates to: https://github.com/paritytech/polkadot-sdk/issues/7274
+
+    TDB: unblock Snowbridge-V2
+
+    Removed balances/rewards stats: https://github.com/paritytech/parity-bridges-common/issues/3004#issuecomment-2401634589
+crates:
+- name: bridge-runtime-common
+  bump: patch
+- name: pallet-bridge-relayers
+  bump: patch
+- name: bp-relayers
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-test-utils
+  bump: patch
