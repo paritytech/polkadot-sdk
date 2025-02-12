@@ -19,7 +19,7 @@ crates:
   - name: polkadot-network-bridge
     bump: patch
   - name: polkadot-node-network-protocol
-    bump: patch
+    bump: major
   - name: polkadot-statement-distribution
     bump: major
   - name: polkadot-service
