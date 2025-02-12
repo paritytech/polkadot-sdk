@@ -1,6 +1,13 @@
 import { test, beforeAll, expect } from "bun:test";
 import { CONFIG } from "./config";
-import { createPolkadotClient, getFreeBalance } from './util'
+import {
+	createPolkadotClient,
+	getFreeBalance,
+	getRelayEndpoint,
+	getRelayWasm,
+	MockNetwork,
+	setup
+} from './util'
 
 import {
 	wnd_ah,
@@ -21,21 +28,20 @@ import { Binary, Enum } from "polkadot-api";
 import { getPolkadotSigner } from "polkadot-api/signer";
 
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
-import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy } from "@polkadot-labs/hdkd-helpers";
+import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy, ss58Address } from "@polkadot-labs/hdkd-helpers";
 
 // import { WsProvider } from '@polkadot/rpc-provider';
 import { setupNetworks, type NetworkContext } from "@acala-network/chopsticks-testing"
 import { createClient } from "polkadot-api";
 import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
-
-let parachain: NetworkContext, polkadot: NetworkContext, assetHub: NetworkContext;
-let ah_provider, rc_provider;
-// todo unify, small case start
-let AHApi, PenpalApi, rcApi;
+import * as net from "node:net";
 
 let hdkdKeyPairAlice, hdkdKeyPairBob;
 let aliceSigner, bobSigner;
+let aliceAddr, bobAddr;
+
+let network: MockNetwork;
 
 
 beforeAll(async () => {
@@ -44,54 +50,12 @@ beforeAll(async () => {
 	const miniSecret = entropyToMiniSecret(entropy);
 	const derive = sr25519CreateDerive(miniSecret);
 
-	({ parachain, polkadot, assetHub }  = await setupNetworks({
-		// todo how to specify penpal explicitly, not a general parachain?
-		parachain: {
-			endpoint: CONFIG.WS_ADDRESSES.PENPAL,
-			// move hardcoded values to .env
-			'wasm-override': '../../wasms/penpal_runtime.compact.compressed.wasm',
-			'runtime-log-level': 5,
-			db: './db.sqlite',
-			port: 8006,
-		},
-		// todo is there a westend option? I tried setting it up and got an error.
-		// todo how  and where to find it?
-		polkadot: {
-			endpoint: CONFIG.WS_ADDRESSES.RC,
-			'wasm-override': '../../wasms/westend_runtime.compact.compressed.wasm',
-			'runtime-log-level': 5,
-			db: './db.sqlite',
-			port: 8007,
-		},
-		assetHub: {
-			endpoint: CONFIG.WS_ADDRESSES.AH,
-			// move hardcoded values to .env
-			'wasm-override': '../../wasms/asset_hub_westend_runtime.compact.compressed.wasm',
-			'runtime-log-level': 5,
-			db: './db.sqlite',
-			port: 8008,
-		},
-	}));
-
-	// init clients
-	AHApi = createPolkadotClient(assetHub.ws.endpoint, wnd_ah);
-	PenpalApi = createPolkadotClient(parachain.ws.endpoint, wnd_penpal);
-	rcApi = createPolkadotClient(polkadot.ws.endpoint, wnd_rc);
-
-
-	// const penpalClient = createClient(getWsProvider(parachain.ws.endpoint));
-	// PenpalApi = penpalClient.getTypedApi(wnd_penpal);
-	// const rcClient = createClient(getWsProvider(polkadot.ws.endpoint));
-	// rcApi = rcClient.getTypedApi(wnd_rc);
-	// const assetHubClient = createClient(getWsProvider(assetHub.ws.endpoint));
-	// AHApi = assetHubClient.getTypedApi(wnd_ah);
-
-
 	hdkdKeyPairAlice = derive("//Alice");
 	aliceSigner = getPolkadotSigner(hdkdKeyPairAlice.publicKey,
 		"Sr25519",
 		hdkdKeyPairAlice.sign,
 	);
+	aliceAddr = ss58Address(aliceSigner.publicKey, 42);
 
 	hdkdKeyPairBob = derive("//Bob");
 	bobSigner = getPolkadotSigner(
@@ -99,114 +63,109 @@ beforeAll(async () => {
 		"Sr25519",
 		hdkdKeyPairBob.sign,
 	);
+	bobAddr = ss58Address(bobSigner.publicKey, 42);
 
-
-	// init providers
-	// ah_provider = new WsProvider(CONFIG.WS_ADDRESSES.AH);
-	// rc_provider = new WsProvider(CONFIG.WS_ADDRESSES.RC);
-	//
-	// await Promise.all([
-	// 	ah_provider.isReady,
-	// 	rc_provider.isReady,
-	// ]);
+	network = await setup();
 });
 
 
-// test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
-// 	const bobBalanceBefore = await getFreeBalance(AHApi, CONFIG.KEYS.BOB);
-//
-// 	console.log("test start")
-//
-// 	const alice_msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V5", [
-// 		Enum('SetHints', {
-// 			hints: [
-// 				Enum('AssetClaimer', {
-// 					location: {
-// 						parents: 0,
-// 						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-// 							network: Enum("ByGenesis", Binary.fromBytes(CONFIG.WESTEND_NETWORK)),
-// 							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
-// 						}))
-// 					},
-// 				})
-// 			],
-// 		}),
-// 		Enum('WithdrawAsset', [{
-// 			id: { parents: 1, interior: XcmV3Junctions.Here() },
-// 			fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-// 		}]),
-// 		Enum('ClearOrigin'),
-// 	]);
-// 	const alice_weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(alice_msg);
-//
-// 	// Transaction 1: Alice sets asset claimer to Bob and sends a trap transaction
-// 	const trapTx = AHApi.tx.PolkadotXcm.execute({
-// 		message: alice_msg,
-// 		max_weight: {
-// 			ref_time: alice_weight.value.ref_time,
-// 			proof_size: alice_weight.value.proof_size,
-// 		},
-// 	});
-//
-// 	const trapResult = await trapTx.signAndSubmit(aliceSigner);
-// 	expect(trapResult.ok).toBeTruthy();
-//
-// 	const bob_msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V4", [
-// 		XcmV4Instruction.ClaimAsset({
-// 			assets: [
-// 				{
-// 					id: { parents: 1, interior: XcmV3Junctions.Here() },
-// 					fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-// 				},
-// 			],
-// 			ticket: { parents: 0, interior: XcmV3Junctions.Here() },
-// 		}),
-// 		XcmV4Instruction.BuyExecution({
-// 			fees: {
-// 				id: { parents: 1, interior: XcmV3Junctions.Here() },
-// 				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000n),
-// 			},
-// 			weight_limit: XcmV3WeightLimit.Unlimited(),
-// 		}),
-// 		XcmV4Instruction.DepositAsset({
-// 			assets: XcmV3MultiassetMultiAssetFilter.Definite([
-// 				{
-// 					fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-// 					id: { parents: 1, interior: XcmV3Junctions.Here() },
-// 				},
-// 			]),
-// 			beneficiary: {
-// 				parents: 0,
-// 				interior: XcmV3Junctions.X1(
-// 					XcmV3Junction.AccountId32({
-// 						network: undefined,
-// 						id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
-// 					})
-// 				),
-// 			},
-// 		}),
-// 	]);
-// 	const bob_weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(bob_msg);
-//
-// 	// Transaction 2: Bob claims trapped assets.
-// 	const bobClaimTx = AHApi.tx.PolkadotXcm.execute({
-// 		message: bob_msg,
-// 		max_weight: {
-// 			ref_time: bob_weight.value.ref_time,
-// 			proof_size: bob_weight.value.proof_size,
-// 		},
-// 	});
-//
-// 	const claimResult = await bobClaimTx.signAndSubmit(bobSigner);
-// 	expect(claimResult.ok).toBeTruthy();
-//
-// 	const bobBalanceAfter = await getFreeBalance(AHApi, CONFIG.KEYS.BOB);
-// 	expect(bobBalanceAfter > bobBalanceBefore).toBeTruthy();
-// });
+test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
+	await network.assetHub.setTokens([[aliceAddr, 'Relay', 10_000_000_000_000n]]);
+	const [bob_balance_before] =  await network.assetHub.getTokens([[bobAddr, 'Relay']]);
+
+	const alice_msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V5", [
+		Enum('SetHints', {
+			hints: [
+				Enum('AssetClaimer', {
+					location: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+							network: Enum("ByGenesis", Binary.fromBytes(CONFIG.WESTEND_NETWORK)),
+							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+						}))
+					},
+				})
+			],
+		}),
+		Enum('WithdrawAsset', [{
+			id: { parents: 1, interior: XcmV3Junctions.Here() },
+			fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+		}]),
+		Enum('ClearOrigin'),
+	]);
+	const alice_weight = await network.assetHub.api.apis.XcmPaymentApi.query_xcm_weight(alice_msg);
+
+	// Transaction 1: Alice sets asset claimer to Bob and sends a trap transaction
+	const trap_tx = network.assetHub.api.tx.PolkadotXcm.execute({
+		message: alice_msg,
+		max_weight: {
+			ref_time: alice_weight.value.ref_time,
+			proof_size: alice_weight.value.proof_size,
+		},
+	});
+
+	const trap_result = await trap_tx.signAndSubmit(aliceSigner);
+	expect(trap_result.ok).toBeTruthy();
+
+	const bob_msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V4", [
+		XcmV4Instruction.ClaimAsset({
+			assets: [
+				{
+					id: { parents: 1, interior: XcmV3Junctions.Here() },
+					fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+				},
+			],
+			ticket: { parents: 0, interior: XcmV3Junctions.Here() },
+		}),
+		XcmV4Instruction.BuyExecution({
+			fees: {
+				id: { parents: 1, interior: XcmV3Junctions.Here() },
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000n),
+			},
+			weight_limit: XcmV3WeightLimit.Unlimited(),
+		}),
+		XcmV4Instruction.DepositAsset({
+			assets: XcmV3MultiassetMultiAssetFilter.Definite([
+				{
+					fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+					id: { parents: 1, interior: XcmV3Junctions.Here() },
+				},
+			]),
+			beneficiary: {
+				parents: 0,
+				interior: XcmV3Junctions.X1(
+					XcmV3Junction.AccountId32({
+						network: undefined,
+						id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+					})
+				),
+			},
+		}),
+	]);
+	const bob_weight = await network.assetHub.api.apis.XcmPaymentApi.query_xcm_weight(bob_msg);
+
+	// Transaction 2: Bob claims trapped assets.
+	const bob_claim_tx = network.assetHub.api.tx.PolkadotXcm.execute({
+		message: bob_msg,
+		max_weight: {
+			ref_time: bob_weight.value.ref_time,
+			proof_size: bob_weight.value.proof_size,
+		},
+	});
+
+	const claim_result = await bob_claim_tx.signAndSubmit(bobSigner);
+	expect(claim_result.ok).toBeTruthy();
+
+	const [bob_balance_after] = await network.assetHub.getTokens([[bobAddr, 'Relay']]);
+	console.log('bob_balance_before: ', bob_balance_before)
+	console.log('bob_balance_after: ', bob_balance_after)
+	expect(bob_balance_after > bob_balance_before).toBeTruthy();
+});
 
 test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
-	// set storage for Alice
-	const bob_balance_before =  await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
+	await network.assetHub.setTokens([[aliceAddr, 'Relay', 10_000_000_000_000n]]);
+
+	const [bob_balance_before] =  await network.relay.getTokens([[bobAddr, 'Relay']]);
 	const deposit_amount = 5_000_000_000_000n;
 
 	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V4", [
@@ -249,9 +208,9 @@ test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
 			],
 		}),
 	]);
-	const weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(msg);
+	const weight = await network.assetHub.api.apis.XcmPaymentApi.query_xcm_weight(msg);
 
-	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
+	const ahToWnd = await network.assetHub.api.tx.PolkadotXcm.execute({
 		message: msg,
 		max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
 	});
@@ -259,354 +218,414 @@ test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
 
-	await polkadot.ws.send('dev_newBlock', [{ count: 1 }])
-	const bob_balance_after = await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
+	await network.relay.context.ws.send('dev_newBlock', [{ count: 1 }])
+	const [bob_balance_after] = await network.relay.getTokens([[bobAddr, 'Relay']]);
 	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
 });
 
-// test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
-// 	const bob_balance_before =  await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
-// 	const deposit_amount = 1_000_000_000_000n;
-//
-// 	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
-// 		Enum('WithdrawAsset', [
-// 			{
-// 				id: { parents: 1, interior: XcmV3Junctions.Here() },
-// 				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
-// 			},
-// 		]),
-// 		Enum('PayFees', {
-// 			asset: {
-// 				id: {
-// 					parents: 1,
-// 					interior: XcmV3Junctions.Here(),
-// 				},
-// 				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-// 			},
-// 		}),
-// 		Enum('InitiateTransfer', {
-// 			destination: {
-// 				parents: 1,
-// 				interior: XcmV3Junctions.Here(),
-// 			},
-// 			// optional field. an example of usage:
-// 			// remote_fees: Enum('Teleport', {
-// 			// 	type: 'Wild',
-// 			// 	value: {
-// 			// 		type: 'All',
-// 			// 		value: undefined,
-// 			// 	},
-// 			// }),
-// 			preserve_origin: false,
-// 			assets: [
-// 				Enum('Teleport', {
-// 					type: 'Wild',
-// 					value: {
-// 						type: 'All',
-// 						value: undefined,
-// 					},
-// 				}),
-// 			],
-// 			remote_xcm: [
-// 				Enum('PayFees', {
-// 					asset: {
-// 						id: {
-// 							parents: 0,
-// 							interior: XcmV3Junctions.Here(),
-// 						},
-// 						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-// 					},
-// 				}),
-// 				Enum('DepositAsset', {
-// 					assets: XcmV3MultiassetMultiAssetFilter.Definite([{
-// 						fun: XcmV3MultiassetFungibility.Fungible(deposit_amount),
-// 						id: { parents: 0, interior: XcmV3Junctions.Here() },
-// 					}]),
-// 					beneficiary: {
-// 						parents: 0,
-// 						interior: XcmV3Junctions.X1(
-// 							XcmV3Junction.AccountId32({
-// 								network: undefined,
-// 								id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
-// 							})
-// 						),
-// 					},
-// 				}),
-// 			],
-// 		}),
-// 	]);
-// 	const weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(msg);
-//
-// 	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
-// 		message: msg,
-// 		max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
-// 	});
-//
-// 	const r = await ahToWnd.signAndSubmit(aliceSigner);
-// 	expect(r).toBeTruthy();
-//
-// 	await rc_provider.send('dev_newBlock', [{ count: 1 }])
-// 	const bob_balance_after = await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
-// 	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
-// });
+test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
+	await network.assetHub.setTokens([[aliceAddr, 'Relay', 10_000_000_000_000n]]);
 
-// test("Initiate Teleport (AH -> RC) with remote fees", async () => {
-// 	const bob_balance_before =  await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
-// 	const deposit_amount = 1_000_000_000_000n;
-//
-// 	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
-// 		Enum('WithdrawAsset', [
-// 			{
-// 				id: { parents: 1, interior: XcmV3Junctions.Here() },
-// 				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
-// 			},
-// 		]),
-// 		Enum('PayFees', {
-// 			asset: {
-// 				id: {
-// 					parents: 1,
-// 					interior: XcmV3Junctions.Here(),
-// 				},
-// 				fun: XcmV3MultiassetFungibility.Fungible(2_000_000_000_000n),
-// 			}
-// 		}),
-// 		Enum('InitiateTransfer', {
-// 			destination: {
-// 				parents: 1,
-// 				interior: XcmV3Junctions.Here(),
-// 			},
-// 			// optional field. an example of usage:
-// 			remote_fees: Enum('Teleport', {
-// 				type: 'Wild',
-// 				value: {
-// 					type: 'All',
-// 					value: undefined,
-// 				},
-// 			}),
-// 			preserve_origin: false,
-// 			assets: [Enum('Teleport', {
-// 				type: 'Wild',
-// 				value: {
-// 					type: 'All',
-// 					value: undefined,
-// 				},
-// 			})],
-// 			remote_xcm: [
-// 				// something is wrong here!
-// 				Enum('DepositAsset', {
-// 					assets: XcmV3MultiassetMultiAssetFilter.Wild({
-// 						type: 'All',
-// 						value: undefined,
-// 					}),
-// 					beneficiary: {
-// 						parents: 0,
-// 						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-// 							network: undefined,
-// 							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
-// 						})),
-// 					},
-// 				}),
-// 			],
-// 		}),
-// 	]);
-// 	const weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(msg);
-//
-// 	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
-// 			message: msg,
-// 			max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
-// 		},
-// 	);
-// 	const r = await ahToWnd.signAndSubmit(aliceSigner);
-// 	expect(r).toBeTruthy();
-//
-// 	await rc_provider.send('dev_newBlock', [{ count: 1 }])
-// 	const bob_balance_after = await getFreeBalance(rcApi, CONFIG.KEYS.BOB);
-// 	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
-// });
+	const [bob_balance_before] =  await network.relay.getTokens([[bobAddr, 'Relay']]);
+	const deposit_amount = 1_000_000_000_000n;
 
-// test("Reserve Asset Transfer (local) of USDT from Asset Hub `Alice` to Penpal `Alice`", async () => {
-// 	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
-// 		Enum('WithdrawAsset', [
-// 			{
-// 				id: {
-// 					parents: 1,
-// 					interior: XcmV3Junctions.Here(),
-// 				},
-// 				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
-// 			},
-// 		]),
-// 		Enum('PayFees', {
-// 			asset: {
-// 				id: {
-// 					parents: 1,
-// 					interior: XcmV3Junctions.Here(),
-// 				},
-// 				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-// 			},
-// 		}),
-// 		Enum('TransferReserveAsset', {
-// 			assets: [
-// 				{
-// 					id: {
-// 						parents: 0,
-// 						interior: XcmV3Junctions.X2([
-// 							XcmV3Junction.PalletInstance(50),
-// 							XcmV3Junction.GeneralIndex(1984n)]),
-// 					},
-// 					fun: XcmV3MultiassetFungibility.Fungible(100_000_000n),
-// 				},
-// 				{
-// 					id: {
-// 						parents: 1,
-// 						interior: XcmV3Junctions.Here(),
-// 					},
-// 					fun: XcmV3MultiassetFungibility.Fungible(4_000_000_000_000n),
-// 				},
-// 			],
-// 			dest: {
-// 				parents: 1,
-// 				interior: XcmV3Junctions.X1(
-// 					XcmV3Junction.Parachain(2042),
-// 				),
-// 			},
-// 			xcm: [
-// 				Enum('PayFees', {
-// 					asset: {
-// 						id: {
-// 							parents: 1,
-// 							interior: XcmV3Junctions.Here(),
-// 						},
-// 						fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000n),
-// 					},
-// 				}),
-// 				Enum('DepositAsset', {
-// 					// some WND might get trapped bc of extra fungibles in PayFees above ^
-// 					assets: XcmV3MultiassetMultiAssetFilter.Wild({
-// 						type: 'All',
-// 						value: undefined,
-// 					}),
-//
-// 					// ===================== GRANULAR VERSIONS =====================
-// 					// assets: XcmV4AssetAssetFilter.Definite([{
-// 					// 	id: {
-// 					// 		parents: 1,
-// 					// 		interior: XcmV3Junctions.Here(),
-// 					// 	},
-// 					// 	fun: XcmV3MultiassetFungibility.Fungible(3_995_000_000_000n),
-// 					// }]),
-// 					//
-// 					// assets: XcmV4AssetAssetFilter.Definite([{
-// 					// 	id: {
-// 					// 		parents: 1,
-// 					// 		interior: XcmV3Junctions.X3([
-// 					// 			XcmV3Junction.Parachain(1000),
-// 					// 			XcmV3Junction.PalletInstance(50),
-// 					// 			XcmV3Junction.GeneralIndex(1984n)]),
-// 					// 	},
-// 					// 	fun: XcmV3MultiassetFungibility.Fungible(100_000_000n),
-// 					// }]),
-// 					// ===================== END =====================
-//
-// 					beneficiary: {
-// 						parents: 0,
-// 						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-// 							network: undefined,
-// 							id: Binary.fromBytes(hdkdKeyPairAlice.publicKey),
-// 						})),
-// 					},
-// 				}),
-// 			],
-// 		}),
-// 	]);
-//
-// 	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
-// 			message: msg,
-// 			max_weight: { ref_time: 100_000_000_000n, proof_size: 1_000_000n },
-// 		},
-// 	);
-// 	const r = await ahToWnd.signAndSubmit(aliceSigner);
-// 	expect(r).toBeTruthy();
-// });
-//
-// // this test scenario works together with the previous one.
-// // previous test serves as a set-up for this one.
-// test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", async () => {
-// 	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
-// 		Enum('WithdrawAsset', [
-// 			{
-// 				id: {
-// 					parents: 1,
-// 					interior: XcmV3Junctions.Here(),
-// 				},
-// 				fun: XcmV3MultiassetFungibility.Fungible(3_995_000_000_000n),
-// 			},
-// 			{
-// 				id: {
-// 					parents: 1,
-// 					interior: XcmV3Junctions.X3([
-// 						XcmV3Junction.Parachain(1000),
-// 						XcmV3Junction.PalletInstance(50),
-// 						XcmV3Junction.GeneralIndex(1984n),
-// 					]),
-// 				},
-// 				fun: XcmV3MultiassetFungibility.Fungible(70_000_000n),
-// 			},
-// 		]),
-// 		Enum('PayFees', {
-// 			asset: {
-// 				id: {
-// 					parents: 1,
-// 					interior: XcmV3Junctions.Here(),
-// 				},
-// 				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-// 			},
-// 		}),
-// 		Enum('InitiateReserveWithdraw' , {
-// 			assets: XcmV4AssetAssetFilter.Wild({
-// 				type: 'All',
-// 				value: undefined,
-// 			}),
-// 			reserve: {
-// 				parents: 1,
-// 				interior: XcmV3Junctions.X1(XcmV3Junction.Parachain(1000)),
-// 			},
-// 			xcm: [
-// 				Enum('PayFees', {
-// 					asset: {
-// 						id: {
-// 							parents: 1,
-// 							interior: XcmV3Junctions.Here(),
-// 						},
-// 						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-// 					},
-// 				}),
-// 				Enum('DepositAsset', {
-// 					assets: XcmV3MultiassetMultiAssetFilter.Wild({
-// 						type: 'All',
-// 						value: undefined,
-// 					}),
-// 					beneficiary: {
-// 						parents: 0,
-// 						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-// 							network: undefined,
-// 							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
-// 						})),
-// 					},
-// 				}),
-// 			],
-// 		}),
-// 	]);
-//
-//
-// 	const penpalToAH = PenpalApi.tx.PolkadotXcm.execute({
-// 			message: msg,
-// 			max_weight: { ref_time: 100_000_000_000n, proof_size: 1_000_000n },
-// 		},
-// 	);
-// 	const r = await penpalToAH.signAndSubmit(aliceSigner);
-// 	expect(r).toBeTruthy();
-// });
-//
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
+		Enum('WithdrawAsset', [
+			{
+				id: { parents: 1, interior: XcmV3Junctions.Here() },
+				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
+			},
+		]),
+		Enum('PayFees', {
+			asset: {
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+			},
+		}),
+		Enum('InitiateTransfer', {
+			destination: {
+				parents: 1,
+				interior: XcmV3Junctions.Here(),
+			},
+			// optional field. an example of usage:
+			// remote_fees: Enum('Teleport', {
+			// 	type: 'Wild',
+			// 	value: {
+			// 		type: 'All',
+			// 		value: undefined,
+			// 	},
+			// }),
+			preserve_origin: false,
+			assets: [
+				Enum('Teleport', {
+					type: 'Wild',
+					value: {
+						type: 'All',
+						value: undefined,
+					},
+				}),
+			],
+			remote_xcm: [
+				Enum('PayFees', {
+					asset: {
+						id: {
+							parents: 0,
+							interior: XcmV3Junctions.Here(),
+						},
+						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+					},
+				}),
+				Enum('DepositAsset', {
+					assets: XcmV3MultiassetMultiAssetFilter.Definite([{
+						fun: XcmV3MultiassetFungibility.Fungible(deposit_amount),
+						id: { parents: 0, interior: XcmV3Junctions.Here() },
+					}]),
+					beneficiary: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(
+							XcmV3Junction.AccountId32({
+								network: undefined,
+								id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+							})
+						),
+					},
+				}),
+			],
+		}),
+	]);
+	const weight = await network.assetHub.api.apis.XcmPaymentApi.query_xcm_weight(msg);
+
+	const ah_to_wnd = network.assetHub.api.tx.PolkadotXcm.execute({
+		message: msg,
+		max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
+	});
+
+	const r = await ah_to_wnd.signAndSubmit(aliceSigner);
+	expect(r).toBeTruthy();
+
+	await network.relay.context.ws.send('dev_newBlock', [{ count: 1 }])
+	const [bob_balance_after] = await network.relay.getTokens([[bobAddr, 'Relay']]);
+	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
+});
+
+test("Initiate Teleport (AH -> RC) with remote fees", async () => {
+	await network.assetHub.setTokens([[aliceAddr, 'Relay', 10_000_000_000_000n]]);
+
+	const [bob_balance_before] =  await network.relay.getTokens([[bobAddr, 'Relay']]);
+	const deposit_amount = 2_000_000_000_000n;
+
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
+		Enum('WithdrawAsset', [
+			{
+				id: { parents: 1, interior: XcmV3Junctions.Here() },
+				fun: XcmV3MultiassetFungibility.Fungible(6_000_000_000_000n),
+			},
+		]),
+		Enum('PayFees', {
+			asset: {
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(3_000_000_000_000n),
+			}
+		}),
+		Enum('InitiateTransfer', {
+			destination: {
+				parents: 1,
+				interior: XcmV3Junctions.Here(),
+			},
+			// optional field. an example of usage:
+			remote_fees: {
+				type: 'Teleport',
+				value: {
+					type: 'Definite',
+					value: [
+						{
+							id: {
+								parents: 1,
+								interior: XcmV3Junctions.Here(),
+							},
+							fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+						},
+					],
+				},
+			},
+			preserve_origin: false,
+			assets: [Enum('Teleport', {
+				type: 'Wild',
+				value: {
+					type: 'All',
+					value: undefined,
+				},
+			})],
+			remote_xcm: [
+				// something is wrong here!
+				Enum('DepositAsset', {
+					assets: XcmV3MultiassetMultiAssetFilter.Wild({
+						type: 'All',
+						value: undefined,
+					}),
+					beneficiary: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+							network: undefined,
+							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+						})),
+					},
+				}),
+			],
+		}),
+	]);
+	const weight = await network.assetHub.api.apis.XcmPaymentApi.query_xcm_weight(msg);
+
+	const ah_to_wnd = network.assetHub.api.tx.PolkadotXcm.execute({
+			message: msg,
+			max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
+		},
+	);
+	const r = await ah_to_wnd.signAndSubmit(aliceSigner);
+	expect(r).toBeTruthy();
+
+	await network.relay.context.ws.send('dev_newBlock', [{ count: 1 }])
+	const [bob_balance_after] = await network.relay.getTokens([[bobAddr, 'Relay']]);
+	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
+});
+
+test("Reserve Asset Transfer (local) of USDT from Asset Hub `Alice` to Penpal `Alice`", async () => {
+	const [alice_balance_before] = await network.parachain.getTokens([[aliceAddr, 'USDT']]);
+	await network.assetHub.setTokens([[aliceAddr, 'Relay', 10_000_000_000_000n]]);
+	await network.assetHub.setTokens([[aliceAddr, 'USDT', 10_000_000_000_000n], [network.paraSovAccOnAssetHub, 'USDT', 10_000_000_000_000n]]);
+
+	await network.assetHub.context.ws.send('dev_newBlock', [{ count: 1 }])
+	await network.parachain.context.ws.send('dev_newBlock', [{ count: 1 }])
+
+	const [alice_balance_ah] = await network.assetHub.getTokens([[aliceAddr, 'USDT']]);
+	console.log('alice_balance_ah: ', alice_balance_ah);
+
+	const [alice_usdt_balance_before] = await network.parachain.getTokens([[aliceAddr, 'USDT']]);
+	console.log('alice_usdt_balance_before: ', alice_usdt_balance_before);
+
+	const [alice_relay_balance_before] = await network.parachain.getTokens([[aliceAddr, 'Relay']]);
+	console.log('alice_relay_balance_before: ', alice_relay_balance_before);
+
+
+	await network.assetHub.setXcmVersion(5);
+	await network.parachain.setXcmVersion(5);
+
+
+
+	const withdraw_usdt = 100_000_000n;
+	const msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum('V5', [
+		Enum('WithdrawAsset', [
+			{
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
+			},
+		]),
+		Enum('PayFees', {
+			asset: {
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+			},
+		}),
+		Enum('TransferReserveAsset', {
+			assets: [
+				{
+					id: {
+						parents: 0,
+						interior: XcmV3Junctions.X2([
+							XcmV3Junction.PalletInstance(50),
+							XcmV3Junction.GeneralIndex(1984n)]),
+					},
+					fun: XcmV3MultiassetFungibility.Fungible(withdraw_usdt),
+				},
+				{
+					id: {
+						parents: 1,
+						interior: XcmV3Junctions.Here(),
+					},
+					fun: XcmV3MultiassetFungibility.Fungible(4_000_000_000_000n),
+				},
+			],
+			dest: {
+				parents: 1,
+				interior: XcmV3Junctions.X1(
+					XcmV3Junction.Parachain(2042),
+				),
+			},
+			xcm: [
+				Enum('PayFees', {
+					asset: {
+						id: {
+							parents: 1,
+							interior: XcmV3Junctions.Here(),
+						},
+						fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000n),
+					},
+				}),
+				Enum('DepositAsset', {
+					// some WND might get trapped bc of extra fungibles in PayFees above ^
+					assets: XcmV3MultiassetMultiAssetFilter.Wild({
+						type: 'All',
+						value: undefined,
+					}),
+
+					// ===================== GRANULAR VERSIONS =====================
+					// assets: XcmV4AssetAssetFilter.Definite([{
+					// 	id: {
+					// 		parents: 1,
+					// 		interior: XcmV3Junctions.Here(),
+					// 	},
+					// 	fun: XcmV3MultiassetFungibility.Fungible(3_995_000_000_000n),
+					// }]),
+					//
+					// assets: XcmV4AssetAssetFilter.Definite([{
+					// 	id: {
+					// 		parents: 1,
+					// 		interior: XcmV3Junctions.X3([
+					// 			XcmV3Junction.Parachain(1000),
+					// 			XcmV3Junction.PalletInstance(50),
+					// 			XcmV3Junction.GeneralIndex(1984n)]),
+					// 	},
+					// 	fun: XcmV3MultiassetFungibility.Fungible(100_000_000n),
+					// }]),
+					// ===================== END =====================
+
+					beneficiary: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+							network: undefined,
+							id: Binary.fromBytes(hdkdKeyPairAlice.publicKey),
+						})),
+					},
+				}),
+			],
+		}),
+	]);
+
+	// const ahToWnd = network.assetHub.api.tx.PolkadotXcm.execute({
+	// 		message: msg,
+	// 		max_weight: { ref_time: 100_000_000_000n, proof_size: 1_000_000n },
+	// 	},
+	// );
+	// const r = await ahToWnd.signAndSubmit(aliceSigner);
+	// expect(r).toBeTruthy();
+
+	// await network.parachain.context.ws.send('dev_newBlock', [{ count: 1 }])
+	// const [alice_balance_after] = await network.parachain.getTokens([[aliceAddr, 'USDT']]);
+	// expect(alice_balance_after - alice_balance_before).toBe(withdraw_usdt);
+});
+
+// this test scenario works together with the previous one.
+// previous test serves as a set-up for this one.
+test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", async () => {
+	const withdraw_usdt = 177_777_000n;
+
+	await network.parachain.setTokens([[aliceAddr, 'Relay', 25_000_000_000_000n]]);
+	await network.parachain.setTokens([[aliceAddr, 'Para', 25_000_000_000_000n]]);
+	await network.assetHub.setTokens([[network.paraSovAccOnAssetHub, 'USDT', 10n * withdraw_usdt], [network.paraSovAccOnAssetHub, 'Relay', 25_000_000_000_000n]]);
+
+	const [alice_balance_before] = await network.assetHub.getTokens([[aliceAddr, 'USDT']]);
+
+	await network.assetHub.setXcmVersion(5);
+	await network.parachain.setXcmVersion(5);
+
+
+	const msg /*: Wnd_ahCalls['PolkadotXcm']['execute']['message']*/ = Enum('V5', [
+		Enum('WithdrawAsset', [
+			{
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(3_995_000_000_000n),
+			},
+			{
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.X3([
+						XcmV3Junction.Parachain(1000),
+						XcmV3Junction.PalletInstance(50),
+						XcmV3Junction.GeneralIndex(1984n),
+					]),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(withdraw_usdt),
+			},
+		]),
+		Enum('PayFees', {
+			asset: {
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+			},
+		}),
+		Enum('InitiateReserveWithdraw' , {
+			assets: XcmV4AssetAssetFilter.Wild({
+				type: 'All',
+				value: undefined,
+			}),
+			reserve: {
+				parents: 1,
+				interior: XcmV3Junctions.X1(XcmV3Junction.Parachain(1000)),
+			},
+			xcm: [
+				Enum('PayFees', {
+					asset: {
+						id: {
+							parents: 1,
+							interior: XcmV3Junctions.Here(),
+						},
+						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+					},
+				}),
+				Enum('DepositAsset', {
+					assets: XcmV3MultiassetMultiAssetFilter.Wild({
+						type: 'All',
+						value: undefined,
+					}),
+					beneficiary: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+							network: undefined,
+							id: Binary.fromBytes(hdkdKeyPairAlice.publicKey),
+						})),
+					},
+				}),
+			],
+		}),
+	]);
+
+
+	const penpal_to_ah = network.parachain.api.tx.PolkadotXcm.execute({
+			message: msg,
+			max_weight: { ref_time: 100_000_000_000n, proof_size: 1_000_000n },
+		},
+	);
+	const r = await penpal_to_ah.signAndSubmit(aliceSigner);
+	expect(r).toBeTruthy();
+
+	await network.assetHub.context.ws.send('dev_newBlock', [{ count: 1 }])
+
+	const [alice_balance_after] = await network.assetHub.getTokens([[aliceAddr, 'USDT']]);
+	expect(alice_balance_after - alice_balance_before).toBe(withdraw_usdt);
+});
+
+async function delay(ms: number) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // test("Teleport and Transact from Westend's Asset Hub to Penpal", async () => {
 // 	const remarkWithEventCalldata = await PenpalApi.tx.System.remark_with_event({
 // 		remark: Binary.fromText("Hello, World!"),
