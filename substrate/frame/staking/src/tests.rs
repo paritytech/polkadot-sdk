@@ -5851,7 +5851,7 @@ fn chill_other_works() {
 				ConfigOp::Noop,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Noop,
+				ConfigOp::Set(Percent::from_percent(75)),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 			));
