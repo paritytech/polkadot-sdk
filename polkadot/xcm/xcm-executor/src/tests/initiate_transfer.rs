@@ -24,7 +24,6 @@ use codec::Encode;
 use xcm::{latest::AssetTransferFilter, prelude::*};
 
 use super::mock::*;
-use crate::ExecutorError;
 
 // The sender and recipient we use across these tests.
 const SENDER: [u8; 32] = [0; 32];
