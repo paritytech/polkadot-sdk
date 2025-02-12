@@ -131,24 +131,17 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Call `create_agent` to instantiate a new agent contract representing `origin`.
-		/// - `origin`: `Location` can be from either of:
-		/// 	a. any kind of location from a sibling parachain
-		/// 	b. sudo from local, location will be `Here` in this case.
-		/// 	c. a signed origin from local, location will be `(0,[AccountId32()])` in this case.
 		/// - `fee`: Fee in Ether paying for the execution cost on Ethreum
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::create_agent())]
 		pub fn create_agent(origin: OriginFor<T>, fee: u128) -> DispatchResult {
 			let origin_location = T::CreateAgentOrigin::ensure_origin(origin)?;
 
-			// Ignore fee charges for sudo call
-			if !origin_location.eq(&Here.into()) {
-				// Burn Ether Fee for the cost on ethereum
-				Self::burn_for_teleport(&origin_location, &(T::FeeAsset::get(), fee).into())?;
+			// Burn Ether Fee for the cost on ethereum
+			Self::burn_for_teleport(&origin_location, &(T::FeeAsset::get(), fee).into())?;
 
-				// Burn RemoteExecutionFee for the cost on bridge hub
-				Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;
-			}
+			// Burn RemoteExecutionFee for the cost on bridge hub
+			Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;
 
 			let reanchored_location = origin_location
 				.clone()
@@ -187,10 +180,6 @@ pub mod pallet {
 		}
 
 		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
-		/// - `origin`: `Location` can be from either of:
-		/// 	a. any kind of location from a sibling parachain
-		/// 	b. sudo from local, location will be `Here` in this case.
-		/// 	c. a signed origin from local, location will be `(0,[AccountId32()])` in this case.
 		/// - `asset_id`: Location of the asset (should starts from the dispatch origin)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
 		/// - `fee`: Fee in Ether paying for the execution cost on Ethreum
@@ -207,14 +196,11 @@ pub mod pallet {
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			// Ignore fee charges for sudo call
-			if !origin_location.eq(&Here.into()) {
-				// Burn Ether Fee for the cost on ethereum
-				Self::burn_for_teleport(&origin_location, &(T::FeeAsset::get(), fee).into())?;
+			// Burn Ether Fee for the cost on ethereum
+			Self::burn_for_teleport(&origin_location, &(T::FeeAsset::get(), fee).into())?;
 
-				// Burn RemoteExecutionFee for the cost on bridge hub
-				Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;
-			}
+			// Burn RemoteExecutionFee for the cost on bridge hub
+			Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;
 
 			let reanchored_asset_location = asset_location
 				.clone()

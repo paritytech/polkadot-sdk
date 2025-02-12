@@ -4,7 +4,6 @@
 
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
-use hex_literal::hex;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160, H256};
