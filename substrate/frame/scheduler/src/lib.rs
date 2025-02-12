@@ -104,11 +104,9 @@ use frame_system::{self as system};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
+	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, Saturating, Zero},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
-
-use sp_runtime::traits::BlockNumberProvider;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -317,6 +315,11 @@ pub mod pallet {
 		///   *Agile Coretime* chain with relay chain number provider configured, it could otherwise
 		///   happen that the scheduler will not be able to catch up to its agendas, since too many
 		///   relay blocks are missing if the parachain only produces blocks rarely.
+		///
+		/// There is currently no migration provided to "hot-swap" block number providers and it is
+		/// therefore highly advised to stay with the default (local) values. If you still want to
+		/// swap block number providers on the fly, then please at least ensure that you do not run
+		/// any pallet migration in the same runtime upgrade.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
