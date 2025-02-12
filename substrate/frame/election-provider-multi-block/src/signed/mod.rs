@@ -64,7 +64,7 @@ use frame_support::{
 			fungible::{Inspect, Mutate, MutateHold},
 			Fortitude, Precision,
 		},
-		Defensive, DefensiveSaturating, EstimateCallFee, TryCollect,
+		Defensive, DefensiveSaturating, EstimateCallFee,
 	},
 	transactional, BoundedVec, Twox64Concat,
 };
@@ -555,10 +555,6 @@ pub mod pallet {
 			SortedScores::<T>::get(round).last().cloned()
 		}
 
-		pub(crate) fn sorted_submitters(round: u32) -> BoundedVec<T::AccountId, T::MaxSubmissions> {
-			SortedScores::<T>::get(round).into_iter().map(|(x, _)| x).try_collect().unwrap()
-		}
-
 		pub(crate) fn get_page_of(
 			round: u32,
 			who: &T::AccountId,
@@ -571,6 +567,11 @@ pub mod pallet {
 	#[allow(unused)]
 	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks", debug_assertions))]
 	impl<T: Config> Submissions<T> {
+		pub(crate) fn sorted_submitters(round: u32) -> BoundedVec<T::AccountId, T::MaxSubmissions> {
+			use frame_support::traits::TryCollect;
+			SortedScores::<T>::get(round).into_iter().map(|(x, _)| x).try_collect().unwrap()
+		}
+
 		pub fn submissions_iter(
 			round: u32,
 		) -> impl Iterator<Item = (T::AccountId, PageIndex, SolutionOf<T::MinerConfig>)> {
