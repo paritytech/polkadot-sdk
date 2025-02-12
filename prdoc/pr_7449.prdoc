@@ -21,6 +21,6 @@ crates:
   - name: polkadot-node-network-protocol
     bump: patch
   - name: polkadot-statement-distribution
-    bump: patch
+    bump: major
   - name: polkadot-service
-    bump: patch
+    bump: major

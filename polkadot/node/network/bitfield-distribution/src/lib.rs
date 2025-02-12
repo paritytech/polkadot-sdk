@@ -96,7 +96,7 @@ impl BitfieldGossipMessage {
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
-			_ => {
+			None => {
 				never!("Peers should only have supported protocol versions.");
 
 				gum::warn!(

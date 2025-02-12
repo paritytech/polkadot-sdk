@@ -162,11 +162,7 @@ impl PeerSet {
 		// for all protocol versions here.
 		match self {
 			PeerSet::Validation =>
-				if version == ValidationVersion::V1.into() {
-					Some("validation/1")
-				} else if version == ValidationVersion::V2.into() {
-					Some("validation/2")
-				} else if version == ValidationVersion::V3.into() {
+				if version == ValidationVersion::V3.into() {
 					Some("validation/3")
 				} else {
 					None
@@ -242,15 +238,8 @@ impl From<ProtocolVersion> for u32 {
 }
 
 /// Supported validation protocol versions. Only versions defined here must be used in the codebase.
-/// Note: The first and second versions are no longer used and can be removed once the changes in
-/// [this PR](https://github.com/paritytech/polkadot-sdk/pull/7449) are released. They could not be
-/// removed in that PR because CI tests running on stable releases were still using these versions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum ValidationVersion {
-	/// The first version.
-	V1 = 1,
-	/// The second version.
-	V2 = 2,
 	/// The third version.
 	V3 = 3,
 }

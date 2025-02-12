@@ -294,16 +294,6 @@ async fn handle_validation_message<AD>(
 					metrics,
 					notification_sinks,
 				),
-				_ => {
-					gum::warn!(
-						target: LOG_TARGET,
-						peerset = ?peer_set,
-						version = %version,
-						?peer,
-						?role,
-						"Can't send validation message with unsupported protocol version",
-					);
-				},
 			}
 		},
 		NotificationEvent::NotificationStreamClosed { peer } => {
