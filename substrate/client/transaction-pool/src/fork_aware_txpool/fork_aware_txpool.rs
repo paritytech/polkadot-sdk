@@ -1559,9 +1559,6 @@ where
 				// }
 			},
 			Ok(EnactmentAction::HandleEnactment(tree_route)) => {
-				if matches!(event, ChainEvent::Finalized { .. }) {
-					self.view_store.handle_pre_finalized(event.hash()).await;
-				};
 				self.handle_new_block(&tree_route).await;
 			},
 		};
