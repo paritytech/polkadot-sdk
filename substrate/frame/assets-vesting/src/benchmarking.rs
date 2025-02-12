@@ -89,7 +89,7 @@ where
 mod benchmarks {
 	use super::*;
 	use frame::{
-		testing_prelude::{assert_ok, TestExternalities},
+		testing_prelude::assert_ok,
 		traits::tokens::Preservation::Preserve,
 	};
 
@@ -420,7 +420,7 @@ mod benchmarks {
 
 	impl_benchmark_test_suite! {
 		Pallet,
-		TestExternalities::default(),
+		frame::testing_prelude::TestExternalities::default(),
 		mock::Test
 	}
 }
