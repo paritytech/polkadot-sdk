@@ -6182,8 +6182,16 @@ fn change_of_absolute_max_nominations() {
 			);
 			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 3);
 
+			// No one can be chilled by another account on account of non-decodable keys
+			for k in Nominators::<Test>::iter_keys() {
+				assert_noop!(
+					Staking::chill_other(RuntimeOrigin::signed(1), k),
+					Error::<Test>::CannotChillOther
+				);
+			}
+
 			// abrupt change from 3 to 2, this should cause some nominators to be non-decodable, and
-			// thus non-existent unless if they update.
+			// thus non-existent unless they update.
 			AbsoluteMaxNominations::set(2);
 
 			assert_eq!(
@@ -6192,7 +6200,16 @@ fn change_of_absolute_max_nominations() {
 					.collect::<Vec<_>>(),
 				vec![(101, 2), (61, 1)]
 			);
-			// 70 is still in storage..
+
+			// 101 and 61 still cannot be chilled by someone else.
+			for k in [101, 61].iter() {
+				assert_noop!(
+					Staking::chill_other(RuntimeOrigin::signed(1), *k),
+					Error::<Test>::CannotChillOther
+				);
+			}
+
+			// 71 is still in storage..
 			assert!(Nominators::<Test>::contains_key(71));
 			// but its value cannot be decoded and default is returned.
 			assert!(Nominators::<Test>::get(71).is_none());
@@ -6201,7 +6218,7 @@ fn change_of_absolute_max_nominations() {
 			assert!(Nominators::<Test>::contains_key(101));
 
 			// abrupt change from 2 to 1, this should cause some nominators to be non-decodable, and
-			// thus non-existent unless if they update.
+			// thus non-existent unless they update.
 			AbsoluteMaxNominations::set(1);
 
 			assert_eq!(
@@ -6210,6 +6227,13 @@ fn change_of_absolute_max_nominations() {
 					.collect::<Vec<_>>(),
 				vec![(61, 1)]
 			);
+
+			// 61 *still* cannot be chilled by someone else.
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1), 61),
+				Error::<Test>::CannotChillOther
+			);
+
 			assert!(Nominators::<Test>::contains_key(71));
 			assert!(Nominators::<Test>::contains_key(61));
 			assert!(Nominators::<Test>::get(71).is_none());
