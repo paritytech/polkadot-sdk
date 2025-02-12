@@ -25,7 +25,7 @@ doc:
     It basically transforms the round-robin into an elongated round robin. Although different strategies can be injected into the pallet at runtime, this one seems to strike a good balance between general service level and prioritization.
 crates:
 - name: pallet-message-queue
-  bump: patch
+  bump: minor
 - name: rococo-runtime
   bump: patch
 - name: westend-runtime
