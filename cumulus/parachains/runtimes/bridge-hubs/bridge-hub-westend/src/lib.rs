@@ -167,6 +167,11 @@ pub type Migrations = (
 		bridge_common_config::BridgeRelayersInstance,
 		bp_messages::LegacyLaneId,
 	>,
+	pallet_bridge_relayers::migration::v2::MigrationToV2<
+		Runtime,
+		bridge_common_config::BridgeRelayersInstance,
+		bp_messages::LegacyLaneId,
+	>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,

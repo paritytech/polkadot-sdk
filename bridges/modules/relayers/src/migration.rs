@@ -22,7 +22,7 @@ use frame_support::{
 };
 
 /// The in-code storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 /// This module contains data structures that are valid for the initial state of `0`.
 /// (used with v1 migration).
@@ -313,6 +313,133 @@ pub mod v1 {
 		0,
 		1,
 		UncheckedMigrationV0ToV1<T, I, LaneId>,
+		Pallet<T, I>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
+/// The pallet in version 1 only supported rewards collected under the key of `RewardsAccountParams`.
+/// This migration essentially converts existing `RewardsAccountParams` keys to the generic type `T::RewardKind`.
+pub mod v2 {
+	use super::*;
+	use crate::{Config, Pallet, RelayerRewards};
+	use bp_messages::LaneIdType;
+	use bp_relayers::RewardsAccountParams;
+	use codec::Encode;
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+	use sp_std::marker::PhantomData;
+
+	/// Migrates the pallet storage to v2.
+	pub struct UncheckedMigrationV1ToV2<T, I, LaneId>(PhantomData<(T, I, LaneId)>);
+
+	#[cfg(feature = "try-runtime")]
+	const LOG_TARGET: &str = "runtime::bridge-relayers-migration";
+
+	impl<T: Config<I>, I: 'static, LaneId: LaneIdType + Send + Sync> UncheckedOnRuntimeUpgrade
+		for UncheckedMigrationV1ToV2<T, I, LaneId>
+	where
+		<T as Config<I>>::RewardKind: From<RewardsAccountParams<LaneId>>,
+	{
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+
+			// list all rewards (we cannot do this as one step because of `drain` limitation)
+			let mut rewards_to_migrate =
+				sp_std::vec::Vec::with_capacity(v1::RelayerRewards::<T, I, LaneId>::iter().count());
+			for (key1, key2, reward) in v1::RelayerRewards::<T, I, LaneId>::drain() {
+				rewards_to_migrate.push((key1, key2, reward));
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+			}
+
+			// re-register rewards with new format.
+			for (key1, key2, reward) in rewards_to_migrate {
+				// convert old key to the new
+				let new_key2: T::RewardKind = key2.into();
+
+				// re-register reward (drained above)
+				Pallet::<T, I>::register_relayer_reward(new_key2, &key1, reward);
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+			}
+
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::DispatchError> {
+			use frame_support::BoundedBTreeMap;
+			use sp_runtime::traits::ConstU32;
+
+			// collect actual rewards
+			let mut rewards: BoundedBTreeMap<
+				(T::AccountId, sp_std::vec::Vec<u8>),
+				T::Reward,
+				ConstU32<{ u32::MAX }>,
+			> = BoundedBTreeMap::new();
+			for (key1, key2, reward) in v1::RelayerRewards::<T, I, LaneId>::iter() {
+				let new_key2: T::RewardKind = key2.into();
+				log::info!(target: LOG_TARGET, "Reward to migrate: {key1:?}::{key2:?}->{new_key2:?} - {reward:?}");
+				rewards = rewards
+					.try_mutate(|inner| {
+						inner
+							.entry((key1.clone(), new_key2.encode()))
+							.and_modify(|value| *value += reward)
+							.or_insert(reward);
+					})
+					.unwrap();
+			}
+			log::info!(target: LOG_TARGET, "Found total rewards to migrate: {rewards:?}");
+
+			Ok(rewards.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+			use codec::Decode;
+			use frame_support::BoundedBTreeMap;
+			use sp_runtime::traits::ConstU32;
+
+			let rewards_before: BoundedBTreeMap<
+				(T::AccountId, sp_std::vec::Vec<u8>),
+				T::Reward,
+				ConstU32<{ u32::MAX }>,
+			> = Decode::decode(&mut &state[..]).unwrap();
+
+			// collect migrated rewards
+			let mut rewards_after: BoundedBTreeMap<
+				(T::AccountId, sp_std::vec::Vec<u8>),
+				T::Reward,
+				ConstU32<{ u32::MAX }>,
+			> = BoundedBTreeMap::new();
+			for (key1, key2, reward) in v2::RelayerRewards::<T, I>::iter() {
+				log::info!(target: LOG_TARGET, "Migrated rewards: {key1:?}::{key2:?} - {reward:?}");
+				rewards_after = rewards_after
+					.try_mutate(|inner| {
+						inner
+							.entry((key1.clone(), key2.encode()))
+							.and_modify(|value| *value += reward)
+							.or_insert(reward);
+					})
+					.unwrap();
+			}
+			log::info!(target: LOG_TARGET, "Found total migrated rewards: {rewards_after:?}");
+
+			frame_support::ensure!(
+				rewards_before == rewards_after,
+				"The rewards were not migrated correctly!."
+			);
+
+			log::info!(target: LOG_TARGET, "migrated all.");
+			Ok(())
+		}
+	}
+
+	/// [`UncheckedMigrationV0ToV1`] wrapped in a
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+	/// migration is only performed when on-chain version is 0.
+	pub type MigrationToV2<T, I, LaneId> = frame_support::migrations::VersionedMigration<
+		1,
+		2,
+		UncheckedMigrationV1ToV2<T, I, LaneId>,
 		Pallet<T, I>,
 		<T as frame_system::Config>::DbWeight,
 	>;
