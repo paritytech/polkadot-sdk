@@ -204,6 +204,60 @@ fn allow_explicit_unpaid_should_work() {
 		&mut props(Weight::zero()),
 	);
 	assert_eq!(r, Ok(()));
+
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.alias_origin(PalletInstance(10))
+		.unpaid_execution(Unlimited, None)
+		.build();
+
+	let result = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	let mut message = Xcm::<()>::builder_unsafe()
+		.alias_origin(PalletInstance(10))
+		.unpaid_execution(Unlimited, None)
+		.build();
+
+	let result = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.clear_origin()
+		.unpaid_execution(Unlimited, None)
+		.build();
+
+	let result = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.clear_origin()
+		.build();
+
+	let result = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::BadFormat));
 }
 
 #[test]

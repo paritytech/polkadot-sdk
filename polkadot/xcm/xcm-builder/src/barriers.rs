@@ -290,9 +290,12 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 }
 
 /// Allows execution from any origin that is contained in `T` (i.e. `T::Contains(origin)`) if the
-/// message begins with the instruction `UnpaidExecution`.
+/// message has the instruction `UnpaidExecution` at the start.
 ///
 /// Use only for executions from trusted origin groups.
+///
+/// Allows for the message to receive teleports or reserve asset transfers and altering
+/// the origin before indicating `UnpaidExecution`.
 pub struct AllowExplicitUnpaidExecutionFrom<T>(PhantomData<T>);
 impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T> {
 	fn should_execute<Call>(
@@ -307,11 +310,32 @@ impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T
 			origin, instructions, max_weight, _properties,
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
-		instructions.matcher().match_next_inst(|inst| match inst {
-			UnpaidExecution { weight_limit: Limited(m), .. } if m.all_gte(max_weight) => Ok(()),
-			UnpaidExecution { weight_limit: Unlimited, .. } => Ok(()),
-			_ => Err(ProcessMessageError::Overweight(max_weight)),
-		})?;
+		// We will read up to 5 instructions. This allows up to 3 `ClearOrigin` instructions. We
+		// allow for more than one since anything beyond the first is a no-op and it's conceivable
+		// that composition of operations might result in more than one being appended.
+		let end = instructions.len().min(5);
+		instructions[..end]
+			.matcher()
+			// We allow one teleport or reserve asset transfer instruction before
+			// altering the origin and using `UnpaidExecution`.
+			// We reuse `MAX_ASSETS_FOR_BUY_EXECUTION` so we cap the number of assets that
+			// can be transferred this way in case `UnpaidExecution` fails.
+			.skip_next_inst_if(|inst| {
+				matches!(inst, ReceiveTeleportedAsset(assets) | ReserveAssetDeposited(assets) if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION)
+			})?
+			// We then allow multiple instructions that alter the origin.
+			.skip_inst_while(|inst| {
+				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
+					matches!(inst, DescendOrigin(child) if child != &Here) ||
+					matches!(inst, SetHints { .. })
+			})?
+			// We finally match on the required `UnpaidExecution` instruction.
+			.match_next_inst(|inst| match inst {
+				UnpaidExecution { weight_limit: Limited(m), .. } if m.all_gte(max_weight) => Ok(()),
+				UnpaidExecution { weight_limit: Unlimited, .. } => Ok(()),
+				_ => Err(ProcessMessageError::Overweight(max_weight)),
+			})?;
+
 		Ok(())
 	}
 }
