@@ -1,7 +1,7 @@
 title: '[AHM] Multi-block staking election pallet'
 doc:
 - audience: Runtime Dev
-  description: |-
+  description: |
     Adds the multi-block implementation of staking election.
 
     This PR is the starting point of making the staking pallet customized for Asset-Hub Migration,
