@@ -263,7 +263,7 @@ fn stress_test_prioritize_queue() {
 			for _ in 0..200 {
 				MessageQueue::enqueue_message(
 					BoundedSlice::defensive_truncate_from("favorite".as_bytes()),
-					favorite_queue.clone(),
+					favorite_queue,
 				);
 				msgs_remaining += 1;
 			}
