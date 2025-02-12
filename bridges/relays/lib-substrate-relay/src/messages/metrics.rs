@@ -24,7 +24,7 @@ use frame_system::AccountInfo;
 use messages_relay::Labeled;
 use pallet_balances::AccountData;
 use relay_substrate_client::{
-	metrics::{FloatStorageValue, FloatStorageValueMetric},
+	metrics::{FixedU128OrOne, FloatStorageValue, FloatStorageValueMetric},
 	AccountIdOf, BalanceOf, Chain, ChainWithBalances, ChainWithMessages, ChainWithRewards, Client,
 	Error as SubstrateError, NonceOf,
 };
@@ -32,7 +32,6 @@ use relay_utils::metrics::{MetricsParams, StandaloneMetric};
 use sp_core::storage::StorageData;
 use sp_runtime::{FixedPointNumber, FixedU128};
 use std::{fmt::Debug, marker::PhantomData};
-use relay_substrate_client::metrics::FixedU128OrOne;
 
 /// Add relay accounts balance metrics.
 pub async fn add_relay_balances_metrics<C: ChainWithBalances>(
