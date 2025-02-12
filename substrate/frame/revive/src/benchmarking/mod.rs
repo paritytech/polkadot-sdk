@@ -24,10 +24,10 @@ mod code;
 use self::{call_builder::CallSetup, code::WasmModule};
 use crate::{
 	evm::runtime::GAS_PRICE,
-	exec::{Key, MomentOf},
+	exec::{Ext, Key, MomentOf},
 	limits,
 	storage::WriteOutcome,
-	Pallet as Contracts, *,
+	ConversionPrecision, Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
@@ -39,8 +39,17 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
-use pallet_revive_uapi::{CallFlags, ReturnErrorCode, StorageFlags};
-use sp_runtime::traits::{Bounded, Hash};
+use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
+use sp_consensus_aura::AURA_ENGINE_ID;
+use sp_consensus_babe::{
+	digests::{PreDigest, PrimaryPreDigest},
+	BABE_ENGINE_ID,
+};
+use sp_consensus_slots::Slot;
+use sp_runtime::{
+	generic::{Digest, DigestItem},
+	traits::{Bounded, Hash},
+};
 
 /// How many runs we do per API benchmark.
 ///
@@ -107,8 +116,6 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
 		);
 
 		let address = outcome.result?.addr;
@@ -559,6 +566,38 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_to_account_id() {
+		// use a mapped address for the benchmark, to ensure that we bench the worst
+		// case (and not the fallback case).
+		let address = {
+			let caller = account("seal_to_account_id", 0, 0);
+			T::Currency::set_balance(&caller, caller_funding::<T>());
+			T::AddressMapper::map(&caller).unwrap();
+			T::AddressMapper::to_address(&caller)
+		};
+
+		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
+		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_to_account_id(memory.as_mut_slice(), len as u32, 0);
+		}
+
+		assert_ok!(result);
+		assert_ne!(
+			memory.as_slice()[20..32],
+			[0xEE; 12],
+			"fallback suffix found where none should be"
+		);
+		assert_eq!(
+			T::AccountId::decode(&mut memory.as_slice()),
+			Ok(runtime.ext().to_account_id(&address))
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_code_hash() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
@@ -742,7 +781,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		ext.override_export(crate::debug::ExportedFunction::Constructor);
+		ext.override_export(crate::exec::ExportedFunction::Constructor);
 
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
 
@@ -854,6 +893,59 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().block_number());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_block_author() {
+		build_runtime!(runtime, memory: [[123u8; 20], ]);
+
+		let mut digest = Digest::default();
+
+		// The pre-runtime digest log is unbounded; usually around 3 items but it can vary.
+		// To get safe benchmark results despite that, populate it with a bunch of random logs to
+		// ensure iteration over many items (we just overestimate the cost of the API).
+		for i in 0..16 {
+			digest.push(DigestItem::PreRuntime([i, i, i, i], vec![i; 128]));
+			digest.push(DigestItem::Consensus([i, i, i, i], vec![i; 128]));
+			digest.push(DigestItem::Seal([i, i, i, i], vec![i; 128]));
+			digest.push(DigestItem::Other(vec![i; 128]));
+		}
+
+		// The content of the pre-runtime digest log depends on the configured consensus.
+		// However, mismatching logs are simply ignored. Thus we construct fixtures which will
+		// let the API to return a value in both BABE and AURA consensus.
+
+		// Construct a `Digest` log fixture returning some value in BABE
+		let primary_pre_digest = vec![0; <PrimaryPreDigest as MaxEncodedLen>::max_encoded_len()];
+		let pre_digest =
+			PreDigest::Primary(PrimaryPreDigest::decode(&mut &primary_pre_digest[..]).unwrap());
+		digest.push(DigestItem::PreRuntime(BABE_ENGINE_ID, pre_digest.encode()));
+		digest.push(DigestItem::Seal(BABE_ENGINE_ID, pre_digest.encode()));
+
+		// Construct a `Digest` log fixture returning some value in AURA
+		let slot = Slot::default();
+		digest.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
+		digest.push(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
+
+		frame_system::Pallet::<T>::initialize(
+			&BlockNumberFor::<T>::from(1u32),
+			&Default::default(),
+			&digest,
+		);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_block_author(memory.as_mut_slice(), 0);
+		}
+		assert_ok!(result);
+
+		let block_author = runtime
+			.ext()
+			.block_author()
+			.map(|account| T::AddressMapper::to_address(&account))
+			.unwrap_or(H160::zero());
+		assert_eq!(&memory[..], block_author.as_bytes());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -981,23 +1073,10 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate(
-		n: Linear<0, { limits::DELEGATE_DEPENDENCIES }>,
-	) -> Result<(), BenchmarkError> {
+	fn seal_terminate() -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		let caller = whitelisted_caller();
-		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let origin = RawOrigin::Signed(caller);
-		let storage_deposit = default_deposit_limit::<T>();
 
 		build_runtime!(runtime, memory: [beneficiary.encode(),]);
-
-		(0..n).for_each(|i| {
-			let new_code = WasmModule::dummy_unique(65 + i);
-			Contracts::<T>::bare_upload_code(origin.clone().into(), new_code.code, storage_deposit)
-				.unwrap();
-			runtime.ext().lock_delegate_dependency(new_code.hash).unwrap();
-		});
 
 		let result;
 		#[block]
@@ -1045,32 +1124,6 @@ mod benchmarks {
 			record.event,
 			crate::Event::ContractEmitted { contract: instance.address, data, topics }.into(),
 		);
-	}
-
-	// Benchmark debug_message call
-	// Whereas this function is used in RPC mode only, it still should be secured
-	// against an excessive use.
-	//
-	// i: size of input in bytes up to maximum allowed contract memory or maximum allowed debug
-	// buffer size, whichever is less.
-	#[benchmark]
-	fn seal_debug_message(
-		i: Linear<0, { (limits::code::BLOB_BYTES).min(limits::DEBUG_BUFFER_BYTES) }>,
-	) {
-		let mut setup = CallSetup::<T>::default();
-		setup.enable_debug_message();
-		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		// Fill memory with printable ASCII bytes.
-		let mut memory = (0..i).zip((32..127).cycle()).map(|i| i.1).collect::<Vec<_>>();
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_debug_message(memory.as_mut_slice(), 0, i);
-		}
-		assert_ok!(result);
-		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
@@ -1646,16 +1699,12 @@ mod benchmarks {
 		{
 			result = runtime.bench_call(
 				memory.as_mut_slice(),
-				CallFlags::CLONE_INPUT.bits(), // flags
-				0,                             // callee_ptr
-				0,                             // ref_time_limit
-				0,                             // proof_size_limit
-				callee_len,                    // deposit_ptr
-				callee_len + deposit_len,      // value_ptr
-				0,                             // input_data_ptr
-				0,                             // input_data_len
-				SENTINEL,                      // output_ptr
-				0,                             // output_len_ptr
+				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+				u64::MAX,                                     // ref_time_limit
+				u64::MAX,                                     // proof_size_limit
+				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+				pack_hi_lo(0, 0),                             // input len + data ptr
+				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
 			);
 		}
 
@@ -1686,15 +1735,12 @@ mod benchmarks {
 		{
 			result = runtime.bench_delegate_call(
 				memory.as_mut_slice(),
-				0,           // flags
-				0,           // address_ptr
-				0,           // ref_time_limit
-				0,           // proof_size_limit
-				address_len, // deposit_ptr
-				0,           // input_data_ptr
-				0,           // input_data_len
-				SENTINEL,    // output_ptr
-				0,
+				pack_hi_lo(0, 0),        // flags + address ptr
+				u64::MAX,                // ref_time_limit
+				u64::MAX,                // proof_size_limit
+				address_len,             // deposit_ptr
+				pack_hi_lo(0, 0),        // input len + data ptr
+				pack_hi_lo(0, SENTINEL), // output len + ptr
 			);
 		}
 
@@ -1709,13 +1755,12 @@ mod benchmarks {
 		let code = WasmModule::dummy();
 		let hash = Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
-		let hash_len = hash_bytes.len() as u32;
 
 		let value: BalanceOf<T> = 1_000_000u32.into();
 		let value_bytes = Into::<U256>::into(value).encode();
 		let value_len = value_bytes.len() as u32;
 
-		let deposit: BalanceOf<T> = 0u32.into();
+		let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
 		let deposit_bytes = Into::<U256>::into(deposit).encode();
 		let deposit_len = deposit_bytes.len() as u32;
 
@@ -1728,11 +1773,12 @@ mod benchmarks {
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 
 		let input = vec![42u8; i as _];
+		let input_len = hash_bytes.len() as u32 + input.len() as u32;
 		let salt = [42u8; 32];
 		let deployer = T::AddressMapper::to_address(&account_id);
 		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
-		let mut memory = memory!(hash_bytes, deposit_bytes, value_bytes, input, salt,);
+		let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
 
 		let mut offset = {
 			let mut current = 0u32;
@@ -1749,17 +1795,12 @@ mod benchmarks {
 		{
 			result = runtime.bench_instantiate(
 				memory.as_mut_slice(),
-				0,                   // code_hash_ptr
-				0,                   // ref_time_limit
-				0,                   // proof_size_limit
-				offset(hash_len),    // deposit_ptr
-				offset(deposit_len), // value_ptr
-				offset(value_len),   // input_data_ptr
-				i,                   // input_data_len
-				SENTINEL,            // address_ptr
-				SENTINEL,            // output_ptr
-				0,                   // output_len_ptr
-				offset(i),           // salt_ptr
+				u64::MAX,                                           // ref_time_limit
+				u64::MAX,                                           // proof_size_limit
+				pack_hi_lo(offset(input_len), offset(deposit_len)), // deopsit_ptr + value_ptr
+				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
+				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
+				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
 			);
 		}
 
@@ -1767,7 +1808,9 @@ mod benchmarks {
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
 		assert_eq!(
 			T::Currency::balance(&account_id),
-			Pallet::<T>::min_balance() + Pallet::<T>::convert_evm_to_native(value.into()).unwrap()
+			Pallet::<T>::min_balance() +
+				Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
+					.unwrap()
 		);
 		Ok(())
 	}
@@ -1920,43 +1963,6 @@ mod benchmarks {
 		#[block]
 		{
 			result = runtime.bench_set_code_hash(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		Ok(())
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn lock_delegate_dependency() -> Result<(), BenchmarkError> {
-		let code_hash = Contract::<T>::with_index(1, WasmModule::dummy_unique(1), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_lock_delegate_dependency(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		Ok(())
-	}
-
-	#[benchmark]
-	fn unlock_delegate_dependency() -> Result<(), BenchmarkError> {
-		let code_hash = Contract::<T>::with_index(1, WasmModule::dummy_unique(1), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
-		runtime.bench_lock_delegate_dependency(memory.as_mut_slice(), 0).unwrap();
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_unlock_delegate_dependency(memory.as_mut_slice(), 0);
 		}
 
 		assert_ok!(result);

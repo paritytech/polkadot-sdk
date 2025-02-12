@@ -2199,7 +2199,7 @@ fn import_sink_works3() {
 		pool.submit_one(genesis, SOURCE, xt1.clone()),
 	];
 
-	let x = block_on(futures::future::join_all(submissions));
+	block_on(futures::future::join_all(submissions));
 
 	let header01a = api.push_block(1, vec![], true);
 	let header01b = api.push_block(1, vec![], true);
@@ -2212,8 +2212,6 @@ fn import_sink_works3() {
 
 	assert_pool_status!(header01a.hash(), &pool, 1, 1);
 	assert_pool_status!(header01b.hash(), &pool, 1, 1);
-
-	log::debug!("xxx {x:#?}");
 
 	let import_events =
 		futures::executor::block_on_stream(import_stream).take(1).collect::<Vec<_>>();

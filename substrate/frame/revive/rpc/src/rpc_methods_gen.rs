@@ -95,6 +95,10 @@ pub trait EthRpc {
 	#[method(name = "eth_getCode")]
 	async fn get_code(&self, address: Address, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes>;
 
+	/// Returns an array of all logs matching filter with given id.
+	#[method(name = "eth_getLogs")]
+	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults>;
+
 	/// Returns the value from a storage position at a given address.
 	#[method(name = "eth_getStorageAt")]
 	async fn get_storage_at(
@@ -141,6 +145,10 @@ pub trait EthRpc {
 		&self,
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>>;
+
+	/// Returns the current maxPriorityFeePerGas per gas in wei.
+	#[method(name = "eth_maxPriorityFeePerGas")]
+	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
 
 	/// Submits a raw transaction. For EIP-4844 transactions, the raw form must be the network form.
 	/// This means it includes the blobs, KZG commitments, and KZG proofs.
