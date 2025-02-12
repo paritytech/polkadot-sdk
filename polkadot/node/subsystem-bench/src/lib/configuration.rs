@@ -21,7 +21,10 @@ use itertools::Itertools;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId, ValidatorPair};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
-use sc_network::config::{ed25519::SecretKey, NodeKeyConfig, Secret};
+use sc_network::{
+	config::{ed25519::SecretKey, NodeKeyConfig, Secret},
+	multiaddr,
+};
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId;
@@ -239,6 +242,17 @@ impl TestConfiguration {
 			.map(|(peer_id, authority_id)| (*peer_id, authority_id.clone()))
 			.collect();
 
+		let authority_id_to_addr = validator_authority_id
+			.iter()
+			.enumerate()
+			.map(|(index, authority_id)| {
+				(
+					authority_id.clone(),
+					multiaddr::Protocol::Memory(index.saturating_add(1) as u64).into(),
+				)
+			})
+			.collect();
+
 		let validator_pairs = key_seeds
 			.iter()
 			.map(|seed| ValidatorPair::from_string_with_seed(seed, None).unwrap().0)
@@ -254,6 +268,7 @@ impl TestConfiguration {
 			validator_assignment_id,
 			key_seeds,
 			peer_id_to_authority,
+			authority_id_to_addr,
 			validator_pairs,
 		}
 	}
@@ -284,6 +299,7 @@ pub struct TestAuthorities {
 	pub key_seeds: Vec<String>,
 	pub peer_ids: Vec<PeerId>,
 	pub peer_id_to_authority: HashMap<PeerId, AuthorityDiscoveryId>,
+	pub authority_id_to_addr: HashMap<AuthorityDiscoveryId, sc_network::Multiaddr>,
 	pub validator_pairs: Vec<ValidatorPair>,
 	pub node_key_configs: Vec<NodeKeyConfig>,
 }

@@ -114,12 +114,18 @@ where
 
 	let node_key: NodeKeyConfig =
 		state.test_authorities.node_key_configs[NODE_UNDER_TEST as usize].clone();
+	let listen_addr = state.test_authorities.authority_id_to_addr
+		[&state.test_authorities.validator_authority_id[NODE_UNDER_TEST as usize]]
+		.clone();
 	let role = Role::Authority;
 	let protocol_id = ProtocolId::from("sup");
 	let notification_metrics = NotificationMetrics::new(Some(&dependencies.registry));
 
-	let mut network_config =
-		network_utils::build_network_config::<B, N>(node_key, Some(dependencies.registry.clone()));
+	let mut network_config = network_utils::build_network_config::<B, N>(
+		node_key,
+		listen_addr,
+		Some(dependencies.registry.clone()),
+	);
 
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
 	// v1 requests
@@ -186,6 +192,7 @@ where
 
 	let authority_discovery_service = network_utils::DummyAuthotiryDiscoveryService::new(
 		state.test_authorities.peer_id_to_authority.clone(),
+		state.test_authorities.authority_id_to_addr.clone(),
 	);
 	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
 	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
@@ -271,11 +278,15 @@ fn build_peer<B, N>(
 	let _guard = dependencies.runtime.handle().enter();
 
 	let node_key: NodeKeyConfig = state.test_authorities.node_key_configs[index as usize].clone();
+	let listen_addr = state.test_authorities.authority_id_to_addr
+		[&state.test_authorities.validator_authority_id[index as usize]]
+		.clone();
 	let role = Role::Authority;
 	let protocol_id = ProtocolId::from("sup");
 	let notification_metrics = NotificationMetrics::new(None);
 
-	let mut network_config = network_utils::build_network_config::<B, N>(node_key, None);
+	let mut network_config =
+		network_utils::build_network_config::<B, N>(node_key, listen_addr, None);
 
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
 	let (mut candidate_req_receiver, candidate_req_cfg) =

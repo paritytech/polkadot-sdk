@@ -142,21 +142,23 @@ impl BenchCli {
 			let usage = match objective {
 				TestObjective::DataAvailabilityRead(opts) => {
 					let state = availability::TestState::new(&test_config);
-					let (mut env, _protocol_config) = availability::prepare_test(
-						&state,
-						availability::TestDataAvailability::Read(opts),
-						true,
-					);
+					let (mut env, _protocol_config) =
+						availability::prepare_test::<Block, NetworkWorker<_, _>>(
+							&state,
+							availability::TestDataAvailability::Read(opts),
+							true,
+						);
 					env.runtime()
 						.block_on(availability::benchmark_availability_read(&mut env, &state))
 				},
 				TestObjective::DataAvailabilityWrite => {
 					let state = availability::TestState::new(&test_config);
-					let (mut env, _protocol_config) = availability::prepare_test(
-						&state,
-						availability::TestDataAvailability::Write,
-						true,
-					);
+					let (mut env, _protocol_config) =
+						availability::prepare_test::<Block, NetworkWorker<_, _>>(
+							&state,
+							availability::TestDataAvailability::Write,
+							true,
+						);
 					env.runtime()
 						.block_on(availability::benchmark_availability_write(&mut env, &state))
 				},

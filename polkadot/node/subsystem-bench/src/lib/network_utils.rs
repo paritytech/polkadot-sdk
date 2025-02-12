@@ -27,9 +27,8 @@ use sc_network::{
 		FullNetworkConfiguration, NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, Params,
 		ProtocolId, Role, SetConfig, TransportConfig,
 	},
-	multiaddr,
 	service::traits::NetworkService,
-	NetworkBackend, NotificationConfig, NotificationMetrics, NotificationService,
+	Multiaddr, NetworkBackend, NotificationConfig, NotificationMetrics, NotificationService,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sc_network_types::PeerId;
@@ -57,14 +56,22 @@ impl SyncOracle for DummySyncOracle {
 #[derive(Clone, Debug)]
 pub struct DummyAuthotiryDiscoveryService {
 	pub(crate) by_peer_id: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
+	pub(crate) by_authority_id: HashMap<AuthorityDiscoveryId, HashSet<sc_network::Multiaddr>>,
 }
 
 impl DummyAuthotiryDiscoveryService {
-	pub fn new(by_peer_id: HashMap<PeerId, AuthorityDiscoveryId>) -> Self {
+	pub fn new(
+		by_peer_id: HashMap<PeerId, AuthorityDiscoveryId>,
+		by_authority_id: HashMap<AuthorityDiscoveryId, Multiaddr>,
+	) -> Self {
 		Self {
 			by_peer_id: by_peer_id
 				.into_iter()
 				.map(|(peer_id, authority_id)| (peer_id, HashSet::from([authority_id])))
+				.collect(),
+			by_authority_id: by_authority_id
+				.into_iter()
+				.map(|(authority_id, multiaddr)| (authority_id, HashSet::from([multiaddr])))
 				.collect(),
 		}
 	}
@@ -76,7 +83,7 @@ impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 		&mut self,
 		authority: AuthorityDiscoveryId,
 	) -> Option<HashSet<sc_network::Multiaddr>> {
-		todo!("get_addresses_by_authority_id authority: {:?}", authority);
+		self.by_authority_id.get(&authority).cloned()
 	}
 
 	async fn get_authority_ids_by_peer_id(
@@ -89,6 +96,7 @@ impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 
 pub(crate) fn build_network_config<B, N>(
 	node_key: NodeKeyConfig,
+	listen_addr: Multiaddr,
 	metrics_registry: Option<Registry>,
 ) -> FullNetworkConfiguration<B, B::Hash, N>
 where
@@ -96,8 +104,8 @@ where
 	N: NetworkBackend<B, B::Hash>,
 {
 	let mut net_conf = NetworkConfiguration::new_local();
-	net_conf.transport = TransportConfig::MemoryOnly;
-	net_conf.listen_addresses = vec![multiaddr::Protocol::Memory(0).into()];
+	// net_conf.transport = TransportConfig::MemoryOnly;
+	// net_conf.listen_addresses = vec![listen_addr];
 	net_conf.node_key = node_key;
 
 	FullNetworkConfiguration::<B, B::Hash, N>::new(&net_conf, metrics_registry)
