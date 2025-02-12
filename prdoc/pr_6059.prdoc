@@ -4,6 +4,7 @@ doc:
   description: |-
     Changes:
     - Expose a `force_set_head` function from the `MessageQueue` pallet via a new trait: `ForceSetHead`. This can be used to force the MQ pallet to process this queue next.
+    - The change only exposes an internal function through a trait, no audit is required.
 
     ## Context
 
@@ -24,8 +25,32 @@ doc:
     It basically transforms the round-robin into an elongated round robin. Although different strategies can be injected into the pallet at runtime, this one seems to strike a good balance between general service level and prioritization.
 crates:
 - name: pallet-message-queue
-  bump: major
+  bump: patch
 - name: rococo-runtime
   bump: patch
 - name: westend-runtime
+  bump: patch
+- name: contracts-rococo-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
   bump: patch
