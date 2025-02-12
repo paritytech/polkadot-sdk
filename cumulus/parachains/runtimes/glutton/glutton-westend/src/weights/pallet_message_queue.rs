@@ -62,6 +62,9 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn set_service_head() -> Weight {
+		Weight::from_parts(175_271_000, 0)
+	}
 	/// Storage: `MessageQueue::BookStateFor` (r:2 w:2)
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	/// Storage: `MessageQueue::ServiceHead` (r:1 w:1)

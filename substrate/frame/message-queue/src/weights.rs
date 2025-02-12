@@ -62,7 +62,7 @@ pub trait WeightInfo {
 	fn service_page_base_no_completion() -> Weight;
 	fn service_page_item() -> Weight;
 	fn bump_service_head() -> Weight;
-	fn force_set_head() -> Weight;
+	fn set_service_head() -> Weight;
 	fn reap_page() -> Weight;
 	fn execute_overweight_page_removed() -> Weight;
 	fn execute_overweight_page_updated() -> Weight;
@@ -159,7 +159,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	/// Storage: `MessageQueue::ServiceHead` (r:0 w:1)
 	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn force_set_head() -> Weight {
+	fn set_service_head() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `154`
 		//  Estimated: `3514`
@@ -299,7 +299,7 @@ impl WeightInfo for () {
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	/// Storage: `MessageQueue::ServiceHead` (r:0 w:1)
 	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn force_set_head() -> Weight {
+	fn set_service_head() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `154`
 		//  Estimated: `3514`

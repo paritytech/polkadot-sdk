@@ -171,7 +171,7 @@ mod benchmarks {
 
 	// Worst case for calling `bump_service_head`.
 	#[benchmark]
-	fn force_set_head() {
+	fn set_service_head() {
 		setup_bump_service_head::<T>(0.into(), 1.into());
 		let mut weight = WeightMeter::new();
 		assert_eq!(ServiceHead::<T>::get().unwrap(), 0u32.into());

@@ -146,7 +146,7 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(55), added: 2530, mode: `MaxEncodedLen`)
 	/// Storage: `MessageQueue::ServiceHead` (r:0 w:1)
 	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(6), added: 501, mode: `MaxEncodedLen`)
-	fn force_set_head() -> Weight {
+	fn set_service_head() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `220`
 		//  Estimated: `3520`
