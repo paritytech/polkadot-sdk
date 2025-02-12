@@ -46,7 +46,7 @@ pub enum EthereumSystemCall {
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum BridgeHubRuntime {
 	#[codec(index = 90)]
-	Control(EthereumSystemCall),
+	EthereumSystem(EthereumSystemCall),
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -148,7 +148,7 @@ pub mod pallet {
 				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)?;
 
-			let call = BridgeHubRuntime::Control(EthereumSystemCall::CreateAgent {
+			let call = BridgeHubRuntime::EthereumSystem(EthereumSystemCall::CreateAgent {
 				location: Box::new(VersionedLocation::from(reanchored_location.clone())),
 				fee,
 			});
@@ -207,7 +207,7 @@ pub mod pallet {
 				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)?;
 
-			let call = BridgeHubRuntime::Control(EthereumSystemCall::RegisterToken {
+			let call = BridgeHubRuntime::EthereumSystem(EthereumSystemCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(reanchored_asset_location.clone())),
 				metadata,
 				fee,
