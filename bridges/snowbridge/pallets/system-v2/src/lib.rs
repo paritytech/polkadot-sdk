@@ -139,8 +139,6 @@ pub mod pallet {
 		/// Sends a command to the Gateway contract to instantiate a new agent contract representing
 		/// `origin`.
 		///
-		/// Fee required: Yes
-		///
 		/// - `origin`: Must be `Location` from the root of asset hub
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::create_agent())]
@@ -179,9 +177,6 @@ pub mod pallet {
 		}
 
 		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
-		/// Privileged. Can only be called by root.
-		///
-		/// Fee required: No
 		///
 		/// - `origin`: Must be `Location` from the root of asset hub
 		/// - `location`: Location of the asset (relative to this chain)
@@ -234,7 +229,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Send `command` to the Gateway on the Channel identified by `channel_id`
+		/// Send `command` to the Gateway from a specific origin/agent
 		fn send(origin: AgentId, command: Command, fee: u128) -> DispatchResult {
 			let mut message = Message {
 				origin,
