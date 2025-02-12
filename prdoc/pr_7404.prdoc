@@ -1,0 +1,12 @@
+title: Bridges small nits/improvements
+doc:
+- audience: Runtime Dev
+  description: |
+    This Pull Request introduces `pallet-assets-vesting`, allowing runtimes to add vesting schedules to assets.
+crates:
+- name: frame-support
+  bump: minor
+- name: pallet-assets-vesting
+  bump: major
+- name: polkadot-sdk
+  bump: minor
