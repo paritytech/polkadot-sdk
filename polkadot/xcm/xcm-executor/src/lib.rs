@@ -1194,7 +1194,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// transferring the other assets. This is required to satisfy the
 					// `MAX_ASSETS_FOR_BUY_EXECUTION` limit in the `AllowTopLevelPaidExecutionFrom`
 					// barrier.
-					if let Some(remote_fees) = remote_fees {
+					let wants_unpaid_execution = if let Some(remote_fees) = remote_fees {
 						let reanchored_fees = match remote_fees {
 							AssetTransferFilter::Teleport(fees_filter) => {
 								let teleport_fees = self
@@ -1239,21 +1239,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						// move these assets to the fees register for covering execution and paying
 						// any subsequent fees
 						message.push(PayFees { asset: fees });
+						false
 					} else {
-						// Check if this origin is allowed to send messages that do not
-						// intend to pay for fees.
-						ensure!(
-							Config::FeeManager::is_waived(self.origin_ref(), FeeReason::InitiateTransfer),
-							XcmError::BadOrigin
-						);
-
-						// We push the UnpaidExecution instruction to notify we do not intend to pay
-						// for fees.
-						// The receiving chain must decide based on the origin of the message if they
-						// accept this.
-						message
-							.push(UnpaidExecution { weight_limit: Unlimited, check_origin: None });
-					}
+						true
+					};
 
 					// add any extra asset transfers
 					for asset_filter in assets {
@@ -1280,6 +1269,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								)?,
 						};
 					}
+
 					if preserve_origin {
 						// preserve current origin for subsequent user-controlled instructions on
 						// remote chain
@@ -1292,11 +1282,29 @@ impl<Config: config::Config> XcmExecutor<Config> {
 									.ok()
 							})
 							.ok_or(XcmError::BadOrigin)?;
-						message.push(AliasOrigin(original_origin));
+						// We alias the origin if it's not already the root of this chain.
+						if let Some(origin) = self.origin_ref() {
+							if *origin != Location::here() {
+								message.push(AliasOrigin(original_origin));
+							}
+						}
 					} else {
 						// clear origin for subsequent user-controlled instructions on remote chain
 						message.push(ClearOrigin);
 					}
+
+					// If not intending to pay for fees then we send the `UnpaidExecution`
+					// _AFTER_ origin altering instructions.
+					// When origin is not preserved, it's probably going to fail on the receiver.
+					if wants_unpaid_execution {
+						// We push the UnpaidExecution instruction to notify we do not intend to pay
+						// for fees.
+						// The receiving chain must decide based on the origin of the message if they
+						// accept this.
+						message
+							.push(UnpaidExecution { weight_limit: Unlimited, check_origin: None });
+					}
+
 					// append custom instructions
 					message.extend(remote_xcm.0.into_iter());
 					// send the onward XCM
