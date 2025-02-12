@@ -2,7 +2,6 @@ title: '`fatxpool`: event streams moved to view domain'
 doc:
 - audience: Node Dev
   description: |-
-    #### Overview
     This pull request refactors the transaction pool `graph` module by renaming components for better clarity and decouples `graph` module from `view` module related specifics.
     This PR does not introduce changes in the logic.
 crates:
