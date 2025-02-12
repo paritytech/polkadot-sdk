@@ -112,16 +112,6 @@ pub(super) async fn update_view(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_,
-				RuntimeApiRequest::AsyncBackingParams(tx),
-			)) => {
-				tx.send(Ok(test_state.async_backing_params)).unwrap();
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
 				RuntimeApiRequest::NodeFeatures(_, tx)
 			)) => {
 				tx.send(Ok(test_state.node_features.clone())).unwrap();
@@ -137,8 +127,7 @@ pub(super) async fn update_view(
 		)
 		.await;
 
-		let min_number =
-			leaf_number.saturating_sub(test_state.async_backing_params.allowed_ancestry_len);
+		let min_number = leaf_number.saturating_sub(test_state.scheduling_lookahead);
 
 		let ancestry_len = leaf_number + 1 - min_number;
 		let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
@@ -730,8 +719,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		)
 		.await;
 
-		// `allowed_ancestry_len` equals the size of the claim queue
-		for i in 0..test_state.async_backing_params.allowed_ancestry_len {
+		for i in 0..test_state.scheduling_lookahead {
 			submit_second_and_assert(
 				&mut virtual_overseer,
 				keystore.clone(),
@@ -2189,8 +2177,7 @@ fn claims_below_are_counted_correctly() {
 		),
 	);
 	test_state.claim_queue = claim_queue;
-	test_state.async_backing_params.max_candidate_depth = 3;
-	test_state.async_backing_params.allowed_ancestry_len = 2;
+	test_state.scheduling_lookahead = 2;
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -2280,8 +2267,7 @@ fn claims_above_are_counted_correctly() {
 		),
 	);
 	test_state.claim_queue = claim_queue;
-	test_state.async_backing_params.max_candidate_depth = 3;
-	test_state.async_backing_params.allowed_ancestry_len = 2;
+	test_state.scheduling_lookahead = 2;
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -2386,8 +2372,7 @@ fn claim_fills_last_free_slot() {
 		),
 	);
 	test_state.claim_queue = claim_queue;
-	test_state.async_backing_params.max_candidate_depth = 3;
-	test_state.async_backing_params.allowed_ancestry_len = 2;
+	test_state.scheduling_lookahead = 2;
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
