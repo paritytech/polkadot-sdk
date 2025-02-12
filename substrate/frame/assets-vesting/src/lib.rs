@@ -63,6 +63,8 @@ use frame::{
 		tokens::Preservation,
 	},
 };
+use scale_info::prelude::vec::Vec;
+
 pub use pallet::*;
 pub use types::*;
 pub use weights::*;
