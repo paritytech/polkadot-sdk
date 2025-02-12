@@ -24,6 +24,8 @@ use sc_network_sync::{SyncState, SyncStatus, WarpSyncPhase, WarpSyncProgress};
 use sp_runtime::traits::{Block as BlockT, CheckedDiv, NumberFor, Saturating, Zero};
 use std::{fmt, time::Instant};
 
+use crate::PrintFullHashOnDebugLogging;
+
 /// State of the informant display system.
 ///
 /// This is the system that handles the line that gets regularly printed and that looks something
@@ -138,9 +140,9 @@ impl<B: BlockT> InformantDisplay<B> {
 			target,
 			style(num_connected_peers).white().bold(),
 			style(best_number).white().bold(),
-			best_hash,
+			PrintFullHashOnDebugLogging(&best_hash),
 			style(finalized_number).white().bold(),
-			info.chain.finalized_hash,
+			PrintFullHashOnDebugLogging(&info.chain.finalized_hash),
 			style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
 			style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
 		)
