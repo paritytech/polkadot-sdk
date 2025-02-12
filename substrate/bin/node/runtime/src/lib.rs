@@ -911,10 +911,10 @@ impl pallet_fast_unstake::Config for Runtime {
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
 	pub struct NposSolution16::<
-		VoterIndex = u16,
+		VoterIndex = u32,
 		TargetIndex = u16,
-		Accuracy = sp_runtime::Percent,
-		MaxVoters = ConstU32<{ 22500 / multi_block_impls::Pages::get() } >,
+		Accuracy = sp_runtime::PerU16,
+		MaxVoters = ConstU32<22500>,
 	>(16)
 );
 
@@ -922,6 +922,16 @@ pub(crate) mod multi_block_impls {
 	use super::*;
 	use pallet_election_provider_multi_block as multi_block;
 	use pallet_election_provider_multi_phase as multi_phase;
+
+	frame_election_provider_support::generate_solution_type!(
+		#[compact]
+		pub struct MultiBlockSolution::<
+			VoterIndex = u16,
+			TargetIndex = u16,
+			Accuracy = sp_runtime::Percent,
+			MaxVoters = ConstU32<{22500 / Pages::get()}>,
+		>(16)
+	);
 
 	parameter_types! {
 		pub const Pages: u32 = 64;
@@ -951,7 +961,7 @@ pub(crate) mod multi_block_impls {
 		type MaxLength = MinerMaxLength;
 		type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
 		type Pages = Pages;
-		type Solution = NposSolution16;
+		type Solution = MultiBlockSolution;
 		type VoterSnapshotPerBlock = <Runtime as multi_block::Config>::VoterSnapshotPerBlock;
 		type TargetSnapshotPerBlock = <Runtime as multi_block::Config>::TargetSnapshotPerBlock;
 	}
@@ -1480,11 +1490,11 @@ parameter_types! {
 	// additional data per vote is 32 bytes (account id).
 	pub const VotingBondFactor: Balance = deposit(0, 32);
 	pub const TermDuration: BlockNumber = 7 * DAYS;
-	pub const DesiredMembers: u32 = CouncilMaxMembers::get();
+	pub const DesiredMembers: u32 = 13;
 	pub const DesiredRunnersUp: u32 = 7;
 	pub const MaxVotesPerVoter: u32 = 16;
-	pub const MaxVoters: u32 = 512;
-	pub const MaxCandidates: u32 = 64;
+	pub const MaxVoters: u32 = 64;
+	pub const MaxCandidates: u32 = 128;
 	pub const ElectionsPhragmenPalletId: LockIdentifier = *b"phrelect";
 }
 

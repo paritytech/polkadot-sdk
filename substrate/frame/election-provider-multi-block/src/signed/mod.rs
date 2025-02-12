@@ -39,6 +39,17 @@
 //!    get a share of the the sum deposit. The share increases as times goes on.
 //! **Metadata update**: imagine you mis-computed your score.
 
+// TODO: we should delete this async and once the round is passed.
+// Registration would consequently be as follows:
+// - If you get ejected, and you are lazy removed, a percentage of your deposit is burned. If we set
+//   this to 100%, we will not have bad submissions after the queue is full. The queue can be made
+//   full by purely an attacker, in which case the sum of deposits should be large enough to cover
+//   the fact that we will have a bad election.
+// - whitelisted accounts who will not pay deposits are needed. They can still be ejected, but for
+//   free.
+// - Deposit should exponentially increase, and in general we should not allow for more than say 8
+//   signed submissions.
+
 use crate::{
 	types::SolutionOf,
 	verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult},
