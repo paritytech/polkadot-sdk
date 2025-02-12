@@ -110,6 +110,7 @@ std = [
 	"subxt-signer",
 	"xcm-builder/std",
 	"xcm/std",
+	"alloy-core/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
