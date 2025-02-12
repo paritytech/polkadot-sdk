@@ -1,20 +1,19 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+// SPDX-License-Identifier: Apache-2.0
 
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! The Substrate runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
@@ -41,7 +40,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl,
-	dispatch::DispatchClass,
+	dispatch::{DispatchClass, DispatchInfo},
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
 	instances::{Instance1, Instance2},
@@ -89,6 +88,7 @@ use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_session::historical as pallet_session_historical;
 use sp_core::U256;
+use sp_runtime::traits::TransactionExtension;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 use pallet_broker::TaskId;
@@ -990,6 +990,7 @@ impl pallet_nomination_pools::Config for Runtime {
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -1004,6 +1005,7 @@ impl pallet_conviction_voting::Config for Runtime {
 	type MaxVotes = ConstU32<512>;
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -1072,6 +1074,7 @@ impl pallet_referenda::Config for Runtime {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 }
 
 impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
@@ -1092,6 +1095,7 @@ impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 }
 
 impl pallet_ranked_collective::Config for Runtime {
@@ -1717,6 +1721,7 @@ impl pallet_society::Config for Runtime {
 	type ChallengePeriod = ChallengePeriod;
 	type MaxPayouts = MaxPayouts;
 	type MaxBids = MaxBids;
+	type BlockNumberProvider = System;
 	type WeightInfo = pallet_society::weights::SubstrateWeight<Runtime>;
 }
 
@@ -2311,6 +2316,7 @@ impl pallet_migrations::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub const MinimumCreditPurchase: Balance =  100 * MILLICENTS;
 }
 
 pub struct IntoAuthor;
@@ -2363,6 +2369,7 @@ impl pallet_broker::Config for Runtime {
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
+	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
 
 parameter_types! {
@@ -3313,6 +3320,10 @@ impl_runtime_apis! {
 			Revive::evm_block_gas_limit()
 		}
 
+		fn gas_price() -> U256 {
+			Revive::evm_gas_price()
+		}
+
 		fn nonce(address: H160) -> Nonce {
 			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
 			System::account_nonce(account)
@@ -3321,18 +3332,19 @@ impl_runtime_apis! {
 		fn eth_transact(tx: pallet_revive::evm::GenericTransaction) -> Result<pallet_revive::EthTransactInfo<Balance>, pallet_revive::EthTransactError>
 		{
 			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
-
-			let encoded_size = |pallet_call| {
+			let tx_fee = |pallet_call, mut dispatch_info: DispatchInfo| {
 				let call = RuntimeCall::Revive(pallet_call);
+				dispatch_info.extension_weight = EthExtraImpl::get_eth_extension(0, 0u32.into()).weight(&call);
 				let uxt: UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
-				uxt.encoded_size() as u32
+
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
+					uxt.encoded_size() as u32,
+					&dispatch_info,
+					0u32.into(),
+				)
 			};
 
-			Revive::bare_eth_transact(
-				tx,
-				blockweights.max_block,
-				encoded_size,
-			)
+			Revive::bare_eth_transact(tx, blockweights.max_block, tx_fee)
 		}
 
 		fn call(
@@ -3395,6 +3407,67 @@ impl_runtime_apis! {
 				address,
 				key
 			)
+		}
+
+		fn trace_block(
+			block: Block,
+			config: pallet_revive::evm::TracerConfig
+		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
+			use pallet_revive::tracing::trace;
+			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			let mut traces = vec![];
+			let (header, extrinsics) = block.deconstruct();
+
+			Executive::initialize_block(&header);
+			for (index, ext) in extrinsics.into_iter().enumerate() {
+				trace(&mut tracer, || {
+					let _ = Executive::apply_extrinsic(ext);
+				});
+
+				if let Some(tx_trace) = tracer.collect_traces().pop() {
+					traces.push((index as u32, tx_trace));
+				}
+			}
+
+			traces
+		}
+
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+			config: pallet_revive::evm::TracerConfig
+		) -> Option<pallet_revive::evm::CallTrace> {
+			use pallet_revive::tracing::trace;
+			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			let (header, extrinsics) = block.deconstruct();
+
+			Executive::initialize_block(&header);
+			for (index, ext) in extrinsics.into_iter().enumerate() {
+				if index as u32 == tx_index {
+					trace(&mut tracer, || {
+						let _ = Executive::apply_extrinsic(ext);
+					});
+					break;
+				} else {
+					let _ = Executive::apply_extrinsic(ext);
+				}
+			}
+
+			tracer.collect_traces().pop()
+		}
+
+		fn trace_call(
+			tx: pallet_revive::evm::GenericTransaction,
+			config: pallet_revive::evm::TracerConfig)
+			-> Result<pallet_revive::evm::CallTrace, pallet_revive::EthTransactError>
+		{
+			use pallet_revive::tracing::trace;
+			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			trace(&mut tracer, || {
+				Self::eth_transact(tx)
+			})?;
+
+			Ok(tracer.collect_traces().pop().expect("eth_transact succeeded, trace must exist, qed"))
 		}
 	}
 
