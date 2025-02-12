@@ -318,8 +318,9 @@ pub mod v1 {
 	>;
 }
 
-/// The pallet in version 1 only supported rewards collected under the key of `RewardsAccountParams`.
-/// This migration essentially converts existing `RewardsAccountParams` keys to the generic type `T::RewardKind`.
+/// The pallet in version 1 only supported rewards collected under the key of
+/// `RewardsAccountParams`. This migration essentially converts existing `RewardsAccountParams` keys
+/// to the generic type `T::RewardKind`.
 pub mod v2 {
 	use super::*;
 	#[cfg(feature = "try-runtime")]
