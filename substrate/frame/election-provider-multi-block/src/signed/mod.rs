@@ -252,8 +252,10 @@ pub mod pallet {
 		type WeightInfo: weights::WeightInfo;
 	}
 
+	/// The hold reason of this palelt.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
+		/// Because of submitting a signed solution.
 		#[codec(index = 0)]
 		SignedSubmission,
 	}
@@ -665,9 +667,13 @@ pub mod pallet {
 		Registered(u32, T::AccountId, ElectionScore),
 		/// A page of solution solution with the given index has been stored for the given account.
 		Stored(u32, T::AccountId, PageIndex),
+		/// The given account has been rewarded with the given amount.
 		Rewarded(u32, T::AccountId, BalanceOf<T>),
+		/// The given account has been slashed with the given amount.
 		Slashed(u32, T::AccountId, BalanceOf<T>),
+		/// The given account has been discarded.
 		Discarded(u32, T::AccountId),
+		/// The given account has bailed.
 		Bailed(u32, T::AccountId),
 	}
 

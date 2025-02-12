@@ -18,6 +18,7 @@
 //! A set of zero weights for all benchmarks of this pallet to be temporarily used in testing
 //! runtimes while benchmarking is being finalized.
 
+/// A `WeightInfo` impl with all zero weights
 pub struct AllZeroWeights;
 use frame_support::weights::Weight;
 

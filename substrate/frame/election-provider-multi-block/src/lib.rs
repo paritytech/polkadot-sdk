@@ -19,13 +19,13 @@
 //!
 //! ## Overall idea
 //!
-//! [`pallet_election_provider_multi_phase`] provides the basic ability for NPoS solutions to be
+//! `pallet_election_provider_multi_phase` provides the basic ability for NPoS solutions to be
 //! computed offchain (essentially anywhere) and submitted back to the chain as signed or unsigned
 //! transaction, with sensible configurations and fail-safe mechanisms to ensure system safety.
 //! Nonetheless, it has a limited capacity in terms of number of voters it can process in a **single
 //! block**.
 //!
-//! This pallet takes [`pallet_election_provider_multi_phase`], keeps most of its ideas and core
+//! This pallet takes `pallet_election_provider_multi_phase`, keeps most of its ideas and core
 //! premises, and extends it to support paginated, multi-block operations. The final goal of this
 //! pallet is scale linearly with the number of blocks allocated to the elections. Moreover, the
 //! amount of work that it does in one block should be bounded and measurable, making it suitable
@@ -48,9 +48,9 @@
 //!   pallet is mandatory.
 //! - The [`unsigned`] module provides the implementation of unsigned submission by validators. If
 //!   this pallet is included, then [`Config::UnsignedPhase`] will determine its duration.
-//! - The [`Signed`] module provides the implementation of the signed submission by any account. If
+//! - The [`signed`] module provides the implementation of the signed submission by any account. If
 //!   this pallet is included, the combined [`Config::SignedPhase`] and
-//!   [`Config::SignedValidationPhase`] will deter its duration
+//!   [`Config::SignedValidationPhase`] will determine its duration
 //!
 //! ### Pallet Ordering:
 //!
@@ -104,7 +104,7 @@
 //!
 //! 0. **all** of the used indices must be correct.
 //! 1. present *exactly* correct number of winners.
-//! 2. any assignment is checked to match with [`RoundSnapshot::voters`].
+//! 2. any assignment is checked to match with `PagedVoterSnapshot`.
 //! 3. the claimed score is valid, based on the fixed point arithmetic accuracy.
 //!
 //! ### Emergency Phase and Fallback
@@ -131,11 +131,14 @@
 //!
 //! ### Signed Phase
 //!
-//! TODO
+//! Signed phase is when an offchain miner, aka, `polkadot-staking-miner` should operate upon. See
+//! [`signed`] for more information.
 //!
 //! ## Unsigned Phase
 //!
-//! TODO
+//! Unsigned phase is a built-in fallback in which validators may submit a single page election,
+//! taking into account only the [`ElectionProvider::msp`] (_most significant page_). See
+//! [`crate::unsigned`] for more information.
 
 // Implementation notes:
 //
@@ -154,6 +157,7 @@
 //   operations should happen with the wrapper types.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(missing_docs)]
 
 use crate::types::*;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -187,7 +191,8 @@ pub mod helpers;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-const LOG_PREFIX: &'static str = "runtime::multiblock-election";
+/// The common logginv prefix of all pallets in this crate.
+pub const LOG_PREFIX: &'static str = "runtime::multiblock-election";
 
 macro_rules! clear_paged_map {
 	($map: ty) => {{
@@ -196,12 +201,17 @@ macro_rules! clear_paged_map {
 	}};
 }
 
-// pub mod signed;
+/// The signed pallet
 pub mod signed;
+/// Common types of the pallet
 pub mod types;
+/// The unsigned pallet
 pub mod unsigned;
+/// The verifier pallet
 pub mod verifier;
+/// The weight module
 pub mod weights;
+/// The zero weights module. These are only for testing.
 pub mod zero_weights;
 
 pub use pallet::*;
@@ -243,6 +253,9 @@ impl<T: Config> InstantElectionProvider for InitiateEmergencyPhase<T> {
 	}
 }
 
+/// A fallback implementation that silently continues into the next page.
+///
+/// This is suitable for onchain usage.
 pub struct Continue<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> ElectionProvider for Continue<T> {
 	type AccountId = T::AccountId;
@@ -277,7 +290,7 @@ impl<T: Config> InstantElectionProvider for Continue<T> {
 	}
 }
 
-/// Internal errors of the pallet.
+/// Internal errors of the pallet. This is used in the implementation of [`ElectionProvider`].
 ///
 /// Note that this is different from [`pallet::Error`].
 #[derive(
@@ -347,6 +360,7 @@ pub mod pallet {
 	use super::*;
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
@@ -389,6 +403,9 @@ pub mod pallet {
 		>;
 
 		/// The miner configuration.
+		///
+		/// These configurations are passed to [`crate::unsigned::miner::BaseMiner`]. An external
+		/// miner implementation should implement this trait, and use the said `BaseMiner`.
 		type MinerConfig: crate::unsigned::miner::MinerConfig<
 			Pages = Self::Pages,
 			AccountId = <Self as frame_system::Config>::AccountId,
@@ -400,9 +417,6 @@ pub mod pallet {
 		>;
 
 		/// The fallback type used for the election.
-		///
-		/// This type is only used on the last page of the election, therefore it may at most have
-		/// 1 pages.
 		type Fallback: InstantElectionProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
@@ -429,6 +443,11 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Manage this pallet.
+		///
+		/// The origin of this call must be [`Config::AdminOrigin`].
+		///
+		/// See [`AdminOperation`] for various operations that are possible.
 		#[pallet::weight(T::WeightInfo::manage())]
 		#[pallet::call_index(0)]
 		pub fn manage(origin: OriginFor<T>, op: AdminOperation<T>) -> DispatchResultWithPostInfo {
@@ -628,7 +647,12 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A phase transition happened. Only checks major changes in the variants, not minor inner
 		/// values.
-		PhaseTransitioned { from: Phase<BlockNumberFor<T>>, to: Phase<BlockNumberFor<T>> },
+		PhaseTransitioned {
+			/// the source phase
+			from: Phase<BlockNumberFor<T>>,
+			/// The target phase
+			to: Phase<BlockNumberFor<T>>,
+		},
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -680,20 +704,20 @@ pub mod pallet {
 	///
 	/// It manages the following storage items:
 	///
-	/// - [`DesiredTargets`]: The number of targets that we wish to collect.
-	/// - [`PagedVoterSnapshot`]: Paginated map of voters.
-	/// - [`PagedVoterSnapshotHash`]: Hash of the aforementioned.
-	/// - [`PagedTargetSnapshot`]: Paginated map of targets.
-	/// - [`PagedTargetSnapshotHash`]: Hash of the aforementioned.
+	/// - `DesiredTargets`: The number of targets that we wish to collect.
+	/// - `PagedVoterSnapshot`: Paginated map of voters.
+	/// - `PagedVoterSnapshotHash`: Hash of the aforementioned.
+	/// - `PagedTargetSnapshot`: Paginated map of targets.
+	/// - `PagedTargetSnapshotHash`: Hash of the aforementioned.
 	///
 	/// ### Invariants
 	///
 	/// The following invariants must be met at **all times** for this storage item to be "correct".
 	///
-	/// - [`PagedVoterSnapshotHash`] must always contain the correct the same number of keys, and
-	///   the corresponding hash of the [`PagedVoterSnapshot`].
-	/// - [`PagedTargetSnapshotHash`] must always contain the correct the same number of keys, and
-	///   the corresponding hash of the [`PagedTargetSnapshot`].
+	/// - `PagedVoterSnapshotHash` must always contain the correct the same number of keys, and the
+	///   corresponding hash of the `PagedVoterSnapshot`.
+	/// - `PagedTargetSnapshotHash` must always contain the correct the same number of keys, and the
+	///   corresponding hash of the `PagedTargetSnapshot`.
 	///
 	/// - If any page from the paged voters/targets exists, then the aforementioned (desired
 	///   targets) must also exist.

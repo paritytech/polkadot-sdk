@@ -172,33 +172,33 @@ pub(crate) mod pallet {
 	///
 	/// It wraps the following:
 	///
-	/// - [`QueuedSolutionX`].
-	/// - [`QueuedSolutionY`].
-	/// - [`QueuedValidVariant`].
-	/// - [`QueuedSolutionScore`].
-	/// - [`QueuedSolutionBackings`].
+	/// - `QueuedSolutionX`
+	/// - `QueuedSolutionY`
+	/// - `QueuedValidVariant`
+	/// - `QueuedSolutionScore`
+	/// - `QueuedSolutionBackings`
 	///
-	/// As the name suggests, [`QueuedValidVariant`] points to the correct variant between
-	/// [`QueuedSolutionX`] and [`QueuedSolutionY`]. In the context of this pallet, by VALID and
+	/// As the name suggests, `QueuedValidVariant` points to the correct variant between
+	/// `QueuedSolutionX` and `QueuedSolutionY`. In the context of this pallet, by VALID and
 	/// INVALID variant we mean either of these two storage items, based on the value of
-	/// [`QueuedValidVariant`].
+	/// `QueuedValidVariant`.
 	///
 	/// ### Invariants
 	///
 	/// The following conditions must be met at all times for this group of storage items to be
 	/// sane.
 	///
-	/// - [`QueuedSolutionScore`] must always be correct. In other words, it should correctly be the
-	///   score of [`QueuedValidVariant`].
-	/// - [`QueuedSolutionScore`] must always be [`Config::SolutionImprovementThreshold`] better
-	///   than [`MinimumScore`].
-	/// - The number of existing keys in [`QueuedSolutionBackings`] must always match that of the
+	/// - `QueuedSolutionScore` must always be correct. In other words, it should correctly be the
+	///   score of `QueuedValidVariant`.
+	/// - `QueuedSolutionScore` must always be [`Config::SolutionImprovementThreshold`] better than
+	///   `MinimumScore`.
+	/// - The number of existing keys in `QueuedSolutionBackings` must always match that of the
 	///   INVALID variant.
 	///
 	/// Moreover, the following conditions must be met when this pallet is in [`Status::Nothing`],
 	/// meaning that no ongoing asynchronous verification is ongoing.
 	///
-	/// - No keys should exist in the INVALID variant variant.
+	/// - No keys should exist in the INVALID variant.
 	/// 	- This implies that no data should exist in `QueuedSolutionBackings`.
 	///
 	/// > Note that some keys *might* exist in the queued variant, but since partial solutions

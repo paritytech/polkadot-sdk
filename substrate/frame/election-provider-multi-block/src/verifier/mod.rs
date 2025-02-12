@@ -20,10 +20,10 @@
 //! ### *Feasibility* Check
 //!
 //! Before explaining the pallet itself, it should be explained what a *verification* even means.
-//! Verification of a solution page ([`crate::Config::Solution`]) includes the process of checking
-//! all of its edges against a snapshot to be correct. For instance, all voters that are presented
-//! in a solution page must have actually voted for the winner that they are backing, based on the
-//! snapshot kept in the parent pallet.
+//! Verification of a solution page ([`crate::unsigned::miner::MinerConfig::Solution`]) includes the
+//! process of checking all of its edges against a snapshot to be correct. For instance, all voters
+//! that are presented in a solution page must have actually voted for the winner that they are
+//! backing, based on the snapshot kept in the parent pallet.
 //!
 //! After checking all of the edges, a handful of other checks are performed:
 //!
@@ -32,14 +32,14 @@
 //!   3. and more than the minimum score that can be specified via [`Verifier::set_minimum_score`].
 //! 4. Check that all of the bounds of the solution are respected, namely
 //!    [`Verifier::MaxBackersPerWinner`], [`Verifier::MaxWinnersPerPage`] and
-//!    [`Config::MaxBackersPerWinnerFinal`].
+//!    [`Verifier::MaxBackersPerWinnerFinal`].
 //!
 //! Note that the common factor of all of these checks is that they can ONLY be checked after all
 //! pages are already verified. So, In the case of a multi-page verification, these checks are
 //! performed at the last page.
 //!
 //! The errors that can arise while performing the feasibility check are encapsulated in
-//! [`FeasibilityError`].
+//! [`verifier::FeasibilityError`].
 //!
 //! ## Modes of Verification
 //!
@@ -235,7 +235,7 @@ pub trait SolutionDataProvider {
 	fn get_score() -> Option<ElectionScore>;
 
 	/// Hook to report back the results of the verification of the current candidate solution that
-	/// is being exposed via [`get_page`] and [`get_score`].
+	/// is being exposed via [`Self::get_page`] and [`Self::get_score`].
 	///
 	/// Every time that this is called, the verifier [`AsynchronousVerifier`] goes back to the
 	/// [`Status::Nothing`] state, and it is the responsibility of [`Self`] to call `start` again,
@@ -259,7 +259,7 @@ pub trait AsynchronousVerifier: Verifier {
 	///
 	/// From the coming block onwards, the verifier will start and fetch the relevant information
 	/// and solution pages from [`SolutionDataProvider`]. It is expected that the
-	/// [`SolutionDataProvider`] is ready before calling [`start`].
+	/// [`SolutionDataProvider`] is ready before calling [`Self::start`].
 	///
 	/// Pages of the solution are fetched sequentially and in order from [`SolutionDataProvider`],
 	/// from `msp` to `lsp`.

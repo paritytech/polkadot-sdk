@@ -34,8 +34,6 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
-// TODO: fuzzer for the miner
-
 /// The type of the snapshot.
 ///
 /// Used to express errors.
@@ -47,12 +45,11 @@ pub enum SnapshotType {
 	Targets,
 	/// Metadata missing.
 	Metadata,
-	// Desired targets missing.
+	/// Desired targets missing.
 	DesiredTargets,
 }
 
-/// Error type of the pallet's [`crate::Config::Solver`].
-pub type MinerSolverErrorOf<T> = <<T as MinerConfig>::Solver as NposSolver>::Error;
+pub(crate) type MinerSolverErrorOf<T> = <<T as MinerConfig>::Solver as NposSolver>::Error;
 
 /// The errors related to the [`BaseMiner`].
 #[derive(
@@ -95,11 +92,11 @@ impl<T: MinerConfig> From<CommonError> for MinerError<T> {
 	}
 }
 
-/// The errors related to the [`OffchainMiner`].
+/// The errors related to the `OffchainWorkerMiner`.
 #[derive(
 	frame_support::DebugNoBound, frame_support::EqNoBound, frame_support::PartialEqNoBound,
 )]
-pub enum OffchainMinerError<T: Config> {
+pub(crate) enum OffchainMinerError<T: Config> {
 	/// An error in the base miner.
 	BaseMiner(MinerError<T::MinerConfig>),
 	/// The base, common errors from the pallet.
@@ -193,10 +190,6 @@ pub trait MinerConfig {
 
 /// A base miner that is only capable of mining a new solution and checking it against the state of
 /// this pallet for feasibility, and trimming its length/weight.
-///
-/// The type of solver is generic and can be provided, as long as it has the same error and account
-/// id type as the [`crate::Config::OffchainSolver`]. The default is whatever is fed to
-/// [`crate::unsigned::Config::OffchainSolver`].
 pub struct BaseMiner<T: MinerConfig>(sp_std::marker::PhantomData<T>);
 
 /// Parameterized `BoundedSupports` for the miner.
@@ -215,7 +208,7 @@ pub struct MineInput<T: MinerConfig> {
 	/// Paginated list of voters.
 	///
 	/// Note for staking-miners: How this is calculated is rather delicate, and the order of the
-	/// nested vectors matter. See carefully how [`OffchainWorkerMiner::mine_solution`] is doing
+	/// nested vectors matter. See carefully how `OffchainWorkerMiner::mine_solution` is doing
 	/// this.
 	pub voter_pages: AllVoterPagesOf<T>,
 	/// Number of pages to mind.
