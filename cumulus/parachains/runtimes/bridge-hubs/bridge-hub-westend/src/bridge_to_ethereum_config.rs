@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 use crate::XcmRouter;
@@ -226,6 +226,51 @@ pub mod benchmark_helpers {
 	impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+		}
+	}
+}
+
+pub(crate) mod migrations {
+	use alloc::vec::Vec;
+	use frame_support::pallet_prelude::*;
+	use snowbridge_core::TokenId;
+
+	#[frame_support::storage_alias]
+	pub type OldNativeToForeignId<T: snowbridge_pallet_system::Config> = StorageMap<
+		snowbridge_pallet_system::Pallet<T>,
+		Blake2_128Concat,
+		xcm::v4::Location,
+		TokenId,
+		OptionQuery,
+	>;
+
+	/// One shot migration for NetworkId::Westend to NetworkId::ByGenesis(WESTEND_GENESIS_HASH)
+	pub struct MigrationForXcmV5<T: snowbridge_pallet_system::Config>(core::marker::PhantomData<T>);
+	impl<T: snowbridge_pallet_system::Config> frame_support::traits::OnRuntimeUpgrade
+		for MigrationForXcmV5<T>
+	{
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+
+			let translate_westend = |pre: xcm::v4::Location| -> Option<xcm::v5::Location> {
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+				Some(xcm::v5::Location::try_from(pre).expect("valid location"))
+			};
+			snowbridge_pallet_system::ForeignToNativeId::<T>::translate_values(translate_westend);
+
+			let old_keys = OldNativeToForeignId::<T>::iter_keys().collect::<Vec<_>>();
+			for old_key in old_keys {
+				if let Some(old_val) = OldNativeToForeignId::<T>::get(&old_key) {
+					snowbridge_pallet_system::NativeToForeignId::<T>::insert(
+						&xcm::v5::Location::try_from(old_key.clone()).expect("valid location"),
+						old_val,
+					);
+				}
+				OldNativeToForeignId::<T>::remove(old_key);
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+			}
+
+			weight
 		}
 	}
 }

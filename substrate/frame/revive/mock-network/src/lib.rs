@@ -1,4 +1,4 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@ pub mod parachain;
 pub mod primitives;
 pub mod relay_chain;
 
-#[cfg(all(test, feature = "riscv"))]
+#[cfg(test)]
 mod tests;
 
 use crate::primitives::{AccountId, UNITS};
@@ -99,6 +99,7 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 			(relay_sovereign_account_id(), INITIAL_BALANCE),
 			(BOB, INITIAL_BALANCE),
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -137,6 +138,7 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 			(parachain_sovereign_account_id(1), INITIAL_BALANCE),
 			(parachain_account_sovereign_account_id(1, ALICE), INITIAL_BALANCE),
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

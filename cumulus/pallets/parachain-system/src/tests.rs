@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg(test)]
 
@@ -25,6 +25,8 @@ use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::Rng;
+#[cfg(feature = "experimental-ump-signals")]
+use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
 
@@ -583,7 +585,25 @@ fn send_upward_message_num_per_candidate() {
 			},
 			|| {
 				let v = UpwardMessages::<Test>::get();
-				assert_eq!(v, vec![b"Mr F was here".to_vec()]);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						v,
+						vec![
+							b"Mr F was here".to_vec(),
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(1),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(v, vec![b"Mr F was here".to_vec()]);
+				}
 			},
 		)
 		.add_with_post_test(
@@ -594,7 +614,25 @@ fn send_upward_message_num_per_candidate() {
 			},
 			|| {
 				let v = UpwardMessages::<Test>::get();
-				assert_eq!(v, vec![b"message 2".to_vec()]);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						v,
+						vec![
+							b"message 2".to_vec(),
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(2),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(v, vec![b"message 2".to_vec()]);
+				}
 			},
 		);
 }
@@ -620,7 +658,24 @@ fn send_upward_message_relay_bottleneck() {
 			|| {
 				// The message won't be sent because there is already one message in queue.
 				let v = UpwardMessages::<Test>::get();
-				assert!(v.is_empty());
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						v,
+						vec![
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(1),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert!(v.is_empty());
+				}
 			},
 		)
 		.add_with_post_test(
@@ -628,7 +683,25 @@ fn send_upward_message_relay_bottleneck() {
 			|| { /* do nothing within block */ },
 			|| {
 				let v = UpwardMessages::<Test>::get();
-				assert_eq!(v, vec![vec![0u8; 8]]);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						v,
+						vec![
+							vec![0u8; 8],
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(2),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(v, vec![vec![0u8; 8]]);
+				}
 			},
 		);
 }
@@ -1172,7 +1245,25 @@ fn ump_fee_factor_increases_and_decreases() {
 			|| {
 				// Factor decreases in `on_finalize`, but only if we are below the threshold
 				let messages = UpwardMessages::<Test>::get();
-				assert_eq!(messages, vec![b"Test".to_vec()]);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						messages,
+						vec![
+							b"Test".to_vec(),
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(1),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(messages, vec![b"Test".to_vec()]);
+				}
 				assert_eq!(
 					UpwardDeliveryFeeFactor::<Test>::get(),
 					FixedU128::from_rational(105, 100)
@@ -1186,10 +1277,28 @@ fn ump_fee_factor_increases_and_decreases() {
 			},
 			|| {
 				let messages = UpwardMessages::<Test>::get();
-				assert_eq!(
-					messages,
-					vec![b"This message will be enough to increase the fee factor".to_vec(),]
-				);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						messages,
+						vec![
+							b"This message will be enough to increase the fee factor".to_vec(),
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(2),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(
+						messages,
+						vec![b"This message will be enough to increase the fee factor".to_vec()]
+					);
+				}
 				// Now the delivery fee factor is decreased, since we are below the threshold
 				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_u32(1));
 			},

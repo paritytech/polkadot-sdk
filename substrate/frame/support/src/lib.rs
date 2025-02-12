@@ -44,6 +44,7 @@ pub mod __private {
 	pub use alloc::{
 		boxed::Box,
 		rc::Rc,
+		string::String,
 		vec,
 		vec::{IntoIter, Vec},
 	};
@@ -53,6 +54,7 @@ pub mod __private {
 	pub use paste;
 	pub use scale_info;
 	pub use serde;
+	pub use serde_json;
 	pub use sp_core::{Get, OpaqueMetadata, Void};
 	pub use sp_crypto_hashing_proc_macro;
 	pub use sp_inherents;
@@ -63,7 +65,8 @@ pub mod __private {
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
 	pub use sp_runtime::{
-		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+		traits::{AsSystemOriginSigner, AsTransactionAuthorizedOrigin, Dispatchable},
+		DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
 	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
@@ -84,6 +87,7 @@ pub mod storage;
 #[cfg(test)]
 mod tests;
 pub mod traits;
+pub mod view_functions;
 pub mod weights;
 #[doc(hidden)]
 pub mod unsigned {
@@ -500,9 +504,9 @@ macro_rules! runtime_print {
 	($($arg:tt)+) => {
 		{
 			use core::fmt::Write;
-			let mut w = $crate::__private::sp_std::Writer::default();
-			let _ = core::write!(&mut w, $($arg)+);
-			$crate::__private::sp_io::misc::print_utf8(&w.inner())
+			let mut msg = $crate::__private::String::default();
+			let _ = core::write!(&mut msg, $($arg)+);
+			$crate::__private::sp_io::misc::print_utf8(msg.as_bytes())
 		}
 	}
 }
@@ -902,8 +906,9 @@ pub mod pallet_prelude {
 			StorageList,
 		},
 		traits::{
-			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
-			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
+			BuildGenesisConfig, ConstU32, ConstUint, EnsureOrigin, Get, GetDefault,
+			GetStorageVersion, Hooks, IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion,
+			Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
@@ -1695,14 +1700,69 @@ pub mod pallet_macros {
 	/// [`ValidateUnsigned`](frame_support::pallet_prelude::ValidateUnsigned) for
 	/// type `Pallet<T>`, and some optional where clause.
 	///
-	/// NOTE: There is also the [`sp_runtime::traits::SignedExtension`] trait that can be used
-	/// to add some specific logic for transaction validation.
+	/// NOTE: There is also the [`sp_runtime::traits::TransactionExtension`] trait that can be
+	/// used to add some specific logic for transaction validation.
 	///
 	/// ## Macro expansion
 	///
 	/// The macro currently makes no use of this information, but it might use this information
 	/// in the future to give information directly to [`frame_support::construct_runtime`].
 	pub use frame_support_procedural::validate_unsigned;
+
+	/// Allows defining	view functions on a pallet.
+	///
+	/// A pallet view function is a read-only function providing access to the state of the
+	/// pallet from both outside and inside the runtime. It should provide a _stable_ interface
+	/// for querying the state of the pallet, avoiding direct storage access and upgrading
+	/// along with the runtime.
+	///
+	/// ## Syntax
+	/// View functions methods must be read-only and always return some output. A
+	/// `view_functions_experimental` impl block only allows methods to be defined inside of
+	/// it.
+	///
+	/// ## Example
+	/// ```
+	/// #[frame_support::pallet]
+	/// pub mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	///  	#[pallet::config]
+	///  	pub trait Config: frame_system::Config {}
+	///
+	///  	#[pallet::pallet]
+	///  	pub struct Pallet<T>(_);
+	///
+	///     #[pallet::storage]
+	/// 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
+	///
+	///     #[pallet::view_functions_experimental]
+	///     impl<T: Config> Pallet<T> {
+	/// 		/// Retrieve a map storage value by key.
+	///         pub fn get_value_with_arg(key: u32) -> Option<u32> {
+	/// 			SomeMap::<T>::get(key)
+	/// 		}
+	///     }
+	/// }
+	/// ```
+	///
+	///
+	/// ## Usage and implementation details
+	/// To allow outside access to pallet view functions, you need to add a runtime API that
+	/// accepts view function queries and dispatches them to the right pallet. You can do that
+	/// by implementing the
+	/// [`RuntimeViewFunction`](frame_support::view_functions::runtime_api::RuntimeViewFunction)
+	/// trait for the runtime inside an [`impl_runtime_apis!`](sp_api::impl_runtime_apis)
+	/// block.
+	///
+	/// The `RuntimeViewFunction` trait implements a hashing-based dispatching mechanism to
+	/// dispatch view functions to the right method in the right pallet based on their IDs. A
+	/// view function ID depends both on its pallet and on its method signature, so it remains
+	/// stable as long as those two elements are not modified. In general, pallet view
+	/// functions should expose a _stable_ interface and changes to the method signature are
+	/// strongly discouraged. For more details on the dispatching mechanism, see the
+	/// [`DispatchViewFunction`](frame_support::view_functions::DispatchViewFunction) trait.
+	pub use frame_support_procedural::view_functions_experimental;
 
 	/// Allows defining a struct implementing the [`Get`](frame_support::traits::Get) trait to
 	/// ease the use of storage types.
@@ -1880,10 +1940,15 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	///
-	/// Please note that this only works for signed dispatchables and requires a signed
+	/// Please note that this only works for signed dispatchables and requires a transaction
 	/// extension such as [`pallet_skip_feeless_payment::SkipCheckIfFeeless`] to wrap the
 	/// existing payment extension. Else, this is completely ignored and the dispatchable is
 	/// still charged.
+	///
+	/// Also this will not allow accountless caller to send a transaction if some transaction
+	/// extension such as `frame_system::CheckNonce` is used.
+	/// Extensions such as `frame_system::CheckNonce` require a funded account to validate
+	/// the transaction.
 	///
 	/// ### Macro expansion
 	///
@@ -2587,8 +2652,11 @@ sp_core::generate_feature_enabled_macro!(try_runtime_enabled, feature = "try-run
 sp_core::generate_feature_enabled_macro!(try_runtime_or_std_enabled, any(feature = "try-runtime", feature = "std"), $);
 sp_core::generate_feature_enabled_macro!(try_runtime_and_std_not_enabled, all(not(feature = "try-runtime"), not(feature = "std")), $);
 
-// Helper for implementing GenesisBuilder runtime API
+/// Helper for implementing GenesisBuilder runtime API
 pub mod genesis_builder_helper;
+
+/// Helper for generating the `RuntimeGenesisConfig` instance for presets.
+pub mod generate_genesis_config;
 
 #[cfg(test)]
 mod test {

@@ -23,7 +23,7 @@ use frame_support::{
 	defensive, ensure,
 	traits::{
 		fungibles,
-		tokens::{Balance, Fortitude, Precision, Preservation},
+		tokens::{Balance, Fortitude, Precision, Preservation, WithdrawConsequence},
 		Defensive, OnUnbalanced, SameOrOther,
 	},
 	unsigned::TransactionValidityError,
@@ -55,6 +55,15 @@ pub trait OnChargeAssetTransaction<T: Config> {
 		fee: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError>;
+
+	/// Ensure payment of the transaction fees can be withdrawn.
+	///
+	/// Note: The `fee` already includes the tip.
+	fn can_withdraw_fee(
+		who: &T::AccountId,
+		asset_id: Self::AssetId,
+		fee: Self::Balance,
+	) -> Result<(), TransactionValidityError>;
 
 	/// Refund any overpaid fees and deposit the corrected amount.
 	/// The actual fee gets calculated once the transaction is executed.
@@ -160,6 +169,51 @@ where
 		ensure!(change.peek().is_zero(), InvalidTransaction::Payment);
 
 		Ok((fee_credit, asset_fee))
+	}
+
+	/// Dry run of swap & withdraw the predicted fee from the transaction origin.
+	///
+	/// Note: The `fee` already includes the tip.
+	///
+	/// Returns an error if the total amount in native currency can't be exchanged for `asset_id`.
+	fn can_withdraw_fee(
+		who: &T::AccountId,
+		asset_id: Self::AssetId,
+		fee: BalanceOf<T>,
+	) -> Result<(), TransactionValidityError> {
+		if asset_id == A::get() {
+			// The `asset_id` is the target asset, we do not need to swap.
+			match F::can_withdraw(asset_id.clone(), who, fee) {
+				WithdrawConsequence::BalanceLow |
+				WithdrawConsequence::UnknownAsset |
+				WithdrawConsequence::Underflow |
+				WithdrawConsequence::Overflow |
+				WithdrawConsequence::Frozen =>
+					return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
+				WithdrawConsequence::Success |
+				WithdrawConsequence::ReducedToZero(_) |
+				WithdrawConsequence::WouldDie => return Ok(()),
+			}
+		}
+
+		let asset_fee =
+			S::quote_price_tokens_for_exact_tokens(asset_id.clone(), A::get(), fee, true)
+				.ok_or(InvalidTransaction::Payment)?;
+
+		// Ensure we can withdraw enough `asset_id` for the swap.
+		match F::can_withdraw(asset_id.clone(), who, asset_fee) {
+			WithdrawConsequence::BalanceLow |
+			WithdrawConsequence::UnknownAsset |
+			WithdrawConsequence::Underflow |
+			WithdrawConsequence::Overflow |
+			WithdrawConsequence::Frozen =>
+				return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
+			WithdrawConsequence::Success |
+			WithdrawConsequence::ReducedToZero(_) |
+			WithdrawConsequence::WouldDie => {},
+		};
+
+		Ok(())
 	}
 
 	fn correct_and_deposit_fee(

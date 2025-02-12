@@ -37,9 +37,11 @@ use polkadot_node_core_pvf_common::{
 	pvf::PvfPrepData,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::{messages::PvfExecKind, SubsystemError, SubsystemResult};
+use polkadot_node_subsystem::{
+	messages::PvfExecKind, ActiveLeavesUpdate, SubsystemError, SubsystemResult,
+};
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::PersistedValidationData;
+use polkadot_primitives::{Hash, PersistedValidationData};
 use std::{
 	collections::HashMap,
 	path::PathBuf,
@@ -143,12 +145,27 @@ impl ValidationHost {
 			.await
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
+
+	/// Sends a signal to the validation host requesting to update best block.
+	///
+	/// Returns an error if the request cannot be sent to the validation host, i.e. if it shut down.
+	pub async fn update_active_leaves(
+		&mut self,
+		update: ActiveLeavesUpdate,
+		ancestors: Vec<Hash>,
+	) -> Result<(), String> {
+		self.to_host_tx
+			.send(ToHost::UpdateActiveLeaves { update, ancestors })
+			.await
+			.map_err(|_| "the inner loop hung up".to_string())
+	}
 }
 
 enum ToHost {
 	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
 	ExecutePvf(ExecutePvfInputs),
 	HeadsUp { active_pvfs: Vec<PvfPrepData> },
+	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Vec<Hash> },
 }
 
 struct ExecutePvfInputs {
@@ -488,6 +505,8 @@ async fn handle_to_host(
 		},
 		ToHost::HeadsUp { active_pvfs } =>
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
+		ToHost::UpdateActiveLeaves { update, ancestors } =>
+			handle_update_active_leaves(execute_queue, update, ancestors).await?,
 	}
 
 	Ok(())
@@ -853,6 +872,14 @@ async fn handle_prepare_done(
 	};
 
 	Ok(())
+}
+
+async fn handle_update_active_leaves(
+	execute_queue: &mut mpsc::Sender<execute::ToQueue>,
+	update: ActiveLeavesUpdate,
+	ancestors: Vec<Hash>,
+) -> Result<(), Fatal> {
+	send_execute(execute_queue, execute::ToQueue::UpdateActiveLeaves { update, ancestors }).await
 }
 
 async fn send_prepare(
@@ -1255,7 +1282,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1.clone(),
 			Priority::Normal,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1268,7 +1295,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1,
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1281,7 +1308,7 @@ pub(crate) mod tests {
 			pvd,
 			pov2,
 			Priority::Normal,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1431,7 +1458,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1480,7 +1507,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1591,7 +1618,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1623,7 +1650,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx_2,
 		)
 		.await
@@ -1647,7 +1674,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx_3,
 		)
 		.await
@@ -1706,7 +1733,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1738,7 +1765,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx_2,
 		)
 		.await
@@ -1762,7 +1789,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx_3,
 		)
 		.await
@@ -1837,7 +1864,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Normal,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await

@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -24,8 +25,9 @@ use std::{
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
-		CommittedCandidateReceipt, CoreIndex, CoreState, Hash as PHash, Header as PHeader,
+		runtime_api::ParachainHost,
+		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
+		Block as PBlock, BlockId, BlockNumber, CoreIndex, Hash as PHash, Header as PHeader,
 		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
@@ -314,6 +316,10 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		hash: PHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
 		Ok(self.full_client.runtime_api().claim_queue(hash)?)
+	}
+
+	async fn scheduling_lookahead(&self, hash: PHash) -> RelayChainResult<u32> {
+		Ok(self.full_client.runtime_api().scheduling_lookahead(hash)?)
 	}
 }
 

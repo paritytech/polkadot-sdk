@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 extern crate alloc;
 
@@ -36,7 +36,10 @@ pub use core::{cell::RefCell, fmt::Debug};
 pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessageOrigin;
 pub use frame_support::{
 	assert_ok,
-	sp_runtime::{traits::Header as HeaderT, DispatchResult},
+	sp_runtime::{
+		traits::{Dispatchable, Header as HeaderT},
+		DispatchResult,
+	},
 	traits::{
 		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
 		ProcessMessage, ProcessMessageError, ServiceQueues,
@@ -221,7 +224,7 @@ pub trait Network {
 pub trait Chain: TestExt {
 	type Network: Network;
 	type Runtime: SystemConfig;
-	type RuntimeCall;
+	type RuntimeCall: Clone + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>;
 	type RuntimeOrigin;
 	type RuntimeEvent;
 	type System;
@@ -1115,6 +1118,7 @@ macro_rules! decl_test_networks {
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
+					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
@@ -1221,13 +1225,22 @@ macro_rules! __impl_check_assertion {
 			Args: Clone,
 		{
 			fn check_assertion(test: $crate::Test<Origin, Destination, Hops, Args>) {
-				use $crate::TestExt;
+				use $crate::{Dispatchable, TestExt};
 
 				let chain_name = std::any::type_name::<$chain<$network>>();
 
 				<$chain<$network>>::execute_with(|| {
 					if let Some(dispatchable) = test.hops_dispatchable.get(chain_name) {
 						$crate::assert_ok!(dispatchable(test.clone()));
+					}
+					if let Some(call) = test.hops_calls.get(chain_name) {
+						$crate::assert_ok!(
+							match call.clone().dispatch(test.signed_origin.clone()) {
+								// We get rid of `post_info`.
+								Ok(_) => Ok(()),
+								Err(error_with_post_info) => Err(error_with_post_info.error),
+							}
+						);
 					}
 					if let Some(assertion) = test.hops_assertion.get(chain_name) {
 						assertion(test);
@@ -1530,11 +1543,12 @@ where
 	pub root_origin: Origin::RuntimeOrigin,
 	pub hops_assertion: HashMap<String, fn(Self)>,
 	pub hops_dispatchable: HashMap<String, fn(Self) -> DispatchResult>,
+	pub hops_calls: HashMap<String, Origin::RuntimeCall>,
 	pub args: Args,
 	_marker: PhantomData<(Destination, Hops)>,
 }
 
-/// `Test` implementation
+/// `Test` implementation.
 impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
 where
 	Args: Clone,
@@ -1544,7 +1558,7 @@ where
 	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone + CheckAssertion<Origin, Destination, Hops, Args>,
 {
-	/// Creates a new `Test` instance
+	/// Creates a new `Test` instance.
 	pub fn new(test_args: TestContext<Args, Origin, Destination>) -> Self {
 		Test {
 			sender: TestAccount {
@@ -1559,6 +1573,7 @@ where
 			root_origin: <Origin as Chain>::RuntimeOrigin::root(),
 			hops_assertion: Default::default(),
 			hops_dispatchable: Default::default(),
+			hops_calls: Default::default(),
 			args: test_args.args,
 			_marker: Default::default(),
 		}
@@ -1572,6 +1587,11 @@ where
 	pub fn set_dispatchable<Hop>(&mut self, dispatchable: fn(Self) -> DispatchResult) {
 		let chain_name = std::any::type_name::<Hop>();
 		self.hops_dispatchable.insert(chain_name.to_string(), dispatchable);
+	}
+	/// Stores a call in a particular Chain, this will later be dispatched.
+	pub fn set_call(&mut self, call: Origin::RuntimeCall) {
+		let chain_name = std::any::type_name::<Origin>();
+		self.hops_calls.insert(chain_name.to_string(), call);
 	}
 	/// Executes all dispatchables and assertions in order from `Origin` to `Destination`
 	pub fn assert(&mut self) {

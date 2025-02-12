@@ -268,7 +268,7 @@ pub type MigrateV0ToV1<T> = VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-mod v2 {
+pub(crate) mod v2 {
 	use super::*;
 	use crate::scheduler;
 
@@ -403,6 +403,92 @@ pub type MigrateV1ToV2<T> = VersionedMigration<
 	1,
 	2,
 	v2::UncheckedMigrateToV2<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+/// Migration for TTL and availability timeout retries removal.
+/// AvailabilityCores storage is removed and ClaimQueue now holds `Assignment`s instead of
+/// `ParasEntryType`
+mod v3 {
+	use super::*;
+	use crate::scheduler;
+
+	#[storage_alias]
+	pub(crate) type ClaimQueue<T: Config> =
+		StorageValue<Pallet<T>, BTreeMap<CoreIndex, VecDeque<Assignment>>, ValueQuery>;
+	/// Migration to V3
+	pub struct UncheckedMigrateToV3<T>(core::marker::PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV3<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight: Weight = Weight::zero();
+
+			// Migrate ClaimQueuee to new format.
+
+			let old = v2::ClaimQueue::<T>::take();
+			let new = old
+				.into_iter()
+				.map(|(k, v)| {
+					(
+						k,
+						v.into_iter()
+							.map(|paras_entry| paras_entry.assignment)
+							.collect::<VecDeque<_>>(),
+					)
+				})
+				.collect::<BTreeMap<CoreIndex, VecDeque<Assignment>>>();
+
+			v3::ClaimQueue::<T>::put(new);
+
+			// Clear AvailabilityCores storage
+			v2::AvailabilityCores::<T>::kill();
+
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+
+			log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v3");
+
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
+			log::trace!(
+				target: crate::scheduler::LOG_TARGET,
+				"ClaimQueue before migration: {}",
+				v2::ClaimQueue::<T>::get().len()
+			);
+
+			let bytes = u32::to_be_bytes(v2::ClaimQueue::<T>::get().len() as u32);
+
+			Ok(bytes.to_vec())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+			log::trace!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
+
+			let old_len = u32::from_be_bytes(state.try_into().unwrap());
+			ensure!(
+				v3::ClaimQueue::<T>::get().len() as u32 == old_len,
+				"Old ClaimQueue completely moved to new ClaimQueue after migration"
+			);
+
+			ensure!(
+				!v2::AvailabilityCores::<T>::exists(),
+				"AvailabilityCores storage should have been completely killed"
+			);
+
+			Ok(())
+		}
+	}
+}
+
+/// Migrate `V2` to `V3` of the storage format.
+pub type MigrateV2ToV3<T> = VersionedMigration<
+	2,
+	3,
+	v3::UncheckedMigrateToV3<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

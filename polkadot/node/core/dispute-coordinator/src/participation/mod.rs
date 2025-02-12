@@ -31,7 +31,10 @@ use polkadot_node_subsystem::{
 	overseer, ActiveLeavesUpdate, RecoveryError,
 };
 use polkadot_node_subsystem_util::runtime::get_validation_code_by_hash;
-use polkadot_primitives::{BlockNumber, CandidateHash, CandidateReceipt, Hash, SessionIndex};
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, Hash,
+	SessionIndex,
+};
 
 use crate::LOG_TARGET;
 
@@ -348,7 +351,7 @@ async fn participate(
 	let validation_code = match get_validation_code_by_hash(
 		&mut sender,
 		block_hash,
-		req.candidate_receipt().descriptor.validation_code_hash,
+		req.candidate_receipt().descriptor.validation_code_hash(),
 	)
 	.await
 	{
@@ -357,7 +360,7 @@ async fn participate(
 			gum::warn!(
 				target: LOG_TARGET,
 				"Validation code unavailable for code hash {:?} in the state of block {:?}",
-				req.candidate_receipt().descriptor.validation_code_hash,
+				req.candidate_receipt().descriptor.validation_code_hash(),
 				block_hash,
 			);
 

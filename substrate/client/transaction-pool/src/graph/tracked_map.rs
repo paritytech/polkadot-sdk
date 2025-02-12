@@ -18,7 +18,7 @@
 
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{
-	collections::HashMap,
+	collections::{hash_map::Iter, HashMap},
 	sync::{
 		atomic::{AtomicIsize, Ordering as AtomicOrdering},
 		Arc,
@@ -101,19 +101,24 @@ impl<'a, K, V> TrackedMapReadAccess<'a, K, V>
 where
 	K: Eq + std::hash::Hash,
 {
-	/// Returns true if map contains key.
+	/// Returns true if the map contains given key.
 	pub fn contains_key(&self, key: &K) -> bool {
 		self.inner_guard.contains_key(key)
 	}
 
-	/// Returns reference to the contained value by key, if exists.
+	/// Returns the reference to the contained value by key, if exists.
 	pub fn get(&self, key: &K) -> Option<&V> {
 		self.inner_guard.get(key)
 	}
 
-	/// Returns iterator over all values.
+	/// Returns an iterator over all values.
 	pub fn values(&self) -> std::collections::hash_map::Values<K, V> {
 		self.inner_guard.values()
+	}
+
+	/// Returns the number of elements in the map.
+	pub fn len(&self) -> usize {
+		self.inner_guard.len()
 	}
 }
 
@@ -149,9 +154,24 @@ where
 		val
 	}
 
+	/// Returns `true` if the inner map contains a value for the specified key.
+	pub fn contains_key(&self, key: &K) -> bool {
+		self.inner_guard.contains_key(key)
+	}
+
 	/// Returns mutable reference to the contained value by key, if exists.
 	pub fn get_mut(&mut self, key: &K) -> Option<&mut V> {
 		self.inner_guard.get_mut(key)
+	}
+
+	/// Returns the number of elements in the map.
+	pub fn len(&mut self) -> usize {
+		self.inner_guard.len()
+	}
+
+	/// Returns an iterator over all key-value pairs.
+	pub fn iter(&self) -> Iter<'_, K, V> {
+		self.inner_guard.iter()
 	}
 }
 

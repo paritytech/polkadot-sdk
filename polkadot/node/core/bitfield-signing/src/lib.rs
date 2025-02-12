@@ -34,7 +34,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util, request_availability_cores, runtime::recv_runtime, Validator,
 };
-use polkadot_primitives::{AvailabilityBitfield, CoreState, Hash, ValidatorIndex};
+use polkadot_primitives::{vstaging::CoreState, AvailabilityBitfield, Hash, ValidatorIndex};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::{collections::HashMap, time::Duration};
 use wasm_timer::{Delay, Instant};

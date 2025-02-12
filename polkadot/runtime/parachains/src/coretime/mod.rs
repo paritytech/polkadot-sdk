@@ -30,20 +30,7 @@ use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use polkadot_primitives::{Balance, BlockNumber, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_runtime::traits::TryConvert;
-use xcm::{
-	prelude::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm},
-	v4::{
-		Asset,
-		AssetFilter::Wild,
-		AssetId, Assets, Error as XcmError,
-		Fungibility::Fungible,
-		Instruction::{DepositAsset, ReceiveTeleportedAsset},
-		Junctions::Here,
-		Reanchorable,
-		WildAsset::AllCounted,
-		XcmContext,
-	},
-};
+use xcm::prelude::*;
 use xcm_executor::traits::TransactAsset;
 
 use crate::{
@@ -119,7 +106,7 @@ pub mod pallet {
 
 	use crate::configuration;
 	use sp_runtime::traits::TryConvert;
-	use xcm::v4::InteriorLocation;
+	use xcm::latest::InteriorLocation;
 	use xcm_executor::traits::TransactAsset;
 
 	use super::*;
@@ -351,7 +338,7 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		require_weight_at_most: T::MaxXcmTransactWeight::get(),
+		fallback_max_weight: Some(T::MaxXcmTransactWeight::get()),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }
@@ -362,7 +349,7 @@ fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Resu
 		weight_limit: WeightLimit::Unlimited,
 		check_origin: None,
 	}];
-	let asset = Asset { id: AssetId(Location::here()), fun: Fungible(raw_revenue) };
+	let asset = Asset { id: Location::here().into(), fun: Fungible(raw_revenue) };
 	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
 
 	if raw_revenue > 0 {

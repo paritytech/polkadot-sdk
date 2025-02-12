@@ -85,6 +85,7 @@ pub mod pallet {
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
 		#[deprecated = "second"]
+		#[codec(index = 1)]
 		A,
 		#[deprecated = "first"]
 		#[codec(index = 0)]
@@ -132,8 +133,12 @@ impl pallet::Config for Runtime {
 
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic =
-	sp_runtime::testing::TestXt<RuntimeCall, frame_system::CheckNonZeroSender<Runtime>>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	sp_runtime::testing::UintAuthorityId,
+	frame_system::CheckNonZeroSender<Runtime>,
+>;
 
 frame_support::construct_runtime!(
 	pub struct Runtime {
@@ -153,20 +158,13 @@ fn pallet_metadata() {
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			// Result should be this, but instead we get the result below
-			// see: https://github.com/paritytech/parity-scale-codec/issues/507
-			//
-			// DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([
-			// 	(codec::Compact(0), DeprecationStatusIR::Deprecated { note: "first", since: None
-			// }), 	(
-			// 		codec::Compact(1),
-			// 		DeprecationStatusIR::Deprecated { note: "second", since: None }
-			// 	)
-			// ])),
-			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
-				codec::Compact(0),
-				DeprecationStatusIR::Deprecated { note: "first", since: None }
-			),])),
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([
+				(codec::Compact(0), DeprecationStatusIR::Deprecated { note: "first", since: None }),
+				(
+					codec::Compact(1),
+					DeprecationStatusIR::Deprecated { note: "second", since: None }
+				)
+			])),
 			meta.deprecation_info
 		);
 	}

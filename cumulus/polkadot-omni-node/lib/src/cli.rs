@@ -1,18 +1,20 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+//! CLI options of the omni-node. See [`Command`].
 
 use crate::{
 	chain_spec::DiskChainSpecLoader,
@@ -103,6 +105,7 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
+/// CLI Options shipped with `polkadot-omni-node`.
 #[derive(clap::Parser)]
 #[command(
 	propagate_version = true,
@@ -113,17 +116,24 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(skip)]
 	pub(crate) chain_spec_loader: Option<Box<dyn LoadSpec>>,
 
+	/// Possible subcommands. See [`Subcommand`].
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
 
+	/// The shared parameters with all cumulus-based parachain nodes.
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
 	/// Start a dev node that produces a block each `dev_block_time` ms.
 	///
-	/// This is a dev option, and it won't result in starting or connecting to a parachain network.
-	/// The resulting node will work on its own, running the wasm blob and artificially producing
-	/// a block each `dev_block_time` ms, as if it was part of a parachain.
+	/// This is a dev option. It enables a manual sealing, meaning blocks are produced manually
+	/// rather than being part of an actual network consensus process. Using the option won't
+	/// result in starting or connecting to a parachain network. The resulting node will work on
+	/// its own, running the wasm blob and artificially producing a block each `dev_block_time` ms,
+	/// as if it was part of a parachain.
+	///
+	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
+	/// provided.
 	#[arg(long)]
 	pub dev_block_time: Option<u64>,
 
@@ -200,6 +210,7 @@ impl<Config: CliConfig> SubstrateCli for Cli<Config> {
 	}
 }
 
+/// The relay chain CLI flags. These are passed in after a `--` at the end.
 #[derive(Debug)]
 pub struct RelayChainCli<Config: CliConfig> {
 	/// The actual relay chain cli object.

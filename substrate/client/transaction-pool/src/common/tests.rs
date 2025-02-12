@@ -156,6 +156,15 @@ impl ChainApi for TestApi {
 		futures::future::ready(Ok(res))
 	}
 
+	fn validate_transaction_blocking(
+		&self,
+		_at: <Self::Block as BlockT>::Hash,
+		_source: TransactionSource,
+		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+	) -> error::Result<TransactionValidity> {
+		unimplemented!();
+	}
+
 	/// Returns a block number given the block id.
 	fn block_id_to_number(
 		&self,
@@ -213,5 +222,5 @@ pub(crate) fn uxt(transfer: Transfer) -> Extrinsic {
 
 pub(crate) fn pool() -> (Pool<TestApi>, Arc<TestApi>) {
 	let api = Arc::new(TestApi::default());
-	(Pool::new(Default::default(), true.into(), api.clone()), api)
+	(Pool::new_with_staticly_sized_rotator(Default::default(), true.into(), api.clone()), api)
 }

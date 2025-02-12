@@ -80,6 +80,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 	/// Add a new relay-parent to the allowed relay parents, along with info about the header.
 	/// Provide a maximum ancestry length for the buffer, which will cause old relay-parents to be
 	/// pruned.
+	/// If the relay parent hash is already present, do nothing.
 	pub(crate) fn update(
 		&mut self,
 		relay_parent: Hash,
@@ -88,15 +89,17 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		number: BlockNumber,
 		max_ancestry_len: u32,
 	) {
-		let claim_queue = transpose_claim_queue(claim_queue);
+		if self.buffer.iter().any(|info| info.relay_parent == relay_parent) {
+			// Already present.
+			return
+		}
 
-		// + 1 for the most recent block, which is always allowed.
-		let buffer_size_limit = max_ancestry_len as usize + 1;
+		let claim_queue = transpose_claim_queue(claim_queue);
 
 		self.buffer.push_back(RelayParentInfo { relay_parent, state_root, claim_queue });
 
 		self.latest_number = number;
-		while self.buffer.len() > buffer_size_limit {
+		while self.buffer.len() > (max_ancestry_len as usize) {
 			let _ = self.buffer.pop_front();
 		}
 
@@ -289,7 +292,7 @@ impl<T: Config> Pallet<T> {
 		max_ancestry_len: u32,
 	) {
 		AllowedRelayParents::<T>::mutate(|tracker| {
-			tracker.update(relay_parent, state_root, claim_queue, number, max_ancestry_len)
+			tracker.update(relay_parent, state_root, claim_queue, number, max_ancestry_len + 1)
 		})
 	}
 }

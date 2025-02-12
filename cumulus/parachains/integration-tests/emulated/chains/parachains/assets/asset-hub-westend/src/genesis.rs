@@ -20,9 +20,9 @@ use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, PenpalBSiblingSovereignAccount,
-	PenpalBTeleportableAssetLocation, PenpalSiblingSovereignAccount,
-	PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
+	accounts, build_genesis_storage, collators, PenpalASiblingSovereignAccount,
+	PenpalATeleportableAssetLocation, PenpalBSiblingSovereignAccount,
+	PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
 
@@ -39,6 +39,7 @@ pub fn genesis() -> Storage {
 		system: asset_hub_westend_runtime::SystemConfig::default(),
 		balances: asset_hub_westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			..Default::default()
 		},
 		parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
@@ -75,10 +76,10 @@ pub fn genesis() -> Storage {
 		},
 		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
 			assets: vec![
-				// Penpal's teleportable asset representation
+				// PenpalA's teleportable asset representation
 				(
-					PenpalTeleportableAssetLocation::get(),
-					PenpalSiblingSovereignAccount::get(),
+					PenpalATeleportableAssetLocation::get(),
+					PenpalASiblingSovereignAccount::get(),
 					false,
 					ED,
 				),

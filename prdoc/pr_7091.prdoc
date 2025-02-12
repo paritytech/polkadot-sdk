@@ -1,0 +1,12 @@
+title: '[pallet-revive] Add new host function `to_account_id`'
+doc:
+- audience: Runtime Dev
+  description: A new host function `to_account_id` is added. It allows retrieving
+    the account id for a `H160` address.
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

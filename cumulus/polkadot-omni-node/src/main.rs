@@ -1,39 +1,37 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
-
-//! Basic polkadot omni-node.
+//! White labeled polkadot omni-node.
 //!
-//! It can be used to start a parachain node from a provided chain spec file.
-//! It is only compatible with runtimes that use block number `u32` and `Aura` consensus.
-//!
-//! Example: `polkadot-omni-node --chain [chain_spec.json]`
+//! For documentation, see [`polkadot_omni_node_lib`].
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
 use polkadot_omni_node_lib::{
 	chain_spec::DiskChainSpecLoader, run, runtime::DefaultRuntimeResolver, CliConfig as CliConfigT,
-	RunConfig,
+	RunConfig, NODE_VERSION,
 };
 
 struct CliConfig;
 
 impl CliConfigT for CliConfig {
 	fn impl_version() -> String {
-		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+		let commit_hash = env!("SUBSTRATE_CLI_COMMIT_HASH");
+		format!("{}-{commit_hash}", NODE_VERSION)
 	}
 
 	fn author() -> String {
@@ -52,9 +50,6 @@ impl CliConfigT for CliConfig {
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
-	let config = RunConfig {
-		chain_spec_loader: Box::new(DiskChainSpecLoader),
-		runtime_resolver: Box::new(DefaultRuntimeResolver),
-	};
+	let config = RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
 	Ok(run::<CliConfig>(config)?)
 }

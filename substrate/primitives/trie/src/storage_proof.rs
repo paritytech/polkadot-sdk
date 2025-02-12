@@ -232,7 +232,8 @@ pub mod tests {
 	use super::*;
 	use crate::{tests::create_storage_proof, StorageProof};
 
-	type Layout = crate::LayoutV1<sp_core::Blake2Hasher>;
+	type Hasher = sp_core::Blake2Hasher;
+	type Layout = crate::LayoutV1<Hasher>;
 
 	const TEST_DATA: &[(&[u8], &[u8])] =
 		&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64]), (b"key11", &[4; 64])];
@@ -244,5 +245,12 @@ pub mod tests {
 			StorageProof::new_with_duplicate_nodes_check(raw_proof),
 			Err(StorageProofError::DuplicateNodes)
 		));
+	}
+
+	#[test]
+	fn invalid_compact_proof_does_not_panic_when_decoding() {
+		let invalid_proof = CompactProof { encoded_nodes: vec![vec![135]] };
+		let result = invalid_proof.to_memory_db::<Hasher>(None);
+		assert!(result.is_err());
 	}
 }

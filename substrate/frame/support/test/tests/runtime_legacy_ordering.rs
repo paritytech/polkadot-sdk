@@ -25,7 +25,10 @@ use codec::MaxEncodedLen;
 use frame_support::{
 	derive_impl, parameter_types, traits::PalletInfo as _, weights::RuntimeDbWeight,
 };
-use frame_system::limits::{BlockLength, BlockWeights};
+use frame_system::{
+	limits::{BlockLength, BlockWeights},
+	DispatchEventInfo,
+};
 use scale_info::TypeInfo;
 use sp_core::sr25519;
 use sp_runtime::{
@@ -293,7 +296,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 
@@ -533,8 +537,13 @@ fn origin_codec() {
 fn event_codec() {
 	use codec::Encode;
 
-	let event =
-		frame_system::Event::<Runtime>::ExtrinsicSuccess { dispatch_info: Default::default() };
+	let event = frame_system::Event::<Runtime>::ExtrinsicSuccess {
+		dispatch_info: DispatchEventInfo {
+			weight: Default::default(),
+			class: Default::default(),
+			pays_fee: Default::default(),
+		},
+	};
 	assert_eq!(RuntimeEvent::from(event).encode()[0], 30);
 
 	let event = module1::Event::<Runtime, module1::Instance1>::A(test_pub());
@@ -624,7 +633,8 @@ fn call_weight_should_attach_to_call_enum() {
 	assert_eq!(
 		module3::Call::<Runtime>::operational {}.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(5, 0),
+			call_weight: Weight::from_parts(5, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes
 		},
@@ -633,7 +643,8 @@ fn call_weight_should_attach_to_call_enum() {
 	assert_eq!(
 		module3::Call::<Runtime>::aux_4 {}.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(3, 0),
+			call_weight: Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		},
@@ -894,7 +905,7 @@ fn test_metadata() {
 		ty: meta_type::<UncheckedExtrinsic>(),
 		version: 4,
 		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+			identifier: "UnitTransactionExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],

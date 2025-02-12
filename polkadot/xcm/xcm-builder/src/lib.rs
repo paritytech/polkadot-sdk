@@ -108,7 +108,7 @@ pub use nonfungible_adapter::{
 };
 
 mod origin_aliases;
-pub use origin_aliases::AliasForeignAccountId32;
+pub use origin_aliases::*;
 
 mod origin_conversion;
 pub use origin_conversion::{
@@ -132,11 +132,13 @@ pub use routing::{
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;
 
+#[allow(deprecated)]
+pub use universal_exports::UnpaidLocalExporter;
 mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
-	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, NetworkExportTable,
-	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidLocalExporter, UnpaidRemoteExporter,
+	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, LocalExporter, NetworkExportTable,
+	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidRemoteExporter,
 };
 
 mod weight;

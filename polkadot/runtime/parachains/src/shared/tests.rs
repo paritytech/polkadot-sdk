@@ -36,24 +36,30 @@ fn tracker_earliest_block_number() {
 
 	// Push a single block into the tracker, suppose max capacity is 1.
 	let max_ancestry_len = 0;
-	tracker.update(Hash::zero(), Hash::zero(), Default::default(), 0, max_ancestry_len);
-	assert_eq!(tracker.hypothetical_earliest_block_number(now, max_ancestry_len), now);
+	tracker.update(Hash::zero(), Hash::zero(), Default::default(), 0, max_ancestry_len + 1);
+	assert_eq!(tracker.hypothetical_earliest_block_number(now, max_ancestry_len as _), now);
 
 	// Test a greater capacity.
 	let max_ancestry_len = 4;
 	let now = 4;
 	for i in 1..now {
-		tracker.update(Hash::zero(), Hash::zero(), Default::default(), i, max_ancestry_len);
-		assert_eq!(tracker.hypothetical_earliest_block_number(i + 1, max_ancestry_len), 0);
+		tracker.update(
+			Hash::from([i as u8; 32]),
+			Hash::zero(),
+			Default::default(),
+			i,
+			max_ancestry_len + 1,
+		);
+		assert_eq!(tracker.hypothetical_earliest_block_number(i + 1, max_ancestry_len as _), 0);
 	}
 
 	// Capacity exceeded.
 	tracker.update(Hash::zero(), Hash::zero(), Default::default(), now, max_ancestry_len);
-	assert_eq!(tracker.hypothetical_earliest_block_number(now + 1, max_ancestry_len), 1);
+	assert_eq!(tracker.hypothetical_earliest_block_number(now + 1, max_ancestry_len as _), 1);
 }
 
 #[test]
-fn tracker_claim_queue_remap() {
+fn tracker_claim_queue_transpose() {
 	let mut tracker = AllowedRelayParentsTracker::<Hash, u32>::default();
 
 	let mut claim_queue = BTreeMap::new();
@@ -61,7 +67,7 @@ fn tracker_claim_queue_remap() {
 	claim_queue.insert(CoreIndex(1), vec![Id::from(0), Id::from(0), Id::from(100)].into());
 	claim_queue.insert(CoreIndex(2), vec![Id::from(1), Id::from(2), Id::from(100)].into());
 
-	tracker.update(Hash::zero(), Hash::zero(), claim_queue, 1u32, 3u32);
+	tracker.update(Hash::zero(), Hash::zero(), claim_queue, 1u32, 4);
 
 	let (info, _block_num) = tracker.acquire_info(Hash::zero(), None).unwrap();
 	assert_eq!(
@@ -114,16 +120,30 @@ fn tracker_acquire_info() {
 	];
 
 	let (relay_parent, state_root) = blocks[0];
-	tracker.update(relay_parent, state_root, Default::default(), 0, max_ancestry_len);
+	tracker.update(relay_parent, state_root, Default::default(), 0, max_ancestry_len + 1);
+	assert_matches!(
+		tracker.acquire_info(relay_parent, None),
+		Some((s, b)) if s.state_root == state_root && b == 0
+	);
+
+	// Try to push a duplicate. Should be ignored.
+	tracker.update(
+		relay_parent,
+		Hash::repeat_byte(13),
+		Default::default(),
+		0,
+		max_ancestry_len + 1,
+	);
+	assert_eq!(tracker.buffer.len(), 1);
 	assert_matches!(
 		tracker.acquire_info(relay_parent, None),
 		Some((s, b)) if s.state_root == state_root && b == 0
 	);
 
 	let (relay_parent, state_root) = blocks[1];
-	tracker.update(relay_parent, state_root, Default::default(), 1u32, max_ancestry_len);
+	tracker.update(relay_parent, state_root, Default::default(), 1u32, max_ancestry_len + 1);
 	let (relay_parent, state_root) = blocks[2];
-	tracker.update(relay_parent, state_root, Default::default(), 2u32, max_ancestry_len);
+	tracker.update(relay_parent, state_root, Default::default(), 2u32, max_ancestry_len + 1);
 	for (block_num, (rp, state_root)) in blocks.iter().enumerate().take(2) {
 		assert_matches!(
 			tracker.acquire_info(*rp, None),

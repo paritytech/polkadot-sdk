@@ -23,23 +23,19 @@ mod runtime;
 #[cfg(doc)]
 pub use crate::wasm::runtime::SyscallDoc;
 
-#[cfg(test)]
-pub use runtime::HIGHEST_API_VERSION;
-
-#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+#[cfg(feature = "runtime-benchmarks")]
 pub use crate::wasm::runtime::{ReturnData, TrapReason};
 
-pub use crate::wasm::runtime::{ApiVersion, Memory, Runtime, RuntimeCosts};
+pub use crate::wasm::runtime::{Memory, Runtime, RuntimeCosts};
 
 use crate::{
-	address::AddressMapper,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
 	limits,
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, Event, ExecError,
-	HoldReason, Pallet, PristineCode, Weight, API_VERSION, LOG_TARGET,
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, ExecError, HoldReason,
+	PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -48,7 +44,7 @@ use frame_support::{
 	ensure,
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
-use sp_core::{Get, U256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
 /// Validated Wasm module ready for execution.
@@ -63,7 +59,7 @@ pub struct WasmBlob<T: Config> {
 	code_info: CodeInfo<T>,
 	// This is for not calculating the hash every time we need it.
 	#[codec(skip)]
-	code_hash: sp_core::H256,
+	code_hash: H256,
 }
 
 /// Contract code related data, such as:
@@ -87,11 +83,6 @@ pub struct CodeInfo<T: Config> {
 	refcount: u64,
 	/// Length of the code in bytes.
 	code_len: u32,
-	/// The API version that this contract operates under.
-	///
-	/// This determines which host functions are available to the contract. This
-	/// prevents that new host functions become available to already deployed contracts.
-	api_version: u16,
 	/// The behaviour version that this contract operates under.
 	///
 	/// Whenever any observeable change (with the exception of weights) are made we need
@@ -99,7 +90,7 @@ pub struct CodeInfo<T: Config> {
 	/// exposing the old behaviour depending on the set behaviour version of the contract.
 	///
 	/// As of right now this is a reserved field that is always set to 0.
-	behaviour_version: u16,
+	behaviour_version: u32,
 }
 
 impl ExportedFunction {
@@ -124,15 +115,21 @@ impl<T: Config> Token<T> for CodeLoadToken {
 	}
 }
 
+#[cfg(test)]
+pub fn code_load_weight(code_len: u32) -> Weight {
+	Token::<crate::tests::Test>::weight(&CodeLoadToken(code_len))
+}
+
 impl<T: Config> WasmBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
 	/// We only check for size and nothing else when the code is uploaded.
 	pub fn from_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		// We do size checks when new code is deployed. This allows us to increase
+		// We do validation only when new code is deployed. This allows us to increase
 		// the limits later without affecting already deployed code.
-		let code = limits::code::enforce::<T>(code)?;
+		let available_syscalls = runtime::list_syscalls(T::UnsafeUnstableInterface::get());
+		let code = limits::code::enforce::<T>(code, available_syscalls)?;
 
 		let code_len = code.len() as u32;
 		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
@@ -144,17 +141,16 @@ where
 			deposit,
 			refcount: 0,
 			code_len,
-			api_version: API_VERSION,
 			behaviour_version: Default::default(),
 		};
-		let code_hash = sp_core::H256(sp_io::hashing::keccak_256(&code));
+		let code_hash = H256(sp_io::hashing::keccak_256(&code));
 		Ok(WasmBlob { code, code_info, code_hash })
 	}
 
 	/// Remove the code from storage and refund the deposit to its owner.
 	///
 	/// Applies all necessary checks before removing the code.
-	pub fn remove(origin: &T::AccountId, code_hash: sp_core::H256) -> DispatchResult {
+	pub fn remove(origin: &T::AccountId, code_hash: H256) -> DispatchResult {
 		<CodeInfoOf<T>>::try_mutate_exists(&code_hash, |existing| {
 			if let Some(code_info) = existing {
 				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
@@ -165,16 +161,9 @@ where
 					code_info.deposit,
 					BestEffort,
 				);
-				let deposit_released = code_info.deposit;
-				let remover = T::AddressMapper::to_address(&code_info.owner);
 
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
-				<Pallet<T>>::deposit_event(Event::CodeRemoved {
-					code_hash,
-					deposit_released,
-					remover,
-				});
 				Ok(())
 			} else {
 				Err(<Error<T>>::CodeNotFound.into())
@@ -183,7 +172,7 @@ where
 	}
 
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
-	pub fn store_code(&mut self) -> Result<BalanceOf<T>, Error<T>> {
+	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
 		let code_hash = *self.code_hash();
 		<CodeInfoOf<T>>::mutate(code_hash, |stored_code_info| {
 			match stored_code_info {
@@ -195,22 +184,21 @@ where
 				// the `owner` is always the origin of the current transaction.
 				None => {
 					let deposit = self.code_info.deposit;
-					T::Currency::hold(
+
+					if !skip_transfer {
+						T::Currency::hold(
 						&HoldReason::CodeUploadDepositReserve.into(),
 						&self.code_info.owner,
 						deposit,
-					)
-					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
+					) .map_err(|err| {
+							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
+							<Error<T>>::StorageDepositNotEnoughFunds
+					})?;
+					}
 
 					self.code_info.refcount = 0;
 					<PristineCode<T>>::insert(code_hash, &self.code);
 					*stored_code_info = Some(self.code_info.clone());
-					let uploader = T::AddressMapper::to_address(&self.code_info.owner);
-					<Pallet<T>>::deposit_event(Event::CodeStored {
-						code_hash,
-						deposit_held: deposit,
-						uploader,
-					});
 					Ok(deposit)
 				},
 			}
@@ -226,24 +214,65 @@ impl<T: Config> CodeInfo<T> {
 			deposit: Default::default(),
 			refcount: 0,
 			code_len: 0,
-			api_version: API_VERSION,
 			behaviour_version: Default::default(),
 		}
 	}
 
 	/// Returns reference count of the module.
+	#[cfg(test)]
 	pub fn refcount(&self) -> u64 {
 		self.refcount
-	}
-
-	/// Return mutable reference to the refcount of the module.
-	pub fn refcount_mut(&mut self) -> &mut u64 {
-		&mut self.refcount
 	}
 
 	/// Returns the deposit of the module.
 	pub fn deposit(&self) -> BalanceOf<T> {
 		self.deposit
+	}
+
+	/// Returns the code length.
+	pub fn code_len(&self) -> u64 {
+		self.code_len.into()
+	}
+
+	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
+	/// Increment the reference count of a stored code by one.
+	///
+	/// # Errors
+	///
+	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
+	/// `code_hash`.
+	pub fn increment_refcount(code_hash: H256) -> DispatchResult {
+		<CodeInfoOf<T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
+			if let Some(info) = existing {
+				info.refcount = info
+					.refcount
+					.checked_add(1)
+					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+				Ok(())
+			} else {
+				Err(Error::<T>::CodeNotFound.into())
+			}
+		})
+	}
+
+	/// Decrement the reference count of a stored code by one.
+	///
+	/// # Note
+	///
+	/// A contract whose reference count dropped to zero isn't automatically removed. A
+	/// `remove_code` transaction must be submitted by the original uploader to do so.
+	pub fn decrement_refcount(code_hash: H256) -> DispatchResult {
+		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
+			if let Some(info) = existing {
+				info.refcount = info
+					.refcount
+					.checked_sub(1)
+					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+				Ok(())
+			} else {
+				Err(Error::<T>::CodeNotFound.into())
+			}
+		})
 	}
 }
 
@@ -251,7 +280,6 @@ pub struct PreparedCall<'a, E: Ext> {
 	module: polkavm::Module,
 	instance: polkavm::RawInstance,
 	runtime: Runtime<'a, E, polkavm::RawInstance>,
-	api_version: ApiVersion,
 }
 
 impl<'a, E: Ext> PreparedCall<'a, E>
@@ -262,12 +290,9 @@ where
 	pub fn call(mut self) -> ExecResult {
 		let exec_result = loop {
 			let interrupt = self.instance.run();
-			if let Some(exec_result) = self.runtime.handle_interrupt(
-				interrupt,
-				&self.module,
-				&mut self.instance,
-				self.api_version,
-			) {
+			if let Some(exec_result) =
+				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
+			{
 				break exec_result
 			}
 		};
@@ -281,12 +306,18 @@ impl<T: Config> WasmBlob<T> {
 		self,
 		mut runtime: Runtime<E, polkavm::RawInstance>,
 		entry_point: ExportedFunction,
-		api_version: ApiVersion,
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
-		let engine =
-			polkavm::Engine::new(&config).expect("interpreter is available on all plattforms; qed");
+		config.set_cache_enabled(false);
+		#[cfg(feature = "std")]
+		if std::env::var_os("REVIVE_USE_COMPILER").is_some() {
+			config.set_backend(Some(polkavm::BackendKind::Compiler));
+		}
+		let engine = polkavm::Engine::new(&config).expect(
+			"on-chain (no_std) use of interpreter is hard coded.
+				interpreter is available on all platforms; qed",
+		);
 
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
@@ -311,15 +342,10 @@ impl<T: Config> WasmBlob<T> {
 			Error::<T>::CodeRejected
 		})?;
 
-		// Increment before execution so that the constructor sees the correct refcount
-		if let ExportedFunction::Constructor = entry_point {
-			E::increment_refcount(self.code_hash)?;
-		}
-
 		instance.set_gas(gas_limit_polkavm);
 		instance.prepare_call_untyped(entry_program_counter, &[]);
 
-		Ok(PreparedCall { module, instance, runtime, api_version })
+		Ok(PreparedCall { module, instance, runtime })
 	}
 }
 
@@ -327,10 +353,7 @@ impl<T: Config> Executable<T> for WasmBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
-	fn from_storage(
-		code_hash: sp_core::H256,
-		gas_meter: &mut GasMeter<T>,
-	) -> Result<Self, DispatchError> {
+	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		gas_meter.charge(CodeLoadToken(code_info.code_len))?;
 		let code = <PristineCode<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
@@ -343,13 +366,7 @@ where
 		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult {
-		let api_version = if <E::T as Config>::UnsafeUnstableInterface::get() {
-			ApiVersion::UnsafeNewest
-		} else {
-			ApiVersion::Versioned(self.code_info.api_version)
-		};
-		let prepared_call =
-			self.prepare_call(Runtime::new(ext, input_data), function, api_version)?;
+		let prepared_call = self.prepare_call(Runtime::new(ext, input_data), function)?;
 		prepared_call.call()
 	}
 
@@ -357,7 +374,7 @@ where
 		self.code.as_ref()
 	}
 
-	fn code_hash(&self) -> &sp_core::H256 {
+	fn code_hash(&self) -> &H256 {
 		&self.code_hash
 	}
 

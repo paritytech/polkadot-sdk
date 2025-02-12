@@ -337,8 +337,6 @@ pub enum InconsistentError<BlockNumber> {
 	ZeroMinimumBackingVotes,
 	/// `executor_params` are inconsistent.
 	InconsistentExecutorParams { inner: ExecutorParamError },
-	/// TTL should be bigger than lookahead
-	LookaheadExceedsTTL,
 	/// Lookahead is zero, while it must be at least 1 for parachains to work.
 	LookaheadZero,
 	/// Passed in queue size for on-demand was too large.
@@ -432,10 +430,6 @@ where
 
 		if let Err(inner) = self.executor_params.check_consistency() {
 			return Err(InconsistentExecutorParams { inner })
-		}
-
-		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
-			return Err(LookaheadExceedsTTL)
 		}
 
 		if self.scheduler_params.lookahead == 0 {
@@ -686,18 +680,7 @@ pub mod pallet {
 			Self::set_coretime_cores_unchecked(new)
 		}
 
-		/// Set the max number of times a claim may timeout on a core before it is abandoned
-		#[pallet::call_index(7)]
-		#[pallet::weight((
-			T::WeightInfo::set_config_with_u32(),
-			DispatchClass::Operational,
-		))]
-		pub fn set_max_availability_timeouts(origin: OriginFor<T>, new: u32) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::schedule_config_update(|config| {
-				config.scheduler_params.max_availability_timeouts = new;
-			})
-		}
+		// Call index 7 used to be `set_max_availability_timeouts`, which was removed.
 
 		/// Set the parachain validator-group rotation frequency
 		#[pallet::call_index(8)]
@@ -1193,18 +1176,8 @@ pub mod pallet {
 				config.scheduler_params.on_demand_target_queue_utilization = new;
 			})
 		}
-		/// Set the on demand (parathreads) ttl in the claimqueue.
-		#[pallet::call_index(51)]
-		#[pallet::weight((
-			T::WeightInfo::set_config_with_block_number(),
-			DispatchClass::Operational
-		))]
-		pub fn set_on_demand_ttl(origin: OriginFor<T>, new: BlockNumberFor<T>) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::schedule_config_update(|config| {
-				config.scheduler_params.ttl = new;
-			})
-		}
+
+		// Call index 51 used to be `set_on_demand_ttl`, which was removed.
 
 		/// Set the minimum backing votes threshold.
 		#[pallet::call_index(52)]

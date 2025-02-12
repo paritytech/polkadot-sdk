@@ -23,7 +23,7 @@ pub mod base2;
 use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
 #[cfg(feature = "serde")]
 use crate::{Deserialize, Serialize};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 use sp_trie::{trie_types::TrieError as SpTrieError, VerifyError};
 
 /// A runtime friendly error type for tries.

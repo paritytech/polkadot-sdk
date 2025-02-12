@@ -18,7 +18,6 @@
 use crate::construct_runtime::Pallet;
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::str::FromStr;
 use syn::Ident;
 
 pub fn expand_outer_inherent(
@@ -36,14 +35,7 @@ pub fn expand_outer_inherent(
 		if pallet_decl.exists_part("Inherent") {
 			let name = &pallet_decl.name;
 			let path = &pallet_decl.path;
-			let attr = pallet_decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			});
+			let attr = pallet_decl.get_attributes();
 
 			pallet_names.push(name);
 			pallet_attrs.push(attr);
@@ -66,18 +58,16 @@ pub fn expand_outer_inherent(
 			fn create_extrinsics(&self) ->
 				#scrate::__private::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>
 			{
-				use #scrate::inherent::ProvideInherent;
+				use #scrate::{inherent::ProvideInherent, traits::InherentBuilder};
 
 				let mut inherents = #scrate::__private::Vec::new();
 
 				#(
 					#pallet_attrs
 					if let Some(inherent) = #pallet_names::create_inherent(self) {
-						let inherent = <#unchecked_extrinsic as #scrate::sp_runtime::traits::Extrinsic>::new(
+						let inherent = <#unchecked_extrinsic as InherentBuilder>::new_inherent(
 							inherent.into(),
-							None,
-						).expect("Runtime UncheckedExtrinsic is not Opaque, so it has to return \
-							`Some`; qed");
+						);
 
 						inherents.push(inherent);
 					}
@@ -123,7 +113,7 @@ pub fn expand_outer_inherent(
 				for xt in block.extrinsics() {
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
-					if #scrate::sp_runtime::traits::Extrinsic::is_signed(xt).unwrap_or(false) {
+					if !(#scrate::sp_runtime::traits::ExtrinsicLike::is_bare(xt)) {
 						break
 					}
 
@@ -161,10 +151,9 @@ pub fn expand_outer_inherent(
 					match #pallet_names::is_inherent_required(self) {
 						Ok(Some(e)) => {
 							let found = block.extrinsics().iter().any(|xt| {
-								let is_signed = #scrate::sp_runtime::traits::Extrinsic::is_signed(xt)
-									.unwrap_or(false);
+								let is_bare = #scrate::sp_runtime::traits::ExtrinsicLike::is_bare(xt);
 
-								if !is_signed {
+								if is_bare {
 									let call = <
 										#unchecked_extrinsic as ExtrinsicCall
 									>::call(xt);
@@ -209,8 +198,9 @@ pub fn expand_outer_inherent(
 				use #scrate::inherent::ProvideInherent;
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 
-				if #scrate::sp_runtime::traits::Extrinsic::is_signed(ext).unwrap_or(false) {
-					// Signed extrinsics are never inherents.
+				let is_bare = #scrate::sp_runtime::traits::ExtrinsicLike::is_bare(ext);
+				if !is_bare {
+					// Inherents must be bare extrinsics.
 					return false
 				}
 

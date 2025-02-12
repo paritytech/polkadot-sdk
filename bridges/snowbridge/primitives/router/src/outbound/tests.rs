@@ -5,7 +5,10 @@ use snowbridge_core::{
 	AgentIdOf,
 };
 use sp_std::default::Default;
-use xcm::prelude::SendError as XcmSendError;
+use xcm::{
+	latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	prelude::SendError as XcmSendError,
+};
 
 use super::*;
 
@@ -61,7 +64,7 @@ impl SendMessageFeeProvider for MockErrOutboundQueue {
 pub struct MockTokenIdConvert;
 impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 	fn convert(_id: &TokenId) -> Option<Location> {
-		Some(Location::new(1, [GlobalConsensus(Westend)]))
+		Some(Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]))
 	}
 	fn convert_back(_loc: &Location) -> Option<TokenId> {
 		None
@@ -504,6 +507,46 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 		agent_id: Default::default(),
 		command: AgentExecuteCommand::TransferToken {
 			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
+	};
+	let result = converter.convert();
+	assert_eq!(result, Ok((expected_payload, [0; 32])));
+}
+
+#[test]
+fn xcm_converter_convert_with_native_eth_succeeds() {
+	let network = BridgedNetwork::get();
+
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	// The asset is `{ parents: 0, interior: X1(Here) }` relative to ethereum.
+	let assets: Assets = vec![Asset { id: AssetId([].into()), fun: Fungible(1000) }].into();
+	let filter: AssetFilter = Wild(All);
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+
+	// The token address that is expected to be sent should be
+	// `0x0000000000000000000000000000000000000000`. The solidity will
+	// interpret this as a transfer of ETH.
+	let expected_payload = Command::AgentExecute {
+		agent_id: Default::default(),
+		command: AgentExecuteCommand::TransferToken {
+			token: H160([0; 20]),
 			recipient: beneficiary_address.into(),
 			amount: 1000,
 		},
@@ -1109,7 +1152,7 @@ fn xcm_converter_transfer_native_token_success() {
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
 	let amount = 1000000;
-	let asset_location = Location::new(1, [GlobalConsensus(Westend)]);
+	let asset_location = Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	let token_id = TokenIdOf::convert_location(&asset_location).unwrap();
 
 	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
@@ -1142,7 +1185,8 @@ fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
 
 	let amount = 1000000;
 	// Invalid asset location from a different consensus
-	let asset_location = Location { parents: 2, interior: [GlobalConsensus(Rococo)].into() };
+	let asset_location =
+		Location { parents: 2, interior: [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))].into() };
 
 	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
 	let filter: AssetFilter = assets.clone().into();
@@ -1221,7 +1265,8 @@ fn exporter_validate_with_invalid_universal_source_does_not_alter_universal_sour
 	let network = BridgedNetwork::get();
 	let destination: InteriorLocation = Here.into();
 
-	let universal_source: InteriorLocation = [GlobalConsensus(Westend), Parachain(1000)].into();
+	let universal_source: InteriorLocation =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)].into();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
