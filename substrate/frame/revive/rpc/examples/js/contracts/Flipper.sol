@@ -20,7 +20,7 @@ contract FlipperCaller {
     address public flipperAddress;
 
     // Constructor to initialize Flipper's address
-    constructor(address _flipperAddress) {
+    constructor(address _flipperAddress) public {
         flipperAddress = _flipperAddress;
     }
 
