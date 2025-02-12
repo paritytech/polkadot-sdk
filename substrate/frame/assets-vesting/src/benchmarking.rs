@@ -88,10 +88,7 @@ where
 )]
 mod benchmarks {
 	use super::*;
-	use frame::{
-		testing_prelude::assert_ok,
-		traits::tokens::Preservation::Preserve,
-	};
+	use frame::{testing_prelude::assert_ok, traits::tokens::Preservation::Preserve};
 
 	#[benchmark]
 	fn vest_locked(s: Linear<1, T::MAX_VESTING_SCHEDULES>) -> Result<(), BenchmarkError> {
