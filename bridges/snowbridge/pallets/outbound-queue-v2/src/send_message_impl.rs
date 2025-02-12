@@ -8,15 +8,12 @@ use frame_support::{
 	ensure,
 	traits::{EnqueueMessage, Get},
 };
-use snowbridge_core::AgentIdOf;
 use snowbridge_outbound_queue_primitives::{
 	v2::{Message, SendMessage},
 	SendError, SendMessageFeeProvider,
 };
 use sp_core::H256;
 use sp_runtime::BoundedVec;
-use xcm::prelude::Here;
-use xcm_executor::traits::ConvertLocation;
 
 impl<T> SendMessage for Pallet<T>
 where
@@ -41,13 +38,6 @@ where
 
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
 		let origin = AggregateMessageOrigin::SnowbridgeV2(ticket.origin);
-
-		let governance_origin =
-			AgentIdOf::convert_location(&Here.into()).ok_or(SendError::InvalidOrigin)?;
-
-		if ticket.origin != governance_origin {
-			ensure!(!Self::operating_mode().is_halted(), SendError::Halted);
-		}
 
 		let message =
 			BoundedVec::try_from(ticket.encode()).map_err(|_| SendError::MessageTooLarge)?;

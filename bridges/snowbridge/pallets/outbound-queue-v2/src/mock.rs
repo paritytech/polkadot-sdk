@@ -141,7 +141,7 @@ pub fn run_to_end_of_next_block() {
 	System::on_finalize(System::block_number());
 }
 
-pub fn primary_governance_origin() -> AgentId {
+pub fn bridge_hub_root_origin() -> AgentId {
 	AgentIdOf::convert_location(&Here.into()).unwrap()
 }
 
@@ -152,7 +152,7 @@ where
 	let _marker = PhantomData::<T>; // for clippy
 
 	Message {
-		origin: primary_governance_origin(),
+		origin: bridge_hub_root_origin(),
 		id: Default::default(),
 		fee: 0,
 		commands: BoundedVec::try_from(vec![Command::Upgrade {

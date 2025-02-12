@@ -136,27 +136,6 @@ fn process_message_fails_on_overweight_message() {
 	})
 }
 
-// Governance messages should be able to bypass a halted operating mode
-// Other message sends should fail when halted
-#[test]
-fn submit_upgrade_message_success_when_queue_halted() {
-	new_tester().execute_with(|| {
-		// halt the outbound queue
-		OutboundQueue::set_operating_mode(RuntimeOrigin::root(), BasicOperatingMode::Halted)
-			.unwrap();
-
-		// submit a high priority message from bridge_hub should success
-		let message = mock_governance_message::<Test>();
-		let (ticket, _) = OutboundQueue::validate(&message).unwrap();
-		assert_ok!(OutboundQueue::deliver(ticket));
-
-		// submit a low priority message from asset_hub will fail as pallet is halted
-		let message = mock_message(1000);
-		let (ticket, _) = OutboundQueue::validate(&message).unwrap();
-		assert_noop!(OutboundQueue::deliver(ticket), SendError::Halted);
-	});
-}
-
 #[test]
 fn governance_message_does_not_get_the_chance_to_processed_in_same_block_when_congest_of_low_priority_sibling_messages(
 ) {
@@ -193,7 +172,7 @@ fn governance_message_does_not_get_the_chance_to_processed_in_same_block_when_co
 		assert_eq!(footprint.storage.count, 40 - 20);
 
 		// and governance message does not have the chance to execute in same block
-		let footprint = MessageQueue::footprint(SnowbridgeV2(primary_governance_origin()));
+		let footprint = MessageQueue::footprint(SnowbridgeV2(bridge_hub_root_origin()));
 		assert_eq!(footprint.storage.count, 1);
 
 		// move to next block
@@ -201,7 +180,7 @@ fn governance_message_does_not_get_the_chance_to_processed_in_same_block_when_co
 		run_to_end_of_next_block();
 
 		// now governance message get executed in this block
-		let footprint = MessageQueue::footprint(SnowbridgeV2(primary_governance_origin()));
+		let footprint = MessageQueue::footprint(SnowbridgeV2(bridge_hub_root_origin()));
 		assert_eq!(footprint.storage.count, 0);
 
 		// and this time process 19 messages from sibling channel so we have 1 message left
