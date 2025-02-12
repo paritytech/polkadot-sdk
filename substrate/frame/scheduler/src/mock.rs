@@ -21,8 +21,10 @@ use super::*;
 
 use crate as scheduler;
 use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly},
+	derive_impl, ord_parameter_types,
+	pallet_prelude::Hooks,
+	parameter_types,
+	traits::{ConstU32, ConstU64, Contains, EitherOfDiverse, EqualPrivilegeOnly},
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{BuildStorage, Perbill};
@@ -227,6 +229,9 @@ impl Config for Test {
 	type WeightInfo = TestWeightInfo;
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Self>;
+	type MaxScheduledBlocks = ConstU32<20>;
+	type MaxStaleTaskAge = ConstU64<10>;
 }
 
 pub type LoggerCall = logger::Call<Test>;
@@ -234,6 +239,12 @@ pub type LoggerCall = logger::Call<Test>;
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	t.into()
+}
+
+pub fn go_to_block(n: u64) {
+	System::set_block_number(n);
+	Scheduler::on_initialize(n);
+	Scheduler::on_finalize(n);
 }
 
 pub fn root() -> OriginCaller {
