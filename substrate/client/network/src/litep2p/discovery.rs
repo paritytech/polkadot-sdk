@@ -279,6 +279,7 @@ impl Discovery {
 			let protocol_names = vec![
 				kademlia_protocol_name(genesis_hash.clone(), fork_id),
 				legacy_kademlia_protocol_name(protocol_id),
+				ProtocolName::from("/ipfs/kad/1.0.0"),
 			];
 
 			KademliaConfigBuilder::new()
@@ -330,30 +331,30 @@ impl Discovery {
 		supported_protocols: HashSet<ProtocolName>,
 		addresses: Vec<Multiaddr>,
 	) {
-		if self.local_protocols.is_disjoint(&supported_protocols) {
-			log::trace!(
-				target: LOG_TARGET,
-				"Ignoring self-reported address of peer {peer} as remote node is not part of the \
-				 Kademlia DHT supported by the local node.",
-			);
-			return
-		}
+		// if self.local_protocols.is_disjoint(&supported_protocols) {
+		// 	log::trace!(
+		// 		target: LOG_TARGET,
+		// 		"Ignoring self-reported address of peer {peer} as remote node is not part of the \
+		// 		 Kademlia DHT supported by the local node.",
+		// 	);
+		// 	return
+		// }
 
-		let addresses = addresses
-			.into_iter()
-			.filter_map(|address| {
-				if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
-					log::trace!(
-						target: LOG_TARGET,
-						"ignoring self-reported non-global address {address} from {peer}."
-					);
+		// let addresses = addresses
+		// 	.into_iter()
+		// 	.filter_map(|address| {
+		// 		if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
+		// 			log::trace!(
+		// 				target: LOG_TARGET,
+		// 				"ignoring self-reported non-global address {address} from {peer}."
+		// 			);
 
-					return None
-				}
+		// 			return None
+		// 		}
 
-				Some(address)
-			})
-			.collect();
+		// 		Some(address)
+		// 	})
+		// 	.collect();
 
 		log::trace!(
 			target: LOG_TARGET,
