@@ -13,7 +13,7 @@ use frame_support::{
 use codec::Encode;
 use snowbridge_core::{ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{
-	v2::{abi::OutboundMessageWrapper, primary_governance_origin, Command, SendMessage},
+	v2::{abi::OutboundMessageWrapper, Command, SendMessage},
 	SendError,
 };
 use sp_core::{hexdisplay::HexDisplay, H256};

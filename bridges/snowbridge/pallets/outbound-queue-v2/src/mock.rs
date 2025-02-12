@@ -13,7 +13,7 @@ use hex_literal::hex;
 use snowbridge_core::{
 	gwei, meth,
 	pricing::{PricingParameters, Rewards},
-	ParaId,
+	AgentId, AgentIdOf, ParaId,
 };
 use snowbridge_outbound_queue_primitives::{v2::*, Log, Proof, VerificationError, Verifier};
 use sp_core::{ConstU32, H160, H256};
@@ -22,6 +22,8 @@ use sp_runtime::{
 	AccountId32, BuildStorage, FixedU128,
 };
 use sp_std::marker::PhantomData;
+use xcm::prelude::Here;
+use xcm_executor::traits::ConvertLocation;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type AccountId = AccountId32;
@@ -137,6 +139,10 @@ pub fn run_to_end_of_next_block() {
 	MessageQueue::on_finalize(System::block_number());
 	OutboundQueue::on_finalize(System::block_number());
 	System::on_finalize(System::block_number());
+}
+
+pub fn primary_governance_origin() -> AgentId {
+	AgentIdOf::convert_location(&Here.into()).unwrap()
 }
 
 pub fn mock_governance_message<T>() -> Message

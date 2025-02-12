@@ -43,4 +43,6 @@ pub enum SendError {
 	Halted,
 	/// Invalid Channel
 	InvalidChannel,
+	/// Invalid Origin
+	InvalidOrigin,
 }

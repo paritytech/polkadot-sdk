@@ -318,8 +318,3 @@ impl GasMeter for () {
 		1
 	}
 }
-
-// Origin for high-priority governance commands
-pub fn primary_governance_origin() -> H256 {
-	hex!("0000000000000000000000000000000000000000000000000000000000000001").into()
-}
