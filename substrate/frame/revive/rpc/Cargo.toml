@@ -41,7 +41,6 @@ path = "examples/rust/remark-extrinsic.rs"
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
-ethabi = { version = "18.0.0" }
 futures = { workspace = true, features = ["thread-pool"] }
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
@@ -57,6 +56,7 @@ sc-service = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
+sp-runtime = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "sqlite"] }
 subxt = { workspace = true, default-features = true, features = [
@@ -70,6 +70,7 @@ tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 env_logger = { workspace = true }
+ethabi = { version = "18.0.0" }
 pretty_assertions = { workspace = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }

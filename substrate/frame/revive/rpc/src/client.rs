@@ -22,15 +22,17 @@ use crate::{
 	},
 	BlockInfoProvider, ReceiptExtractor, ReceiptProvider, TransactionInfo, LOG_TARGET,
 };
+use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Filter,
-		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned,
-		H160, H256, U256,
+		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, CallTrace, Filter,
+		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
+		TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
+use sp_runtime::OpaqueExtrinsic;
 use sp_weights::Weight;
 use std::{ops::ControlFlow, sync::Arc, time::Duration};
 use subxt::{
@@ -108,9 +110,9 @@ pub enum ClientError {
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
-	/// Contract reverted
+	/// Transcact call failed.
 	#[error("contract reverted")]
-	Reverted(EthTransactError),
+	TransactError(EthTransactError),
 	/// A decimal conversion failed.
 	#[error("conversion failed")]
 	ConversionFailed,
@@ -151,12 +153,16 @@ impl From<ClientError> for ErrorObjectOwned {
 					None,
 				)
 			},
-			ClientError::Reverted(EthTransactError::Data(data)) => {
-				let msg = extract_revert_message(&data).unwrap_or_default();
+			ClientError::TransactError(EthTransactError::Data(data)) => {
+				let msg = match decode_revert_reason(&data) {
+					Some(reason) => format!("execution reverted: {reason}"),
+					None => "execution reverted".to_string(),
+				};
+
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::Reverted(EthTransactError::Message(msg)) =>
+			ClientError::TransactError(EthTransactError::Message(msg)) =>
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
 			_ =>
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
@@ -570,7 +576,7 @@ impl Client {
 		match result {
 			Err(err) => {
 				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
-				Err(ClientError::Reverted(err.0))
+				Err(ClientError::TransactError(err.0))
 			},
 			Ok(result) => Ok(result.0),
 		}
@@ -645,7 +651,136 @@ impl Client {
 		let gas_price = runtime_api.call(payload).await?;
 		Ok(*gas_price)
 	}
+	/// Get the transaction traces for the given block.
+	pub async fn trace_block_by_number(
+		&self,
+		block: BlockNumberOrTag,
+		tracer_config: TracerConfig,
+	) -> Result<Vec<TransactionTrace>, ClientError> {
+		let block_hash = match block {
+			BlockNumberOrTag::U256(n) => {
+				let block_number: SubstrateBlockNumber =
+					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
+				self.get_block_hash(block_number).await?
+			},
+			BlockNumberOrTag::BlockTag(_) => self.latest_block().await.map(|b| b.hash()),
+		}
+		.ok_or(ClientError::BlockNotFound)?;
 
+		let block = self
+			.rpc
+			.chain_get_block(Some(block_hash))
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
+
+		let header = block.block.header;
+		let parent_hash = header.parent_hash;
+		let exts = block
+			.block
+			.extrinsics
+			.into_iter()
+			.filter_map(|e| OpaqueExtrinsic::decode(&mut &e[..]).ok())
+			.collect::<Vec<_>>();
+
+		let params = ((header, exts), tracer_config).encode();
+
+		let bytes = self
+			.rpc
+			.state_call("ReviveApi_trace_block", Some(&params), Some(parent_hash))
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
+			})?;
+
+		let traces = Vec::<(u32, CallTrace)>::decode(&mut &bytes[..])?;
+
+		let mut hashes = self
+			.receipt_provider
+			.block_transaction_hashes(&block_hash)
+			.await
+			.ok_or(ClientError::EthExtrinsicNotFound)?;
+
+		let traces = traces
+			.into_iter()
+			.filter_map(|(index, trace)| {
+				Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
+			})
+			.collect();
+
+		Ok(traces)
+	}
+
+	/// Get the transaction traces for the given transaction.
+	pub async fn trace_transaction(
+		&self,
+		transaction_hash: H256,
+		tracer_config: TracerConfig,
+	) -> Result<CallTrace, ClientError> {
+		let ReceiptInfo { block_hash, transaction_index, .. } = self
+			.receipt_provider
+			.receipt_by_hash(&transaction_hash)
+			.await
+			.ok_or(ClientError::EthExtrinsicNotFound)?;
+
+		log::debug!(target: LOG_TARGET, "Found eth_tx at {block_hash:?} index:
+		 {transaction_index:?}");
+
+		let block = self
+			.rpc
+			.chain_get_block(Some(block_hash))
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
+
+		let header = block.block.header;
+		let parent_hash = header.parent_hash;
+		let exts = block
+			.block
+			.extrinsics
+			.into_iter()
+			.filter_map(|e| OpaqueExtrinsic::decode(&mut &e[..]).ok())
+			.collect::<Vec<_>>();
+
+		let params = ((header, exts), transaction_index.as_u32(), tracer_config).encode();
+		let bytes = self
+			.rpc
+			.state_call("ReviveApi_trace_tx", Some(&params), Some(parent_hash))
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
+			})?;
+
+		let trace = Option::<CallTrace>::decode(&mut &bytes[..])?;
+		trace.ok_or(ClientError::EthExtrinsicNotFound)
+	}
+
+	/// Get the transaction traces for the given block.
+	pub async fn trace_call(
+		&self,
+		transaction: GenericTransaction,
+		block: BlockNumberOrTag,
+		tracer_config: TracerConfig,
+	) -> Result<CallTrace, ClientError> {
+		let block_hash = match block {
+			BlockNumberOrTag::U256(n) => {
+				let block_number: SubstrateBlockNumber =
+					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
+				self.get_block_hash(block_number).await?
+			},
+			BlockNumberOrTag::BlockTag(_) => self.latest_block().await.map(|b| b.hash()),
+		};
+
+		let params = (transaction, tracer_config).encode();
+		let bytes = self
+			.rpc
+			.state_call("ReviveApi_trace_call", Some(&params), block_hash)
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
+			})?;
+
+		Result::<CallTrace, EthTransactError>::decode(&mut &bytes[..])?
+			.map_err(ClientError::TransactError)
+	}
 	/// Get the EVM block for the given hash.
 	pub async fn evm_block(
 		&self,
