@@ -304,6 +304,8 @@ pub struct DatabaseSettings {
 	///
 	/// If `None` is given, the cache is disabled.
 	pub trie_cache_maximum_size: Option<usize>,
+	/// Force the trie cache to be in memory.
+	pub force_in_memory_trie_cache: bool,
 	/// Requested state pruning mode.
 	pub state_pruning: Option<PruningMode>,
 	/// Where to find the database.
@@ -1224,6 +1226,16 @@ impl<Block: BlockT> Backend<Block> {
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
+		let shared_trie_cache = config.trie_cache_maximum_size.map(|maximum_size| {
+			if config.force_in_memory_trie_cache {
+				SharedTrieCache::new_with_force_in_memory_trie_cache(
+					sp_trie::cache::CacheSize::new(maximum_size),
+				)
+			} else {
+				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
+			}
+		});
+
 		let backend = Backend {
 			storage: Arc::new(storage_db),
 			offchain_storage,
@@ -1235,9 +1247,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
-			shared_trie_cache: config.trie_cache_maximum_size.map(|maximum_size| {
-				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
-			}),
+			shared_trie_cache,
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
