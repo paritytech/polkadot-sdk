@@ -21,7 +21,7 @@
 #![warn(missing_docs)]
 
 use bp_relayers::{PaymentProcedure, Registration, RelayerRewardsKeyProvider, StakeAndSlash};
-pub use bp_relayers::{RewardLedger, RewardsAccountOwner, RewardsAccountParams};
+pub use bp_relayers::RewardLedger;
 use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::{fail, traits::tokens::Balance};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
