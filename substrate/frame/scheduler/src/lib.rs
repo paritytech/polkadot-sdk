@@ -295,13 +295,26 @@ pub mod pallet {
 		/// The preimage provider with which we look up call hashes to get the call.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-		/// Suggested value: Use the system block number or, if the parachain executes frequently,
-		/// the relay chain block number.
+		/// Query the current block number.
 		///
-		/// # Warning
-		/// Ensure this value stays closely synchronized with the local block number.
-		/// A significant deviation can cause performance degradation and increased latency.
-		/// Ideally, the difference between consecutive blocks should remain minimal.
+		/// Can be configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// Must return monotonically increasing values on consecutive blocks. It is generally
+		/// expected that the values also do not differ "too much" between consecutive blocks. A
+		/// future addition to this pallet will allow bigger difference between consecutive blocks
+		/// to make it possible to be utilized by parachains with *Agile Coretime*.
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains should use `frame_system::Pallet`. There are no concerns with
+		///   this configuration.
+		/// - Parachains should also use `frame_system::Pallet` for the time being. The scheduler
+		///   pallet is not yet ready for the case that big numbers of blocks are skipped. In an
+		///   *Agile Coretime* chain with relay chain number provider configured, it could otherwise
+		///   happen that the scheduler will not be able to catch up to its agendas, since too many
+		///   relay blocks are missing if the chain only produces blocks rarely.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
@@ -387,7 +400,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
-		fn on_initialize(_n: SystemBlockNumberFor<T>) -> Weight {
+		fn on_initialize(_now: SystemBlockNumberFor<T>) -> Weight {
 			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::MAX);

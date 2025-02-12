@@ -1,4 +1,4 @@
-title: 'Update Scheduler to have a configurable block provider #7434'
+title: 'Update Scheduler to have a configurable block number provider'
 doc:
 - audience: Runtime Dev
   description: |-

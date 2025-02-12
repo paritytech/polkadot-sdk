@@ -1636,9 +1636,9 @@ fn on_initialize_weight_is_correct() {
 		));
 
 		// Will include the named periodic only
-		System::set_block_number(1);
+		<Test as Config>::BlockNumberProvider::set_block_number(1);
 		assert_eq!(
-			Scheduler::on_initialize(0),
+			Scheduler::on_initialize(42), // BN unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, true) +
@@ -1649,9 +1649,9 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(logger::log(), vec![(root(), 2600u32)]);
 
 		// Will include anon and anon periodic
-		System::set_block_number(2);
+		<Test as Config>::BlockNumberProvider::set_block_number(2);
 		assert_eq!(
-			Scheduler::on_initialize(0),
+			Scheduler::on_initialize(123), // BN unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(2) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, false, true) +
@@ -1665,9 +1665,9 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(logger::log(), vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32)]);
 
 		// Will include named only
-		System::set_block_number(3);
+		<Test as Config>::BlockNumberProvider::set_block_number(3);
 		assert_eq!(
-			Scheduler::on_initialize(0),
+			Scheduler::on_initialize(555), // BN unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, false) +
@@ -1681,8 +1681,8 @@ fn on_initialize_weight_is_correct() {
 		);
 
 		// Will contain none
-		System::set_block_number(4);
-		let actual_weight = Scheduler::on_initialize(0);
+		<Test as Config>::BlockNumberProvider::set_block_number(4);
+		let actual_weight = Scheduler::on_initialize(444); // BN unused
 		assert_eq!(
 			actual_weight,
 			TestWeightInfo::service_agendas_base() + TestWeightInfo::service_agenda_base(0)
@@ -2120,6 +2120,18 @@ fn migration_to_v4_works() {
 	});
 }
 
+impl Into<OriginCaller> for u32 {
+	fn into(self) -> OriginCaller {
+		match self {
+			3u32 => system::RawOrigin::Root.into(),
+			2u32 => system::RawOrigin::None.into(),
+			101u32 => system::RawOrigin::Signed(101).into(),
+			102u32 => system::RawOrigin::Signed(102).into(),
+			_ => unreachable!("test make no use of it"),
+		}
+	}
+}
+
 #[test]
 fn test_migrate_origin() {
 	new_test_ext().execute_with(|| {
@@ -2153,18 +2165,6 @@ fn test_migrate_origin() {
 				}),
 			];
 			frame_support::migration::put_storage_value(b"Scheduler", b"Agenda", &k, old);
-		}
-
-		impl Into<OriginCaller> for u32 {
-			fn into(self) -> OriginCaller {
-				match self {
-					3u32 => system::RawOrigin::Root.into(),
-					2u32 => system::RawOrigin::None.into(),
-					101u32 => system::RawOrigin::Signed(101).into(),
-					102u32 => system::RawOrigin::Signed(102).into(),
-					_ => unreachable!("test make no use of it"),
-				}
-			}
 		}
 
 		Scheduler::migrate_origin::<u32>();
