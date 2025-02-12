@@ -5789,6 +5789,21 @@ fn chill_other_works() {
 			//
 			// If any of these are missing, we do not have enough information to allow the
 			// `chill_other` to succeed from one user to another.
+			//
+			// Out of 8 possible cases, only one will allow the use of `chill_other`, which is
+			// when all 3 conditions are met.
+
+			// 1. No limits whatsoever
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+			));
 
 			// Can't chill these users
 			assert_noop!(
@@ -5800,15 +5815,15 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// Change the minimum bond... but no limits.
+			// 2. Change only the minimum bonds.
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Set(1_500),
 				ConfigOp::Set(2_000),
-				ConfigOp::Remove,
-				ConfigOp::Remove,
-				ConfigOp::Remove,
-				ConfigOp::Remove,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
 				ConfigOp::Noop,
 			));
 
@@ -5822,11 +5837,11 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// Add limits, but no threshold
+			// 3. Add nominator/validator count limits, but no other threshold.
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
-				ConfigOp::Noop,
-				ConfigOp::Noop,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Noop,
@@ -5844,7 +5859,7 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// Add threshold, but no limits
+			// 4. Add chil threshold, but no other limits
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
@@ -5866,11 +5881,77 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// Add threshold and limits
+			// 5. Add bond and count limits, but no threshold
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Set(1_500),
+				ConfigOp::Set(2_000),
+				ConfigOp::Set(10),
+				ConfigOp::Set(10),
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+			));
+
+			// Still can't chill these users
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Error::<Test>::CannotChillOther
+			);
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Error::<Test>::CannotChillOther
+			);
+
+			// 6. Add bond and threshold limits, but no count limits
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Set(Percent::from_percent(75)),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+			));
+
+			// Still can't chill these users
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Error::<Test>::CannotChillOther
+			);
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Error::<Test>::CannotChillOther
+			);
+
+			// 7. Add count limits and a chill threshold, but no bond limits
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Set(10),
+				ConfigOp::Set(10),
+				ConfigOp::Set(Percent::from_percent(75)),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+			));
+
+			// Still can't chill these users
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Error::<Test>::CannotChillOther
+			);
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Error::<Test>::CannotChillOther
+			);
+
+			// 8. Add all limits
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Set(1_500),
+				ConfigOp::Set(2_000),
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Set(Percent::from_percent(75)),
