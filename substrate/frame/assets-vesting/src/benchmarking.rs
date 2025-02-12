@@ -88,7 +88,7 @@ where
 )]
 mod benchmarks {
 	use super::*;
-	use frame::{testing_prelude::assert_ok, traits::tokens::Preservation::Preserve};
+	use frame::traits::tokens::Preservation::Preserve;
 
 	#[benchmark]
 	fn vest_locked(s: Linear<1, T::MAX_VESTING_SCHEDULES>) -> Result<(), BenchmarkError> {
@@ -382,7 +382,7 @@ mod benchmarks {
 			"Schedule count should reduce by 1"
 		);
 		// Since merge unlocks all schedules we can now transfer the balance.
-		assert_ok!(T::Assets::transfer(id, &caller, &test_dest, expected_balance, Preserve));
+		T::Assets::transfer(id, &caller, &test_dest, expected_balance, Preserve)?;
 
 		Ok(())
 	}
