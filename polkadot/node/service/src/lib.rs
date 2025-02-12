@@ -983,13 +983,10 @@ pub fn new_full<
 		let availability_config = AvailabilityConfig {
 			col_data: parachains_db::REAL_COLUMNS.col_availability_data,
 			col_meta: parachains_db::REAL_COLUMNS.col_availability_meta,
-			keep_finalized_for: if matches!(
-				config.chain_spec.identify_chain(),
-				Chain::Kusama | Chain::Polkadot | Chain::Westend
-			) {
-				KEEP_FINALIZED_FOR_LIVE_NETWORKS
-			} else {
+			keep_finalized_for: if matches!(config.chain_spec.identify_chain(), Chain::Rococo) {
 				keep_finalized_for.unwrap_or(1)
+			} else {
+				KEEP_FINALIZED_FOR_LIVE_NETWORKS
 			},
 		};
 
