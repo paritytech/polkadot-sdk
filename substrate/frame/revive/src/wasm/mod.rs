@@ -312,6 +312,7 @@ impl<T: Config> WasmBlob<T> {
 		config.set_cache_enabled(false);
 		#[cfg(feature = "std")]
 		if std::env::var_os("REVIVE_USE_COMPILER").is_some() {
+			log::warn!(target: LOG_TARGET, "Using PolkaVM compiler backend because env var REVIVE_USE_COMPILER is set");
 			config.set_backend(Some(polkavm::BackendKind::Compiler));
 		}
 		let engine = polkavm::Engine::new(&config).expect(
