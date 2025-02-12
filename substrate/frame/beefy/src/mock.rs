@@ -16,9 +16,6 @@
 // limitations under the License.
 
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
-use std::vec;
-
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen, Weight,
@@ -29,6 +26,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::HeaderFor;
 use pallet_session::historical as pallet_session_historical;
+use scale_info::TypeInfo;
 use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128};
 use sp_runtime::{
 	app_crypto::ecdsa::Public,
