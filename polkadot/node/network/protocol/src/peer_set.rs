@@ -30,19 +30,14 @@ use std::{
 };
 use strum::{EnumIter, IntoEnumIterator};
 
+/// The legacy collation protocol name. Only supported on version = 1.
+const LEGACY_COLLATION_PROTOCOL_V1: &str = "/polkadot/collation/1";
+
+/// The legacy protocol version. Is always 1 for collation.
+const LEGACY_COLLATION_PROTOCOL_VERSION_V1: u32 = 1;
+
 /// Max notification size is currently constant.
 pub const MAX_NOTIFICATION_SIZE: u64 = 100 * 1024;
-
-/// The legacy validation and collation protocol versions and names.
-const LEGACY_VALIDATION_PROTOCOL: LegacyProtocol =
-	LegacyProtocol { version: 3, name: "/polkadot/validation/3" };
-const LEGACY_COLLATION_PROTOCOL: LegacyProtocol =
-	LegacyProtocol { version: 1, name: "/polkadot/collation/1" };
-
-struct LegacyProtocol {
-	version: u32,
-	name: &'static str,
-}
 
 /// The peer-sets and thus the protocols which are used for the network.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
@@ -247,8 +242,9 @@ impl From<ProtocolVersion> for u32 {
 }
 
 /// Supported validation protocol versions. Only versions defined here must be used in the codebase.
-/// The first and second versions are no longer used and can be removed once the changes in [this PR](https://github.com/paritytech/polkadot-sdk/pull/7449) are released. They could not be removed
-/// in that PR because CI tests running on stable releases were still using these versions.
+/// Note: The first and second versions are no longer used and can be removed once the changes in
+/// [this PR](https://github.com/paritytech/polkadot-sdk/pull/7449) are released. They could not be
+/// removed in that PR because CI tests running on stable releases were still using these versions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum ValidationVersion {
 	/// The first version.
@@ -339,7 +335,7 @@ impl PeerSetProtocolNames {
 							fork_id,
 						);
 					},
-				PeerSet::Collation =>
+				PeerSet::Collation => {
 					for version in CollationVersion::iter() {
 						Self::register_main_protocol(
 							&mut protocols,
@@ -349,9 +345,10 @@ impl PeerSetProtocolNames {
 							&genesis_hash,
 							fork_id,
 						);
-					},
+					}
+					Self::register_legacy_collation_protocol(&mut protocols, protocol);
+				},
 			}
-			Self::register_legacy_protocol(&mut protocols, protocol);
 		}
 		Self { protocols, names, genesis_hash, fork_id: fork_id.map(|fork_id| fork_id.into()) }
 	}
@@ -370,26 +367,17 @@ impl PeerSetProtocolNames {
 		Self::insert_protocol_or_panic(protocols, protocol_name, protocol, version);
 	}
 
-	/// Helper function to register legacy protocol.
-	fn register_legacy_protocol(
+	/// Helper function to register legacy collation protocol.
+	fn register_legacy_collation_protocol(
 		protocols: &mut HashMap<ProtocolName, (PeerSet, ProtocolVersion)>,
 		protocol: PeerSet,
 	) {
-		let legacy_protocol = Self::get_legacy_protocool(protocol);
 		Self::insert_protocol_or_panic(
 			protocols,
-			legacy_protocol.name.into(),
+			LEGACY_COLLATION_PROTOCOL_V1.into(),
 			protocol,
-			ProtocolVersion(legacy_protocol.version),
+			ProtocolVersion(LEGACY_COLLATION_PROTOCOL_VERSION_V1),
 		)
-	}
-
-	/// Get the legacy protocol.
-	fn get_legacy_protocool(protocol: PeerSet) -> LegacyProtocol {
-		match protocol {
-			PeerSet::Validation => LEGACY_VALIDATION_PROTOCOL,
-			PeerSet::Collation => LEGACY_COLLATION_PROTOCOL,
-		}
 	}
 
 	/// Helper function to make sure no protocols have the same name.
@@ -470,7 +458,7 @@ impl PeerSetProtocolNames {
 				// and only version 3 is used. Therefore, fallback protocols remain empty.
 			},
 			PeerSet::Collation => {
-				fallbacks.push(LEGACY_COLLATION_PROTOCOL.name.into());
+				fallbacks.push(LEGACY_COLLATION_PROTOCOL_V1.into());
 			},
 		};
 		fallbacks
@@ -552,12 +540,6 @@ mod tests {
 			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/validation/3";
 		assert_eq!(
 			protocol_names.try_get_protocol(&validation_main.into()),
-			Some((PeerSet::Validation, TestVersion(3).into())),
-		);
-
-		let validation_legacy = "/polkadot/validation/3";
-		assert_eq!(
-			protocol_names.try_get_protocol(&validation_legacy.into()),
 			Some((PeerSet::Validation, TestVersion(3).into())),
 		);
 
