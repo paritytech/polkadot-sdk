@@ -6,6 +6,7 @@ async function run(nodeName, networkInfo, args) {
     const relayerAccountAddress = args.relayerAccountAddress;
     const reward_kind = args.rewardKind;
     const expectedRelayerReward = BigInt(args.expectedRelayerReward);
+    console.log("Waiting rewards for relayerAccountAddress: " + relayerAccountAddress + " expecting minimal rewards at least: " + expectedRelayerReward + " for " + JSON.stringify(reward_kind));
     while (true) {
         const relayerReward = await api.query.bridgeRelayers.relayerRewards(relayerAccountAddress, reward_kind);
         if (relayerReward.isSome) {
