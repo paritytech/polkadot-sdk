@@ -220,18 +220,14 @@ mod tests {
 
 	#[test]
 	fn match_next_inst_works() {
-		let test_cases: Vec<(Vec<Instruction<()>>, bool)> = vec![
-			(vec![ClearOrigin], true),
-			(vec![Trap(0)], false),
-		];
+		let test_cases: Vec<(Vec<Instruction<()>>, bool)> =
+			vec![(vec![ClearOrigin], true), (vec![Trap(0)], false)];
 
 		for (mut xcm, expected) in test_cases.into_iter() {
-			let result = xcm
-				.matcher()
-				.match_next_inst(|inst| match inst {
-					ClearOrigin => Ok(()),
-					_ => Err(ProcessMessageError::Unsupported)
-				});
+			let result = xcm.matcher().match_next_inst(|inst| match inst {
+				ClearOrigin => Ok(()),
+				_ => Err(ProcessMessageError::Unsupported),
+			});
 			assert_eq!(result.is_ok(), expected);
 		}
 	}
@@ -244,11 +240,7 @@ mod tests {
 				vec![ReserveAssetDeposited((Here, 100u128).into()), ClearOrigin],
 				true,
 			),
-			(
-				"Accepts an xcm without the optional instruction",
-				vec![ClearOrigin],
-				true,
-			),
+			("Accepts an xcm without the optional instruction", vec![ClearOrigin], true),
 			(
 				"Doesn't accept an xcm without the mandatory instruction",
 				vec![ReserveAssetDeposited((Here, 100u128).into())],
@@ -256,7 +248,12 @@ mod tests {
 			),
 			(
 				"Doesn't accept an xcm whose optional instruction doesn't meet requirements",
-				vec![ReserveAssetDeposited(vec![(Here, 100u128).into(), (Parent, 100u128).into()].into()), ClearOrigin],
+				vec![
+					ReserveAssetDeposited(
+						vec![(Here, 100u128).into(), (Parent, 100u128).into()].into(),
+					),
+					ClearOrigin,
+				],
 				false,
 			),
 			(
@@ -269,16 +266,19 @@ mod tests {
 		for (description, mut xcm, expected) in test_cases.into_iter() {
 			let result = xcm
 				.matcher()
-				.match_next_inst_if(|inst| {
-					matches!(inst, ReserveAssetDeposited(_))
-				}, |inst| match inst {
-					ReserveAssetDeposited(ref assets) if assets.len() < 2 => Ok(()),
-					_ => Err(ProcessMessageError::Unsupported),
-				})
-				.and_then(|matcher| matcher.match_next_inst(|inst| match inst {
-					ClearOrigin => Ok(()),
-					_ => Err(ProcessMessageError::Unsupported),
-				}));
+				.match_next_inst_if(
+					|inst| matches!(inst, ReserveAssetDeposited(_)),
+					|inst| match inst {
+						ReserveAssetDeposited(ref assets) if assets.len() < 2 => Ok(()),
+						_ => Err(ProcessMessageError::Unsupported),
+					},
+				)
+				.and_then(|matcher| {
+					matcher.match_next_inst(|inst| match inst {
+						ClearOrigin => Ok(()),
+						_ => Err(ProcessMessageError::Unsupported),
+					})
+				});
 			assert_eq!(result.is_ok(), expected, "{}", description);
 		}
 	}

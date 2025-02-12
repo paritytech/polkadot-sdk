@@ -120,7 +120,7 @@ fn unpaid_execution_goes_after_origin_alteration() {
 		.pay_fees((Here, 10u128))
 		.initiate_transfer(
 			Parent,
-			None,  // We specify no remote fees.
+			None, // We specify no remote fees.
 			true, // Preserve origin, necessary for `UnpaidExecution`.
 			vec![AssetTransferFilter::ReserveDeposit(asset.into())],
 			xcm_on_destination,
@@ -161,7 +161,7 @@ fn no_alias_origin_if_root() {
 		.pay_fees((Here, 10u128))
 		.initiate_transfer(
 			Parent,
-			None,  // We specify no remote fees.
+			None, // We specify no remote fees.
 			true, // Preserve origin, necessary for `UnpaidExecution`.
 			vec![AssetTransferFilter::ReserveDeposit(asset.into())],
 			xcm_on_destination,
@@ -198,7 +198,7 @@ fn unpaid_transact() {
 		.initiate_transfer(
 			to_another_system_para.clone(),
 			None,   // We specify no remote fees.
-			true,  // Preserve necessary for `UnpaidExecution`.
+			true,   // Preserve necessary for `UnpaidExecution`.
 			vec![], // No need for assets.
 			xcm_on_destination,
 		)
