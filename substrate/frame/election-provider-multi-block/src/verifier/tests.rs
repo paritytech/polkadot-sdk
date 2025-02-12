@@ -654,7 +654,7 @@ mod async_verification {
 			let paged = mine_full_solution().unwrap();
 
 			// our minimum score is our score, just a bit better.
-			let mut better_score = paged.score.clone();
+			let mut better_score = paged.score;
 			better_score.minimal_stake += 1;
 			<VerifierPallet as Verifier>::set_minimum_score(better_score);
 

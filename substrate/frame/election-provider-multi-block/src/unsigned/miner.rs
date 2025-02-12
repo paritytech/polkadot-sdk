@@ -386,7 +386,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 		// pre_dispatch. I think it is fine, but maybe we can improve it.
 		let score = Self::compute_score(&paged, &voter_pages, &all_targets, desired_targets)
 			.map_err::<MinerError<T>, _>(Into::into)?;
-		paged.score = score.clone();
+		paged.score = score;
 
 		miner_log!(
 			info,
@@ -457,7 +457,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 			"mined",
 		)?;
 		let mut total_backings: BTreeMap<T::AccountId, ExtendedBalance> = BTreeMap::new();
-		all_supports.into_iter().map(|x| x.0).flatten().for_each(|(who, support)| {
+		all_supports.into_iter().flat_map(|x| x.0).for_each(|(who, support)| {
 			let backing = total_backings.entry(who).or_default();
 			*backing = backing.saturating_add(support.total);
 		});

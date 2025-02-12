@@ -763,8 +763,7 @@ pub mod pallet {
 				Self::targets_hash().unwrap_or_default().as_ref().to_vec();
 			let hashed_voters = (Pallet::<T>::msp()..=Pallet::<T>::lsp())
 				.map(|i| PagedVoterSnapshotHash::<T>::get(i).unwrap_or_default())
-				.map(|hash| <T::Hash as AsRef<[u8]>>::as_ref(&hash).to_owned())
-				.flatten()
+				.flat_map(|hash| <T::Hash as AsRef<[u8]>>::as_ref(&hash).to_owned())
 				.collect::<Vec<u8>>();
 			hashed_target_and_voters.extend(hashed_voters);
 			T::Hashing::hash(&hashed_target_and_voters)
@@ -921,8 +920,7 @@ pub mod pallet {
 				(crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp()).collect::<Vec<_>>();
 			key_range
 				.into_iter()
-				.map(|k| PagedVoterSnapshot::<T>::get(k).unwrap_or_default())
-				.flatten()
+				.flat_map(|k| PagedVoterSnapshot::<T>::get(k).unwrap_or_default())
 		}
 
 		pub(crate) fn remove_voter_page(page: PageIndex) {
@@ -2003,7 +2001,7 @@ mod election_provider {
 
 			// load a solution into the verifier
 			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
-			let score = paged.score.clone();
+			let score = paged.score;
 
 			// now let's submit this one by one, into the signed phase.
 			load_signed_for_verification(99, paged);
@@ -2097,7 +2095,7 @@ mod election_provider {
 
 			// load a solution into the verifier
 			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
-			let score = paged.score.clone();
+			let score = paged.score;
 			load_signed_for_verification_and_start(99, paged, 0);
 
 			// there is no queued solution prior to the last page of the solution getting verified
@@ -2154,7 +2152,7 @@ mod election_provider {
 
 			// load a solution into the verifier
 			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
-			let score = paged.score.clone();
+			let score = paged.score;
 			load_signed_for_verification_and_start(99, paged, 0);
 
 			// there is no queued solution prior to the last page of the solution getting verified

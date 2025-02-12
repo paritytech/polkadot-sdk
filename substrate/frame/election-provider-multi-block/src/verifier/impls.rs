@@ -352,7 +352,7 @@ pub(crate) mod pallet {
 
 			let mut total_supports: BTreeMap<T::AccountId, PartialBackings> = Default::default();
 			for (who, PartialBackings { backers, total }) in
-				QueuedSolutionBackings::<T>::iter().map(|(_, pb)| pb).flatten()
+				QueuedSolutionBackings::<T>::iter().flat_map(|(_, pb)| pb)
 			{
 				let entry = total_supports.entry(who).or_default();
 				entry.total = entry.total.saturating_add(total);
@@ -364,7 +364,7 @@ pub(crate) mod pallet {
 			}
 
 			let winner_count = total_supports.len() as u32;
-			let score = evaluate_support(total_supports.into_iter().map(|(_who, pb)| pb));
+			let score = evaluate_support(total_supports.into_values());
 
 			Ok((score, winner_count))
 		}
@@ -445,13 +445,13 @@ pub(crate) mod pallet {
 
 			if let Some(queued_score) = Self::queued_score() {
 				let mut backing_map: BTreeMap<T::AccountId, PartialBackings> = BTreeMap::new();
-				Self::valid_iter().map(|(_, supports)| supports).flatten().for_each(
-					|(who, support)| {
+				Self::valid_iter()
+					.flat_map(|(_, supports)| supports)
+					.for_each(|(who, support)| {
 						let entry = backing_map.entry(who).or_default();
 						entry.total = entry.total.saturating_add(support.total);
-					},
-				);
-				let real_score = evaluate_support(backing_map.into_iter().map(|(_who, pb)| pb));
+					});
+				let real_score = evaluate_support(backing_map.into_values());
 				ensure!(real_score == queued_score, "queued solution has wrong score");
 			}
 

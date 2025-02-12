@@ -135,7 +135,7 @@ pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runt
 	let initial_balance = Balances::free_balance(&who);
 	assert_eq!(balances(who), (initial_balance, 0));
 
-	assert_ok!(SignedPallet::register(RuntimeOrigin::signed(who), paged.score.clone()));
+	assert_ok!(SignedPallet::register(RuntimeOrigin::signed(who), paged.score));
 
 	assert_eq!(
 		balances(who),
@@ -249,10 +249,7 @@ pub fn load_mock_signed_and_start(raw_paged: PagedRawSolution<Runtime>) {
 
 /// Ensure that no submission data exists in `round` for `who`.
 pub fn assert_no_data_for(round: u32, who: AccountId) {
-	assert!(Submissions::<Runtime>::leaderboard(round)
-		.into_iter()
-		.find(|(x, _)| x == &who)
-		.is_none());
+	assert!(!Submissions::<Runtime>::leaderboard(round).into_iter().any(|(x, _)| x == who));
 	assert!(Submissions::<Runtime>::metadata_of(round, who).is_none());
 	assert!(Submissions::<Runtime>::pages_of(round, who).count().is_zero());
 }
