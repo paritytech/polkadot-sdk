@@ -111,7 +111,7 @@ impl EventsHistograms {
 				Histogram::with_opts(histogram_opts!(
 					"substrate_sub_txpool_timing_event_future",
 					"Histogram of timings for reporting Future event",
-					exponential_buckets(0.001, 2.0, 10).unwrap()
+					exponential_buckets(0.01, 2.0, 16).unwrap()
 				))?,
 				registry,
 			)?,
@@ -119,7 +119,7 @@ impl EventsHistograms {
 				Histogram::with_opts(histogram_opts!(
 					"substrate_sub_txpool_timing_event_ready",
 					"Histogram of timings for reporting Ready event",
-					exponential_buckets(0.001, 2.0, 10).unwrap()
+					exponential_buckets(0.01, 2.0, 16).unwrap()
 				))?,
 				registry,
 			)?,
@@ -127,7 +127,7 @@ impl EventsHistograms {
 				Histogram::with_opts(histogram_opts!(
 					"substrate_sub_txpool_timing_event_broadcast",
 					"Histogram of timings for reporting Broadcast event",
-					linear_buckets(0.001, 0.25, 10).unwrap()
+					linear_buckets(0.01, 0.25, 16).unwrap()
 				))?,
 				registry,
 			)?,
