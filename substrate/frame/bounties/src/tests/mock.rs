@@ -306,6 +306,7 @@ pub fn get_payment_id(i: BountyIndex) -> Option<u64> {
 	match bounty.status {
 		BountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
 		BountyStatus::ApprovedWithCurator { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
+		BountyStatus::RefundAttempted { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
 		_ => None,
 	}
 }
@@ -324,4 +325,11 @@ pub fn get_payment_ids(i: BountyIndex) -> Option<(u64, u64)> {
         },
         _ => None,
     }
+}
+
+pub fn approve_payment(account_id: u128, bounty_index: BountyIndex, asset_id: u32, amount: u64) {
+	assert_eq!(paid(account_id, asset_id), amount);
+	let payment_id = get_payment_id(bounty_index).expect("no payment attempt");
+	set_status(payment_id, PaymentStatus::Success);
+	assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(0), bounty_index));
 }

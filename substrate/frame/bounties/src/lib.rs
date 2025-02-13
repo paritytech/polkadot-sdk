@@ -539,7 +539,7 @@ pub mod pallet {
 					bounty.value,
 				)
 				.map_err(|_| Error::<T, I>::FundingError)?;
-				println!("payment_id: {:?}", payment_id);
+
 				bounty.status = BountyStatus::Approved {
 					payment_status: PaymentState::Attempted { id: payment_id },
 				};
@@ -840,8 +840,6 @@ pub mod pallet {
 					let (final_fee, payout) =
 						Self::calculate_curator_fee_and_payout(bounty_id, bounty.fee, bounty.value);
 					let bounty_account = Self::bounty_account_id(bounty_id);
-					println!("final_fee: {:?}", final_fee);
-					println!("payout: {:?}", payout);
 
 					let curator_payment_id = T::Paymaster::pay(
 						&bounty_account,
@@ -972,25 +970,6 @@ pub mod pallet {
 					};
 
 					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into())
-
-					// TODO: move to check payment
-					// BountyDescriptions::<T, I>::remove(bounty_id);
-
-					// TODO: convert to beneficiary and asset transfer
-					// let balance = T::Currency::free_balance(&bounty_account);
-					// let res = T::Currency::transfer(
-					// 	&bounty_account,
-					// 	&Self::account_id(),
-					// 	balance,
-					// 	AllowDeath,
-					// ); // should not fail
-					// debug_assert!(res.is_ok());
-
-					// *maybe_bounty = None;
-					// T::ChildBountyManager::bounty_removed(bounty_id);
-
-					// Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
-					// Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
 				},
 			)
 		}
@@ -1271,7 +1250,6 @@ pub mod pallet {
 									bounty.fee,
 									bounty.value,
 								);
-								println!("payout: {:?}", payout);
 								
 								// Tiago: Should I remove the bounty since it was being removed in claim_bounty
 								Bounties::<T, I>::remove(bounty_id);
@@ -1309,6 +1287,16 @@ pub mod pallet {
 								PaymentState::Attempted { id } => {
 									match T::Paymaster::check_payment(*id) {
 										PaymentStatus::Success => {
+
+											// Tiago: Do you need this?
+											// let res = T::Currency::transfer(
+											// 	&bounty_account,
+											// 	&Self::account_id(),
+											// 	balance,
+											// 	AllowDeath,
+											// ); // should not fail
+											// debug_assert!(res.is_ok());
+
 											// refund succeeded, cleanup the bounty
 											BountyDescriptions::<T, I>::remove(bounty_id);
 											T::ChildBountyManager::bounty_removed(bounty_id);
