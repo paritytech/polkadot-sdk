@@ -133,7 +133,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		// #[pallet::weight(T::WeightInfo::new_validators())] // TODO
-		pub fn new_validators(
+		pub fn new_validator_set(
 			origin: OriginFor<T>,
 			new_validator_set: Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>,
 		) -> DispatchResult {
