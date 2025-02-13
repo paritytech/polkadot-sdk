@@ -11,12 +11,6 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-pub enum DryRunError {
-	ConvertLocationFailed,
-	ConvertXcmFailed,
-}
-
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum ContractCall {
 	V1 {
