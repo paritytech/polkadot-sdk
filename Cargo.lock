@@ -20020,6 +20020,7 @@ version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c16b809cfd398f861261c045a8745e6c78b71ea7e0d3ef6f7cc553eb27bc17e"
 dependencies = [
+ "blake3",
  "log",
  "polkavm-assembler 0.21.0",
 ]
