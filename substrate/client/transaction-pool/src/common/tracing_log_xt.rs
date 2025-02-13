@@ -21,34 +21,34 @@
 /// Logs every transaction from given `tx_collection` with given level.
 macro_rules! log_xt {
     (data: hash, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr) => {
-        for tx in $tx_collection {
+        for tx_hash in $tx_collection {
             tracing::event!(
+                target: $target,
                 $level,
-                target = $target,
-                tx_hash = format!("{:?}", tx),
+                ?tx_hash,
                 $text_with_format,
             );
         }
     };
     (data: hash, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr, $($arg:expr),*) => {
-        for tx in $tx_collection {
+        for tx_hash in $tx_collection {
             tracing::event!(
+                target: $target,
                 $level,
-                target = $target,
-                tx_hash = format!("{:?}", tx),
+                ?tx_hash,
                 $text_with_format,
                 $($arg),*
             );
         }
     };
     (data: tuple, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr) => {
-        for tx in $tx_collection {
+        for (tx_hash, arg) in $tx_collection {
             tracing::event!(
+                target: $target,
                 $level,
-                target = $target,
-                tx_hash = format!("{:?}", tx.0),
+                ?tx_hash,
                 $text_with_format,
-                tx.1
+                arg
             );
         }
     };
