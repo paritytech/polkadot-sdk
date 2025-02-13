@@ -489,16 +489,6 @@ where
 		}
 	}
 
-	/// Remove invalid transactions from the view.
-	///
-	/// Refer to [`crate::graph::ValidatedPool::remove_invalid`] for more details.
-	pub(crate) fn remove_invalid(
-		&self,
-		hashes: &[ExtrinsicHash<ChainApi>],
-	) -> Vec<TransactionFor<ChainApi>> {
-		self.pool.validated_pool().remove_invalid(hashes)
-	}
-
 	/// Returns true if the transaction with given hash is already imported into the view.
 	pub(super) fn is_imported(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> bool {
 		const IGNORE_BANNED: bool = false;
