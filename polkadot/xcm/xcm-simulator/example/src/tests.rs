@@ -18,6 +18,7 @@ use crate::*;
 
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
+use tracing_test::internal::global_buf;
 use xcm::latest::QueryResponseInfo;
 use xcm_simulator::{mock_message_queue::ReceivedDmp, TestExt};
 
@@ -510,4 +511,108 @@ fn query_holding() {
 			}])],
 		);
 	});
+}
+
+#[test]
+fn reserve_transfer_with_error() {
+	use sp_tracing::{
+		tracing::subscriber,
+		tracing_subscriber,
+		tracing_subscriber::fmt::MakeWriter,
+	};
+	use std::{
+		io::Write,
+		sync::{Arc, Mutex},
+	};
+
+	// Reset the test network
+	MockNet::reset();
+
+	// **Custom Log Capturing Writer**
+	struct StringWriter(Arc<Mutex<Vec<u8>>>);
+
+	impl Write for StringWriter {
+		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+			self.0.lock().unwrap().extend_from_slice(buf);
+			Ok(buf.len())
+		}
+		fn flush(&mut self) -> std::io::Result<()> {
+			Ok(())
+		}
+	}
+
+	// **Implement MakeWriter for StringWriter**
+	impl<'a> MakeWriter<'a> for StringWriter {
+		type Writer = Self;
+
+		fn make_writer(&'a self) -> Self::Writer {
+			StringWriter(self.0.clone()) // Clone Arc to allow multiple writers
+		}
+	}
+
+	struct LogCapture {
+		buffer: Arc<Mutex<Vec<u8>>>,
+	}
+
+	impl Write for LogCapture {
+		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+			let mut logs = self.buffer.lock().unwrap();
+			logs.extend_from_slice(buf);
+			Ok(buf.len())
+		}
+
+		fn flush(&mut self) -> std::io::Result<()> {
+			Ok(())
+		}
+	}
+
+	impl<'a> MakeWriter<'a> for LogCapture {
+		type Writer = Self;
+
+		fn make_writer(&'a self) -> Self::Writer {
+			LogCapture { buffer: Arc::clone(&self.buffer) }
+		}
+	}
+
+	let log_buffer = Arc::new(Mutex::new(Vec::new()));
+	let writer = LogCapture { buffer: Arc::clone(&log_buffer) };
+
+	let subscriber = tracing_subscriber::fmt()
+		.with_writer(writer) // Redirect logs to custom writer
+		.finish();
+
+	// **Execute the XCM transfer**
+	subscriber::with_default(subscriber, || {
+		Relay::execute_with(|| {
+			let invalid_dest = Box::new(Parachain(9999).into());
+			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
+				relay_chain::RuntimeOrigin::signed(ALICE),
+				invalid_dest,
+				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
+				Box::new((Here, 123u128).into()),
+				0,
+				Unlimited,
+			);
+
+			// Ensure an error occurred
+			assert!(result.is_err(), "Expected an error due to invalid destination");
+		});
+
+		ParaA::execute_with(|| {
+			// Ensure no balance change due to the error
+			assert_eq!(
+				pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
+				INITIAL_BALANCE
+			);
+		});
+	});
+
+	// **Retrieve Captured Logs**
+	let logs = String::from_utf8(log_buffer.lock().unwrap().clone()).unwrap();
+
+	// **Assertions on Logs**
+	assert!(
+		logs.contains("XCM validate_send failed"),
+		"Expected 'XCM validate_send failed' in logs."
+	);
 }
