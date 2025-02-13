@@ -498,6 +498,7 @@ where
 					},
 					keystore,
 					collator_key,
+					relay_chain_slot_duration,
 					para_id,
 					proposer,
 					collator_service,

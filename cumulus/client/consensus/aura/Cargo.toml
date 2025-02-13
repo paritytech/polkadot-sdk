@@ -63,6 +63,7 @@ polkadot-primitives = { workspace = true, default-features = true }
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true }
 sp-keyring = { workspace = true }
+rstest = { workspace = true }
 
 [features]
 # Allows collator to use full PoV size for block building

@@ -26,20 +26,6 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_primitives::{Block as RelayBlock, Id as ParaId};
 
-use futures::prelude::*;
-use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
-use sc_consensus::BlockImport;
-use sp_api::ProvideRuntimeApi;
-use sp_application_crypto::AppPublic;
-use sp_blockchain::HeaderBackend;
-use sp_consensus_aura::{AuraApi, Slot};
-use sp_core::crypto::Pair;
-use sp_inherents::CreateInherentDataProviders;
-use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
-use sp_timestamp::Timestamp;
-use std::{sync::Arc, time::Duration};
-
 use super::CollatorMessage;
 use crate::{
 	collator::{self as collator_util},
@@ -48,10 +34,23 @@ use crate::{
 		slot_based::{
 			core_selector,
 			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+			slot_timer::SlotTimer,
 		},
 	},
 	LOG_TARGET,
 };
+use futures::prelude::*;
+use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
+use sc_consensus::BlockImport;
+use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::AppPublic;
+use sp_blockchain::HeaderBackend;
+use sp_consensus_aura::AuraApi;
+use sp_core::crypto::Pair;
+use sp_inherents::CreateInherentDataProviders;
+use sp_keystore::KeystorePtr;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use std::{sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
@@ -91,6 +90,7 @@ pub struct BuilderTaskParams<
 	pub authoring_duration: Duration,
 	/// Channel to send built blocks to the collation task.
 	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
+	pub relay_chain_slot_duration: Duration,
 	/// Drift every slot by this duration.
 	/// This is a time quantity that is subtracted from the actual timestamp when computing
 	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the
@@ -98,64 +98,6 @@ pub struct BuilderTaskParams<
 	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
 	/// wait for relay chain notifications because we woke up too early).
 	pub slot_drift: Duration,
-}
-
-#[derive(Debug)]
-struct SlotInfo {
-	pub timestamp: Timestamp,
-	pub slot: Slot,
-}
-
-#[derive(Debug)]
-struct SlotTimer<Block, Client, P> {
-	client: Arc<Client>,
-	drift: Duration,
-	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
-}
-
-/// Returns current duration since Unix epoch.
-fn duration_now() -> Duration {
-	use std::time::SystemTime;
-	let now = SystemTime::now();
-	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
-		panic!("Current time {:?} is before Unix epoch. Something is wrong: {:?}", now, e)
-	})
-}
-
-/// Returns the duration until the next slot from now.
-fn time_until_next_slot(slot_duration: Duration, drift: Duration) -> Duration {
-	let now = duration_now().as_millis() - drift.as_millis();
-
-	let next_slot = (now + slot_duration.as_millis()) / slot_duration.as_millis();
-	let remaining_millis = next_slot * slot_duration.as_millis() - now;
-	Duration::from_millis(remaining_millis as u64)
-}
-
-impl<Block, Client, P> SlotTimer<Block, Client, P>
-where
-	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static + UsageProvider<Block>,
-	Client::Api: AuraApi<Block, P::Public>,
-	P: Pair,
-	P::Public: AppPublic + Member + Codec,
-	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
-{
-	pub fn new_with_drift(client: Arc<Client>, drift: Duration) -> Self {
-		Self { client, drift, _marker: Default::default() }
-	}
-
-	/// Returns a future that resolves when the next slot arrives.
-	pub async fn wait_until_next_slot(&self) -> Result<SlotInfo, ()> {
-		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
-			tracing::error!(target: crate::LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return Err(())
-		};
-
-		let time_until_next_slot = time_until_next_slot(slot_duration.as_duration(), self.drift);
-		tokio::time::sleep(time_until_next_slot).await;
-		let timestamp = sp_timestamp::Timestamp::current();
-		Ok(SlotInfo { slot: Slot::from_timestamp(timestamp, slot_duration), timestamp })
-	}
 }
 
 /// Run block-builder.
@@ -201,11 +143,16 @@ where
 			collator_sender,
 			code_hash_provider,
 			authoring_duration,
+			relay_chain_slot_duration,
 			para_backend,
 			slot_drift,
 		} = params;
 
-		let slot_timer = SlotTimer::<_, _, P>::new_with_drift(para_client.clone(), slot_drift);
+		let mut slot_timer = SlotTimer::<_, _, P>::new_with_drift(
+			para_client.clone(),
+			slot_drift,
+			relay_chain_slot_duration,
+		);
 
 		let mut collator = {
 			let params = collator_util::Params {
@@ -280,6 +227,8 @@ where
 					scheduled_cores
 				);
 			}
+
+			slot_timer.update_scheduling(scheduled_cores.len() as u32);
 
 			let core_selector = core_selector.0 as usize % scheduled_cores.len();
 			let Some(core_index) = scheduled_cores.get(core_selector) else {

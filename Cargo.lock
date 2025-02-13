@@ -4658,6 +4658,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
  "polkadot-primitives 7.0.0",
+ "rstest",
  "sc-client-api",
  "sc-consensus",
  "sc-consensus-aura",
@@ -5763,6 +5764,23 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "cumulus-zombienet-sdk-tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger 0.11.3",
+ "log",
+ "parity-scale-codec",
+ "polkadot-primitives 7.0.0",
+ "serde",
+ "serde_json",
+ "subxt",
+ "subxt-signer",
+ "tokio",
+ "zombienet-sdk",
 ]
 
 [[package]]

@@ -63,6 +63,8 @@ mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
 
+mod slot_timer;
+
 /// Parameters for [`run`].
 pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
@@ -100,6 +102,7 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
 	/// Spawner for spawning futures.
 	pub spawner: Spawner,
+	pub relay_chain_slot_duration: Duration,
 }
 
 /// Run aura-based block building and collation task.
@@ -120,6 +123,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		reinitialize,
 		slot_drift,
 		block_import_handle,
+		relay_chain_slot_duration,
 		spawner,
 	}: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) where
@@ -174,6 +178,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service,
 		authoring_duration,
 		collator_sender: tx,
+		relay_chain_slot_duration,
 		slot_drift,
 	};
 
