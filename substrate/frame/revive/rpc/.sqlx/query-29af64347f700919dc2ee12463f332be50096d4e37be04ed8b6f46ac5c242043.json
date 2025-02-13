@@ -6,7 +6,7 @@
       {
         "name": "block_hash",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Blob"
       },
       {
         "name": "transaction_index",

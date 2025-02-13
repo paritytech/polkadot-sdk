@@ -62,6 +62,7 @@ fn pool_lifecycle_e2e() {
 			vec![
 				PoolsEvent::Created { depositor: 10, pool_id: 1 },
 				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
+				PoolsEvent::PoolNominationMade { pool_id: 1, caller: 10 },
 			]
 		);
 
@@ -180,7 +181,10 @@ fn pool_lifecycle_e2e() {
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
-			vec![PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 6 }]
+			vec![
+				PoolsEvent::PoolNominatorChilled { pool_id: 1, caller: 10 },
+				PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 6 }
+			]
 		);
 
 		// waiting another bonding duration:
@@ -225,6 +229,7 @@ fn pool_chill_e2e() {
 			vec![
 				PoolsEvent::Created { depositor: 10, pool_id: 1 },
 				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
+				PoolsEvent::PoolNominationMade { pool_id: 1, caller: 10 },
 			]
 		);
 
@@ -968,6 +973,7 @@ fn pool_migration_e2e() {
 			vec![
 				PoolsEvent::Created { depositor: 10, pool_id: 1 },
 				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
+				PoolsEvent::PoolNominationMade { pool_id: 1, caller: 10 }
 			]
 		);
 
@@ -1252,6 +1258,7 @@ fn disable_pool_operations_on_non_migrated() {
 			vec![
 				PoolsEvent::Created { depositor: 10, pool_id: 1 },
 				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
+				PoolsEvent::PoolNominationMade { pool_id: 1, caller: 10 }
 			]
 		);
 

@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      LICENSES: "'Apache-2.0' 'GPL-3.0-only' 'GPL-3.0-or-later WITH Classpath-exception-2.0'"
+      LICENSES: "'Apache-2.0' 'GPL-3.0-only' 'GPL-3.0-or-later WITH Classpath-exception-2.0' 'MIT-0' 'Unlicense'"
       NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout sources
@@ -32,21 +32,24 @@ jobs:
           shopt -s globstar
           npx @paritytech/license-scanner scan \
             --ensure-licenses ${{ env.LICENSES }} \
-            -- ./polkadot/**/*.rs
+            --file-extensions '.rs' \
+            -- ./polkadot
 
       - name: Check the licenses in Cumulus
         run: |
           shopt -s globstar
           npx @paritytech/license-scanner scan \
-            --ensure-licenses ${{ env.LICENSES }} \
-            -- ./cumulus/**/*.rs
+            --ensure-licenses ${{ env.LICENSES }} 'Unlicense' \
+            --file-extensions '.rs' \
+            -- ./cumulus
 
       - name: Check the licenses in Substrate
         run: |
           shopt -s globstar
           npx @paritytech/license-scanner scan \
             --ensure-licenses ${{ env.LICENSES }} \
-            -- ./substrate/**/*.rs
+            --file-extensions '.rs' \
+            -- ./substrate
 
   check-product-references:
     runs-on: ubuntu-latest
@@ -67,18 +70,21 @@ jobs:
           shopt -s globstar
           npx @paritytech/license-scanner scan \
             --ensure-product 'Polkadot' \
-            -- ./polkadot/**/*.rs
+            --file-extensions '.rs' \
+            -- ./polkadot
 
       - name: Check the product references in Cumulus
         run: |
           shopt -s globstar
           npx @paritytech/license-scanner scan \
             --ensure-product 'Cumulus' \
-            -- ./cumulus/**/*.rs
+            --file-extensions '.rs' \
+            -- ./cumulus
 
       - name: Check the product references in Substrate
         run: |
           shopt -s globstar
           npx @paritytech/license-scanner scan \
             --ensure-product 'Substrate' \
-            -- ./substrate/**/*.rs
+            --file-extensions '.rs' \
+            -- ./substrate

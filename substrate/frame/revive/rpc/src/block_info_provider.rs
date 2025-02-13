@@ -38,6 +38,11 @@ pub trait BlockInfoProvider: Send + Sync {
 	/// Return the latest ingested block.
 	async fn latest_block(&self) -> Option<Arc<SubstrateBlock>>;
 
+	/// Return the latest block number
+	async fn latest_block_number(&self) -> Option<SubstrateBlockNumber> {
+		return self.latest_block().await.map(|block| block.number());
+	}
+
 	/// Get block by block_number.
 	async fn block_by_number(
 		&self,
@@ -69,30 +74,23 @@ impl BlockInfoProviderImpl {
 	) -> Self {
 		Self { api, rpc, cache: Arc::new(RwLock::new(BlockCache::new(cache_size))) }
 	}
-
-	async fn cache(&self) -> tokio::sync::RwLockReadGuard<'_, BlockCache<SubstrateBlock>> {
-		self.cache.read().await
-	}
 }
 
 #[async_trait]
 impl BlockInfoProvider for BlockInfoProviderImpl {
 	async fn cache_block(&self, block: SubstrateBlock) -> Option<H256> {
-		let mut cache = self.cache.write().await;
-		cache.insert(block)
+		self.cache.write().await.insert(block)
 	}
 
 	async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
-		let cache = self.cache().await;
-		cache.buffer.back().cloned()
+		self.cache.read().await.buffer.back().cloned()
 	}
 
 	async fn block_by_number(
 		&self,
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		let cache = self.cache().await;
-		if let Some(block) = cache.blocks_by_number.get(&block_number).cloned() {
+		if let Some(block) = self.cache.read().await.blocks_by_number.get(&block_number).cloned() {
 			return Ok(Some(block));
 		}
 
@@ -104,8 +102,7 @@ impl BlockInfoProvider for BlockInfoProviderImpl {
 	}
 
 	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		let cache = self.cache().await;
-		if let Some(block) = cache.blocks_by_hash.get(hash).cloned() {
+		if let Some(block) = self.cache.read().await.blocks_by_hash.get(hash).cloned() {
 			return Ok(Some(block));
 		}
 
@@ -231,6 +228,10 @@ pub mod test {
 
 		async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
 			None
+		}
+
+		async fn latest_block_number(&self) -> Option<SubstrateBlockNumber> {
+			Some(2u32)
 		}
 
 		async fn block_by_number(

@@ -18,7 +18,7 @@
 //! # Nomination Pools for Staking Delegation
 //!
 //! A pallet that allows members to delegate their stake to nominating pools. A nomination pool acts
-//! as nominator and nominates validators on the members behalf.
+//! as nominator and nominates validators on the members' behalf.
 //!
 //! # Index
 //!
@@ -178,7 +178,7 @@
 //!
 //! ### Pool Members
 //!
-//! * In general, whenever a pool member changes their total point, the chain will automatically
+//! * In general, whenever a pool member changes their total points, the chain will automatically
 //!   claim all their pending rewards for them. This is not optional, and MUST happen for the reward
 //!   calculation to remain correct (see the documentation of `bond` as an example). So, make sure
 //!   you are warning your users about it. They might be surprised if they see that they bonded an
@@ -368,7 +368,6 @@ use frame_support::{
 	},
 	DefaultNoBound, PalletError,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_core::U256;
 use sp_runtime::{
@@ -406,6 +405,7 @@ pub mod migration;
 pub mod weights;
 
 pub use pallet::*;
+use sp_runtime::traits::BlockNumberProvider;
 pub use weights::WeightInfo;
 
 /// The balance type used by the currency system.
@@ -415,6 +415,9 @@ pub type BalanceOf<T> =
 pub type PoolId = u32;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 
@@ -779,7 +782,7 @@ impl<T: Config> Commission<T> {
 					} else {
 						// throttling if blocks passed is less than `min_delay`.
 						let blocks_surpassed =
-							<frame_system::Pallet<T>>::block_number().saturating_sub(f);
+							T::BlockNumberProvider::current_block_number().saturating_sub(f);
 						blocks_surpassed < t.min_delay
 					}
 				},
@@ -892,7 +895,7 @@ impl<T: Config> Commission<T> {
 
 	/// Updates a commission's `throttle_from` field to the current block.
 	fn register_update(&mut self) {
-		self.throttle_from = Some(<frame_system::Pallet<T>>::block_number());
+		self.throttle_from = Some(T::BlockNumberProvider::current_block_number());
 	}
 
 	/// Checks whether a change rate is less restrictive than the current change rate, if any.
@@ -1565,7 +1568,9 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 pub mod pallet {
 	use super::*;
 	use frame_support::traits::StorageVersion;
-	use frame_system::{ensure_signed, pallet_prelude::*};
+	use frame_system::pallet_prelude::{
+		ensure_root, ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+	};
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
@@ -1650,6 +1655,9 @@ pub mod pallet {
 
 		/// The origin that can manage pool configurations.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	/// The sum of funds across all pools.
@@ -1865,6 +1873,24 @@ pub mod pallet {
 		MinBalanceDeficitAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
 		/// Claimed excess frozen ED of af the reward pool.
 		MinBalanceExcessAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
+		/// A pool member's claim permission has been updated.
+		MemberClaimPermissionUpdated { member: T::AccountId, permission: ClaimPermission },
+		/// A pool's metadata was updated.
+		MetadataUpdated { pool_id: PoolId, caller: T::AccountId },
+		/// A pool's nominating account (or the pool's root account) has nominated a validator set
+		/// on behalf of the pool.
+		PoolNominationMade { pool_id: PoolId, caller: T::AccountId },
+		/// The pool is chilled i.e. no longer nominating.
+		PoolNominatorChilled { pool_id: PoolId, caller: T::AccountId },
+		/// Global parameters regulating nomination pools have been updated.
+		GlobalParamsUpdated {
+			min_join_bond: BalanceOf<T>,
+			min_create_bond: BalanceOf<T>,
+			max_pools: Option<u32>,
+			max_members: Option<u32>,
+			max_members_per_pool: Option<u32>,
+			global_max_commission: Option<Perbill>,
+		},
 	}
 
 	#[pallet::error]
@@ -2509,13 +2535,13 @@ pub mod pallet {
 		/// The dispatch origin of this call must be signed by the pool nominator or the pool
 		/// root role.
 		///
-		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
-		/// account.
+		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
+		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
 		///
 		/// # Note
 		///
-		/// In addition to a `root` or `nominator` role of `origin`, pool's depositor needs to have
-		/// at least `depositor_min_bond` in the pool to start nominating.
+		/// In addition to a `root` or `nominator` role of `origin`, the pool's depositor needs to
+		/// have at least `depositor_min_bond` in the pool to start nominating.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() as u32))]
 		pub fn nominate(
@@ -2538,7 +2564,9 @@ pub mod pallet {
 				Error::<T>::MinimumBondNotMet
 			);
 
-			T::StakeAdapter::nominate(Pool::from(bonded_pool.bonded_account()), validators)
+			T::StakeAdapter::nominate(Pool::from(bonded_pool.bonded_account()), validators).map(
+				|_| Self::deposit_event(Event::<T>::PoolNominationMade { pool_id, caller: who }),
+			)
 		}
 
 		/// Set a new state for the pool.
@@ -2603,6 +2631,8 @@ pub mod pallet {
 
 			Metadata::<T>::mutate(pool_id, |pool_meta| *pool_meta = metadata);
 
+			Self::deposit_event(Event::<T>::MetadataUpdated { pool_id, caller: who });
+
 			Ok(())
 		}
 
@@ -2646,6 +2676,16 @@ pub mod pallet {
 			config_op_exp!(MaxPoolMembers::<T>, max_members);
 			config_op_exp!(MaxPoolMembersPerPool::<T>, max_members_per_pool);
 			config_op_exp!(GlobalMaxCommission::<T>, global_max_commission);
+
+			Self::deposit_event(Event::<T>::GlobalParamsUpdated {
+				min_join_bond: MinJoinBond::<T>::get(),
+				min_create_bond: MinCreateBond::<T>::get(),
+				max_pools: MaxPools::<T>::get(),
+				max_members: MaxPoolMembers::<T>::get(),
+				max_members_per_pool: MaxPoolMembersPerPool::<T>::get(),
+				global_max_commission: GlobalMaxCommission::<T>::get(),
+			});
+
 			Ok(())
 		}
 
@@ -2710,17 +2750,18 @@ pub mod pallet {
 		/// The dispatch origin of this call can be signed by the pool nominator or the pool
 		/// root role, same as [`Pallet::nominate`].
 		///
+		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
+		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
+		///
 		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
 		/// account).
 		///
 		/// # Conditions for a permissionless dispatch:
-		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise  pool members
+		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise pool members
 		///   are unable to unbond.
 		///
 		/// # Conditions for permissioned dispatch:
-		/// * The caller has a nominator or root role of the pool.
-		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
-		/// account.
+		/// * The caller is the pool's nominator or root.
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
@@ -2739,7 +2780,9 @@ pub mod pallet {
 				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
 			}
 
-			T::StakeAdapter::chill(Pool::from(bonded_pool.bonded_account()))
+			T::StakeAdapter::chill(Pool::from(bonded_pool.bonded_account())).map(|_| {
+				Self::deposit_event(Event::<T>::PoolNominatorChilled { pool_id, caller: who })
+			})
 		}
 
 		/// `origin` bonds funds from `extra` for some pool member `member` into their respective
@@ -2794,8 +2837,13 @@ pub mod pallet {
 				Error::<T>::NotMigrated
 			);
 
-			ClaimPermissions::<T>::mutate(who, |source| {
+			ClaimPermissions::<T>::mutate(who.clone(), |source| {
 				*source = permission;
+			});
+
+			Self::deposit_event(Event::<T>::MemberClaimPermissionUpdated {
+				member: who,
+				permission,
 			});
 
 			Ok(())
@@ -2913,9 +2961,20 @@ pub mod pallet {
 
 		/// Claim pending commission.
 		///
-		/// The dispatch origin of this call must be signed by the `root` role of the pool. Pending
-		/// commission is paid out and added to total claimed commission`. Total pending commission
-		/// is reset to zero. the current.
+		/// The `root` role of the pool is _always_ allowed to claim the pool's commission.
+		///
+		/// If the pool has set `CommissionClaimPermission::Permissionless`, then any account can
+		/// trigger the process of claiming the pool's commission.
+		///
+		/// If the pool has set its `CommissionClaimPermission` to `Account(acc)`, then only
+		/// accounts
+		/// * `acc`, and
+		/// * the pool's root account
+		///
+		/// may call this extrinsic on behalf of the pool.
+		///
+		/// Pending commissions are paid out and added to the total claimed commission.
+		/// The total pending commission is reset to zero.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::claim_commission())]
 		pub fn claim_commission(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
@@ -3092,9 +3151,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state(u8::MAX)
 		}
 

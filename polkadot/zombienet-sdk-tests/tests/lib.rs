@@ -5,6 +5,8 @@
 mod helpers;
 
 #[cfg(feature = "zombie-metadata")]
+mod disabling;
+#[cfg(feature = "zombie-metadata")]
 mod elastic_scaling;
 #[cfg(feature = "zombie-metadata")]
 mod functional;

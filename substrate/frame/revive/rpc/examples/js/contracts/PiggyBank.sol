@@ -6,7 +6,7 @@ contract PiggyBank {
     uint256 private balance;
     address public owner;
 
-    constructor() {
+    constructor() public {
         owner = msg.sender;
         balance = 0;
     }
@@ -21,7 +21,7 @@ contract PiggyBank {
     }
 
     function withdraw(uint256 withdrawAmount) public returns (uint256 remainingBal) {
-        require(msg.sender == owner);
+		require(msg.sender == owner, "You are not the owner");
         balance -= withdrawAmount;
         (bool success, ) = payable(msg.sender).call{value: withdrawAmount}("");
         require(success, "Transfer failed");

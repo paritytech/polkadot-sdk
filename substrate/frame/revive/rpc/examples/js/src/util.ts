@@ -1,7 +1,17 @@
 import { spawnSync } from 'bun'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
-import { createWalletClient, defineChain, Hex, http, publicActions } from 'viem'
+import {
+	CallParameters,
+	createClient,
+	createWalletClient,
+	defineChain,
+	formatTransactionRequest,
+	type Hex,
+	hexToNumber,
+	http,
+	publicActions,
+} from 'viem'
 import { privateKeyToAccount, nonceManager } from 'viem/accounts'
 
 export function getByteCode(name: string, evm: boolean = false): Hex {
@@ -35,12 +45,25 @@ export function killProcessOnPort(port: number) {
 }
 
 export let jsonRpcErrors: JsonRpcError[] = []
-export async function createEnv(name: 'geth' | 'kitchensink') {
+export async function createEnv(name: 'geth' | 'eth-rpc') {
 	const gethPort = process.env.GETH_PORT || '8546'
-	const kitchensinkPort = process.env.KITCHENSINK_PORT || '8545'
-	const url = `http://localhost:${name == 'geth' ? gethPort : kitchensinkPort}`
+	const ethRpcPort = process.env.ETH_RPC_PORT || '8545'
+	const url = `http://localhost:${name == 'geth' ? gethPort : ethRpcPort}`
+
+	let id = await (async () => {
+		const resp = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', id: 1 }),
+		})
+		let { result } = await resp.json()
+		return hexToNumber(result)
+	})()
+
 	const chain = defineChain({
-		id: name == 'geth' ? 1337 : 420420420,
+		id,
 		name,
 		nativeCurrency: {
 			name: 'Westie',
@@ -94,8 +117,42 @@ export async function createEnv(name: 'geth' | 'kitchensink') {
 		chain,
 	}).extend(publicActions)
 
-	return { serverWallet, emptyWallet, accountWallet, evm: name == 'geth' }
+	const debugClient = createClient({
+		chain,
+		transport,
+	}).extend((client) => ({
+		async traceTransaction(txHash: Hex, tracerConfig: { withLog: boolean }) {
+			return client.request({
+				method: 'debug_traceTransaction' as any,
+				params: [txHash, { tracer: 'callTracer', tracerConfig } as any],
+			})
+		},
+		async traceBlock(blockNumber: bigint, tracerConfig: { withLog: boolean }) {
+			return client.request({
+				method: 'debug_traceBlockByNumber' as any,
+				params: [
+					`0x${blockNumber.toString(16)}`,
+					{ tracer: 'callTracer', tracerConfig } as any,
+				],
+			})
+		},
+
+		async traceCall(args: CallParameters, tracerConfig: { withLog: boolean }) {
+			return client.request({
+				method: 'debug_traceCall' as any,
+				params: [
+					formatTransactionRequest(args),
+					'latest',
+					{ tracer: 'callTracer', tracerConfig } as any,
+				],
+			})
+		},
+	}))
+
+	return { debugClient, emptyWallet, serverWallet, accountWallet, evm: name == 'geth' }
 }
+
+export type Env = Awaited<ReturnType<typeof createEnv>>
 
 export function wait(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms))
@@ -139,4 +196,17 @@ export function waitForHealth(url: string) {
 			}
 		}, 1000)
 	})
+}
+
+export function visit(obj: any, callback: (key: string, value: any) => any): any {
+	if (Array.isArray(obj)) {
+		return obj.map((item) => visit(item, callback))
+	} else if (typeof obj === 'object' && obj !== null) {
+		return Object.keys(obj).reduce((acc, key) => {
+			acc[key] = visit(callback(key, obj[key]), callback)
+			return acc
+		}, {} as any)
+	} else {
+		return obj
+	}
 }

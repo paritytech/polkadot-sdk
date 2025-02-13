@@ -121,8 +121,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxReservedCores: Get<u32>;
 
+		/// Given that we are performing all auto-renewals in a single block, it has to be limited.
 		#[pallet::constant]
 		type MaxAutoRenewals: Get<u32>;
+
+		/// The smallest amount of credits a user can purchase.
+		///
+		/// Needed to prevent spam attacks.
+		#[pallet::constant]
+		type MinimumCreditPurchase: Get<BalanceOf<Self>>;
 	}
 
 	/// The current configuration of this pallet.
@@ -544,6 +551,9 @@ pub mod pallet {
 		SovereignAccountNotFound,
 		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
 		AutoRenewalNotEnabled,
+		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
+		/// below `T::MinimumCreditPurchase`.
+		CreditPurchaseTooSmall,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]

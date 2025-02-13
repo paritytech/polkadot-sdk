@@ -23,11 +23,14 @@ use crate::{
 	pallet2,
 };
 use codec::{Decode, Encode};
-use scale_info::{form::PortableForm, meta_type};
+use scale_info::meta_type;
 
 use frame_support::{derive_impl, pallet_prelude::PalletInfoAccess, view_functions::ViewFunction};
 use sp_io::hashing::twox_128;
-use sp_metadata_ir::{ViewFunctionArgMetadataIR, ViewFunctionGroupIR, ViewFunctionMetadataIR};
+use sp_metadata_ir::{
+	DeprecationStatusIR, PalletViewFunctionMethodMetadataIR,
+	PalletViewFunctionMethodParamMetadataIR,
+};
 use sp_runtime::testing::TestXt;
 
 pub type AccountId = u32;
@@ -111,8 +114,7 @@ fn metadata_ir_definitions() {
 	new_test_ext().execute_with(|| {
 		let metadata_ir = Runtime::metadata_ir();
 		let pallet1 = metadata_ir
-			.view_functions
-			.groups
+			.pallets
 			.iter()
 			.find(|pallet| pallet.name == "ViewFunctionsExample")
 			.unwrap();
@@ -137,41 +139,27 @@ fn metadata_ir_definitions() {
 		pretty_assertions::assert_eq!(
 			pallet1.view_functions,
 			vec![
-				ViewFunctionMetadataIR {
+				PalletViewFunctionMethodMetadataIR {
 					name: "get_value",
 					id: get_value_id,
-					args: vec![],
+					inputs: vec![],
 					output: meta_type::<Option<u32>>(),
-					docs: vec![" Query value no args."],
+					docs: vec![" Query value with no input args."],
+					deprecation_info: DeprecationStatusIR::NotDeprecated,
 				},
-				ViewFunctionMetadataIR {
+				PalletViewFunctionMethodMetadataIR {
 					name: "get_value_with_arg",
 					id: get_value_with_arg_id,
-					args: vec![ViewFunctionArgMetadataIR { name: "key", ty: meta_type::<u32>() },],
+					inputs: vec![PalletViewFunctionMethodParamMetadataIR {
+						name: "key",
+						ty: meta_type::<u32>()
+					},],
 					output: meta_type::<Option<u32>>(),
-					docs: vec![" Query value with args."],
+					docs: vec![" Query value with input args."],
+					deprecation_info: DeprecationStatusIR::NotDeprecated,
 				},
 			]
 		);
-	});
-}
-
-#[test]
-fn metadata_encoded_to_custom_value() {
-	new_test_ext().execute_with(|| {
-		let metadata = sp_metadata_ir::into_latest(Runtime::metadata_ir());
-		// metadata is currently experimental so lives as a custom value.
-		let frame_metadata::RuntimeMetadata::V15(v15) = metadata.1 else {
-			panic!("Expected metadata v15")
-		};
-		let custom_value = v15
-			.custom
-			.map
-			.get("view_functions_experimental")
-			.expect("Expected custom value");
-		let view_function_groups: Vec<ViewFunctionGroupIR<PortableForm>> =
-			Decode::decode(&mut &custom_value.value[..]).unwrap();
-		assert_eq!(view_function_groups.len(), 4);
 	});
 }
 

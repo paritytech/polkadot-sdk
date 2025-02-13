@@ -147,8 +147,6 @@ mod sys {
 		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
-		pub fn lock_delegate_dependency(code_hash_ptr: *const u8);
-		pub fn unlock_delegate_dependency(code_hash_ptr: *const u8);
 		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32) -> ReturnCode;
 		pub fn xcm_send(
 			dest_ptr: *const u8,
@@ -552,11 +550,6 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn lock_delegate_dependency(code_hash: &[u8; 32]) {
-		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
-	}
-
-	#[unstable_hostfn]
 	fn minimum_balance(output: &mut [u8; 32]) {
 		unsafe { sys::minimum_balance(output.as_mut_ptr()) }
 	}
@@ -606,11 +599,6 @@ impl HostFn for HostFnImpl {
 	fn terminate(beneficiary: &[u8; 20]) -> ! {
 		unsafe { sys::terminate(beneficiary.as_ptr()) }
 		panic!("terminate does not return");
-	}
-
-	#[unstable_hostfn]
-	fn unlock_delegate_dependency(code_hash: &[u8; 32]) {
-		unsafe { sys::unlock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
 	#[unstable_hostfn]

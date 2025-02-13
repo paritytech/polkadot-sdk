@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{mock::*, Event};
-use frame_support::{assert_err, assert_noop, assert_ok, assert_storage_noop};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_balances::Event as BEvent;
 use sp_runtime::{
 	bounded_btree_map,
@@ -661,6 +661,7 @@ mod join {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 11, pool_id: 1, bonded: 2, joined: true },
 				]
 			);
@@ -817,6 +818,7 @@ mod join {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 101, pool_id: 1, bonded: 100, joined: true },
 					Event::Bonded { member: 102, pool_id: 1, bonded: 100, joined: true }
 				]
@@ -1089,6 +1091,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 11, pool_id: 1, bonded: 11, joined: true },
 					Event::Unbonded { member: 11, pool_id: 1, points: 11, balance: 11, era: 3 }
 				]
@@ -1121,6 +1124,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionUpdated {
 						pool_id: 1,
 						current: Some((Perbill::from_percent(75), 2))
@@ -1184,6 +1188,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 5 }
 				]
 			);
@@ -1259,6 +1264,7 @@ mod claim_payout {
 					vec![
 						Event::Created { depositor: 10, pool_id: 1 },
 						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Bonded { member: 40, pool_id: 1, bonded: 40, joined: true },
 						Event::Bonded { member: 50, pool_id: 1, bonded: 50, joined: true }
 					]
@@ -1514,6 +1520,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 20 },
 					Event::PaidOut { member: 20, pool_id: 1, payout: 10 },
@@ -1557,6 +1564,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 3 + 3 },
 					Event::PaidOut { member: 20, pool_id: 1, payout: 3 },
@@ -1620,6 +1628,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
 					Event::Bonded { member: 30, pool_id: 1, bonded: 10, joined: true },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 30 + 100 / 2 + 60 / 3 },
@@ -1721,6 +1730,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::Bonded { member: 30, pool_id: 1, bonded: 10, joined: true },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 10 },
@@ -1770,6 +1780,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 10 },
 					Event::PaidOut { member: 20, pool_id: 1, payout: 20 }
@@ -1818,6 +1829,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::Bonded { member: 30, pool_id: 1, bonded: 10, joined: true },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 10 },
@@ -1884,6 +1896,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 10 }
 				]
@@ -1983,6 +1996,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Created { depositor: 20, pool_id: 2 },
 					Event::Bonded { member: 20, pool_id: 2, bonded: 10, joined: true },
 					Event::Created { depositor: 30, pool_id: 3 },
@@ -2052,6 +2066,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
 					Event::Bonded { member: 30, pool_id: 1, bonded: 10, joined: true },
 					Event::Bonded { member: 40, pool_id: 1, bonded: 10, joined: true }
@@ -2132,6 +2147,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: false },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 15 },
@@ -2277,6 +2293,7 @@ mod claim_payout {
 					vec![
 						Event::Created { depositor: 10, pool_id: 1 },
 						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 						Event::Bonded { member: 30, pool_id: 1, bonded: 20, joined: true },
 						Event::Unbonded { member: 20, pool_id: 1, balance: 10, points: 10, era: 3 },
@@ -2315,6 +2332,7 @@ mod claim_payout {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 13 },
 					Event::PaidOut { member: 20, pool_id: 1, payout: 26 }
@@ -2385,6 +2403,7 @@ mod claim_payout {
 							bonded: 1000000000000000,
 							joined: true
 						},
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Bonded {
 							member: 20,
 							pool_id: 1,
@@ -2584,6 +2603,7 @@ mod unbond {
 					vec![
 						Event::Created { depositor: 10, pool_id: 1 },
 						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 						Event::PaidOut { member: 20, pool_id: 1, payout: 6 },
 						Event::Unbonded { member: 20, pool_id: 1, balance: 20, points: 20, era: 3 }
@@ -2833,6 +2853,7 @@ mod unbond {
 					vec![
 						Event::Created { depositor: 10, pool_id: 1 },
 						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Bonded { member: 40, pool_id: 1, bonded: 40, joined: true },
 						Event::Bonded { member: 550, pool_id: 1, bonded: 550, joined: true },
 						Event::PoolSlashed { pool_id: 1, balance: 100 },
@@ -2975,6 +2996,7 @@ mod unbond {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Unbonded { member: 10, pool_id: 1, points: 10, balance: 10, era: 9 }
 				]
 			);
@@ -3009,6 +3031,7 @@ mod unbond {
 					vec![
 						Event::Created { depositor: 10, pool_id: 1 },
 						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Bonded { member: 100, pool_id: 1, bonded: 100, joined: true },
 						Event::Bonded { member: 200, pool_id: 1, bonded: 200, joined: true },
 						Event::Unbonded {
@@ -3102,6 +3125,7 @@ mod unbond {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 100, pool_id: 1, bonded: 100, joined: true },
 					Event::Unbonded { member: 100, pool_id: 1, points: 100, balance: 100, era: 3 }
 				]
@@ -3258,6 +3282,7 @@ mod unbond {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Unbonded { member: 10, pool_id: 1, points: 1, balance: 1, era: 3 }
 				]
 			);
@@ -3390,6 +3415,7 @@ mod unbond {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::Unbonded { member: 20, pool_id: 1, points: 2, balance: 2, era: 3 },
 					Event::Unbonded { member: 20, pool_id: 1, points: 3, balance: 3, era: 4 },
@@ -3426,6 +3452,7 @@ mod unbond {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Unbonded { member: 10, pool_id: 1, points: 3, balance: 3, era: 3 }
 				]
 			);
@@ -3467,6 +3494,7 @@ mod unbond {
 					// 2/3 of ed, which is 20's share.
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::PaidOut { member: 20, pool_id: 1, payout: 10 },
 					Event::Unbonded { member: 20, pool_id: 1, balance: 2, points: 2, era: 3 }
@@ -3641,6 +3669,7 @@ mod withdraw_unbonded {
 					vec![
 						Event::Created { depositor: 10, pool_id: 1 },
 						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Bonded { member: 40, pool_id: 1, bonded: 40, joined: true },
 						Event::Bonded { member: 550, pool_id: 1, bonded: 550, joined: true },
 						Event::Unbonded {
@@ -3750,6 +3779,7 @@ mod withdraw_unbonded {
 					vec![
 						Event::Created { depositor: 10, pool_id: 1 },
 						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Bonded { member: 40, pool_id: 1, bonded: 40, joined: true },
 						Event::Bonded { member: 550, pool_id: 1, bonded: 550, joined: true },
 						Event::PoolSlashed { pool_id: 1, balance: 300 },
@@ -3827,6 +3857,7 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![
 						Event::Unbonded { member: 10, pool_id: 1, points: 5, balance: 5, era: 6 },
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Withdrawn { member: 10, pool_id: 1, points: 5, balance: 5 },
 						Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 						Event::Destroyed { pool_id: 1 }
@@ -3915,6 +3946,7 @@ mod withdraw_unbonded {
 					vec![
 						Event::Created { depositor: 10, pool_id: 1 },
 						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 						Event::Bonded { member: 100, pool_id: 1, bonded: 100, joined: true },
 						Event::Bonded { member: 200, pool_id: 1, bonded: 200, joined: true },
 						Event::Unbonded {
@@ -4008,6 +4040,7 @@ mod withdraw_unbonded {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 100, pool_id: 1, bonded: 100, joined: true },
 					Event::Unbonded { member: 100, pool_id: 1, points: 100, balance: 100, era: 3 },
 					Event::Withdrawn { member: 100, pool_id: 1, points: 100, balance: 100 },
@@ -4048,6 +4081,7 @@ mod withdraw_unbonded {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: false },
 					Event::Unbonded { member: 10, pool_id: 1, points: 6, balance: 6, era: 3 },
 					Event::Unbonded { member: 10, pool_id: 1, points: 1, balance: 1, era: 4 }
@@ -4135,6 +4169,7 @@ mod withdraw_unbonded {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 11, pool_id: 1, bonded: 10, joined: true },
 					Event::Unbonded { member: 11, pool_id: 1, points: 6, balance: 6, era: 3 },
 					Event::Unbonded { member: 11, pool_id: 1, points: 1, balance: 1, era: 4 }
@@ -4231,6 +4266,7 @@ mod withdraw_unbonded {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 100, pool_id: 1, bonded: 100, joined: true },
 					Event::Unbonded { member: 100, pool_id: 1, points: 75, balance: 75, era: 3 },
 					Event::Unbonded { member: 100, pool_id: 1, points: 25, balance: 25, era: 4 },
@@ -4469,6 +4505,7 @@ mod withdraw_unbonded {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: false },
 					Event::Unbonded { member: 10, pool_id: 1, balance: 7, points: 7, era: 3 },
 					Event::Unbonded { member: 10, pool_id: 1, balance: 3, points: 3, era: 4 },
@@ -4515,6 +4552,7 @@ mod withdraw_unbonded {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::Unbonded { member: 20, pool_id: 1, balance: 20, points: 20, era: 4 },
 				]
@@ -4555,6 +4593,7 @@ mod withdraw_unbonded {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Unbonded { member: 10, pool_id: 1, balance: 10, points: 10, era: 4 },
 				]
 			);
@@ -4597,6 +4636,7 @@ mod withdraw_unbonded {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Unbonded { member: 10, pool_id: 1, balance: 10, points: 10, era: 4 },
 				]
 			);
@@ -4699,6 +4739,7 @@ mod create {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Created { depositor: 11, pool_id: 2 },
 					Event::Bonded { member: 11, pool_id: 2, bonded: 10, joined: true }
 				]
@@ -4829,6 +4870,7 @@ fn set_claim_permission_works() {
 			vec![
 				Event::Created { depositor: 10, pool_id: 1 },
 				Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+				Event::MetadataUpdated { pool_id: 1, caller: 900 },
 				Event::Bonded { member: 11, pool_id: 1, bonded: 2, joined: true },
 			]
 		);
@@ -4843,6 +4885,14 @@ fn set_claim_permission_works() {
 			RuntimeOrigin::signed(11),
 			ClaimPermission::Permissioned
 		));
+
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![Event::MemberClaimPermissionUpdated {
+				member: 11,
+				permission: ClaimPermission::Permissioned
+			},]
+		);
 
 		// then
 		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::Permissioned);
@@ -4883,9 +4933,20 @@ mod nominate {
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]));
 			assert_eq!(Nominations::get().unwrap(), vec![21]);
 
+			// Check event
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominationMade {
+				pool_id: 1,
+				caller: 900,
+			}));
+
 			// Nominator can nominate
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(901), 1, vec![31]));
 			assert_eq!(Nominations::get().unwrap(), vec![31]);
+
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominationMade {
+				pool_id: 1,
+				caller: 901,
+			}));
 
 			// Can't nominate for a pool that doesn't exist
 			assert_noop!(
@@ -4923,6 +4984,7 @@ mod set_state {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::StateChanged { pool_id: 1, new_state: PoolState::Blocked }
 				]
 			);
@@ -4999,9 +5061,19 @@ mod set_metadata {
 			assert_ok!(Pools::set_metadata(RuntimeOrigin::signed(900), 1, vec![1, 1]));
 			assert_eq!(Metadata::<Runtime>::get(1), vec![1, 1]);
 
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::MetadataUpdated {
+				pool_id: 1,
+				caller: 900,
+			}));
+
 			// bouncer can set metadata
 			assert_ok!(Pools::set_metadata(RuntimeOrigin::signed(902), 1, vec![2, 2]));
 			assert_eq!(Metadata::<Runtime>::get(1), vec![2, 2]);
+
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::MetadataUpdated {
+				pool_id: 1,
+				caller: 902,
+			}));
 
 			// Depositor can't set metadata
 			assert_noop!(
@@ -5061,8 +5133,18 @@ mod set_configs {
 			assert_eq!(MaxPoolMembersPerPool::<Runtime>::get(), Some(5));
 			assert_eq!(GlobalMaxCommission::<Runtime>::get(), Some(Perbill::from_percent(6)));
 
+			// Check events
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::GlobalParamsUpdated {
+				min_join_bond: 1,
+				min_create_bond: 2,
+				max_pools: Some(3),
+				max_members: Some(4),
+				max_members_per_pool: Some(5),
+				global_max_commission: Some(Perbill::from_percent(6)),
+			}));
+
 			// Noop does nothing
-			assert_storage_noop!(assert_ok!(Pools::set_configs(
+			assert_ok!(Pools::set_configs(
 				RuntimeOrigin::signed(42),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5070,7 +5152,23 @@ mod set_configs {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
-			)));
+			));
+
+			assert_eq!(MinJoinBond::<Runtime>::get(), 1);
+			assert_eq!(MinCreateBond::<Runtime>::get(), 2);
+			assert_eq!(MaxPools::<Runtime>::get(), Some(3));
+			assert_eq!(MaxPoolMembers::<Runtime>::get(), Some(4));
+			assert_eq!(MaxPoolMembersPerPool::<Runtime>::get(), Some(5));
+			assert_eq!(GlobalMaxCommission::<Runtime>::get(), Some(Perbill::from_percent(6)));
+
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::GlobalParamsUpdated {
+				min_join_bond: 1,
+				min_create_bond: 2,
+				max_pools: Some(3),
+				max_members: Some(4),
+				max_members_per_pool: Some(5),
+				global_max_commission: Some(Perbill::from_percent(6)),
+			}));
 
 			// Removing works
 			assert_ok!(Pools::set_configs(
@@ -5088,6 +5186,15 @@ mod set_configs {
 			assert_eq!(MaxPoolMembers::<Runtime>::get(), None);
 			assert_eq!(MaxPoolMembersPerPool::<Runtime>::get(), None);
 			assert_eq!(GlobalMaxCommission::<Runtime>::get(), None);
+
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::GlobalParamsUpdated {
+				min_join_bond: 0,
+				min_create_bond: 0,
+				max_pools: None,
+				max_members: None,
+				max_members_per_pool: None,
+				global_max_commission: None,
+			}));
 		});
 	}
 }
@@ -5120,6 +5227,7 @@ mod bond_extra {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: false }
 				]
 			);
@@ -5168,6 +5276,7 @@ mod bond_extra {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PaidOut { member: 10, pool_id: 1, payout: claimable_reward },
 					Event::Bonded {
 						member: 10,
@@ -5229,6 +5338,7 @@ mod bond_extra {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
 					Event::PaidOut { member: 10, pool_id: 1, payout: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 1, joined: false },
@@ -5372,6 +5482,7 @@ mod update_roles {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::RolesUpdated { root: Some(5), bouncer: Some(7), nominator: Some(6) }
 				]
 			);
@@ -5485,7 +5596,8 @@ mod reward_counter_precision {
 						pool_id: 1,
 						bonded: 1173908528796953165005,
 						joined: true,
-					}
+					},
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 				]
 			);
 
@@ -5518,7 +5630,8 @@ mod reward_counter_precision {
 				pool_events_since_last_call(),
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
-					Event::Bonded { member: 10, pool_id: 1, bonded: 10000000000000, joined: true }
+					Event::Bonded { member: 10, pool_id: 1, bonded: 10000000000000, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 				]
 			);
 
@@ -5557,7 +5670,8 @@ mod reward_counter_precision {
 						pool_id: 1,
 						bonded: 12_968_712_300_500_000_000,
 						joined: true,
-					}
+					},
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 				]
 			);
 
@@ -5623,7 +5737,8 @@ mod reward_counter_precision {
 						pool_id: 1,
 						bonded: 12_968_712_300_500_000_000,
 						joined: true,
-					}
+					},
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 				]
 			);
 
@@ -5658,7 +5773,8 @@ mod reward_counter_precision {
 							pool_id: 1,
 							bonded: 2500000000000000000,
 							joined: true,
-						}
+						},
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					]
 				);
 
@@ -5726,7 +5842,8 @@ mod reward_counter_precision {
 							pool_id: 1,
 							bonded: 2500000000000000000,
 							joined: true,
-						}
+						},
+						Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					]
 				);
 
@@ -5794,6 +5911,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id },
 					Event::Bonded { member: 10, pool_id, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionUpdated {
 						pool_id,
 						current: Some((Perbill::from_percent(50), root))
@@ -6087,6 +6205,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionUpdated {
 						pool_id: 1,
 						current: Some((Perbill::from_percent(10), 900))
@@ -6109,6 +6228,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 				]
 			);
 
@@ -6396,6 +6516,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolMaxCommissionUpdated {
 						pool_id: 1,
 						max_commission: Perbill::from_percent(80)
@@ -6463,6 +6584,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionChangeRateUpdated {
 						pool_id: 1,
 						change_rate: CommissionChangeRate {
@@ -6623,6 +6745,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionUpdated {
 						pool_id: 1,
 						current: Some((Perbill::from_percent(10), 900))
@@ -6759,6 +6882,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionChangeRateUpdated {
 						pool_id: 1,
 						change_rate: CommissionChangeRate {
@@ -6792,6 +6916,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionUpdated {
 						pool_id: 1,
 						current: Some((Perbill::from_percent(33), 2))
@@ -6882,6 +7007,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionUpdated {
 						pool_id: 1,
 						current: Some((Perbill::from_percent(10), 2))
@@ -6948,6 +7074,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionUpdated {
 						pool_id: 1,
 						current: Some((Perbill::from_percent(10), 2))
@@ -7007,6 +7134,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionUpdated {
 						pool_id: 1,
 						current: Some((Perbill::from_percent(100), 2))
@@ -7052,6 +7180,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 				]
 			);
 
@@ -7112,6 +7241,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id },
 					Event::Bonded { member: 10, pool_id, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::PoolCommissionUpdated {
 						pool_id,
 						current: Some((Perbill::from_percent(50), 900))
@@ -7294,6 +7424,7 @@ mod commission {
 				vec![
 					Event::Created { depositor: 10, pool_id },
 					Event::Bonded { member: 10, pool_id, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 				]
 			);
 
@@ -7349,6 +7480,7 @@ mod slash {
 				vec![
 					Event::Created { depositor: 10, pool_id: 1 },
 					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::MetadataUpdated { pool_id: 1, caller: 900 },
 					Event::Bonded { member: 11, pool_id: 1, bonded: 2, joined: true },
 				]
 			);
@@ -7404,11 +7536,28 @@ mod chill {
 
 			// root can chill and re-nominate
 			assert_ok!(Pools::chill(RuntimeOrigin::signed(900), 1));
+			// Check that chill now emits an event
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominatorChilled {
+				pool_id: 1,
+				caller: 900,
+			}));
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![31]));
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominationMade {
+				pool_id: 1,
+				caller: 900,
+			}));
 
 			// nominator can chill and re-nominate
 			assert_ok!(Pools::chill(RuntimeOrigin::signed(901), 1));
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominatorChilled {
+				pool_id: 1,
+				caller: 901,
+			}));
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(901), 1, vec![31]));
+			System::assert_last_event(tests::RuntimeEvent::Pools(Event::PoolNominationMade {
+				pool_id: 1,
+				caller: 901,
+			}));
 
 			// if `depositor` stake is less than the `MinimumNominatorBond`, then this call
 			// becomes permissionless;

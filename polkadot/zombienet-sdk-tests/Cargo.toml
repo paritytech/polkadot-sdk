@@ -18,6 +18,7 @@ serde_json = { workspace = true }
 subxt = { workspace = true, features = ["substrate-compat"] }
 subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio-util = { workspace = true, features = ["time"] }
 zombienet-sdk = { workspace = true }
 
 [features]

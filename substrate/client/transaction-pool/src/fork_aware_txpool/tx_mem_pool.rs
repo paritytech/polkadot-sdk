@@ -276,7 +276,7 @@ where
 	) -> Self {
 		Self {
 			api,
-			listener: Arc::from(MultiViewListener::new_with_worker().0),
+			listener: Arc::from(MultiViewListener::new_with_worker(Default::default()).0),
 			transactions: Default::default(),
 			metrics: Default::default(),
 			max_transactions_count,
@@ -598,6 +598,16 @@ where
 				.get_mut(&outcome.hash())
 				.map(|p| *p.priority.write() = Some(priority))
 		});
+	}
+
+	/// Counts the number of transactions in the provided iterator of hashes
+	/// that are not known to the pool.
+	pub(super) fn count_unknown_transactions<'a>(
+		&self,
+		hashes: impl Iterator<Item = &'a ExtrinsicHash<ChainApi>>,
+	) -> usize {
+		let transactions = self.transactions.read();
+		hashes.filter(|tx_hash| !transactions.contains_key(tx_hash)).count()
 	}
 }
 

@@ -20,14 +20,10 @@ use proc_macro2::{Span, TokenStream};
 use syn::spanned::Spanned;
 
 pub fn expand_view_functions(def: &Def) -> TokenStream {
-	let (span, where_clause, view_fns, docs) = match def.view_functions.as_ref() {
-		Some(view_fns) => (
-			view_fns.attr_span,
-			view_fns.where_clause.clone(),
-			view_fns.view_functions.clone(),
-			view_fns.docs.clone(),
-		),
-		None => (def.item.span(), def.config.where_clause.clone(), Vec::new(), Vec::new()),
+	let (span, where_clause, view_fns) = match def.view_functions.as_ref() {
+		Some(view_fns) =>
+			(view_fns.attr_span, view_fns.where_clause.clone(), view_fns.view_functions.clone()),
+		None => (def.item.span(), def.config.where_clause.clone(), Vec::new()),
 	};
 
 	let view_function_prefix_impl =
@@ -39,7 +35,7 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 	let impl_dispatch_view_function =
 		impl_dispatch_view_function(def, span, where_clause.as_ref(), &view_fns);
 	let impl_view_function_metadata =
-		impl_view_function_metadata(def, span, where_clause.as_ref(), &view_fns, &docs);
+		impl_view_function_metadata(def, span, where_clause.as_ref(), &view_fns);
 
 	quote::quote! {
 		#view_function_prefix_impl
@@ -201,7 +197,6 @@ fn impl_view_function_metadata(
 	span: Span,
 	where_clause: Option<&syn::WhereClause>,
 	view_fns: &[ViewFunctionDef],
-	docs: &[syn::Expr],
 ) -> TokenStream {
 	let frame_support = &def.frame_support;
 	let pallet_ident = &def.pallet_struct.pallet;
@@ -211,14 +206,14 @@ fn impl_view_function_metadata(
 	let view_functions = view_fns.iter().map(|view_fn| {
 		let view_function_struct_ident = view_fn.view_function_struct_ident();
 		let name = &view_fn.name;
-		let args = view_fn.args.iter().filter_map(|fn_arg| {
+		let inputs = view_fn.args.iter().filter_map(|fn_arg| {
 			match fn_arg {
 				syn::FnArg::Receiver(_) => None,
 				syn::FnArg::Typed(typed) => {
 					let pat = &typed.pat;
 					let ty = &typed.ty;
 					Some(quote::quote! {
-						#frame_support::__private::metadata_ir::ViewFunctionArgMetadataIR {
+						#frame_support::__private::metadata_ir::PalletViewFunctionMethodParamMetadataIR {
 							name: ::core::stringify!(#pat),
 							ty: #frame_support::__private::scale_info::meta_type::<#ty>(),
 						}
@@ -230,33 +225,34 @@ fn impl_view_function_metadata(
 		let no_docs = vec![];
 		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &view_fn.docs };
 
+		let deprecation = match crate::deprecation::get_deprecation(
+			&quote::quote! { #frame_support },
+			&def.item.attrs,
+		) {
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
+
 		quote::quote! {
-			#frame_support::__private::metadata_ir::ViewFunctionMetadataIR {
+			#frame_support::__private::metadata_ir::PalletViewFunctionMethodMetadataIR {
 				name: ::core::stringify!(#name),
 				id: <#view_function_struct_ident<#type_use_gen> as #frame_support::view_functions::ViewFunction>::id().into(),
-				args: #frame_support::__private::sp_std::vec![ #( #args ),* ],
+				inputs: #frame_support::__private::sp_std::vec![ #( #inputs ),* ],
 				output: #frame_support::__private::scale_info::meta_type::<
 					<#view_function_struct_ident<#type_use_gen> as #frame_support::view_functions::ViewFunction>::ReturnType
 				>(),
 				docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
+				deprecation_info: #deprecation,
 			}
 		}
 	});
 
-	let no_docs = vec![];
-	let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { docs };
-
 	quote::quote! {
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #where_clause {
 			#[doc(hidden)]
-			pub fn pallet_view_functions_metadata(name: &'static ::core::primitive::str)
-				-> #frame_support::__private::metadata_ir::ViewFunctionGroupIR
-			{
-				#frame_support::__private::metadata_ir::ViewFunctionGroupIR {
-					name,
-					view_functions: #frame_support::__private::sp_std::vec![ #( #view_functions ),* ],
-					docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
-				}
+			pub fn pallet_view_functions_metadata()
+				-> #frame_support::__private::Vec<#frame_support::__private::metadata_ir::PalletViewFunctionMethodMetadataIR> {
+				#frame_support::__private::vec![ #( #view_functions ),* ]
 			}
 		}
 	}

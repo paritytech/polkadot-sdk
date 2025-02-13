@@ -1,0 +1,46 @@
+title: 'revive: Include immutable storage deposit into the contracts `storage_base_deposit`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR is centered around a main fix regarding the base deposit and a bunch of drive by or related fixtures that make sense to resolve in one go. It could be broken down more but I am constantly rebasing this PR and would appreciate getting those fixes in as-one.
+
+    ## Record the deposit for immutable data into the `storage_base_deposit`
+
+    The `storage_base_deposit` are all the deposit a contract has to pay for existing. It included the deposit for its own metadata and a deposit proportional (< 1.0x) to the size of its code. However, the immutable code size was not recorded there. This would lead to the situation where on terminate this portion wouldn't be refunded staying locked into the contract. It would also make the calculation of the deposit changes on `set_code_hash` more complicated when it updates the immutable data (to be done in #6985). Reason is because it didn't know how much was payed before since the storage prices could have changed in the mean time.
+
+    In order for this solution to work I needed to delay the deposit calculation for a new contract for after the contract is done executing  is constructor as only then we know the immutable data size. Before, we just charged this eagerly in `charge_instantiate` before we execute the constructor. Now, we merely send the ED as free balance before the constructor in order to create the account. After the constructor is done we calculate the contract base deposit and charge it. This will make `set_code_hash` much easier to implement.
+
+    As a side effect it is now legal to call `set_immutable_data` multiple times per constructor (even though I see no reason to do so). It simply overrides the immutable data with the new value. The deposit accounting will be done after the constructor returns (as mentioned above) instead of when setting the immutable data.
+
+    ## Don't pre-charge for reading immutable data
+
+    I noticed that we were pre-charging weight for the max allowable immutable data when reading those values and then refunding after read. This is not necessary as we know its length without reading the storage as we store it out of band in contract metadata. This makes reading it free. Less pre-charging less problems.
+
+    ## Remove delegate locking
+
+    Fixes #7092
+
+    This is also in the spirit of making #6985 easier to implement. The locking complicates `set_code_hash` as we might need to block settings the code hash when locks exist. Check #7092 for further rationale.
+
+    ## Enforce "no terminate in constructor" eagerly
+
+    We used to enforce this rule after the contract execution returned. Now we error out early in the host call. This makes it easier to be sure to argue that a contract info still exists (wasn't terminated) when a constructor successfully returns. All around this his just much simpler than dealing this check.
+
+    ## Moved refcount functions to `CodeInfo`
+
+    They never really made sense to exist on `Stack`. But now with the locking gone this makes even less sense. The refcount is stored inside `CodeInfo` to lets just move them there.
+
+    ## Set `CodeHashLockupDepositPercent` for test runtime
+
+    The test runtime was setting `CodeHashLockupDepositPercent` to zero. This was trivializing many code paths and excluded them from testing. I set it to `30%` which is our default value and fixed up all the tests that broke. This should give us confidence that the lockup doeposit collections properly works.
+
+    ## Reworked the `MockExecutable` to have both a `deploy` and a `call` entry point
+
+    This type used for testing could only have either entry points but not both. In order to fix the `immutable_data_set_overrides` I needed to a new function `add_both` to `MockExecutable` that allows to have both entry points. Make sure to make use of it in the future :)
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: major

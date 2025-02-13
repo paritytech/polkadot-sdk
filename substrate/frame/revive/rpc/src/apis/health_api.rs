@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Heatlh JSON-RPC methods.
 
-use super::*;
+use crate::*;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sc_rpc_api::system::helpers::Health;
 

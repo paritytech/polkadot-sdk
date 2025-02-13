@@ -6,10 +6,11 @@ try {
 	console.log(`Signer balance:    ${await walletClient.getBalance(walletClient.account)}`)
 	console.log(`Recipient balance: ${await walletClient.getBalance({ address: recipient })}`)
 
-	await walletClient.sendTransaction({
+	let resp = await walletClient.sendTransaction({
 		to: recipient,
 		value: parseEther('1.0'),
 	})
+	console.log(`Transaction hash:  ${resp}`)
 	console.log(`Sent:              ${parseEther('1.0')}`)
 	console.log(`Signer balance:    ${await walletClient.getBalance(walletClient.account)}`)
 	console.log(`Recipient balance: ${await walletClient.getBalance({ address: recipient })}`)

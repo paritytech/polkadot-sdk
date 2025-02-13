@@ -62,7 +62,7 @@ pub fn expand_outer_query(
 			}
 
 			impl #runtime_name {
-				/// Convenience function for query execution from the runtime API.
+				/// Convenience function for view functions dispatching and execution from the runtime API.
 				pub fn execute_view_function(
 					id: #scrate::view_functions::ViewFunctionId,
 					input: #scrate::__private::Vec<::core::primitive::u8>,

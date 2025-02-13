@@ -43,7 +43,8 @@ mod columns {
 	pub const NUM_COLUMNS: u32 = 2;
 }
 
-const TEST_CONFIG: Config = Config { col_data: columns::DATA, col_meta: columns::META };
+const TEST_CONFIG: Config =
+	Config { col_data: columns::DATA, col_meta: columns::META, keep_finalized_for: 1 };
 
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<AvailabilityStoreMessage>;

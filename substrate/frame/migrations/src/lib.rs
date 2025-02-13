@@ -145,6 +145,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod migrations;
 mod mock;
 pub mod mock_helpers;
 mod tests;
@@ -298,7 +299,11 @@ type PreUpgradeBytes<T: Config> =
 pub mod pallet {
 	use super::*;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config(with_default)]

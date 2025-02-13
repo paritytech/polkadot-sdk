@@ -676,13 +676,13 @@ fn create_project(
 		RuntimeTarget::Wasm => {
 			write_file_if_changed(
 				wasm_project_folder.join("src/lib.rs"),
-				"#![no_std] pub use wasm_project::*;",
+				"#![no_std] #![allow(unused_imports)] pub use wasm_project::*;",
 			);
 		},
 		RuntimeTarget::Riscv => {
 			write_file_if_changed(
 				wasm_project_folder.join("src/main.rs"),
-				"#![no_std] #![no_main] pub use wasm_project::*;",
+				"#![no_std] #![no_main] #![allow(unused_imports)] pub use wasm_project::*;",
 			);
 		},
 	}
@@ -846,9 +846,23 @@ fn build_bloaty_blob(
 	let mut rustflags = String::new();
 	match target {
 		RuntimeTarget::Wasm => {
-			rustflags.push_str(
-				"-C target-cpu=mvp -C target-feature=-sign-ext -C link-arg=--export-table ",
-			);
+			// For Rust >= 1.70 and Rust < 1.84 with `wasm32-unknown-unknown` target,
+			// it's required to disable default WASM features:
+			// - `sign-ext` (since Rust 1.70)
+			// - `multivalue` and `reference-types` (since Rust 1.82)
+			//
+			// For Rust >= 1.84, we use `wasm32v1-none` target
+			// (disables all "post-MVP" WASM features except `mutable-globals`):
+			// - https://doc.rust-lang.org/beta/rustc/platform-support/wasm32v1-none.html
+			//
+			// Also see:
+			// https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features.html#disabling-on-by-default-webassembly-proposals
+
+			if !cargo_cmd.is_wasm32v1_none_target_available() {
+				rustflags.push_str("-C target-cpu=mvp ");
+			}
+
+			rustflags.push_str("-C link-arg=--export-table ");
 		},
 		RuntimeTarget::Riscv => (),
 	}
@@ -859,7 +873,7 @@ fn build_bloaty_blob(
 
 	build_cmd
 		.arg("rustc")
-		.arg(format!("--target={}", target.rustc_target()))
+		.arg(format!("--target={}", target.rustc_target(&cargo_cmd)))
 		.arg(format!("--manifest-path={}", manifest_path.display()))
 		.env("RUSTFLAGS", rustflags)
 		// Manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
@@ -904,6 +918,15 @@ fn build_bloaty_blob(
 		build_cmd.arg("--offline");
 	}
 
+	// For Rust >= 1.70 and Rust < 1.84 with `wasm32-unknown-unknown` target,
+	// it's required to disable default WASM features:
+	// - `sign-ext` (since Rust 1.70)
+	// - `multivalue` and `reference-types` (since Rust 1.82)
+	//
+	// For Rust >= 1.84, we use `wasm32v1-none` target
+	// (disables all "post-MVP" WASM features except `mutable-globals`):
+	// - https://doc.rust-lang.org/beta/rustc/platform-support/wasm32v1-none.html
+	//
 	// Our executor currently only supports the WASM MVP feature set, however nowadays
 	// when compiling WASM the Rust compiler has more features enabled by default.
 	//
@@ -914,7 +937,12 @@ fn build_bloaty_blob(
 	//
 	// So here we force the compiler to also compile the standard library crates for us
 	// to make sure that they also only use the MVP features.
-	if let Some(arg) = target.rustc_target_build_std() {
+	//
+	// So the `-Zbuild-std` and `RUSTC_BOOTSTRAP=1` hacks are only used for Rust < 1.84.
+	//
+	// Also see:
+	// https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features.html#disabling-on-by-default-webassembly-proposals
+	if let Some(arg) = target.rustc_target_build_std(&cargo_cmd) {
 		build_cmd.arg("-Z").arg(arg);
 
 		if !cargo_cmd.supports_nightly_features() {
@@ -940,7 +968,7 @@ fn build_bloaty_blob(
 	let blob_name = get_blob_name(target, &manifest_path);
 	let target_directory = project
 		.join("target")
-		.join(target.rustc_target_dir())
+		.join(target.rustc_target_dir(&cargo_cmd))
 		.join(blob_build_profile.directory());
 	match target {
 		RuntimeTarget::Riscv => {

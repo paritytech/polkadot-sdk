@@ -137,6 +137,44 @@ impl Default for BlockNumberOrTagOrHash {
 	}
 }
 
+/// filter
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct Filter {
+	/// Address(es)
+	pub address: Option<AddressOrAddresses>,
+	/// from block
+	#[serde(rename = "fromBlock", skip_serializing_if = "Option::is_none")]
+	pub from_block: Option<U256>,
+	/// to block
+	#[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
+	pub to_block: Option<U256>,
+	/// Restricts the logs returned to the single block
+	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
+	pub block_hash: Option<H256>,
+	/// Topics
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub topics: Option<FilterTopics>,
+}
+
+/// Filter results
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum FilterResults {
+	/// new block or transaction hashes
+	Hashes(Vec<H256>),
+	/// new logs
+	Logs(Vec<Log>),
+}
+impl Default for FilterResults {
+	fn default() -> Self {
+		FilterResults::Hashes(Default::default())
+	}
+}
+
 /// Transaction object generic to all types
 #[derive(
 	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
@@ -326,6 +364,26 @@ impl Default for TransactionUnsigned {
 /// Access list
 pub type AccessList = Vec<AccessListEntry>;
 
+/// Address(es)
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum AddressOrAddresses {
+	/// Address
+	Address(Address),
+	/// Addresses
+	Addresses(Addresses),
+}
+impl Default for AddressOrAddresses {
+	fn default() -> Self {
+		AddressOrAddresses::Address(Default::default())
+	}
+}
+
+/// hex encoded address
+pub type Addresses = Vec<Address>;
+
 /// Block tag
 /// `earliest`: The lowest numbered block the client has available; `finalized`: The most recent
 /// crypto-economically secure block, cannot be re-orged outside of manual intervention driven by
@@ -353,6 +411,9 @@ pub enum BlockTag {
 	Pending,
 }
 
+/// Filter Topics
+pub type FilterTopics = Vec<FilterTopic>;
+
 #[derive(
 	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
 )]
@@ -377,17 +438,17 @@ pub struct Log {
 	/// address
 	pub address: Address,
 	/// block hash
-	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
-	pub block_hash: Option<H256>,
+	#[serde(rename = "blockHash")]
+	pub block_hash: H256,
 	/// block number
-	#[serde(rename = "blockNumber", skip_serializing_if = "Option::is_none")]
-	pub block_number: Option<U256>,
+	#[serde(rename = "blockNumber")]
+	pub block_number: U256,
 	/// data
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub data: Option<Bytes>,
 	/// log index
-	#[serde(rename = "logIndex", skip_serializing_if = "Option::is_none")]
-	pub log_index: Option<U256>,
+	#[serde(rename = "logIndex")]
+	pub log_index: U256,
 	/// removed
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub removed: Option<bool>,
@@ -398,8 +459,8 @@ pub struct Log {
 	#[serde(rename = "transactionHash")]
 	pub transaction_hash: H256,
 	/// transaction index
-	#[serde(rename = "transactionIndex", skip_serializing_if = "Option::is_none")]
-	pub transaction_index: Option<U256>,
+	#[serde(rename = "transactionIndex")]
+	pub transaction_index: U256,
 }
 
 /// Syncing progress
@@ -602,6 +663,23 @@ pub struct AccessListEntry {
 	pub address: Address,
 	#[serde(rename = "storageKeys")]
 	pub storage_keys: Vec<H256>,
+}
+
+/// Filter Topic List Entry
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum FilterTopic {
+	/// Single Topic Match
+	Single(H256),
+	/// Multiple Topic Match
+	Multiple(Vec<H256>),
+}
+impl Default for FilterTopic {
+	fn default() -> Self {
+		FilterTopic::Single(Default::default())
+	}
 }
 
 /// Signed 1559 Transaction

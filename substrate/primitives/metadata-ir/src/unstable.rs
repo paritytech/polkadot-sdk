@@ -85,6 +85,8 @@ impl From<PalletMetadataIR> for PalletMetadata {
 			name: ir.name,
 			storage: ir.storage.map(Into::into),
 			calls: ir.calls.map(Into::into),
+			// TODO: add with the new v16 release of frame-metadata
+			// view_functions: ir.view_functions.into_iter().map(Into::into).collect(),
 			event: ir.event.map(Into::into),
 			constants: ir.constants.into_iter().map(Into::into).collect(),
 			error: ir.error.map(Into::into),

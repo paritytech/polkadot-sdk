@@ -25,8 +25,6 @@ pub struct ViewFunctionsImplDef {
 	pub where_clause: Option<syn::WhereClause>,
 	/// The span of the pallet::view_functions_experimental attribute.
 	pub attr_span: proc_macro2::Span,
-	/// Docs, specified on the impl Block.
-	pub docs: Vec<syn::Expr>,
 	/// The view function definitions.
 	pub view_functions: Vec<ViewFunctionDef>,
 }
@@ -67,7 +65,6 @@ impl ViewFunctionsImplDef {
 			view_functions,
 			attr_span,
 			where_clause: item_impl.generics.where_clause.clone(),
-			docs: get_doc_literals(&item_impl.attrs),
 		})
 	}
 }

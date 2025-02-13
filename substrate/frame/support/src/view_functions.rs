@@ -63,6 +63,12 @@ impl From<codec::Error> for ViewFunctionDispatchError {
 /// Implemented by both pallets and the runtime. The runtime is dispatching by prefix using the
 /// pallet implementation of `ViewFunctionIdPrefix` then the pallet is dispatching by suffix using
 /// the methods implementation of `ViewFunctionIdSuffix`.
+///
+/// In more details, `ViewFunctionId` = `ViewFunctionIdPrefix` ++ `ViewFunctionIdSuffix`, where
+/// `ViewFunctionIdPrefix=twox_128(pallet_name)` and
+/// `ViewFunctionIdSuffix=twox_128("fn_name(fnarg_types) -> return_ty")`. The prefix is the same as
+/// the storage prefix for pallets. The suffix is generated from the view function method type
+/// signature, so is guaranteed to be unique for that pallet implementation.
 pub trait DispatchViewFunction {
 	fn dispatch_view_function<O: Output>(
 		id: &ViewFunctionId,

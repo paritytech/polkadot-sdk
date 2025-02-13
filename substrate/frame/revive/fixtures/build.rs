@@ -127,6 +127,8 @@ fn invoke_build(current_dir: &Path) -> Result<()> {
 		.env("PATH", env::var("PATH").unwrap_or_default())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
+		// Support compilation on stable rust
+		.env("RUSTC_BOOTSTRAP", "1")
 		.args([
 			"build",
 			"--release",

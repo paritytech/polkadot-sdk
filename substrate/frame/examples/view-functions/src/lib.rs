@@ -63,12 +63,12 @@ pub mod pallet {
 	where
 		T::AccountId: From<SomeType1> + SomeAssociation1,
 	{
-		/// Query value no args.
+		/// Query value with no input args.
 		pub fn get_value() -> Option<u32> {
 			SomeValue::<T>::get()
 		}
 
-		/// Query value with args.
+		/// Query value with input args.
 		pub fn get_value_with_arg(key: u32) -> Option<u32> {
 			SomeMap::<T>::get(key)
 		}
@@ -101,12 +101,12 @@ pub mod pallet2 {
 	where
 		T::AccountId: From<SomeType1> + SomeAssociation1,
 	{
-		/// Query value no args.
+		/// Query value with no input args.
 		pub fn get_value() -> Option<u32> {
 			SomeValue::<T, I>::get()
 		}
 
-		/// Query value with args.
+		/// Query value with input args.
 		pub fn get_value_with_arg(key: u32) -> Option<u32> {
 			SomeMap::<T, I>::get(key)
 		}

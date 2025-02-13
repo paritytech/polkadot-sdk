@@ -17,10 +17,8 @@
 use clap::Parser;
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{Account, BlockTag, ReceiptInfo};
-use pallet_revive_eth_rpc::{
-	example::{wait_for_receipt, TransactionBuilder},
-	EthRpcClient,
-};
+use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
+use std::sync::Arc;
 use tokio::{
 	io::{AsyncBufReadExt, BufReader},
 	process::{Child, ChildStderr, Command},
@@ -32,6 +30,10 @@ const DOCKER_CONTAINER_NAME: &str = "eth-rpc-test";
 #[derive(Parser, Debug)]
 #[clap(author, about, version)]
 pub struct CliCommand {
+	/// The eth-rpc url to connect to
+	#[clap(long, default_value = "http://127.0.0.1:8545")]
+	pub rpc_url: String,
+
 	/// The parity docker image e.g eth-rpc:master-fb2e414f
 	#[clap(long, default_value = "eth-rpc:master-fb2e414f")]
 	docker_image: String,
@@ -44,7 +46,11 @@ pub struct CliCommand {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	let CliCommand { docker_bin, docker_image, .. } = CliCommand::parse();
+	let CliCommand { docker_bin, rpc_url, docker_image, .. } = CliCommand::parse();
+
+	if std::env::var("SKIP_DOCKER").is_ok() {
+		return test_eth_rpc(&rpc_url).await;
+	}
 
 	let mut docker_process = start_docker(&docker_bin, &docker_image)?;
 	let stderr = docker_process.stderr.take().unwrap();
@@ -56,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
 		_ = interrupt() => {
 			kill_docker().await?;
 		}
-		_ = test_eth_rpc(stderr) => {
+		_ = wait_and_test_eth_rpc(stderr, &rpc_url) => {
 			kill_docker().await?;
 		}
 	}
@@ -103,7 +109,7 @@ async fn kill_docker() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
+async fn wait_and_test_eth_rpc(stderr: ChildStderr, rpc_url: &str) -> anyhow::Result<()> {
 	let mut reader = BufReader::new(stderr).lines();
 	while let Some(line) = reader.next_line().await? {
 		println!("{line}");
@@ -112,6 +118,10 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 		}
 	}
 
+	test_eth_rpc(rpc_url).await
+}
+
+async fn test_eth_rpc(rpc_url: &str) -> anyhow::Result<()> {
 	let account = Account::default();
 	let data = vec![];
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
@@ -119,7 +129,7 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 
 	println!("Account:");
 	println!("- address: {:?}", account.address());
-	let client = HttpClientBuilder::default().build("http://localhost:8545")?;
+	let client = Arc::new(HttpClientBuilder::default().build(rpc_url)?);
 
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
 	let balance = client.get_balance(account.address(), BlockTag::Latest.into()).await?;
@@ -127,31 +137,31 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 	println!("-  balance: {balance:?}");
 
 	println!("\n\n=== Deploying dummy contract ===\n\n");
-	let hash = TransactionBuilder::default().input(input).send(&client).await?;
+	let tx = TransactionBuilder::new(&client).input(input).send().await?;
 
-	println!("Hash: {hash:?}");
+	println!("Hash: {:?}", tx.hash());
 	println!("Waiting for receipt...");
 	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
-		wait_for_receipt(&client, hash).await?;
+		tx.wait_for_receipt().await?;
 
 	let contract_address = contract_address.unwrap();
 	println!("\nReceipt:");
-	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{hash:?}");
+	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{:?}", tx.hash());
 	println!("- Block number: {block_number}");
-	println!("- Gas used: {gas_used}");
-	println!("- Address: {contract_address:?}");
+	println!("- Gas used:     {gas_used}");
+	println!("- Address:      {contract_address:?}");
 
 	println!("\n\n=== Calling dummy contract ===\n\n");
-	let hash = TransactionBuilder::default().to(contract_address).send(&client).await?;
+	let tx = TransactionBuilder::new(&client).to(contract_address).send().await?;
 
-	println!("Hash: {hash:?}");
+	println!("Hash: {:?}", tx.hash());
 	println!("Waiting for receipt...");
 
-	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;
+	let ReceiptInfo { block_number, gas_used, to, .. } = tx.wait_for_receipt().await?;
 	println!("\nReceipt:");
-	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{hash:?}");
+	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{:?}", tx.hash());
 	println!("- Block number: {block_number}");
-	println!("- Gas used: {gas_used}");
-	println!("- To: {to:?}");
+	println!("- Gas used:     {gas_used}");
+	println!("- To:           {to:?}");
 	Ok(())
 }

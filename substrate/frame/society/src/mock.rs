@@ -83,6 +83,7 @@ impl Config for Test {
 	type MaxPayouts = MaxPayouts;
 	type MaxBids = MaxBids;
 	type WeightInfo = ();
+	type BlockNumberProvider = System;
 }
 
 pub struct EnvBuilder {
