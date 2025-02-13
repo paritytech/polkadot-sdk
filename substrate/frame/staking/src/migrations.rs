@@ -81,18 +81,12 @@ pub mod v17 {
 
 	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let mut expected_slashes: u32 = 0;
-			OldUnappliedSlashes::<T>::iter().for_each(|(_, slashes)| {
-				expected_slashes += slashes.len();
-			});
-
-			Ok(expected_slashes.encode())
-		}
-
 		fn on_runtime_upgrade() -> Weight {
+			let mut weight: Weight = Weight::zero();
+
 			OldUnappliedSlashes::<T>::drain().for_each(|(era, slashes)| {
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
+
 				for slash in slashes {
 					let validator = slash.validator.clone();
 					let new_slash = UnappliedSlash {
@@ -106,9 +100,21 @@ pub mod v17 {
 					// creating a slash key which is improbable to conflict with a new offence.
 					let slash_key = (validator, Perbill::from_percent(99), 9999);
 					UnappliedSlashes::<T>::insert(era, slash_key, new_slash);
+					weight.saturating_accrue(T::DbWeight::get().writes(1));
 				}
 			});
-			T::DbWeight::get().reads_writes(1, 1)
+
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let mut expected_slashes: u32 = 0;
+			OldUnappliedSlashes::<T>::iter().for_each(|(_, slashes)| {
+				expected_slashes += slashes.len() as u32;
+			});
+
+			Ok(expected_slashes.encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -123,6 +129,14 @@ pub mod v17 {
 			Ok(())
 		}
 	}
+
+	pub type MigrateV16ToV17<T> = VersionedMigration<
+		16,
+		17,
+		VersionUncheckedMigrateV16ToV17<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 }
 
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
