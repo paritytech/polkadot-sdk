@@ -130,15 +130,18 @@
 //! 	 })
 //!      ```
 //!
-//! 2. In `start_consensus()`:
+//! 4. In `start_consensus()`:
 //!     - Remove the `overseer_handle` and `relay_chain_slot_duration` params (also remove the
 //!     `OverseerHandle` type import if it’s not used elsewhere).
-//!     - Add a new parameter for the block import handle: `block_import_handle:
-//!       SlotBasedBlockImportHandle<Block>`
+//!     - Add a new parameter for the block import handle:
+//!     `block_import_handle: SlotBasedBlockImportHandle<Block>`
 //!     - Rename `AuraParams` to `SlotBasedParams`, remove the `overseer_handle` and
 //!     `relay_chain_slot_duration` fields and add a `slot_drift` field with a value of
 //!     `Duration::from_secs(1)`. Also add a `spawner` field initialized to
 //!     `task_manager.spawn_handle()` and pass in the `block_import_handle` param.
+//!     - (Optional): You may need to customise the `authoring_duration` field of `SlotBasedParams`
+//!      if using more than 3 cores. The authoring duration generally needs to be equal to the
+//!      parachain slot duration.
 //!     - Replace the `aura::run` with the `slot_based::run` call and remove the explicit task
 //!       spawn:
 #![doc = docify::embed!("../../cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", launch_slot_based_collator)]
