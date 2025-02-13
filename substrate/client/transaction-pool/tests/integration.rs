@@ -22,13 +22,10 @@ pub mod zombienet;
 
 use futures::future::join;
 use txtesttool::{
-	cli::SendingScenario,
 	execution_log::ExecutionLog,
 	runner::RunnerFactory,
-	scenario::ScenarioExecutor,
-	subxt_transaction::{generate_sr25519_keypair, SubstrateTransactionsSink},
+	scenario::{ScenarioPlanner, SendingScenario},
 	transaction::TransactionRecipe,
-	SubstrateTransactionBuilder,
 };
 use zombienet::NetworkSpawner;
 use zombienet_sdk::subxt::OnlineClient;
@@ -72,17 +69,17 @@ async fn send_future_and_then_ready_from_many_accounts() {
 	let scenario_ready =
 		SendingScenario::FromManyAccounts { start_id: 0, last_id: 99, from: Some(0), count: 100 };
 
-	let future_scenario_executor =
-		ScenarioExecutor::new(ws, scenario_future, recipe_future, block_monitor).await;
-	let ready_scenario_executor =
-		ScenarioExecutor::new(ws, scenario_ready, recipe_ready, block_monitor).await;
+	let future_scenario_planner =
+		ScenarioPlanner::new(ws, scenario_future, recipe_future, block_monitor).await;
+	let ready_scenario_planner =
+		ScenarioPlanner::new(ws, scenario_ready, recipe_ready, block_monitor).await;
 
 	let ((future_stop_runner_tx, mut runner_future), future_queue_task) =
-		RunnerFactory::substrate_runner(future_scenario_executor, send_threshold, unwatched).await;
+		RunnerFactory::substrate_runner(future_scenario_planner, send_threshold, unwatched).await;
 	let ((ready_stop_runner_tx, mut runner_ready), ready_queue_task) =
-		RunnerFactory::substrate_runner(ready_scenario_executor, send_threshold, unwatched).await;
+		RunnerFactory::substrate_runner(ready_scenario_planner, send_threshold, unwatched).await;
 
-	let (future_logs, ready_logs) = join(runner_future.run_poc2(), runner_ready.run_poc2()).await;
+	let (future_logs, ready_logs) = join(runner_future.run(), runner_ready.run()).await;
 	let finalized_future =
 		future_logs.values().filter_map(|default_log| default_log.finalized()).count();
 	let finalized_ready =
