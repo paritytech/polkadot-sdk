@@ -16,7 +16,7 @@ use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 #[docify::export(lookahead_collator)]
 use cumulus_client_consensus_aura::collators::slot_based::{
-	self as slot_based, Params as SlotBasedParams,
+	self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport, SlotBasedBlockImportHandle,
 };
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_consensus_proposer::Proposer;
@@ -51,7 +51,11 @@ type ParachainClient = TFullClient<Block, RuntimeApi, ParachainExecutor>;
 
 type ParachainBackend = TFullBackend<Block>;
 
-type ParachainBlockImport = TParachainBlockImport<Block, Arc<ParachainClient>, ParachainBackend>;
+type ParachainBlockImport = TParachainBlockImport<
+	Block,
+	SlotBasedBlockImport<Block, Arc<ParachainClient>, ParachainClient>,
+	ParachainBackend,
+>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
 pub type Service = PartialComponents<
@@ -60,7 +64,12 @@ pub type Service = PartialComponents<
 	(),
 	sc_consensus::DefaultImportQueue<Block>,
 	sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient>,
-	(ParachainBlockImport, Option<Telemetry>, Option<TelemetryWorkerHandle>),
+	(
+		ParachainBlockImport,
+		SlotBasedBlockImportHandle<Block>,
+		Option<Telemetry>,
+		Option<TelemetryWorkerHandle>,
+	),
 >;
 
 /// Starts a `ServiceBuilder` for a full service.
@@ -120,7 +129,9 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		.build(),
 	);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let (block_import, slot_based_handle) =
+		SlotBasedBlockImport::new(client.clone(), client.clone());
+	let block_import = ParachainBlockImport::new(block_import.clone(), backend.clone());
 
 	let import_queue = build_import_queue(
 		client.clone(),
@@ -138,7 +149,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		task_manager,
 		transaction_pool,
 		select_chain: (),
-		other: (block_import, telemetry, telemetry_worker_handle),
+		other: (block_import, slot_based_handle, telemetry, telemetry_worker_handle),
 	})
 }
 
@@ -183,6 +194,7 @@ fn start_consensus(
 	para_id: ParaId,
 	collator_key: CollatorPair,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+	block_import_handle: SlotBasedBlockImportHandle<Block>,
 ) -> Result<(), sc_service::Error> {
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
@@ -219,6 +231,7 @@ fn start_consensus(
 		authoring_duration: Duration::from_millis(2000),
 		reinitialize: false,
 		spawner: task_manager.spawn_handle(),
+		block_import_handle,
 	};
 	slot_based::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _, _>(
 		params,
@@ -239,7 +252,7 @@ pub async fn start_parachain_node(
 	let parachain_config = prepare_node_config(parachain_config);
 
 	let params = new_partial(&parachain_config)?;
-	let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
+	let (block_import, slot_based_handle, mut telemetry, telemetry_worker_handle) = params.other;
 
 	let prometheus_registry = parachain_config.prometheus_registry().cloned();
 	let net_config = sc_network::config::FullNetworkConfiguration::<
@@ -400,6 +413,7 @@ pub async fn start_parachain_node(
 			para_id,
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			announce_block,
+			slot_based_handle,
 		)?;
 	}
 
