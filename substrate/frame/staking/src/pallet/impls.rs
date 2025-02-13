@@ -1462,9 +1462,14 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 		log!(
 			info,
-			"[page {}, status {:?}, bounds {:?}] generated {} npos voters",
+			"[page {}, status {:?} (stake?: {:?}), bounds {:?}] generated {} npos voters",
 			page,
 			VoterSnapshotStatus::<T>::get(),
+			if let SnapshotStatus::Ongoing(x) = VoterSnapshotStatus::<T>::get() {
+				Self::weight_of(&x)
+			} else {
+				Zero::zero()
+			},
 			bounds,
 			voters.len(),
 		);

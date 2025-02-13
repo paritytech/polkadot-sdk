@@ -1220,7 +1220,7 @@ where
 		Self::roll_until_matches(|| Self::current_phase() == Phase::Signed);
 		// ensure snapshot is full.
 		crate::Snapshot::<T>::ensure_full_snapshot().expect("Snapshot is not full");
-		OffchainWorkerMiner::<T>::mine_solution(T::Pages::get(), true).unwrap()
+		OffchainWorkerMiner::<T>::mine_solution(T::Pages::get(), false).unwrap()
 	}
 
 	pub(crate) fn submit_full_solution(

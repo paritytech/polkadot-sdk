@@ -946,7 +946,6 @@ pub(crate) mod multi_block_impls {
 		pub MaxWinnersPerPage: u32 = 1000;
 		pub MaxBackersPerWinner: u32 = 128;
 		pub MaxExposurePageSize: u32 = 32;
-
 	}
 
 	impl multi_block::unsigned::miner::MinerConfig for Runtime {
