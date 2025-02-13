@@ -46,7 +46,7 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame::weights_prelude::*;
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_tx_pause`.
