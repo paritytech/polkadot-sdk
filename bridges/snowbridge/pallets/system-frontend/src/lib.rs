@@ -153,8 +153,6 @@ pub mod pallet {
 				fee,
 			});
 
-			let topic = blake2_256(&("SnowbridgeFrontend", call.clone()).encode());
-
 			let xcm: Xcm<()> = vec![
 				// Burn some DOT fees from the origin on AH and teleport to BH which pays for
 				// the execution of Transacts on BH.
@@ -166,7 +164,6 @@ pub mod pallet {
 					fallback_max_weight: None,
 				},
 				ExpectTransactStatus(MaybeErrorCode::Success),
-				SetTopic(topic),
 			]
 			.into();
 
@@ -210,8 +207,6 @@ pub mod pallet {
 				fee,
 			});
 
-			let topic = blake2_256(&("SnowbridgeFrontend", call.clone()).encode());
-
 			let xcm: Xcm<()> = vec![
 				ReceiveTeleportedAsset(T::RemoteExecutionFee::get().into()),
 				PayFees { asset: T::RemoteExecutionFee::get() },
@@ -221,7 +216,6 @@ pub mod pallet {
 					fallback_max_weight: None,
 				},
 				ExpectTransactStatus(MaybeErrorCode::Success),
-				SetTopic(topic),
 			]
 			.into();
 
@@ -236,12 +230,12 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn send(origin: Location, xcm: Xcm<()>) -> Result<H256, Error<T>> {
 			let bridgehub = T::BridgeHubLocation::get();
-			let (hash, price) =
+			let (message_id, price) =
 				send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
 
 			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;
 
-			Ok(hash.into())
+			Ok(message_id.into())
 		}
 
 		pub fn burn_for_teleport(origin: &Location, fee: &Asset) -> DispatchResult {
