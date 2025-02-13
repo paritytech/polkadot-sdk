@@ -354,6 +354,7 @@ use frame_support::{
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	WeakBoundedVec,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -853,7 +854,7 @@ pub struct UnappliedSlash<T: Config> {
 	/// The validator's own slash.
 	own: BalanceOf<T>,
 	/// All other slashed stakers and amounts.
-	others: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
+	others: WeakBoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
 	/// Reporters of the offence; bounty payout recipients.
 	reporter: Option<T::AccountId>,
 	/// The amount of payout.

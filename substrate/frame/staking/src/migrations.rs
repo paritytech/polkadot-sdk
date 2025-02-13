@@ -23,6 +23,7 @@ use frame_support::{
 	pallet_prelude::ValueQuery,
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+	Twox64Concat,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -55,11 +56,82 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+/// Migrates `UnappliedSlashes` to a new storage structure to support paged slashing.
+/// This ensures that slashing can be processed in batches, preventing large storage operations in a
+/// single block.
+pub mod v17 {
+	use super::*;
+
+    #[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+	struct OldUnappliedSlash<T: Config> {
+		validator: T::AccountId,
+		/// The validator's own slash.
+		own: BalanceOf<T>,
+		/// All other slashed stakers and amounts.
+		others: Vec<(T::AccountId, BalanceOf<T>)>,
+		/// Reporters of the offence; bounty payout recipients.
+		reporters: Vec<T::AccountId>,
+		/// The amount of payout.
+		payout: BalanceOf<T>,
+	}
+
+	#[frame_support::storage_alias]
+	type OldUnappliedSlashes<T: Config> =
+		StorageMap<Pallet<T>, Twox64Concat, EraIndex, Vec<OldUnappliedSlash<T>>, ValueQuery>;
+
+	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let mut expected_slashes: u32 = 0;
+			OldUnappliedSlashes::<T>::iter().for_each(|(_, slashes)| {
+				expected_slashes += slashes.len();
+			});
+
+			Ok(expected_slashes.encode())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			OldUnappliedSlashes::<T>::drain().for_each(|(era, slashes)| {
+				for slash in slashes {
+					let validator = slash.validator.clone();
+					let new_slash = UnappliedSlash {
+						validator: validator.clone(),
+						own: slash.own,
+						others:  WeakBoundedVec::force_from(slash.others, None),
+						payout: slash.payout,
+						reporter: slash.reporters.first().cloned(),
+					};
+
+					// creating a slash key which is improbable to conflict with a new offence.
+					let slash_key = (validator, Perbill::from_percent(99), 9999);
+					UnappliedSlashes::<T>::insert(era, slash_key, new_slash);
+				}
+			});
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let expected_slash_count =
+				u32::decode(&mut state.as_slice()).expect("Failed to decode state");
+
+			let actual_slash_count = UnappliedSlashes::<T>::iter().count() as u32;
+
+			ensure!(
+				expected_slash_count == actual_slash_count,
+				"Slash count mismatch"
+			);
+
+			Ok(())
+		}
+	}
+}
+
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
 /// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
-	use frame_support::Twox64Concat;
 	use sp_staking::offence::OffenceSeverity;
 
 	#[frame_support::storage_alias]
