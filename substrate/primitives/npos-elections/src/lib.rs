@@ -110,7 +110,9 @@ pub use reduce::reduce;
 pub use traits::{IdentifierT, PerThing128};
 
 /// The errors that might occur in this crate and `frame-election-provider-solution-type`.
-#[derive(Eq, PartialEq, RuntimeDebug, Clone)]
+#[derive(
+	Eq, PartialEq, RuntimeDebug, Clone, codec::Encode, codec::Decode, scale_info::TypeInfo,
+)]
 pub enum Error {
 	/// While going from solution indices to ratio, the weight of all the edges has gone above the
 	/// total.
@@ -122,7 +124,7 @@ pub enum Error {
 	/// One of the page indices was invalid.
 	SolutionInvalidPageIndex,
 	/// An error occurred in some arithmetic operation.
-	ArithmeticError(&'static str),
+	ArithmeticError,
 	/// The data provided to create support map was invalid.
 	InvalidSupportEdge,
 	/// The number of voters is bigger than the `MaxVoters` bound.

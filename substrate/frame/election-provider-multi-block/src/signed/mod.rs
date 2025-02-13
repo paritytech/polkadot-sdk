@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,8 +37,18 @@
 //!    storage, and it is ONLY EVER removed, when after that round number is over. This can happen
 //!    for more or less free by the submitter itself, and by anyone else as well, in which case they
 //!    get a share of the the sum deposit. The share increases as times goes on.
-//!
 //! **Metadata update**: imagine you mis-computed your score.
+
+// TODO: we should delete this async and once the round is passed.
+// Registration would consequently be as follows:
+// - If you get ejected, and you are lazy removed, a percentage of your deposit is burned. If we set
+//   this to 100%, we will not have bad submissions after the queue is full. The queue can be made
+//   full by purely an attacker, in which case the sum of deposits should be large enough to cover
+//   the fact that we will have a bad election.
+// - whitelisted accounts who will not pay deposits are needed. They can still be ejected, but for
+//   free.
+// - Deposit should exponentially increase, and in general we should not allow for more than say 8
+//   signed submissions.
 
 use crate::{
 	types::SolutionOf,
@@ -54,9 +64,9 @@ use frame_support::{
 			fungible::{Inspect, Mutate, MutateHold},
 			Fortitude, Precision,
 		},
-		Defensive, DefensiveSaturating, EstimateCallFee, TryCollect,
+		Defensive, DefensiveSaturating, EstimateCallFee,
 	},
-	transactional, BoundedVec, RuntimeDebugNoBound, Twox64Concat,
+	transactional, BoundedVec, Twox64Concat,
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use scale_info::TypeInfo;
@@ -67,9 +77,15 @@ use sp_std::prelude::*;
 
 /// Exports of this pallet
 pub use pallet::*;
+pub use weights::WeightInfo;
+
+/// Weight of the signed pallet.
+pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+
+pub(crate) type SignedWeightsOf<T> = <T as crate::signed::Config>::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -78,7 +94,7 @@ type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// All of the (meta) data around a signed submission
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Default, DebugNoBound)]
 #[cfg_attr(test, derive(frame_support::PartialEqNoBound, frame_support::EqNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
@@ -201,8 +217,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	pub trait WeightInfo {}
-	impl WeightInfo for () {}
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -232,6 +246,9 @@ pub mod pallet {
 
 		/// The ratio of the deposit to return in case a signed account submits a solution via
 		/// [`Pallet::register`], but later calls [`Pallet::bail`].
+		///
+		/// This should be large enough to cover for the deletion cost of possible all pages. To be
+		/// safe, you can put it to 100% to begin with to fully dis-incentivize bailing.
 		type BailoutGraceRatio: Get<Perbill>;
 
 		/// Handler to estimate the fee of a call. Useful to refund the transaction fee of the
@@ -241,11 +258,14 @@ pub mod pallet {
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
-		type WeightInfo: WeightInfo;
+		/// Provided weights of this pallet.
+		type WeightInfo: weights::WeightInfo;
 	}
 
+	/// The hold reason of this palelt.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
+		/// Because of submitting a signed solution.
 		#[codec(index = 0)]
 		SignedSubmission,
 	}
@@ -395,7 +415,7 @@ pub mod pallet {
 			round: u32,
 			who: &T::AccountId,
 			metadata: SubmissionMetadata<T>,
-		) -> DispatchResultWithPostInfo {
+		) -> Result<bool, DispatchError> {
 			Self::mutate_checked(round, || Self::try_register_inner(round, who, metadata))
 		}
 
@@ -403,10 +423,10 @@ pub mod pallet {
 			round: u32,
 			who: &T::AccountId,
 			metadata: SubmissionMetadata<T>,
-		) -> DispatchResultWithPostInfo {
+		) -> Result<bool, DispatchError> {
 			let mut sorted_scores = SortedScores::<T>::get(round);
 
-			if let Some(_) = sorted_scores.iter().position(|(x, _)| x == who) {
+			let discarded = if let Some(_) = sorted_scores.iter().position(|(x, _)| x == who) {
 				return Err(Error::<T>::Duplicate.into());
 			} else {
 				// must be new.
@@ -424,7 +444,7 @@ pub mod pallet {
 
 				let record = (who.clone(), metadata.claimed_score);
 				match sorted_scores.force_insert_keep_right(pos, record) {
-					Ok(None) => {},
+					Ok(None) => false,
 					Ok(Some((discarded, _score))) => {
 						let metadata = SubmissionMetadataStorage::<T>::take(round, &discarded);
 						// Note: safe to remove unbounded, as at most `Pages` pages are stored.
@@ -443,14 +463,15 @@ pub mod pallet {
 						)?;
 						debug_assert_eq!(_released, to_refund);
 						Pallet::<T>::deposit_event(Event::<T>::Discarded(round, discarded));
+						true
 					},
 					Err(_) => return Err(Error::<T>::QueueFull.into()),
 				}
-			}
+			};
 
 			SortedScores::<T>::insert(round, sorted_scores);
 			SubmissionMetadataStorage::<T>::insert(round, who, metadata);
-			Ok(().into())
+			Ok(discarded)
 		}
 
 		/// Submit a page of `solution` to the `page` index of `who`'s submission.
@@ -464,7 +485,7 @@ pub mod pallet {
 			round: u32,
 			who: &T::AccountId,
 			page: PageIndex,
-			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
+			maybe_solution: Option<Box<SolutionOf<T::MinerConfig>>>,
 		) -> DispatchResultWithPostInfo {
 			Self::mutate_checked(round, || {
 				Self::try_mutate_page_inner(round, who, page, maybe_solution)
@@ -475,7 +496,7 @@ pub mod pallet {
 			round: u32,
 			who: &T::AccountId,
 			page: PageIndex,
-			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
+			maybe_solution: Option<Box<SolutionOf<T::MinerConfig>>>,
 		) -> DispatchResultWithPostInfo {
 			let mut metadata =
 				SubmissionMetadataStorage::<T>::get(round, who).ok_or(Error::<T>::NotRegistered)?;
@@ -507,8 +528,19 @@ pub mod pallet {
 			};
 			metadata.deposit = new_deposit;
 
+			// If a page is being added, we record the fee as well. For removals, we ignore the fee
+			// as it is negligible, and we don't want to encourage anyone to submit and remove
+			// anyways. Note that fee is only refunded for the winner anyways.
+			if maybe_solution.is_some() {
+				let fee = T::EstimateCallFee::estimate_call_fee(
+					&Call::submit_page { page, maybe_solution: maybe_solution.clone() },
+					None.into(),
+				);
+				metadata.fee.saturating_accrue(fee);
+			}
+
 			SubmissionStorage::<T>::mutate_exists((round, who, page), |maybe_old_solution| {
-				*maybe_old_solution = maybe_solution
+				*maybe_old_solution = maybe_solution.map(|s| *s)
 			});
 			SubmissionMetadataStorage::<T>::insert(round, who, metadata);
 			Ok(().into())
@@ -523,10 +555,6 @@ pub mod pallet {
 			SortedScores::<T>::get(round).last().cloned()
 		}
 
-		pub(crate) fn sorted_submitters(round: u32) -> BoundedVec<T::AccountId, T::MaxSubmissions> {
-			SortedScores::<T>::get(round).into_iter().map(|(x, _)| x).try_collect().unwrap()
-		}
-
 		pub(crate) fn get_page_of(
 			round: u32,
 			who: &T::AccountId,
@@ -536,8 +564,14 @@ pub mod pallet {
 		}
 	}
 
-	#[cfg(any(test, debug_assertions, feature = "try-runtime"))]
+	#[allow(unused)]
+	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks", debug_assertions))]
 	impl<T: Config> Submissions<T> {
+		pub(crate) fn sorted_submitters(round: u32) -> BoundedVec<T::AccountId, T::MaxSubmissions> {
+			use frame_support::traits::TryCollect;
+			SortedScores::<T>::get(round).into_iter().map(|(x, _)| x).try_collect().unwrap()
+		}
+
 		pub fn submissions_iter(
 			round: u32,
 		) -> impl Iterator<Item = (T::AccountId, PageIndex, SolutionOf<T::MinerConfig>)> {
@@ -634,9 +668,13 @@ pub mod pallet {
 		Registered(u32, T::AccountId, ElectionScore),
 		/// A page of solution solution with the given index has been stored for the given account.
 		Stored(u32, T::AccountId, PageIndex),
+		/// The given account has been rewarded with the given amount.
 		Rewarded(u32, T::AccountId, BalanceOf<T>),
+		/// The given account has been slashed with the given amount.
 		Slashed(u32, T::AccountId, BalanceOf<T>),
+		/// The given account has been discarded.
 		Discarded(u32, T::AccountId),
+		/// The given account has bailed.
 		Bailed(u32, T::AccountId),
 	}
 
@@ -659,7 +697,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Register oneself for an upcoming signed election.
-		#[pallet::weight(0)]
+		#[pallet::weight(SignedWeightsOf::<T>::register_eject())]
 		#[pallet::call_index(0)]
 		pub fn register(
 			origin: OriginFor<T>,
@@ -673,7 +711,6 @@ pub mod pallet {
 
 			let deposit = T::DepositBase::get();
 			let reward = T::RewardBase::get();
-			// TODO: we should also accumulate the fee for submit calls, maybe?
 			let fee = T::EstimateCallFee::estimate_call_fee(
 				&Call::register { claimed_score },
 				None.into(),
@@ -685,10 +722,15 @@ pub mod pallet {
 
 			T::Currency::hold(&HoldReason::SignedSubmission.into(), &who, deposit)?;
 			let round = Self::current_round();
-			let _ = Submissions::<T>::try_register(round, &who, new_metadata)?;
-
+			let discarded = Submissions::<T>::try_register(round, &who, new_metadata)?;
 			Self::deposit_event(Event::<T>::Registered(round, who, claimed_score));
-			Ok(().into())
+
+			// maybe refund.
+			if discarded {
+				Ok(().into())
+			} else {
+				Ok(Some(SignedWeightsOf::<T>::register_not_full()).into())
+			}
 		}
 
 		/// Submit a single page of a solution.
@@ -699,21 +741,27 @@ pub mod pallet {
 		///
 		/// Collects deposits from the signed origin based on [`Config::DepositBase`] and
 		/// [`Config::DepositPerPage`].
-		#[pallet::weight(0)]
+		#[pallet::weight(SignedWeightsOf::<T>::submit_page())]
 		#[pallet::call_index(1)]
 		pub fn submit_page(
 			origin: OriginFor<T>,
 			page: PageIndex,
-			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
+			maybe_solution: Option<Box<SolutionOf<T::MinerConfig>>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(crate::Pallet::<T>::current_phase().is_signed(), Error::<T>::PhaseNotSigned);
+			let is_set = maybe_solution.is_some();
 
 			let round = Self::current_round();
 			Submissions::<T>::try_mutate_page(round, &who, page, maybe_solution)?;
 			Self::deposit_event(Event::<T>::Stored(round, who, page));
 
-			Ok(().into())
+			// maybe refund.
+			if is_set {
+				Ok(().into())
+			} else {
+				Ok(Some(SignedWeightsOf::<T>::unset_page()).into())
+			}
 		}
 
 		/// Retract a submission.
@@ -721,7 +769,7 @@ pub mod pallet {
 		/// A portion of the deposit may be returned, based on the [`Config::BailoutGraceRatio`].
 		///
 		/// This will fully remove the solution from storage.
-		#[pallet::weight(0)]
+		#[pallet::weight(SignedWeightsOf::<T>::bail())]
 		#[pallet::call_index(2)]
 		#[transactional]
 		pub fn bail(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -763,6 +811,10 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			// this code is only called when at the boundary of phase transition, which is already
+			// captured by the parent pallet. No need for weight.
+			let weight_taken_into_account: Weight = Default::default();
+
 			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(now) {
 				let maybe_leader = Submissions::<T>::leader(Self::current_round());
 				sublog!(
@@ -771,6 +823,7 @@ pub mod pallet {
 					"signed validation started, sending validation start signal? {:?}",
 					maybe_leader.is_some()
 				);
+
 				// start an attempt to verify our best thing.
 				if maybe_leader.is_some() {
 					// defensive: signed phase has just began, verifier should be in a clear state
@@ -785,8 +838,7 @@ pub mod pallet {
 				<T::Verifier as AsynchronousVerifier>::stop();
 			}
 
-			// TODO: weight
-			Default::default()
+			weight_taken_into_account
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -797,7 +849,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	#[cfg(any(feature = "try-runtime", test))]
+	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
 	pub(crate) fn do_try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 		Submissions::<T>::sanity_check_round(Self::current_round())
 	}

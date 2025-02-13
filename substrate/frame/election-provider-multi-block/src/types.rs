@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use frame_support::{
-	BoundedVec, CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use sp_core::Get;
 use sp_std::{collections::btree_set::BTreeSet, fmt::Debug, prelude::*};
@@ -44,11 +44,16 @@ pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProvide
 pub type AssignmentOf<T> =
 	sp_npos_elections::Assignment<<T as MinerConfig>::AccountId, SolutionAccuracyOf<T>>;
 
+/// A paginated raw solution type.
+///
+/// This is the representation of a stored, unverified solution.
+///
+/// After feasibility, it is convered into `Supports`.
 #[derive(
 	TypeInfo,
 	Encode,
 	Decode,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	EqNoBound,
 	PartialEqNoBound,
@@ -58,67 +63,12 @@ pub type AssignmentOf<T> =
 #[codec(mel_bound(T: crate::Config))]
 #[scale_info(skip_type_params(T))]
 pub struct PagedRawSolution<T: MinerConfig> {
+	/// The individual pages.
 	pub solution_pages: BoundedVec<SolutionOf<T>, <T as MinerConfig>::Pages>,
+	/// The final claimed score post feasibility and concatenation of all apges.
 	pub score: ElectionScore,
+	/// The designated round.
 	pub round: u32,
-}
-
-/// A helper trait to deal with the page index of partial solutions.
-///
-/// This should only be called on the `Vec<Solution>` or similar types. If the solution is *full*,
-/// then it returns a normal iterator that is just mapping the index (usize) to `PageIndex`.
-///
-/// if the solution is partial, it shifts the indices sufficiently so that the most significant page
-/// of the solution matches with the most significant page of the snapshot onchain.
-pub trait Pagify<T> {
-	fn pagify(&self, bound: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, &T)> + '_>;
-	fn into_pagify(self, bound: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, T)>>;
-}
-
-impl<T> Pagify<T> for Vec<T> {
-	fn pagify(&self, desired_pages: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, &T)> + '_> {
-		Box::new(
-			self.into_iter()
-				.enumerate()
-				.map(|(p, s)| (p.saturated_into::<PageIndex>(), s))
-				.map(move |(p, s)| {
-					let desired_pages_usize = desired_pages as usize;
-					// TODO: this could be an error.
-					debug_assert!(self.len() <= desired_pages_usize);
-					let padding = desired_pages_usize.saturating_sub(self.len());
-					let new_page = p.saturating_add(padding.saturated_into::<PageIndex>());
-					(new_page, s)
-				}),
-		)
-	}
-
-	fn into_pagify(self, _: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, T)>> {
-		todo!()
-	}
-}
-
-pub trait PadSolutionPages: Sized {
-	fn pad_solution_pages(self, desired_pages: PageIndex) -> Self;
-}
-
-impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolutionPages
-	for BoundedVec<T, Bound>
-{
-	fn pad_solution_pages(self, desired_pages: PageIndex) -> Self {
-		let desired_pages_usize = (desired_pages).min(Bound::get()) as usize;
-		debug_assert!(self.len() <= desired_pages_usize);
-		if self.len() == desired_pages_usize {
-			return self
-		}
-
-		// we basically need to prepend the list with this many items.
-		let empty_slots = desired_pages_usize.saturating_sub(self.len());
-		let self_as_vec = sp_std::iter::repeat(Default::default())
-			.take(empty_slots)
-			.chain(self.into_iter())
-			.collect::<Vec<_>>();
-		self_as_vec.try_into().expect("sum of both iterators has at most `desired_pages_usize` items; `desired_pages_usize` is `min`-ed by `Bound`; conversion cannot fail; qed")
-	}
 }
 
 impl<T: MinerConfig> PagedRawSolution<T> {
@@ -147,6 +97,72 @@ impl<T: MinerConfig> PagedRawSolution<T> {
 			.iter()
 			.map(|page| page.edge_count())
 			.fold(0usize, |acc, x| acc.saturating_add(x))
+	}
+}
+
+/// A helper trait to deal with the page index of partial solutions.
+///
+/// This should only be called on the `Vec<Solution>` or similar types. If the solution is *full*,
+/// then it returns a normal iterator that is just mapping the index (usize) to `PageIndex`.
+///
+/// if the solution is partial, it shifts the indices sufficiently so that the most significant page
+/// of the solution matches with the most significant page of the snapshot onchain.
+///
+/// See the tests below for examples.
+pub trait Pagify<T> {
+	/// Pagify a reference.
+	fn pagify(&self, bound: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, &T)> + '_>;
+	/// Consume and pagify
+	fn into_pagify(self, bound: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, T)>>;
+}
+
+impl<T> Pagify<T> for Vec<T> {
+	fn pagify(&self, desired_pages: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, &T)> + '_> {
+		Box::new(
+			self.into_iter()
+				.enumerate()
+				.map(|(p, s)| (p.saturated_into::<PageIndex>(), s))
+				.map(move |(p, s)| {
+					let desired_pages_usize = desired_pages as usize;
+					// TODO: this could be an error.
+					debug_assert!(self.len() <= desired_pages_usize);
+					let padding = desired_pages_usize.saturating_sub(self.len());
+					let new_page = p.saturating_add(padding.saturated_into::<PageIndex>());
+					(new_page, s)
+				}),
+		)
+	}
+
+	fn into_pagify(self, _: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, T)>> {
+		todo!()
+	}
+}
+
+/// Helper trait to pad a partial solution such that the leftover pages are filled with zero.
+///
+/// See the tests below for examples.
+pub trait PadSolutionPages: Sized {
+	/// Pad the solution to the given number of pages.
+	fn pad_solution_pages(self, desired_pages: PageIndex) -> Self;
+}
+
+impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolutionPages
+	for BoundedVec<T, Bound>
+{
+	fn pad_solution_pages(self, desired_pages: PageIndex) -> Self {
+		let desired_pages_usize = (desired_pages).min(Bound::get()) as usize;
+		debug_assert!(self.len() <= desired_pages_usize);
+		if self.len() == desired_pages_usize {
+			return self
+		}
+
+		// we basically need to prepend the list with this many items.
+		let empty_slots = desired_pages_usize.saturating_sub(self.len());
+		let self_as_vec = sp_std::iter::repeat(Default::default())
+			.take(empty_slots)
+			.chain(self.into_iter())
+			.collect::<Vec<_>>();
+		self_as_vec.try_into().expect("sum of both iterators has at most `desired_pages_usize` items; `desired_pages_usize` is `min`-ed by `Bound`; conversion cannot fail; qed")
 	}
 }
 

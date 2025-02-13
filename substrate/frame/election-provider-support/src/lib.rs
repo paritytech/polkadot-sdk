@@ -331,7 +331,7 @@ pub trait ElectionDataProvider {
 		page: PageIndex,
 	) -> data_provider::Result<Vec<Self::AccountId>>;
 
-	/// A state-less version of [`Self::electing_targets`].
+	/// A state-less version of [`Self::electable_targets`].
 	///
 	/// An election-provider that only uses 1 page should use this.
 	fn electable_targets_stateless(
@@ -388,6 +388,9 @@ pub trait ElectionDataProvider {
 		_target_stake: Option<VoteWeight>,
 	) {
 	}
+
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn set_next_election(_to: u32) {}
 
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
 	/// else a noop.

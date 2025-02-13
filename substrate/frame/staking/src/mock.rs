@@ -226,7 +226,8 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 parameter_types! {
 	// default is single page EP.
 	pub static Pages: PageIndex = 1;
-	pub static MaxBackersPerWinner: u32 = 10_000;
+	// Should be large enough to pass all tests, but not too big to cause benchmarking tests to be too slow.
+	pub static MaxBackersPerWinner: u32 = 256;
 	// If set, the `SingleOrMultipageElectionProvider` will return these exact values, per page
 	// index. If not, it will behave is per the code.
 	pub static CustomElectionSupports: Option<Vec<Result<BoundedSupportsOf<<Test as Config>::ElectionProvider>, onchain::Error>>> = None;
@@ -239,7 +240,7 @@ impl<
 		SP: ElectionProvider<
 			AccountId = AccountId,
 			MaxWinnersPerPage = MaxWinnersPerPage,
-			MaxBackersPerWinner = ConstU32<{ u32::MAX }>,
+			MaxBackersPerWinner = MaxBackersPerWinner,
 			Error = onchain::Error,
 		>,
 	> ElectionProvider for SingleOrMultipageElectionProvider<SP>
@@ -247,7 +248,7 @@ impl<
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
-	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type Pages = Pages;
 	type DataProvider = Staking;
 	type Error = onchain::Error;
@@ -300,7 +301,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type WeightInfo = ();
 	type Bounds = ElectionsBounds;
 	type Sort = ConstBool<true>;
-	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 }
 
@@ -364,6 +365,8 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type DisablingStrategy =
 		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
+	type MaxInvulnerables = ConstU32<20>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -397,7 +400,7 @@ pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
 	minimum_validator_count: u32,
-	invulnerables: Vec<AccountId>,
+	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
 	has_stakers: bool,
 	initialize_first_session: bool,
 	pub min_nominator_bond: Balance,
@@ -415,7 +418,7 @@ impl Default for ExtBuilder {
 			validator_count: 2,
 			minimum_validator_count: 0,
 			balance_factor: 1,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			has_stakers: true,
 			initialize_first_session: true,
 			min_nominator_bond: ExistentialDeposit::get(),
@@ -449,7 +452,8 @@ impl ExtBuilder {
 		self
 	}
 	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-		self.invulnerables = invulnerables;
+		self.invulnerables = BoundedVec::try_from(invulnerables)
+			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables");
 		self
 	}
 	pub fn session_per_era(self, length: SessionIndex) -> Self {

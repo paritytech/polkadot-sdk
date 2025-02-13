@@ -357,15 +357,13 @@ pub fn testnet_genesis(
 	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts);
 	const MAX_COLLECTIVE_SIZE: usize = 50;
-	let dev_stakers = if cfg!(feature = "staking-playground") {
+	let dev_stakers = {
 		let random_validators =
 			std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
 		let random_nominators = std::option_env!("NOMINATORS")
 			.map(|s| s.parse::<u32>().unwrap())
 			.unwrap_or(3000);
 		Some((random_validators, random_nominators))
-	} else {
-		None
 	};
 
 	serde_json::json!({
@@ -392,7 +390,7 @@ pub fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 		"staking": {
-			"validatorCount": std::option_env!("VAL_COUNT").map(|v| v.parse::<u32>().unwrap()).unwrap_or((initial_authorities.len()/2usize) as u32),
+			"validatorCount": std::option_env!("VALIDATORS").map(|v| v.parse::<u32>().unwrap()).unwrap_or(10),
 			"minimumValidatorCount": 10,
 			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			"slashRewardFraction": Perbill::from_percent(10),

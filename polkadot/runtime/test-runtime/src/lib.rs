@@ -403,6 +403,8 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxValidatorSet = MaxAuthorities;
+	type MaxInvulnerables = ConstU32<20>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 parameter_types! {
@@ -662,7 +664,6 @@ impl SendXcm for DummyXcmSender {
 impl coretime::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Runtime>;
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;

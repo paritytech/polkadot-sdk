@@ -685,6 +685,7 @@ pub mod pallet {
 		/// Maximum number of voters that can support a winner in an election solution.
 		///
 		/// This is needed to ensure election computation is bounded.
+		#[pallet::constant]
 		type MaxBackersPerWinner: Get<u32>;
 
 		/// Something that calculates the signed deposit base based on the signed submissions queue

@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -166,7 +166,6 @@ mod feasibility_check {
 
 				// First, check that voter at index 11 (40) actually voted for 3 (40) -- this is
 				// self vote. Then, change the vote to 2 (30).
-
 				assert_eq!(
 					paged.solution_pages[0]
 						.votes1
@@ -655,7 +654,7 @@ mod async_verification {
 			let paged = mine_full_solution().unwrap();
 
 			// our minimum score is our score, just a bit better.
-			let mut better_score = paged.score.clone();
+			let mut better_score = paged.score;
 			better_score.minimal_stake += 1;
 			<VerifierPallet as Verifier>::set_minimum_score(better_score);
 
