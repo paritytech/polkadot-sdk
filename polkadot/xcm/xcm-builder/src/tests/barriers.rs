@@ -251,6 +251,22 @@ fn allow_explicit_unpaid_should_work() {
 
 	let mut message = Xcm::<()>::builder_unsafe()
 		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited((Parent, 100u128))
+		.clear_origin()
+		.unpaid_execution(Unlimited, None)
+		.build();
+
+	let result =
+		AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+			&Parent.into(),
+			message.inner_mut(),
+			Weight::from_parts(40, 40),
+			&mut props(Weight::zero()),
+		);
+	assert_eq!(result, Err(ProcessMessageError::Overweight(Weight::from_parts(40, 40))));
+
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
 		.clear_origin()
 		.build();
 
