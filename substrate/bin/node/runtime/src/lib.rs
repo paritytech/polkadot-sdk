@@ -935,7 +935,7 @@ pub(crate) mod multi_block_impls {
 	);
 
 	parameter_types! {
-		pub const Pages: u32 = 64;
+		pub const Pages: u32 = 32;
 		// nominators snapshot size
 		pub VoterSnapshotPerBlock: u32 = 22500 / Pages::get();
 		// validator snapshot size
@@ -943,7 +943,7 @@ pub(crate) mod multi_block_impls {
 		pub SignedPhase: u32 = 3 * EPOCH_DURATION_IN_BLOCKS / 4;
 		// 2 signed solutions to be validate
 		pub SignedValidation: u32 = Pages::get() * 2;
-		pub UnsignedPhase: u32 = 10;
+		pub UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 		pub MaxWinnersPerPage: u32 = 1000;
 		pub MaxBackersPerWinner: u32 = 128;
 		pub MaxExposurePageSize: u32 = 32;
@@ -987,7 +987,7 @@ pub(crate) mod multi_block_impls {
 		type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 		type Verifier = MultiBlockVerifier;
 		type MinerConfig = Self;
-		type WeightInfo = multi_block::zero_weights::AllZeroWeights;
+		type WeightInfo = multi_block::weights::AllZeroWeights;
 	}
 
 	impl multi_block::verifier::Config for Runtime {
@@ -997,7 +997,7 @@ pub(crate) mod multi_block_impls {
 		type RuntimeEvent = RuntimeEvent;
 		type SolutionDataProvider = MultiBlockSigned;
 		type SolutionImprovementThreshold = ();
-		type WeightInfo = multi_block::zero_weights::AllZeroWeights;
+		type WeightInfo = multi_block::weights::AllZeroWeights;
 	}
 
 	parameter_types! {
@@ -1017,7 +1017,7 @@ pub(crate) mod multi_block_impls {
 
 		type RuntimeEvent = RuntimeEvent;
 		type RuntimeHoldReason = RuntimeHoldReason;
-		type WeightInfo = multi_block::zero_weights::AllZeroWeights;
+		type WeightInfo = multi_block::weights::AllZeroWeights;
 	}
 
 	impl multi_block::unsigned::Config for Runtime {
@@ -1027,7 +1027,7 @@ pub(crate) mod multi_block_impls {
 		// TODO: this needs to be an educated number: "estimate mining time per page * pages"
 		type OffchainRepeat = ConstU32<5>;
 
-		type WeightInfo = multi_block::zero_weights::AllZeroWeights;
+		type WeightInfo = multi_block::weights::AllZeroWeights;
 	}
 }
 
@@ -1059,9 +1059,9 @@ parameter_types! {
 	/// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
 	/// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(5000.into()).targets_count(10.into()).build();
+		.voters_count(10_000.into()).targets_count(1_500.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(1000.into()).targets_count(1000.into()).build();
+		.voters_count(5_000.into()).targets_count(1_250.into()).build();
 
 	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }

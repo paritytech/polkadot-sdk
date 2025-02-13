@@ -69,22 +69,19 @@
 //! A future improvement should keep track of submitters, and report a slash if it occurs. Or, if
 //! the signed process is bullet-proof, we can be okay with the status quo.
 
+/// Export weights
+pub use crate::weights::measured::pallet_election_provider_multi_block_unsigned::*;
 /// Exports of this pallet
 pub use pallet::*;
-pub use weights::*;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 /// The miner.
 pub mod miner;
 
-/// Weights of the pallet.
-pub mod weights;
-
 #[frame_support::pallet]
 mod pallet {
-	use super::weights::WeightInfo;
+	use super::WeightInfo;
 	use crate::{
 		types::*,
 		unsigned::miner::{self},

@@ -75,9 +75,7 @@ use sp_core::Get;
 use sp_npos_elections::ElectionScore;
 use sp_std::{fmt::Debug, prelude::*};
 
-/// Weights of this pallet.
-pub mod weights;
-pub use weights::*;
+pub use crate::weights::measured::pallet_election_provider_multi_block_verifier::*;
 
 /// Errors that can happen in the feasibility check.
 #[derive(Debug, Eq, PartialEq, codec::Encode, codec::Decode, scale_info::TypeInfo, Clone)]

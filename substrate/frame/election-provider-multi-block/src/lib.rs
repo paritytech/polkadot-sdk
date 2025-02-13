@@ -210,12 +210,10 @@ pub mod unsigned;
 pub mod verifier;
 /// The weight module
 pub mod weights;
-/// The zero weights module. These are only for testing.
-pub mod zero_weights;
 
 pub use pallet::*;
 pub use types::*;
-pub use weights::WeightInfo;
+pub use weights::measured::pallet_election_provider_multi_block::WeightInfo;
 
 /// A fallback implementation that transitions the pallet to the emergency phase.
 pub struct InitiateEmergencyPhase<T>(sp_std::marker::PhantomData<T>);

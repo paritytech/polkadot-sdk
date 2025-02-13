@@ -361,7 +361,9 @@ pub fn testnet_genesis(
 	};
 
 	let validator_count = if cfg!(feature = "staking-playground") {
-		std::option_env!("VALIDATORS").map(|v| v.parse::<u32>().unwrap()).unwrap_or(10)
+		std::option_env!("VALIDATOR_COUNT")
+			.map(|v| v.parse::<u32>().unwrap())
+			.unwrap_or(100)
 	} else {
 		initial_authorities.len() as u32
 	};
