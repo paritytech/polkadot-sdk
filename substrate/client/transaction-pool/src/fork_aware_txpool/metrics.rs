@@ -342,7 +342,7 @@ impl MetricsRegistrant for Metrics {
 /// Messages used to report and compute event metrics.
 enum EventMetricsMessage<Hash, BlockHash> {
 	/// Message indicating a transaction has been submitted, including the timestamp
-	/// and its.
+	/// and its hash.
 	Submitted(Instant, Hash),
 	/// Message indicating the new status of a transaction, including the timestamp and transaction
 	/// hash.
