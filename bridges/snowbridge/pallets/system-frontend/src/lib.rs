@@ -241,14 +241,11 @@ pub mod pallet {
 		pub fn burn_for_teleport(origin: &Location, fee: &Asset) -> DispatchResult {
 			let dummy_context =
 				XcmContext { origin: None, message_id: Default::default(), topic: None };
-
 			T::AssetTransactor::can_check_out(origin, fee, &dummy_context)
 				.map_err(|_| Error::<T>::FundsUnavailable)?;
 			T::AssetTransactor::check_out(origin, fee, &dummy_context);
-
 			T::AssetTransactor::withdraw_asset(fee, origin, None)
 				.map_err(|_| Error::<T>::FundsUnavailable)?;
-
 			Ok(())
 		}
 	}
