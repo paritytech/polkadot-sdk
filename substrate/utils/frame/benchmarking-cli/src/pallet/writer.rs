@@ -25,6 +25,8 @@ use std::{
 
 use inflector::Inflector;
 use itertools::Itertools;
+use log::log;
+use sc_cli::SanityWeightCheck;
 use serde::Serialize;
 
 use crate::{
@@ -38,7 +40,10 @@ use crate::{
 use frame_benchmarking::{
 	Analysis, AnalysisChoice, BenchmarkBatchSplitResults, BenchmarkResult, BenchmarkSelector,
 };
-use frame_support::traits::StorageInfo;
+use frame_support::{
+	traits::StorageInfo,
+	weights::{RuntimeDbWeight, Weight},
+};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Zero;
 
@@ -62,7 +67,7 @@ struct TemplateData {
 
 // This was the final data we have about each benchmark.
 #[derive(Serialize, Default, Debug, Clone, PartialEq)]
-struct BenchmarkData {
+pub(crate) struct BenchmarkData {
 	name: String,
 	components: Vec<Component>,
 	#[serde(serialize_with = "string_serialize")]
@@ -119,7 +124,7 @@ struct ComponentSlope {
 }
 
 // Small helper to create an `io::Error` from a string.
-fn io_error(s: &str) -> std::io::Error {
+pub(crate) fn io_error(s: &str) -> std::io::Error {
 	use std::io::{Error, ErrorKind};
 	Error::new(ErrorKind::Other, s)
 }
@@ -132,7 +137,7 @@ fn io_error(s: &str) -> std::io::Error {
 // p1 -> [b1, b2, b3]
 // p2 -> [b1, b2]
 // ```
-fn map_results(
+pub(crate) fn map_results(
 	batches: &[BenchmarkBatchSplitResults],
 	storage_info: &[StorageInfo],
 	component_ranges: &ComponentRangeMap,
@@ -173,6 +178,104 @@ fn map_results(
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
+}
+
+// Calculates the total maximum weight of an extrinsic (if present, based on the max. component
+// value) and compares it with the max. extrinsic weight allowed in a single block.
+//
+// `max_extrinsic_weight` & `db_weight` are obtained from the runtime configuration.
+pub(crate) fn sanity_weight_check(
+	all_results: HashMap<(String, String), Vec<BenchmarkData>>,
+	max_extrinsic_weight: Weight,
+	db_weight: RuntimeDbWeight,
+	sanity_weight_check: SanityWeightCheck,
+) -> Result<(), std::io::Error> {
+	let log_level = match sanity_weight_check {
+		SanityWeightCheck::Error => log::Level::Error,
+		SanityWeightCheck::Warning => log::Level::Warn,
+		SanityWeightCheck::Ignore => return Ok(()),
+	};
+
+	// Helper function to return max. component value (i.e. max. complexity parameter).
+	fn max_component(parameter: &ComponentSlope, component_ranges: &Vec<ComponentRange>) -> u64 {
+		for component in component_ranges {
+			if parameter.name == component.name {
+				return component.max.into()
+			}
+		}
+		0
+	}
+
+	log::info!(
+		"Starting the Sanity Weight Check:\nMaximum extrinsic weight value: {:?}\nResults:\n",
+		max_extrinsic_weight
+	);
+	let mut sanity_weight_check_passed = true;
+	// Loop through all benchmark results.
+	for ((pallet, _), results) in all_results.iter() {
+		for result in results {
+			// Constant `ref_time` & `pov_size`.
+			let mut total_weight = Weight::from_parts(
+				result.base_weight.try_into().unwrap(),
+				result.base_calculated_proof_size.try_into().unwrap(),
+			);
+			// `ref_time` multiplied by complexity parameter.
+			for component in &result.component_weight {
+				total_weight.saturating_accrue(
+					Weight::from_parts(component.slope.try_into().unwrap(), 0)
+						.saturating_mul(max_component(&component, &result.component_ranges)),
+				);
+			}
+			// Constant storage reads.
+			total_weight.saturating_accrue(db_weight.reads(result.base_reads.try_into().unwrap()));
+
+			// Storage reads multiplied by complexity parameter.
+			for component in &result.component_reads {
+				total_weight.saturating_accrue(
+					db_weight
+						.reads(component.slope.try_into().unwrap())
+						.saturating_mul(max_component(&component, &result.component_ranges)),
+				);
+			}
+			// Constant storage writes.
+			total_weight
+				.saturating_accrue(db_weight.writes(result.base_writes.try_into().unwrap()));
+
+			// Storage writes multiplied by complexity parameter.
+			for component in &result.component_writes {
+				total_weight.saturating_accrue(
+					db_weight
+						.writes(component.slope.try_into().unwrap())
+						.saturating_mul(max_component(&component, &result.component_ranges)),
+				);
+			}
+			// `pov_size` multiplied by complexity parameter.
+			for component in &result.component_calculated_proof_size {
+				total_weight.saturating_accrue(
+					Weight::from_parts(0, component.slope.try_into().unwrap())
+						.saturating_mul(max_component(&component, &result.component_ranges)),
+				);
+			}
+			// Comparing (worst case scenario) the extrinsic weight against the maximum extrinsic
+			// weight.
+			if total_weight.any_gt(max_extrinsic_weight) {
+				sanity_weight_check_passed = false;
+				log!(log_level, " The following extrinsic exceeds the maximum extrinsic weight: \n - '{pallet}:{}': {:?}\nPercentage of max. extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)\n",
+				result.name,
+				total_weight,
+				(total_weight.ref_time() as f64 / max_extrinsic_weight.ref_time() as f64) * 100.0,
+				(total_weight.proof_size() as f64 / max_extrinsic_weight.proof_size() as f64) * 100.0,
+			);
+			}
+		}
+	}
+	if !sanity_weight_check_passed && sanity_weight_check == SanityWeightCheck::Error {
+		return Err(io_error(&String::from(
+			"One or more extrinsics exceed the maximum extrinsic weight",
+		)))
+	}
+
+	Ok(())
 }
 
 // Get an iterator of errors.
@@ -378,13 +481,10 @@ fn get_benchmark_data(
 
 /// Create weight file from benchmark data and Handlebars template.
 pub(crate) fn write_results(
-	batches: &[BenchmarkBatchSplitResults],
-	storage_info: &[StorageInfo],
-	component_ranges: &HashMap<(String, String), Vec<ComponentRange>>,
-	pov_modes: PovModesMap,
-	default_pov_mode: PovEstimationMode,
 	path: &PathBuf,
 	cmd: &PalletCmd,
+	analysis_choice: AnalysisChoice,
+	all_results: &HashMap<(String, String), Vec<BenchmarkData>>,
 ) -> Result<(), sc_cli::Error> {
 	// Use custom template if provided.
 	let template: String = match &cmd.template {
@@ -406,12 +506,6 @@ pub(crate) fn write_results(
 
 	// Full CLI args passed to trigger the benchmark.
 	let args = std::env::args().collect::<Vec<String>>();
-
-	// Which analysis function should be used when outputting benchmarks
-	let analysis_choice: AnalysisChoice =
-		cmd.output_analysis.clone().try_into().map_err(io_error)?;
-	let pov_analysis_choice: AnalysisChoice =
-		cmd.output_pov_analysis.clone().try_into().map_err(io_error)?;
 
 	if cmd.additional_trie_layers > 4 {
 		println!(
@@ -441,18 +535,6 @@ pub(crate) fn write_results(
 	// Don't HTML escape any characters.
 	handlebars.register_escape_fn(|s| -> String { s.to_string() });
 
-	// Organize results by pallet into a JSON map
-	let all_results = map_results(
-		batches,
-		storage_info,
-		component_ranges,
-		pov_modes,
-		default_pov_mode,
-		&analysis_choice,
-		&pov_analysis_choice,
-		cmd.worst_case_map_values,
-		cmd.additional_trie_layers,
-	)?;
 	let mut created_files = Vec::new();
 
 	for ((pallet, instance), results) in all_results.iter() {
@@ -1246,6 +1328,50 @@ mod test {
 			bounded_pallet_benchmark.component_calculated_proof_size,
 			vec![ComponentSlope { name: "d".into(), slope: 15042, error: 0 }]
 		);
+	}
+
+	#[test]
+	fn sanity_weight_check_works() {
+		// Create benchmark results that will fail the sanity weight check.
+		let mapped_results = map_results(
+			&[test_data(b"first", b"first", BenchmarkParameter::a, 10, 3)],
+			&test_storage_info(),
+			&Default::default(),
+			Default::default(),
+			PovEstimationMode::MaxEncodedLen,
+			&AnalysisChoice::default(),
+			&AnalysisChoice::MedianSlopes,
+			1_000_000,
+			0,
+		)
+		.unwrap();
+
+		// Flag set to `error`.
+		assert!(sanity_weight_check(
+			mapped_results.clone(),
+			Weight::from_parts(20_000, 1_000_000),
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			SanityWeightCheck::Error,
+		)
+		.is_err());
+
+		// Flag set to `warning`.
+		assert!(sanity_weight_check(
+			mapped_results.clone(),
+			Weight::from_parts(20_000, 1_000_000),
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			SanityWeightCheck::Warning,
+		)
+		.is_ok());
+
+		// Flag set to `ignore`.
+		assert!(sanity_weight_check(
+			mapped_results,
+			Weight::from_parts(20_000, 1_000_000),
+			RuntimeDbWeight { read: 1000, write: 1000 },
+			SanityWeightCheck::Ignore,
+		)
+		.is_ok());
 	}
 
 	#[test]
