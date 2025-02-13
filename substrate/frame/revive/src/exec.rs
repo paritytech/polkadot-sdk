@@ -736,24 +736,23 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
 			if_tracing(|t| {
-				let address =
-					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default();
-				let dest = T::AddressMapper::to_address(&dest);
-				t.enter_child_span(address, dest, false, false, value, &input_data, Weight::zero());
+				t.enter_child_span(
+					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
+					T::AddressMapper::to_address(&dest),
+					false,
+					false,
+					value,
+					&input_data,
+					Weight::zero(),
+				);
+				match result {
+					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+				}
 			});
 
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
-			match result {
-				Ok(ref output) => {
-					if_tracing(|t| {
-						t.exit_child_span(&output, Weight::zero());
-					});
-				},
-				Err(e) => {
-					if_tracing(|t| t.exit_child_span_with_error(e.error.into(), Weight::zero()));
-				},
-			}
 			result
 		}
 	}
@@ -874,61 +873,75 @@ where
 		read_only: bool,
 		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, E)>, ExecError> {
-		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
-			FrameArgs::Call { dest, cached_info, delegated_call } => {
-				let contract = if let Some(contract) = cached_info {
-					contract
-				} else {
-					if let Some(contract) =
-						<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
-					{
+		let (account_id, contract_info, executable, delegate, entry_point, nested_gas) =
+			match frame_args {
+				FrameArgs::Call { dest, cached_info, delegated_call } => {
+					let contract = if let Some(contract) = cached_info {
 						contract
 					} else {
-						return Ok(None);
-					}
-				};
-
-				let (executable, delegate_caller) =
-					if let Some(DelegatedCall { executable, caller, callee }) = delegated_call {
-						(executable, Some(DelegateInfo { caller, callee }))
-					} else {
-						(E::from_storage(contract.code_hash, gas_meter)?, None)
+						if let Some(contract) =
+							<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
+						{
+							contract
+						} else {
+							return Ok(None);
+						}
 					};
 
-				(dest, contract, executable, delegate_caller, ExportedFunction::Call)
-			},
-			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
-				let deployer = T::AddressMapper::to_address(&sender);
-				let account_nonce = <System<T>>::account_nonce(&sender);
-				let address = if let Some(salt) = salt {
-					address::create2(&deployer, executable.code(), input_data, salt)
-				} else {
-					use sp_runtime::Saturating;
-					address::create1(
-						&deployer,
-						// the Nonce from the origin has been incremented pre-dispatch, so we
-						// need to subtract 1 to get the nonce at the time of the call.
-						if origin_is_caller {
-							account_nonce.saturating_sub(1u32.into()).saturated_into()
-						} else {
-							account_nonce.saturated_into()
-						},
+					let mut nested_gas = gas_meter.nested(gas_limit);
+					let (executable, delegate_caller) = if let Some(DelegatedCall {
+						executable,
+						caller,
+						callee,
+					}) = delegated_call
+					{
+						(executable, Some(DelegateInfo { caller, callee }))
+					} else {
+						(E::from_storage(contract.code_hash, &mut nested_gas)?, None)
+					};
+
+					(
+						dest,
+						contract,
+						executable,
+						delegate_caller,
+						ExportedFunction::Call,
+						nested_gas,
 					)
-				};
-				let contract = ContractInfo::new(
-					&address,
-					<System<T>>::account_nonce(&sender),
-					*executable.code_hash(),
-				)?;
-				(
-					T::AddressMapper::to_fallback_account_id(&address),
-					contract,
-					executable,
-					None,
-					ExportedFunction::Constructor,
-				)
-			},
-		};
+				},
+				FrameArgs::Instantiate { sender, executable, salt, input_data } => {
+					let deployer = T::AddressMapper::to_address(&sender);
+					let account_nonce = <System<T>>::account_nonce(&sender);
+					let address = if let Some(salt) = salt {
+						address::create2(&deployer, executable.code(), input_data, salt)
+					} else {
+						use sp_runtime::Saturating;
+						address::create1(
+							&deployer,
+							// the Nonce from the origin has been incremented pre-dispatch, so we
+							// need to subtract 1 to get the nonce at the time of the call.
+							if origin_is_caller {
+								account_nonce.saturating_sub(1u32.into()).saturated_into()
+							} else {
+								account_nonce.saturated_into()
+							},
+						)
+					};
+					let contract = ContractInfo::new(
+						&address,
+						<System<T>>::account_nonce(&sender),
+						*executable.code_hash(),
+					)?;
+					(
+						T::AddressMapper::to_fallback_account_id(&address),
+						contract,
+						executable,
+						None,
+						ExportedFunction::Constructor,
+						gas_meter.nested(gas_limit),
+					)
+				},
+			};
 
 		let frame = Frame {
 			delegate,
@@ -936,7 +949,7 @@ where
 			contract_info: CachedContract::Cached(contract_info),
 			account_id,
 			entry_point,
-			nested_gas: gas_meter.nested(gas_limit),
+			nested_gas,
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,
@@ -1414,13 +1427,28 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				Self::transfer_from_origin(
+				let result = Self::transfer_from_origin(
 					&self.origin,
 					&Origin::from_account_id(self.account_id().clone()),
 					&dest,
 					value,
-				)?;
-				Ok(())
+				);
+				if_tracing(|t| {
+					t.enter_child_span(
+						T::AddressMapper::to_address(self.account_id()),
+						T::AddressMapper::to_address(&dest),
+						false,
+						false,
+						value,
+						&input_data,
+						Weight::zero(),
+					);
+					match result {
+						Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+						Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+					}
+				});
+				result.map(|_| ())
 			}
 		};
 
