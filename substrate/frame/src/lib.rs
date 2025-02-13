@@ -204,8 +204,8 @@ pub mod prelude {
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
 		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+		NoOpPoll, OnRuntimeUpgrade, OnTimestampSet, OneSessionHandler, RankedMembers,
+		RankedMembersSwapHandler, VariantCount, VariantCountOf,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -221,7 +221,13 @@ pub mod prelude {
 	pub use super::derive::*;
 
 	/// All hashing related things
-	pub use super::hashing::*;
+	pub use super::cryptography::*;
+
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec};
+
+	/// Consensus types needed in runtime construction.
+	pub use super::consensus::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -232,12 +238,9 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, IsMember, ReduceBy,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
-
-	/// Bounded storage related types.
-	pub use sp_runtime::{BoundedSlice, BoundedVec};
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -515,7 +518,10 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::{BuildStorage, DispatchError};
+		pub use sp_runtime::{
+			testing::{TestSignature, UintAuthorityId},
+			BuildStorage, DispatchError,
+		};
 	}
 }
 
@@ -537,6 +543,16 @@ pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }
 
+/// Consensus types
+///
+/// This is already part of the ['prelude`].
+pub mod consensus {
+	pub use sp_consensus_aura::{
+		ed25519::AuthorityId, AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID,
+	};
+	pub use sp_runtime::{ConsensusEngineId, Digest, DigestItem};
+}
+
 /// All derive macros used in frame.
 ///
 /// This is already part of the [`prelude`].
@@ -551,8 +567,13 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+pub mod cryptography {
+	pub use sp_application_crypto::{BoundToRuntimeAppPublic, RuntimeAppPublic};
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		H160, H256, H512, U256, U512,
+	};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
@@ -561,7 +582,8 @@ pub mod hashing {
 /// This is already part of the [`prelude`].
 pub mod account {
 	pub use frame_support::traits::{
-		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+		AsEnsureOriginWithArg, ChangeMembers, DisabledValidators, EitherOfDiverse, FindAuthor,
+		InitializeMembers,
 	};
 	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }
@@ -591,6 +613,8 @@ pub mod deps {
 	pub use frame_executive;
 	#[cfg(feature = "runtime")]
 	pub use sp_api;
+	#[cfg(feature = "runtime")]
+	pub use sp_application_crypto;
 	#[cfg(feature = "runtime")]
 	pub use sp_block_builder;
 	#[cfg(feature = "runtime")]
