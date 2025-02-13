@@ -433,7 +433,7 @@ struct TransactionEventMetricsData {
 	retracted_seen: bool,
 	/// Timestamp when the transaction was submitted.
 	///
-	/// Used to to compute a time elapsed until events are reported.
+	/// Used to compute a time elapsed until events are reported.
 	submit_timestamp: Instant,
 }
 
