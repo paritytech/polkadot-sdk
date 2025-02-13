@@ -981,7 +981,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
 	pub(crate) fn apply_unapplied_slashes(active_era: EraIndex) {
-		// todo(ank4n): Make it multi block.
 		let mut slashes = UnappliedSlashes::<T>::iter_prefix(&active_era).take(1);
 		if let Some((key, slash)) = slashes.next() {
 			log!(
@@ -990,8 +989,8 @@ impl<T: Config> Pallet<T> {
 				slash,
 				active_era,
 			);
-			let slash_era = active_era.saturating_sub(T::SlashDeferDuration::get());
-			slashing::apply_slash::<T>(slash, slash_era);
+			let offence_era = active_era.saturating_sub(T::SlashDeferDuration::get());
+			slashing::apply_slash::<T>(slash, offence_era);
 			// remove the slash
 			UnappliedSlashes::<T>::remove(&active_era, &key);
 		}
@@ -1894,8 +1893,8 @@ where
 					OffenceRecord {
 						reporter: details.reporters.first().cloned(),
 						reported_era: active_era.index,
-						offence_era,
-						// there are cases of validator with no exposure, so we default to 1.
+						// there are cases of validator with no exposure, hence 0 page, so we
+						// saturate to avoid underflow.
 						exposure_page: exposure_overview.page_count.saturating_sub(1),
 						slash_fraction: *slash_fraction,
 						prior_slash_fraction,

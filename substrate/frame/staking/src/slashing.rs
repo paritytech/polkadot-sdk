@@ -237,11 +237,6 @@ pub struct OffenceRecord<AccountId> {
 	/// Era at which the offence was reported.
 	pub reported_era: EraIndex,
 
-	/// Era at which the offence actually occurred.
-
-	// todo(ank4n): redundant, can be removed.
-	pub offence_era: EraIndex,
-
 	/// The specific page of the validator's exposure currently being processed.
 	///
 	/// Since a validator's total exposure can span multiple pages, this field serves as a pointer

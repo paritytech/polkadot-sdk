@@ -8972,7 +8972,6 @@ mod paged_slashing {
 					slashing::OffenceRecord {
 						reporter: None,
 						reported_era: 2,
-						offence_era: 1,
 						// first page to be marked for processing.
 						exposure_page: expected_page_count - 1,
 						slash_fraction: Perbill::from_percent(10),
@@ -9019,7 +9018,6 @@ mod paged_slashing {
 						OffenceRecord {
 							reporter: None,
 							reported_era: 2,
-							offence_era: 1,
 							// page 3 is processed, next page to be processed is 2.
 							exposure_page: 2,
 							slash_fraction: Perbill::from_percent(10),
@@ -9059,7 +9057,6 @@ mod paged_slashing {
 						OffenceRecord {
 							reporter: None,
 							reported_era: 2,
-							offence_era: 1,
 							// page 2 is processed, next page to be processed is 1.
 							exposure_page: 1,
 							slash_fraction: Perbill::from_percent(10),
