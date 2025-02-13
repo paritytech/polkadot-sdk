@@ -203,10 +203,14 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+		tokens::{Fortitude, Precision},
+		Contains, Defensive, EitherOf, EstimateNextSessionRotation, Everything, IsSubType,
+		MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers,
+		RankedMembersSwapHandler, VariantCount, VariantCountOf,
 	};
+
+	// Reexport the entire `fungible` and `fungibles` modules to avoid conflicts.
+	pub use frame_support::traits::{fungible, fungibles};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -232,8 +236,9 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, IdentityLookup,
+		ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
@@ -284,6 +289,7 @@ pub mod benchmarking {
 		pub use super::shared::*;
 		pub use crate::prelude::*;
 		pub use frame_benchmarking::v2::*;
+		pub use frame_support::traits::UnfilteredDispatchable;
 	}
 }
 
@@ -326,9 +332,10 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, ensure, hypothetically, storage_alias,
+		assert_storage_noop, ensure, hypothetically, hypothetically_ok, storage_alias,
 	};
 
+	pub use frame_support::traits::Everything;
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
 	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
