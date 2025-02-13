@@ -1,0 +1,18 @@
+{
+	"name": "v5-tests",
+	"module": "index.ts",
+	"type": "module",
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5.0.0"
+	},
+	"dependencies": {
+		"@acala-network/chopsticks-testing": "^1.0.2",
+		"@polkadot-api/descriptors": "file:.papi/descriptors",
+		"@polkadot-labs/hdkd": "^0.0.11",
+		"polkadot-api": "^1.9.0"
+	}
+}
