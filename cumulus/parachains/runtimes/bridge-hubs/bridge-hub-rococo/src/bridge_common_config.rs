@@ -85,7 +85,7 @@ impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> fo
 		RelayerStakeLease,
 	>;
 	type Balance = Balance;
-	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_relayers_legacy::WeightInfo<Runtime>;
 }
 
 /// Allows collect and claim rewards for relayers
@@ -109,7 +109,7 @@ impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for 
 		RelayerStakeLease,
 	>;
 	type Balance = Balance;
-	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_relayers_permissionless_lanes::WeightInfo<Runtime>;
 }
 
 /// Add GRANDPA bridge pallet to track Rococo Bulletin chain.
