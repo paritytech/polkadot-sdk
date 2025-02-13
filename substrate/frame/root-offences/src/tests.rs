@@ -19,6 +19,7 @@ use super::*;
 use frame_support::{assert_err, assert_ok};
 use mock::{active_era, start_session, ExtBuilder, RootOffences, RuntimeOrigin, System, Test as T};
 use pallet_staking::asset;
+use crate::mock::advance_blocks;
 
 #[test]
 fn create_offence_fails_given_signed_origin() {
@@ -42,6 +43,10 @@ fn create_offence_works_given_root_origin() {
 		assert_ok!(RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone()));
 
 		System::assert_last_event(Event::OffenceCreated { offenders }.into());
+
+		// offence is processed in the following block.
+		advance_blocks(1);
+
 		// the slash should be applied right away.
 		assert_eq!(asset::staked::<T>(&11), 500);
 
@@ -65,6 +70,9 @@ fn create_offence_wont_slash_non_active_validators() {
 		assert_ok!(RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone()));
 
 		System::assert_last_event(Event::OffenceCreated { offenders }.into());
+
+		// advance to the next block so offence gets processed.
+		advance_blocks(1);
 
 		// so 31 didn't get slashed.
 		assert_eq!(asset::staked::<T>(&31), 500);

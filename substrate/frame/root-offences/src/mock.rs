@@ -28,7 +28,7 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, OneSessionHandler},
 	BoundedVec,
 };
-use pallet_staking::StakerStatus;
+use pallet_staking::{StakerStatus, BalanceOf};
 use sp_core::ConstBool;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
@@ -295,6 +295,11 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 			Timestamp::set_timestamp(bn * BLOCK_TIME + INIT_TIMESTAMP);
 		}),
 	);
+}
+
+/// Progress by n block.
+pub(crate) fn advance_blocks(n: u64) {
+	run_to_block(System::block_number() + n);
 }
 
 pub(crate) fn active_era() -> EraIndex {
