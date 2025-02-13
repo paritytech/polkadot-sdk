@@ -1,0 +1,33 @@
+[package]
+name = "sp-facade-apis"
+version = "0.0.1"
+license = "Apache-2.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Facade Runtime API definitions."
+
+[features]
+default = ["std", "decl-runtime-apis", "metadata"]
+
+# Enable this to expose a metadata() function which provides information
+# about the facade APIs defined within.
+metadata = ["dep:scale-info"]
+
+# Enable frame metadata being built from decl-runtime-apis.
+frame-metadata = ["sp-api?/frame-metadata"]
+
+# Enable this to run decl_runtime_apis to generate our facade Runtime API
+# definitions.
+decl-runtime-apis = ["dep:sp-api"]
+
+# This crate follows substrate deps and is expected to either be compiled
+# with std to the native target, or without std to wasm32-unknown-unknown.
+# Anything else will emit an error.
+std = ["sp-api?/std", "scale-info?/std"]
+
+[dependencies]
+sp-facade-apis-macro = { workspace = true }
+scale-info = { workspace = true, optional = true }
+sp-api = { workspace = true, optional = true }
