@@ -21,7 +21,7 @@
 use super::{
 	dropped_watcher::{MultiViewDroppedWatcherController, StreamOfDropped},
 	import_notification_sink::MultiViewImportNotificationSink,
-	metrics::MetricsLink as PrometheusMetrics,
+	metrics::{EventsMetricsCollector, MetricsLink as PrometheusMetrics},
 	multi_view_listener::MultiViewListener,
 	tx_mem_pool::{InsertionInfo, TxMemPool, TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER},
 	view::View,
@@ -143,6 +143,9 @@ where
 	/// Prometheus's metrics endpoint.
 	metrics: PrometheusMetrics,
 
+	/// Collector of transaction statuses updates, reports transaction events metrics.
+	events_metrics_collector: EventsMetricsCollector<ChainApi>,
+
 	/// Util tracking best and finalized block.
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
 
@@ -193,7 +196,7 @@ where
 		future_limits: crate::PoolLimit,
 		mempool_max_transactions_count: usize,
 	) -> (Self, ForkAwareTxPoolTask) {
-		let (listener, listener_task) = MultiViewListener::new_with_worker();
+		let (listener, listener_task) = MultiViewListener::new_with_worker(Default::default());
 		let listener = Arc::new(listener);
 
 		let (import_notification_sink, import_notification_sink_task) =
@@ -246,6 +249,7 @@ where
 				options,
 				is_validator: false.into(),
 				metrics: Default::default(),
+				events_metrics_collector: EventsMetricsCollector::default(),
 			},
 			combined_tasks,
 		)
@@ -316,8 +320,11 @@ where
 		finalized_hash: Block::Hash,
 	) -> Self {
 		let metrics = PrometheusMetrics::new(prometheus);
+		let (events_metrics_collector, event_metrics_task) =
+			EventsMetricsCollector::<ChainApi>::new_with_worker(metrics.clone());
 
-		let (listener, listener_task) = MultiViewListener::new_with_worker();
+		let (listener, listener_task) =
+			MultiViewListener::new_with_worker(events_metrics_collector.clone());
 		let listener = Arc::new(listener);
 
 		let (revalidation_queue, revalidation_task) =
@@ -339,6 +346,7 @@ where
 
 		let view_store =
 			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
+
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
 			mempool.clone(),
@@ -352,6 +360,7 @@ where
 				_ = revalidation_task => {},
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
+				_ = event_metrics_task => {},
 			}
 		}
 		.boxed();
@@ -370,6 +379,7 @@ where
 			import_notification_sink,
 			options,
 			metrics,
+			events_metrics_collector,
 			is_validator,
 		}
 	}
@@ -723,7 +733,10 @@ where
 			.iter()
 			.zip(xts)
 			.filter_map(|(result, xt)| {
-				result.as_ref().ok().map(|insertion| (insertion.source.clone(), xt))
+				result.as_ref().ok().map(|insertion| {
+					self.events_metrics_collector.report_submitted(&insertion);
+					(insertion.source.clone(), xt)
+				})
 			})
 			.collect::<Vec<_>>();
 
@@ -812,21 +825,21 @@ where
 		);
 		let xt = Arc::from(xt);
 
-		let InsertionInfo { hash: xt_hash, source: timed_source, .. } =
-			match self.mempool.push_watched(source, xt.clone()) {
-				Ok(result) => result,
-				Err(TxPoolApiError::ImmediatelyDropped) =>
-					self.attempt_transaction_replacement(source, true, xt.clone()).await?,
-				Err(e) => return Err(e.into()),
-			};
+		let insertion = match self.mempool.push_watched(source, xt.clone()) {
+			Ok(result) => result,
+			Err(TxPoolApiError::ImmediatelyDropped) =>
+				self.attempt_transaction_replacement(source, true, xt.clone()).await?,
+			Err(e) => return Err(e.into()),
+		};
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
+		self.events_metrics_collector.report_submitted(&insertion);
 
 		self.view_store
-			.submit_and_watch(at, timed_source, xt)
+			.submit_and_watch(at, insertion.source, xt)
 			.await
 			.inspect_err(|_| {
-				self.mempool.remove_transactions(&[xt_hash]);
+				self.mempool.remove_transactions(&[insertion.hash]);
 			})
 			.map(|mut outcome| {
 				self.mempool.update_transaction_priority(&outcome);
@@ -1286,6 +1299,12 @@ where
 		.into_iter()
 		.for_each(|enacted_log| {
 			pruned_log.extend(enacted_log);
+		});
+
+		self.metrics.report(|metrics| {
+			metrics
+				.unknown_from_block_import_txs
+				.inc_by(self.mempool.count_unknown_transactions(pruned_log.iter()) as _)
 		});
 
 		//resubmit

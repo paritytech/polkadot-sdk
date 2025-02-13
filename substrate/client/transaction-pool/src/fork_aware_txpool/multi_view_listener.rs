@@ -39,7 +39,10 @@ use std::{
 use tokio_stream::StreamMap;
 use tracing::trace;
 
-use super::dropped_watcher::{DroppedReason, DroppedTransaction};
+use super::{
+	dropped_watcher::{DroppedReason, DroppedTransaction},
+	metrics::EventsMetricsCollector,
+};
 
 /// A side channel allowing to control the external stream instance (one per transaction) with
 /// [`ControllerCommand`].
@@ -114,21 +117,23 @@ where
 }
 
 impl<ChainApi> Into<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>>
-	for TransactionStatusUpdate<ChainApi>
+	for &TransactionStatusUpdate<ChainApi>
 where
 	ChainApi: graph::ChainApi,
 {
 	fn into(self) -> TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>> {
 		match self {
-			Self::TransactionInvalidated(..) => TransactionStatus::Invalid,
-			Self::TransactionFinalized(_, block, index) =>
-				TransactionStatus::Finalized((block, index)),
-			Self::TransactionBroadcasted(_, peers) => TransactionStatus::Broadcast(peers),
-			Self::TransactionDropped(_, DroppedReason::LimitsEnforced) =>
+			TransactionStatusUpdate::TransactionInvalidated(_) => TransactionStatus::Invalid,
+			TransactionStatusUpdate::TransactionFinalized(_, hash, index) =>
+				TransactionStatus::Finalized((*hash, *index)),
+			TransactionStatusUpdate::TransactionBroadcasted(_, peers) =>
+				TransactionStatus::Broadcast(peers.clone()),
+			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Usurped(by)) =>
+				TransactionStatus::Usurped(*by),
+			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::LimitsEnforced) =>
 				TransactionStatus::Dropped,
-			Self::TransactionDropped(_, DroppedReason::Usurped(by)) =>
-				TransactionStatus::Usurped(by),
-			Self::TransactionDropped(_, DroppedReason::Invalid) => TransactionStatus::Invalid,
+			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Invalid) =>
+				TransactionStatus::Invalid,
 		}
 	}
 }
@@ -308,7 +313,7 @@ where
 		&mut self,
 		request: TransactionStatusUpdate<ChainApi>,
 	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
-		let status = Into::<TransactionStatus<_, _>>::into(request);
+		let status = Into::<TransactionStatus<_, _>>::into(&request);
 		status.is_final().then(|| self.terminate = true);
 		return Some(status);
 	}
@@ -419,12 +424,15 @@ where
 	/// - transaction commands,
 	/// to multiple individual per-transaction external watcher contexts.
 	///
-	/// The future shall be polled by instantiator of `MultiViewListener`.
+	/// It also reports transactions statuses updates to the provided `events_metrics_collector`.
+	///
+	/// The returned future shall be polled by instantiator of `MultiViewListener`.
 	async fn task(
 		external_watchers_tx_hash_map: Arc<
 			RwLock<HashMap<ExtrinsicHash<ChainApi>, Controller<ExternalWatcherCommand<ChainApi>>>>,
 		>,
 		mut command_receiver: CommandReceiver<ControllerCommand<ChainApi>>,
+		events_metrics_collector: EventsMetricsCollector<ChainApi>,
 	) {
 		let mut aggregated_streams_map: StreamMap<BlockHash<ChainApi>, ViewStatusStream<ChainApi>> =
 			Default::default();
@@ -433,6 +441,7 @@ where
 			tokio::select! {
 				biased;
 				Some((view_hash, (tx_hash, status))) =  next_event(&mut aggregated_streams_map) => {
+					events_metrics_collector.report_status(tx_hash, status.clone());
 					if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
 						trace!(
 							target: LOG_TARGET,
@@ -477,6 +486,7 @@ where
 
 						Some(ControllerCommand::TransactionStatusRequest(request)) => {
 							let tx_hash = request.hash();
+							events_metrics_collector.report_status(tx_hash, (&request).into());
 							if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
 								if let Err(error) = ctrl
 									.get_mut()
@@ -496,12 +506,19 @@ where
 
 	/// Creates a new [`MultiViewListener`] instance along with its associated worker task.
 	///
-	/// This function instansiates the new `MultiViewListener` and provides the worker task that
+	/// This function instantiates the new `MultiViewListener` and provides the worker task that
 	/// relays messages to the external transactions listeners. The task shall be polled by caller.
+	///
+	/// The `events_metrics_collector` is an instance of `EventsMetricsCollector` that is
+	/// responsible for collecting and managing metrics related to transaction events. Newly
+	/// created instance of `MultiViewListener` will report transaction status updates and its
+	/// timestamps to the given metrics collector.
 	///
 	/// Returns a tuple containing the [`MultiViewListener`] and the
 	/// [`MultiViewListenerTask`].
-	pub fn new_with_worker() -> (Self, MultiViewListenerTask) {
+	pub fn new_with_worker(
+		events_metrics_collector: EventsMetricsCollector<ChainApi>,
+	) -> (Self, MultiViewListenerTask) {
 		let external_controllers = Arc::from(RwLock::from(HashMap::<
 			ExtrinsicHash<ChainApi>,
 			Controller<ExternalWatcherCommand<ChainApi>>,
@@ -512,7 +529,7 @@ where
 			"txpool-multi-view-listener-task-controller",
 			CONTROLLER_QUEUE_WARN_SIZE,
 		);
-		let task = Self::task(external_controllers.clone(), rx);
+		let task = Self::task(external_controllers.clone(), rx, events_metrics_collector);
 
 		(Self { external_controllers, controller: tx }, task.boxed())
 	}
@@ -524,6 +541,9 @@ where
 	/// (meaning that it can be exposed to [`sc_transaction_pool_api::TransactionPool`] API client
 	/// e.g. rpc) stream of transaction status events. If an external watcher is already present for
 	/// the given transaction, it returns `None`.
+	///
+	/// The `submit_timestamp` indicates the time at which a transaction is submitted.
+	/// It is primarily used to calculate event timings for metric collection.
 	pub(crate) fn create_external_watcher_for_tx(
 		&self,
 		tx_hash: ExtrinsicHash<ChainApi>,
@@ -746,7 +766,7 @@ mod tests {
 
 	fn create_multi_view_listener(
 	) -> (MultiViewListener, tokio::sync::oneshot::Sender<()>, JoinHandle<()>) {
-		let (listener, listener_task) = MultiViewListener::new_with_worker();
+		let (listener, listener_task) = MultiViewListener::new_with_worker(Default::default());
 
 		let (tx, rx) = tokio::sync::oneshot::channel();
 
