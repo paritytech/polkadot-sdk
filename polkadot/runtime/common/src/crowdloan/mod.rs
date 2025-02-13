@@ -525,7 +525,7 @@ pub mod pallet {
 				if refund_count >= T::RemoveKeysLimit::get() {
 					// Not everyone was able to be refunded this time around.
 					all_refunded = false;
-					break
+					break;
 				}
 				CurrencyOf::<T>::transfer(&fund_account, &who, balance, AllowDeath)?;
 				CurrencyOf::<T>::reactivate(balance);
@@ -1002,15 +1002,15 @@ mod tests {
 
 			let ending_period = ending_period();
 			if after_early_end < ending_period {
-				return AuctionStatus::EndingPeriod(after_early_end, 0)
+				return AuctionStatus::EndingPeriod(after_early_end, 0);
 			} else {
 				let after_end = after_early_end - ending_period;
 				// Optional VRF delay
 				if after_end < vrf_delay() {
-					return AuctionStatus::VrfDelay(after_end)
+					return AuctionStatus::VrfDelay(after_end);
 				} else {
 					// VRF delay is done, so we just end the auction
-					return AuctionStatus::NotStarted
+					return AuctionStatus::NotStarted;
 				}
 			}
 		}
@@ -1096,7 +1096,7 @@ mod tests {
 		for i in 0.. {
 			let para: ParaId = i.into();
 			if TestRegistrar::<Test>::is_registered(para) {
-				continue
+				continue;
 			}
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -1104,7 +1104,7 @@ mod tests {
 				dummy_head_data(),
 				dummy_validation_code()
 			));
-			return para
+			return para;
 		}
 		unreachable!()
 	}
@@ -1955,7 +1955,7 @@ mod benchmarking {
 	use sp_core::crypto::UncheckedFrom;
 	use sp_runtime::traits::{Bounded, CheckedSub};
 
-	use frame_benchmarking::{account, benchmarks, whitelisted_caller};
+	use frame_benchmarking::v2::*;
 
 	fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 		let events = frame_system::Pallet::<T>::events();
@@ -2026,10 +2026,14 @@ mod benchmarking {
 		));
 	}
 
-	benchmarks! {
-		where_clause { where T: paras::Config }
+	#[benchmarks(
+		where T: paras::Config,
+	)]
+	mod benchmarks {
+		use super::*;
 
-		create {
+		#[benchmark]
+		fn create() -> Result<(), BenchmarkError> {
 			let para_id = ParaId::from(1_u32);
 			let cap = BalanceOf::<T>::max_value();
 			let first_period = 0u32.into();
@@ -2052,13 +2056,24 @@ mod benchmarking {
 
 			T::Registrar::execute_pending_transitions();
 
-		}: _(RawOrigin::Signed(caller), para_id, cap, first_period, last_period, end, Some(verifier))
-		verify {
-			assert_last_event::<T>(Event::<T>::Created { para_id }.into())
+			#[extrinsic_call]
+			_(
+				RawOrigin::Signed(caller),
+				para_id,
+				cap,
+				first_period,
+				last_period,
+				end,
+				Some(verifier),
+			);
+
+			assert_last_event::<T>(Event::<T>::Created { para_id }.into());
+			Ok(())
 		}
 
 		// Contribute has two arms: PreEnding and Ending, but both are equal complexity.
-		contribute {
+		#[benchmark]
+		fn contribute() -> Result<(), BenchmarkError> {
 			let (lpl, offset) = T::Auctioneer::lease_period_length();
 			let end = lpl + offset;
 			let fund_index = create_fund::<T>(1, end);
@@ -2071,14 +2086,20 @@ mod benchmarking {
 			let payload = (fund_index, &caller, BalanceOf::<T>::default(), contribution);
 			let sig = crypto::create_ed25519_signature(&payload.encode(), pubkey);
 
-		}: _(RawOrigin::Signed(caller.clone()), fund_index, contribution, Some(sig))
-		verify {
+			#[extrinsic_call]
+			_(RawOrigin::Signed(caller.clone()), fund_index, contribution, Some(sig));
+
 			// NewRaise is appended to, so we don't need to fill it up for worst case scenario.
 			assert!(!NewRaise::<T>::get().is_empty());
-			assert_last_event::<T>(Event::<T>::Contributed { who: caller, fund_index, amount: contribution }.into());
+			assert_last_event::<T>(
+				Event::<T>::Contributed { who: caller, fund_index, amount: contribution }.into(),
+			);
+
+			Ok(())
 		}
 
-		withdraw {
+		#[benchmark]
+		fn withdraw() -> Result<(), BenchmarkError> {
 			let (lpl, offset) = T::Auctioneer::lease_period_length();
 			let end = lpl + offset;
 			let fund_index = create_fund::<T>(1337, end);
@@ -2086,43 +2107,58 @@ mod benchmarking {
 			let contributor = account("contributor", 0, 0);
 			contribute_fund::<T>(&contributor, fund_index);
 			frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
-		}: _(RawOrigin::Signed(caller), contributor.clone(), fund_index)
-		verify {
-			assert_last_event::<T>(Event::<T>::Withdrew { who: contributor, fund_index, amount: T::MinContribution::get() }.into());
+			#[extrinsic_call]
+			_(RawOrigin::Signed(caller), contributor.clone(), fund_index);
+
+			assert_last_event::<T>(
+				Event::<T>::Withdrew {
+					who: contributor,
+					fund_index,
+					amount: T::MinContribution::get(),
+				}
+				.into(),
+			);
+
+			Ok(())
 		}
 
 		// Worst case: Refund removes `RemoveKeysLimit` keys, and is fully refunded.
-		#[skip_meta]
-		refund {
-			let k in 0 .. T::RemoveKeysLimit::get();
+		#[benchmark(skip_meta)]
+		fn refund(k: Linear<0, { T::RemoveKeysLimit::get() }>) -> Result<(), BenchmarkError> {
 			let (lpl, offset) = T::Auctioneer::lease_period_length();
 			let end = lpl + offset;
 			let fund_index = create_fund::<T>(1337, end);
 
 			// Dissolve will remove at most `RemoveKeysLimit` at once.
-			for i in 0 .. k {
+			for i in 0..k {
 				contribute_fund::<T>(&account("contributor", i, 0), fund_index);
 			}
 
 			let caller: T::AccountId = whitelisted_caller();
 			frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
-		}: _(RawOrigin::Signed(caller), fund_index)
-		verify {
+			#[extrinsic_call]
+			_(RawOrigin::Signed(caller), fund_index);
+
 			assert_last_event::<T>(Event::<T>::AllRefunded { para_id: fund_index }.into());
+			Ok(())
 		}
 
-		dissolve {
+		#[benchmark]
+		fn dissolve() -> Result<(), BenchmarkError> {
 			let (lpl, offset) = T::Auctioneer::lease_period_length();
 			let end = lpl + offset;
 			let fund_index = create_fund::<T>(1337, end);
 			let caller: T::AccountId = whitelisted_caller();
 			frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
-		}: _(RawOrigin::Signed(caller.clone()), fund_index)
-		verify {
+			#[extrinsic_call]
+			_(RawOrigin::Signed(caller.clone()), fund_index);
+
 			assert_last_event::<T>(Event::<T>::Dissolved { para_id: fund_index }.into());
+			Ok(())
 		}
 
-		edit {
+		#[benchmark]
+		fn edit() -> Result<(), BenchmarkError> {
 			let para_id = ParaId::from(1_u32);
 			let cap = BalanceOf::<T>::max_value();
 			let first_period = 0u32.into();
@@ -2147,32 +2183,43 @@ mod benchmarking {
 
 			Crowdloan::<T>::create(
 				RawOrigin::Signed(caller).into(),
-				para_id, cap, first_period, last_period, end, Some(verifier.clone()),
+				para_id,
+				cap,
+				first_period,
+				last_period,
+				end,
+				Some(verifier.clone()),
 			)?;
 
 			// Doesn't matter what we edit to, so use the same values.
-		}: _(RawOrigin::Root, para_id, cap, first_period, last_period, end, Some(verifier))
-		verify {
-			assert_last_event::<T>(Event::<T>::Edited { para_id }.into())
+			#[extrinsic_call]
+			_(RawOrigin::Root, para_id, cap, first_period, last_period, end, Some(verifier));
+
+			assert_last_event::<T>(Event::<T>::Edited { para_id }.into());
+
+			Ok(())
 		}
 
-		add_memo {
+		#[benchmark]
+		fn add_memo() -> Result<(), BenchmarkError> {
 			let (lpl, offset) = T::Auctioneer::lease_period_length();
 			let end = lpl + offset;
 			let fund_index = create_fund::<T>(1, end);
 			let caller: T::AccountId = whitelisted_caller();
 			contribute_fund::<T>(&caller, fund_index);
 			let worst_memo = vec![42; T::MaxMemoLength::get().into()];
-		}: _(RawOrigin::Signed(caller.clone()), fund_index, worst_memo.clone())
-		verify {
+			#[extrinsic_call]
+			_(RawOrigin::Signed(caller.clone()), fund_index, worst_memo.clone());
 			let fund = Funds::<T>::get(fund_index).expect("fund was created...");
 			assert_eq!(
 				Crowdloan::<T>::contribution_get(fund.fund_index, &caller),
 				(T::MinContribution::get(), worst_memo),
 			);
+			Ok(())
 		}
 
-		poke {
+		#[benchmark]
+		fn poke() -> Result<(), BenchmarkError> {
 			let (lpl, offset) = T::Auctioneer::lease_period_length();
 			let end = lpl + offset;
 			let fund_index = create_fund::<T>(1, end);
@@ -2180,24 +2227,25 @@ mod benchmarking {
 			contribute_fund::<T>(&caller, fund_index);
 			NewRaise::<T>::kill();
 			assert!(NewRaise::<T>::get().is_empty());
-		}: _(RawOrigin::Signed(caller), fund_index)
-		verify {
+			#[extrinsic_call]
+			_(RawOrigin::Signed(caller), fund_index);
 			assert!(!NewRaise::<T>::get().is_empty());
-			assert_last_event::<T>(Event::<T>::AddedToNewRaise { para_id: fund_index }.into())
+			assert_last_event::<T>(Event::<T>::AddedToNewRaise { para_id: fund_index }.into());
+			Ok(())
 		}
 
 		// Worst case scenario: N funds are all in the `NewRaise` list, we are
 		// in the beginning of the ending period, and each fund outbids the next
 		// over the same periods.
-		on_initialize {
-			// We test the complexity over different number of new raise
-			let n in 2 .. 100;
+		// We test the complexity over different number of new raise
+		#[benchmark]
+		fn on_initialize(n: Linear<2, 100>) -> Result<(), BenchmarkError> {
 			let (lpl, offset) = T::Auctioneer::lease_period_length();
 			let end_block = lpl + offset - 1u32.into();
 
 			let pubkey = crypto::create_ed25519_pubkey(b"//verifier".to_vec());
 
-			for i in 0 .. n {
+			for i in 0..n {
 				let fund_index = create_fund::<T>(i, end_block);
 				let contributor: T::AccountId = account("contributor", i, 0);
 				let contribution = T::MinContribution::get() * (i + 1).into();
@@ -2205,24 +2253,38 @@ mod benchmarking {
 				let sig = crypto::create_ed25519_signature(&payload.encode(), pubkey.clone());
 
 				CurrencyOf::<T>::make_free_balance_be(&contributor, BalanceOf::<T>::max_value());
-				Crowdloan::<T>::contribute(RawOrigin::Signed(contributor).into(), fund_index, contribution, Some(sig))?;
+				Crowdloan::<T>::contribute(
+					RawOrigin::Signed(contributor).into(),
+					fund_index,
+					contribution,
+					Some(sig),
+				)?;
 			}
 
 			let now = frame_system::Pallet::<T>::block_number();
-			let (lease_period_index, _) = T::Auctioneer::lease_period_index(now).unwrap_or_default();
+			let (lease_period_index, _) =
+				T::Auctioneer::lease_period_index(now).unwrap_or_default();
 			let duration = end_block
 				.checked_sub(&frame_system::Pallet::<T>::block_number())
 				.ok_or("duration of auction less than zero")?;
 			T::Auctioneer::new_auction(duration, lease_period_index)?;
 
-			assert_eq!(T::Auctioneer::auction_status(end_block).is_ending(), Some((0u32.into(), 0u32.into())));
+			assert_eq!(
+				T::Auctioneer::auction_status(end_block).is_ending(),
+				Some((0u32.into(), 0u32.into()))
+			);
 			assert_eq!(NewRaise::<T>::get().len(), n as usize);
 			let old_endings_count = EndingsCount::<T>::get();
-		}: {
-			Crowdloan::<T>::on_initialize(end_block);
-		} verify {
+			#[block]
+			{
+				let _ = Crowdloan::<T>::on_initialize(end_block);
+			}
+
 			assert_eq!(EndingsCount::<T>::get(), old_endings_count + 1);
-			assert_last_event::<T>(Event::<T>::HandleBidResult { para_id: (n - 1).into(), result: Ok(()) }.into());
+			assert_last_event::<T>(
+				Event::<T>::HandleBidResult { para_id: (n - 1).into(), result: Ok(()) }.into(),
+			);
+			Ok(())
 		}
 
 		impl_benchmark_test_suite!(
