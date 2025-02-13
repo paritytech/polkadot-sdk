@@ -9274,38 +9274,38 @@ mod paged_slashing {
 
 	#[test]
 	fn validator_with_no_exposure_slashed() {
-		ExtBuilder::default()
-			.build_and_execute(|| {
-				let validator_stake = asset::staked::<Test>(&11);
-				let slash_fraction = Perbill::from_percent(10);
-				let expected_slash = slash_fraction * validator_stake;
+		ExtBuilder::default().build_and_execute(|| {
+			let validator_stake = asset::staked::<Test>(&11);
+			let slash_fraction = Perbill::from_percent(10);
+			let expected_slash = slash_fraction * validator_stake;
 
-				// only 101 nominates 11, lets remove them.
-				assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![21]));
+			// only 101 nominates 11, lets remove them.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![21]));
 
-				start_active_era(2);
-				// ensure validator has no exposure.
-				assert_eq!(
-					ErasStakersOverview::<Test>::get(2, 11).unwrap().page_count,
-					0,
-				);
+			start_active_era(2);
+			// ensure validator has no exposure.
+			assert_eq!(ErasStakersOverview::<Test>::get(2, 11).unwrap().page_count, 0,);
 
-				// clear events
-				System::reset_events();
+			// clear events
+			System::reset_events();
 
-				// report an offence for 11.
-				on_offence_now(&[offence_from(11, None)], &[slash_fraction], true);
+			// report an offence for 11.
+			on_offence_now(&[offence_from(11, None)], &[slash_fraction], true);
 
-				// ensure validator is slashed.
-				assert_eq!(asset::staked::<Test>(&11), validator_stake - expected_slash);
-				assert_eq!(
-					staking_events_since_last_call().as_slice(),
-					vec![
-						Event::OffenceReported { offence_era: 2, validator: 11, fraction: slash_fraction },
-						Event::SlashComputed { offence_era: 2, slash_era: 2, offender: 11, page: 0 },
-						Event::Slashed { staker: 11, amount: expected_slash },
-					]
-				);
-			});
+			// ensure validator is slashed.
+			assert_eq!(asset::staked::<Test>(&11), validator_stake - expected_slash);
+			assert_eq!(
+				staking_events_since_last_call().as_slice(),
+				vec![
+					Event::OffenceReported {
+						offence_era: 2,
+						validator: 11,
+						fraction: slash_fraction
+					},
+					Event::SlashComputed { offence_era: 2, slash_era: 2, offender: 11, page: 0 },
+					Event::Slashed { staker: 11, amount: expected_slash },
+				]
+			);
+		});
 	}
 }

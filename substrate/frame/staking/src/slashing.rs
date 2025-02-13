@@ -64,7 +64,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	WeakBoundedVec, DispatchResult, RuntimeDebug,
+	DispatchResult, RuntimeDebug, WeakBoundedVec,
 };
 use sp_staking::{offence::OffenceSeverity, EraIndex, StakingInterface};
 
@@ -446,7 +446,10 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 	(nom_slashed + val_slashed > Zero::zero()).then_some(UnappliedSlash {
 		validator: params.stash.clone(),
 		own: val_slashed,
-		others: WeakBoundedVec::force_from(nominators_slashed, Some("slashed nominators not expected to be larger than the bounds")),
+		others: WeakBoundedVec::force_from(
+			nominators_slashed,
+			Some("slashed nominators not expected to be larger than the bounds"),
+		),
 		reporter: None,
 		payout: reward_payout,
 	})

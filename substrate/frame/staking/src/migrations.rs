@@ -62,7 +62,7 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 pub mod v17 {
 	use super::*;
 
-    #[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 	struct OldUnappliedSlash<T: Config> {
 		validator: T::AccountId,
 		/// The validator's own slash.
@@ -98,7 +98,7 @@ pub mod v17 {
 					let new_slash = UnappliedSlash {
 						validator: validator.clone(),
 						own: slash.own,
-						others:  WeakBoundedVec::force_from(slash.others, None),
+						others: WeakBoundedVec::force_from(slash.others, None),
 						payout: slash.payout,
 						reporter: slash.reporters.first().cloned(),
 					};
@@ -118,10 +118,7 @@ pub mod v17 {
 
 			let actual_slash_count = UnappliedSlashes::<T>::iter().count() as u32;
 
-			ensure!(
-				expected_slash_count == actual_slash_count,
-				"Slash count mismatch"
-			);
+			ensure!(expected_slash_count == actual_slash_count, "Slash count mismatch");
 
 			Ok(())
 		}

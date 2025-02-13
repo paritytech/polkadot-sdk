@@ -353,8 +353,7 @@ use frame_support::{
 		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-	WeakBoundedVec,
+	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
