@@ -1,4 +1,4 @@
-title: update elastic scaling guide for untrusted collator set
+title: elastic scaling documentation updates
 
 doc:
   - audience: [Node Dev, Runtime Dev]
