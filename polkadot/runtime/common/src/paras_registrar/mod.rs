@@ -318,7 +318,7 @@ pub mod pallet {
 			// early, since swapping the same id would otherwise be a noop.
 			if id == other {
 				PendingSwap::<T>::remove(id);
-				return Ok(())
+				return Ok(());
 			}
 
 			// Sanity check that `id` is even a para.
@@ -346,7 +346,7 @@ pub mod pallet {
 					// data.
 					T::OnSwap::on_swap(id, other);
 				} else {
-					return Err(Error::<T>::CannotSwap.into())
+					return Err(Error::<T>::CannotSwap.into());
 				}
 				Self::deposit_event(Event::<T>::Swapped { para_id: id, other_id: other });
 				PendingSwap::<T>::remove(other);
