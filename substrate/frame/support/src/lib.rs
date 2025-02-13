@@ -1148,11 +1148,11 @@ pub mod pallet_macros {
 	///         }
 	/// 	}
 	///
-	/// /// The `WeightInfo` trait defines weight functions for dispatchable calls.
-	/// pub trait WeightInfo {
-	///     fn do_something() -> Weight;
-	///     fn do_something_else() -> Weight;
-	///   }
+	///     /// The `WeightInfo` trait defines weight functions for dispatchable calls.
+	///     pub trait WeightInfo {
+	///         fn do_something() -> Weight;
+	///         fn do_something_else() -> Weight;
+	///     }
 	/// }
 	/// ```
 	pub use frame_support_procedural::weight;
@@ -2214,6 +2214,15 @@ pub mod pallet_macros {
 	///
 	/// ## Weight info
 	///
+	/// Each call needs to define a weight.
+	/// * The weight can be defined explicitly using the attribute `#[pallet::weight($expr)]`
+	///   (Note that argument of the call are available inside the expression).
+	/// * Or it can be defined implicitly, the weight info for the calls needs to be specified
+	///   in the call attribute: `#[pallet::call(weight = $WeightInfo)]`, then each call that
+	///   doesn't have explicit weight will use `$WeightInfo::$call_name` as the weight.
+	///
+	/// * Or it can be simply ignored when the pallet is in `dev_mode`.
+	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
@@ -2233,7 +2242,6 @@ pub mod pallet_macros {
 	///     pub trait WeightInfo {
 	///         fn do_something() -> Weight;
 	///         fn do_something_else() -> Weight;
-	///         fn do_another_thing() -> Weight;
 	///     }
 	///
 	///     #[pallet::call(weight = <T as Config>::WeightInfo)]
@@ -2256,17 +2264,6 @@ pub mod pallet_macros {
 	///         pub fn do_something_else(
 	///             origin: OriginFor<T>,
 	///             bar: u64,
-	///         ) -> DispatchResult {
-	///             // Function logic here
-	///             Ok(())
-	///         }
-	///
-	///         // Another example with explicit weight definition
-	///         #[pallet::weight(<T as Config>::WeightInfo::do_another_thing())]
-	///         #[pallet::call_index(2)]
-	///         pub fn do_another_thing(
-	///             origin: OriginFor<T>,
-	///             baz: u128,
 	///         ) -> DispatchResult {
 	///             // Function logic here
 	///             Ok(())
