@@ -22,3 +22,6 @@
 /// This migration moves session historical pallet storages from old prefix to new prefix.
 #[cfg(feature = "historical")]
 pub mod v1;
+
+#[cfg(feature = "historical")]
+mod changed_identification;

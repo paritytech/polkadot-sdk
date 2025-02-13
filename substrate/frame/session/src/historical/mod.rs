@@ -71,6 +71,9 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: pallet_session::Config + frame_system::Config {
 		/// Full identification of the validator.
+		///
+		/// ⚠️ Changing this in a production runtime will break historical session proofs.
+		/// If modified, ensure historical data is properly migrated.
 		type FullIdentification: Parameter;
 
 		/// A conversion from validator ID to full identification.
