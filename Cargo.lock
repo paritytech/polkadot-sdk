@@ -27069,6 +27069,7 @@ dependencies = [
  "pallet-session-benchmarking",
  "pallet-society",
  "pallet-staking",
+ "pallet-staking-ah-client",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
  "pallet-sudo",

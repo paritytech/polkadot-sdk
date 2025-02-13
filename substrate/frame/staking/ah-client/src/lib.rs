@@ -31,10 +31,10 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
+pub use pallet::*;
 use pallet_staking_rc_client::Offence;
 use sp_core::crypto::AccountId32;
-use sp_runtime::traits::Convert;
-use sp_staking::{offence::OffenceDetails, Exposure, SessionIndex};
+use sp_staking::{offence::OffenceDetails, SessionIndex};
 use xcm::prelude::*;
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
@@ -71,7 +71,6 @@ pub mod pallet {
 	use core::result;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
-	use pallet_staking::ExposureOf;
 	use polkadot_primitives::Id as ParaId;
 	use polkadot_runtime_parachains::origin::{ensure_parachain, Origin};
 	use sp_runtime::Perbill;
@@ -227,21 +226,13 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config>
+	impl<T: Config, I: sp_runtime::traits::Convert<T::AccountId, Option<()>>>
 		OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight>
 		for Pallet<T>
 	where
 		T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-		T: pallet_session::historical::Config<
-			FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-			FullIdentificationOf = ExposureOf<T>,
-		>,
-		T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
+		T: pallet_session::historical::Config<FullIdentification = (), FullIdentificationOf = I>,
 		T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
-		T::ValidatorIdOf: Convert<
-			<T as frame_system::Config>::AccountId,
-			Option<<T as frame_system::Config>::AccountId>,
-		>,
 		T::AccountId: Into<AccountId32>,
 	{
 		fn on_offence(
