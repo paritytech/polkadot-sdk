@@ -1,0 +1,9 @@
+title: 'Fix sc-tracing to be derived from umbrella crate in parachain template'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Resolving sc-tracing not being resolved when imported through the polkadot sdk
+
+crates:
+- name: parachain-template-node
+  bump: minor
