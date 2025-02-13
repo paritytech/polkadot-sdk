@@ -697,13 +697,13 @@ pub mod pallet {
 
 	/// All unapplied slashes that are queued for later.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type UnappliedSlashes<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
 		Twox64Concat,
-		(T::AccountId, Perbill, u32), // Second key: (Validator, slash_fraction, Page Index)
+		// Unique key for unapplied slashes: (validator, slash fraction, page index).
+		(T::AccountId, Perbill, u32),
 		UnappliedSlash<T>,
 		OptionQuery,
 	>;
