@@ -295,7 +295,7 @@ pub mod pallet {
 
 			let order = <PendingOrders<T>>::get(nonce).ok_or(Error::<T>::InvalidPendingNonce)?;
 
-			if !order.fee.is_zero() {
+			if order.fee > 0 {
 				let ether = ether_asset(T::EthereumNetwork::get(), order.fee);
 				T::RewardPayment::pay_reward(receipt.reward_address, ether)
 					.map_err(|_| Error::<T>::RewardPaymentFailed)?;
