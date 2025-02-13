@@ -20,7 +20,9 @@
 
 use crate::*;
 
-use frame_benchmarking::{benchmarks_instance_pallet, whitelisted_caller, BenchmarkError, BenchmarkResult};
+use frame_benchmarking::{
+	benchmarks_instance_pallet, whitelisted_caller, BenchmarkError, BenchmarkResult,
+};
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use sp_runtime::traits::One;
@@ -36,7 +38,10 @@ pub trait Config<I: 'static = ()>: crate::Config<I> {
 	/// `T::RewardKind` to use in benchmarks.
 	fn bench_reward_kind() -> Self::RewardKind;
 	/// Prepare environment for paying given reward for serving given lane.
-	fn prepare_rewards_account(reward_kind: Self::RewardKind, reward: Self::Reward) -> Option<AlternativeBeneficiaryOf<Self, I>>;
+	fn prepare_rewards_account(
+		reward_kind: Self::RewardKind,
+		reward: Self::Reward,
+	) -> Option<AlternativeBeneficiaryOf<Self, I>>;
 	/// Give enough balance to given account.
 	fn deposit_account(account: Self::AccountId, balance: Self::Balance);
 }

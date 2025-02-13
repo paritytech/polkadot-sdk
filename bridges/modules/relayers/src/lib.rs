@@ -64,9 +64,12 @@ pub mod pallet {
 	>;
 
 	/// Shortcut to alternative beneficiary type for `Config::PaymentProcedure`.
-	pub type AlternativeBeneficiaryOf<T, I> = <<T as Config<I>>::PaymentProcedure as PaymentProcedure<
-		<T as frame_system::Config>::AccountId, <T as Config<I>>::RewardKind, <T as Config<I>>::Reward>
-	>::AlternativeBeneficiary;
+	pub type AlternativeBeneficiaryOf<T, I> =
+		<<T as Config<I>>::PaymentProcedure as PaymentProcedure<
+			<T as frame_system::Config>::AccountId,
+			<T as Config<I>>::RewardKind,
+			<T as Config<I>>::Reward,
+		>>::AlternativeBeneficiary;
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
@@ -235,20 +238,24 @@ pub mod pallet {
 				reward_kind,
 				|maybe_reward| -> DispatchResult {
 					let reward = maybe_reward.take().ok_or(Error::<T, I>::NoRewardForRelayer)?;
-					T::PaymentProcedure::pay_reward(&relayer, reward_kind, reward, alternative_beneficiary.clone()).map_err(
-						|e| {
-							log::error!(
-								target: LOG_TARGET,
-								"Failed to pay ({:?} / {:?}) rewards to {:?}(alternative beneficiary: {:?}), error: {:?}",
-								reward_kind,
-								reward,
-								relayer,
-								alternative_beneficiary,
-								e,
-							);
-							Error::<T, I>::FailedToPayReward
-						},
-					)?;
+					T::PaymentProcedure::pay_reward(
+						&relayer,
+						reward_kind,
+						reward,
+						alternative_beneficiary.clone(),
+					)
+					.map_err(|e| {
+						log::error!(
+							target: LOG_TARGET,
+							"Failed to pay ({:?} / {:?}) rewards to {:?}(alternative beneficiary: {:?}), error: {:?}",
+							reward_kind,
+							reward,
+							relayer,
+							alternative_beneficiary,
+							e,
+						);
+						Error::<T, I>::FailedToPayReward
+					})?;
 
 					Self::deposit_event(Event::<T, I>::RewardPaid {
 						relayer: relayer.clone(),

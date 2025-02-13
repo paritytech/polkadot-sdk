@@ -97,7 +97,8 @@ pub trait PaymentProcedure<Relayer, RewardKind, Reward> {
 	/// Type parameter used to identify the alternative beneficiaries eligible to receive rewards.
 	type AlternativeBeneficiary: Clone + Debug + Decode + Encode + Eq + TypeInfo;
 
-	/// Pay reward to the relayer (or alternative beneficiary if provided) from the account with provided params.
+	/// Pay reward to the relayer (or alternative beneficiary if provided) from the account with
+	/// provided params.
 	fn pay_reward(
 		relayer: &Relayer,
 		reward_kind: RewardKind,
@@ -110,7 +111,12 @@ impl<Relayer, RewardKind, Reward> PaymentProcedure<Relayer, RewardKind, Reward> 
 	type Error = &'static str;
 	type AlternativeBeneficiary = ();
 
-	fn pay_reward(_: &Relayer, _: RewardKind, _: Reward, _: Option<Self::AlternativeBeneficiary>) -> Result<(), Self::Error> {
+	fn pay_reward(
+		_: &Relayer,
+		_: RewardKind,
+		_: Reward,
+		_: Option<Self::AlternativeBeneficiary>,
+	) -> Result<(), Self::Error> {
 		Ok(())
 	}
 }
