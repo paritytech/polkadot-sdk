@@ -208,6 +208,9 @@ pub type TransactionStatusStreamFor<P> = TransactionStatusStream<TxHash<P>, Bloc
 pub type LocalTransactionFor<P> = <<P as LocalTransactionPool>::Block as BlockT>::Extrinsic;
 /// Transaction's index within the block in which it was included.
 pub type TxIndex = usize;
+/// Map containing validity errors associated with transaction hashes. Used to report invalid
+/// transactions to the pool.
+pub type TxInvalidityReportMap<H> = indexmap::IndexMap<H, Option<TransactionValidityError>>;
 
 /// In-pool transaction interface.
 ///
@@ -293,15 +296,16 @@ pub trait TransactionPool: Send + Sync {
 	// *** Block production
 	/// Reports invalid transactions to the transaction pool.
 	///
-	/// This function accepts an array of tuples, each containing a transaction hash and an
-	/// optional error encountered during the transaction execution at a specific (also optional)
+	/// This function takes a map where the key is a transaction hash and the value is an
+	/// optional error encountered during the transaction execution, possibly within a specific
 	/// block.
 	///
 	/// The transaction pool implementation decides which transactions to remove. Transactions
 	/// removed from the pool will be notified with `TransactionStatus::Invalid` event (if
 	/// `submit_and_watch` was used for submission).
 	///
-	/// If the tuple's error is None, the transaction will be forcibly removed from the pool.
+	/// If the error associated to transaction is `None`, the transaction will be forcibly removed
+	/// from the pool.
 	///
 	/// The optional `at` parameter provides additional context regarding the block where the error
 	/// occurred.
@@ -310,7 +314,7 @@ pub trait TransactionPool: Send + Sync {
 	fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
-		invalid_tx_errors: &[(TxHash<Self>, Option<TransactionValidityError>)],
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
 	) -> Vec<Arc<Self::InPoolTransaction>>;
 
 	// *** logging

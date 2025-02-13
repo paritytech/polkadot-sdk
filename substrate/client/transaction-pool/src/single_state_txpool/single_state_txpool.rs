@@ -39,7 +39,7 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
 	PoolStatus, TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor,
-	TxHash,
+	TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -329,9 +329,9 @@ where
 	fn report_invalid(
 		&self,
 		_at: Option<<Self::Block as BlockT>::Hash>,
-		invalid_tx_errors: &[(TxHash<Self>, Option<TransactionValidityError>)],
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
 	) -> Vec<Arc<Self::InPoolTransaction>> {
-		let hashes = invalid_tx_errors.iter().map(|(hash, _)| *hash).collect::<Vec<_>>();
+		let hashes = invalid_tx_errors.keys().map(|h| *h).collect::<Vec<_>>();
 		let removed = self.pool.validated_pool().remove_invalid(&hashes);
 		self.metrics
 			.report(|metrics| metrics.validations_invalid.inc_by(removed.len() as u64));

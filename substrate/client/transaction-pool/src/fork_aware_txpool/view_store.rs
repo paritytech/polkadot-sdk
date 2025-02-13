@@ -33,7 +33,7 @@ use crate::{
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus};
+use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TxInvalidityReportMap};
 use sp_blockchain::TreeRoute;
 use sp_runtime::{
 	generic::BlockId,
@@ -702,19 +702,19 @@ where
 	pub(crate) fn report_invalid(
 		&self,
 		at: Option<Block::Hash>,
-		invalid_tx_errors: &[(ExtrinsicHash<ChainApi>, Option<TransactionValidityError>)],
+		invalid_tx_errors: TxInvalidityReportMap<ExtrinsicHash<ChainApi>>,
 	) -> Vec<TransactionFor<ChainApi>> {
 		let mut remove_from_view = vec![];
 		let mut remove_from_pool = vec![];
 
-		invalid_tx_errors.iter().for_each(|(hash, e)| match e {
+		invalid_tx_errors.into_iter().for_each(|(hash, e)| match e {
 			Some(TransactionValidityError::Invalid(
 				InvalidTransaction::Future | InvalidTransaction::Stale,
 			)) => {
-				remove_from_view.push(*hash);
+				remove_from_view.push(hash);
 			},
 			_ => {
-				remove_from_pool.push(*hash);
+				remove_from_pool.push(hash);
 			},
 		});
 

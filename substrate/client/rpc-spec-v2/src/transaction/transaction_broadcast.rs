@@ -228,7 +228,7 @@ where
 			}
 
 			// Best effort pool removal (tx can already be finalized).
-			pool.report_invalid(None, &[(broadcast_state.tx_hash, None)]);
+			pool.report_invalid(None, [(broadcast_state.tx_hash, None)].into());
 		});
 
 		// Keep track of this entry and the abortable handle.

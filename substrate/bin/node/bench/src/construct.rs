@@ -31,7 +31,7 @@ use node_primitives::Block;
 use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 use sc_transaction_pool_api::{
 	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionSource,
-	TransactionStatusStreamFor, TransactionValidityError, TxHash,
+	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_consensus::{Environment, Proposer};
 use sp_inherents::InherentDataProvider;
@@ -274,7 +274,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	fn report_invalid(
 		&self,
 		_at: Option<Self::Hash>,
-		_invalid_tx_errors: &[(TxHash<Self>, Option<TransactionValidityError>)],
+		_invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
 	) -> Vec<Arc<Self::InPoolTransaction>> {
 		Default::default()
 	}
