@@ -504,6 +504,7 @@ impl pallet_scheduler::Config for Runtime {
 	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl pallet_glutton::Config for Runtime {
@@ -2578,6 +2579,7 @@ impl pallet_migrations::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub const MinimumCreditPurchase: Balance =  100 * MILLICENTS;
 }
 
 pub struct IntoAuthor;
@@ -2630,6 +2632,7 @@ impl pallet_broker::Config for Runtime {
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
+	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
 
 parameter_types! {
