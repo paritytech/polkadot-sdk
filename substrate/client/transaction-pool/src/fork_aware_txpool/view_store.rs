@@ -722,7 +722,7 @@ where
 		// be in the pool.
 		at.map(|at| {
 			self.get_view_at(at, true)
-				.map(|(view, _)| view.remove_invalid(&remove_from_view))
+				.map(|(view, _)| view.remove_subtree(&remove_from_view, |_, _| {}))
 		});
 
 		let mut removed = vec![];
