@@ -175,7 +175,7 @@ pub mod snowbridge {
 	use xcm::prelude::{Location, NetworkId};
 
 	/// The pallet index of the Ethereum inbound queue pallet in the bridge hub runtime.
-	pub const INBOUND_QUEUE_PALLET_INDEX_V1: u8 = 82;
+	pub const INBOUND_QUEUE_PALLET_INDEX_V1: u8 = 80;
 	pub const INBOUND_QUEUE_PALLET_INDEX_V2: u8 = 91;
 
 	parameter_types! {
