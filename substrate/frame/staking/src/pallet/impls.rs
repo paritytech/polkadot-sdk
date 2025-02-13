@@ -1763,10 +1763,7 @@ where
 	/// As offence queue is processed, computed slashes are queued to be applied after the
 	/// `SlashDeferDuration`.
 	fn on_offence(
-		offenders: &[OffenceDetails<
-			T::AccountId,
-			historical::IdentificationTuple<T>,
-		>],
+		offenders: &[OffenceDetails<T::AccountId, historical::IdentificationTuple<T>>],
 		slash_fractions: &[Perbill],
 		slash_session: SessionIndex,
 	) -> Weight {

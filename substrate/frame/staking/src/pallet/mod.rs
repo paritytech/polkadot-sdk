@@ -1187,11 +1187,12 @@ pub mod pallet {
 
 			consumed_weight.saturating_accrue(T::DbWeight::get().reads(1));
 			if let Some(active_era) = ActiveEra::<T>::get() {
-
 				let max_slash_page_size = T::MaxExposurePageSize::get();
 				consumed_weight.saturating_accrue(
-					T::DbWeight::get()
-						.reads_writes(3 * max_slash_page_size as u64, 3 * max_slash_page_size as u64),
+					T::DbWeight::get().reads_writes(
+						3 * max_slash_page_size as u64,
+						3 * max_slash_page_size as u64,
+					),
 				);
 				Self::apply_unapplied_slashes(active_era.index);
 			}
@@ -2596,8 +2597,10 @@ pub mod pallet {
 		/// - The `slash_era` **must be the current era or a past era**. If it is in the future, the
 		///   call fails with `EraNotStarted`.
 		/// - The fee is waived if the slash is successfully applied.
-		// TODO(ank4n): Benchmark and update weight.
-		// Improvement: this can be called via OCW tasks.
+		///
+		/// ## TODO: Future Improvement
+		/// - Implement an **off-chain worker (OCW) task** to automatically apply slashes when there
+		///   is unused block space, improving efficiency.
 		#[pallet::call_index(31)]
 		#[pallet::weight(Weight::zero())]
 		pub fn apply_slash(
@@ -2608,7 +2611,7 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
 			ensure!(slash_era <= active_era, Error::<T>::EraNotStarted);
-			let unapplied_slash = UnappliedSlashes::<T>::get(&slash_era, &slash_key)
+			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)
 				.ok_or(Error::<T>::InvalidSlashRecord)?;
 			slashing::apply_slash::<T>(unapplied_slash, slash_era);
 
