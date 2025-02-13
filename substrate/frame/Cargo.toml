@@ -18,12 +18,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # external deps
-codec = { features = [
-	"derive",
-], workspace = true }
-scale-info = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # primitive deps, used for developing FRAME pallets.
 sp-arithmetic = { workspace = true }
@@ -33,6 +29,7 @@ sp-runtime = { workspace = true }
 
 # frame deps, for developing FRAME pallets.
 frame-support = { workspace = true }
+frame-support-test = { optional = true, workspace = true }
 frame-system = { workspace = true }
 
 # primitive types used for developing FRAME runtimes.
@@ -88,6 +85,7 @@ std = [
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-executive?/std",
+	"frame-support-test/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api?/std",

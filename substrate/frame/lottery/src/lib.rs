@@ -58,19 +58,14 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::{DispatchResult, GetDispatchInfo},
-	ensure,
-	pallet_prelude::MaxEncodedLen,
-	storage::bounded_vec::BoundedVec,
-	traits::{Currency, ExistenceRequirement::KeepAlive, Get, Randomness, ReservableCurrency},
-	PalletId,
+use frame::{
+	runtime::prelude::*,
+	traits::{
+		AccountIdConversion, Currency, ExistenceRequirement::KeepAlive, Randomness,
+		ReservableCurrency,
+	},
 };
 pub use pallet::*;
-use sp_runtime::{
-	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
-	ArithmeticError, DispatchError, RuntimeDebug,
-};
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
@@ -118,11 +113,9 @@ impl<T: Config> ValidateCall<T> for Pallet<T> {
 	}
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);

@@ -201,11 +201,14 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::{
+		defensive, defensive_assert,
+		traits::{
+			Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
+			NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			VariantCount, VariantCountOf,
+		},
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -220,8 +223,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
-	pub use super::hashing::*;
+	/// All crypto related things
+	pub use super::cryptography::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -242,7 +245,8 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchError, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
@@ -329,6 +333,8 @@ pub mod testing_prelude {
 		assert_storage_noop, ensure, hypothetically, storage_alias,
 	};
 
+	pub use frame_support_test::TestRandomness;
+
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
 	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
@@ -370,6 +376,9 @@ pub mod runtime {
 
 		/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.
 		pub use frame_support::derive_impl;
+
+		/// Sovereign account ID for a pallet.
+		pub use frame_support::PalletId;
 
 		/// Macros to easily impl traits such as `Get` for types.
 		// TODO: using linking in the Get in the line above triggers an ICE :/
@@ -535,6 +544,7 @@ pub mod traits {
 /// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+	pub use sp_runtime::ArithmeticError;
 }
 
 /// All derive macros used in frame.
@@ -551,9 +561,16 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+/// All crypto related traits & types used in frame.
+///
+/// This is already part of the [`prelude`].
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		H160, H256, H512, U256, U512,
+	};
+	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify};
 }
 
 /// All account management related traits.

@@ -17,12 +17,9 @@
 
 //! Tests for the module.
 
-use crate::{
-	mock::{Lottery, *},
-	*,
-};
-use frame_support::{assert_noop, assert_ok, assert_storage_noop};
-use sp_runtime::{traits::BadOrigin, TokenError};
+use super::*;
+use crate::mock::{Lottery, *};
+use frame::testing_prelude::*;
 
 #[test]
 fn initial_state() {
