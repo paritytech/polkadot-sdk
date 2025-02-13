@@ -2602,7 +2602,7 @@ pub mod pallet {
 		/// - Implement an **off-chain worker (OCW) task** to automatically apply slashes when there
 		///   is unused block space, improving efficiency.
 		#[pallet::call_index(31)]
-		#[pallet::weight(Weight::zero())]
+		#[pallet::weight(T::WeightInfo::apply_slash())]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
 			slash_era: EraIndex,
