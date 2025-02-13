@@ -51,9 +51,11 @@ mod imports {
 		},
 		bridge_hub_westend_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
-			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendXcmConfig,
+			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendRuntimeOrigin,
+			BridgeHubWestendXcmConfig,
 		},
 		penpal_emulated_chain::{
+			self,
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
 				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,

@@ -759,13 +759,6 @@ pub fn new_full<
 		Some(backoff)
 	};
 
-	// Running approval voting in parallel is enabled by default on all networks except Polkadot
-	// unless explicitly enabled by the commandline option.
-	// This is meant to be temporary until we have enough confidence in the new system to enable it
-	// by default on all networks.
-	let enable_approval_voting_parallel =
-		!config.chain_spec.is_polkadot() || enable_approval_voting_parallel;
-
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
 
@@ -944,14 +937,9 @@ pub fn new_full<
 				secure_validator_mode,
 				prep_worker_path,
 				exec_worker_path,
-				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or_else(
-					|| match config.chain_spec.identify_chain() {
-						// The intention is to use this logic for gradual increasing from 2 to 4
-						// of this configuration chain by chain until it reaches production chain.
-						Chain::Polkadot | Chain::Kusama => 2,
-						Chain::Rococo | Chain::Westend | Chain::Unknown => 4,
-					},
-				),
+				// Default execution workers is 4 because we have 8 cores on the reference hardware,
+				// and this accounts for 50% of that cpu capacity.
+				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or(4),
 				pvf_prepare_workers_soft_max_num: prepare_workers_soft_max_num.unwrap_or(1),
 				pvf_prepare_workers_hard_max_num: prepare_workers_hard_max_num.unwrap_or(2),
 			})

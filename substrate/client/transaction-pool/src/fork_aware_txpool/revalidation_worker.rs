@@ -30,6 +30,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use super::tx_mem_pool::TxMemPool;
 use futures::prelude::*;
+use tracing::{trace, warn};
 
 use super::view::{FinishRevalidationWorkerChannels, View};
 
@@ -131,18 +132,22 @@ where
 		view: Arc<View<Api>>,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<Api>,
 	) {
-		log::trace!(
+		trace!(
 			target: LOG_TARGET,
-			"revalidation_queue::revalidate_view: Sending view to revalidation queue at {}",
-			view.at.hash
+			view_at_hash = ?view.at.hash,
+			"revalidation_queue::revalidate_view: Sending view to revalidation queue"
 		);
 
 		if let Some(ref to_worker) = self.background {
-			if let Err(e) = to_worker.unbounded_send(WorkerPayload::RevalidateView(
+			if let Err(error) = to_worker.unbounded_send(WorkerPayload::RevalidateView(
 				view,
 				finish_revalidation_worker_channels,
 			)) {
-				log::warn!(target: LOG_TARGET, "revalidation_queue::revalidate_view: Failed to update background worker: {:?}", e);
+				warn!(
+					target: LOG_TARGET,
+					?error,
+					"revalidation_queue::revalidate_view: Failed to update background worker"
+				);
 			}
 		} else {
 			view.revalidate(finish_revalidation_worker_channels).await
@@ -161,17 +166,21 @@ where
 		mempool: Arc<TxMemPool<Api, Block>>,
 		finalized_hash: HashAndNumber<Block>,
 	) {
-		log::trace!(
+		trace!(
 			target: LOG_TARGET,
-			"Sent mempool to revalidation queue at hash: {:?}",
-			finalized_hash
+			?finalized_hash,
+			"Sent mempool to revalidation queue"
 		);
 
 		if let Some(ref to_worker) = self.background {
-			if let Err(e) =
+			if let Err(error) =
 				to_worker.unbounded_send(WorkerPayload::RevalidateMempool(mempool, finalized_hash))
 			{
-				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
+				warn!(
+					target: LOG_TARGET,
+					?error,
+					"Failed to update background worker"
+				);
 			}
 		} else {
 			mempool.revalidate(finalized_hash).await
@@ -186,11 +195,11 @@ mod tests {
 	use crate::{
 		common::tests::{uxt, TestApi},
 		fork_aware_txpool::view::FinishRevalidationLocalChannels,
+		TimedTransactionSource,
 	};
 	use futures::executor::block_on;
-	use sc_transaction_pool_api::TransactionSource;
 	use substrate_test_runtime::{AccountId, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::Alice;
+	use substrate_test_runtime_client::Sr25519Keyring::Alice;
 	#[test]
 	fn revalidation_queue_works() {
 		let api = Arc::new(TestApi::default());
@@ -212,9 +221,10 @@ mod tests {
 			nonce: 0,
 		});
 
-		let _ = block_on(
-			view.submit_many(TransactionSource::External, std::iter::once(uxt.clone().into())),
-		);
+		let _ = block_on(view.submit_many(std::iter::once((
+			TimedTransactionSource::new_external(false),
+			uxt.clone().into(),
+		))));
 		assert_eq!(api.validation_requests().len(), 1);
 
 		let (finish_revalidation_request_tx, finish_revalidation_request_rx) =

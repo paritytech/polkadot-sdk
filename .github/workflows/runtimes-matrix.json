@@ -27,9 +27,9 @@
     "path": "polkadot/runtime/rococo",
     "header": "polkadot/file_header.txt",
     "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs",
-    "uri": "wss://try-runtime-rococo.polkadot.io:443",
     "bench_features": "runtime-benchmarks",
     "bench_flags": "",
+    "uri": "wss://try-runtime-rococo.polkadot.io:443",
     "is_relay": true
   },
   {
@@ -84,7 +84,8 @@
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "bench_features": "runtime-benchmarks",
     "bench_flags": "",
-    "uri": "wss://westend-collectives-rpc.polkadot.io:443"
+    "uri": "wss://westend-collectives-rpc.polkadot.io:443",
+    "is_relay": false
   },
   {
     "name": "contracts-rococo",
@@ -122,7 +123,7 @@
   {
     "name": "glutton-westend",
     "package": "glutton-westend-runtime",
-    "path": "cumulus/parachains/runtimes/gluttons/glutton-westend",
+    "path": "cumulus/parachains/runtimes/glutton/glutton-westend",
     "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "bench_features": "runtime-benchmarks",

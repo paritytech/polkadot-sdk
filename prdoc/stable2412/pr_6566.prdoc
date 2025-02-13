@@ -1,0 +1,45 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: XCMv5 - SetHints instruction
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Implementation of fellowship RFC 107.
+      The new SetHints instruction is a repackaging of SetAssetClaimer that also allows future
+      "hints" which alter the default behaviour of the executor.
+      The AllowTopLevelPaidExecutionFrom barrier allows this instruction between WithdrawAsset and
+      BuyExecution/PayFees to configure things before the actual meat of the program.
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: people-rococo-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: pallet-xcm-benchmarks
+    bump: major
+  - name: xcm-procedural
+    bump: minor
+  - name: staging-xcm
+    bump: major
+  - name: staging-xcm-builder
+    bump: major
+  - name: staging-xcm-executor
+    bump: major
