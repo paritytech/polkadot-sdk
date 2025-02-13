@@ -83,7 +83,7 @@ pub mod pallet {
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 
 		/// Fee asset for the execution cost on ethereum
-		type FeeAsset: Get<Location>;
+		type EthereumLocation: Get<Location>;
 
 		/// RemoteExecutionFee for the execution cost on bridge hub
 		type RemoteExecutionFee: Get<Asset>;
@@ -138,7 +138,7 @@ pub mod pallet {
 			let origin_location = T::CreateAgentOrigin::ensure_origin(origin)?;
 
 			// Burn Ether Fee for the cost on ethereum
-			Self::burn_for_teleport(&origin_location, &(T::FeeAsset::get(), fee).into())?;
+			Self::burn_for_teleport(&origin_location, &(T::EthereumLocation::get(), fee).into())?;
 
 			// Burn RemoteExecutionFee for the cost on bridge hub
 			Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;
@@ -191,7 +191,7 @@ pub mod pallet {
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
 			// Burn Ether Fee for the cost on ethereum
-			Self::burn_for_teleport(&origin_location, &(T::FeeAsset::get(), fee).into())?;
+			Self::burn_for_teleport(&origin_location, &(T::EthereumLocation::get(), fee).into())?;
 
 			// Burn RemoteExecutionFee for the cost on bridge hub
 			Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;

@@ -210,7 +210,7 @@ impl crate::Config for Test {
 	type RegisterTokenOrigin = EnsureXcm<Everything>;
 	type XcmSender = MockXcmSender;
 	type AssetTransactor = SuccessfulTransactor;
-	type FeeAsset = Ether;
+	type EthereumLocation = Ether;
 	type RemoteExecutionFee = DeliveryFee;
 	type XcmExecutor = MockXcmExecutor;
 	type BridgeHubLocation = BridgeHubLocation;

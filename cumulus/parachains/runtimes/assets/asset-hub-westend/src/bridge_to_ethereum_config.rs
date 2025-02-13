@@ -86,7 +86,7 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
 	type AssetTransactor = AssetTransactors;
-	type FeeAsset = FeeAsset;
+	type EthereumLocation = FeeAsset;
 	type RemoteExecutionFee = DeliveryFee;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type BridgeHubLocation = BridgeHubLocation;
