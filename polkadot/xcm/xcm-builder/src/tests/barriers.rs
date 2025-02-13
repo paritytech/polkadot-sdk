@@ -800,7 +800,7 @@ impl DenyExecution for DenyClearOrigin {
 	}
 }
 
-// Dummy filter which wraps `DenyExecution` on `ShouldExecution`
+// Dummy filter which wraps `DenyExecution` on `ShouldExecute`
 struct DenyWrapper<Deny: ShouldExecute>(PhantomData<Deny>);
 impl<Deny: ShouldExecute> DenyExecution for DenyWrapper<Deny> {
 	fn deny_execution<RuntimeCall>(
