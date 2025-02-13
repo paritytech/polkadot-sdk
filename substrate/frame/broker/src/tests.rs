@@ -25,7 +25,10 @@ use frame_support::{
 };
 use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
-use sp_runtime::{traits::Get, Perbill, TokenError};
+use sp_runtime::{
+	traits::{BadOrigin, Get},
+	Perbill, TokenError,
+};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -1841,9 +1844,17 @@ fn remove_assignment_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_ok!(Broker::do_assign(region, Some(1), 1001, Provisional));
-		assert_ok!(Broker::do_remove_assignment(region));
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		let workplan_key = (region_id.begin, region_id.core);
+		assert_ne!(Workplan::<Test>::get(workplan_key), None);
+		assert_noop!(Broker::remove_assignment(RuntimeOrigin::signed(2), region_id), BadOrigin);
+		assert_ok!(Broker::remove_assignment(RuntimeOrigin::root(), region_id));
+		assert_eq!(Workplan::<Test>::get(workplan_key), None);
+		assert_noop!(
+			Broker::remove_assignment(RuntimeOrigin::root(), region_id),
+			Error::<Test>::AssignmentNotFound
+		);
 	});
 }
 
