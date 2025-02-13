@@ -86,7 +86,6 @@ testnet-parachains-constants = { features = ["rococo"], workspace = true }
 # Bridges
 bp-asset-hub-rococo = { workspace = true }
 bp-asset-hub-westend = { workspace = true }
-bp-bridge-hub-polkadot = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
 bp-header-chain = { workspace = true }
@@ -132,7 +131,6 @@ default = ["std"]
 std = [
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
-	"bp-bridge-hub-polkadot/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
 	"bp-header-chain/std",

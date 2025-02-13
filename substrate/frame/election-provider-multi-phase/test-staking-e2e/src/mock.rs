@@ -277,6 +277,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -567,6 +568,7 @@ impl ExtBuilder {
 
 		let _ = pallet_balances::GenesisConfig::<Runtime> {
 			balances: self.balances_builder.balances.clone(),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
