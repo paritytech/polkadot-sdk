@@ -29,7 +29,7 @@ pub use ensure::{
 pub use integer_sqrt::IntegerSquareRoot;
 pub use num_traits::{
 	checked_pow, Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedShl,
-	CheckedShr, CheckedSub, One, Signed, Unsigned, Zero,
+	CheckedShr, CheckedSub, Num, One, Signed, Unsigned, Zero,
 };
 
 use crate::MultiplyRational;
