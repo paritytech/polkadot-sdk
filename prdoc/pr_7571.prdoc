@@ -1,7 +1,7 @@
 title: 'frame-benchmarking: Improve macro hygiene'
 doc:
 - audience: Runtime Dev
-  description: null
+  description: Improve macro hygiene of benchmarking macros. 
 crates:
 - name: frame-benchmarking
   bump: patch
