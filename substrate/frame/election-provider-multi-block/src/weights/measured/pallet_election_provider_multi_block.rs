@@ -61,8 +61,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `156`
 		//  Estimated: `1641`
-		// Minimum execution time: 9_034_000 picoseconds.
-		Weight::from_parts(9_615_000, 1641)
+		// Minimum execution time: 9_254_000 picoseconds.
+		Weight::from_parts(10_145_000, 1641)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
@@ -81,16 +81,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `VoterList::ListBags` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `Measured`)
 	/// Storage: `VoterList::ListNodes` (r:26001 w:0)
 	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `Measured`)
-	/// Storage: `Staking::Bonded` (r:351 w:0)
+	/// Storage: `Staking::Bonded` (r:703 w:0)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `Measured`)
-	/// Storage: `Staking::Ledger` (r:351 w:0)
+	/// Storage: `Staking::Ledger` (r:703 w:0)
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `Measured`)
-	/// Storage: `Staking::Nominators` (r:351 w:0)
+	/// Storage: `Staking::Nominators` (r:703 w:0)
 	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `Measured`)
 	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:0)
 	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(194117), added: 196592, mode: `Measured`)
+	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388773), added: 391248, mode: `Measured`)
 	/// Storage: `MultiBlock::DesiredTargets` (r:0 w:1)
 	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedTargetSnapshotHash` (r:0 w:1)
@@ -103,11 +103,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Staking::MinimumActiveStake` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `Measured`)
 	fn on_initialize_into_snapshot_msp() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4791638`
-		//  Estimated: `69145103`
-		// Minimum execution time: 190_723_240_000 picoseconds.
-		Weight::from_parts(190_802_298_000, 69145103)
-			.saturating_add(T::DbWeight::get().reads(28262_u64))
+		//  Measured:  `5151586`
+		//  Estimated: `69505051`
+		// Minimum execution time: 201_905_061_000 picoseconds.
+		Weight::from_parts(203_148_720_000, 69505051)
+			.saturating_add(T::DbWeight::get().reads(29318_u64))
 			.saturating_add(T::DbWeight::get().writes(8_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
@@ -118,31 +118,31 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `VoterList::CounterForListNodes` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `VoterList::ListNodes` (r:26001 w:0)
 	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `Measured`)
-	/// Storage: `Staking::Bonded` (r:352 w:0)
+	/// Storage: `Staking::Bonded` (r:704 w:0)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `Measured`)
-	/// Storage: `Staking::Ledger` (r:352 w:0)
+	/// Storage: `Staking::Ledger` (r:704 w:0)
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `Measured`)
-	/// Storage: `Staking::Nominators` (r:351 w:0)
+	/// Storage: `Staking::Nominators` (r:703 w:0)
 	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `Measured`)
-	/// Storage: `Staking::Validators` (r:206 w:0)
-	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
 	/// Storage: `VoterList::ListBags` (r:200 w:0)
 	/// Proof: `VoterList::ListBags` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `Measured`)
+	/// Storage: `Staking::Validators` (r:165 w:0)
+	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
 	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:0)
 	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(194117), added: 196592, mode: `Measured`)
+	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388773), added: 391248, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedVoterSnapshotHash` (r:0 w:1)
 	/// Proof: `MultiBlock::PagedVoterSnapshotHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `Measured`)
 	/// Storage: `Staking::MinimumActiveStake` (r:0 w:1)
 	/// Proof: `Staking::MinimumActiveStake` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `Measured`)
 	fn on_initialize_into_snapshot_rest() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4845498`
-		//  Estimated: `69198963`
-		// Minimum execution time: 185_751_092_000 picoseconds.
-		Weight::from_parts(185_809_440_000, 69198963)
-			.saturating_add(T::DbWeight::get().reads(27466_u64))
+		//  Measured:  `5329975`
+		//  Estimated: `69683440`
+		// Minimum execution time: 195_257_628_000 picoseconds.
+		Weight::from_parts(195_317_909_000, 69683440)
+			.saturating_add(T::DbWeight::get().reads(28481_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
@@ -153,8 +153,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `340`
 		//  Estimated: `1825`
-		// Minimum execution time: 56_386_000 picoseconds.
-		Weight::from_parts(63_807_000, 1825)
+		// Minimum execution time: 649_767_000 picoseconds.
+		Weight::from_parts(764_370_000, 1825)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -170,8 +170,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `340`
 		//  Estimated: `3805`
-		// Minimum execution time: 59_631_000 picoseconds.
-		Weight::from_parts(68_344_000, 3805)
+		// Minimum execution time: 657_218_000 picoseconds.
+		Weight::from_parts(674_575_000, 3805)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -185,8 +185,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `340`
 		//  Estimated: `1825`
-		// Minimum execution time: 74_604_000 picoseconds.
-		Weight::from_parts(89_526_000, 1825)
+		// Minimum execution time: 866_827_000 picoseconds.
+		Weight::from_parts(890_863_000, 1825)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -194,8 +194,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 150_000 picoseconds.
-		Weight::from_parts(171_000, 0)
+		// Minimum execution time: 140_000 picoseconds.
+		Weight::from_parts(170_000, 0)
 	}
 }
 
@@ -209,8 +209,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `156`
 		//  Estimated: `1641`
-		// Minimum execution time: 9_034_000 picoseconds.
-		Weight::from_parts(9_615_000, 1641)
+		// Minimum execution time: 9_254_000 picoseconds.
+		Weight::from_parts(10_145_000, 1641)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
@@ -229,16 +229,16 @@ impl WeightInfo for () {
 	/// Proof: `VoterList::ListBags` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `Measured`)
 	/// Storage: `VoterList::ListNodes` (r:26001 w:0)
 	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `Measured`)
-	/// Storage: `Staking::Bonded` (r:351 w:0)
+	/// Storage: `Staking::Bonded` (r:703 w:0)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `Measured`)
-	/// Storage: `Staking::Ledger` (r:351 w:0)
+	/// Storage: `Staking::Ledger` (r:703 w:0)
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `Measured`)
-	/// Storage: `Staking::Nominators` (r:351 w:0)
+	/// Storage: `Staking::Nominators` (r:703 w:0)
 	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `Measured`)
 	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:0)
 	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(194117), added: 196592, mode: `Measured`)
+	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388773), added: 391248, mode: `Measured`)
 	/// Storage: `MultiBlock::DesiredTargets` (r:0 w:1)
 	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedTargetSnapshotHash` (r:0 w:1)
@@ -251,11 +251,11 @@ impl WeightInfo for () {
 	/// Proof: `Staking::MinimumActiveStake` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `Measured`)
 	fn on_initialize_into_snapshot_msp() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4791638`
-		//  Estimated: `69145103`
-		// Minimum execution time: 190_723_240_000 picoseconds.
-		Weight::from_parts(190_802_298_000, 69145103)
-			.saturating_add(RocksDbWeight::get().reads(28262_u64))
+		//  Measured:  `5151586`
+		//  Estimated: `69505051`
+		// Minimum execution time: 201_905_061_000 picoseconds.
+		Weight::from_parts(203_148_720_000, 69505051)
+			.saturating_add(RocksDbWeight::get().reads(29318_u64))
 			.saturating_add(RocksDbWeight::get().writes(8_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
@@ -266,31 +266,31 @@ impl WeightInfo for () {
 	/// Proof: `VoterList::CounterForListNodes` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `VoterList::ListNodes` (r:26001 w:0)
 	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `Measured`)
-	/// Storage: `Staking::Bonded` (r:352 w:0)
+	/// Storage: `Staking::Bonded` (r:704 w:0)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `Measured`)
-	/// Storage: `Staking::Ledger` (r:352 w:0)
+	/// Storage: `Staking::Ledger` (r:704 w:0)
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `Measured`)
-	/// Storage: `Staking::Nominators` (r:351 w:0)
+	/// Storage: `Staking::Nominators` (r:703 w:0)
 	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `Measured`)
-	/// Storage: `Staking::Validators` (r:206 w:0)
-	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
 	/// Storage: `VoterList::ListBags` (r:200 w:0)
 	/// Proof: `VoterList::ListBags` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `Measured`)
+	/// Storage: `Staking::Validators` (r:165 w:0)
+	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
 	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:0)
 	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:0 w:1)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(194117), added: 196592, mode: `Measured`)
+	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388773), added: 391248, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedVoterSnapshotHash` (r:0 w:1)
 	/// Proof: `MultiBlock::PagedVoterSnapshotHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `Measured`)
 	/// Storage: `Staking::MinimumActiveStake` (r:0 w:1)
 	/// Proof: `Staking::MinimumActiveStake` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `Measured`)
 	fn on_initialize_into_snapshot_rest() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4845498`
-		//  Estimated: `69198963`
-		// Minimum execution time: 185_751_092_000 picoseconds.
-		Weight::from_parts(185_809_440_000, 69198963)
-			.saturating_add(RocksDbWeight::get().reads(27466_u64))
+		//  Measured:  `5329975`
+		//  Estimated: `69683440`
+		// Minimum execution time: 195_257_628_000 picoseconds.
+		Weight::from_parts(195_317_909_000, 69683440)
+			.saturating_add(RocksDbWeight::get().reads(28481_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
@@ -301,8 +301,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `340`
 		//  Estimated: `1825`
-		// Minimum execution time: 56_386_000 picoseconds.
-		Weight::from_parts(63_807_000, 1825)
+		// Minimum execution time: 649_767_000 picoseconds.
+		Weight::from_parts(764_370_000, 1825)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -318,8 +318,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `340`
 		//  Estimated: `3805`
-		// Minimum execution time: 59_631_000 picoseconds.
-		Weight::from_parts(68_344_000, 3805)
+		// Minimum execution time: 657_218_000 picoseconds.
+		Weight::from_parts(674_575_000, 3805)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -333,8 +333,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `340`
 		//  Estimated: `1825`
-		// Minimum execution time: 74_604_000 picoseconds.
-		Weight::from_parts(89_526_000, 1825)
+		// Minimum execution time: 866_827_000 picoseconds.
+		Weight::from_parts(890_863_000, 1825)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -342,7 +342,7 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 150_000 picoseconds.
-		Weight::from_parts(171_000, 0)
+		// Minimum execution time: 140_000 picoseconds.
+		Weight::from_parts(170_000, 0)
 	}
 }

@@ -26,7 +26,7 @@
 // --heap-pages
 // 65000
 // --output
-// ../maxencodedlen
+// ../mel
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -58,13 +58,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:0 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
 	fn register_not_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `3043`
 		//  Estimated: `4118`
-		// Minimum execution time: 62_926_000 picoseconds.
-		Weight::from_parts(63_356_000, 4118)
+		// Minimum execution time: 60_863_000 picoseconds.
+		Weight::from_parts(61_264_000, 4118)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -77,34 +77,34 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:2)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:64 w:64)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
+	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `MaxEncodedLen`)
 	fn register_eject() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `8691`
-		//  Estimated: `1265246`
-		// Minimum execution time: 185_642_000 picoseconds.
-		Weight::from_parts(186_052_000, 1265246)
-			.saturating_add(T::DbWeight::get().reads(70_u64))
-			.saturating_add(T::DbWeight::get().writes(69_u64))
+		//  Measured:  `7643`
+		//  Estimated: `1185054`
+		// Minimum execution time: 149_207_000 picoseconds.
+		Weight::from_parts(151_520_000, 1185054)
+			.saturating_add(T::DbWeight::get().reads(38_u64))
+			.saturating_add(T::DbWeight::get().writes(37_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
 	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlock::Round` (r:1 w:0)
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `MaxEncodedLen`)
 	fn submit_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3492`
-		//  Estimated: `20744`
-		// Minimum execution time: 133_432_000 picoseconds.
-		Weight::from_parts(134_424_000, 20744)
+		//  Measured:  `3459`
+		//  Estimated: `37992`
+		// Minimum execution time: 707_404_000 picoseconds.
+		Weight::from_parts(752_393_000, 37992)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -113,17 +113,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiBlock::Round` (r:1 w:0)
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `MaxEncodedLen`)
 	fn unset_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3594`
-		//  Estimated: `20744`
-		// Minimum execution time: 126_613_000 picoseconds.
-		Weight::from_parts(153_653_000, 20744)
+		//  Measured:  `4287`
+		//  Estimated: `37992`
+		// Minimum execution time: 716_769_000 picoseconds.
+		Weight::from_parts(761_406_000, 37992)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -133,20 +133,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `MaxEncodedLen`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:64 w:64)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `MaxEncodedLen`)
+	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `MaxEncodedLen`)
 	fn bail() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `5557`
-		//  Estimated: `1265246`
-		// Minimum execution time: 150_318_000 picoseconds.
-		Weight::from_parts(155_536_000, 1265246)
-			.saturating_add(T::DbWeight::get().reads(69_u64))
-			.saturating_add(T::DbWeight::get().writes(67_u64))
+		//  Measured:  `4508`
+		//  Estimated: `1185054`
+		// Minimum execution time: 117_038_000 picoseconds.
+		Weight::from_parts(117_468_000, 1185054)
+			.saturating_add(T::DbWeight::get().reads(37_u64))
+			.saturating_add(T::DbWeight::get().writes(35_u64))
 	}
 }
 
@@ -161,13 +161,13 @@ impl WeightInfo for () {
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:0 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
 	fn register_not_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `3043`
 		//  Estimated: `4118`
-		// Minimum execution time: 62_926_000 picoseconds.
-		Weight::from_parts(63_356_000, 4118)
+		// Minimum execution time: 60_863_000 picoseconds.
+		Weight::from_parts(61_264_000, 4118)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -180,34 +180,34 @@ impl WeightInfo for () {
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:2)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:64 w:64)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
+	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `MaxEncodedLen`)
 	fn register_eject() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `8691`
-		//  Estimated: `1265246`
-		// Minimum execution time: 185_642_000 picoseconds.
-		Weight::from_parts(186_052_000, 1265246)
-			.saturating_add(RocksDbWeight::get().reads(70_u64))
-			.saturating_add(RocksDbWeight::get().writes(69_u64))
+		//  Measured:  `7643`
+		//  Estimated: `1185054`
+		// Minimum execution time: 149_207_000 picoseconds.
+		Weight::from_parts(151_520_000, 1185054)
+			.saturating_add(RocksDbWeight::get().reads(38_u64))
+			.saturating_add(RocksDbWeight::get().writes(37_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
 	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlock::Round` (r:1 w:0)
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `MaxEncodedLen`)
 	fn submit_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3492`
-		//  Estimated: `20744`
-		// Minimum execution time: 133_432_000 picoseconds.
-		Weight::from_parts(134_424_000, 20744)
+		//  Measured:  `3459`
+		//  Estimated: `37992`
+		// Minimum execution time: 707_404_000 picoseconds.
+		Weight::from_parts(752_393_000, 37992)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -216,17 +216,17 @@ impl WeightInfo for () {
 	/// Storage: `MultiBlock::Round` (r:1 w:0)
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `MaxEncodedLen`)
 	fn unset_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3594`
-		//  Estimated: `20744`
-		// Minimum execution time: 126_613_000 picoseconds.
-		Weight::from_parts(153_653_000, 20744)
+		//  Measured:  `4287`
+		//  Estimated: `37992`
+		// Minimum execution time: 716_769_000 picoseconds.
+		Weight::from_parts(761_406_000, 37992)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -236,19 +236,19 @@ impl WeightInfo for () {
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `MaxEncodedLen`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:64 w:64)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `MaxEncodedLen`)
+	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `MaxEncodedLen`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `MaxEncodedLen`)
 	fn bail() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `5557`
-		//  Estimated: `1265246`
-		// Minimum execution time: 150_318_000 picoseconds.
-		Weight::from_parts(155_536_000, 1265246)
-			.saturating_add(RocksDbWeight::get().reads(69_u64))
-			.saturating_add(RocksDbWeight::get().writes(67_u64))
+		//  Measured:  `4508`
+		//  Estimated: `1185054`
+		// Minimum execution time: 117_038_000 picoseconds.
+		Weight::from_parts(117_468_000, 1185054)
+			.saturating_add(RocksDbWeight::get().reads(37_u64))
+			.saturating_add(RocksDbWeight::get().writes(35_u64))
 	}
 }
