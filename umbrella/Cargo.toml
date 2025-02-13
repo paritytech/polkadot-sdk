@@ -698,7 +698,7 @@ version = "0.10.0"
 path = "../bridges/bin/runtime-common"
 default-features = false
 optional = true
-version = "0.18.2"
+version = "0.18.3"
 
 [dependencies.cumulus-pallet-aura-ext]
 path = "../cumulus/pallets/aura-ext"
@@ -746,7 +746,7 @@ version = "0.17.0"
 path = "../cumulus/pallets/xcmp-queue"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.17.1"
 
 [dependencies.cumulus-ping]
 path = "../cumulus/parachains/pallets/ping"
@@ -962,7 +962,7 @@ version = "37.0.0"
 path = "../substrate/frame/balances"
 default-features = false
 optional = true
-version = "39.0.0"
+version = "39.0.1"
 
 [dependencies.pallet-beefy]
 path = "../substrate/frame/beefy"
@@ -1502,7 +1502,7 @@ version = "17.0.0"
 path = "../bridges/modules/xcm-bridge-hub"
 default-features = false
 optional = true
-version = "0.13.2"
+version = "0.13.3"
 
 [dependencies.pallet-xcm-bridge-hub-router]
 path = "../bridges/modules/xcm-bridge-hub-router"
@@ -1952,7 +1952,7 @@ version = "14.2.0"
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "17.0.3"
+version = "17.0.4"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
@@ -2000,7 +2000,7 @@ version = "20.0.0"
 path = "../cumulus/parachains/runtimes/bridge-hubs/test-utils"
 default-features = false
 optional = true
-version = "0.20.0"
+version = "0.20.1"
 
 [dependencies.cumulus-client-cli]
 path = "../cumulus/client/cli"
@@ -2096,7 +2096,7 @@ version = "0.16.0"
 path = "../cumulus/parachains/integration-tests/emulated/common"
 default-features = false
 optional = true
-version = "16.0.0"
+version = "16.0.1"
 
 [dependencies.fork-tree]
 path = "../substrate/utils/fork-tree"

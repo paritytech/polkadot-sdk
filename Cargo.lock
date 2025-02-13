@@ -2046,7 +2046,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.16.2"
+version = "0.16.3"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2148,7 +2148,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-test-utils"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "asset-test-utils",
  "bp-header-chain",
@@ -2239,7 +2239,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2340,7 +2340,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-runtime-common"
-version = "0.18.2"
+version = "0.18.3"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -4161,7 +4161,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
@@ -5129,7 +5129,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "16.0.0"
+version = "16.0.1"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -9951,7 +9951,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "39.0.0"
+version = "39.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -12021,7 +12021,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -21009,7 +21009,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "17.0.3"
+version = "17.0.4"
 dependencies = [
  "assert_matches",
  "frame-support",
