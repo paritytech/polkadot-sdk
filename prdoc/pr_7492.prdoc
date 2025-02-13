@@ -9,12 +9,12 @@ crates:
 - name: bridge-runtime-common
   bump: patch
 - name: pallet-bridge-relayers
-  bump: patch
+  bump: major
 - name: bp-relayers
-  bump: patch
+  bump: major
 - name: bridge-hub-rococo-runtime
-  bump: patch
+  bump: minor
 - name: bridge-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: bridge-hub-test-utils
-  bump: patch
+  bump: major
