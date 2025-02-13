@@ -26,13 +26,11 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
-use frame_support::{
-	defensive,
-	storage::StoragePrefixedContainer,
-	traits::{Get, StorageInstance},
-	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
+use frame::{
+	runtime::prelude::storage::{StorageAppender, StorageList, StoragePrefixedContainer},
+	testing_prelude::*,
+	traits::StorageInstance,
 };
-use sp_runtime::traits::Saturating;
 
 pub type PageIndex = u32;
 pub type ValueIndex = u32;
@@ -60,10 +58,10 @@ pub type ValueIndex = u32;
 /// as long as there are elements in the page and there are pages in storage. All elements of a page
 /// are loaded once a page is read from storage. Iteration then happens on the cached elements. This
 /// reduces the number of storage `read` calls on the overlay. **Appending** to the list happens by
-/// appending to the last page by utilizing [`sp_io::storage::append`]. It allows to directly extend
+/// appending to the last page by utilizing [`storage::append`]. It allows to directly extend
 /// the elements of `values` vector of the page without loading the whole vector from storage. A new
 /// page is instantiated once [`Page::next`] overflows `ValuesPerNewPage`. Its vector will also be
-/// created through [`sp_io::storage::append`]. **Draining** advances the internal indices identical
+/// created through [`storage::append`]. **Draining** advances the internal indices identical
 /// to Iteration. It additionally persists the increments to storage and thereby 'drains' elements.
 /// Completely drained pages are deleted from storage.
 ///
@@ -111,7 +109,7 @@ pub struct StoragePagedListMeta<Prefix, Value, ValuesPerNewPage> {
 	_phantom: PhantomData<(Prefix, Value, ValuesPerNewPage)>,
 }
 
-impl<Prefix, Value, ValuesPerNewPage> frame_support::storage::StorageAppender<Value>
+impl<Prefix, Value, ValuesPerNewPage> StorageAppender<Value>
 	for StoragePagedListMeta<Prefix, Value, ValuesPerNewPage>
 where
 	Prefix: StorageInstance,
@@ -135,7 +133,7 @@ where
 	pub fn from_storage() -> Option<Self> {
 		let key = Self::key();
 
-		sp_io::storage::get(&key).and_then(|raw| Self::decode(&mut &raw[..]).ok())
+		storage::get(&key).and_then(|raw| Self::decode(&mut &raw[..]).ok())
 	}
 
 	pub fn key() -> Vec<u8> {
@@ -153,13 +151,13 @@ where
 		}
 		let key = page_key::<Prefix>(self.last_page);
 		self.last_page_len.saturating_inc();
-		sp_io::storage::append(&key, item.encode());
+		storage::append(&key, item.encode());
 		self.store();
 	}
 
 	pub fn store(&self) {
 		let key = Self::key();
-		self.using_encoded(|enc| sp_io::storage::set(&key, enc));
+		self.using_encoded(|enc| storage::set(&key, enc));
 	}
 
 	pub fn reset(&mut self) {
@@ -168,7 +166,7 @@ where
 	}
 
 	pub fn delete() {
-		sp_io::storage::clear(&Self::key());
+		storage::clear(&Self::key());
 	}
 }
 
@@ -187,8 +185,8 @@ impl<V: FullCodec> Page<V> {
 		value_index: ValueIndex,
 	) -> Option<Self> {
 		let key = page_key::<Prefix>(index);
-		let values = sp_io::storage::get(&key)
-			.and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
+		let values =
+			storage::get(&key).and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
 		if values.is_empty() {
 			// Don't create empty pages.
 			return None
@@ -213,7 +211,7 @@ impl<V: FullCodec> Page<V> {
 // Does not live under `Page` since it does not require the `Value` generic.
 pub(crate) fn delete_page<Prefix: StorageInstance>(index: PageIndex) {
 	let key = page_key::<Prefix>(index);
-	sp_io::storage::clear(&key);
+	storage::clear(&key);
 }
 
 /// Storage key of a page with `index`.
@@ -311,7 +309,7 @@ where
 	}
 }
 
-impl<Prefix, Value, ValuesPerNewPage> frame_support::storage::StorageList<Value>
+impl<Prefix, Value, ValuesPerNewPage> StorageList<Value>
 	for StoragePagedList<Prefix, Value, ValuesPerNewPage>
 where
 	Prefix: StorageInstance,
@@ -355,13 +353,13 @@ where
 	/// Return the elements of the list.
 	#[cfg(test)]
 	fn as_vec() -> Vec<Value> {
-		<Self as frame_support::storage::StorageList<_>>::iter().collect()
+		<Self as StorageList<_>>::iter().collect()
 	}
 
 	/// Return and remove the elements of the list.
 	#[cfg(test)]
 	fn as_drained_vec() -> Vec<Value> {
-		<Self as frame_support::storage::StorageList<_>>::drain().collect()
+		<Self as StorageList<_>>::drain().collect()
 	}
 }
 
@@ -407,11 +405,6 @@ where
 #[allow(dead_code)]
 pub(crate) mod mock {
 	pub use super::*;
-	pub use frame_support::parameter_types;
-	#[cfg(test)]
-	pub use frame_support::{storage::StorageList as _, StorageNoopGuard};
-	#[cfg(test)]
-	pub use sp_io::TestExternalities;
 
 	parameter_types! {
 		pub const ValuesPerNewPage: u32 = 5;
@@ -499,13 +492,13 @@ mod tests {
 		TestExternalities::default().execute_with(|| {
 			List::append_many(0..9);
 
-			assert!(sp_io::storage::exists(&page_key::<Prefix>(0)));
-			assert!(sp_io::storage::exists(&page_key::<Prefix>(1)));
+			assert!(storage::exists(&page_key::<Prefix>(0)));
+			assert!(storage::exists(&page_key::<Prefix>(1)));
 
 			assert_eq!(List::drain().take(5).count(), 5);
 			// Page 0 is eagerly removed.
-			assert!(!sp_io::storage::exists(&page_key::<Prefix>(0)));
-			assert!(sp_io::storage::exists(&page_key::<Prefix>(1)));
+			assert!(!storage::exists(&page_key::<Prefix>(0)));
+			assert!(storage::exists(&page_key::<Prefix>(1)));
 		});
 	}
 
@@ -516,16 +509,16 @@ mod tests {
 			List::append_many(0..9);
 
 			let key = page_key::<Prefix>(0);
-			let raw = sp_io::storage::get(&key).expect("Page should be present");
+			let raw = storage::get(&key).expect("Page should be present");
 			let as_vec = Vec::<u32>::decode(&mut &raw[..]).unwrap();
 			assert_eq!(as_vec.len(), 5, "First page contains 5");
 
 			let key = page_key::<Prefix>(1);
-			let raw = sp_io::storage::get(&key).expect("Page should be present");
+			let raw = storage::get(&key).expect("Page should be present");
 			let as_vec = Vec::<u32>::decode(&mut &raw[..]).unwrap();
 			assert_eq!(as_vec.len(), 4, "Second page contains 4");
 
-			let meta = sp_io::storage::get(&meta_key::<Prefix>()).expect("Meta should be present");
+			let meta = storage::get(&meta_key::<Prefix>()).expect("Meta should be present");
 			let meta: StoragePagedListMeta<Prefix, u32, ValuesPerNewPage> =
 				Decode::decode(&mut &meta[..]).unwrap();
 			assert_eq!(meta.first_page, 0);

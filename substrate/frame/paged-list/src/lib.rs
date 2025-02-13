@@ -72,16 +72,12 @@ mod tests;
 extern crate alloc;
 
 use codec::FullCodec;
-use frame_support::{
-	pallet_prelude::StorageList,
-	traits::{PalletInfoAccess, StorageInstance},
-};
+use frame::{prelude::*, traits::StorageInstance};
 pub use paged_list::StoragePagedList;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
