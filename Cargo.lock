@@ -6685,7 +6685,7 @@ checksum = "8c321610643004cf908ec0f5f2aa0d8f1f8e14b540562a2887a1111ff1ecbf7b"
 dependencies = [
  "crunchy",
  "fixed-hash",
- "impl-codec 0.7.1",
+ "impl-codec 0.7.0",
  "impl-rlp 0.4.0",
  "impl-serde 0.5.0",
  "scale-info",
@@ -6716,7 +6716,7 @@ checksum = "1ab15ed80916029f878e0267c3a9f92b67df55e79af370bf66199059ae2b4ee3"
 dependencies = [
  "ethbloom 0.14.1",
  "fixed-hash",
- "impl-codec 0.7.1",
+ "impl-codec 0.7.0",
  "impl-rlp 0.4.0",
  "impl-serde 0.5.0",
  "primitive-types 0.13.1",
@@ -8944,9 +8944,9 @@ dependencies = [
 
 [[package]]
 name = "impl-codec"
-version = "0.7.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d40b9d5e17727407e55028eafc22b2dc68781786e6d7eb8a21103f5058e3a14"
+checksum = "b67aa010c1e3da95bf151bd8b4c059b2ed7e75387cdb969b4f8f2723a43f9941"
 dependencies = [
  "parity-scale-codec",
 ]
@@ -20456,7 +20456,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d15600a7d856470b7d278b3fe0e311fe28c2526348549f8ef2ff7db3299c87f5"
 dependencies = [
  "fixed-hash",
- "impl-codec 0.7.1",
+ "impl-codec 0.7.0",
  "impl-num-traits 0.2.0",
  "impl-rlp 0.4.0",
  "impl-serde 0.5.0",
@@ -26419,53 +26419,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-core"
-version = "35.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4532774405a712a366a98080cbb4daa28c38ddff0ec595902ad6ee6a78a809f8"
-dependencies = [
- "array-bytes",
- "bitflags 1.3.2",
- "blake2 0.10.6",
- "bounded-collections",
- "bs58",
- "dyn-clonable",
- "ed25519-zebra 4.0.3",
- "futures",
- "hash-db",
- "hash256-std-hasher",
- "impl-serde 0.5.0",
- "itertools 0.11.0",
- "k256",
- "libsecp256k1",
- "log",
- "merlin",
- "parity-bip39",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "paste",
- "primitive-types 0.13.1",
- "rand",
- "scale-info",
- "schnorrkel 0.11.4",
- "secp256k1 0.28.2",
- "secrecy 0.8.0",
- "serde",
- "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-debug-derive 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-externalities 0.30.0",
- "sp-runtime-interface 29.0.0",
- "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-storage 22.0.0",
- "ss58-registry",
- "substrate-bip39 0.6.0",
- "thiserror",
- "tracing",
- "w3f-bls",
- "zeroize",
-]
-
-[[package]]
 name = "sp-core-fuzz"
 version = "0.0.0"
 dependencies = [
@@ -26684,17 +26637,6 @@ dependencies = [
  "environmental",
  "parity-scale-codec",
  "sp-storage 21.0.0",
-]
-
-[[package]]
-name = "sp-externalities"
-version = "0.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30cbf059dce180a8bf8b6c8b08b6290fa3d1c7f069a60f1df038ab5dd5fc0ba6"
-dependencies = [
- "environmental",
- "parity-scale-codec",
- "sp-storage 22.0.0",
 ]
 
 [[package]]
@@ -27300,26 +27242,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-runtime-interface"
-version = "29.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51e83d940449837a8b2a01b4d877dd22d896fd14d3d3ade875787982da994a33"
-dependencies = [
- "bytes",
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "polkavm-derive 0.9.1",
- "primitive-types 0.13.1",
- "sp-externalities 0.30.0",
- "sp-runtime-interface-proc-macro 18.0.0",
- "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-storage 22.0.0",
- "sp-tracing 17.0.1",
- "sp-wasm-interface 21.0.1",
- "static_assertions",
-]
-
-[[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "11.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
@@ -27643,19 +27565,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99c82989b3a4979a7e1ad848aad9f5d0b4388f1f454cc131766526601ab9e8f8"
 dependencies = [
  "impl-serde 0.4.0",
- "parity-scale-codec",
- "ref-cast",
- "serde",
- "sp-debug-derive 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "sp-storage"
-version = "22.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee3b70ca340e41cde9d2e069d354508a6e37a6573d66f7cc38f11549002f64ec"
-dependencies = [
- "impl-serde 0.5.0",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -32331,9 +32240,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.2.24"
+version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03caa9f916aedb12e8443521c87604fe54fbde163a58018780108d86761310dc"
+checksum = "5ced2fca1322821431f03d06dcf2ea74d3a7369760b6c587b372de6eada3ce43"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -32345,16 +32254,15 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml 0.8.19",
- "tracing",
  "url",
  "zombienet-support",
 ]
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.2.24"
+version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8330f46e4584a306ed567702307a697b8a2771681233548263f5bc3f639fcdec"
+checksum = "86ecd17133c3129547b6472591b5e58d4aee1fc63c965a3418fd56d33a8a4e82"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -32370,7 +32278,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "sp-core 35.0.0",
+ "sp-core 34.0.0",
  "subxt",
  "subxt-signer",
  "thiserror",
@@ -32385,9 +32293,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.2.24"
+version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a52a796a1521cf6420cc6384eac9ef25a146d453b568969774af643f3ecdc97"
+checksum = "23702db0819a050c8a0130a769b105695137020a64207b4597aa021f06924552"
 dependencies = [
  "pest",
  "pest_derive",
@@ -32396,9 +32304,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.2.24"
+version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7121ed12016baf318afdcaa96e59d134a3299f40ad5cb67fa6e8ae561db97d26"
+checksum = "83e903843c62cd811e7730ccc618dcd14444d20e8aadfcd7d7561c7b47d8f984"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -32427,9 +32335,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.2.24"
+version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "732a89935216d4cde1e538075af2f9e0e974e49895004694ab113c7040725ae5"
+checksum = "e457b12c8fdc7003c12dd56855da09812ac11dd232e4ec01acccb2899fe05e44"
 dependencies = [
  "async-trait",
  "futures",
@@ -32445,9 +32353,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.2.24"
+version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f0c215aa994335125b75f9ad7c227a4ae6c281c074a6e6a42800f2fdfa59c8b"
+checksum = "43547d65b19a92cf0ee44380239d82ef345e7d26f7b04b9e0ecf48496af6346b"
 dependencies = [
  "anyhow",
  "async-trait",

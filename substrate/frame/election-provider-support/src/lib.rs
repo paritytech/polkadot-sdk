@@ -739,7 +739,7 @@ impl<AccountId: IdentifierT, Accuracy: PerThing128> NposSolver
 		for (voter, weight, votes) in voters {
 			let our_winners = winners
 				.iter()
-				.filter(|w| votes.clone().into_iter().any(|v| v == *w))
+				.filter(|w| votes.clone().into_iter().any(|v| v == **w))
 				.collect::<Vec<_>>();
 			let our_winners_len = our_winners.len();
 			let distribution = our_winners
