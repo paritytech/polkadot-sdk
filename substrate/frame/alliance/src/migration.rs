@@ -16,8 +16,9 @@
 // limitations under the License.
 
 use crate::{Config, Pallet, Weight, LOG_TARGET};
-use frame_support::{pallet_prelude::*, storage::migration, traits::OnRuntimeUpgrade};
+use frame::runtime::prelude::*;
 use log;
+use storage::migration;
 
 /// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
@@ -163,6 +164,7 @@ pub(crate) mod v1_to_v2 {
 mod test {
 	use super::*;
 	use crate::{mock::*, MemberRole, Members};
+	use frame::testing_prelude::*;
 
 	#[test]
 	fn migration_v1_to_v2_works() {

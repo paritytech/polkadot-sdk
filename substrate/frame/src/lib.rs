@@ -202,10 +202,13 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::{
+		defensive, defensive_assert,
+		traits::{
+			Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
+			NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			UnfilteredDispatchable, VariantCount, VariantCountOf,
+		},
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -220,8 +223,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
-	pub use super::hashing::*;
+	/// All crypto related things.
+	pub use super::cryptography::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -242,7 +245,8 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchError, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
@@ -354,6 +358,9 @@ pub mod runtime {
 	/// This automatically brings in `polkadot_sdk_frame::prelude::*`.
 	pub mod prelude {
 		pub use crate::prelude::*;
+
+		/// Testing includes event cheking.
+		pub use crate::event::*;
 
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
@@ -537,6 +544,11 @@ pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }
 
+/// Event checking system for mock runtimes.
+pub mod event {
+	pub use frame_system::{EventRecord, Phase};
+}
+
 /// All derive macros used in frame.
 ///
 /// This is already part of the [`prelude`].
@@ -551,9 +563,13 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
+	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify};
 }
 
 /// All account management related traits.
@@ -597,6 +613,8 @@ pub mod deps {
 	pub use sp_consensus_aura;
 	#[cfg(feature = "runtime")]
 	pub use sp_consensus_grandpa;
+	#[cfg(feature = "runtime")]
+	pub use sp_crypto_hashing;
 	#[cfg(feature = "runtime")]
 	pub use sp_genesis_builder;
 	#[cfg(feature = "runtime")]
