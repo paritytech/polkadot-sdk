@@ -15,7 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! TODO
+//! This pallet is intended to be used on a relay chain and to communicate with its counterpart on
+//! AssetHub (or a similar network) named `pallet-staking-rc-client`.
+//!
+//! This pallet serves as an interface between the staking pallet on AssetHub and the session pallet
+//! on the relay chain. From the relay chain to AssetHub, its responsibilities are to send
+//! information about session changes (start and end) and to report offenses. From AssetHub to the
+//! relay chain, it receives information about the potentially new validator set for the session.
+//!
+//! All the communication between the two pallets is performed with XCM messages.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -37,8 +45,8 @@ const LOG_TARGET: &str = "runtime::staking::ah-client";
 
 /// `pallet-staking-rc-client` pallet index on AssetHub. Used to construct remote calls.
 ///
-/// The codec index must
-/// correspond to the index of `pallet-staking-rc-client` in the `construct_runtime` of AssetHub.
+/// The codec index must correspond to the index of `pallet-staking-rc-client` in the
+/// `construct_runtime` of AssetHub.
 #[derive(Encode, Decode)]
 enum AssetHubRuntimePallets {
 	#[codec(index = 50)]
@@ -48,12 +56,16 @@ enum AssetHubRuntimePallets {
 /// Call encoding for the calls needed from the Broker pallet.
 #[derive(Encode, Decode)]
 enum StakingCalls {
+	/// A session with the given index has started.
 	#[codec(index = 0)]
-	StartSession(SessionIndex),
+	RelayChainSessionStart(SessionIndex),
+	// A session with the given index has ended. The block authors with their corresponding
+	// session points are provided.
 	#[codec(index = 1)]
-	EndSession(SessionIndex, Vec<(AccountId32, u32)>),
+	RelayChainSessionEnd(SessionIndex, Vec<(AccountId32, u32)>),
+	/// Report one or more offences.
 	#[codec(index = 2)]
-	NewOffences(SessionIndex, Vec<Offence>),
+	NewRelayChainOffences(SessionIndex, Vec<Offence>),
 }
 
 #[frame_support::pallet(dev_mode)]
@@ -68,6 +80,7 @@ pub mod pallet {
 	use polkadot_runtime_parachains::origin::{ensure_parachain, Origin};
 	use sp_runtime::Perbill;
 	use sp_staking::{offence::OnOffenceHandler, SessionIndex};
+
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -82,7 +95,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// How many blocks each validator has authored during the current session.
+	/// Keeps track of the session points for each block author in the current session.
 	#[pallet::storage]
 	pub type BlockAuthors<T: Config> = StorageMap<_, Twox64Concat, AccountId32, u32, ValueQuery>;
 
@@ -112,7 +125,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The paraid making the call is not AssetHub.
+		/// The ParaId making the call is not AssetHub.
 		NotAssetHub,
 	}
 
@@ -178,14 +191,14 @@ pub mod pallet {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_asset_hub_call::<T>(StakingCalls::EndSession(session_index, authors)),
+				mk_asset_hub_call::<T>(StakingCalls::RelayChainSessionEnd(session_index, authors)),
 			]);
 
 			if let Err(err) = send_xcm::<T::SendXcm>(
 				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
 				message,
 			) {
-				log::error!(target: LOG_TARGET, "Sending `EndSession` to AssetHub failed: {:?}", err);
+				log::error!(target: LOG_TARGET, "Sending `RelayChainSessionEnd` to AssetHub failed: {:?}", err);
 			}
 		}
 
@@ -195,13 +208,13 @@ pub mod pallet {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_asset_hub_call::<T>(StakingCalls::StartSession(session_index)),
+				mk_asset_hub_call::<T>(StakingCalls::RelayChainSessionStart(session_index)),
 			]);
 			if let Err(err) = send_xcm::<T::SendXcm>(
 				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
 				message,
 			) {
-				log::error!(target: LOG_TARGET, "Sending `StartSession` to AssetHub failed: {:?}", err);
+				log::error!(target: LOG_TARGET, "Sending `RelayChainSessionStart` to AssetHub failed: {:?}", err);
 			}
 		}
 	}
@@ -263,7 +276,7 @@ pub mod pallet {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_asset_hub_call::<T>(StakingCalls::NewOffences(
+				mk_asset_hub_call::<T>(StakingCalls::NewRelayChainOffences(
 					slash_session,
 					offenders_and_slashes,
 				)),
@@ -272,11 +285,11 @@ pub mod pallet {
 				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
 				message,
 			) {
-				log::error!(target: LOG_TARGET, "Sending `StartSession` to AssetHub failed: {:?}",
+				log::error!(target: LOG_TARGET, "Sending `NewRelayChainOffences` to AssetHub failed: {:?}",
 			err);
 			}
 
-			Weight::zero() // TODO: how much?
+			Weight::zero()
 		}
 	}
 
