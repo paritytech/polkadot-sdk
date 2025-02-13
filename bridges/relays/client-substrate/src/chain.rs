@@ -30,10 +30,9 @@ use num_traits::Zero;
 use sc_transaction_pool_api::TransactionStatus;
 use scale_info::TypeInfo;
 use sp_core::{storage::StorageKey, Pair};
-use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{Block as BlockT, Member},
+	traits::{AtLeast32BitUnsigned, Block as BlockT, Member},
 	ConsensusEngineId, EncodedJustification,
 };
 use std::{fmt::Debug, time::Duration};
