@@ -148,7 +148,7 @@ fn salary_pay_over_xcm_works() {
 		let expected_message: Xcm<RuntimeCall> = Xcm::<RuntimeCall>(vec![
 			DescendOrigin(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![
+			SetAppendix(Xcm::new(vec![
 				SetFeesMode { jit_withdraw: true },
 				ReportError(QueryResponseInfo {
 					destination: (Parent, Parachain(42)).into(),

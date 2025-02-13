@@ -542,7 +542,7 @@ impl TryFrom<OldAsset> for Asset {
 	serde::Serialize,
 	serde::Deserialize,
 )]
-pub struct Assets(Vec<Asset>);
+pub struct Assets(pub(crate) Vec<Asset>);
 
 /// Maximum number of items we expect in a single `Assets` value. Note this is not (yet)
 /// enforced, and just serves to provide a sensible `max_encoded_len` for `Assets`.

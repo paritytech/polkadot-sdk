@@ -65,7 +65,7 @@ fn alias_origin_should_work() {
 		(Parachain(1), AccountId32 { network: None, id: [0; 32] }).into(),
 	]);
 
-	let message = Xcm(vec![AliasOrigin((AccountId32 { network: None, id: [0; 32] }).into())]);
+	let message = Xcm::new(vec![AliasOrigin((AccountId32 { network: None, id: [0; 32] }).into())]);
 	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parachain(1), AccountId32 { network: None, id: [0; 32] }),

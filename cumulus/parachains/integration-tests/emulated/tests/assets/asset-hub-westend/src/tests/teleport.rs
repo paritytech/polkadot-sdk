@@ -546,7 +546,7 @@ fn teleport_to_untrusted_chain_fails() {
 
 	// this should also fail
 	AssetHubWestend::execute_with(|| {
-		let xcm: Xcm<asset_hub_westend_runtime::RuntimeCall> = Xcm(vec![
+		let xcm: Xcm<asset_hub_westend_runtime::RuntimeCall> = Xcm::new(vec![
 			WithdrawAsset(assets.into()),
 			InitiateTeleport { assets: Wild(All), dest: destination, xcm: Xcm::<()>::new() },
 		]);

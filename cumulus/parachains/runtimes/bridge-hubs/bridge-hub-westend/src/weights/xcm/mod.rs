@@ -62,7 +62,7 @@ impl WeighAssets for Assets {
 }
 
 pub struct BridgeHubWestendXcmWeight<Call>(core::marker::PhantomData<Call>);
-impl<Call> XcmWeightInfo<Call> for BridgeHubWestendXcmWeight<Call> {
+impl<Call: 'static> XcmWeightInfo<Call> for BridgeHubWestendXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}

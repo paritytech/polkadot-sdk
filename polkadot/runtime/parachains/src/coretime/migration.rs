@@ -289,18 +289,18 @@ mod v_coretime {
 		let messages = if core_count as usize > legacy_paras_count {
 			let pool_content = message_content.clone().chain(pool).collect();
 			vec![
-				Xcm(reservation_content),
-				Xcm(pool_content),
-				Xcm(leases_content_1),
-				Xcm(leases_content_2),
-				Xcm(set_core_count_content),
+				Xcm::new(reservation_content),
+				Xcm::new(pool_content),
+				Xcm::new(leases_content_1),
+				Xcm::new(leases_content_2),
+				Xcm::new(set_core_count_content),
 			]
 		} else {
 			vec![
-				Xcm(reservation_content),
-				Xcm(leases_content_1),
-				Xcm(leases_content_2),
-				Xcm(set_core_count_content),
+				Xcm::new(reservation_content),
+				Xcm::new(leases_content_1),
+				Xcm::new(leases_content_2),
+				Xcm::new(set_core_count_content),
 			]
 		};
 

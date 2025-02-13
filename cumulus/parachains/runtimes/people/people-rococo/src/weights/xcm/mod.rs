@@ -60,7 +60,7 @@ impl WeighAssets for Assets {
 }
 
 pub struct PeopleRococoXcmWeight<Call>(core::marker::PhantomData<Call>);
-impl<Call> XcmWeightInfo<Call> for PeopleRococoXcmWeight<Call> {
+impl<Call: 'static> XcmWeightInfo<Call> for PeopleRococoXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}

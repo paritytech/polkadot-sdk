@@ -48,7 +48,7 @@ fn transfer_and_transact_in_same_xcm(
 	let fees_for_ah: Asset = (weth.id.clone(), ah_fees_amount).into();
 
 	// xcm to be executed at dest
-	let xcm_on_dest = Xcm(vec![
+	let xcm_on_dest = Xcm::new(vec![
 		Transact { origin_kind: OriginKind::Xcm, call, fallback_max_weight: None },
 		ExpectTransactStatus(MaybeErrorCode::Success),
 		// since this is the last hop, we don't need to further use any assets previously

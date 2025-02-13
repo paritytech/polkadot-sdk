@@ -15,6 +15,7 @@ workspace = true
 array-bytes = { workspace = true, default-features = true }
 bounded-collections = { features = ["serde"], workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+educe = { workspace = true }
 derive-where = { workspace = true }
 environmental = { workspace = true }
 frame-support = { workspace = true }

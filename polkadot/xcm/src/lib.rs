@@ -29,16 +29,22 @@ use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
+mod xcm;
+pub(crate) use xcm::XcmBase;
+
+pub mod traits;
 pub mod v3;
 pub mod v4;
 pub mod v5;
+pub mod v6;
 
 pub mod lts {
 	pub use super::v4::*;
 }
 
 pub mod latest {
-	pub use super::v5::*;
+	pub use super::v6::*;
+	pub use crate::traits::*;
 }
 
 mod double_encoded;
@@ -87,6 +93,8 @@ macro_rules! versioned_type {
 		V4($v4:ty),
 		$(#[$index5:meta])+
 		V5($v5:ty),
+		$(#[$index6:meta])+
+		V6($v6:ty),
 	}) => {
 		#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 		#[codec(encode_bound())]
@@ -100,6 +108,8 @@ macro_rules! versioned_type {
 			V4($v4),
 			$(#[$index5])*
 			V5($v5),
+			$(#[$index6])*
+			V6($v6),
 		}
 		impl $n {
 			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
@@ -145,9 +155,9 @@ macro_rules! versioned_type {
 				$n::V3(x.into())
 			}
 		}
-		impl<T: Into<$v5>> From<T> for $n {
+		impl<T: Into<$v6>> From<T> for $n {
 			fn from(x: T) -> Self {
-				$n::V5(x.into())
+				$n::V6(x.into())
 			}
 		}
 		impl TryFrom<$n> for $v3 {
@@ -161,6 +171,10 @@ macro_rules! versioned_type {
 						let v4: $v4 = x.try_into().map_err(|_| ())?;
 						v4.try_into().map_err(|_| ())
 					}
+					V6(x) => {
+						let v4: $v4 = x.try_into().map_err(|_| ())?;
+						v4.try_into().map_err(|_| ())
+					},
 				}
 			}
 		}
@@ -172,6 +186,10 @@ macro_rules! versioned_type {
 					V3(x) => x.try_into().map_err(|_| ()),
 					V4(x) => Ok(x),
 					V5(x) => x.try_into().map_err(|_| ()),
+					V6(x) => {
+						let v5: $v5 = x.try_into().map_err(|_| ())?;
+						v5.try_into().map_err(|_| ())
+					}
 				}
 			}
 		}
@@ -186,6 +204,7 @@ macro_rules! versioned_type {
 					},
 					V4(x) => x.try_into().map_err(|_| ()),
 					V5(x) => Ok(x),
+					V6(x) => x.try_into().map_err(|_| ()),
 				}
 			}
 		}
@@ -201,6 +220,7 @@ macro_rules! versioned_type {
 					V3(_) => v3::VERSION,
 					V4(_) => v4::VERSION,
 					V5(_) => v5::VERSION,
+					V6(_) => v6::VERSION,
 				}
 			}
 		}
@@ -216,6 +236,8 @@ versioned_type! {
 		V4(v4::AssetId),
 		#[codec(index = 5)]
 		V5(v5::AssetId),
+		#[codec(index = 6)]
+		V6(v6::AssetId),
 	}
 }
 
@@ -228,6 +250,8 @@ versioned_type! {
 		V4(v4::Response),
 		#[codec(index = 5)]
 		V5(v5::Response),
+		#[codec(index = 6)]
+		V6(v6::Response),
 	}
 }
 
@@ -240,6 +264,8 @@ versioned_type! {
 		V4(v4::NetworkId),
 		#[codec(index = 5)]
 		V5(v5::NetworkId),
+		#[codec(index = 6)]
+		V6(v6::NetworkId),
 	}
 }
 
@@ -252,6 +278,8 @@ versioned_type! {
 		V4(v4::Junction),
 		#[codec(index = 5)]
 		V5(v5::Junction),
+		#[codec(index = 6)]
+		V6(v6::Junction),
 	}
 }
 
@@ -265,6 +293,8 @@ versioned_type! {
 		V4(v4::Location),
 		#[codec(index = 5)]
 		V5(v5::Location),
+		#[codec(index = 6)]
+		V6(v6::Location),
 	}
 }
 
@@ -277,6 +307,8 @@ versioned_type! {
 		V4(v4::InteriorLocation),
 		#[codec(index = 5)]
 		V5(v5::InteriorLocation),
+		#[codec(index = 6)]
+		V6(v6::InteriorLocation),
 	}
 }
 
@@ -289,6 +321,8 @@ versioned_type! {
 		V4(v4::Asset),
 		#[codec(index = 5)]
 		V5(v5::Asset),
+		#[codec(index = 6)]
+		V6(v6::Asset),
 	}
 }
 
@@ -301,6 +335,8 @@ versioned_type! {
 		V4(v4::Assets),
 		#[codec(index = 5)]
 		V5(v5::Assets),
+		#[codec(index = 6)]
+		V6(v6::Assets),
 	}
 }
 
@@ -311,13 +347,15 @@ versioned_type! {
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
-pub enum VersionedXcm<RuntimeCall> {
+pub enum VersionedXcm<RuntimeCall: 'static> {
 	#[codec(index = 3)]
 	V3(v3::Xcm<RuntimeCall>),
 	#[codec(index = 4)]
 	V4(v4::Xcm<RuntimeCall>),
 	#[codec(index = 5)]
 	V5(v5::Xcm<RuntimeCall>),
+	#[codec(index = 6)]
+	V6(v6::Xcm<RuntimeCall>),
 }
 
 impl<C: Decode + GetDispatchInfo> IntoVersion for VersionedXcm<C> {
@@ -326,6 +364,7 @@ impl<C: Decode + GetDispatchInfo> IntoVersion for VersionedXcm<C> {
 			3 => Self::V3(self.try_into()?),
 			4 => Self::V4(self.try_into()?),
 			5 => Self::V5(self.try_into()?),
+			6 => Self::V6(self.try_into()?),
 			_ => return Err(()),
 		})
 	}
@@ -337,6 +376,7 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 			Self::V3(_) => v3::VERSION,
 			Self::V4(_) => v4::VERSION,
 			Self::V5(_) => v5::VERSION,
+			Self::V6(_) => v6::VERSION,
 		}
 	}
 }
@@ -376,6 +416,12 @@ impl<RuntimeCall> From<v5::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
 	}
 }
 
+impl<RuntimeCall> From<v6::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
+	fn from(x: v6::Xcm<RuntimeCall>) -> Self {
+		VersionedXcm::V6(x)
+	}
+}
+
 impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v3::Xcm<Call> {
 	type Error = ();
 	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
@@ -385,6 +431,11 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v3::Xcm<Cal
 			V4(x) => x.try_into(),
 			V5(x) => {
 				let v4: v4::Xcm<Call> = x.try_into()?;
+				v4.try_into()
+			},
+			V6(x) => {
+				let v5: v5::Xcm<Call> = x.try_into()?;
+				let v4: v4::Xcm<Call> = v5.try_into()?;
 				v4.try_into()
 			},
 		}
@@ -399,6 +450,10 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v4::Xcm<Cal
 			V3(x) => x.try_into(),
 			V4(x) => Ok(x),
 			V5(x) => x.try_into(),
+			V6(x) => {
+				let v5: v5::Xcm<Call> = x.try_into()?;
+				v5.try_into()
+			},
 		}
 	}
 }
@@ -414,6 +469,27 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v5::Xcm<Cal
 			},
 			V4(x) => x.try_into(),
 			V5(x) => Ok(x),
+			V6(x) => x.try_into(),
+		}
+	}
+}
+
+impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v6::Xcm<Call> {
+	type Error = ();
+	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
+		use VersionedXcm::*;
+		match x {
+			V3(x) => {
+				let v4: v4::Xcm<Call> = x.try_into()?;
+				let v5: v5::Xcm<Call> = v4.try_into()?;
+				v5.try_into()
+			},
+			V4(x) => {
+				let v5: v5::Xcm<Call> = x.try_into()?;
+				v5.try_into()
+			},
+			V5(x) => x.try_into(),
+			V6(x) => Ok(x),
 		}
 	}
 }
@@ -467,7 +543,7 @@ impl GetVersion for AlwaysV3 {
 	}
 }
 
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 4 before
 /// wrapping it.
 pub struct AlwaysV4;
 impl WrapVersion for AlwaysV4 {
@@ -484,7 +560,7 @@ impl GetVersion for AlwaysV4 {
 	}
 }
 
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 5 before
 /// wrapping it.
 pub struct AlwaysV5;
 impl WrapVersion for AlwaysV5 {
@@ -500,10 +576,26 @@ impl GetVersion for AlwaysV5 {
 		Some(v5::VERSION)
 	}
 }
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 6 before
+/// wrapping it.
+pub struct AlwaysV6;
+impl WrapVersion for AlwaysV6 {
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
+		_: &latest::Location,
+		xcm: impl Into<VersionedXcm<Call>>,
+	) -> Result<VersionedXcm<Call>, ()> {
+		Ok(VersionedXcm::<Call>::V6(xcm.into().try_into()?))
+	}
+}
+impl GetVersion for AlwaysV6 {
+	fn get_version_for(_dest: &latest::Location) -> Option<Version> {
+		Some(v6::VERSION)
+	}
+}
 
 /// `WrapVersion` implementation which attempts to always convert the XCM to the latest version
 /// before wrapping it.
-pub type AlwaysLatest = AlwaysV5;
+pub type AlwaysLatest = AlwaysV5; // TODO: change to AlwaysV6 once it is stabliized.
 
 /// `WrapVersion` implementation which attempts to always convert the XCM to the most recent Long-
 /// Term-Support version before wrapping it.
@@ -511,10 +603,11 @@ pub type AlwaysLts = AlwaysV4;
 
 pub mod prelude {
 	pub use super::{
-		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion,
-		IdentifyVersion, IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset,
-		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
-		VersionedResponse, VersionedXcm, WrapVersion,
+		latest::{prelude::*, SendXcm},
+		AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion, IdentifyVersion,
+		IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset, VersionedAssetId,
+		VersionedAssets, VersionedInteriorLocation, VersionedLocation, VersionedResponse,
+		VersionedXcm, WrapVersion,
 	};
 }
 
@@ -532,14 +625,20 @@ pub mod opaque {
 		pub use crate::v4::opaque::{Instruction, Xcm};
 	}
 	pub mod v5 {
-		// Everything from v4
+		// Everything from v5
 		pub use crate::v5::*;
 		// Then override with the opaque types in v5
 		pub use crate::v5::opaque::{Instruction, Xcm};
 	}
+	pub mod v6 {
+		// Everything from v6
+		pub use crate::v6::*;
+		// Then override with the opaque types in v6
+		pub use crate::v6::opaque::{Instruction, Xcm};
+	}
 
 	pub mod latest {
-		pub use super::v5::*;
+		pub use super::v5::*; // TODO: change to v6 once it is stabliized.
 	}
 
 	pub mod lts {
@@ -625,27 +724,27 @@ fn validate_xcm_nesting_works() {
 
 	// closer generates `Xcm` with nested instructions of `depth`
 	let with_instr = |depth| {
-		let mut xcm = Xcm::<()>(vec![]);
+		let mut xcm = Xcm::<()>::new(vec![]);
 		for _ in 0..depth - 1 {
-			xcm = Xcm::<()>(vec![SetAppendix(xcm)]);
+			xcm = Xcm::<()>::new(vec![SetAppendix(xcm)]);
 		}
 		xcm
 	};
 
 	// `MAX_INSTRUCTIONS_TO_DECODE` check
-	assert!(VersionedXcm::<()>::from(Xcm(vec![
+	assert!(VersionedXcm::<()>::from(Xcm::new(vec![
 		ReserveAssetDeposited(assets(1));
 		(MAX_INSTRUCTIONS_TO_DECODE - 1) as usize
 	]))
 	.validate_xcm_nesting()
 	.is_ok());
-	assert!(VersionedXcm::<()>::from(Xcm(vec![
+	assert!(VersionedXcm::<()>::from(Xcm::new(vec![
 		ReserveAssetDeposited(assets(1));
 		MAX_INSTRUCTIONS_TO_DECODE as usize
 	]))
 	.validate_xcm_nesting()
 	.is_ok());
-	assert!(VersionedXcm::<()>::from(Xcm(vec![
+	assert!(VersionedXcm::<()>::from(Xcm::new(vec![
 		ReserveAssetDeposited(assets(1));
 		(MAX_INSTRUCTIONS_TO_DECODE + 1) as usize
 	]))
@@ -664,17 +763,17 @@ fn validate_xcm_nesting_works() {
 		.is_err());
 
 	// `MAX_ITEMS_IN_ASSETS` check
-	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
+	assert!(VersionedXcm::<()>::from(Xcm::new(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS
 	))]))
 	.validate_xcm_nesting()
 	.is_ok());
-	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
+	assert!(VersionedXcm::<()>::from(Xcm::new(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS - 1
 	))]))
 	.validate_xcm_nesting()
 	.is_ok());
-	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
+	assert!(VersionedXcm::<()>::from(Xcm::new(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS + 1
 	))]))
 	.validate_xcm_nesting()

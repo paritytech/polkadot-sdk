@@ -108,10 +108,10 @@ impl<
 
 		let query_id = Querier::new_query(asset_location.clone(), Timeout::get(), Interior::get());
 
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			DescendOrigin(Interior::get()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![
+			SetAppendix(Xcm::new(vec![
 				SetFeesMode { jit_withdraw: true },
 				ReportError(QueryResponseInfo {
 					destination,

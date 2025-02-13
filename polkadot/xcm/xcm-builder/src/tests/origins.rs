@@ -25,7 +25,7 @@ fn universal_origin_should_work() {
 	// Parachain 2 may represent Polkadot to us
 	add_universal_alias(Parachain(2), Polkadot);
 
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		UniversalOrigin(GlobalConsensus(Kusama)),
 		TransferAsset { assets: (Parent, 100u128).into(), beneficiary: Here.into() },
 	]);
@@ -42,7 +42,7 @@ fn universal_origin_should_work() {
 		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::InvalidLocation }
 	);
 
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		UniversalOrigin(GlobalConsensus(Kusama)),
 		TransferAsset { assets: (Parent, 100u128).into(), beneficiary: Here.into() },
 	]);
@@ -60,7 +60,7 @@ fn universal_origin_should_work() {
 	);
 
 	add_asset((Ancestor(2), GlobalConsensus(Kusama)), (Parent, 100));
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		UniversalOrigin(GlobalConsensus(Kusama)),
 		TransferAsset { assets: (Parent, 100u128).into(), beneficiary: Here.into() },
 	]);
@@ -82,12 +82,12 @@ fn export_message_should_work() {
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// Local parachain #1 issues a transfer asset on Polkadot Relay-chain, transferring 100 Planck
 	// to Polkadot parachain #2.
-	let expected_message = Xcm(vec![TransferAsset {
+	let expected_message = Xcm::new(vec![TransferAsset {
 		assets: (Here, 100u128).into(),
 		beneficiary: Parachain(2).into(),
 	}]);
 	let expected_hash = fake_message_hash(&expected_message);
-	let message = Xcm(vec![ExportMessage {
+	let message = Xcm::new(vec![ExportMessage {
 		network: Polkadot,
 		destination: Here,
 		xcm: expected_message.clone(),
@@ -116,7 +116,7 @@ fn unpaid_execution_should_work() {
 	// asks.
 	AllowExplicitUnpaidFrom::set(vec![[Parachain(2)].into()]);
 	// Asking for unpaid execution of up to 9 weight on the assumption it is origin of #2.
-	let message = Xcm(vec![UnpaidExecution {
+	let message = Xcm::new(vec![UnpaidExecution {
 		weight_limit: Limited(Weight::from_parts(9, 9)),
 		check_origin: Some(Parachain(2).into()),
 	}]);
@@ -141,7 +141,7 @@ fn unpaid_execution_should_work() {
 	);
 	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 
-	let message = Xcm(vec![UnpaidExecution {
+	let message = Xcm::new(vec![UnpaidExecution {
 		weight_limit: Limited(Weight::from_parts(10, 10)),
 		check_origin: Some(Parachain(2).into()),
 	}]);

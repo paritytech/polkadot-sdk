@@ -106,7 +106,7 @@ pub mod pallet {
 				});
 				match send_xcm::<T::XcmSender>(
 					(Parent, Junction::Parachain(para.into())).into(),
-					Xcm(vec![Transact {
+					Xcm::new(vec![Transact {
 						origin_kind: OriginKind::Native,
 						call: <T as Config>::RuntimeCall::from(Call::<T>::ping {
 							seq,
@@ -207,7 +207,7 @@ pub mod pallet {
 			Self::deposit_event(Event::Pinged(para, seq, payload.clone()));
 			match send_xcm::<T::XcmSender>(
 				(Parent, Junction::Parachain(para.into())).into(),
-				Xcm(vec![Transact {
+				Xcm::new(vec![Transact {
 					origin_kind: OriginKind::Native,
 					call: <T as Config>::RuntimeCall::from(Call::<T>::pong {
 						seq,

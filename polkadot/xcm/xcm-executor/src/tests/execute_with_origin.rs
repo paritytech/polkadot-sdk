@@ -125,14 +125,14 @@ fn set_error_handler_and_appendix_work() {
 
 	assert_eq!(
 		vm.error_handler(),
-		&Xcm::<TestCall>(vec![DepositAsset {
+		&Xcm::<TestCall>::new(vec![DepositAsset {
 			assets: vec![Asset { id: AssetId(Location::new(0, [])), fun: Fungible(10) }].into(),
 			beneficiary: Location::new(0, [AccountId32 { id: SENDER_2, network: None }]),
 		},])
 	);
 	assert_eq!(
 		vm.appendix(),
-		&Xcm::<TestCall>(vec![DepositAsset {
+		&Xcm::<TestCall>::new(vec![DepositAsset {
 			assets: All.into(),
 			beneficiary: Location::new(0, [AccountId32 { id: RECIPIENT, network: None }]),
 		},])
