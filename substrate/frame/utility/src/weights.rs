@@ -141,7 +141,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 5_312_000 picoseconds.
 		Weight::from_parts(2_694_370, 3997)
 			// Standard Error: 5_055
-			.saturating_add(Weight::from_parts(5_005_941, 0).saturating_mul(c.into()))
+			.saturating_add(Weight::from_parts(1_005_941, 0).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
 	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
