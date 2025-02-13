@@ -63,6 +63,11 @@ pub mod pallet {
 		<T as Config<I>>::Reward,
 	>;
 
+	/// Shortcut to alternative beneficiary type for `Config::PaymentProcedure`.
+	pub type AlternativeBeneficiaryOf<T, I> = <<T as Config<I>>::PaymentProcedure as PaymentProcedure<
+		<T as frame_system::Config>::AccountId, <T as Config<I>>::RewardKind, <T as Config<I>>::Reward>
+	>::AlternativeBeneficiary;
+
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
@@ -99,33 +104,7 @@ pub mod pallet {
 		pub fn claim_rewards(origin: OriginFor<T>, reward_kind: T::RewardKind) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 
-			RelayerRewards::<T, I>::try_mutate_exists(
-				&relayer,
-				reward_kind,
-				|maybe_reward| -> DispatchResult {
-					let reward = maybe_reward.take().ok_or(Error::<T, I>::NoRewardForRelayer)?;
-					T::PaymentProcedure::pay_reward(&relayer, reward_kind, reward).map_err(
-						|e| {
-							log::trace!(
-								target: LOG_TARGET,
-								"Failed to pay ({:?} / {:?}) rewards to {:?}: {:?}",
-								reward_kind,
-								reward,
-								relayer,
-								e,
-							);
-							Error::<T, I>::FailedToPayReward
-						},
-					)?;
-
-					Self::deposit_event(Event::<T, I>::RewardPaid {
-						relayer: relayer.clone(),
-						reward_kind,
-						reward,
-					});
-					Ok(())
-				},
-			)
+			Self::do_claim_rewards(relayer, reward_kind, None)
 		}
 
 		/// Register relayer or update its registration.
@@ -230,9 +209,58 @@ pub mod pallet {
 				},
 			)
 		}
+
+		/// Claim accumulated rewards and send them to the alternative beneficiary.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::claim_rewards_to())]
+		pub fn claim_rewards_to(
+			origin: OriginFor<T>,
+			reward_kind: T::RewardKind,
+			alternative_beneficiary: AlternativeBeneficiaryOf<T, I>,
+		) -> DispatchResult {
+			let relayer = ensure_signed(origin)?;
+
+			Self::do_claim_rewards(relayer, reward_kind, Some(alternative_beneficiary))
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		fn do_claim_rewards(
+			relayer: T::AccountId,
+			reward_kind: T::RewardKind,
+			alternative_beneficiary: Option<AlternativeBeneficiaryOf<T, I>>,
+		) -> DispatchResult {
+			RelayerRewards::<T, I>::try_mutate_exists(
+				&relayer,
+				reward_kind,
+				|maybe_reward| -> DispatchResult {
+					let reward = maybe_reward.take().ok_or(Error::<T, I>::NoRewardForRelayer)?;
+					T::PaymentProcedure::pay_reward(&relayer, reward_kind, reward, alternative_beneficiary.clone()).map_err(
+						|e| {
+							log::error!(
+								target: LOG_TARGET,
+								"Failed to pay ({:?} / {:?}) rewards to {:?}(alternative beneficiary: {:?}), error: {:?}",
+								reward_kind,
+								reward,
+								relayer,
+								alternative_beneficiary,
+								e,
+							);
+							Error::<T, I>::FailedToPayReward
+						},
+					)?;
+
+					Self::deposit_event(Event::<T, I>::RewardPaid {
+						relayer: relayer.clone(),
+						reward_kind,
+						reward,
+						alternative_beneficiary,
+					});
+					Ok(())
+				},
+			)
+		}
+
 		/// Returns true if given relayer registration is active at current block.
 		///
 		/// This call respects both `RequiredStake` and `RequiredRegistrationLease`, meaning that
@@ -416,6 +444,8 @@ pub mod pallet {
 			reward_kind: T::RewardKind,
 			/// Reward amount.
 			reward: T::Reward,
+			/// Alternative beneficiary.
+			alternative_beneficiary: Option<AlternativeBeneficiaryOf<T, I>>,
 		},
 		/// Relayer registration has been added or updated.
 		RegistrationUpdated {
@@ -613,7 +643,45 @@ mod tests {
 					event: TestEvent::BridgeRelayers(Event::RewardPaid {
 						relayer: REGULAR_RELAYER,
 						reward_kind: test_reward_account_param(),
-						reward: 100
+						reward: 100,
+						alternative_beneficiary: None,
+					}),
+					topics: vec![],
+				}),
+			);
+		});
+	}
+
+	#[test]
+	fn relayer_can_claim_reward_to() {
+		run_test(|| {
+			get_ready_for_events();
+
+			RelayerRewards::<TestRuntime>::insert(
+				REGULAR_RELAYER,
+				test_reward_account_param(),
+				100,
+			);
+			assert_ok!(Pallet::<TestRuntime>::claim_rewards_to(
+				RuntimeOrigin::signed(REGULAR_RELAYER),
+				test_reward_account_param(),
+				REGULAR_RELAYER2,
+			));
+			assert_eq!(
+				RelayerRewards::<TestRuntime>::get(REGULAR_RELAYER, test_reward_account_param()),
+				None
+			);
+
+			// Check if the `RewardPaid` event was emitted.
+			assert_eq!(
+				System::<TestRuntime>::events().last(),
+				Some(&EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::BridgeRelayers(Event::RewardPaid {
+						relayer: REGULAR_RELAYER,
+						reward_kind: test_reward_account_param(),
+						reward: 100,
+						alternative_beneficiary: Some(REGULAR_RELAYER2),
 					}),
 					topics: vec![],
 				}),

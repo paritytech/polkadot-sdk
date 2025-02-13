@@ -303,7 +303,7 @@ impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
 	fn prepare_rewards_account(
 		account_params: RewardsAccountParams<TestLaneIdType>,
 		reward: Self::Reward,
-	) {
+	) -> Option<ThisChainAccountId> {
 		let rewards_account = PayRewardFromAccount::<
 			Balances,
 			ThisChainAccountId,
@@ -311,6 +311,8 @@ impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
 			Reward,
 		>::rewards_account(account_params);
 		Self::deposit_account(rewards_account, reward.into());
+
+		Some(REGULAR_RELAYER2)
 	}
 
 	fn deposit_account(account: Self::AccountId, balance: Self::Balance) {
@@ -323,6 +325,8 @@ impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
 
 /// Regular relayer that may receive rewards.
 pub const REGULAR_RELAYER: ThisChainAccountId = 1;
+/// Regular relayer that may receive rewards.
+pub const REGULAR_RELAYER2: ThisChainAccountId = 3;
 
 /// Relayer that can't receive rewards.
 pub const FAILING_RELAYER: ThisChainAccountId = 2;
@@ -345,11 +349,13 @@ impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, 
 	for TestPaymentProcedure
 {
 	type Error = ();
+	type AlternativeBeneficiary = ThisChainAccountId;
 
 	fn pay_reward(
 		relayer: &ThisChainAccountId,
 		_reward_kind: RewardsAccountParams<TestLaneIdType>,
 		_reward: Reward,
+		_alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		match *relayer {
 			FAILING_RELAYER => Err(()),

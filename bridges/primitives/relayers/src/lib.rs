@@ -94,33 +94,29 @@ pub trait PaymentProcedure<Relayer, RewardKind, Reward> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
 
-	/// Pay reward to the relayer from the account with provided params.
+	/// Type parameter used to identify the alternative beneficiaries eligible to receive rewards.
+	type AlternativeBeneficiary: Clone + Debug + Decode + Encode + Eq + TypeInfo;
+
+	/// Pay reward to the relayer (or alternative beneficiary if provided) from the account with provided params.
 	fn pay_reward(
 		relayer: &Relayer,
 		reward_kind: RewardKind,
 		reward: Reward,
+		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error>;
-}
-
-/// A trait defining a reward ledger, which tracks rewards that can be later claimed.
-///
-/// This ledger allows registering rewards for a relayer, categorized by a specific `RewardKind`.
-/// The registered rewards can be claimed later through an appropriate payment procedure.
-pub trait RewardLedger<Relayer, RewardKind, Reward> {
-	/// Registers a reward for a given relayer.
-	fn register_reward(relayer: &Relayer, reward_kind: RewardKind, reward: Reward);
 }
 
 impl<Relayer, RewardKind, Reward> PaymentProcedure<Relayer, RewardKind, Reward> for () {
 	type Error = &'static str;
+	type AlternativeBeneficiary = ();
 
-	fn pay_reward(_: &Relayer, _: RewardKind, _: Reward) -> Result<(), Self::Error> {
+	fn pay_reward(_: &Relayer, _: RewardKind, _: Reward, _: Option<Self::AlternativeBeneficiary>) -> Result<(), Self::Error> {
 		Ok(())
 	}
 }
 
-/// Reward payment procedure that does `balances::transfer` call from the account, derived from
-/// given `RewardsAccountParams` params.
+/// Reward payment procedure that executes a `balances::transfer` call from the account
+/// derived from the given `RewardsAccountParams` to the relayer or an alternative beneficiary.
 pub struct PayRewardFromAccount<T, Relayer, LaneId, Reward>(
 	PhantomData<(T, Relayer, LaneId, Reward)>,
 );
@@ -141,19 +137,21 @@ impl<T, Relayer, LaneId, Reward> PaymentProcedure<Relayer, RewardsAccountParams<
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,
 	T::Balance: From<Reward>,
-	Relayer: Decode + Encode + Eq,
+	Relayer: Clone + Debug + Decode + Encode + Eq + TypeInfo,
 	LaneId: Decode + Encode,
 {
 	type Error = sp_runtime::DispatchError;
+	type AlternativeBeneficiary = Relayer;
 
 	fn pay_reward(
 		relayer: &Relayer,
 		reward_kind: RewardsAccountParams<LaneId>,
 		reward: Reward,
+		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		T::transfer(
 			&Self::rewards_account(reward_kind),
-			relayer,
+			alternative_beneficiary.as_ref().unwrap_or(relayer),
 			reward.into(),
 			Preservation::Expendable,
 		)
@@ -181,6 +179,15 @@ where
 	type Hasher2 = Identity;
 	type Key2 = RewardKind;
 	type Value = Reward;
+}
+
+/// A trait defining a reward ledger, which tracks rewards that can be later claimed.
+///
+/// This ledger allows registering rewards for a relayer, categorized by a specific `RewardKind`.
+/// The registered rewards can be claimed later through an appropriate payment procedure.
+pub trait RewardLedger<Relayer, RewardKind, Reward> {
+	/// Registers a reward for a given relayer.
+	fn register_reward(relayer: &Relayer, reward_kind: RewardKind, reward: Reward);
 }
 
 #[cfg(test)]

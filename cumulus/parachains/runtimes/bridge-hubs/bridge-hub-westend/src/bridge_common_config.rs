@@ -27,6 +27,7 @@ use bp_relayers::RewardsAccountParams;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
 use scale_info::TypeInfo;
+use xcm::VersionedLocation;
 
 parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
@@ -53,23 +54,31 @@ impl From<RewardsAccountParams<LegacyLaneId>> for BridgeRewardKind {
 pub struct BridgeRewardPayer;
 impl bp_relayers::PaymentProcedure<AccountId, BridgeRewardKind, u128> for BridgeRewardPayer {
 	type Error = sp_runtime::DispatchError;
+	type AlternativeBeneficiary = VersionedLocation;
 
 	fn pay_reward(
 		relayer: &AccountId,
 		reward_kind: BridgeRewardKind,
 		reward: u128,
+		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		match reward_kind {
-			BridgeRewardKind::RococoWestend(lane_params) => bp_relayers::PayRewardFromAccount::<
-				Balances,
-				AccountId,
-				LegacyLaneId,
-				u128,
-			>::pay_reward(
-				relayer, lane_params, reward
-			),
+			BridgeRewardKind::RococoWestend(lane_params) => {
+				frame_support::ensure!(
+					alternative_beneficiary.is_none(),
+					Self::Error::Other("`alternative_beneficiary` is not supported for `RococoWestend` rewards!")
+				);
+				bp_relayers::PayRewardFromAccount::<
+					Balances,
+					AccountId,
+					LegacyLaneId,
+					u128,
+				>::pay_reward(
+					relayer, lane_params, reward, None,
+				)
+			},
 			BridgeRewardKind::Snowbridge =>
-				Err(sp_runtime::DispatchError::Other("Not implemented yet!")),
+				Err(sp_runtime::DispatchError::Other("Not implemented yet, check also `fn prepare_rewards_account` to return `alternative_beneficiary`!")),
 		}
 	}
 }

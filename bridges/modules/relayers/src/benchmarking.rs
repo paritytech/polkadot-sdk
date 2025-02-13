@@ -20,8 +20,8 @@
 
 use crate::*;
 
-use frame_benchmarking::{benchmarks_instance_pallet, whitelisted_caller};
-use frame_support::assert_ok;
+use frame_benchmarking::{benchmarks_instance_pallet, whitelisted_caller, BenchmarkError, BenchmarkResult};
+use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use sp_runtime::traits::One;
 
@@ -36,7 +36,7 @@ pub trait Config<I: 'static = ()>: crate::Config<I> {
 	/// `T::RewardKind` to use in benchmarks.
 	fn bench_reward_kind() -> Self::RewardKind;
 	/// Prepare environment for paying given reward for serving given lane.
-	fn prepare_rewards_account(reward_kind: Self::RewardKind, reward: Self::Reward);
+	fn prepare_rewards_account(reward_kind: Self::RewardKind, reward: Self::Reward) -> Option<AlternativeBeneficiaryOf<Self, I>>;
 	/// Give enough balance to given account.
 	fn deposit_account(account: Self::AccountId, balance: Self::Balance);
 }
@@ -54,7 +54,7 @@ benchmarks_instance_pallet! {
 		let relayer: T::AccountId = whitelisted_caller();
 		let reward = T::Reward::from(REWARD_AMOUNT);
 
-		T::prepare_rewards_account(reward_kind, reward);
+		let _ = T::prepare_rewards_account(reward_kind, reward);
 		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward);
 	}: _(RawOrigin::Signed(relayer.clone()), reward_kind)
 	verify {
@@ -64,7 +64,31 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::RewardPaid {
 			relayer,
 			reward_kind,
-			reward
+			reward,
+			alternative_beneficiary: None,
+		}.into());
+	}
+
+	// Benchmark `claim_rewards_to` call.
+	claim_rewards_to {
+		let reward_kind = T::bench_reward_kind();
+		let relayer: T::AccountId = whitelisted_caller();
+		let reward = T::Reward::from(REWARD_AMOUNT);
+
+		let Some(alternative_beneficiary) = T::prepare_rewards_account(reward_kind, reward) else {
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
+		};
+		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward);
+	}: _(RawOrigin::Signed(relayer.clone()), reward_kind, alternative_beneficiary.clone())
+	verify {
+		// we can't check anything here, because `PaymentProcedure` is responsible for
+		// payment logic, so we assume that if call has succeeded, the procedure has
+		// also completed successfully
+		assert_last_event::<T, I>(Event::RewardPaid {
+			relayer,
+			reward_kind,
+			reward,
+			alternative_beneficiary: Some(alternative_beneficiary),
 		}.into());
 	}
 

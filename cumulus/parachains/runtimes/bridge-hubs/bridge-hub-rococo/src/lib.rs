@@ -1485,7 +1485,7 @@ impl_runtime_apis! {
 				fn prepare_rewards_account(
 					reward_kind: Self::RewardKind,
 					reward: Balance,
-				) {
+				) -> Option<AccountId> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
@@ -1493,6 +1493,8 @@ impl_runtime_apis! {
 						Balance,
 					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::deposit_account(rewards_account, reward);
+
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1513,7 +1515,7 @@ impl_runtime_apis! {
 				fn prepare_rewards_account(
 					reward_kind: Self::RewardKind,
 					reward: Balance,
-				) {
+				) -> Option<AccountId> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
@@ -1521,6 +1523,8 @@ impl_runtime_apis! {
 						Balance,
 					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance>>::deposit_account(rewards_account, reward);
+
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {

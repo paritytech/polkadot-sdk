@@ -62,6 +62,21 @@ impl<T: frame_system::Config> pallet_bridge_relayers::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	/// Storage: `BridgeRelayers::RelayerRewards` (r:1 w:1)
+	/// Proof: `BridgeRelayers::RelayerRewards` (`max_values`: None, `max_size`: Some(102), added: 2577, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn claim_rewards_to() -> Weight {
+		// TODO: FAIL-CI - fresh weights
+		// Proof Size summary in bytes:
+		//  Measured:  `272`
+		//  Estimated: `3593`
+		// Minimum execution time: 52_499_000 picoseconds.
+		Weight::from_parts(53_659_000, 0)
+			.saturating_add(Weight::from_parts(0, 3593))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 	/// Storage: `BridgeRelayers::RegisteredRelayers` (r:1 w:1)
 	/// Proof: `BridgeRelayers::RegisteredRelayers` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	/// Storage: UNKNOWN KEY `0x1e8445dc201eeb8560e5579a5dd54655` (r:1 w:0)

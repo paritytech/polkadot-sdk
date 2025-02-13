@@ -1332,7 +1332,7 @@ impl_runtime_apis! {
 				fn prepare_rewards_account(
 					reward_kind: Self::RewardKind,
 					reward: Balance,
-				) {
+				) -> Option<pallet_bridge_relayers::AlternativeBeneficiaryOf<Runtime, bridge_common_config::BridgeRelayersInstance>> {
 					let bridge_common_config::BridgeRewardKind::RococoWestend(reward_kind) = reward_kind else {
 						panic!("Unexpected reward_kind: {:?} - not compatible with `bench_reward_kind`!", reward_kind);
 					};
@@ -1343,6 +1343,8 @@ impl_runtime_apis! {
 						u128,
 					>::rewards_account(reward_kind);
 					Self::deposit_account(rewards_account, reward);
+
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
