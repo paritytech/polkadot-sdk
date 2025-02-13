@@ -667,7 +667,9 @@ impl<T: Config> Pallet<T> {
 
 		log!(
 			info,
-			"electable validators count for era {:?}: {:?}",
+			"(is_genesis?: {:?}) electable validators count for session starting {:?}, era {:?}: {:?}",
+			is_genesis,
+			start_session_index,
 			CurrentEra::<T>::get().unwrap_or_default() + 1,
 			validators.len()
 		);

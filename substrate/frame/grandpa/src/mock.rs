@@ -224,6 +224,7 @@ pub fn new_test_ext(vec: Vec<(u64, u64)>) -> sp_io::TestExternalities {
 }
 
 pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
@@ -290,8 +291,9 @@ pub fn start_session(session_index: SessionIndex) {
 		Timestamp::set_timestamp(System::block_number() * 6000);
 
 		System::on_initialize(System::block_number());
-		Session::on_initialize(System::block_number());
+		// staking has to be initialized before session as per the multi-block staking PR.
 		Staking::on_initialize(System::block_number());
+		Session::on_initialize(System::block_number());
 		Grandpa::on_initialize(System::block_number());
 	}
 

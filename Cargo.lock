@@ -12461,6 +12461,7 @@ dependencies = [
  "sp-session 27.0.0",
  "sp-staking 26.0.0",
  "sp-state-machine 0.35.0",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -13784,6 +13785,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-session 27.0.0",
  "sp-staking 26.0.0",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
