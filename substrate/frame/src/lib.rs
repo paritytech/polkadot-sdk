@@ -242,7 +242,8 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, ConsensusEngineId, DigestItem, DispatchErrorWithPostInfo,
+		DispatchResultWithInfo, TokenError,
 	};
 }
 
@@ -561,7 +562,7 @@ pub mod hashing {
 /// This is already part of the [`prelude`].
 pub mod account {
 	pub use frame_support::traits::{
-		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, FindAuthor, InitializeMembers,
 	};
 	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }
