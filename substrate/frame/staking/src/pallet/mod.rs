@@ -1182,10 +1182,17 @@ pub mod pallet {
 		/// that the `ElectableStashes` has been populated with all validators from all pages at
 		/// the time of the election.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			// todo(ank4n): add the weight of `process_offences` here.
-			slashing::process_offence::<T>();
+			// todo(ank4n): Hacky bench. Do it properly.
+			let mut consumed_weight = slashing::process_offence::<T>();
 
+			consumed_weight.saturating_accrue(T::DbWeight::get().reads(1));
 			if let Some(active_era) = ActiveEra::<T>::get() {
+
+				let max_slash_page_size = T::MaxExposurePageSize::get();
+				consumed_weight.saturating_accrue(
+					T::DbWeight::get()
+						.reads_writes(3 * max_slash_page_size as u64, 3 * max_slash_page_size as u64),
+				);
 				Self::apply_unapplied_slashes(active_era.index);
 			}
 
@@ -1216,7 +1223,9 @@ pub mod pallet {
 				}
 			};
 
-			T::WeightInfo::on_initialize_noop().saturating_add(inner_weight)
+			consumed_weight.saturating_accrue(inner_weight);
+
+			consumed_weight
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {

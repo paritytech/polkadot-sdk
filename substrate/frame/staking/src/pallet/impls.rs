@@ -1762,11 +1762,10 @@ where
 	/// When an offence is reported, it is split into pages and put in the offence queue.
 	/// As offence queue is processed, computed slashes are queued to be applied after the
 	/// `SlashDeferDuration`.
-	// todo(ank4n): Needs to be benched.
 	fn on_offence(
 		offenders: &[OffenceDetails<
 			T::AccountId,
-			pallet_session::historical::IdentificationTuple<T>,
+			historical::IdentificationTuple<T>,
 		>],
 		slash_fractions: &[Perbill],
 		slash_session: SessionIndex,
@@ -1779,11 +1778,20 @@ where
 			slash_session,
 		);
 
+		// todo(ank4n): Needs to be properly benched.
+		let mut consumed_weight = Weight::zero();
+		let mut add_db_reads_writes = |reads, writes| {
+			consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
+		};
+
 		// Find the era to which offence belongs.
+		add_db_reads_writes(1, 0);
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			log!(warn, "🦹 on_offence: no active era; ignoring offence");
-			return Weight::default();
+			return consumed_weight
 		};
+
+		add_db_reads_writes(1, 0);
 		let active_era_start_session =
 			ErasStartSessionIndex::<T>::get(active_era.index).unwrap_or(0);
 
@@ -1792,6 +1800,7 @@ where
 		let offence_era = if slash_session >= active_era_start_session {
 			active_era.index
 		} else {
+			add_db_reads_writes(1, 0);
 			match BondedEras::<T>::get()
 				.iter()
 				// Reverse because it's more likely to find reports from recent eras.
@@ -1809,6 +1818,7 @@ where
 			}
 		};
 
+		add_db_reads_writes(1, 0);
 		let invulnerables = Invulnerables::<T>::get();
 
 		for (details, slash_fraction) in offenders.iter().zip(slash_fractions) {
@@ -1819,6 +1829,7 @@ where
 				continue
 			}
 
+			add_db_reads_writes(1, 0);
 			let Some(exposure_overview) = <ErasStakersOverview<T>>::get(&offence_era, validator)
 			else {
 				// defensive: this implies offence is for a discarded era, and should already be
@@ -1839,13 +1850,17 @@ where
 			});
 
 			// add offending validator to the set of offenders.
+			add_db_reads_writes(1, 1);
 			slashing::add_offending_validator::<T>(validator, *slash_fraction, offence_era);
 
+			add_db_reads_writes(1, 0);
 			let prior_slash_fraction = ValidatorSlashInEra::<T>::get(offence_era, validator)
 				.map_or(Zero::zero(), |(f, _)| f);
 
+			add_db_reads_writes(1, 0);
 			if let Some(existing) = OffenceQueue::<T>::get(offence_era, validator) {
 				if slash_fraction.deconstruct() > existing.slash_fraction.deconstruct() {
+					add_db_reads_writes(0, 2);
 					OffenceQueue::<T>::insert(
 						offence_era,
 						validator,
@@ -1881,6 +1896,7 @@ where
 					);
 				}
 			} else if slash_fraction.deconstruct() > prior_slash_fraction.deconstruct() {
+				add_db_reads_writes(0, 3);
 				ValidatorSlashInEra::<T>::insert(
 					offence_era,
 					validator,
@@ -1933,7 +1949,7 @@ where
 			}
 		}
 
-		Weight::default()
+		consumed_weight
 	}
 }
 

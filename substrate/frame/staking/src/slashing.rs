@@ -64,7 +64,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchResult, RuntimeDebug, WeakBoundedVec,
+	DispatchResult, RuntimeDebug, WeakBoundedVec, Weight,
 };
 use sp_staking::{offence::OffenceSeverity, EraIndex, StakingInterface};
 
@@ -328,9 +328,16 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 }
 
 /// Infallible function to process an offence.
-pub(crate) fn process_offence<T: Config>() {
+pub(crate) fn process_offence<T: Config>() -> Weight {
+	// todo(ank4n): this needs to be properly benched.
+	let mut consumed_weight = Weight::from_parts(0, 0);
+	let mut add_db_reads_writes = |reads, writes| {
+		consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
+	};
+
+	add_db_reads_writes(1, 1);
 	let Some((offence_era, offender, offence_record)) = next_offence::<T>() else {
-		return;
+		return consumed_weight
 	};
 
 	log!(
@@ -341,13 +348,16 @@ pub(crate) fn process_offence<T: Config>() {
 		offence_record.slash_fraction,
 	);
 
+	add_db_reads_writes(1, 0);
 	let reward_proportion = SlashRewardFraction::<T>::get();
+
+	add_db_reads_writes(2, 0);
 	let Some(exposure) =
 		EraInfo::<T>::get_paged_exposure(offence_era, &offender, offence_record.exposure_page)
 	else {
 		// this can only happen if the offence was valid at the time of reporting but became too old
 		// at the time of computing and should be discarded.
-		return
+		return consumed_weight
 	};
 
 	let slash_page = offence_record.exposure_page;
@@ -355,6 +365,7 @@ pub(crate) fn process_offence<T: Config>() {
 	let slash_era = offence_era.saturating_add(slash_defer_duration);
 	let window_start = offence_record.reported_era.saturating_sub(T::BondingDuration::get());
 
+	add_db_reads_writes(3, 3);
 	let Some(mut unapplied) = compute_slash::<T>(SlashParams {
 		stash: &offender,
 		slash: offence_record.slash_fraction,
@@ -373,7 +384,7 @@ pub(crate) fn process_offence<T: Config>() {
 			offence_record.reported_era,
 		);
 		// No slash to apply. Discard.
-		return
+		return consumed_weight
 	};
 
 	<Pallet<T>>::deposit_event(super::Event::<T>::SlashComputed {
@@ -404,6 +415,9 @@ pub(crate) fn process_offence<T: Config>() {
 			offence_record.reported_era,
 			offender,
 		);
+
+		let accounts_slashed = unapplied.others.len() as u64 + 1;
+		add_db_reads_writes(3 * accounts_slashed, 3 * accounts_slashed);
 		apply_slash::<T>(unapplied, offence_era);
 	} else {
 		// Historical Note: Previously, with BondingDuration = 28 and SlashDeferDuration = 27,
@@ -419,12 +433,16 @@ pub(crate) fn process_offence<T: Config>() {
 			offence_record.reported_era,
 			slash_era,
 		);
+
+		add_db_reads_writes(0, 1);
 		UnappliedSlashes::<T>::insert(
 			slash_era,
 			(offender, offence_record.slash_fraction, slash_page),
 			unapplied,
 		);
 	}
+
+	consumed_weight
 }
 
 /// Computes a slash of a validator and nominators. It returns an unapplied
