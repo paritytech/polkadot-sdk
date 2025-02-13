@@ -50,7 +50,7 @@ fn main() -> Result<(), String> {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
 			let (mut env, _cfgs) =
-				prepare_test(&state, TestDataAvailability::Read(options.clone()), false);
+				prepare_test(&state, TestDataAvailability::Read(options.clone()));
 			env.runtime().block_on(benchmark_availability_read(&mut env, &state))
 		})
 		.collect();
