@@ -134,7 +134,7 @@ pub use sp_runtime::BuildStorage;
 use westend_runtime_constants::{
 	currency::*,
 	fee::*,
-	system_parachain::{coretime::TIMESLICE_PERIOD, ASSET_HUB_ID, BROKER_ID},
+	system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID},
 	time::*,
 };
 
@@ -504,7 +504,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = AssetHubStakingClient;
+	type EventHandler = Staking;
 }
 
 parameter_types! {
@@ -529,8 +529,7 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager =
-		pallet_session::historical::NoteHistoricalRoot<Self, AssetHubStakingClient>;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
@@ -775,13 +774,6 @@ impl pallet_staking::Config for Runtime {
 	type MaxDisabledValidators = ConstU32<100>;
 }
 
-impl pallet_staking_ah_client::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type CurrencyBalance = Balance;
-	type AssetHubId = AssetHubId;
-	type SendXcm = crate::xcm_config::XcmRouter;
-}
-
 impl pallet_fast_unstake::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -856,7 +848,7 @@ impl pallet_treasury::Config for Runtime {
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
-	type OnOffenceHandler = AssetHubStakingClient;
+	type OnOffenceHandler = Staking;
 }
 
 impl pallet_authority_discovery::Config for Runtime {
@@ -1361,7 +1353,6 @@ impl parachains_scheduler::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
-	pub const AssetHubId: u32 = ASSET_HUB_ID;	// TODO: replace with ASSET_HUB_NEXT_ID
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
@@ -1794,8 +1785,6 @@ mod runtime {
 	pub type AssignedSlots = assigned_slots;
 	#[runtime::pallet_index(66)]
 	pub type Coretime = coretime;
-	#[runtime::pallet_index(67)]
-	pub type AssetHubStakingClient = pallet_staking_ah_client;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
