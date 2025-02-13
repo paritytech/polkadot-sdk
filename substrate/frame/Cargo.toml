@@ -37,6 +37,7 @@ frame-system = { workspace = true }
 
 # primitive types used for developing FRAME runtimes.
 sp-api = { optional = true, workspace = true }
+sp-application-crypto = { optional = true, workspace = true }
 sp-block-builder = { optional = true, workspace = true }
 sp-consensus-aura = { optional = true, workspace = true }
 sp-consensus-grandpa = { optional = true, workspace = true }
@@ -45,6 +46,7 @@ sp-inherents = { optional = true, workspace = true }
 sp-keyring = { optional = true, workspace = true }
 sp-offchain = { optional = true, workspace = true }
 sp-session = { optional = true, workspace = true }
+sp-staking = { optional = true, workspace = true }
 sp-storage = { optional = true, workspace = true }
 sp-transaction-pool = { optional = true, workspace = true }
 sp-version = { optional = true, workspace = true }
@@ -72,6 +74,7 @@ runtime = [
 	"frame-executive",
 	"frame-system-rpc-runtime-api",
 	"sp-api",
+	"sp-application-crypto",
 	"sp-block-builder",
 	"sp-consensus-aura",
 	"sp-consensus-grandpa",
@@ -80,6 +83,7 @@ runtime = [
 	"sp-keyring",
 	"sp-offchain",
 	"sp-session",
+	"sp-staking",
 	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
@@ -96,6 +100,7 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"sp-api?/std",
+	"sp-application-crypto?/std",
 	"sp-arithmetic/std",
 	"sp-block-builder?/std",
 	"sp-consensus-aura?/std",
@@ -108,6 +113,7 @@ std = [
 	"sp-offchain?/std",
 	"sp-runtime/std",
 	"sp-session?/std",
+	"sp-staking?/std",
 	"sp-storage/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",
@@ -118,6 +124,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
