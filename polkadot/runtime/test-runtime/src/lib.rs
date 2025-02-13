@@ -348,7 +348,7 @@ parameter_types! {
 	pub const MaxExposurePageSize: u32 = 64;
 	pub const MaxNominators: u32 = 256;
 	pub const MaxAuthorities: u32 = 100_000;
-	pub const OnChainMaxWinners: u32 = u32::MAX;
+	pub const OnChainMaxWinners: u32 = MaxAuthorities::get();
 	// Unbounded number of election targets and voters.
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
