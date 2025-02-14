@@ -618,6 +618,21 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Helper function provided to other pallets that want to rely on pallet-stkaing for
+	/// testing/benchmarking, and wish to populate `ElectableStashes`, such that a next call (post
+	/// genesis) to `try_plan_new_era` works.
+	///
+	/// This uses `GenesisElectionProvider` which should always be set to something reasonable and
+	/// instant.
+	pub fn populate_staking_election_testing_benchmarking_only() -> Result<(), &'static str> {
+		let supports = <T::GenesisElectionProvider>::elect(Zero::zero()).map_err(|e| {
+			log!(warn, "genesis election provider failed due to {:?}", e);
+			"election failed"
+		})?;
+		Self::do_elect_paged_inner(supports).map_err(|_| "do_elect_paged_inner")?;
+		Ok(())
+	}
+
 	/// Potentially plan a new era.
 	///
 	/// The election results are either fetched directly from an election provider if it is the
