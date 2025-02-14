@@ -132,6 +132,12 @@ pub mod pallet {
 		type MinimumCreditPurchase: Get<BalanceOf<Self>>;
 	}
 
+	#[pallet::storage]
+	#[pallet::getter(fn override_price)]
+	/// Optional override for the current sale price. If set, this value will be used instead of
+	/// the dynamically calculated sale price.
+	pub type OverridePrice<T: Config> = StorageValue<_, Option<BalanceOf<T>>, ValueQuery>;
+
 	/// The current configuration of this pallet.
 	#[pallet::storage]
 	pub type Configuration<T> = StorageValue<_, ConfigRecordOf<T>, OptionQuery>;
@@ -976,6 +982,20 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_force_reserve(workload, core)?;
+			Ok(Pays::No.into())
+		}
+
+		#[pallet::call_index(24)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		/// Allows an admin or root user to set an override price for the current sale.
+		/// - `origin`: Must be Root or Admin.
+		/// - `price`: The new override price. Pass `None` to clear the override.
+		pub fn set_override_price(
+			origin: OriginFor<T>,
+			price: Option<BalanceOf<T>>,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			OverridePrice::<T>::put(price);
 			Ok(Pays::No.into())
 		}
 

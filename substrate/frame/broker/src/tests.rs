@@ -26,6 +26,7 @@ use frame_support::{
 use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
 use sp_runtime::{traits::Get, Perbill, TokenError};
+
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -1926,6 +1927,50 @@ fn reserve_works() {
 		// And it's in the workplan for the next period.
 		assert_eq!(Workplan::<Test>::get((10, 0)), Some(system_workload.clone()));
 	});
+}
+
+#[test]
+fn set_override_price_works() {
+    TestExt::new().execute_with(|| {
+        // Set override price
+        assert_ok!(Broker::set_override_price(
+            RuntimeOrigin::root(),
+            Some(100u32.into())
+        ));
+
+        // Check override price is set
+        assert_eq!(Broker::override_price(), Some(100u32.into()));
+    });
+}
+
+#[test]
+fn sale_price_uses_override_price() {
+    TestExt::new().execute_with(|| {
+        // Set override price
+        assert_ok!(Broker::set_override_price(
+            RuntimeOrigin::root(),
+            Some(100u32.into())
+        ));
+
+        // Get sale info
+        let sale_info = SaleInfoRecordOf::<Test>::default();
+
+        // Check sale price uses override price
+        assert_eq!(Broker::sale_price(&sale_info, 0), 100u32.into());
+    });
+}
+
+#[test]
+fn sale_price_falls_back_to_dynamic_price() {
+    TestExt::new().execute_with(|| {
+        // Don't set override price
+
+        // Get sale info
+        let sale_info = SaleInfoRecordOf::<Test>::default();
+
+        // Check sale price falls back to dynamic price
+        assert_ne!(Broker::sale_price(&sale_info, 0), 0u32.into());
+    });
 }
 
 // We can use a hack to accelerate this by injecting it into the workplan.
