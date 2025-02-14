@@ -24,11 +24,12 @@
 //!
 //! # Block Builder Task Details
 //!
-//! The block builder task manages block production timing and execution through an iterative process:
+//! The block builder task manages block production timing and execution through an iterative
+//! process:
 //!
 //! 1. Awaits the next production signal from [`slot_timer::SlotTimer`]
-//! 2. Retrieves the current best relay chain block and identifies a valid parent block
-//!    (see [`cumulus_client_consensus_common::find_potential_parents`] for parent selection criteria)
+//! 2. Retrieves the current best relay chain block and identifies a valid parent block (see
+//!    [`cumulus_client_consensus_common::find_potential_parents`] for parent selection criteria)
 //! 3. Validates that:
 //!    - The parachain has an assigned core on the relay chain
 //!    - No block has been previously built on the target core
@@ -45,8 +46,8 @@
 //!
 //! ## Timing Examples
 //!
-//! The following table demonstrates various timing configurations and their effects. The "AURA Slot"
-//! column shows which author is responsible for the block.
+//! The following table demonstrates various timing configurations and their effects. The "AURA
+//! Slot" column shows which author is responsible for the block.
 //!
 //! | Slot Duration (ms) | Cores | Production Attempts (ms) | AURA Slot  |
 //! |-------------------|--------|-------------------------|------------|
@@ -58,7 +59,8 @@
 //!
 //! # Collator Task Details
 //!
-//! The collator task receives built blocks from the block builder task and performs two primary functions:
+//! The collator task receives built blocks from the block builder task and performs two primary
+//! functions:
 //!
 //! 1. Block compression
 //! 2. Submission to the collation-generation subsystem

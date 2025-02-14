@@ -94,7 +94,8 @@ fn compute_next_wake_up_time(
 		);
 	}
 
-	let (duration, timestamp) = time_until_next_attempt(time_now, block_production_interval, time_offset);
+	let (duration, timestamp) =
+		time_until_next_attempt(time_now, block_production_interval, time_offset);
 	let aura_slot = Slot::from_timestamp(timestamp, para_slot_duration);
 	(duration, timestamp, aura_slot)
 }
