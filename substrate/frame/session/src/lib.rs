@@ -787,19 +787,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
-	pub fn disable_index(i: u32) -> bool {
+	pub fn disable_index(i: u32, o: OffenceSeverity) -> bool {
 		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
 			return false
 		}
 
-		// If the validator is not disabled, return false.
 		DisabledValidators::<T>::mutate(|disabled| {
-			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
-				disabled.remove(index);
-				true
-			} else {
-				false
+			if let Err(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
+				disabled.insert(index, (i, o));
+				T::SessionHandler::on_disabled(i);
+				return true
 			}
+
+			false
 		})
 	}
 
@@ -808,11 +808,11 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `false` either if the validator could not be found or it was already
 	/// disabled.
-	pub fn disable(c: &T::ValidatorId) -> bool {
+	pub fn disable(c: &T::ValidatorId, o: OffenceSeverity) -> bool {
 		Validators::<T>::get()
 			.iter()
 			.position(|i| i == c)
-			.map(|i| Self::disable_index(i as u32))
+			.map(|i| Self::disable_index(i as u32, o))
 			.unwrap_or(false)
 	}
 
