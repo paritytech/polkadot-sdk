@@ -65,8 +65,6 @@ export const setup = async (): Promise<MockNetwork> => {
 	});
 
 	const parachainClient = createClient(getWsProvider(parachain.ws.endpoint));
-	// todo wnd_penpal and other descriptors should be generated somehow automatically. Figure out a way. maybe
-	// todo likely from .papi/polkadot-api.json
 	const parachainApi = parachainClient.getTypedApi(wnd_penpal);
 	const relayClient = createClient(getWsProvider(polkadot.ws.endpoint));
 	const relayApi = relayClient.getTypedApi(wnd_rc);
