@@ -659,7 +659,6 @@ impl SendXcm for DummyXcmSender {
 impl coretime::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Runtime>;
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
