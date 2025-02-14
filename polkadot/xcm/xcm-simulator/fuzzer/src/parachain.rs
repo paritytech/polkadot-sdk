@@ -160,9 +160,6 @@ pub mod mock_msg_queue {
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
 
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
