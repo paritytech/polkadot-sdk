@@ -57,7 +57,7 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	EthereumNetwork,
 	snowbridge_pallet_outbound_queue::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
-	EthereumSystem,
+	(EthereumSystem, EthereumSystemV2),
 >;
 
 pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
