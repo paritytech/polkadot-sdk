@@ -277,7 +277,6 @@ impl snowbridge_pallet_system_v2::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = EthereumOutboundQueueV2;
 	type FrontendOrigin = EnsureXcm<AllowFromEthereumFrontend>;
-	type AgentIdOf = snowbridge_core::AgentIdOf;
 	type WeightInfo = crate::weights::snowbridge_pallet_system_v2::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
