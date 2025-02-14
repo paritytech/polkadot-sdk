@@ -1130,7 +1130,7 @@ pub mod pallet {
 
 				if now == (next_election.saturating_sub(pages.into())) {
 					crate::log!(
-						trace,
+						debug,
 						"elect(): start fetching solution pages. expected pages: {:?}",
 						pages
 					);
@@ -1182,7 +1182,10 @@ pub mod pallet {
 			// election page is full.
 			assert!(
 				<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() <=
-					T::MaxValidatorSet::get()
+					T::MaxValidatorSet::get(),
+				"MaxValidatorSet {} must be greater than or equal to the ElectionProvider's MaxWinnersPerPage {}",
+				T::MaxValidatorSet::get(),
+				<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get(),
 			);
 		}
 

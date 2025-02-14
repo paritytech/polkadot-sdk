@@ -37,7 +37,6 @@ use pallet::*;
 use sp_npos_elections::{evaluate_support, ElectionScore, EvaluateSupport};
 use sp_runtime::Perbill;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-use weights::WeightInfo;
 
 pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::BoundedSupports<
 	<V as Verifier>::AccountId,
@@ -143,7 +142,7 @@ pub(crate) mod pallet {
 		>;
 
 		/// The weight information of this pallet.
-		type WeightInfo: super::weights::WeightInfo;
+		type WeightInfo: super::WeightInfo;
 	}
 
 	#[pallet::event]

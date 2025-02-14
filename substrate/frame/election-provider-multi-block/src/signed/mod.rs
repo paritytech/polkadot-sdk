@@ -75,12 +75,10 @@ use sp_npos_elections::ElectionScore;
 use sp_runtime::{traits::Saturating, Perbill};
 use sp_std::prelude::*;
 
+/// Explore all weights
+pub use crate::weights::measured::pallet_election_provider_multi_block_signed::*;
 /// Exports of this pallet
 pub use pallet::*;
-pub use weights::WeightInfo;
-
-/// Weight of the signed pallet.
-pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -216,7 +214,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::*;
+	use super::{WeightInfo, *};
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -259,7 +257,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Provided weights of this pallet.
-		type WeightInfo: weights::WeightInfo;
+		type WeightInfo: WeightInfo;
 	}
 
 	/// The hold reason of this palelt.

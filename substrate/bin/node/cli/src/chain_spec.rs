@@ -276,6 +276,7 @@ fn configure_accounts(
 	)>,
 	initial_nominators: Vec<AccountId>,
 	endowed_accounts: Option<Vec<AccountId>>,
+	stash: Balance,
 ) -> (
 	Vec<(
 		AccountId,
@@ -304,31 +305,21 @@ fn configure_accounts(
 			}
 		});
 
-	use rand::Rng;
-	let mut rng = rand::thread_rng();
-	let mut rng2 = rand::thread_rng();
 	// stakers: all validators and nominators.
+	let mut rng = rand::thread_rng();
 	let stakers = initial_authorities
 		.iter()
-		.map(|x| {
-			(
-				x.0.clone(),
-				x.0.clone(),
-				rng.gen_range(ENDOWMENT / 100..ENDOWMENT / 2),
-				StakerStatus::Validator,
-			)
-		})
+		.map(|x| (x.0.clone(), x.0.clone(), stash, StakerStatus::Validator))
 		.chain(initial_nominators.iter().map(|x| {
 			use rand::{seq::SliceRandom, Rng};
 			let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
-			let count = (rng2.gen::<usize>() % limit).max(1);
+			let count = rng.gen::<usize>() % limit;
 			let nominations = initial_authorities
 				.as_slice()
-				.choose_multiple(&mut rng2, count)
+				.choose_multiple(&mut rng, count)
 				.into_iter()
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
-			let stash = rng2.gen_range(ENDOWMENT / 100..ENDOWMENT / 2);
 			(x.clone(), x.clone(), stash, StakerStatus::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
@@ -355,16 +346,30 @@ pub fn testnet_genesis(
 	endowed_accounts: Option<Vec<AccountId>>,
 ) -> serde_json::Value {
 	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
-		configure_accounts(initial_authorities, initial_nominators, endowed_accounts);
+		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 	const MAX_COLLECTIVE_SIZE: usize = 50;
-	let dev_stakers = {
+
+	let dev_stakers = if cfg!(feature = "staking-playground") {
 		let random_validators =
 			std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
 		let random_nominators = std::option_env!("NOMINATORS")
 			.map(|s| s.parse::<u32>().unwrap())
 			.unwrap_or(3000);
 		Some((random_validators, random_nominators))
+	} else {
+		None
 	};
+
+	let validator_count = if cfg!(feature = "staking-playground") {
+		std::option_env!("VALIDATOR_COUNT")
+			.map(|v| v.parse::<u32>().unwrap())
+			.unwrap_or(100)
+	} else {
+		initial_authorities.len() as u32
+	};
+
+	let minimum_validator_count =
+		if cfg!(feature = "staking-playground") { 10 } else { initial_authorities.len() as u32 };
 
 	serde_json::json!({
 		"balances": {
@@ -390,8 +395,8 @@ pub fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 		"staking": {
-			"validatorCount": std::option_env!("VALIDATORS").map(|v| v.parse::<u32>().unwrap()).unwrap_or(10),
-			"minimumValidatorCount": 10,
+			"validatorCount": validator_count,
+			"minimumValidatorCount": minimum_validator_count,
 			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			"slashRewardFraction": Perbill::from_percent(10),
 			"stakers": stakers.clone(),

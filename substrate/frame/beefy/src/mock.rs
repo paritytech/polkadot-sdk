@@ -277,6 +277,7 @@ impl ExtBuilder {
 	}
 
 	pub fn build(self) -> sp_io::TestExternalities {
+		sp_tracing::try_init_simple();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let balances: Vec<_> =

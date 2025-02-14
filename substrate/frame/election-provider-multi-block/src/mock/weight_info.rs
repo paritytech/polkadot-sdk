@@ -26,12 +26,12 @@ frame_support::parameter_types! {
 }
 
 pub struct DualMockWeightInfo;
-impl multi_block::weights::WeightInfo for DualMockWeightInfo {
+impl multi_block::WeightInfo for DualMockWeightInfo {
 	fn on_initialize_nothing() -> Weight {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_nothing()
+			<() as multi_block::WeightInfo>::on_initialize_nothing()
 		}
 	}
 
@@ -39,7 +39,7 @@ impl multi_block::weights::WeightInfo for DualMockWeightInfo {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_into_snapshot_msp()
+			<() as multi_block::WeightInfo>::on_initialize_into_snapshot_msp()
 		}
 	}
 
@@ -47,7 +47,7 @@ impl multi_block::weights::WeightInfo for DualMockWeightInfo {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_into_snapshot_rest()
+			<() as multi_block::WeightInfo>::on_initialize_into_snapshot_rest()
 		}
 	}
 
@@ -55,7 +55,7 @@ impl multi_block::weights::WeightInfo for DualMockWeightInfo {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_into_signed()
+			<() as multi_block::WeightInfo>::on_initialize_into_signed()
 		}
 	}
 
@@ -63,7 +63,7 @@ impl multi_block::weights::WeightInfo for DualMockWeightInfo {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_into_signed_validation()
+			<() as multi_block::WeightInfo>::on_initialize_into_signed_validation()
 		}
 	}
 
@@ -71,7 +71,7 @@ impl multi_block::weights::WeightInfo for DualMockWeightInfo {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_into_unsigned()
+			<() as multi_block::WeightInfo>::on_initialize_into_unsigned()
 		}
 	}
 
@@ -79,7 +79,7 @@ impl multi_block::weights::WeightInfo for DualMockWeightInfo {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::manage()
+			<() as multi_block::WeightInfo>::manage()
 		}
 	}
 }

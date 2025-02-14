@@ -673,7 +673,9 @@ impl<T: Config> Pallet<T> {
 
 		log!(
 			info,
-			"electable validators count for era {:?}: {:?}",
+			"(is_genesis?: {:?}) electable validators count for session starting {:?}, era {:?}: {:?}",
+			is_genesis,
+			start_session_index,
 			CurrentEra::<T>::get().unwrap_or_default() + 1,
 			validators.len()
 		);
@@ -1468,9 +1470,14 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 		log!(
 			info,
-			"[page {}, status {:?}, bounds {:?}] generated {} npos voters",
+			"[page {}, status {:?} (stake?: {:?}), bounds {:?}] generated {} npos voters",
 			page,
 			VoterSnapshotStatus::<T>::get(),
+			if let SnapshotStatus::Ongoing(x) = VoterSnapshotStatus::<T>::get() {
+				Self::weight_of(&x)
+			} else {
+				Zero::zero()
+			},
 			bounds,
 			voters.len(),
 		);

@@ -37,7 +37,7 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
-		let call: Call<T> = OffchainWorkerMiner::<T>::mine_solution(1, true)
+		let call: Call<T> = OffchainWorkerMiner::<T>::mine_solution(1, false)
 			.map(|solution| Call::submit_unsigned { paged_solution: Box::new(solution) })
 			.unwrap();
 
@@ -56,7 +56,8 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
-		let solution = OffchainWorkerMiner::<T>::mine_solution(1, true).unwrap();
+		// TODO: we need to better ensure that this is actually worst case
+		let solution = OffchainWorkerMiner::<T>::mine_solution(1, false).unwrap();
 
 		// nothing is queued
 		assert!(T::Verifier::queued_score().is_none());

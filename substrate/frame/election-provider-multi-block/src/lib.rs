@@ -210,12 +210,10 @@ pub mod unsigned;
 pub mod verifier;
 /// The weight module
 pub mod weights;
-/// The zero weights module. These are only for testing.
-pub mod zero_weights;
 
 pub use pallet::*;
 pub use types::*;
-pub use weights::WeightInfo;
+pub use weights::measured::pallet_election_provider_multi_block::WeightInfo;
 
 /// A fallback implementation that transitions the pallet to the emergency phase.
 pub struct InitiateEmergencyPhase<T>(sp_std::marker::PhantomData<T>);
@@ -1220,7 +1218,7 @@ where
 		Self::roll_until_matches(|| Self::current_phase() == Phase::Signed);
 		// ensure snapshot is full.
 		crate::Snapshot::<T>::ensure_full_snapshot().expect("Snapshot is not full");
-		OffchainWorkerMiner::<T>::mine_solution(T::Pages::get(), true).unwrap()
+		OffchainWorkerMiner::<T>::mine_solution(T::Pages::get(), false).unwrap()
 	}
 
 	pub(crate) fn submit_full_solution(

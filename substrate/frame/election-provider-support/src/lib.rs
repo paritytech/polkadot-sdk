@@ -686,7 +686,11 @@ pub trait NposSolver {
 	fn solve(
 		to_elect: usize,
 		targets: Vec<Self::AccountId>,
-		voters: Vec<(Self::AccountId, VoteWeight, impl IntoIterator<Item = Self::AccountId>)>,
+		voters: Vec<(
+			Self::AccountId,
+			VoteWeight,
+			impl Clone + IntoIterator<Item = Self::AccountId>,
+		)>,
 	) -> Result<ElectionResult<Self::AccountId, Self::Accuracy>, Self::Error>;
 
 	/// Measure the weight used in the calculation of the solver.
@@ -694,6 +698,70 @@ pub trait NposSolver {
 	/// - `targets` is the number of targets.
 	/// - `vote_degree` is the degree ie the maximum numbers of votes per voter.
 	fn weight<T: WeightInfo>(voters: u32, targets: u32, vote_degree: u32) -> Weight;
+}
+
+/// A quick and dirty solver, that produces a valid but probably worthless election result, but is
+/// fast.
+///
+/// It choses a random number of winners without any consideration.
+///
+/// Then it iterates over the voters and assigns them to the winners.
+///
+/// It is only meant to be used in benchmarking.
+pub struct QuickDirtySolver<AccountId, Accuracy>(core::marker::PhantomData<(AccountId, Accuracy)>);
+impl<AccountId: IdentifierT, Accuracy: PerThing128> NposSolver
+	for QuickDirtySolver<AccountId, Accuracy>
+{
+	type AccountId = AccountId;
+	type Accuracy = Accuracy;
+	type Error = &'static str;
+
+	fn solve(
+		to_elect: usize,
+		targets: Vec<Self::AccountId>,
+		voters: Vec<(
+			Self::AccountId,
+			VoteWeight,
+			impl Clone + IntoIterator<Item = Self::AccountId>,
+		)>,
+	) -> Result<ElectionResult<Self::AccountId, Self::Accuracy>, Self::Error> {
+		use sp_std::collections::btree_map::BTreeMap;
+
+		if to_elect > targets.len() {
+			return Err("to_elect is greater than the number of targets.");
+		}
+
+		let winners = targets.into_iter().take(to_elect).collect::<Vec<_>>();
+
+		let mut assignments = Vec::with_capacity(voters.len());
+		let mut final_winners = BTreeMap::<Self::AccountId, u128>::new();
+
+		for (voter, weight, votes) in voters {
+			let our_winners = winners
+				.iter()
+				.filter(|w| votes.clone().into_iter().any(|v| v == **w))
+				.collect::<Vec<_>>();
+			let our_winners_len = our_winners.len();
+			let distribution = our_winners
+				.into_iter()
+				.map(|w| {
+					*final_winners.entry(w.clone()).or_default() += weight as u128;
+					(w.clone(), Self::Accuracy::from_rational(1, our_winners_len as u128))
+				})
+				.collect::<Vec<_>>();
+
+			let mut assignment = Assignment { who: voter, distribution };
+			assignment.try_normalize().unwrap();
+			assignments.push(assignment);
+		}
+
+		let winners = final_winners.into_iter().collect::<Vec<_>>();
+		Ok(ElectionResult { winners, assignments })
+	}
+
+	fn weight<T: WeightInfo>(_: u32, _: u32, _: u32) -> Weight {
+		Default::default()
+	}
 }
 
 /// A wrapper for [`sp_npos_elections::seq_phragmen`] that implements [`NposSolver`]. See the
@@ -711,7 +779,11 @@ impl<AccountId: IdentifierT, Accuracy: PerThing128, Balancing: Get<Option<Balanc
 	fn solve(
 		winners: usize,
 		targets: Vec<Self::AccountId>,
-		voters: Vec<(Self::AccountId, VoteWeight, impl IntoIterator<Item = Self::AccountId>)>,
+		voters: Vec<(
+			Self::AccountId,
+			VoteWeight,
+			impl Clone + IntoIterator<Item = Self::AccountId>,
+		)>,
 	) -> Result<ElectionResult<Self::AccountId, Self::Accuracy>, Self::Error> {
 		sp_npos_elections::seq_phragmen(winners, targets, voters, Balancing::get())
 	}
@@ -736,7 +808,11 @@ impl<AccountId: IdentifierT, Accuracy: PerThing128, Balancing: Get<Option<Balanc
 	fn solve(
 		winners: usize,
 		targets: Vec<Self::AccountId>,
-		voters: Vec<(Self::AccountId, VoteWeight, impl IntoIterator<Item = Self::AccountId>)>,
+		voters: Vec<(
+			Self::AccountId,
+			VoteWeight,
+			impl Clone + IntoIterator<Item = Self::AccountId>,
+		)>,
 	) -> Result<ElectionResult<Self::AccountId, Self::Accuracy>, Self::Error> {
 		sp_npos_elections::phragmms(winners, targets, voters, Balancing::get())
 	}
