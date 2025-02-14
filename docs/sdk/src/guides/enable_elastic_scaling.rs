@@ -31,7 +31,9 @@
 //!    cannot build a subsequent block in due time and ends up authoring a fork, which defeats the purpose
 //!    of elastic scaling. The highest throughput can therefore be achieved with a single collator but
 //!    this should obviously only be used for testing purposes, due to the clear lack of decentralisation
-//!    and resilience. Experiments show that the peak compute throughput using more than one collator
+//!    and resilience.
+//!    In other words, collators will create forks if `2 * authorship duration + network overheads > slot time`.
+//!    Experiments show that the peak compute throughput using more than one collator
 //!    (measured up to 10 collators) is utilising 2 cores with authorship time of 1.3 seconds per block,
 //!    which leaves 400ms for networking overhead. This would allow for 2.6 seconds of execution, compared
 //!    to the 2 seconds async backing enabled. If block authoring duration is low and you attempt to
