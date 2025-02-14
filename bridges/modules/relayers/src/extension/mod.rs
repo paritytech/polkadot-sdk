@@ -1228,7 +1228,7 @@ mod tests {
 			&dispatch_info(),
 			&post_dispatch_info,
 			Zero::zero(),
-		) as _
+		)
 	}
 
 	fn expected_confirmation_reward() -> Reward {
@@ -1237,7 +1237,7 @@ mod tests {
 			&dispatch_info(),
 			&post_dispatch_info(),
 			Zero::zero(),
-		) as _
+		)
 	}
 
 	#[test]
