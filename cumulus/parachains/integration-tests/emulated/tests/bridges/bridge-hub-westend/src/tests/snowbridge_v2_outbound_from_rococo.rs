@@ -13,12 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::fungibles::Mutate;
 use rococo_westend_system_emulated_network::asset_hub_rococo_emulated_chain::asset_hub_rococo_runtime::xcm_config::bridging::to_westend::EthereumNetwork;
 use crate::{imports::*, tests::snowbridge_common::*};
 use snowbridge_core::AssetMetadata;
 use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 use xcm::latest::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
+use crate::tests::snowbridge_v2_outbound::EthereumSystemFrontend;
+use crate::tests::snowbridge_v2_outbound::EthereumSystemFrontendCall;
 
 pub(crate) fn asset_hub_westend_location() -> Location {
 	Location::new(
@@ -299,6 +302,161 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 		);
 	});
 
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		// Check that the Ethereum message was queue in the Outbound Queue
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn register_rococo_asset_on_ethereum_from_rah() {
+	const XCM_FEE: u128 = 4_000_000_000_000;
+	let sa_of_rah_on_wah =
+		AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
+			ByGenesis(ROCOCO_GENESIS_HASH),
+			AssetHubRococo::para_id(),
+		);
+
+	// Rococo Asset Hub asset when bridged to Westend Asset Hub.
+	let bridged_asset_at_wah = Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+			Parachain(AssetHubRococo::para_id().into()),
+			PalletInstance(ASSETS_PALLET_ID),
+			GeneralIndex(ASSET_ID.into()),
+		],
+	);
+
+	let call =
+		EthereumSystemFrontend::EthereumSystemFrontend(EthereumSystemFrontendCall::RegisterToken {
+			asset_id: Box::new(VersionedLocation::from(bridged_asset_at_wah.clone())),
+			metadata: Default::default(),
+			fee: REMOTE_FEE_AMOUNT_IN_ETHER,
+		})
+		.encode();
+
+	let origin_kind = OriginKind::Xcm;
+	let fee_amount = XCM_FEE;
+	let fees = (Parent, fee_amount).into();
+
+	let xcm = xcm_transact_paid_execution(call.into(), origin_kind, fees, sa_of_rah_on_wah.clone());
+
+	// SA-of-RAH-on-WAH needs to have balance to pay for fees and asset creation deposit
+	AssetHubWestend::execute_with(|| {
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			ethereum().try_into().unwrap(),
+			&sa_of_rah_on_wah,
+			INITIAL_FUND,
+		));
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Balances::force_set_balance(
+			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
+			sa_of_rah_on_wah.into(),
+			INITIAL_FUND
+		));
+	});
+
+	let destination = asset_hub_westend_location();
+
+	// fund the RAH's SA on RBH for paying bridge delivery fees
+	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
+
+	// set XCM versions
+	AssetHubRococo::force_xcm_version(destination.clone(), XCM_VERSION);
+	BridgeHubRococo::force_xcm_version(bridge_hub_westend_location(), XCM_VERSION);
+
+	let root_origin = <AssetHubRococo as Chain>::RuntimeOrigin::root();
+	AssetHubRococo::execute_with(|| {
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::send(
+			root_origin,
+			bx!(destination.into()),
+			bx!(xcm),
+		));
+
+		AssetHubRococo::assert_xcm_pallet_sent();
+	});
+
+	assert_bridge_hub_rococo_message_accepted(true);
+	assert_bridge_hub_westend_message_received();
+	AssetHubWestend::execute_with(|| {
+		AssetHubWestend::assert_xcmp_queue_success(None);
+	});
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		// Check that the Ethereum message was queue in the Outbound Queue
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn register_agent_on_ethereum_from_rah() {
+	const XCM_FEE: u128 = 4_000_000_000_000;
+	let sa_of_rah_on_wah =
+		AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
+			ByGenesis(ROCOCO_GENESIS_HASH),
+			AssetHubRococo::para_id(),
+		);
+
+	let call =
+		EthereumSystemFrontend::EthereumSystemFrontend(EthereumSystemFrontendCall::CreateAgent {
+			fee: REMOTE_FEE_AMOUNT_IN_ETHER,
+		})
+		.encode();
+
+	let origin_kind = OriginKind::Xcm;
+	let fee_amount = XCM_FEE;
+	let fees = (Parent, fee_amount).into();
+
+	let xcm = xcm_transact_paid_execution(call.into(), origin_kind, fees, sa_of_rah_on_wah.clone());
+
+	// SA-of-RAH-on-WAH needs to have balance to pay for fees and asset creation deposit
+	AssetHubWestend::execute_with(|| {
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			ethereum().try_into().unwrap(),
+			&sa_of_rah_on_wah,
+			INITIAL_FUND,
+		));
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Balances::force_set_balance(
+			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
+			sa_of_rah_on_wah.into(),
+			INITIAL_FUND
+		));
+	});
+
+	let destination = asset_hub_westend_location();
+
+	// fund the RAH's SA on RBH for paying bridge delivery fees
+	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
+
+	// set XCM versions
+	AssetHubRococo::force_xcm_version(destination.clone(), XCM_VERSION);
+	BridgeHubRococo::force_xcm_version(bridge_hub_westend_location(), XCM_VERSION);
+
+	let root_origin = <AssetHubRococo as Chain>::RuntimeOrigin::root();
+	AssetHubRococo::execute_with(|| {
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::send(
+			root_origin,
+			bx!(destination.into()),
+			bx!(xcm),
+		));
+
+		AssetHubRococo::assert_xcm_pallet_sent();
+	});
+
+	assert_bridge_hub_rococo_message_accepted(true);
+	assert_bridge_hub_westend_message_received();
+	AssetHubWestend::execute_with(|| {
+		AssetHubWestend::assert_xcmp_queue_success(None);
+	});
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
