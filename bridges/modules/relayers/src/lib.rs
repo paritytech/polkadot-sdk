@@ -232,6 +232,22 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Relayers that have reserved some of their balance to get free priority boost
+		/// for their message delivery transactions.
+		pub fn registered_relayer(
+			relayer: &T::AccountId,
+		) -> Option<Registration<BlockNumberFor<T>, T::Reward>> {
+			RegisteredRelayers::<T, I>::get(relayer)
+		}
+
+		/// Map of the relayer => accumulated reward.
+		pub fn relayer_reward(
+			key1: <RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key1,
+			key2: <RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key2,
+		) -> Option<<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Value> {
+			RelayerRewards::<T, I>::get(key1, key2)
+		}
+
 		/// Returns true if given relayer registration is active at current block.
 		///
 		/// This call respects both `RequiredStake` and `RequiredRegistrationLease`, meaning that
@@ -459,7 +475,6 @@ pub mod pallet {
 
 	/// Map of the relayer => accumulated reward.
 	#[pallet::storage]
-	#[pallet::getter(fn relayer_reward)]
 	pub type RelayerRewards<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Hasher1,
@@ -477,7 +492,6 @@ pub mod pallet {
 	/// priority and will be rejected (without significant tip) in case if registered
 	/// relayer is present.
 	#[pallet::storage]
-	#[pallet::getter(fn registered_relayer)]
 	pub type RegisteredRelayers<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -690,7 +704,7 @@ mod tests {
 			));
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
 			assert_eq!(
-				Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER),
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER),
 				Some(Registration { valid_till: 150, stake: Stake::get() }),
 			);
 
@@ -758,7 +772,7 @@ mod tests {
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
 			assert_eq!(Balances::free_balance(REGISTER_RELAYER), free_balance + 1);
 			assert_eq!(
-				Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER),
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER),
 				Some(Registration { valid_till: 150, stake: Stake::get() }),
 			);
 
@@ -822,7 +836,7 @@ mod tests {
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
 			assert_eq!(Balances::free_balance(REGISTER_RELAYER), free_balance - 1);
 			assert_eq!(
-				Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER),
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER),
 				Some(Registration { valid_till: 150, stake: Stake::get() }),
 			);
 
