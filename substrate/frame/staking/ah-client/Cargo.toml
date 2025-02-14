@@ -41,6 +41,7 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 	"xcm/std",
+	"polkadot-runtime-parachains/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
@@ -51,6 +52,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -60,4 +62,5 @@ try-runtime = [
 	"pallet-staking-rc-client/try-runtime",
 	"pallet-staking/try-runtime",
 	"sp-runtime/try-runtime",
+	"polkadot-runtime-parachains/try-runtime"
 ]
