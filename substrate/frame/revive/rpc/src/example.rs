@@ -20,38 +20,11 @@ use anyhow::Context;
 use pallet_revive::evm::{
 	Account, BlockTag, Bytes, GenericTransaction, TransactionLegacyUnsigned, H160, H256, U256,
 };
-
-/// Wait for a transaction receipt.
-pub async fn wait_for_receipt(
-	client: &(impl EthRpcClient + Send + Sync),
-	hash: H256,
-) -> anyhow::Result<ReceiptInfo> {
-	for _ in 0..30 {
-		tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-		let receipt = client.get_transaction_receipt(hash).await?;
-		if let Some(receipt) = receipt {
-			return Ok(receipt)
-		}
-	}
-
-	anyhow::bail!("Failed to get receipt")
-}
-
-/// Wait for a successful transaction receipt.
-pub async fn wait_for_successful_receipt(
-	client: &(impl EthRpcClient + Send + Sync),
-	hash: H256,
-) -> anyhow::Result<ReceiptInfo> {
-	let receipt = wait_for_receipt(client, hash).await?;
-	if receipt.is_success() {
-		Ok(receipt)
-	} else {
-		anyhow::bail!("Transaction failed")
-	}
-}
+use std::sync::Arc;
 
 /// Transaction builder.
-pub struct TransactionBuilder {
+pub struct TransactionBuilder<Client: EthRpcClient + Sync + Send> {
+	client: Arc<Client>,
 	signer: Account,
 	value: U256,
 	input: Bytes,
@@ -59,9 +32,51 @@ pub struct TransactionBuilder {
 	mutate: Box<dyn FnOnce(&mut TransactionLegacyUnsigned)>,
 }
 
-impl Default for TransactionBuilder {
-	fn default() -> Self {
+#[derive(Debug)]
+pub struct SubmittedTransaction<Client: EthRpcClient + Sync + Send> {
+	tx: GenericTransaction,
+	hash: H256,
+	client: Arc<Client>,
+}
+
+impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
+	/// Get the hash of the transaction.
+	pub fn hash(&self) -> H256 {
+		self.hash
+	}
+
+	/// The gas sent with the transaction.
+	pub fn gas(&self) -> U256 {
+		self.tx.gas.unwrap()
+	}
+
+	/// Wait for the receipt of the transaction.
+	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
+		let hash = self.hash();
+		for _ in 0..30 {
+			tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+			let receipt = self.client.get_transaction_receipt(hash).await?;
+			if let Some(receipt) = receipt {
+				if receipt.is_success() {
+					assert!(
+						self.gas() > receipt.gas_used,
+						"Gas used should be less than gas estimated."
+					);
+					return Ok(receipt)
+				} else {
+					anyhow::bail!("Transaction failed")
+				}
+			}
+		}
+
+		anyhow::bail!("Timeout, failed to get receipt")
+	}
+}
+
+impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
+	pub fn new(client: &Arc<Client>) -> Self {
 		Self {
+			client: Arc::clone(client),
 			signer: Account::default(),
 			value: U256::zero(),
 			input: Bytes::default(),
@@ -69,9 +84,6 @@ impl Default for TransactionBuilder {
 			mutate: Box::new(|_| {}),
 		}
 	}
-}
-
-impl TransactionBuilder {
 	/// Set the signer.
 	pub fn signer(mut self, signer: Account) -> Self {
 		self.signer = signer;
@@ -103,11 +115,8 @@ impl TransactionBuilder {
 	}
 
 	/// Call eth_call to get the result of a view function
-	pub async fn eth_call(
-		self,
-		client: &(impl EthRpcClient + Send + Sync),
-	) -> anyhow::Result<Vec<u8>> {
-		let TransactionBuilder { signer, value, input, to, .. } = self;
+	pub async fn eth_call(self) -> anyhow::Result<Vec<u8>> {
+		let TransactionBuilder { client, signer, value, input, to, .. } = self;
 
 		let from = signer.address();
 		let result = client
@@ -127,8 +136,8 @@ impl TransactionBuilder {
 	}
 
 	/// Send the transaction.
-	pub async fn send(self, client: &(impl EthRpcClient + Send + Sync)) -> anyhow::Result<H256> {
-		let TransactionBuilder { signer, value, input, to, mutate } = self;
+	pub async fn send(self) -> anyhow::Result<SubmittedTransaction<Client>> {
+		let TransactionBuilder { client, signer, value, input, to, mutate } = self;
 
 		let from = signer.address();
 		let chain_id = Some(client.chain_id().await?);
@@ -153,6 +162,7 @@ impl TransactionBuilder {
 			.await
 			.with_context(|| "Failed to fetch gas estimate")?;
 
+		println!("Gas estimate: {gas:?}");
 		let mut unsigned_tx = TransactionLegacyUnsigned {
 			gas,
 			nonce,
@@ -166,23 +176,18 @@ impl TransactionBuilder {
 
 		mutate(&mut unsigned_tx);
 
-		let tx = signer.sign_transaction(unsigned_tx.into());
-		let bytes = tx.signed_payload();
+		let signed_tx = signer.sign_transaction(unsigned_tx.into());
+		let bytes = signed_tx.signed_payload();
 
 		let hash = client
 			.send_raw_transaction(bytes.into())
 			.await
 			.with_context(|| "transaction failed")?;
 
-		Ok(hash)
-	}
-
-	/// Send the transaction and wait for the receipt.
-	pub async fn send_and_wait_for_receipt(
-		self,
-		client: &(impl EthRpcClient + Send + Sync),
-	) -> anyhow::Result<ReceiptInfo> {
-		let hash = self.send(client).await?;
-		wait_for_successful_receipt(client, hash).await
+		Ok(SubmittedTransaction {
+			tx: GenericTransaction::from_signed(signed_tx, Some(from)),
+			hash,
+			client,
+		})
 	}
 }
