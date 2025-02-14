@@ -199,6 +199,7 @@ parameter_types! {
 	pub BridgeHubLocation: Location = Location::new(1, [Parachain(1002)]);
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(Polkadot), Parachain(1000)].into();
+	pub PalletLocation: InteriorLocation = [PalletInstance(80)].into();
 }
 
 impl crate::Config for Test {
@@ -211,10 +212,10 @@ impl crate::Config for Test {
 	type XcmSender = MockXcmSender;
 	type AssetTransactor = SuccessfulTransactor;
 	type EthereumLocation = Ether;
-	type RemoteExecutionFee = DeliveryFee;
 	type XcmExecutor = MockXcmExecutor;
 	type BridgeHubLocation = BridgeHubLocation;
 	type UniversalLocation = UniversalLocation;
+	type PalletLocation = PalletLocation;
 }
 
 // Build genesis storage according to the mock runtime.

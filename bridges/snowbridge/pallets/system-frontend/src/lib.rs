@@ -86,14 +86,14 @@ pub mod pallet {
 		/// Fee asset for the execution cost on ethereum
 		type EthereumLocation: Get<Location>;
 
-		/// RemoteExecutionFee for the execution cost on bridge hub
-		type RemoteExecutionFee: Get<Asset>;
-
 		/// Location of bridge hub
 		type BridgeHubLocation: Get<Location>;
 
 		/// Universal location of this runtime.
 		type UniversalLocation: Get<InteriorLocation>;
+
+		/// InteriorLocation of this pallet.
+		type PalletLocation: Get<InteriorLocation>;
 
 		type WeightInfo: WeightInfo;
 
@@ -154,9 +154,6 @@ pub mod pallet {
 			// Burn Ether Fee for the cost on ethereum
 			Self::burn_for_teleport(&origin_location, &(T::EthereumLocation::get(), fee).into())?;
 
-			// Burn RemoteExecutionFee for the cost on bridge hub
-			Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;
-
 			let reanchored_location = origin_location
 				.clone()
 				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
@@ -167,21 +164,7 @@ pub mod pallet {
 				fee,
 			});
 
-			let xcm: Xcm<()> = vec![
-				// Burn some DOT fees from the origin on AH and teleport to BH which pays for
-				// the execution of Transacts on BH.
-				ReceiveTeleportedAsset(T::RemoteExecutionFee::get().into()),
-				PayFees { asset: T::RemoteExecutionFee::get() },
-				Transact {
-					origin_kind: OriginKind::Xcm,
-					call: call.encode().into(),
-					fallback_max_weight: None,
-				},
-				ExpectTransactStatus(MaybeErrorCode::Success),
-			]
-			.into();
-
-			let message_id = Self::send(origin_location.clone(), xcm)?;
+			let message_id = Self::send(origin_location.clone(), Self::build_xcm(call.encode()))?;
 
 			Self::deposit_event(Event::<T>::CreateAgent { location: origin_location, message_id });
 			Ok(())
@@ -207,9 +190,6 @@ pub mod pallet {
 			// Burn Ether Fee for the cost on ethereum
 			Self::burn_for_teleport(&origin_location, &(T::EthereumLocation::get(), fee).into())?;
 
-			// Burn RemoteExecutionFee for the cost on bridge hub
-			Self::burn_for_teleport(&origin_location, &T::RemoteExecutionFee::get())?;
-
 			let reanchored_asset_location = asset_location
 				.clone()
 				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
@@ -221,19 +201,7 @@ pub mod pallet {
 				fee,
 			});
 
-			let xcm: Xcm<()> = vec![
-				ReceiveTeleportedAsset(T::RemoteExecutionFee::get().into()),
-				PayFees { asset: T::RemoteExecutionFee::get() },
-				Transact {
-					origin_kind: OriginKind::Xcm,
-					call: call.encode().into(),
-					fallback_max_weight: None,
-				},
-				ExpectTransactStatus(MaybeErrorCode::Success),
-			]
-			.into();
-
-			let message_id = Self::send(origin_location.clone(), xcm)?;
+			let message_id = Self::send(origin_location.clone(), Self::build_xcm(call.encode()))?;
 
 			Self::deposit_event(Event::<T>::RegisterToken { location: asset_location, message_id });
 
@@ -242,7 +210,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn send(origin: Location, xcm: Xcm<()>) -> Result<H256, Error<T>> {
+		fn send(origin: Location, xcm: Xcm<()>) -> Result<H256, Error<T>> {
 			let (message_id, price) =
 				send_xcm::<T::XcmSender>(T::BridgeHubLocation::get(), xcm.clone()).map_err(
 					|err| {
@@ -254,7 +222,7 @@ pub mod pallet {
 			Ok(message_id.into())
 		}
 
-		pub fn burn_for_teleport(origin: &Location, fee: &Asset) -> DispatchResult {
+		fn burn_for_teleport(origin: &Location, fee: &Asset) -> DispatchResult {
 			let dummy_context =
 				XcmContext { origin: None, message_id: Default::default(), topic: None };
 			T::AssetTransactor::can_check_out(origin, fee, &dummy_context)
@@ -263,6 +231,18 @@ pub mod pallet {
 			T::AssetTransactor::withdraw_asset(fee, origin, None)
 				.map_err(|_| Error::<T>::FundsUnavailable)?;
 			Ok(())
+		}
+
+		fn build_xcm(call: Vec<u8>) -> Xcm<()> {
+			Xcm(vec![
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				DescendOrigin(T::PalletLocation::get()),
+				Transact {
+					origin_kind: OriginKind::Xcm,
+					call: call.into(),
+					fallback_max_weight: None,
+				},
+			])
 		}
 	}
 }

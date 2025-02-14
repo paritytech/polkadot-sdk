@@ -21,7 +21,7 @@ use crate::{
 use frame_support::{parameter_types, traits::Everything};
 use pallet_xcm::EnsureXcm;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
-use xcm::prelude::{Asset, Location, Parachain};
+use xcm::prelude::{Asset, InteriorLocation, Location, PalletInstance, Parachain};
 use xcm_executor::XcmExecutor;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
@@ -70,6 +70,7 @@ parameter_types! {
 	);
 	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
 	pub BridgeHubLocation: Location = Location::new(1,[Parachain(westend_runtime_constants::system_parachain::BRIDGE_HUB_ID)]);
+	pub SystemFrontendPalletLocation: InteriorLocation = [PalletInstance(80)].into();
 }
 
 impl snowbridge_pallet_system_frontend::Config for Runtime {
@@ -87,8 +88,8 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type XcmSender = DoNothingRouter;
 	type AssetTransactor = AssetTransactors;
 	type EthereumLocation = FeeAsset;
-	type RemoteExecutionFee = DeliveryFee;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type BridgeHubLocation = BridgeHubLocation;
 	type UniversalLocation = UniversalLocation;
+	type PalletLocation = SystemFrontendPalletLocation;
 }

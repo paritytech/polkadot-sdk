@@ -19,6 +19,7 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
+use crate::bridge_to_ethereum_config::{AssethubLocation, SnowbridgeFrontendLocation};
 use frame_support::{
 	parameter_types,
 	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
@@ -145,6 +146,12 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
+						// Todo:
+						// This won't work as Barrier is checked before execution of any
+						// instruction, so we have to allow execution from root location
+						// not sure if it will cause insecurity
+						// Equals<SnowbridgeFrontendLocation>,
+						Equals<AssethubLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
