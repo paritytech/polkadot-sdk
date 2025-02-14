@@ -76,8 +76,8 @@ use std::path::{Path, PathBuf};
 /// vectors anyway. So we will only upgrade to a new ABI if either the reference kernel version
 /// supports it or if it introduces some new feature that is beneficial to security.
 pub const LANDLOCK_ABI_FS: ABI = ABI::V1;
-/// Landlock ABI version for network restrictions. We use ABI V4 because it is the first ABI that
-/// offers network restrictions.
+/// Landlock ABI version for network restrictions (TCP bind and connect). We use ABI V4 because it
+/// is the first ABI that offers network restrictions.
 ///
 /// # See also
 ///
@@ -151,7 +151,10 @@ where
 	P: AsRef<Path>,
 	A: Into<BitFlags<AccessFs>>,
 {
-	let mut ruleset = Ruleset::default().handle_access(AccessFs::from_all(abi))?.create()?;
+	let mut ruleset = Ruleset::default()
+		.handle_access(AccessFs::from_all(abi))?
+		.handle_access(AccessNet::from_all(abi))?
+		.create()?;
 	for (fs_path, access_bits) in fs_exceptions {
 		let paths = &[fs_path.as_ref().to_owned()];
 		let mut rules = path_beneath_rules(paths, access_bits).peekable();
@@ -173,7 +176,12 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::{fs, io::ErrorKind, thread};
+	use std::{
+		fs,
+		io::{ErrorKind, Write},
+		net::{TcpListener, TcpStream},
+		thread,
+	};
 
 	#[test]
 	fn restricted_thread_cannot_read_file() {
@@ -332,5 +340,58 @@ mod tests {
 		});
 
 		assert!(handle.join().is_ok());
+	}
+
+	#[test]
+	fn restricted_thread_cannot_use_tcp_sockets() {
+		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
+		if check_can_fully_enable(LANDLOCK_ABI_FS).is_err() {
+			return
+		}
+
+		// Bind a TCP socket. This should succeed before restrictions.
+		let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind address");
+		let port = listener.local_addr().unwrap().port();
+		let server_address = format!("127.0.0.1:{port}");
+
+		thread::spawn(move || {
+			for stream in listener.incoming() {
+				match stream {
+					Ok(_stream) => (),
+					Err(e) => panic!("Connection failed: {}", e),
+				}
+			}
+		});
+
+		// Restricted thread cannot use a TCP socket.
+		let handle_sandbox = thread::spawn(move || {
+			// Connect to the TCP socket. This should succeed before restrictions.
+			match TcpStream::connect(&server_address) {
+				Ok(mut stream) => {
+					let message = "Hello, server!";
+					stream
+						.write_all(message.as_bytes())
+						.expect("Expected to send message before restrictions.");
+				},
+				Err(e) => panic!("Failed to connect: {}", e),
+			}
+
+			// Apply Landlock with net restrictions.
+			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>(), LANDLOCK_ABI_NET);
+			if !matches!(status, Ok(())) {
+				panic!(
+					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
+					status
+				);
+			}
+
+			// Try to bind a TCP socket, it should fail.
+			assert!(TcpListener::bind("127.0.0.1:0").is_err());
+
+			// Try to connect to the server, it should fail.
+			assert!(TcpStream::connect(&server_address).is_err());
+		});
+
+		assert!(handle_sandbox.join().is_ok());
 	}
 }
