@@ -154,10 +154,7 @@ pub mod pallet {
 			// Burn Ether Fee for the cost on ethereum
 			Self::burn_for_teleport(&origin_location, &(T::EthereumLocation::get(), fee).into())?;
 
-			let reanchored_location = origin_location
-				.clone()
-				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
-				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+			let reanchored_location = Self::reanchor(&origin_location)?;
 
 			let call = BridgeHubRuntime::EthereumSystem(EthereumSystemCall::CreateAgent {
 				location: Box::new(VersionedLocation::from(reanchored_location.clone())),
@@ -190,10 +187,7 @@ pub mod pallet {
 			// Burn Ether Fee for the cost on ethereum
 			Self::burn_for_teleport(&origin_location, &(T::EthereumLocation::get(), fee).into())?;
 
-			let reanchored_asset_location = asset_location
-				.clone()
-				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
-				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+			let reanchored_asset_location = Self::reanchor(&asset_location)?;
 
 			let call = BridgeHubRuntime::EthereumSystem(EthereumSystemCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(reanchored_asset_location.clone())),
@@ -243,6 +237,13 @@ pub mod pallet {
 					fallback_max_weight: None,
 				},
 			])
+		}
+
+		fn reanchor(location: &Location) -> Result<Location, Error<T>> {
+			location
+				.clone()
+				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
+				.map_err(|_| Error::<T>::LocationConversionFailed)
 		}
 	}
 }

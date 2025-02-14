@@ -107,6 +107,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		LocationReanchorFailed,
 		LocationConversionFailed,
 		AgentAlreadyCreated,
 		NoAgent,
@@ -149,15 +150,7 @@ pub mod pallet {
 			let origin_location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			// reanchor to Ethereum context
-			let ethereum_location = T::EthereumLocation::get();
-			let reanchored_location = origin_location
-				.clone()
-				.reanchored(&ethereum_location, &T::UniversalLocation::get())
-				.map_err(|_| Error::<T>::LocationConversionFailed)?;
-
-			let agent_id = AgentIdOf::convert_location(&reanchored_location)
-				.ok_or(Error::<T>::LocationConversionFailed)?;
+			let agent_id = Self::location_to_agent_id(&origin_location)?;
 
 			// Record the agent id or fail if it has already been created
 			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);
@@ -188,18 +181,12 @@ pub mod pallet {
 			fee: u128,
 		) -> DispatchResult {
 			let origin_location = T::FrontendOrigin::ensure_origin(origin)?;
-			let origin = AgentIdOf::convert_location(&origin_location)
-				.ok_or(Error::<T>::LocationConversionFailed)?;
+			let origin = Self::location_to_agent_id(&origin_location)?;
 
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let ethereum_location = T::EthereumLocation::get();
-			// reanchor to Ethereum context
-			let location = asset_location
-				.clone()
-				.reanchored(&ethereum_location, &T::UniversalLocation::get())
-				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+			let location = Self::reanchor(&asset_location)?;
 
 			let token_id = TokenIdOf::convert_location(&location)
 				.ok_or(Error::<T>::LocationConversionFailed)?;
@@ -243,6 +230,20 @@ pub mod pallet {
 
 			T::OutboundQueue::deliver(ticket).map_err(|err| Error::<T>::Send(err))?;
 			Ok(())
+		}
+
+		/// Reanchor the `location` in context of ethereum
+		fn reanchor(location: &Location) -> Result<Location, Error<T>> {
+			location
+				.clone()
+				.reanchored(&T::EthereumLocation::get(), &T::UniversalLocation::get())
+				.map_err(|_| Error::<T>::LocationReanchorFailed)
+		}
+
+		fn location_to_agent_id(location: &Location) -> Result<AgentId, Error<T>> {
+			let reanchored_location = Self::reanchor(location)?;
+			AgentIdOf::convert_location(&reanchored_location)
+				.ok_or(Error::<T>::LocationConversionFailed)
 		}
 	}
 
