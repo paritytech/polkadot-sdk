@@ -24,12 +24,9 @@ use crate::historical as pallet_session_historical;
 
 use std::collections::BTreeMap;
 
-use sp_core::crypto::key_types::DUMMY;
-use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
-use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
-use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+use frame::testing_prelude::*;
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -68,10 +65,10 @@ impl OpaqueKeys for PreUpgradeMockSessionKeys {
 	}
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 #[cfg(feature = "historical")]
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -81,7 +78,7 @@ frame_support::construct_runtime!(
 );
 
 #[cfg(not(feature = "historical"))]
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -119,7 +116,7 @@ impl ShouldEndSession<u64> for TestShouldEndSession {
 
 pub struct TestSessionHandler;
 impl SessionHandler<u64> for TestSessionHandler {
-	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[UintAuthorityId::ID];
+	const KEY_TYPE_IDS: &'static [KeyTypeId] = &[UintAuthorityId::ID];
 	fn on_genesis_session<T: OpaqueKeys>(_validators: &[(u64, T)]) {}
 	fn on_new_session<T: OpaqueKeys>(
 		changed: bool,
@@ -200,7 +197,7 @@ pub fn reset_before_session_end_called() {
 	BeforeSessionEndCalled::mutate(|b| *b = false);
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let keys: Vec<_> = NextValidators::get()
 		.iter()
@@ -221,7 +218,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	let v = NextValidators::get().iter().map(|&i| (i, i)).collect();
 	ValidatorAccounts::mutate(|m| *m = v);
-	sp_io::TestExternalities::new(t)
+	TestState::new(t)
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -266,5 +263,5 @@ impl Config for Test {
 #[cfg(feature = "historical")]
 impl crate::historical::Config for Test {
 	type FullIdentification = u64;
-	type FullIdentificationOf = sp_runtime::traits::ConvertInto;
+	type FullIdentificationOf = ConvertInto;
 }

@@ -33,32 +33,22 @@ mod shared;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
-use sp_runtime::{
-	traits::{Convert, OpaqueKeys},
-	KeyTypeId,
-};
+
 use sp_session::{MembershipProof, ValidatorCount};
-use sp_staking::SessionIndex;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
 	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
 };
 
-use frame_support::{
-	print,
-	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
-	Parameter, LOG_TARGET,
-};
-
+use frame::testing_prelude::*;
 use crate::{self as pallet_session, Pallet as Session};
 
 pub use pallet::*;
 use sp_trie::{accessed_nodes_tracker::AccessedNodesTracker, recorder_ext::RecorderExt};
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -136,7 +126,7 @@ impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
 	type ValidatorId = T::ValidatorId;
 	type ValidatorIdOf = T::ValidatorIdOf;
 
-	fn session_index() -> sp_staking::SessionIndex {
+	fn session_index() -> SessionIndex {
 		super::Pallet::<T>::current_index()
 	}
 
@@ -377,14 +367,13 @@ pub(crate) mod tests {
 	};
 	use alloc::vec;
 
-	use sp_runtime::{key_types::DUMMY, testing::UintAuthorityId, BuildStorage};
 	use sp_state_machine::BasicExternalities;
 
-	use frame_support::traits::{KeyOwnerProofSystem, OnInitialize};
+	use frame::traits::{KeyOwnerProofSystem, OnInitialize};
 
 	type Historical = Pallet<Test>;
 
-	pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
+	pub(crate) fn new_test_ext() -> TestState {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let keys: Vec<_> = NextValidators::get()
 			.iter()
@@ -399,7 +388,7 @@ pub(crate) mod tests {
 		pallet_session::GenesisConfig::<Test> { keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
-		sp_io::TestExternalities::new(t)
+		TestState::new(t)
 	}
 
 	#[test]

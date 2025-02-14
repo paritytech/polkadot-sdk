@@ -201,12 +201,14 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
+	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, DispatchResult};
+	pub use frame_support::{traits::{
 		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
 		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
-	};
+		VariantCount, VariantCountOf, Get, KeyOwnerProofSystem, OnInitialize, DisabledValidators,
+		STORAGE_VERSION_STORAGE_KEY_POSTFIX, ValidatorSetWithIdentification,
+		Defensive, EstimateNextNewSession, FindAuthor, ValidatorRegistration, ValidatorSet, PalletInfoAccess, StorageVersion, 
+	}, ensure, print, LOG_TARGET, Parameter, storage::{generator::StorageValue, StoragePrefixedMap},};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -231,10 +233,13 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
-	};
+	pub use sp_runtime::{traits::{
+		BlockNumberProvider, Bounded, Convert, ConvertInto, DispatchInfoOf, Dispatchable, ReduceBy, Member, OpaqueKeys,
+		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput, IdentityLookup,
+	},
+	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
+	ConsensusEngineId, DispatchError, Permill, RuntimeAppPublic, KeyTypeId, 
+};
 
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
@@ -244,6 +249,9 @@ pub mod prelude {
 	pub use sp_runtime::{
 		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
 	};
+
+	pub use sp_staking::SessionIndex;
+
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -338,6 +346,8 @@ pub mod testing_prelude {
 
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::{traits::BadOrigin, StateVersion};
+
+	pub use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId};
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -535,6 +545,7 @@ pub mod traits {
 /// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+	pub use sp_runtime::traits::{One, Zero, AtLeast32BitUnsigned};
 }
 
 /// All derive macros used in frame.
@@ -552,7 +563,7 @@ pub mod derive {
 }
 
 pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512, crypto::key_types::DUMMY,  offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt, StorageKind},};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
@@ -583,6 +594,7 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_staking;
 
 	pub use codec;
 	pub use scale_info;
