@@ -43,9 +43,6 @@ pub const CALL_STACK_DEPTH: u32 = 5;
 /// We set it to the same limit that ethereum has. It is unlikely to change.
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
-/// The maximum number of code hashes a contract can lock.
-pub const DELEGATE_DEPENDENCIES: u32 = 32;
-
 /// Maximum size of events (including topics) and storage values.
 pub const PAYLOAD_BYTES: u32 = 416;
 
@@ -94,21 +91,21 @@ pub mod code {
 	/// the allowed code size by [`BYTE_PER_INSTRUCTION`].
 	pub const STATIC_MEMORY_BYTES: u32 = 2 * 1024 * 1024;
 
-	/// How much memory each instruction will take in-memory after compilation.
-	///
-	/// This is `size_of<usize>() + 16`. But we don't use `usize` here so it isn't
-	/// different on the native runtime (used for testing).
-	const BYTES_PER_INSTRUCTION: u32 = 20;
-
-	/// The code is stored multiple times as part of the compiled program.
-	const EXTRA_OVERHEAD_PER_CODE_BYTE: u32 = 4;
-
 	/// The maximum size of a basic block in number of instructions.
 	///
 	/// We need to limit the size of basic blocks because the interpreters lazy compilation
 	/// compiles one basic block at a time. A malicious program could trigger the compilation
 	/// of the whole program by creating one giant basic block otherwise.
-	const BASIC_BLOCK_SIZE: u32 = 1000;
+	pub const BASIC_BLOCK_SIZE: u32 = 1000;
+
+	/// How much memory each instruction will take in-memory after compilation.
+	///
+	/// This is `size_of<usize>() + 16`. But we don't use `usize` here so it isn't
+	/// different on the native runtime (used for testing).
+	pub const BYTES_PER_INSTRUCTION: u32 = 20;
+
+	/// The code is stored multiple times as part of the compiled program.
+	const EXTRA_OVERHEAD_PER_CODE_BYTE: u32 = 4;
 
 	/// Make sure that the various program parts are within the defined limits.
 	pub fn enforce<T: Config>(
@@ -121,6 +118,12 @@ pub mod code {
 		}
 
 		let blob: CodeVec = blob.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
+
+		#[cfg(feature = "std")]
+		if std::env::var_os("REVIVE_SKIP_VALIDATION").is_some() {
+			log::warn!(target: LOG_TARGET, "Skipping validation because env var REVIVE_SKIP_VALIDATION is set");
+			return Ok(blob)
+		}
 
 		let program = polkavm::ProgramBlob::parse(blob.as_slice().into()).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
@@ -174,6 +177,14 @@ pub mod code {
 				},
 				Instruction::sbrk(_, _) => {
 					log::debug!(target: LOG_TARGET, "sbrk instruction is not allowed. offset {}", inst.offset);
+					return Err(<Error<T>>::InvalidInstruction.into())
+				},
+				// Only benchmarking code is allowed to circumvent the import table. We might want
+				// to remove this magic syscall number later. Hence we need to prevent contracts
+				// from using it.
+				#[cfg(not(feature = "runtime-benchmarks"))]
+				Instruction::ecalli(idx) if idx == crate::SENTINEL => {
+					log::debug!(target: LOG_TARGET, "reserved syscall idx {idx}. offset {}", inst.offset);
 					return Err(<Error<T>>::InvalidInstruction.into())
 				},
 				_ => (),
