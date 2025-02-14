@@ -5774,6 +5774,21 @@ fn chill_other_works() {
 			//
 			// If any of these are missing, we do not have enough information to allow the
 			// `chill_other` to succeed from one user to another.
+			//
+			// Out of 8 possible cases, only one will allow the use of `chill_other`, which is
+			// when all 3 conditions are met.
+
+			// 1. No limits whatsoever
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+			));
 
 			// Can't chill these users
 			assert_noop!(
@@ -5785,15 +5800,15 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// Change the minimum bond... but no limits.
+			// 2. Change only the minimum bonds.
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Set(1_500),
 				ConfigOp::Set(2_000),
-				ConfigOp::Remove,
-				ConfigOp::Remove,
-				ConfigOp::Remove,
-				ConfigOp::Remove,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
 				ConfigOp::Noop,
 			));
 
@@ -5807,11 +5822,11 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// Add limits, but no threshold
+			// 3. Add nominator/validator count limits, but no other threshold.
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
-				ConfigOp::Noop,
-				ConfigOp::Noop,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Noop,
@@ -5829,14 +5844,14 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// Add threshold, but no limits
+			// 4. Add chil threshold, but no other limits
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Noop,
+				ConfigOp::Set(Percent::from_percent(75)),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 			));
@@ -5851,11 +5866,77 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// Add threshold and limits
+			// 5. Add bond and count limits, but no threshold
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Set(1_500),
+				ConfigOp::Set(2_000),
+				ConfigOp::Set(10),
+				ConfigOp::Set(10),
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+			));
+
+			// Still can't chill these users
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Error::<Test>::CannotChillOther
+			);
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Error::<Test>::CannotChillOther
+			);
+
+			// 6. Add bond and threshold limits, but no count limits
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Set(Percent::from_percent(75)),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+			));
+
+			// Still can't chill these users
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Error::<Test>::CannotChillOther
+			);
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Error::<Test>::CannotChillOther
+			);
+
+			// 7. Add count limits and a chill threshold, but no bond limits
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Remove,
+				ConfigOp::Remove,
+				ConfigOp::Set(10),
+				ConfigOp::Set(10),
+				ConfigOp::Set(Percent::from_percent(75)),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+			));
+
+			// Still can't chill these users
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Error::<Test>::CannotChillOther
+			);
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Error::<Test>::CannotChillOther
+			);
+
+			// 8. Add all limits
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Set(1_500),
+				ConfigOp::Set(2_000),
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Set(Percent::from_percent(75)),
@@ -5873,7 +5954,9 @@ fn chill_other_works() {
 				let b = 4 * i;
 				let d = 4 * i + 2;
 				assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), b));
+				assert_eq!(*staking_events().last().unwrap(), Event::Chilled { stash: b });
 				assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), d));
+				assert_eq!(*staking_events().last().unwrap(), Event::Chilled { stash: d });
 			}
 
 			// chill a nominator. Limit is not reached, not chill-able
@@ -6075,6 +6158,14 @@ fn change_of_absolute_max_nominations() {
 			);
 			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
 
+			// No one can be chilled on account of non-decodable keys.
+			for k in Nominators::<Test>::iter_keys() {
+				assert_noop!(
+					Staking::chill_other(RuntimeOrigin::signed(1), k),
+					Error::<Test>::CannotChillOther
+				);
+			}
+
 			// abrupt change from 4 to 3, everyone should be fine.
 			AbsoluteMaxNominations::set(3);
 
@@ -6086,8 +6177,16 @@ fn change_of_absolute_max_nominations() {
 			);
 			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
 
+			// As before, no one can be chilled on account of non-decodable keys.
+			for k in Nominators::<Test>::iter_keys() {
+				assert_noop!(
+					Staking::chill_other(RuntimeOrigin::signed(1), k),
+					Error::<Test>::CannotChillOther
+				);
+			}
+
 			// abrupt change from 3 to 2, this should cause some nominators to be non-decodable, and
-			// thus non-existent unless if they update.
+			// thus non-existent unless they update.
 			AbsoluteMaxNominations::set(2);
 
 			assert_eq!(
@@ -6096,7 +6195,16 @@ fn change_of_absolute_max_nominations() {
 					.collect::<Vec<_>>(),
 				vec![(101, 2), (61, 1)]
 			);
-			// 70 is still in storage..
+
+			// 101 and 61 still cannot be chilled by someone else.
+			for k in [101, 61].iter() {
+				assert_noop!(
+					Staking::chill_other(RuntimeOrigin::signed(1), *k),
+					Error::<Test>::CannotChillOther
+				);
+			}
+
+			// 71 is still in storage..
 			assert!(Nominators::<Test>::contains_key(71));
 			// but its value cannot be decoded and default is returned.
 			assert!(Nominators::<Test>::get(71).is_none());
@@ -6105,7 +6213,7 @@ fn change_of_absolute_max_nominations() {
 			assert!(Nominators::<Test>::contains_key(101));
 
 			// abrupt change from 2 to 1, this should cause some nominators to be non-decodable, and
-			// thus non-existent unless if they update.
+			// thus non-existent unless they update.
 			AbsoluteMaxNominations::set(1);
 
 			assert_eq!(
@@ -6114,6 +6222,13 @@ fn change_of_absolute_max_nominations() {
 					.collect::<Vec<_>>(),
 				vec![(61, 1)]
 			);
+
+			// 61 *still* cannot be chilled by someone else.
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1), 61),
+				Error::<Test>::CannotChillOther
+			);
+
 			assert!(Nominators::<Test>::contains_key(71));
 			assert!(Nominators::<Test>::contains_key(61));
 			assert!(Nominators::<Test>::get(71).is_none());
@@ -6133,6 +6248,7 @@ fn change_of_absolute_max_nominations() {
 			assert!(Nominators::<Test>::contains_key(101));
 			assert!(Nominators::<Test>::get(101).is_none());
 			assert_ok!(Staking::chill_other(RuntimeOrigin::signed(71), 101));
+			assert_eq!(*staking_events().last().unwrap(), Event::Chilled { stash: 101 });
 			assert!(!Nominators::<Test>::contains_key(101));
 			assert!(Nominators::<Test>::get(101).is_none());
 		})
