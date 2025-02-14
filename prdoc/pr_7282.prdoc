@@ -1,11 +1,53 @@
-title: AHM Multi-block staking election pallet
+title: '[AHM] Multi-block staking election pallet'
 doc:
-- audience: Runtime Dev
-  description: |
-    Adds the multi-block implementation of staking election.
+- audience: Todo
+  description: |-
+    ## Multi Block Election Pallet
 
-    This PR is the starting point of making the staking pallet customized for Asset-Hub Migration,
-    in a non-backwards-compatible way.
+    This PR adds the first iteration of the multi-block staking pallet.
+
+    From this point onwards, the staking and its election provider pallets are being customized to work in AssetHub. While usage in solo-chains is still possible, it is not longer the main focus of this pallet. For a safer usage, please fork and user an older version of this pallet.
+
+    ---
+
+    ## Replaces
+
+    - [x] https://github.com/paritytech/polkadot-sdk/pull/6034
+    - [x] https://github.com/paritytech/polkadot-sdk/pull/5272
+
+    ## Related PRs:
+
+    - [x] https://github.com/paritytech/polkadot-sdk/pull/7483
+    - [ ] https://github.com/paritytech/polkadot-sdk/pull/7357
+    - [ ] https://github.com/paritytech/polkadot-sdk/pull/7424
+    - [ ] https://github.com/paritytech/polkadot-staking-miner/pull/955
+
+    This branch can be periodically merged into https://github.com/paritytech/polkadot-sdk/pull/7358 -> https://github.com/paritytech/polkadot-sdk/pull/6996
+
+    ## TODOs:
+
+    - [x] rebase to master
+    - Benchmarking for staking critical path
+      - [x] snapshot
+      - [x] election result
+    - Benchmarking for EPMB critical path
+      - [x] snapshot
+      - [x] verification
+      - [x] submission
+      - [x] unsigned submission
+      - [ ] election results fetching
+    - [ ] Fix deletion weights. Either of
+      - [ ] Garbage collector + lazy removal of all paged storage items
+      - [ ] Confirm that deletion is small PoV footprint.
+    - [ ] Move election prediction to be push based. @tdimitrov
+    - [ ] integrity checks for bounds
+    - [ ] Properly benchmark this as a part of CI -- for now I will remove them as they are too slow
+    - [x] add try-state to all pallets
+    - [x] Staking to allow genesis dev accounts to be created internally
+    - [x] Decouple miner config so @niklasad1 can work on the miner 72841b731727e69db38f9bd616190aa8d50a56ba
+    - [x] duplicate snapshot page reported by @niklasad1
+    - [ ] https://github.com/paritytech/polkadot-sdk/pull/6520 or equivalent -- during snapshot, `VoterList` must be locked
+    - [ ] Move target snapshot to a separate block
 crates:
 - name: pallet-election-provider-multi-block
   bump: major
@@ -62,4 +104,10 @@ crates:
 - name: frame-benchmarking-cli
   bump: major
 - name: polkadot-runtime-common
+  bump: major
+- name: pallet-elections-phragmen
+  bump: major
+- name: pallet-election-provider-support-benchmarking
+  bump: major
+- name: pallet-session
   bump: major
