@@ -122,7 +122,7 @@ pub mod pallet {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_relay_chain_call::<T>(SessionCalls::NewValidatorSet(new_validator_set)),
+				mk_relay_chain_call(SessionCalls::NewValidatorSet(new_validator_set)),
 			]);
 
 			if let Err(err) = send_xcm::<T::SendXcm>(Location::new(1, Here), message) {
@@ -172,7 +172,7 @@ pub mod pallet {
 		}
 	}
 
-	fn mk_relay_chain_call<T: Config>(call: SessionCalls) -> Instruction<()> {
+	fn mk_relay_chain_call(call: SessionCalls) -> Instruction<()> {
 		Instruction::Transact {
 			origin_kind: OriginKind::Superuser,
 			fallback_max_weight: None,
