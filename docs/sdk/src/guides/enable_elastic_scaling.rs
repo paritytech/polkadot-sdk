@@ -31,14 +31,13 @@
 //!    cannot build a subsequent block in due time and ends up authoring a fork, which defeats the purpose
 //!    of elastic scaling. The highest throughput can therefore be achieved with a single collator but
 //!    this should obviously only be used for testing purposes, due to the clear lack of decentralisation
-//!    and resilience.
-//!    In other words, collators will create forks if `2 * authorship duration + network overheads > slot time`.
-//!    Experiments show that the peak compute throughput using more than one collator
-//!    (measured up to 10 collators) is utilising 2 cores with authorship time of 1.3 seconds per block,
-//!    which leaves 400ms for networking overhead. This would allow for 2.6 seconds of execution, compared
-//!    to the 2 seconds async backing enabled. If block authoring duration is low and you attempt to
-//!    use elastic scaling for achieving low latency or increasing storage throughput, this is not a
-//!    problem. Developments required for streamlining block production are tracked by [this issue](https://github.com/paritytech/polkadot-sdk/issues/5190).
+//!    and resilience. In other words, to fully utilise the cores, the following formula needs to be
+//!    satisfied: `2 * authorship duration + network overheads <= slot time`. For example, you can use
+//!    2 cores with authorship time of 1.3 seconds per block, which leaves 400ms for networking overhead.
+//!    This would allow for 2.6 seconds of execution, compared to the 2 seconds async backing enabled.
+//!    If block authoring duration is low and you attempt to use elastic scaling for achieving low latency
+//!    or increasing storage throughput, this is not a problem. Developments required for streamlining
+//!    block production are tracked by [this issue](https://github.com/paritytech/polkadot-sdk/issues/5190).
 //! 3. **Lack of out-of-the-box automated scaling.** For true elasticity, the parachain must be able
 //!    to seamlessly acquire or sell coretime as the user demand grows and shrinks over time, in an
 //!    automated manner. This is currently lacking - a parachain can only scale up or down by
