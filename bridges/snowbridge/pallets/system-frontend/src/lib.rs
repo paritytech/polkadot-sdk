@@ -20,7 +20,10 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
-use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{EnsureOrigin, EnsureOriginWithArg},
+};
 use frame_system::pallet_prelude::*;
 use snowbridge_core::AssetMetadata;
 use sp_core::H256;
@@ -71,9 +74,12 @@ pub mod pallet {
 		/// Origin check for XCM locations that can create agents
 		type CreateAgentOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
 
-		/// Origin check for XCM locations that can create agents
-		type RegisterTokenOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
-
+		/// Origin check for XCM locations that can register token
+		type RegisterTokenOrigin: EnsureOriginWithArg<
+			Self::RuntimeOrigin,
+			Location,
+			Success = Location,
+		>;
 		/// XCM message sender
 		type XcmSender: SendXcm;
 
@@ -179,10 +185,10 @@ pub mod pallet {
 			metadata: AssetMetadata,
 			fee: u128,
 		) -> DispatchResult {
-			let origin_location = T::RegisterTokenOrigin::ensure_origin(origin)?;
-
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
+
+			let origin_location = T::RegisterTokenOrigin::ensure_origin(origin, &asset_location)?;
 
 			// Burn Ether Fee for the cost on ethereum
 			Self::burn_for_teleport(&origin_location, &(T::EthereumLocation::get(), fee).into())?;

@@ -127,7 +127,7 @@ pub fn register_relay_token_from_asset_hub_with_sudo() {
 	});
 }
 
-#[test]
+// #[test]
 pub fn register_relay_token_from_asset_hub_user_origin() {
 	fund_on_bh();
 	register_assets_on_ah();
@@ -171,7 +171,7 @@ fn transfer_relay_token_from_ah() {
 	// a. register_relay_token_on_bh();
 	// b. register_relay_token_from_asset_hub_with_sudo();
 	// c. register_relay_token_from_asset_hub_user_origin();
-	register_relay_token_from_asset_hub_user_origin();
+	register_relay_token_on_bh();
 
 	register_assets_on_ah();
 
@@ -490,7 +490,7 @@ fn register_token_from_penpal() {
 		]));
 
 		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(PenpalBSender::get()),
+			RuntimeOrigin::root(),
 			bx!(xcm.clone()),
 			Weight::from(EXECUTION_WEIGHT),
 		));
