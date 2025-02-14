@@ -117,21 +117,13 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 
 	let name = syn::parse_macro_input!(arg as Expr);
 
-	let crate_name = crate_name("sc-tracing")
-		.map(|found| match found {
-			FoundCrate::Itself => "sc_tracing".to_string(),
-			FoundCrate::Name(name) => name,
-		})
-		.or_else(|_| crate_name("polkadot-sdk").map(|_| "sc_tracing".to_string()))
-		.map(|name| Ident::new(&name, Span::call_site()))
-		.unwrap_or_else(|_| {
-			Error::new(
-				Span::call_site(),
-				"Neither `sc-tracing` nor `polkadot-sdk` was found in your dependencies, or no enabled feature in `polkadot-sdk` pulls in `sc-tracing`.",
-			)
-				.to_compile_error()
-				.into()
-		});
+	let crate_name = match crate_name("sc-tracing").or_else(|_| crate_name("polkadot-sdk")) {
+		Ok(FoundCrate::Itself) | Ok(FoundCrate::Name(_)) => Ident::new("sc_tracing", Span::call_site()),
+		Err(_) => return Error::new(
+			Span::call_site(),
+			"Neither `sc-tracing` nor `polkadot-sdk` was found in your dependencies, or no enabled feature in `polkadot-sdk` pulls in `sc-tracing`."
+		).to_compile_error().into(),
+	};
 
 	let ItemFn { attrs, vis, sig, block } = item_fn;
 
