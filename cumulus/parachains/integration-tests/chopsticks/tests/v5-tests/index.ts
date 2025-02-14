@@ -1,6 +1,5 @@
 import {beforeAll, expect, test} from "bun:test";
 import {AssetState, MockNetwork, setup} from './util'
-import {CONFIG} from "./config";
 
 import {
 	XcmV3Junction,
@@ -30,11 +29,16 @@ import {Asset} from "./data/tokenMap";
 let hdkdKeyPairAlice, hdkdKeyPairBob;
 let aliceSigner, bobSigner;
 let aliceAddr, bobAddr;
+let westendNetwork;
 
 let network: MockNetwork;
 
 
 beforeAll(async () => {
+	westendNetwork = Uint8Array.from([
+		225, 67, 242, 56, 3, 172, 80, 232, 246, 248, 230, 38, 149, 209, 206, 158,
+		78, 29, 104, 170, 54, 193, 205, 44, 253, 21, 52, 2, 19, 243, 66, 62,
+	]);
 	// Initialize HDKD key pairs and signers
 	const entropy = mnemonicToEntropy(DEV_PHRASE);
 	const miniSecret = entropyToMiniSecret(entropy);
@@ -70,7 +74,7 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 					location: {
 						parents: 0,
 						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-							network: Enum("ByGenesis", Binary.fromBytes(CONFIG.WESTEND_NETWORK)),
+							network: Enum("ByGenesis", Binary.fromBytes(westendNetwork)),
 							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
 						}))
 					},
