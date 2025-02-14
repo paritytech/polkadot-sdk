@@ -16,12 +16,12 @@ pallet-authorship = { workspace = true }
 pallet-session = { features = ["historical"], workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-rc-client = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-core = { workspace = true }
-sp-runtime = { features = ["serde"], workspace = true }
-sp-staking = { features = ["serde"], workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
 xcm = { workspace = true }
 
 [features]
