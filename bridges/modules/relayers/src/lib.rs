@@ -82,7 +82,11 @@ pub mod pallet {
 		/// Type of relayer reward.
 		type Reward: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
 		/// Reward discriminator type. The pallet can collect different types of rewards for a
-		/// single account.
+		/// single account, so `RewardKind` is used as the second key in the `RelayerRewards` double
+		/// map.
+		///
+		/// For example, rewards for different bridges can be stored, where `RewardKind` is
+		/// implemented as an enum representing each bridge.
 		type RewardKind: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
 
 		/// Pay rewards scheme.
