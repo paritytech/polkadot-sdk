@@ -62,9 +62,6 @@ beforeAll(async () => {
 test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 	await network.assetHub.setSystemAsset([[aliceAddr, 10_000_000_000_000n]]);
 	const [bob_balance_before] =  await network.assetHub.getSystemAsset([[bobAddr]]);
-	// await network.assetHub.setTokens([[aliceAddr, 'Relay', 10_000_000_000_000n]]);
-	// const [bob_balance_before] =  await network.assetHub.getTokens([[bobAddr, 'Relay']]);
-
 
 	const alice_msg: Wnd_ahCalls['PolkadotXcm']['execute']['message'] = Enum("V5", [
 		Enum('SetHints', {
@@ -149,18 +146,13 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 	const claim_result = await bob_claim_tx.signAndSubmit(bobSigner);
 	expect(claim_result.ok).toBeTruthy();
 
-	// const [bob_balance_after] = await network.assetHub.getTokens([[bobAddr, 'Relay']]);
 	const [bob_balance_after] = await network.assetHub.getSystemAsset([[bobAddr]]);
-	console.log('bob_balance_before: ', bob_balance_before)
-	console.log('bob_balance_after: ', bob_balance_after)
 	expect(bob_balance_after > bob_balance_before).toBeTruthy();
 });
 
 test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
-	// await network.assetHub.setTokens([[aliceAddr, 'Relay', 10_000_000_000_000n]]);
 	await network.assetHub.setSystemAsset([[aliceAddr, 10_000_000_000_000n]]);
 
-	// const [bob_balance_before] =  await network.relay.getTokens([[bobAddr, 'Relay']]);
 	const [bob_balance_before] =  await network.relay.getSystemAsset([[bobAddr]]);
 	const deposit_amount = 5_000_000_000_000n;
 
@@ -210,18 +202,15 @@ test("Initiate Teleport XCM v4 (AH -> RC)", async () => {
 		message: msg,
 		max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
 	});
-
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
 
 	await network.relay.context.ws.send('dev_newBlock', [{ count: 1 }])
-	// const [bob_balance_after] = await network.relay.getTokens([[bobAddr, 'Relay']]);
 	const [bob_balance_after] = await network.relay.getSystemAsset([[bobAddr]]);
 	expect(bob_balance_after - bob_balance_before).toBe(deposit_amount);
 });
 
 test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
-	// await network.assetHub.setTokens([[aliceAddr, 'Relay', 10_000_000_000_000n]]);
 	await network.assetHub.setSystemAsset([[aliceAddr, 10_000_000_000_000n]]);
 
 	const [bob_balance_before] =  await network.relay.getSystemAsset([[bobAddr]]);
@@ -310,7 +299,6 @@ test("Initiate Teleport XCM v5 (AH -> RC)", async () => {
 });
 
 test("Initiate Teleport (AH -> RC) with remote fees", async () => {
-	// await network.assetHub.setTokens([[aliceAddr, 'Relay', 10_000_000_000_000n]]);
 	await network.assetHub.setSystemAsset([[aliceAddr, 10_000_000_000_000n]]);
 
 	const [bob_balance_before] =  await network.relay.getSystemAsset([[bobAddr, 'Relay']]);
@@ -395,12 +383,9 @@ test("Initiate Teleport (AH -> RC) with remote fees", async () => {
 });
 
 test("Reserve Asset Transfer (local) of USDT from Asset Hub `Alice` to Penpal `Alice`", async () => {
-	console.log('before get Assets')
-	// await delay(600_000);
 	const [alice_balance_before] = await network.parachain.getAssets([[aliceAddr, Asset.USDT, AssetState.Foreign]]);
-	console.log('before set system asset')
+
 	await network.assetHub.setSystemAsset([[aliceAddr, 10_000_000_000_000n]]);
-	console.log('before set assets')
 	await network.assetHub.setAssets([
 		[aliceAddr, Asset.USDT, AssetState.Local, 10_000_000_000_000n],
 		[network.paraSovAccOnAssetHub, Asset.USDT, AssetState.Local, 10_000_000_000_000n],
