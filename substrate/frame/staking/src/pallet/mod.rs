@@ -767,6 +767,7 @@ pub mod pallet {
 	///
 	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
 	/// represents how severe is the offence that got the validator disabled.
+	/// todo(ank4n): remove this.
 	#[pallet::storage]
 	pub type DisabledValidators<T: Config> =
 		StorageValue<_, BoundedVec<(u32, OffenceSeverity), T::MaxDisabledValidators>, ValueQuery>;

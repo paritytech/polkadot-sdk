@@ -106,6 +106,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod disabling;
 #[cfg(feature = "historical")]
 pub mod historical;
 pub mod migrations;
@@ -114,7 +115,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
-mod disabling;
 
 extern crate alloc;
 
@@ -124,11 +124,12 @@ use core::{
 	marker::PhantomData,
 	ops::{Rem, Sub},
 };
+use disabling::DisablingStrategy;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
+		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
 	weights::Weight,
@@ -399,7 +400,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A stable ID for a validator.
 		type ValidatorId: Member
@@ -429,6 +430,9 @@ pub mod pallet {
 
 		/// The keys.
 		type Keys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;
+
+		/// `DisablingStragegy` controls how validators are disabled
+		type DisablingStrategy: DisablingStrategy<Self>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -532,7 +536,7 @@ pub mod pallet {
 	/// disabled using binary search. It gets cleared when `on_session_ending` returns
 	/// a new set of identities.
 	#[pallet::storage]
-	pub type DisabledValidators<T> = StorageValue<_, Vec<u32>, ValueQuery>;
+	pub type DisabledValidators<T> = StorageValue<_, Vec<(u32, OffenceSeverity)>, ValueQuery>;
 
 	/// The next session keys for a validator.
 	#[pallet::storage]
@@ -546,10 +550,14 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
+	pub enum Event<T: Config> {
 		/// New session has happened. Note that the argument is the session index, not the
 		/// block number as the type might suggest.
 		NewSession { session_index: SessionIndex },
+		/// Validator has been disabled.
+		ValidatorDisabled { validator: T::ValidatorId },
+		/// Validator has been re-enabled.
+		ValidatorReenabled { validator: T::ValidatorId },
 	}
 
 	/// Error for the session pallet.
@@ -644,7 +652,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Public function to access the disabled validators.
-	pub fn disabled_validators() -> Vec<u32> {
+	pub fn disabled_validators() -> Vec<(u32, OffenceSeverity)> {
 		DisabledValidators::<T>::get()
 	}
 
@@ -737,42 +745,57 @@ impl<T: Config> Pallet<T> {
 		T::SessionHandler::on_new_session::<T::Keys>(changed, &session_keys, &queued_amalgamated);
 	}
 
-	pub fn offending_validator(validator: T::ValidatorId, severity: OffenceSeverity) {
-		// todo(ank4n)
+	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
+		DisabledValidators::<T>::mutate(|disabled| {
+			let decision = T::DisablingStrategy::decision(&validator, severity, &disabled);
+
+			if let Some(offender_idx) = decision.disable {
+				// Check if the offender is already disabled
+				match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+					// Offender is already disabled, update severity if the new one is higher
+					Ok(index) => {
+						let (_, old_severity) = &mut disabled[index];
+						if severity > *old_severity {
+							*old_severity = severity;
+						}
+					},
+					Err(index) => {
+						// Offender is not disabled, add to `DisabledValidators` and disable it
+						disabled.insert(index, (offender_idx, severity));
+						// let the session handlers know that a validator got disabled
+						T::SessionHandler::on_disabled(offender_idx);
+
+						// Emit event that a validator got disabled
+						Self::deposit_event(Event::ValidatorDisabled {
+							validator: validator.clone(),
+						});
+					},
+				}
+			}
+
+			if let Some(reenable_idx) = decision.reenable {
+				// Remove the validator from `DisabledValidators` and re-enable it.
+				if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index)
+				{
+					disabled.remove(index);
+					// Emit event that a validator got re-enabled
+					let reenabled_stash = Validators::<T>::get()[reenable_idx as usize].clone();
+					Self::deposit_event(Event::ValidatorReenabled {
+						validator: reenabled_stash,
+					});
+				}
+			}
+		});
 	}
 
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
-	pub fn disable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().unwrap_or(0) as u32 {
-			return false
-		}
-
-		DisabledValidators::<T>::mutate(|disabled| {
-			if let Err(index) = disabled.binary_search(&i) {
-				disabled.insert(index, i);
-				T::SessionHandler::on_disabled(i);
-				return true
-			}
-
-			false
-		})
+	pub fn disable_index(_i: u32) -> bool {
+		false
 	}
 
 	/// Re-enable the validator of index `i`, returns `false` if the validator was already enabled.
-	pub fn enable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
-			return false
-		}
-
-		// If the validator is not disabled, return false.
-		DisabledValidators::<T>::mutate(|disabled| {
-			if let Ok(index) = disabled.binary_search(&i) {
-				disabled.remove(index);
-				true
-			} else {
-				false
-			}
-		})
+	pub fn enable_index(_i: u32) -> bool {
+		true
 	}
 
 	/// Disable the validator identified by `c`. (If using with the staking pallet,
@@ -973,11 +996,13 @@ impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
 
 impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
-		DisabledValidators::<T>::get().binary_search(&index).is_ok()
+		DisabledValidators::<T>::get()
+			.binary_search_by_key(&index, |(i, _)| *i)
+			.is_ok()
 	}
 
 	fn disabled_validators() -> Vec<u32> {
-		DisabledValidators::<T>::get()
+		DisabledValidators::<T>::get().iter().map(|(i, _)| *i).collect()
 	}
 }
 
