@@ -202,10 +202,15 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::{
+		defensive, defensive_assert, ensure,
+		storage::generator::StorageMap,
+		traits::{
+			Contains, Defensive, DefensiveOption, EitherOf, EstimateNextSessionRotation, Get,
+			IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, PalletInfoAccess,
+			RankedMembers, RankedMembersSwapHandler,
+		},
+		PalletError,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -231,9 +236,12 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, One, ReduceBy,
+			ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		},
+		BuildStorage,
 	};
 
 	/// Bounded storage related types.

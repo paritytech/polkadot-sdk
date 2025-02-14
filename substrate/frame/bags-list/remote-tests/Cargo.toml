@@ -18,14 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 # frame
 frame-election-provider-support = { workspace = true, default-features = true }
-frame-support = { workspace = true, default-features = true }
-frame-system = { workspace = true, default-features = true }
+frame = { workspace = true, features = ["runtime"]}
 pallet-bags-list = { features = ["fuzz"], workspace = true, default-features = true }
 pallet-staking = { workspace = true, default-features = true }
 
 # core
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
