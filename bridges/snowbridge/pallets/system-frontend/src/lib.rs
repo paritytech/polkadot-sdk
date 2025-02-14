@@ -33,6 +33,8 @@ use frame_support::traits::OriginTrait;
 
 pub use pallet::*;
 
+pub const LOG_TARGET: &str = "snowbridge-system-frontend";
+
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemCall {
 	#[codec(index = 1)]
@@ -125,6 +127,19 @@ pub mod pallet {
 		FundsUnavailable,
 		/// Convert to reanchored location failure
 		LocationConversionFailed,
+		/// The desired destination was unreachable, generally because there is a no way of routing
+		/// to it.
+		Unreachable,
+	}
+
+	impl<T: Config> From<SendError> for Error<T> {
+		fn from(e: SendError) -> Self {
+			match e {
+				SendError::Fees => Error::<T>::FundsUnavailable,
+				SendError::NotApplicable => Error::<T>::Unreachable,
+				_ => Error::<T>::Send,
+			}
+		}
 	}
 
 	#[pallet::call]
@@ -228,12 +243,14 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		pub fn send(origin: Location, xcm: Xcm<()>) -> Result<H256, Error<T>> {
-			let bridgehub = T::BridgeHubLocation::get();
 			let (message_id, price) =
-				send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
-
+				send_xcm::<T::XcmSender>(T::BridgeHubLocation::get(), xcm.clone()).map_err(
+					|err| {
+						tracing::error!(target: LOG_TARGET, ?err, ?xcm, "XCM send failed with error");
+						Error::<T>::from(err)
+					},
+				)?;
 			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;
-
 			Ok(message_id.into())
 		}
 

@@ -25528,6 +25528,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm 7.0.0",
  "staging-xcm-executor 7.0.0",
+ "tracing",
 ]
 
 [[package]]
