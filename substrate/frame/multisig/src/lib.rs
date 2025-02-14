@@ -171,9 +171,14 @@ pub mod pallet {
 		///
 		/// Suggested values:
 		/// - Solo- and Relay-chains: `frame_system::Pallet`
-		/// - PLO- and Coretime-Parachains that:
+		/// - Coretime-parachains that:
 		///   - already have the pallet deployed: `frame_system::Pallet`
 		///   - are freshly deploying this pallet: `RelaychainDataProvider`
+		/// - PLO-parachains that:
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
+		///     providers can be used. Relay provider can be a bit better in cases where the
+		///     parachain is lagging its block production to avoid clock skew.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
