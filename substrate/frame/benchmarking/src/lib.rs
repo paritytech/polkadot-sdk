@@ -381,7 +381,7 @@ pub use v1::*;
 ///
 ///     #[extrinsic_call]
 ///     _(RuntimeOrigin::Signed(caller), vec![0u8; l]);
-///     
+///
 ///     // Everything onwards will be treated as test.
 ///     assert_last_event::<T>(Event::FooExecuted { result: Ok(()) }.into());
 ///     Ok(())
