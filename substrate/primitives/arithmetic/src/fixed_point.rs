@@ -16,6 +16,33 @@
 // limitations under the License.
 
 //! Decimal Fixed Point implementations for Substrate runtime.
+//! Similar to types that implement [`PerThing`](crate::per_things), these are also
+//! fixed-point types, however, they are able to represent larger fractions:
+#![doc = docify::embed!("./src/lib.rs", fixed_u64)]
+//!
+//! ### Fixed Point Types in Practice
+//!
+//! If one needs to exceed the value of one (1), then
+//! [`FixedU64`](FixedU64) (and its signed and `u128` counterparts) can be utilized.
+//! Take for example this very rudimentary pricing mechanism, where we wish to calculate the demand
+//! / supply to get a price for some on-chain compute:
+#![doc = docify::embed!(
+	"./src/lib.rs",
+	fixed_u64_block_computation_example
+)]
+//!
+//! For a much more comprehensive example, be sure to look at the source for broker (the "coretime")
+//! pallet.
+//!
+//! #### Fixed Point Types in Practice
+//!
+//! Just as with [`PerThing`](PerThing), you can also perform regular mathematical
+//! expressions:
+#![doc = docify::embed!(
+	"./src/lib.rs",
+	fixed_u64_operation_example
+)]
+//!
 
 use crate::{
 	helpers_128bit::{multiply_by_rational_with_rounding, sqrt},
@@ -26,17 +53,16 @@ use crate::{
 	PerThing, Perbill, Rounding, SignedRounding,
 };
 use codec::{CompactAs, Decode, Encode};
-use sp_std::{
+use core::{
 	fmt::Debug,
 	ops::{self, Add, Div, Mul, Sub},
-	prelude::*,
 };
 
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::string::{String, ToString};
+use alloc::string::{String, ToString};
 
 /// Integer types that can be used to interact with `FixedPointNumber` implementations.
 pub trait FixedPointOperand:
@@ -542,7 +568,7 @@ macro_rules! implement_fixed {
 				let v = self.0 as u128;
 
 				// Want x' = sqrt(x) where x = n/D and x' = n'/D (D is fixed)
-				// Our prefered way is:
+				// Our preferred way is:
 				//   sqrt(n/D) = sqrt(nD / D^2) = sqrt(nD)/sqrt(D^2) = sqrt(nD)/D
 				//   ergo n' = sqrt(nD)
 				// but this requires nD to fit into our type.
@@ -899,9 +925,9 @@ macro_rules! implement_fixed {
 			}
 		}
 
-		impl sp_std::fmt::Debug for $name {
+		impl ::core::fmt::Debug for $name {
 			#[cfg(feature = "std")]
-			fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+			fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 				let integral = {
 					let int = self.0 / Self::accuracy();
 					let signum_for_zero = if int == 0 && self.is_negative() { "-" } else { "" };
@@ -917,7 +943,7 @@ macro_rules! implement_fixed {
 			}
 
 			#[cfg(not(feature = "std"))]
-			fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+			fn fmt(&self, _: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 				Ok(())
 			}
 		}
@@ -933,13 +959,13 @@ macro_rules! implement_fixed {
 			}
 		}
 
-		impl sp_std::fmt::Display for $name {
-			fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		impl ::core::fmt::Display for $name {
+			fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 				write!(f, "{}", self.0)
 			}
 		}
 
-		impl sp_std::str::FromStr for $name {
+		impl ::core::str::FromStr for $name {
 			type Err = &'static str;
 
 			fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -969,7 +995,7 @@ macro_rules! implement_fixed {
 			where
 				D: Deserializer<'de>,
 			{
-				use sp_std::str::FromStr;
+				use ::core::str::FromStr;
 				let s = String::deserialize(deserializer)?;
 				$name::from_str(&s).map_err(de::Error::custom)
 			}

@@ -25,15 +25,15 @@ use crate::{
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
 };
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use frame_support::{
 	traits::{OneSessionHandler, Randomness},
 	weights::Weight,
 };
 use frame_system::limits::BlockWeights;
-use parity_scale_codec::{Decode, Encode};
-use primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
+use polkadot_primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -87,10 +87,10 @@ impl<BlockNumber: Default + From<u32>> Default for SessionChangeNotification<Blo
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-struct BufferedSessionChange {
-	validators: Vec<ValidatorId>,
-	queued: Vec<ValidatorId>,
-	session_index: SessionIndex,
+pub(crate) struct BufferedSessionChange {
+	pub validators: Vec<ValidatorId>,
+	pub queued: Vec<ValidatorId>,
+	pub session_index: SessionIndex,
 }
 
 pub trait WeightInfo {
@@ -149,7 +149,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type HasInitialized<T: Config> = StorageValue<_, ()>;
 
-	/// Buffered session changes along with the block number at which they should be applied.
+	/// Buffered session changes.
 	///
 	/// Typically this will be empty or one element long. Apart from that this item never hits
 	/// the storage.
@@ -157,7 +157,7 @@ pub mod pallet {
 	/// However this is a `Vec` regardless to handle various edge cases that may occur at runtime
 	/// upgrade boundaries or if governance intervenes.
 	#[pallet::storage]
-	pub(super) type BufferedSessionChanges<T: Config> =
+	pub(crate) type BufferedSessionChanges<T: Config> =
 		StorageValue<_, Vec<BufferedSessionChange>, ValueQuery>;
 
 	#[pallet::hooks]
@@ -249,13 +249,10 @@ impl<T: Config> Pallet<T> {
 			// TODO: audit usage of randomness API
 			// https://github.com/paritytech/polkadot/issues/2601
 			let (random_hash, _) = T::Randomness::random(&b"paras"[..]);
-			let len = sp_std::cmp::min(32, random_hash.as_ref().len());
+			let len = core::cmp::min(32, random_hash.as_ref().len());
 			buf[..len].copy_from_slice(&random_hash.as_ref()[..len]);
 			buf
 		};
-
-		// inform about upcoming new session
-		scheduler::Pallet::<T>::pre_new_session();
 
 		let configuration::SessionChangeOutcome { prev_config, new_config } =
 			configuration::Pallet::<T>::initializer_on_new_session(&session_index);
@@ -328,6 +325,11 @@ impl<T: Config> Pallet<T> {
 	{
 		Self::on_new_session(changed, session_index, validators, queued)
 	}
+
+	/// Return whether at the end of this block a new session will be initialized.
+	pub(crate) fn upcoming_session_change() -> bool {
+		!BufferedSessionChanges::<T>::get().is_empty()
+	}
 }
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
@@ -341,15 +343,15 @@ impl<T: pallet_session::Config + Config> OneSessionHandler<T::AccountId> for Pal
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
-		<Pallet<T>>::on_new_session(false, 0, validators, None);
+		Pallet::<T>::on_new_session(false, 0, validators, None);
 	}
 
 	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, queued: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
-		let session_index = <pallet_session::Pallet<T>>::current_index();
-		<Pallet<T>>::on_new_session(changed, session_index, validators, Some(queued));
+		let session_index = pallet_session::Pallet::<T>::current_index();
+		Pallet::<T>::on_new_session(changed, session_index, validators, Some(queued));
 	}
 
 	fn on_disabled(_i: u32) {}

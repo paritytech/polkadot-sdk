@@ -19,7 +19,6 @@ use crate::construct_runtime::Pallet;
 use inflector::Inflector;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use std::str::FromStr;
 use syn::Ident;
 
 pub fn expand_outer_config(
@@ -41,14 +40,7 @@ pub fn expand_outer_config(
 			let field_name =
 				&Ident::new(&pallet_name.to_string().to_snake_case(), decl.name.span());
 			let part_is_generic = !pallet_entry.generics.params.is_empty();
-			let attr = &decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			});
+			let attr = &decl.get_attributes();
 
 			types.extend(expand_config_types(attr, runtime, decl, &config, part_is_generic));
 			fields.extend(quote!(#attr pub #field_name: #config,));
@@ -77,10 +69,6 @@ pub fn expand_outer_config(
 		}
 
 		#[cfg(any(feature = "std", test))]
-		#[deprecated(note = "GenesisConfig is planned to be removed in December 2023. Use `RuntimeGenesisConfig` instead.")]
-		pub type GenesisConfig = RuntimeGenesisConfig;
-
-		#[cfg(any(feature = "std", test))]
 		impl #scrate::sp_runtime::BuildStorage for RuntimeGenesisConfig {
 			fn assimilate_storage(
 				&self,
@@ -98,6 +86,17 @@ pub fn expand_outer_config(
 				#genesis_build_calls
 				<AllPalletsWithSystem as #scrate::traits::OnGenesis>::on_genesis();
 			}
+		}
+
+		/// Test the `Default` derive impl of the `RuntimeGenesisConfig`.
+		#[cfg(test)]
+		#[test]
+		fn test_genesis_config_builds() {
+			#scrate::__private::sp_io::TestExternalities::default().execute_with(|| {
+				<RuntimeGenesisConfig as #scrate::traits::BuildGenesisConfig>::build(
+					&RuntimeGenesisConfig::default()
+				);
+			});
 		}
 	}
 }

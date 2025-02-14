@@ -16,7 +16,7 @@
 
 use honggfuzz::fuzz;
 use polkadot_erasure_coding::*;
-use primitives::AvailableData;
+use polkadot_node_primitives::AvailableData;
 
 fn main() {
 	loop {

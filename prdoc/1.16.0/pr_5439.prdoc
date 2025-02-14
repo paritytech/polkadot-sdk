@@ -1,0 +1,16 @@
+title: "Deprecated calls removed in cumulus parachain system pallet"
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Call `authorize_upgrade` in parachain system pallet `cumulus-pallet-parachain-system` has
+      been removed, use `authorize_upgrade` or `authorize_upgrade_without_checks` calls in system
+      pallet `frame-system` instead.
+      Call `enact_authorized_upgrade` in parachain system pallet `cumulus-pallet-parachain-system`
+      has been removed, use `apply_authorized_upgrade` call in system pallet `frame-system` instead.
+
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: major
+  - name: cumulus-pallet-xcmp-queue
+    bump: none

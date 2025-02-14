@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,15 +9,15 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Utilities for generating and verifying GRANDPA warp sync proofs.
 
-use parity_scale_codec::{Decode, DecodeAll, Encode};
+use codec::{Decode, DecodeAll, Encode};
 
 use crate::{
 	best_justification, find_scheduled_change, AuthoritySetChanges, AuthoritySetHardFork,
@@ -38,7 +39,7 @@ use std::{collections::HashMap, sync::Arc};
 pub enum Error {
 	/// Decoding error.
 	#[error("Failed to decode block hash: {0}.")]
-	DecodeScale(#[from] parity_scale_codec::Error),
+	DecodeScale(#[from] codec::Error),
 	/// Client backend error.
 	#[error("{0}")]
 	Client(#[from] sp_blockchain::Error),
@@ -174,10 +175,20 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 				let header = blockchain.header(latest_justification.target().1)?
 					.expect("header hash corresponds to a justification in db; must exist in db as well; qed.");
 
-				proofs.push(WarpSyncFragment { header, justification: latest_justification })
-			}
+				let proof = WarpSyncFragment { header, justification: latest_justification };
 
-			true
+				// Check for the limit. We remove some bytes from the maximum size, because we're
+				// only counting the size of the `WarpSyncFragment`s. The extra margin is here
+				// to leave room for rest of the data (the size of the `Vec` and the boolean).
+				if proofs_encoded_len + proof.encoded_size() >= MAX_WARP_SYNC_PROOF_SIZE - 50 {
+					false
+				} else {
+					proofs.push(proof);
+					true
+				}
+			} else {
+				true
+			}
 		};
 
 		let final_outcome = WarpSyncProof { proofs, is_finished };
@@ -249,7 +260,7 @@ impl<Block: BlockT, Backend: ClientBackend<Block>> NetworkProvider<Block, Backen
 where
 	NumberFor<Block>: BlockNumberOps,
 {
-	/// Create a new istance for a given backend and authority set.
+	/// Create a new instance for a given backend and authority set.
 	pub fn new(
 		backend: Arc<Backend>,
 		authority_set: SharedAuthoritySet<Block::Hash, NumberFor<Block>>,
@@ -320,7 +331,7 @@ where
 mod tests {
 	use super::WarpSyncProof;
 	use crate::{AuthoritySetChanges, GrandpaJustification};
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	use rand::prelude::*;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::HeaderBackend;
@@ -338,7 +349,7 @@ mod tests {
 		let mut rng = rand::rngs::StdRng::from_seed([0; 32]);
 		let builder = TestClientBuilder::new();
 		let backend = builder.backend();
-		let mut client = Arc::new(builder.build());
+		let client = Arc::new(builder.build());
 
 		let available_authorities = Ed25519Keyring::iter().collect::<Vec<_>>();
 		let genesis_authorities = vec![(Ed25519Keyring::Alice.public().into(), 1)];

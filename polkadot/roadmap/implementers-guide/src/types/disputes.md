@@ -82,7 +82,7 @@ struct DisputeState {
 struct ScrapedOnChainVotes {
     /// The session index at which the block was included.
     session: SessionIndex,
-    /// The backing and seconding validity attestations for all candidates, provigind the full candidate receipt.
+    /// The backing and seconding validity attestations for all candidates, providing the full candidate receipt.
     backing_validators_per_candidate: Vec<(CandidateReceipt<H>, Vec<(ValidatorIndex, ValidityAttestation)>)>
     /// Set of concluded disputes that were recorded
     /// on chain within the inherent.

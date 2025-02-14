@@ -1,0 +1,28 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Remove `pallet::getter` usage from the balances pallet"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes the `pallet::getter`s from `pallet-balances`.
+      The syntax `StorageItem::<T, I>::get()` should be used instead.
+
+crates:
+  - name: pallet-balances
+    bump: patch
+  - name: pallet-staking
+    bump: patch
+  - name: pallet-treasury
+    bump: patch
+  - name: pallet-bounties
+    bump: patch
+  - name: pallet-conviction-voting
+    bump: patch
+  - name: pallet-democracy
+    bump: patch
+  - name: pallet-elections-phragmen
+    bump: patch
+  - name: pallet-referenda
+    bump: patch

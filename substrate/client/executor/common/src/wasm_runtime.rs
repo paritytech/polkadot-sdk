@@ -19,7 +19,6 @@
 //! Definitions for a wasm runtime.
 
 use crate::error::Error;
-use sp_wasm_interface::Value;
 
 pub use sc_allocator::AllocationStats;
 
@@ -29,46 +28,6 @@ pub const DEFAULT_HEAP_ALLOC_STRATEGY: HeapAllocStrategy =
 
 /// Default heap allocation pages.
 pub const DEFAULT_HEAP_ALLOC_PAGES: u32 = 2048;
-
-/// A method to be used to find the entrypoint when calling into the runtime
-///
-/// Contains variants on how to resolve wasm function that will be invoked.
-pub enum InvokeMethod<'a> {
-	/// Call function exported with this name.
-	///
-	/// Located function should have (u32, u32) -> u64 signature.
-	Export(&'a str),
-	/// Call a function found in the exported table found under the given index.
-	///
-	/// Located function should have (u32, u32) -> u64 signature.
-	Table(u32),
-	/// Call function by reference from table through a wrapper.
-	///
-	/// Invoked function (`dispatcher_ref`) function
-	/// should have (u32, u32, u32) -> u64 signature.
-	///
-	/// `func` will be passed to the invoked function as a first argument.
-	TableWithWrapper {
-		/// Wrapper for the call.
-		///
-		/// Function pointer, index into runtime exported table.
-		dispatcher_ref: u32,
-		/// Extra argument for dispatch.
-		///
-		/// Common usage would be to use it as an actual wasm function pointer
-		/// that should be invoked, but can be used as any extra argument on the
-		/// callee side.
-		///
-		/// This is typically generated and invoked by the runtime itself.
-		func: u32,
-	},
-}
-
-impl<'a> From<&'a str> for InvokeMethod<'a> {
-	fn from(val: &'a str) -> InvokeMethod<'a> {
-		InvokeMethod::Export(val)
-	}
-}
 
 /// A trait that defines an abstract WASM runtime module.
 ///
@@ -87,7 +46,7 @@ pub trait WasmInstance: Send {
 	/// Before execution, instance is reset.
 	///
 	/// Returns the encoded result on success.
-	fn call(&mut self, method: InvokeMethod, data: &[u8]) -> Result<Vec<u8>, Error> {
+	fn call(&mut self, method: &str, data: &[u8]) -> Result<Vec<u8>, Error> {
 		self.call_with_allocation_stats(method, data).0
 	}
 
@@ -98,7 +57,7 @@ pub trait WasmInstance: Send {
 	/// Returns the encoded result on success.
 	fn call_with_allocation_stats(
 		&mut self,
-		method: InvokeMethod,
+		method: &str,
 		data: &[u8],
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>);
 
@@ -110,11 +69,6 @@ pub trait WasmInstance: Send {
 	fn call_export(&mut self, method: &str, data: &[u8]) -> Result<Vec<u8>, Error> {
 		self.call(method.into(), data)
 	}
-
-	/// Get the value from a global with the given `name`.
-	///
-	/// This method is only suitable for getting immutable globals.
-	fn get_global_const(&mut self, name: &str) -> Result<Option<Value>, Error>;
 }
 
 /// Defines the heap pages allocation strategy the wasm runtime should use.

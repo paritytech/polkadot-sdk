@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix Mermaid diagram rendering
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes the rendering of some Mermaid diagrams in the documentation.
+
+crates: [ ]

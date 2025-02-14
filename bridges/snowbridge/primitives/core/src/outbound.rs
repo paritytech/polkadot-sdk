@@ -136,6 +136,39 @@ mod v1 {
 			exchange_rate: UD60x18,
 			// Cost of delivering a message from Ethereum to BridgeHub, in ROC/KSM/DOT
 			delivery_cost: u128,
+			// Fee multiplier
+			multiplier: UD60x18,
+		},
+		/// Transfer ERC20 tokens
+		TransferNativeToken {
+			/// ID of the agent
+			agent_id: H256,
+			/// Address of the ERC20 token
+			token: H160,
+			/// The recipient of the tokens
+			recipient: H160,
+			/// The amount of tokens to transfer
+			amount: u128,
+		},
+		/// Register foreign token from Polkadot
+		RegisterForeignToken {
+			/// ID for the token
+			token_id: H256,
+			/// Name of the token
+			name: Vec<u8>,
+			/// Short symbol for the token
+			symbol: Vec<u8>,
+			/// Number of decimal places
+			decimals: u8,
+		},
+		/// Mint foreign token from Polkadot
+		MintForeignToken {
+			/// ID for the token
+			token_id: H256,
+			/// The recipient of the newly minted tokens
+			recipient: H160,
+			/// The amount of tokens to mint
+			amount: u128,
 		},
 	}
 
@@ -152,6 +185,9 @@ mod v1 {
 				Command::TransferNativeFromAgent { .. } => 6,
 				Command::SetTokenTransferFees { .. } => 7,
 				Command::SetPricingParameters { .. } => 8,
+				Command::TransferNativeToken { .. } => 9,
+				Command::RegisterForeignToken { .. } => 10,
+				Command::MintForeignToken { .. } => 11,
 			}
 		}
 
@@ -203,10 +239,31 @@ mod v1 {
 					Token::Uint(U256::from(*transfer_asset_xcm)),
 					Token::Uint(*register_token),
 				])]),
-				Command::SetPricingParameters { exchange_rate, delivery_cost } =>
+				Command::SetPricingParameters { exchange_rate, delivery_cost, multiplier } =>
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::Uint(exchange_rate.clone().into_inner()),
 						Token::Uint(U256::from(*delivery_cost)),
+						Token::Uint(multiplier.clone().into_inner()),
+					])]),
+				Command::TransferNativeToken { agent_id, token, recipient, amount } =>
+					ethabi::encode(&[Token::Tuple(vec![
+						Token::FixedBytes(agent_id.as_bytes().to_owned()),
+						Token::Address(*token),
+						Token::Address(*recipient),
+						Token::Uint(U256::from(*amount)),
+					])]),
+				Command::RegisterForeignToken { token_id, name, symbol, decimals } =>
+					ethabi::encode(&[Token::Tuple(vec![
+						Token::FixedBytes(token_id.as_bytes().to_owned()),
+						Token::String(name.to_owned()),
+						Token::String(symbol.to_owned()),
+						Token::Uint(U256::from(*decimals)),
+					])]),
+				Command::MintForeignToken { token_id, recipient, amount } =>
+					ethabi::encode(&[Token::Tuple(vec![
+						Token::FixedBytes(token_id.as_bytes().to_owned()),
+						Token::Address(*recipient),
+						Token::Uint(U256::from(*amount)),
 					])]),
 			}
 		}
@@ -273,7 +330,8 @@ mod v1 {
 	}
 }
 
-#[cfg_attr(feature = "std", derive(PartialEq, Debug))]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = "std", derive(PartialEq))]
 /// Fee for delivering message
 pub struct Fee<Balance>
 where
@@ -346,12 +404,13 @@ pub trait GasMeter {
 	/// the command within the message
 	const MAXIMUM_BASE_GAS: u64;
 
+	/// Total gas consumed at most, including verification & dispatch
 	fn maximum_gas_used_at_most(command: &Command) -> u64 {
 		Self::MAXIMUM_BASE_GAS + Self::maximum_dispatch_gas_used_at_most(command)
 	}
 
-	/// Measures the maximum amount of gas a command payload will require to dispatch, AFTER
-	/// validation & verification.
+	/// Measures the maximum amount of gas a command payload will require to *dispatch*, NOT
+	/// including validation & verification.
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64;
 }
 
@@ -398,6 +457,9 @@ impl GasMeter for ConstantGasMeter {
 			},
 			Command::SetTokenTransferFees { .. } => 60_000,
 			Command::SetPricingParameters { .. } => 60_000,
+			Command::TransferNativeToken { .. } => 100_000,
+			Command::RegisterForeignToken { .. } => 1_200_000,
+			Command::MintForeignToken { .. } => 100_000,
 		}
 	}
 }

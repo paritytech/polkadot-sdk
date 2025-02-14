@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: add Encointer as trusted teleporter for Westend
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      add Encointer as trusted teleporter for Westend with ParaId 1003
+
+crates: [ ]

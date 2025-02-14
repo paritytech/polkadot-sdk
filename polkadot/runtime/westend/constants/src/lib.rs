@@ -20,7 +20,7 @@ pub mod weights;
 
 /// Money matters.
 pub mod currency {
-	use primitives::Balance;
+	use polkadot_primitives::Balance;
 
 	/// The existential deposit.
 	pub const EXISTENTIAL_DEPOSIT: Balance = 1 * CENTS;
@@ -37,8 +37,8 @@ pub mod currency {
 
 /// Time and blocks.
 pub mod time {
-	use primitives::{BlockNumber, Moment};
-	use runtime_common::prod_or_fast;
+	use polkadot_primitives::{BlockNumber, Moment};
+	use polkadot_runtime_common::prod_or_fast;
 
 	pub const MILLISECS_PER_BLOCK: Moment = 6000;
 	pub const SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;
@@ -52,7 +52,7 @@ pub mod time {
 	// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 	// The choice of is done in accordance to the slot duration and expected target
 	// block time, for safely resisting network delays of maximum two seconds.
-	// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+	// <https://research.web3.foundation/Polkadot/protocols/block-production/Babe#6-practical-results>
 	pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 }
 
@@ -62,7 +62,7 @@ pub mod fee {
 	use frame_support::weights::{
 		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 	};
-	use primitives::Balance;
+	use polkadot_primitives::Balance;
 	use smallvec::smallvec;
 	pub use sp_runtime::Perbill;
 
@@ -98,7 +98,7 @@ pub mod fee {
 
 /// System Parachains.
 pub mod system_parachain {
-	use primitives::Id;
+	use polkadot_primitives::Id;
 	use xcm_builder::IsChildSystemParachain;
 
 	/// Network's Asset Hub parachain ID.
@@ -107,6 +107,8 @@ pub mod system_parachain {
 	pub const COLLECTIVES_ID: u32 = 1001;
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1002;
+	/// Encointer parachain ID.
+	pub const ENCOINTER_ID: u32 = 1003;
 	/// People Chain parachain ID.
 	pub const PEOPLE_ID: u32 = 1004;
 	/// Brokerage parachain ID.
@@ -114,6 +116,17 @@ pub mod system_parachain {
 
 	/// All system parachains of Westend.
 	pub type SystemParachains = IsChildSystemParachain<Id>;
+
+	/// Coretime constants
+	pub mod coretime {
+		/// Coretime timeslice period in blocks
+		/// WARNING: This constant is used accross chains, so additional care should be taken
+		/// when changing it.
+		#[cfg(feature = "fast-runtime")]
+		pub const TIMESLICE_PERIOD: u32 = 20;
+		#[cfg(not(feature = "fast-runtime"))]
+		pub const TIMESLICE_PERIOD: u32 = 80;
+	}
 }
 
 /// Westend Treasury pallet instance.
@@ -128,6 +141,8 @@ pub mod xcm {
 		const ROOT_INDEX: u32 = 0;
 		// The bodies corresponding to the Polkadot OpenGov Origins.
 		pub const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
+		#[deprecated = "Will be removed after August 2024; Use `xcm::latest::BodyId::Treasury` \
+			instead"]
 		pub const TREASURER_INDEX: u32 = 2;
 	}
 }
@@ -140,7 +155,7 @@ mod tests {
 	};
 	use crate::weights::ExtrinsicBaseWeight;
 	use frame_support::weights::WeightToFee as WeightToFeeT;
-	use runtime_common::MAXIMUM_BLOCK_WEIGHT;
+	use polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT;
 
 	#[test]
 	// Test that the fee for `MAXIMUM_BLOCK_WEIGHT` of weight has sane bounds.

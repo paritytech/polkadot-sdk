@@ -1,0 +1,8 @@
+title: "Elastic scaling: runtime dependency tracking and enactment"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Adds support in the inclusion and paras_inherent runtime modules for backing and including multiple candidates of the same para if they form a chain.
+
+crates: [ ]

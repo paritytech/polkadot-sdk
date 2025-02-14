@@ -46,26 +46,26 @@ pub struct NonCanonicalOverlay<BlockHash: Hash, Key: Hash> {
 #[cfg_attr(test, derive(PartialEq, Debug))]
 struct OverlayLevel<BlockHash: Hash, Key: Hash> {
 	blocks: Vec<BlockOverlay<BlockHash, Key>>,
-	used_indicies: u64, // Bitmask of available journal indicies.
+	used_indices: u64, // Bitmask of available journal indices.
 }
 
 impl<BlockHash: Hash, Key: Hash> OverlayLevel<BlockHash, Key> {
 	fn push(&mut self, overlay: BlockOverlay<BlockHash, Key>) {
-		self.used_indicies |= 1 << overlay.journal_index;
+		self.used_indices |= 1 << overlay.journal_index;
 		self.blocks.push(overlay)
 	}
 
 	fn available_index(&self) -> u64 {
-		self.used_indicies.trailing_ones() as u64
+		self.used_indices.trailing_ones() as u64
 	}
 
 	fn remove(&mut self, index: usize) -> BlockOverlay<BlockHash, Key> {
-		self.used_indicies &= !(1 << self.blocks[index].journal_index);
+		self.used_indices &= !(1 << self.blocks[index].journal_index);
 		self.blocks.remove(index)
 	}
 
 	fn new() -> OverlayLevel<BlockHash, Key> {
-		OverlayLevel { blocks: Vec::new(), used_indicies: 0 }
+		OverlayLevel { blocks: Vec::new(), used_indices: 0 }
 	}
 }
 

@@ -1,0 +1,12 @@
+title: 'pallet-revive: Trade code size for call stack depth'
+doc:
+- audience: Runtime Dev
+  description: This will reduce the call stack depth in order to raise the allowed
+    code size. Should allow around 100KB of instructions. This is necessary to stay
+    within the memory envelope. More code size is more appropriate for testing right
+    now. We will re-evaluate parameters once we have 64bit support.
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive
+  bump: major

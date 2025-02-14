@@ -1,71 +1,123 @@
 # PRDoc
 
-## Intro
-
-With the merge of [PR #1946](https://github.com/paritytech/polkadot-sdk/pull/1946), a new method for
-documenting changes has been introduced: `prdoc`. The [prdoc repository](https://github.com/paritytech/prdoc)
-contains more documentation and tooling.
-
-The current document describes how to quickly get started authoring `PRDoc` files.
+A [prdoc](https://github.com/paritytech/prdoc) is like a changelog but for a Pull Request. We use
+this approach to record changes on a crate level. This information is then processed by the release
+team to apply the correct crate version bumps and to generate the CHANGELOG of the next release.
 
 ## Requirements
 
-When creating a PR, the author needs to decides with the `R0` label whether the change (PR) should
-appear in the release notes or not.
+When creating a PR, the author needs to decide with the `R0-silent` label whether the PR has to
+contain a prdoc. The `R0` label should only be placed for No-OP changes like correcting a typo in a
+comment or CI stuff. If unsure, ping the [CODEOWNERS](../../.github/CODEOWNERS) for advice.
 
-Labelling a PR with `R0` means that no `PRDoc` is required.
+## Auto Generation
 
-A PR without the `R0` label **does** require a valid `PRDoc` file to be introduced in the PR.
+You can create a PrDoc by using the `/cmd prdoc` command (see args with `/cmd prdoc --help`) in a
+comment on your PR.
 
-## PRDoc how-to
+Options:
 
-A `.prdoc` file is a YAML file with a defined structure (ie JSON Schema).
+- `audience` The audience of whom the changes may concern.
+  - `runtime_dev`: Anyone building a runtime themselves. For example parachain teams, or people
+    providing template runtimes. Also devs using pallets, FRAME etc directly. These are people who
+    care about the protocol (WASM), not the meta-protocol (client).
+  - `runtime_user`: Anyone using the runtime. Can be front-end devs reading the state, exchanges
+    listening for events, libraries that have hard-coded pallet indices etc. Anything that would
+    result in an observable change to the runtime behaviour must be marked with this.
+  - `node_dev`: Those who build around the client side code. Alternative client builders, SMOLDOT,
+  those who consume RPCs. These are people who are oblivious to the runtime changes. They only care
+  about the meta-protocol, not the protocol itself.
+  - `node_operator`: People who run the node. Think of validators, exchanges, indexer services, CI
+    actions. Anything that modifies how the binary behaves (its arguments, default arguments, error
+    messags, etc) must be marked with this.
+- `bump:`: The default bump level for all crates. The PrDoc will likely need to be edited to reflect
+  the actual changes after generation. More details in the section below.
+  - `none`: There is no observable change. So to say: if someone were handed the old and the new
+    version of our software, it would be impossible to figure out what version is which.
+  - `patch`: Fixes that will never cause compilation errors if someone updates to this version. No
+    functionality has been changed. Should be limited to fixing bugs or No-OP implementation
+    changes.
+  - `minor`: Additions that will never cause compilation errors if someone updates to this version.
+    No functionality has been changed. Should be limited to adding new features.
+  - `major`: Anything goes.
+- `force: true|false`: Whether to overwrite any existing PrDoc file.
 
-For significant changes, a `.prdoc` file is mandatory and the file must meet the following
-requirements:
-- file named `pr_NNNN.prdoc` where `NNNN` is the PR number.
-  For convenience, those file can also contain a short description: `pr_NNNN_foobar.prdoc`.
-- located under the [`prdoc` folder](https://github.com/paritytech/polkadot-sdk/tree/master/prdoc) of the repository
-- compliant with the [JSON schema](https://json-schema.org/) defined in `prdoc/schema_user.json`
+### Example
 
-Those requirements can be fulfilled manually without any tooling but a text editor.
+```bash
+/cmd prdoc --audience runtime_dev --bump patch
+```
 
-## Tooling
+## Local Generation
 
-Users might find the following helpers convenient:
-- Setup VSCode to be aware of the prdoc schema: see [using VSCode](https://github.com/paritytech/prdoc#using-vscode)
-- Using the `prdoc` cli to:
-  - generate a `PRDoc` file from a [template defined in the Polkadot SDK
-    repo](https://github.com/paritytech/polkadot-sdk/blob/master/prdoc/.template.prdoc) simply providing a PR number
-  - check the validity of one or more `PRDoc` files
+A `.prdoc` file is a YAML file with a defined structure (ie JSON Schema). Please follow these steps
+to generate one:
 
-## `prdoc` cli usage
+1. Install the [`prdoc` CLI](https://github.com/paritytech/prdoc) by running `cargo install
+   parity-prdoc`.
+1. Open a Pull Request and get the PR number.
+1. Generate the file with `prdoc generate <PR_NUMBER>`. The output filename will be printed.
+1. Optional: Install the `prdoc/schema_user.json` schema in your editor, for example
+   [VsCode](https://github.com/paritytech/prdoc?tab=readme-ov-file#schemas).
+1. Edit your `.prdoc` file according to the [Audience](#pick-an-audience) and
+   [SemVer](#record-semver-changes) sections.
+1. Check your prdoc with `prdoc check -n <PR_NUMBER>`. This is optional since the CI will also check
+   it.
 
-The `prdoc` cli documentation can be found at https://github.com/paritytech/prdoc#prdoc
+> **Tip:** GitHub CLI and jq can be used to provide the number of your PR to generate the correct
+> file:  
+> `prdoc generate $(gh pr view --json number | jq '.number') -o prdoc`
 
-tldr:
-- `prdoc generate <NNNN>`
-- `prdoc check -n <NNNN>`
+## Record SemVer Changes
 
-where <NNNN> is the PR number.
+All published crates that got modified need to have an entry in the `crates` section of your
+`PRDoc`. This entry tells the release team how to bump the crate version prior to the next release.
+It is very important that this information is correct, otherwise it could break the code of
+downstream teams.
 
-## Pick an audience
+The bump can either be `major`, `minor`, `patch` or `none`. The three first options are defined by
+[rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html), whereas `None` should be
+picked if no other applies. The `None` option is equivalent to the `R0-silent` label, but on a crate
+level. Experimental and private APIs are exempt from bumping and can be broken at any time. Please
+read the [Crate Section](../RELEASE.md) of the RELEASE doc about them.
 
-While describing a PR, the author needs to consider which audience(s) need to be addressed.
-The list of valid audiences is described and documented in the JSON schema as follow:
+### Example
 
-- `Node Dev`: Those who build around the client side code. Alternative client builders, SMOLDOT, those who consume RPCs.
-   These are people who are oblivious to the runtime changes. They only care about the meta-protocol, not the protocol
-   itself.
+For example when you modified two crates and record the changes:
 
-- `Runtime Dev`: All of those who rely on the runtime. A parachain team that is using a pallet. A DApp that is using a
-   pallet. These are people who care about the protocol (WASM), not the meta-protocol (client).
+```yaml
+crates:
+  - name: frame-example
+    bump: major
+  - name: frame-example-pallet
+    bump: minor
+```
 
-- `Node Operator`: Those who don't write any code and only run code.
+It means that downstream code using `frame-example-pallet` is still guaranteed to work as before,
+while code using `frame-example` might break.
 
-- `Runtime User`: Anyone using the runtime. This can be a token holder or a dev writing a front end for a chain.
+### Dependencies
 
-## Tips
+A crate that depends on another crate will automatically inherit its `major` bumps. This means that
+you do not need to bump a crate that had a SemVer breaking change only from re-exporting another
+crate with a breaking change.  
+`minor` an `patch` bumps do not need to be inherited, since `cargo` will automatically update them
+to the latest compatible version.
 
-The PRDoc schema is defined in each repo and usually is quite restrictive.
-You cannot simply add a new property to a `PRDoc` file unless the Schema allows it.
+### Overwrite CI check
+
+The `check-semver` CI check is doing sanity checks based on the provided `PRDoc` and the mentioned
+crate version bumps. The tooling is not perfect and it may recommends incorrect bumps of the version.
+The CI check can be forced to accept the provided version bump. This can be done like:
+
+```yaml
+crates:
+  - name: frame-example
+    bump: major
+    validate: false
+  - name: frame-example-pallet
+    bump: minor
+```
+
+By putting `validate: false` for `frame-example`, the version bump is ignored by the tooling. For
+`frame-example-pallet` the version bump is still validated by the CI check.

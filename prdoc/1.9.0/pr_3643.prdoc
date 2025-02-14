@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix weight refund for `pallet_collator_selection::set_candidacy_bond`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR implements the weight refund of `pallet_collator_selection::set_candidacy_bond` to
+      account for no iterations over the candidate list when the candidacy bond is decreased.
+crates:
+  - name: pallet-collator-selection

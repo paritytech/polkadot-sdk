@@ -1,0 +1,35 @@
+{
+  "name": "TestName",
+  "id": "test_id",
+  "chainType": "Local",
+  "bootNodes": [],
+  "telemetryEndpoints": null,
+  "protocolId": null,
+  "properties": null,
+  "codeSubstitutes": {},
+  "genesis": {
+    "runtimeGenesis": {
+      "patch": {
+        "balances": {
+          "balances": [
+            [
+              "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+              1000000000000000
+            ],
+            [
+              "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+              1000000000000000
+            ]
+          ]
+        },
+        "substrateTest": {
+          "authorities": [
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"
+          ]
+        }
+      },
+      "code": "0x0"
+    }
+  }
+}

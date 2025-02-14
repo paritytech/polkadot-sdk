@@ -23,10 +23,12 @@
 //! It is required that each extension implements the [`Extension`] trait.
 
 use crate::Error;
-use sp_std::{
-	any::{Any, TypeId},
+use alloc::{
 	boxed::Box,
 	collections::btree_map::{BTreeMap, Entry},
+};
+use core::{
+	any::{Any, TypeId},
 	ops::DerefMut,
 };
 

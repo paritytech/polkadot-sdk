@@ -18,6 +18,7 @@
 //! Structs and helpers for distributing a voter's stake among various winners.
 
 use crate::{ExtendedBalance, IdentifierT, PerThing128};
+use alloc::vec::Vec;
 #[cfg(feature = "serde")]
 use codec::{Decode, Encode};
 use sp_arithmetic::{
@@ -25,7 +26,6 @@ use sp_arithmetic::{
 	Normalizable, PerThing,
 };
 use sp_core::RuntimeDebug;
-use sp_std::vec::Vec;
 
 /// A voter's stake assignment among a set of targets, represented as ratios.
 #[derive(RuntimeDebug, Clone, Default)]

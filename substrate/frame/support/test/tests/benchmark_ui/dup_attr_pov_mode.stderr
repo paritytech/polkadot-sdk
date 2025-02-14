@@ -1,0 +1,14 @@
+error: unexpected end of input, `pov_mode` can only be specified once
+  --> tests/benchmark_ui/dup_attr_pov_mode.rs:25:59
+   |
+25 |     #[benchmark(pov_mode = Measured, pov_mode = MaxEncodedLen)]
+   |                                                              ^
+
+error: unused import: `frame_support_test::Config`
+  --> tests/benchmark_ui/dup_attr_pov_mode.rs:19:5
+   |
+19 | use frame_support_test::Config;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`

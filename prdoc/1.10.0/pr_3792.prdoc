@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-xcm] fix transport fees for remote reserve transfers"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR fixes `pallet_xcm::transfer_assets` and
+      `pallet_xcm::limited_reserve_transfer_assets` extrinsics for transfers
+      that need to go through remote reserves. The fix is adding a
+      `SetFeesMode { jit_withdraw: true }` instruction before local execution of
+      `InitiateReserveWithdraw` so that delivery fees are correctly charged by
+      the xcm-executor. Without this change, a runtime that has implemented
+      delivery fees would not be able to execute remote reserve transfers using
+      these extrinsics.
+
+crates:
+  - name: pallet-xcm

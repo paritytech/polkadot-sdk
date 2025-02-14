@@ -22,7 +22,8 @@ use crate::NetworkProvider;
 use codec::{Decode, Encode};
 use futures::Future;
 pub use http::SharedClient;
-use libp2p::{Multiaddr, PeerId};
+use sc_network::Multiaddr;
+use sc_network_types::PeerId;
 use sp_core::{
 	offchain::{
 		self, HttpError, HttpRequestId, HttpRequestStatus, OpaqueMultiaddr, OpaqueNetworkState,
@@ -229,6 +230,7 @@ mod tests {
 
 	pub(super) struct TestNetwork();
 
+	#[async_trait::async_trait]
 	impl NetworkPeers for TestNetwork {
 		fn set_authorized_peers(&self, _peers: HashSet<PeerId>) {
 			unimplemented!();
@@ -301,6 +303,10 @@ mod tests {
 		fn peer_role(&self, _peer_id: PeerId, _handshake: Vec<u8>) -> Option<ObservedRole> {
 			None
 		}
+
+		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
+			unimplemented!();
+		}
 	}
 
 	impl NetworkStateInfo for TestNetwork {
@@ -320,7 +326,7 @@ mod tests {
 	fn offchain_api() -> (Api, AsyncApi) {
 		sp_tracing::try_init_simple();
 		let mock = Arc::new(TestNetwork());
-		let shared_client = SharedClient::new();
+		let shared_client = SharedClient::new().unwrap();
 
 		AsyncApi::new(mock, false, shared_client)
 	}
@@ -369,7 +375,7 @@ mod tests {
 	}
 
 	#[test]
-	fn should_set_and_get_local_storage() {
+	fn should_set_get_and_clear_local_storage() {
 		// given
 		let kind = StorageKind::PERSISTENT;
 		let mut api = offchain_db();
@@ -381,6 +387,12 @@ mod tests {
 
 		// then
 		assert_eq!(api.local_storage_get(kind, key), Some(b"value".to_vec()));
+
+		// when
+		api.local_storage_clear(kind, key);
+
+		// then
+		assert_eq!(api.local_storage_get(kind, key), None);
 	}
 
 	#[test]

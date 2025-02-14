@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! This module contains a backend that sends RPC requests to an
 //! embedded light client. Even though no networking is involved,
@@ -20,7 +21,7 @@
 
 use futures::{channel::mpsc::Sender, prelude::*, stream::FuturesUnordered};
 use jsonrpsee::core::client::{
-	Client as JsonRpseeClient, ClientBuilder, ClientT, Error, ReceivedMessage, TransportReceiverT,
+	Client as JsonRpseeClient, ClientBuilder, ClientT, ReceivedMessage, TransportReceiverT,
 	TransportSenderT,
 };
 use smoldot_light::{ChainId, Client as SmoldotClient, JsonRpcResponses};
@@ -124,7 +125,7 @@ pub struct LightClientRpcWorker {
 }
 
 fn handle_notification(
-	maybe_header: Option<Result<RelayHeader, Error>>,
+	maybe_header: Option<Result<RelayHeader, serde_json::Error>>,
 	senders: &mut Vec<Sender<RelayHeader>>,
 ) -> Result<(), ()> {
 	match maybe_header {

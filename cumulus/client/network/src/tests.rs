@@ -1,22 +1,23 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
 use async_trait::async_trait;
-use cumulus_primitives_core::relay_chain::BlockId;
+use cumulus_primitives_core::relay_chain::{BlockId, CoreIndex};
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{
 	OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
@@ -26,14 +27,17 @@ use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptor, CollatorPair, CommittedCandidateReceipt,
-	Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
+	vstaging::{CommittedCandidateReceiptV2, CoreState},
+	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorPair,
+	CommittedCandidateReceipt, Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, SigningContext,
+	ValidationCodeHash, ValidatorId,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
 	InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
 };
+use rstest::rstest;
 use sc_client_api::{Backend, BlockchainEvents};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
@@ -42,7 +46,12 @@ use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
 use sp_runtime::RuntimeAppPublic;
 use sp_state_machine::StorageValue;
-use std::{collections::BTreeMap, time::Duration};
+use sp_version::RuntimeVersion;
+use std::{
+	borrow::Cow,
+	collections::{BTreeMap, VecDeque},
+	time::Duration,
+};
 
 fn check_error(error: crate::BoxedError, check_error: impl Fn(&BlockAnnounceError) -> bool) {
 	let error = *error
@@ -50,6 +59,33 @@ fn check_error(error: crate::BoxedError, check_error: impl Fn(&BlockAnnounceErro
 		.expect("Downcasts error to `ClientError`");
 	if !check_error(&error) {
 		panic!("Invalid error: {:?}", error);
+	}
+}
+
+fn dummy_candidate() -> CommittedCandidateReceipt {
+	CommittedCandidateReceipt {
+		descriptor: CandidateDescriptor {
+			para_head: polkadot_parachain_primitives::primitives::HeadData(
+				default_header().encode(),
+			)
+			.hash(),
+			para_id: 0u32.into(),
+			relay_parent: PHash::random(),
+			collator: CollatorPair::generate().0.public(),
+			persisted_validation_data_hash: PHash::random(),
+			pov_hash: PHash::random(),
+			erasure_root: PHash::random(),
+			signature: sp_core::sr25519::Signature::default().into(),
+			validation_code_hash: ValidationCodeHash::from(PHash::random()),
+		},
+		commitments: CandidateCommitments {
+			upward_messages: Default::default(),
+			horizontal_messages: Default::default(),
+			new_validation_code: None,
+			head_data: HeadData(Vec::new()),
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		},
 	}
 }
 
@@ -69,6 +105,8 @@ impl DummyRelayChainInterface {
 			data: Arc::new(Mutex::new(ApiData {
 				validators: vec![Sr25519Keyring::Alice.public().into()],
 				has_pending_availability: false,
+				runtime_version:
+					RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT,
 			})),
 			relay_client: Arc::new(builder.build()),
 			relay_backend,
@@ -117,38 +155,48 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		}))
 	}
 
+	async fn validation_code_hash(
+		&self,
+		_: PHash,
+		_: ParaId,
+		_: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn candidate_pending_availability(
 		&self,
 		_: PHash,
 		_: ParaId,
-	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
+	) -> RelayChainResult<Option<CommittedCandidateReceiptV2>> {
+		if self.data.lock().runtime_version >=
+			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		{
+			panic!("Should have used candidates_pending_availability instead");
+		}
+
 		if self.data.lock().has_pending_availability {
-			Ok(Some(CommittedCandidateReceipt {
-				descriptor: CandidateDescriptor {
-					para_head: polkadot_parachain_primitives::primitives::HeadData(
-						default_header().encode(),
-					)
-					.hash(),
-					para_id: 0u32.into(),
-					relay_parent: PHash::random(),
-					collator: CollatorPair::generate().0.public(),
-					persisted_validation_data_hash: PHash::random(),
-					pov_hash: PHash::random(),
-					erasure_root: PHash::random(),
-					signature: sp_core::sr25519::Signature([0u8; 64]).into(),
-					validation_code_hash: ValidationCodeHash::from(PHash::random()),
-				},
-				commitments: CandidateCommitments {
-					upward_messages: Default::default(),
-					horizontal_messages: Default::default(),
-					new_validation_code: None,
-					head_data: HeadData(Vec::new()),
-					processed_downward_messages: 0,
-					hrmp_watermark: 0,
-				},
-			}))
+			Ok(Some(dummy_candidate().into()))
 		} else {
 			Ok(None)
+		}
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		_: PHash,
+		_: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceiptV2>> {
+		if self.data.lock().runtime_version <
+			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		{
+			panic!("Should have used candidate_pending_availability instead");
+		}
+
+		if self.data.lock().has_pending_availability {
+			Ok(vec![dummy_candidate().into()])
+		} else {
+			Ok(vec![])
 		}
 	}
 
@@ -255,6 +303,55 @@ impl RelayChainInterface for DummyRelayChainInterface {
 
 		Ok(header)
 	}
+
+	async fn availability_cores(
+		&self,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
+		let version = self.data.lock().runtime_version;
+
+		let apis = sp_version::create_apis_vec!([(
+			<dyn polkadot_primitives::runtime_api::ParachainHost<polkadot_primitives::Block>>::ID,
+			version
+		)])
+		.into_owned()
+		.to_vec();
+
+		Ok(RuntimeVersion {
+			spec_name: Cow::Borrowed("test"),
+			impl_name: Cow::Borrowed("test"),
+			authoring_version: 1,
+			spec_version: 1,
+			impl_version: 0,
+			apis: Cow::Owned(apis),
+			transaction_version: 5,
+			system_version: 1,
+		})
+	}
+
+	async fn claim_queue(
+		&self,
+		_: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: PHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn make_validator_and_api() -> (
@@ -316,12 +413,12 @@ async fn make_gossip_message_and_header(
 			persisted_validation_data_hash: PHash::random(),
 			pov_hash: PHash::random(),
 			erasure_root: PHash::random(),
-			signature: sp_core::sr25519::Signature([0u8; 64]).into(),
+			signature: sp_core::sr25519::Signature::default().into(),
 			para_head: polkadot_parachain_primitives::primitives::HeadData(header.encode()).hash(),
 			validation_code_hash: ValidationCodeHash::from(PHash::random()),
 		},
 	};
-	let statement = Statement::Seconded(candidate_receipt);
+	let statement = Statement::Seconded(candidate_receipt.into());
 	let signed = SignedFullStatement::sign(
 		&keystore,
 		statement,
@@ -434,7 +531,7 @@ fn legacy_block_announce_data_handling() {
 
 	let block_data =
 		BlockAnnounceData::decode(&mut &data[..]).expect("Decoding works from legacy works");
-	assert_eq!(receipt.descriptor.relay_parent, block_data.relay_parent);
+	assert_eq!(receipt.descriptor.relay_parent(), block_data.relay_parent);
 
 	let data = block_data.encode();
 	LegacyBlockAnnounceData::decode(&mut &data[..]).expect("Decoding works");
@@ -507,9 +604,10 @@ async fn check_statement_seconded() {
 				persisted_validation_data_hash: PHash::random(),
 				pov_hash: PHash::random(),
 				erasure_root: PHash::random(),
-				signature: sp_core::sr25519::Signature([0u8; 64]).into(),
+				signature: sp_core::sr25519::Signature::default().into(),
 				validation_code_hash: ValidationCodeHash::from(PHash::random()),
-			},
+			}
+			.into(),
 		},
 		statement: signed_statement.convert_payload().into(),
 		relay_parent,
@@ -541,7 +639,7 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 	block_on(async move {
 		let (mut validator, api) = make_validator_and_api();
 
-		let mut client = api.relay_client.clone();
+		let client = api.relay_client.clone();
 		let block = client.init_polkadot_block_builder().build().expect("Build new block").block;
 
 		let (signal, header) = make_gossip_message_and_header(api, block.hash(), 0).await;
@@ -565,11 +663,14 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 
 /// Ensures that when we receive a block announcement without a statement included, while the block
 /// is not yet included by the node checking the announcement, but the node is already backed.
-#[test]
-fn block_announced_without_statement_and_block_only_backed() {
+#[rstest]
+#[case(RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT)]
+#[case(10)]
+fn block_announced_without_statement_and_block_only_backed(#[case] runtime_version: u32) {
 	block_on(async move {
 		let (mut validator, api) = make_validator_and_api();
 		api.data.lock().has_pending_availability = true;
+		api.data.lock().runtime_version = runtime_version;
 
 		let header = default_header();
 
@@ -583,4 +684,5 @@ fn block_announced_without_statement_and_block_only_backed() {
 struct ApiData {
 	validators: Vec<ValidatorId>,
 	has_pending_availability: bool,
+	runtime_version: u32,
 }

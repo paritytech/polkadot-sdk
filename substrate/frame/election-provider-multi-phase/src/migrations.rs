@@ -16,23 +16,23 @@
 // limitations under the License.
 
 pub mod v1 {
+	use alloc::collections::btree_map::BTreeMap;
 	use frame_support::{
 		storage::unhashed,
 		traits::{Defensive, GetStorageVersion, OnRuntimeUpgrade},
 		BoundedVec,
 	};
-	use sp_std::collections::btree_map::BTreeMap;
 
 	use crate::*;
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			log!(
 				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
+				"Running migration with in-code storage version {:?} / onchain {:?}",
 				current,
 				onchain
 			);

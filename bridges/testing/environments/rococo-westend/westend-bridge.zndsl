@@ -1,0 +1,6 @@
+Description: Check if the with-Rococo GRANDPA pallet was initialized at Westend BH
+Network: ./bridge_hub_westend_local_network.toml
+Creds: config
+
+# relay is already started - let's wait until with-Rococo GRANDPA pallet is initialized at Westend
+bridge-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/best-finalized-header-at-bridged-chain.js with "Rococo,0" within 400 seconds

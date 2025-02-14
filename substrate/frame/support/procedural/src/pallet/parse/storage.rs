@@ -29,6 +29,7 @@ mod keyword {
 	syn::custom_keyword!(storage_prefix);
 	syn::custom_keyword!(unbounded);
 	syn::custom_keyword!(whitelist_storage);
+	syn::custom_keyword!(disable_try_decode_storage);
 	syn::custom_keyword!(OptionQuery);
 	syn::custom_keyword!(ResultQuery);
 	syn::custom_keyword!(ValueQuery);
@@ -39,11 +40,13 @@ mod keyword {
 /// * `#[pallet::storage_prefix = "CustomName"]`
 /// * `#[pallet::unbounded]`
 /// * `#[pallet::whitelist_storage]
+/// * `#[pallet::disable_try_decode_storage]`
 pub enum PalletStorageAttr {
 	Getter(syn::Ident, proc_macro2::Span),
 	StorageName(syn::LitStr, proc_macro2::Span),
 	Unbounded(proc_macro2::Span),
 	WhitelistStorage(proc_macro2::Span),
+	DisableTryDecodeStorage(proc_macro2::Span),
 }
 
 impl PalletStorageAttr {
@@ -53,6 +56,7 @@ impl PalletStorageAttr {
 			Self::StorageName(_, span) |
 			Self::Unbounded(span) |
 			Self::WhitelistStorage(span) => *span,
+			Self::DisableTryDecodeStorage(span) => *span,
 		}
 	}
 }
@@ -93,6 +97,9 @@ impl syn::parse::Parse for PalletStorageAttr {
 		} else if lookahead.peek(keyword::whitelist_storage) {
 			content.parse::<keyword::whitelist_storage>()?;
 			Ok(Self::WhitelistStorage(attr_span))
+		} else if lookahead.peek(keyword::disable_try_decode_storage) {
+			content.parse::<keyword::disable_try_decode_storage>()?;
+			Ok(Self::DisableTryDecodeStorage(attr_span))
 		} else {
 			Err(lookahead.error())
 		}
@@ -104,6 +111,7 @@ struct PalletStorageAttrInfo {
 	rename_as: Option<syn::LitStr>,
 	unbounded: bool,
 	whitelisted: bool,
+	try_decode: bool,
 }
 
 impl PalletStorageAttrInfo {
@@ -112,6 +120,7 @@ impl PalletStorageAttrInfo {
 		let mut rename_as = None;
 		let mut unbounded = false;
 		let mut whitelisted = false;
+		let mut disable_try_decode_storage = false;
 		for attr in attrs {
 			match attr {
 				PalletStorageAttr::Getter(ident, ..) if getter.is_none() => getter = Some(ident),
@@ -119,6 +128,8 @@ impl PalletStorageAttrInfo {
 					rename_as = Some(name),
 				PalletStorageAttr::Unbounded(..) if !unbounded => unbounded = true,
 				PalletStorageAttr::WhitelistStorage(..) if !whitelisted => whitelisted = true,
+				PalletStorageAttr::DisableTryDecodeStorage(..) if !disable_try_decode_storage =>
+					disable_try_decode_storage = true,
 				attr =>
 					return Err(syn::Error::new(
 						attr.attr_span(),
@@ -127,7 +138,13 @@ impl PalletStorageAttrInfo {
 			}
 		}
 
-		Ok(PalletStorageAttrInfo { getter, rename_as, unbounded, whitelisted })
+		Ok(PalletStorageAttrInfo {
+			getter,
+			rename_as,
+			unbounded,
+			whitelisted,
+			try_decode: !disable_try_decode_storage,
+		})
 	}
 }
 
@@ -186,8 +203,12 @@ pub struct StorageDef {
 	pub unbounded: bool,
 	/// Whether or not reads to this storage key will be ignored by benchmarking
 	pub whitelisted: bool,
+	/// Whether or not to try to decode the storage key when running try-runtime checks.
+	pub try_decode: bool,
 	/// Whether or not a default hasher is allowed to replace `_`
 	pub use_default_hasher: bool,
+	/// Attributes
+	pub attrs: Vec<syn::Attribute>,
 }
 
 /// The parsed generic from the
@@ -354,7 +375,7 @@ fn process_named_generics(
 			let msg = "Invalid pallet::storage, Duplicated named generic";
 			let mut err = syn::Error::new(arg.ident.span(), msg);
 			err.combine(syn::Error::new(other.ident.span(), msg));
-			return Err(err)
+			return Err(err);
 		}
 		parsed.insert(arg.ident.to_string(), arg.clone());
 	}
@@ -647,7 +668,7 @@ fn process_generics(
 				in order to expand metadata, found `{}`.",
 				found,
 			);
-			return Err(syn::Error::new(segment.ident.span(), msg))
+			return Err(syn::Error::new(segment.ident.span(), msg));
 		},
 	};
 
@@ -658,7 +679,7 @@ fn process_generics(
 		_ => {
 			let msg = "Invalid pallet::storage, invalid number of generic generic arguments, \
 				expect more that 0 generic arguments.";
-			return Err(syn::Error::new(segment.span(), msg))
+			return Err(syn::Error::new(segment.span(), msg));
 		},
 	};
 
@@ -705,7 +726,7 @@ fn extract_key(ty: &syn::Type) -> syn::Result<syn::Type> {
 		typ
 	} else {
 		let msg = "Invalid pallet::storage, expected type path";
-		return Err(syn::Error::new(ty.span(), msg))
+		return Err(syn::Error::new(ty.span(), msg));
 	};
 
 	let key_struct = typ.path.segments.last().ok_or_else(|| {
@@ -714,14 +735,14 @@ fn extract_key(ty: &syn::Type) -> syn::Result<syn::Type> {
 	})?;
 	if key_struct.ident != "Key" && key_struct.ident != "NMapKey" {
 		let msg = "Invalid pallet::storage, expected Key or NMapKey struct";
-		return Err(syn::Error::new(key_struct.ident.span(), msg))
+		return Err(syn::Error::new(key_struct.ident.span(), msg));
 	}
 
 	let ty_params = if let syn::PathArguments::AngleBracketed(args) = &key_struct.arguments {
 		args
 	} else {
 		let msg = "Invalid pallet::storage, expected angle bracketed arguments";
-		return Err(syn::Error::new(key_struct.arguments.span(), msg))
+		return Err(syn::Error::new(key_struct.arguments.span(), msg));
 	};
 
 	if ty_params.args.len() != 2 {
@@ -730,14 +751,14 @@ fn extract_key(ty: &syn::Type) -> syn::Result<syn::Type> {
 			for Key struct, expected 2 args, found {}",
 			ty_params.args.len()
 		);
-		return Err(syn::Error::new(ty_params.span(), msg))
+		return Err(syn::Error::new(ty_params.span(), msg));
 	}
 
 	let key = match &ty_params.args[1] {
 		syn::GenericArgument::Type(key_ty) => key_ty.clone(),
 		_ => {
 			let msg = "Invalid pallet::storage, expected type";
-			return Err(syn::Error::new(ty_params.args[1].span(), msg))
+			return Err(syn::Error::new(ty_params.args[1].span(), msg));
 		},
 	};
 
@@ -771,11 +792,11 @@ impl StorageDef {
 		let item = if let syn::Item::Type(item) = item {
 			item
 		} else {
-			return Err(syn::Error::new(item.span(), "Invalid pallet::storage, expect item type."))
+			return Err(syn::Error::new(item.span(), "Invalid pallet::storage, expect item type."));
 		};
 
 		let attrs: Vec<PalletStorageAttr> = helper::take_item_pallet_attrs(&mut item.attrs)?;
-		let PalletStorageAttrInfo { getter, rename_as, mut unbounded, whitelisted } =
+		let PalletStorageAttrInfo { getter, rename_as, mut unbounded, whitelisted, try_decode } =
 			PalletStorageAttrInfo::from_attrs(attrs)?;
 
 		// set all storages to be unbounded if dev_mode is enabled
@@ -791,12 +812,12 @@ impl StorageDef {
 			typ
 		} else {
 			let msg = "Invalid pallet::storage, expected type path";
-			return Err(syn::Error::new(item.ty.span(), msg))
+			return Err(syn::Error::new(item.ty.span(), msg));
 		};
 
 		if typ.path.segments.len() != 1 {
 			let msg = "Invalid pallet::storage, expected type path with one segment";
-			return Err(syn::Error::new(item.ty.span(), msg))
+			return Err(syn::Error::new(item.ty.span(), msg));
 		}
 
 		let (named_generics, metadata, query_kind, use_default_hasher) =
@@ -839,7 +860,7 @@ impl StorageDef {
 								for ResultQuery, expected 1 type argument, found {}",
 								args.len(),
 							);
-							return Err(syn::Error::new(args.span(), msg))
+							return Err(syn::Error::new(args.span(), msg));
 						}
 
 						args[0].clone()
@@ -850,7 +871,7 @@ impl StorageDef {
 							expected angle-bracketed arguments, found `{}`",
 							args.to_token_stream().to_string()
 						);
-						return Err(syn::Error::new(args.span(), msg))
+						return Err(syn::Error::new(args.span(), msg));
 					},
 				};
 
@@ -866,7 +887,7 @@ impl StorageDef {
 								segments, found {}",
 								err_variant.len(),
 							);
-							return Err(syn::Error::new(err_variant.span(), msg))
+							return Err(syn::Error::new(err_variant.span(), msg));
 						}
 						let mut error = err_variant.clone();
 						let err_variant = error
@@ -902,7 +923,7 @@ impl StorageDef {
 			let msg = "Invalid pallet::storage, cannot generate getter because QueryKind is not \
 				identifiable. QueryKind must be `OptionQuery`, `ResultQuery`, `ValueQuery`, or default \
 				one to be identifiable.";
-			return Err(syn::Error::new(getter.span(), msg))
+			return Err(syn::Error::new(getter.span(), msg));
 		}
 
 		Ok(StorageDef {
@@ -921,7 +942,9 @@ impl StorageDef {
 			named_generics,
 			unbounded,
 			whitelisted,
+			try_decode,
 			use_default_hasher,
+			attrs: item.attrs.clone(),
 		})
 	}
 }

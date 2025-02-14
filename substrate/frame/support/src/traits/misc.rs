@@ -18,18 +18,20 @@
 //! Smaller traits used in FRAME which don't need their own file.
 
 use crate::dispatch::{DispatchResult, Parameter};
+use alloc::{vec, vec::Vec};
 use codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
 use sp_core::bounded::bounded_vec::TruncateFrom;
+
+use core::cmp::Ordering;
 #[doc(hidden)]
 pub use sp_runtime::traits::{
-	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16, ConstU32,
-	ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
+	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt, ConstU128, ConstU16,
+	ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect, TypedGet,
 };
 use sp_runtime::{traits::Block as BlockT, DispatchError};
-use sp_std::{cmp::Ordering, prelude::*};
 
 #[doc(hidden)]
 pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
@@ -46,8 +48,12 @@ impl VariantCount for () {
 	const VARIANT_COUNT: u32 = 0;
 }
 
+impl VariantCount for u8 {
+	const VARIANT_COUNT: u32 = 256;
+}
+
 /// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
-pub struct VariantCountOf<T: VariantCount>(sp_std::marker::PhantomData<T>);
+pub struct VariantCountOf<T: VariantCount>(core::marker::PhantomData<T>);
 impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
 	fn get() -> u32 {
 		T::VARIANT_COUNT
@@ -60,7 +66,7 @@ impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
 #[macro_export]
 macro_rules! defensive {
 	() => {
-		frame_support::__private::log::error!(
+		$crate::__private::log::error!(
 			target: "runtime::defensive",
 			"{}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
@@ -68,7 +74,7 @@ macro_rules! defensive {
 		debug_assert!(false, "{}", $crate::traits::DEFENSIVE_OP_INTERNAL_ERROR);
 	};
 	($error:expr $(,)?) => {
-		frame_support::__private::log::error!(
+		$crate::__private::log::error!(
 			target: "runtime::defensive",
 			"{}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
@@ -77,7 +83,7 @@ macro_rules! defensive {
 		debug_assert!(false, "{}: {:?}", $crate::traits::DEFENSIVE_OP_INTERNAL_ERROR, $error);
 	};
 	($error:expr, $proof:expr $(,)?) => {
-		frame_support::__private::log::error!(
+		$crate::__private::log::error!(
 			target: "runtime::defensive",
 			"{}: {:?}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
@@ -189,10 +195,10 @@ pub trait DefensiveOption<T> {
 
 	/// Defensively transform this option to a result, mapping `None` to the return value of an
 	/// error closure.
-	fn defensive_ok_or_else<E: sp_std::fmt::Debug, F: FnOnce() -> E>(self, err: F) -> Result<T, E>;
+	fn defensive_ok_or_else<E: core::fmt::Debug, F: FnOnce() -> E>(self, err: F) -> Result<T, E>;
 
 	/// Defensively transform this option to a result, mapping `None` to a default value.
-	fn defensive_ok_or<E: sp_std::fmt::Debug>(self, err: E) -> Result<T, E>;
+	fn defensive_ok_or<E: core::fmt::Debug>(self, err: E) -> Result<T, E>;
 
 	/// Exactly the same as `map`, but it prints the appropriate warnings if the value being mapped
 	/// is `None`.
@@ -251,7 +257,7 @@ impl<T> Defensive<T> for Option<T> {
 	}
 }
 
-impl<T, E: sp_std::fmt::Debug> Defensive<T> for Result<T, E> {
+impl<T, E: core::fmt::Debug> Defensive<T> for Result<T, E> {
 	fn defensive_unwrap_or(self, or: T) -> T {
 		match self {
 			Ok(inner) => inner,
@@ -306,7 +312,7 @@ impl<T, E: sp_std::fmt::Debug> Defensive<T> for Result<T, E> {
 	}
 }
 
-impl<T, E: sp_std::fmt::Debug> DefensiveResult<T, E> for Result<T, E> {
+impl<T, E: core::fmt::Debug> DefensiveResult<T, E> for Result<T, E> {
 	fn defensive_map_err<F, O: FnOnce(E) -> F>(self, o: O) -> Result<T, F> {
 		self.map_err(|e| {
 			defensive!(e);
@@ -356,7 +362,7 @@ impl<T> DefensiveOption<T> for Option<T> {
 		)
 	}
 
-	fn defensive_ok_or_else<E: sp_std::fmt::Debug, F: FnOnce() -> E>(self, err: F) -> Result<T, E> {
+	fn defensive_ok_or_else<E: core::fmt::Debug, F: FnOnce() -> E>(self, err: F) -> Result<T, E> {
 		self.ok_or_else(|| {
 			let err_value = err();
 			defensive!(err_value);
@@ -364,7 +370,7 @@ impl<T> DefensiveOption<T> for Option<T> {
 		})
 	}
 
-	fn defensive_ok_or<E: sp_std::fmt::Debug>(self, err: E) -> Result<T, E> {
+	fn defensive_ok_or<E: core::fmt::Debug>(self, err: E) -> Result<T, E> {
 		self.ok_or_else(|| {
 			defensive!(err);
 			err
@@ -415,11 +421,11 @@ impl<T: Saturating + CheckedAdd + CheckedMul + CheckedSub + One> DefensiveSatura
 	}
 	fn defensive_saturating_accrue(&mut self, other: Self) {
 		// Use `replace` here since `take` would require `T: Default`.
-		*self = sp_std::mem::replace(self, One::one()).defensive_saturating_add(other);
+		*self = core::mem::replace(self, One::one()).defensive_saturating_add(other);
 	}
 	fn defensive_saturating_reduce(&mut self, other: Self) {
 		// Use `replace` here since `take` would require `T: Default`.
-		*self = sp_std::mem::replace(self, One::one()).defensive_saturating_sub(other);
+		*self = core::mem::replace(self, One::one()).defensive_saturating_sub(other);
 	}
 	fn defensive_saturating_inc(&mut self) {
 		self.defensive_saturating_accrue(One::one());
@@ -482,7 +488,7 @@ pub trait DefensiveMin<T> {
 	/// assert_eq!(4, 4_u32.defensive_min(4_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMin;
 	/// // min(4, 3) panics.
 	/// 4_u32.defensive_min(3_u32);
@@ -499,7 +505,7 @@ pub trait DefensiveMin<T> {
 	/// assert_eq!(3, 3_u32.defensive_strict_min(4_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMin;
 	/// // min(4, 4) panics.
 	/// 4_u32.defensive_strict_min(4_u32);
@@ -509,7 +515,7 @@ pub trait DefensiveMin<T> {
 
 impl<T> DefensiveMin<T> for T
 where
-	T: sp_std::cmp::PartialOrd<T>,
+	T: PartialOrd<T>,
 {
 	fn defensive_min(self, other: T) -> Self {
 		if self <= other {
@@ -546,7 +552,7 @@ pub trait DefensiveMax<T> {
 	/// assert_eq!(4, 4_u32.defensive_max(4_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMax;
 	/// // max(4, 5) panics.
 	/// 4_u32.defensive_max(5_u32);
@@ -563,7 +569,7 @@ pub trait DefensiveMax<T> {
 	/// assert_eq!(4, 4_u32.defensive_strict_max(3_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMax;
 	/// // max(4, 4) panics.
 	/// 4_u32.defensive_strict_max(4_u32);
@@ -573,7 +579,7 @@ pub trait DefensiveMax<T> {
 
 impl<T> DefensiveMax<T> for T
 where
-	T: sp_std::cmp::PartialOrd<T>,
+	T: PartialOrd<T>,
 {
 	fn defensive_max(self, other: T) -> Self {
 		if self >= other {
@@ -895,28 +901,29 @@ pub trait GetBacking {
 /// A trait to ensure the inherent are before non-inherent in a block.
 ///
 /// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block> {
+pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
+	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
+{
 	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
 	///
-	/// On error return the index of the inherent with invalid position (counting from 0).
-	fn ensure_inherents_are_first(block: &Block) -> Result<(), u32>;
+	/// On error return the index of the inherent with invalid position (counting from 0). On
+	/// success it returns the index of the last inherent. `0` therefore means that there are no
+	/// inherents.
+	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
+}
+
+/// A trait to check if an extrinsic is an inherent.
+pub trait IsInherent<Extrinsic> {
+	/// Whether this extrinsic is an inherent.
+	fn is_inherent(ext: &Extrinsic) -> bool;
 }
 
 /// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
+pub trait ExtrinsicCall: sp_runtime::traits::ExtrinsicLike {
+	type Call;
+
 	/// Get the call of the extrinsic.
 	fn call(&self) -> &Self::Call;
-}
-
-#[cfg(feature = "std")]
-impl<Call, Extra> ExtrinsicCall for sp_runtime::testing::TestXt<Call, Extra>
-where
-	Call: codec::Codec + Sync + Send + TypeInfo,
-	Extra: TypeInfo,
-{
-	fn call(&self) -> &Self::Call {
-		&self.call
-	}
 }
 
 impl<Address, Call, Signature, Extra> ExtrinsicCall
@@ -925,10 +932,69 @@ where
 	Address: TypeInfo,
 	Call: TypeInfo,
 	Signature: TypeInfo,
-	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
+	Extra: TypeInfo,
 {
-	fn call(&self) -> &Self::Call {
+	type Call = Call;
+
+	fn call(&self) -> &Call {
 		&self.function
+	}
+}
+
+/// Interface for types capable of constructing an inherent extrinsic.
+pub trait InherentBuilder: ExtrinsicCall {
+	/// Create a new inherent from a given call.
+	fn new_inherent(call: Self::Call) -> Self;
+}
+
+impl<Address, Call, Signature, Extra> InherentBuilder
+	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
+where
+	Address: TypeInfo,
+	Call: TypeInfo,
+	Signature: TypeInfo,
+	Extra: TypeInfo,
+{
+	fn new_inherent(call: Self::Call) -> Self {
+		Self::new_bare(call)
+	}
+}
+
+/// Interface for types capable of constructing a signed transaction.
+pub trait SignedTransactionBuilder: ExtrinsicCall {
+	type Address;
+	type Signature;
+	type Extension;
+
+	/// Create a new signed transaction from a given call and extension using the provided signature
+	/// data.
+	fn new_signed_transaction(
+		call: Self::Call,
+		signed: Self::Address,
+		signature: Self::Signature,
+		tx_ext: Self::Extension,
+	) -> Self;
+}
+
+impl<Address, Call, Signature, Extension> SignedTransactionBuilder
+	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extension>
+where
+	Address: TypeInfo,
+	Call: TypeInfo,
+	Signature: TypeInfo,
+	Extension: TypeInfo,
+{
+	type Address = Address;
+	type Signature = Signature;
+	type Extension = Extension;
+
+	fn new_signed_transaction(
+		call: Self::Call,
+		signed: Address,
+		signature: Signature,
+		tx_ext: Extension,
+	) -> Self {
+		Self::new_signed(call, signed, signature, tx_ext)
 	}
 }
 
@@ -1039,7 +1105,7 @@ impl<T: TypeInfo + 'static> TypeInfo for WrapperOpaque<T> {
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub struct WrapperKeepOpaque<T> {
 	data: Vec<u8>,
-	_phantom: sp_std::marker::PhantomData<T>,
+	_phantom: core::marker::PhantomData<T>,
 }
 
 impl<T: Decode> WrapperKeepOpaque<T> {
@@ -1062,7 +1128,7 @@ impl<T: Decode> WrapperKeepOpaque<T> {
 
 	/// Create from the given encoded `data`.
 	pub fn from_encoded(data: Vec<u8>) -> Self {
-		Self { data, _phantom: sp_std::marker::PhantomData }
+		Self { data, _phantom: core::marker::PhantomData }
 	}
 }
 
@@ -1089,7 +1155,7 @@ impl<T: Encode> Encode for WrapperKeepOpaque<T> {
 
 impl<T: Decode> Decode for WrapperKeepOpaque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
-		Ok(Self { data: Vec::<u8>::decode(input)?, _phantom: sp_std::marker::PhantomData })
+		Ok(Self { data: Vec::<u8>::decode(input)?, _phantom: core::marker::PhantomData })
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), codec::Error> {
@@ -1201,8 +1267,8 @@ pub trait AccountTouch<AssetId, AccountId> {
 #[cfg(test)]
 mod test {
 	use super::*;
+	use core::marker::PhantomData;
 	use sp_core::bounded::{BoundedSlice, BoundedVec};
-	use sp_std::marker::PhantomData;
 
 	#[test]
 	fn defensive_assert_works() {
@@ -1413,7 +1479,7 @@ mod test {
 		assert_eq!(<WrapperOpaque<[u8; 2usize.pow(14)]>>::max_encoded_len(), 2usize.pow(14) + 4);
 
 		let data = 4u64;
-		// Ensure that we check that the `Vec<u8>` is consumed completly on decode.
+		// Ensure that we check that the `Vec<u8>` is consumed completely on decode.
 		assert!(WrapperOpaque::<u32>::decode(&mut &data.encode().encode()[..]).is_err());
 	}
 

@@ -1,0 +1,5 @@
+error: Invalid runtime macro call: unexpected attribute. Macro call must be bare, such as `#[frame_support::runtime]` or `#[runtime]`, or must specify the `legacy_ordering` attribute, such as `#[frame_support::runtime(legacy_ordering)]` or #[runtime(legacy_ordering)].
+  --> tests/runtime_ui/invalid_attribute.rs:18:26
+   |
+18 | #[frame_support::runtime(dummy)]
+   |                          ^^^^^

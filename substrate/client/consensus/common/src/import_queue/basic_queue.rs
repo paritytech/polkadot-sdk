@@ -19,7 +19,6 @@ use futures::{
 	prelude::*,
 	task::{Context, Poll},
 };
-use futures_timer::Delay;
 use log::{debug, trace};
 use prometheus_endpoint::Registry;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -28,14 +27,14 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	Justification, Justifications,
 };
-use std::{pin::Pin, time::Duration};
+use std::pin::Pin;
 
 use crate::{
 	import_queue::{
 		buffered_link::{self, BufferedLinkReceiver, BufferedLinkSender},
-		import_single_block_metered, BlockImportError, BlockImportStatus, BoxBlockImport,
-		BoxJustificationImport, ImportQueue, ImportQueueService, IncomingBlock, Link,
-		RuntimeOrigin, Verifier, LOG_TARGET,
+		import_single_block_metered, verify_single_block_metered, BlockImportError,
+		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
+		IncomingBlock, Link, RuntimeOrigin, SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
 	},
 	metrics::Metrics,
 };
@@ -61,13 +60,16 @@ impl<B: BlockT> BasicQueue<B> {
 	/// Instantiate a new basic queue, with given verifier.
 	///
 	/// This creates a background task, and calls `on_start` on the justification importer.
-	pub fn new<V: 'static + Verifier<B>>(
+	pub fn new<V>(
 		verifier: V,
 		block_import: BoxBlockImport<B>,
 		justification_import: Option<BoxJustificationImport<B>>,
 		spawner: &impl sp_core::traits::SpawnEssentialNamed,
 		prometheus_registry: Option<&Registry>,
-	) -> Self {
+	) -> Self
+	where
+		V: Verifier<B> + 'static,
+	{
 		let (result_sender, result_port) = buffered_link::buffered_link(100_000);
 
 		let metrics = prometheus_registry.and_then(|r| {
@@ -175,7 +177,7 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	}
 
 	/// Poll actions from network.
-	fn poll_actions(&mut self, cx: &mut Context, link: &mut dyn Link<B>) {
+	fn poll_actions(&mut self, cx: &mut Context, link: &dyn Link<B>) {
 		if self.result_port.poll_actions(cx, link).is_err() {
 			log::error!(
 				target: LOG_TARGET,
@@ -187,10 +189,10 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	/// Start asynchronous runner for import queue.
 	///
 	/// Takes an object implementing [`Link`] which allows the import queue to
-	/// influece the synchronization process.
-	async fn run(mut self, mut link: Box<dyn Link<B>>) {
+	/// influence the synchronization process.
+	async fn run(mut self, link: &dyn Link<B>) {
 		loop {
-			if let Err(_) = self.result_port.next_action(&mut *link).await {
+			if let Err(_) = self.result_port.next_action(link).await {
 				log::error!(target: "sync", "poll_actions: Background import task is no longer alive");
 				return
 			}
@@ -198,7 +200,7 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	}
 }
 
-/// Messages destinated to the background worker.
+/// Messages designated to the background worker.
 mod worker_messages {
 	use super::*;
 
@@ -220,11 +222,10 @@ mod worker_messages {
 /// Returns when `block_import` ended.
 async fn block_import_process<B: BlockT>(
 	mut block_import: BoxBlockImport<B>,
-	mut verifier: impl Verifier<B>,
-	mut result_sender: BufferedLinkSender<B>,
+	verifier: impl Verifier<B>,
+	result_sender: BufferedLinkSender<B>,
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
 	metrics: Option<Metrics>,
-	delay_between_blocks: Duration,
 ) {
 	loop {
 		let worker_messages::ImportBlocks(origin, blocks) = match block_import_receiver.next().await
@@ -239,15 +240,8 @@ async fn block_import_process<B: BlockT>(
 			},
 		};
 
-		let res = import_many_blocks(
-			&mut block_import,
-			origin,
-			blocks,
-			&mut verifier,
-			delay_between_blocks,
-			metrics.clone(),
-		)
-		.await;
+		let res =
+			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
@@ -260,7 +254,7 @@ struct BlockImportWorker<B: BlockT> {
 }
 
 impl<B: BlockT> BlockImportWorker<B> {
-	fn new<V: 'static + Verifier<B>>(
+	fn new<V>(
 		result_sender: BufferedLinkSender<B>,
 		verifier: V,
 		block_import: BoxBlockImport<B>,
@@ -270,18 +264,19 @@ impl<B: BlockT> BlockImportWorker<B> {
 		impl Future<Output = ()> + Send,
 		TracingUnboundedSender<worker_messages::ImportJustification<B>>,
 		TracingUnboundedSender<worker_messages::ImportBlocks<B>>,
-	) {
+	)
+	where
+		V: Verifier<B> + 'static,
+	{
 		use worker_messages::*;
 
 		let (justification_sender, mut justification_port) =
 			tracing_unbounded("mpsc_import_queue_worker_justification", 100_000);
 
-		let (block_import_sender, block_import_port) =
+		let (block_import_sender, block_import_receiver) =
 			tracing_unbounded("mpsc_import_queue_worker_blocks", 100_000);
 
 		let mut worker = BlockImportWorker { result_sender, justification_import, metrics };
-
-		let delay_between_blocks = Duration::default();
 
 		let future = async move {
 			// Let's initialize `justification_import`
@@ -295,9 +290,8 @@ impl<B: BlockT> BlockImportWorker<B> {
 				block_import,
 				verifier,
 				worker.result_sender.clone(),
-				block_import_port,
+				block_import_receiver,
 				worker.metrics.clone(),
-				delay_between_blocks,
 			);
 			futures::pin_mut!(block_import_process);
 
@@ -393,8 +387,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut BoxBlockImport<B>,
 	blocks_origin: BlockOrigin,
 	blocks: Vec<IncomingBlock<B>>,
-	verifier: &mut V,
-	delay_between_blocks: Duration,
+	verifier: &V,
 	metrics: Option<Metrics>,
 ) -> ImportManyBlocksResult<B> {
 	let count = blocks.len();
@@ -431,15 +424,22 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 		let import_result = if has_error {
 			Err(BlockImportError::Cancelled)
 		} else {
-			// The actual import.
-			import_single_block_metered(
+			let verification_fut = verify_single_block_metered(
 				import_handle,
 				blocks_origin,
 				block,
 				verifier,
-				metrics.clone(),
-			)
-			.await
+				metrics.as_ref(),
+			);
+			match verification_fut.await {
+				Ok(SingleBlockVerificationOutcome::Imported(import_status)) => Ok(import_status),
+				Ok(SingleBlockVerificationOutcome::Verified(import_parameters)) => {
+					// The actual import.
+					import_single_block_metered(import_handle, import_parameters, metrics.as_ref())
+						.await
+				},
+				Err(e) => Err(e),
+			}
 		};
 
 		if let Some(metrics) = metrics.as_ref() {
@@ -460,11 +460,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 
 		results.push((import_result, block_hash));
 
-		if delay_between_blocks != Duration::default() && !has_error {
-			Delay::new(delay_between_blocks).await;
-		} else {
-			Yield::new().await
-		}
+		Yield::new().await
 	}
 }
 
@@ -505,12 +501,13 @@ mod tests {
 		import_queue::Verifier,
 	};
 	use futures::{executor::block_on, Future};
+	use parking_lot::Mutex;
 	use sp_test_primitives::{Block, BlockNumber, Hash, Header};
 
 	#[async_trait::async_trait]
 	impl Verifier<Block> for () {
 		async fn verify(
-			&mut self,
+			&self,
 			block: BlockImportParams<Block>,
 		) -> Result<BlockImportParams<Block>, String> {
 			Ok(BlockImportParams::new(block.origin, block.header))
@@ -522,14 +519,14 @@ mod tests {
 		type Error = sp_consensus::Error;
 
 		async fn check_block(
-			&mut self,
+			&self,
 			_block: BlockCheckParams<Block>,
 		) -> Result<ImportResult, Self::Error> {
 			Ok(ImportResult::imported(false))
 		}
 
 		async fn import_block(
-			&mut self,
+			&self,
 			_block: BlockImportParams<Block>,
 		) -> Result<ImportResult, Self::Error> {
 			Ok(ImportResult::imported(true))
@@ -562,29 +559,29 @@ mod tests {
 
 	#[derive(Default)]
 	struct TestLink {
-		events: Vec<Event>,
+		events: Mutex<Vec<Event>>,
 	}
 
 	impl Link<Block> for TestLink {
 		fn blocks_processed(
-			&mut self,
+			&self,
 			_imported: usize,
 			_count: usize,
 			results: Vec<(Result<BlockImportStatus<BlockNumber>, BlockImportError>, Hash)>,
 		) {
 			if let Some(hash) = results.into_iter().find_map(|(r, h)| r.ok().map(|_| h)) {
-				self.events.push(Event::BlockImported(hash));
+				self.events.lock().push(Event::BlockImported(hash));
 			}
 		}
 
 		fn justification_imported(
-			&mut self,
+			&self,
 			_who: RuntimeOrigin,
 			hash: &Hash,
 			_number: BlockNumber,
 			_success: bool,
 		) {
-			self.events.push(Event::JustificationImported(*hash))
+			self.events.lock().push(Event::JustificationImported(*hash))
 		}
 	}
 
@@ -632,7 +629,7 @@ mod tests {
 			let hash = Hash::random();
 			finality_sender
 				.unbounded_send(worker_messages::ImportJustification(
-					libp2p_identity::PeerId::random(),
+					sc_network_types::PeerId::random(),
 					hash,
 					1,
 					(*b"TEST", Vec::new()),
@@ -642,7 +639,7 @@ mod tests {
 			hash
 		};
 
-		let mut link = TestLink::default();
+		let link = TestLink::default();
 
 		// we send a bunch of tasks to the worker
 		let block1 = import_block(1);
@@ -657,13 +654,13 @@ mod tests {
 
 		// we poll the worker until we have processed 9 events
 		block_on(futures::future::poll_fn(|cx| {
-			while link.events.len() < 9 {
+			while link.events.lock().len() < 9 {
 				match Future::poll(Pin::new(&mut worker), cx) {
 					Poll::Pending => {},
 					Poll::Ready(()) => panic!("import queue worker should not conclude."),
 				}
 
-				result_port.poll_actions(cx, &mut link).unwrap();
+				result_port.poll_actions(cx, &link).unwrap();
 			}
 
 			Poll::Ready(())
@@ -671,8 +668,8 @@ mod tests {
 
 		// all justification tasks must be done before any block import work
 		assert_eq!(
-			link.events,
-			vec![
+			&*link.events.lock(),
+			&[
 				Event::JustificationImported(justification1),
 				Event::JustificationImported(justification2),
 				Event::JustificationImported(justification3),

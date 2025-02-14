@@ -15,23 +15,23 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use bounded_collections::{ConstU32, WeakBoundedVec};
-use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
-use frame_support::{traits::Currency, weights::Weight};
+use frame_benchmarking::v2::*;
+use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
-use sp_std::prelude::*;
-use xcm::{latest::prelude::*, v2};
+use xcm::latest::prelude::*;
+use xcm_builder::EnsureDelivery;
+use xcm_executor::traits::FeeReason;
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
-
-// existential deposit multiplier
-const ED_MULTIPLIER: u32 = 100;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config>(crate::Pallet<T>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
 pub trait Config: crate::Config {
+	/// Helper that ensures successful delivery for extrinsics/benchmarks which need `SendXcm`.
+	type DeliveryHelper: EnsureDelivery;
+
 	/// A `Location` that can be reached via `XcmRouter`. Used only in benchmarks.
 	///
 	/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
@@ -74,110 +74,205 @@ pub trait Config: crate::Config {
 	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		None
 	}
+
+	/// Gets an asset that can be handled by the AssetTransactor.
+	///
+	/// Used only in benchmarks.
+	///
+	/// Used, for example, in the benchmark for `claim_assets`.
+	fn get_asset() -> Asset;
 }
 
-benchmarks! {
-	where_clause {
-		where
-			T: pallet_balances::Config,
-			<T as pallet_balances::Config>::Balance: From<u128> + Into<u128>,
-	}
-	send {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn send() -> Result<(), BenchmarkError> {
 		let send_origin =
 			T::SendXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		if T::SendXcmOrigin::try_origin(send_origin.clone()).is_err() {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 		let msg = Xcm(vec![ClearOrigin]);
-		let versioned_dest: VersionedLocation = T::reachable_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
-		)?
-		.into();
+		let versioned_dest: VersionedLocation = T::reachable_dest()
+			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
+			.into();
 		let versioned_msg = VersionedXcm::from(msg);
-	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_msg))
 
-	teleport_assets {
-		let (asset, destination) = T::teleportable_asset_and_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
-		)?;
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_dest.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
 
-		let transferred_amount = match &asset.fun {
-			Fungible(amount) => *amount,
-			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
-		}.into();
-		let assets: Assets = asset.into();
+		#[extrinsic_call]
+		_(send_origin as RuntimeOrigin<T>, Box::new(versioned_dest), Box::new(versioned_msg));
 
-		let existential_deposit = T::ExistentialDeposit::get();
-		let caller = whitelisted_caller();
+		Ok(())
+	}
 
-		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		assert!(balance >= transferred_amount);
-		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
-		// verify initial balance
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
+	#[benchmark]
+	fn teleport_assets() -> Result<(), BenchmarkError> {
+		let (asset, destination) = T::teleportable_asset_and_dest()
+			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 
+		let assets: Assets = asset.clone().into();
+
+		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		if !T::XcmTeleportFilter::contains(&(origin_location, assets.clone().into_inner())) {
+		if !T::XcmTeleportFilter::contains(&(origin_location.clone(), assets.clone().into_inner()))
+		{
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
+
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&origin_location,
+			&destination,
+			FeeReason::ChargeFees,
+		);
+
+		match &asset.fun {
+			Fungible(amount) => {
+				// Add transferred_amount to origin
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					&Asset { fun: Fungible(*amount), id: asset.id },
+					&origin_location,
+					None,
+				)
+				.map_err(|error| {
+					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+			},
+			NonFungible(_instance) => {
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					&asset,
+					&origin_location,
+					None,
+				)
+				.map_err(|error| {
+					tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+			},
+		};
 
 		let recipient = [0u8; 32];
 		let versioned_dest: VersionedLocation = destination.into();
 		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
-	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
-	verify {
-		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+
+		#[extrinsic_call]
+		_(
+			send_origin,
+			Box::new(versioned_dest),
+			Box::new(versioned_beneficiary),
+			Box::new(versioned_assets),
+			0,
+		);
+
+		Ok(())
 	}
 
-	reserve_transfer_assets {
-		let (asset, destination) = T::reserve_transferable_asset_and_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
-		)?;
+	#[benchmark]
+	fn reserve_transfer_assets() -> Result<(), BenchmarkError> {
+		let (asset, destination) = T::reserve_transferable_asset_and_dest()
+			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 
-		let transferred_amount = match &asset.fun {
-			Fungible(amount) => *amount,
-			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
-		}.into();
-		let assets: Assets = asset.into();
+		let assets: Assets = asset.clone().into();
 
-		let existential_deposit = T::ExistentialDeposit::get();
-		let caller = whitelisted_caller();
-
-		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		assert!(balance >= transferred_amount);
-		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
-		// verify initial balance
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
-
+		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		if !T::XcmReserveTransferFilter::contains(&(origin_location, assets.clone().into_inner())) {
+		if !T::XcmReserveTransferFilter::contains(&(
+			origin_location.clone(),
+			assets.clone().into_inner(),
+		)) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&origin_location,
+			&destination,
+			FeeReason::ChargeFees,
+		);
+
+		match &asset.fun {
+			Fungible(amount) => {
+				// Add transferred_amount to origin
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					&Asset { fun: Fungible(*amount), id: asset.id.clone() },
+					&origin_location,
+					None,
+				)
+				.map_err(|error| {
+					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+			},
+			NonFungible(_instance) => {
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					&asset,
+					&origin_location,
+					None,
+				)
+				.map_err(|error| {
+					tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+			},
+		};
+
 		let recipient = [0u8; 32];
-		let versioned_dest: VersionedLocation = destination.into();
+		let versioned_dest: VersionedLocation = destination.clone().into();
 		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
-	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
-	verify {
-		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+
+		#[extrinsic_call]
+		_(
+			send_origin,
+			Box::new(versioned_dest),
+			Box::new(versioned_beneficiary),
+			Box::new(versioned_assets),
+			0,
+		);
+
+		match &asset.fun {
+			Fungible(amount) => {
+				assert_ok!(<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::withdraw_asset(
+					&Asset { fun: Fungible(*amount), id: asset.id },
+					&destination,
+					None,
+				));
+			},
+			NonFungible(_instance) => {
+				assert_ok!(<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::withdraw_asset(
+					&asset,
+					&destination,
+					None,
+				));
+			},
+		};
+
+		Ok(())
 	}
 
-	transfer_assets {
-		let (assets, fee_index, destination, verify) = T::set_up_complex_asset_transfer().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
-		)?;
+	#[benchmark]
+	fn transfer_assets() -> Result<(), BenchmarkError> {
+		let (assets, _fee_index, destination, verify_fn) = T::set_up_complex_asset_transfer()
+			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let recipient = [0u8; 32];
@@ -185,13 +280,32 @@ benchmarks! {
 		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
-	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0, WeightLimit::Unlimited)
-	verify {
+
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_dest.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
+
+		#[extrinsic_call]
+		_(
+			send_origin,
+			Box::new(versioned_dest),
+			Box::new(versioned_beneficiary),
+			Box::new(versioned_assets),
+			0,
+			WeightLimit::Unlimited,
+		);
+
 		// run provided verification function
-		verify();
+		verify_fn();
+		Ok(())
 	}
 
-	execute {
+	#[benchmark]
+	fn execute() -> Result<(), BenchmarkError> {
 		let execute_origin =
 			T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let origin_location = T::ExecuteXcmOrigin::try_origin(execute_origin.clone())
@@ -201,132 +315,286 @@ benchmarks! {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 		let versioned_msg = VersionedXcm::from(msg);
-	}: _<RuntimeOrigin<T>>(execute_origin, Box::new(versioned_msg), Weight::MAX)
 
-	force_xcm_version {
-		let loc = T::reachable_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
-		)?;
+		#[extrinsic_call]
+		_(execute_origin as RuntimeOrigin<T>, Box::new(versioned_msg), Weight::MAX);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_xcm_version() -> Result<(), BenchmarkError> {
+		let loc = T::reachable_dest()
+			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let xcm_version = 2;
-	}: _(RawOrigin::Root, Box::new(loc), xcm_version)
 
-	force_default_xcm_version {}: _(RawOrigin::Root, Some(2))
+		#[extrinsic_call]
+		_(RawOrigin::Root, Box::new(loc), xcm_version);
 
-	force_subscribe_version_notify {
-		let versioned_loc: VersionedLocation = T::reachable_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
-		)?
-		.into();
-	}: _(RawOrigin::Root, Box::new(versioned_loc))
+		Ok(())
+	}
 
-	force_unsubscribe_version_notify {
-		let loc = T::reachable_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
-		)?;
+	#[benchmark]
+	fn force_default_xcm_version() {
+		#[extrinsic_call]
+		_(RawOrigin::Root, Some(2))
+	}
+
+	#[benchmark]
+	fn force_subscribe_version_notify() -> Result<(), BenchmarkError> {
+		let versioned_loc: VersionedLocation = T::reachable_dest()
+			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
+			.into();
+
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_loc.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, Box::new(versioned_loc));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_unsubscribe_version_notify() -> Result<(), BenchmarkError> {
+		let loc = T::reachable_dest()
+			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let versioned_loc: VersionedLocation = loc.clone().into();
+
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_loc.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
+
 		let _ = crate::Pallet::<T>::request_version_notify(loc);
-	}: _(RawOrigin::Root, Box::new(versioned_loc))
 
-	force_suspension {}: _(RawOrigin::Root, true)
+		#[extrinsic_call]
+		_(RawOrigin::Root, Box::new(versioned_loc));
 
-	migrate_supported_version {
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_suspension() {
+		#[extrinsic_call]
+		_(RawOrigin::Root, true)
+	}
+
+	#[benchmark]
+	fn migrate_supported_version() {
 		let old_version = XCM_VERSION - 1;
 		let loc = VersionedLocation::from(Location::from(Parent));
 		SupportedVersion::<T>::insert(old_version, loc, old_version);
-	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateSupportedVersion, Weight::zero());
+
+		#[block]
+		{
+			crate::Pallet::<T>::check_xcm_version_change(
+				VersionMigrationStage::MigrateSupportedVersion,
+				Weight::zero(),
+			);
+		}
 	}
 
-	migrate_version_notifiers {
+	#[benchmark]
+	fn migrate_version_notifiers() {
 		let old_version = XCM_VERSION - 1;
 		let loc = VersionedLocation::from(Location::from(Parent));
 		VersionNotifiers::<T>::insert(old_version, loc, 0);
-	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateVersionNotifiers, Weight::zero());
+
+		#[block]
+		{
+			crate::Pallet::<T>::check_xcm_version_change(
+				VersionMigrationStage::MigrateVersionNotifiers,
+				Weight::zero(),
+			);
+		}
 	}
 
-	already_notified_target {
-		let loc = T::reachable_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(T::DbWeight::get().reads(1))),
-		)?;
+	#[benchmark]
+	fn already_notified_target() -> Result<(), BenchmarkError> {
+		let loc = T::reachable_dest().ok_or(BenchmarkError::Override(
+			BenchmarkResult::from_weight(T::DbWeight::get().reads(1)),
+		))?;
 		let loc = VersionedLocation::from(loc);
 		let current_version = T::AdvertisedXcmVersion::get();
-		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), current_version));
-	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
+		VersionNotifyTargets::<T>::insert(
+			current_version,
+			loc,
+			(0, Weight::zero(), current_version),
+		);
+
+		#[block]
+		{
+			crate::Pallet::<T>::check_xcm_version_change(
+				VersionMigrationStage::NotifyCurrentTargets(None),
+				Weight::zero(),
+			);
+		}
+
+		Ok(())
 	}
 
-	notify_current_targets {
-		let loc = T::reachable_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(T::DbWeight::get().reads_writes(1, 3))),
-		)?;
+	#[benchmark]
+	fn notify_current_targets() -> Result<(), BenchmarkError> {
+		let loc = T::reachable_dest().ok_or(BenchmarkError::Override(
+			BenchmarkResult::from_weight(T::DbWeight::get().reads_writes(1, 3)),
+		))?;
 		let loc = VersionedLocation::from(loc);
 		let current_version = T::AdvertisedXcmVersion::get();
 		let old_version = current_version - 1;
 		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), old_version));
-	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
-	}
 
-	notify_target_migration_fail {
-		let bad_loc: v2::MultiLocation = v2::Junction::Plurality {
-			id: v2::BodyId::Named(WeakBoundedVec::<u8, ConstU32<32>>::try_from(vec![0; 32])
-				.expect("vec has a length of 32 bits; qed")),
-			part: v2::BodyPart::Voice,
+		#[block]
+		{
+			crate::Pallet::<T>::check_xcm_version_change(
+				VersionMigrationStage::NotifyCurrentTargets(None),
+				Weight::zero(),
+			);
 		}
-		.into();
-		let bad_loc = VersionedLocation::from(bad_loc);
-		let current_version = T::AdvertisedXcmVersion::get();
-		VersionNotifyTargets::<T>::insert(current_version, bad_loc, (0, Weight::zero(), current_version));
-	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
+
+		Ok(())
 	}
 
-	migrate_version_notify_targets {
+	#[benchmark]
+	fn notify_target_migration_fail() {
+		let newer_xcm_version = xcm::prelude::XCM_VERSION;
+		let older_xcm_version = newer_xcm_version - 1;
+		let bad_location: Location = Plurality { id: BodyId::Unit, part: BodyPart::Voice }.into();
+		let bad_location = VersionedLocation::from(bad_location)
+			.into_version(older_xcm_version)
+			.expect("Version convertion should work");
+		let current_version = T::AdvertisedXcmVersion::get();
+		VersionNotifyTargets::<T>::insert(
+			current_version,
+			bad_location,
+			(0, Weight::zero(), current_version),
+		);
+
+		#[block]
+		{
+			crate::Pallet::<T>::check_xcm_version_change(
+				VersionMigrationStage::MigrateAndNotifyOldTargets,
+				Weight::zero(),
+			);
+		}
+	}
+
+	#[benchmark]
+	fn migrate_version_notify_targets() {
 		let current_version = T::AdvertisedXcmVersion::get();
 		let old_version = current_version - 1;
 		let loc = VersionedLocation::from(Location::from(Parent));
 		VersionNotifyTargets::<T>::insert(old_version, loc, (0, Weight::zero(), current_version));
-	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
+
+		#[block]
+		{
+			crate::Pallet::<T>::check_xcm_version_change(
+				VersionMigrationStage::MigrateAndNotifyOldTargets,
+				Weight::zero(),
+			);
+		}
 	}
 
-	migrate_and_notify_old_targets {
-		let loc = T::reachable_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(T::DbWeight::get().reads_writes(1, 3))),
-		)?;
+	#[benchmark]
+	fn migrate_and_notify_old_targets() -> Result<(), BenchmarkError> {
+		let loc = T::reachable_dest().ok_or(BenchmarkError::Override(
+			BenchmarkResult::from_weight(T::DbWeight::get().reads_writes(1, 3)),
+		))?;
 		let loc = VersionedLocation::from(loc);
 		let old_version = T::AdvertisedXcmVersion::get() - 1;
 		VersionNotifyTargets::<T>::insert(old_version, loc, (0, Weight::zero(), old_version));
-	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
+
+		#[block]
+		{
+			crate::Pallet::<T>::check_xcm_version_change(
+				VersionMigrationStage::MigrateAndNotifyOldTargets,
+				Weight::zero(),
+			);
+		}
+
+		Ok(())
 	}
 
-	new_query {
+	#[benchmark]
+	fn new_query() {
 		let responder = Location::from(Parent);
 		let timeout = 1u32.into();
 		let match_querier = Location::from(Here);
-	}: {
-		crate::Pallet::<T>::new_query(responder, timeout, match_querier);
+
+		#[block]
+		{
+			crate::Pallet::<T>::new_query(responder, timeout, match_querier);
+		}
 	}
 
-	take_response {
+	#[benchmark]
+	fn take_response() {
 		let responder = Location::from(Parent);
 		let timeout = 1u32.into();
 		let match_querier = Location::from(Here);
 		let query_id = crate::Pallet::<T>::new_query(responder, timeout, match_querier);
-		let infos = (0 .. xcm::v3::MaxPalletsInfo::get()).map(|_| PalletInfo::new(
-			u32::MAX,
-			(0..xcm::v3::MaxPalletNameLen::get()).map(|_| 97u8).collect::<Vec<_>>().try_into().unwrap(),
-			(0..xcm::v3::MaxPalletNameLen::get()).map(|_| 97u8).collect::<Vec<_>>().try_into().unwrap(),
-			u32::MAX,
-			u32::MAX,
-			u32::MAX,
-		).unwrap()).collect::<Vec<_>>();
-		crate::Pallet::<T>::expect_response(query_id, Response::PalletsInfo(infos.try_into().unwrap()));
+		let infos = (0..xcm::v3::MaxPalletsInfo::get())
+			.map(|_| {
+				PalletInfo::new(
+					u32::MAX,
+					(0..xcm::v3::MaxPalletNameLen::get())
+						.map(|_| 97u8)
+						.collect::<Vec<_>>()
+						.try_into()
+						.unwrap(),
+					(0..xcm::v3::MaxPalletNameLen::get())
+						.map(|_| 97u8)
+						.collect::<Vec<_>>()
+						.try_into()
+						.unwrap(),
+					u32::MAX,
+					u32::MAX,
+					u32::MAX,
+				)
+				.unwrap()
+			})
+			.collect::<Vec<_>>();
+		crate::Pallet::<T>::expect_response(
+			query_id,
+			Response::PalletsInfo(infos.try_into().unwrap()),
+		);
 
-	}: {
-		<crate::Pallet::<T> as QueryHandler>::take_response(query_id);
+		#[block]
+		{
+			<crate::Pallet<T> as QueryHandler>::take_response(query_id);
+		}
+	}
+
+	#[benchmark]
+	fn claim_assets() -> Result<(), BenchmarkError> {
+		let claim_origin = RawOrigin::Signed(whitelisted_caller());
+		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into())
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let asset: Asset = T::get_asset();
+		// Trap assets for claiming later
+		crate::Pallet::<T>::drop_assets(
+			&claim_location,
+			asset.clone().into(),
+			&XcmContext { origin: None, message_id: [0u8; 32], topic: None },
+		);
+		let versioned_assets = VersionedAssets::from(Assets::from(asset));
+
+		#[extrinsic_call]
+		_(
+			claim_origin,
+			Box::new(versioned_assets),
+			Box::new(VersionedLocation::from(claim_location)),
+		);
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(

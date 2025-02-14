@@ -72,7 +72,7 @@ mod tests {
 		mod system_pallets {
 			use super::*;
 
-			#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 			impl frame_system::Config for Runtime {
 				type Block = MockBlock<Self>;
 				type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
@@ -96,6 +96,7 @@ mod tests {
 				>;
 				type WeightInfo = ();
 				type DmpQueue = frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
+				type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 			}
 
 			impl parachain_info::Config for Runtime {}
@@ -110,12 +111,11 @@ mod tests {
 				type DisabledValidators = ();
 				type MaxAuthorities = ConstU32<100_000>;
 				type AllowMultipleBlocksPerSlot = ConstBool<false>;
-				#[cfg(feature = "experimental")]
 				type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
 			}
 
 			#[docify::export(timestamp)]
-			#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig as pallet_timestamp::DefaultConfig)]
+			#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 			impl pallet_timestamp::Config for Runtime {}
 
 			impl cumulus_pallet_aura_ext::Config for Runtime {}

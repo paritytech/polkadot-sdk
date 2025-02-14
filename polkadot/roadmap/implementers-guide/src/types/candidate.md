@@ -20,12 +20,8 @@ struct ParaId(u32);
 
 ## Candidate Receipt
 
-Much info in a [`FullCandidateReceipt`](#full-candidate-receipt) is duplicated from the relay-chain state. When the
-corresponding relay-chain state is considered widely available, the Candidate Receipt should be favored over the
-`FullCandidateReceipt`.
-
-Examples of situations where the state is readily available includes within the scope of work done by subsystems working
-on a given relay-parent, or within the logic of the runtime importing a backed candidate.
+Compact representation of the result of a validation. This is what validators
+receive from collators, together with the PoV.
 
 ```rust
 /// A candidate-receipt.
@@ -34,24 +30,6 @@ struct CandidateReceipt {
 	descriptor: CandidateDescriptor,
 	/// The hash of the encoded commitments made as a result of candidate execution.
 	commitments_hash: Hash,
-}
-```
-
-## Full Candidate Receipt
-
-This is the full receipt type. The `PersistedValidationData` are technically redundant with the `inner.relay_parent`,
-which uniquely describes the block in the blockchain from whose state these values are derived. The
-[`CandidateReceipt`](#candidate-receipt) variant is often used instead for this reason.
-
-However, the Full Candidate Receipt type is useful as a means of avoiding the implicit dependency on availability of old
-blockchain state. In situations such as availability and approval, having the full description of the candidate within a
-self-contained struct is convenient.
-
-```rust
-/// All data pertaining to the execution of a para candidate.
-struct FullCandidateReceipt {
-	inner: CandidateReceipt,
-	validation_data: PeristedValidationData,
 }
 ```
 

@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Introduce a new dispatchable function `set_partial_params` in `pallet-core-fellowship`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds a new dispatchable function `set_partial_params` 
+      to update config with multiple arguments without duplicating the 
+      fields that does not need to update.
+
+crates:
+  - name: pallet-core-fellowship
+    bump: major
+  - name: collectives-westend-runtime
+    bump: patch

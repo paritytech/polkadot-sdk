@@ -1,0 +1,11 @@
+title: "Balances: add failsafe for consumer ref underflow"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Pallet balances now handles the case that historic accounts violate a invariant that they should have a consumer ref on `reserved > 0` balance.  
+      This disallows such accounts from reaping and should prevent TI from getting messed up even more.
+
+crates:
+  - name: pallet-balances
+    bump: patch

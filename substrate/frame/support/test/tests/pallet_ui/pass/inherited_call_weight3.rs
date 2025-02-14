@@ -18,7 +18,7 @@
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 
-// If, for whatever reason, you dont to not use a `WeightInfo` trait - it will still work.
+// If, for whatever reason, you don't to not use a `WeightInfo` trait - it will still work.
 struct Impl;
 
 impl Impl {

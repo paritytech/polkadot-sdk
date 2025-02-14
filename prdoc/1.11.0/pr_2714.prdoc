@@ -1,0 +1,23 @@
+title: GenesisConfig presets for runtime
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        The runtime now can provide a number of predefined presets of `RuntimeGenesisConfig` struct. This presets are intended to be used in different deployments, e.g.: `local`, `staging`, etc, and should be included into the corresponding chain-specs.
+        Having `GenesisConfig` presets in runtime allows to fully decouple node from runtime types (the problem is described in #1984).
+
+        Summary of changes:
+        - The `GenesisBuilder` API was adjusted to enable this functionality,
+        - (Breaking change) Old `create_default_config` method was removed, `build_config` was renamed to `build_state`. As a consequence a node won't be able to interact with genesis config for older runtimes. The cleanup was made for sake of API simplicity. 
+
+  - audience: Node Dev
+    description: |
+        The `ChainSpecBuilder` is extended with `with_genesis_config_preset_name` method which allows to build chain-spec using named preset provided by the runtime. 
+
+crates:
+  - name: sp-genesis-builder
+    bump: minor
+  - name: staging-chain-spec-builder
+    bump: major
+  - name: sc-chain-spec
+    bump: major

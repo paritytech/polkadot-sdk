@@ -1,0 +1,16 @@
+title: "polkadot_runtime_parachains::coretime: Expose `MaxXcmTransactWeight`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Expose `MaxXcmTransactWeight` via the `Config` trait. This exposes the
+      possibility for runtime implementors to set the maximum weight required
+      for the calls on the coretime chain. Basically it needs to be set to
+      `max_weight(set_leases, reserve, notify_core_count)` where `set_leases`
+      etc are the calls on the coretime chain. This ensures that these XCM
+      transact calls send by the relay chain coretime pallet to the coretime
+      chain can be dispatched.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: major

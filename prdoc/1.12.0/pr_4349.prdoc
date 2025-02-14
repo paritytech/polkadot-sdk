@@ -1,0 +1,9 @@
+title: "Store Header in RemoteExt Snapshot"
+
+doc:
+  - audience: Runtime Dev
+    description: Replaces the block hash in the RemoteExt snapshot with the block header.
+
+crates:
+  - name: frame-remote-externalities
+    bump: major

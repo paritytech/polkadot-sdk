@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Retrying an execution on failed runtime construction
+
+doc:
+  - audience: Node Dev
+    description: |
+      If a runtime construction error happened during the execution request, then the artifact is re-prepared 
+      and the execution request is retried at most once. See also the related issue.
+
+crates:
+  - name: polkadot-node-core-candidate-validation
+  - name: polkadot-node-core-pvf
+  - name: polkadot-node-core-pvf-execute-worker
+  - name: polkadot-node-core-pvf-common

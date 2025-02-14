@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Update Treasury to Support Block Number Provider
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The goal of this PR is to have the treasury pallet work on a parachain which does not produce blocks on a regular schedule, thus can use the relay chain as a block provider. Because blocks are not produced regularly, we cannot make the assumption that block number increases monotonically, and thus have new logic to handle multiple spend periods passing between blocks. To migrate existing treasury implementations, simply add `type BlockNumberProvider = System` to have the same behavior as before.
+
+crates: 
+- name: pallet-treasury
+  bump: major
+- name: pallet-bounties
+  bump: minor
+- name: pallet-child-bounties
+  bump: minor

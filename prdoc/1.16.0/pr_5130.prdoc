@@ -1,0 +1,40 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add SingleAssetExchangeAdapter
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      SingleAssetExchangeAdapter is an adapter in xcm-builder that can be used
+      to configure the AssetExchanger in XCM to use pallet-asset-conversion,
+      or any other type that implements the `SwapCredit` and `QuotePrice` traits.
+      It can be configured as follows:
+      ```rust
+      pub type AssetExchanger = SingleAssetExchangeAdapter<
+        // pallet-assets-conversion, as named in `construct_runtime`.
+        AssetConversion,
+        // The fungibles implementation that brings together all assets in pools.
+        // This may be created using `fungible::UnionOf` to mix the native token
+        // with more tokens.
+        Fungibles,
+        // The matcher for making sure which assets should be handled by this exchanger.
+        Matcher,
+      >;
+      ```
+      It's called "single asset" since it will only allow exchanging one asset for another.
+      It will error out if more than one asset tries to be exchanged.
+
+      Also, a new method was added to the `xcm_executor::traits::AssetExchange` trait:
+      `quote_exchange_price`. This is used to get the exchange price between two asset collections.
+      If you were using the trait, you now need to also implement this new function.
+
+crates:
+  - name: staging-xcm-executor
+    bump: major
+  - name: staging-xcm-builder
+    bump: minor
+  - name: pallet-asset-conversion
+    bump: minor
+  - name: cumulus-primitives-utility
+    bump: minor

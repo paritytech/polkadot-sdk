@@ -17,6 +17,7 @@
 
 use crate::*;
 
+use alloc::vec;
 use codec::DecodeAll;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Hooks;

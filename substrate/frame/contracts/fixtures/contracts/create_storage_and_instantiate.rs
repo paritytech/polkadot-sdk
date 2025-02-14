@@ -40,7 +40,6 @@ pub extern "C" fn call() {
 	let mut address = [0u8; 32];
 	let address = &mut &mut address[..];
 
-	#[allow(deprecated)]
 	api::instantiate_v2(
 		code_hash,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.

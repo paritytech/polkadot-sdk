@@ -19,12 +19,12 @@
 
 #![cfg(test)]
 
+use alloc::collections::btree_map::BTreeMap;
 use sp_arithmetic::{
 	traits::{One, SaturatedConversion, Zero},
 	PerThing,
 };
 use sp_runtime::assert_eq_error_rate;
-use sp_std::collections::btree_map::BTreeMap;
 
 use crate::{seq_phragmen, Assignment, ElectionResult, ExtendedBalance, PerThing128, VoteWeight};
 
@@ -131,7 +131,7 @@ where
 		if let Some(winner) = candidates
 			.iter_mut()
 			.filter(|c| !c.elected)
-			.min_by(|x, y| x.score.partial_cmp(&y.score).unwrap_or(sp_std::cmp::Ordering::Equal))
+			.min_by(|x, y| x.score.partial_cmp(&y.score).unwrap_or(core::cmp::Ordering::Equal))
 		{
 			winner.elected = true;
 			for n in &mut voters {
@@ -226,10 +226,10 @@ where
 	if backing_backed_stake.len() > 0 {
 		let max_stake = backing_backed_stake
 			.iter()
-			.max_by(|x, y| x.partial_cmp(&y).unwrap_or(sp_std::cmp::Ordering::Equal))
+			.max_by(|x, y| x.partial_cmp(&y).unwrap_or(core::cmp::Ordering::Equal))
 			.expect("vector with positive length will have a max; qed");
 		let min_stake = backed_stakes_iter
-			.min_by(|x, y| x.partial_cmp(&y).unwrap_or(sp_std::cmp::Ordering::Equal))
+			.min_by(|x, y| x.partial_cmp(&y).unwrap_or(core::cmp::Ordering::Equal))
 			.expect("iterator with positive length will have a min; qed");
 
 		difference = max_stake - min_stake;
@@ -254,7 +254,7 @@ where
 		support_map
 			.get(&x.0)
 			.and_then(|x| support_map.get(&y.0).and_then(|y| x.total.partial_cmp(&y.total)))
-			.unwrap_or(sp_std::cmp::Ordering::Equal)
+			.unwrap_or(core::cmp::Ordering::Equal)
 	});
 
 	let mut cumulative_stake = 0.0;

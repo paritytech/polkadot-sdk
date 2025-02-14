@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use polkadot_core_primitives::{Block, Hash, Header};
 use std::{
@@ -48,8 +48,8 @@ pub async fn wait_n_finalized_blocks(n: usize, url: &str) {
 
 /// Read the WS address from the output.
 ///
-/// This is hack to get the actual binded sockaddr because
-/// polkadot assigns a random port if the specified port was already binded.
+/// This is hack to get the actual bound sockaddr because
+/// polkadot assigns a random port if the specified port was already bound.
 ///
 /// You must call
 /// `Command::new("cmd").stdout(process::Stdio::piped()).stderr(process::Stdio::piped())`

@@ -28,12 +28,8 @@ pub struct TypeValueDef {
 	pub ident: syn::Ident,
 	/// The type return by Get.
 	pub type_: Box<syn::Type>,
-	/// The block returning the value to get
-	pub block: Box<syn::Block>,
 	/// If type value is generic over `T` (or `T` and `I` for instantiable pallet)
 	pub is_generic: bool,
-	/// A set of usage of instance, must be check for consistency with config.
-	pub instances: Vec<helper::InstanceUsage>,
 	/// The where clause of the function.
 	pub where_clause: Option<syn::WhereClause>,
 	/// The span of the pallet::type_value attribute.
@@ -90,7 +86,6 @@ impl TypeValueDef {
 
 		let vis = item.vis.clone();
 		let ident = item.sig.ident.clone();
-		let block = item.block.clone();
 		let type_ = match item.sig.output.clone() {
 			syn::ReturnType::Type(_, type_) => type_,
 			syn::ReturnType::Default => {
@@ -99,25 +94,11 @@ impl TypeValueDef {
 			},
 		};
 
-		let mut instances = vec![];
-		if let Some(usage) = helper::check_type_value_gen(&item.sig.generics, item.sig.span())? {
-			instances.push(usage);
-		}
+		helper::check_type_value_gen(&item.sig.generics, item.sig.span())?;
 
 		let is_generic = item.sig.generics.type_params().count() > 0;
 		let where_clause = item.sig.generics.where_clause.clone();
 
-		Ok(TypeValueDef {
-			attr_span,
-			index,
-			is_generic,
-			vis,
-			ident,
-			block,
-			type_,
-			instances,
-			where_clause,
-			docs,
-		})
+		Ok(TypeValueDef { attr_span, index, is_generic, vis, ident, type_, where_clause, docs })
 	}
 }

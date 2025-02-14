@@ -76,7 +76,7 @@ pub struct DisputeSender<M> {
 	/// Value is the hash that was used for the query.
 	active_sessions: HashMap<SessionIndex, Hash>,
 
-	/// All ongoing dispute sendings this subsystem is aware of.
+	/// All ongoing dispute sending this subsystem is aware of.
 	///
 	/// Using an `IndexMap` so items can be iterated in the order of insertion.
 	disputes: IndexMap<CandidateHash, SendTask<M>>,
@@ -105,7 +105,7 @@ struct WaitForActiveDisputesState {
 
 #[overseer::contextbounds(DisputeDistribution, prefix = self::overseer)]
 impl<M: 'static + Send + Sync> DisputeSender<M> {
-	/// Create a new `DisputeSender` which can be used to start dispute sendings.
+	/// Create a new `DisputeSender` which can be used to start dispute sending.
 	pub fn new(tx: NestingSender<M, DisputeSenderMessage>, metrics: Metrics) -> Self {
 		Self {
 			active_heads: Vec::new(),
@@ -362,7 +362,7 @@ async fn get_active_session_indices<Context>(
 	runtime: &mut RuntimeInfo,
 	active_heads: &Vec<Hash>,
 ) -> Result<HashMap<SessionIndex, Hash>> {
-	let mut indeces = HashMap::new();
+	let mut indices = HashMap::new();
 	// Iterate all heads we track as active and fetch the child' session indices.
 	for head in active_heads {
 		let session_index = runtime.get_session_index_for_child(ctx.sender(), *head).await?;
@@ -372,9 +372,9 @@ async fn get_active_session_indices<Context>(
 		{
 			gum::debug!(target: LOG_TARGET, ?err, ?session_index, "Can't cache SessionInfo");
 		}
-		indeces.insert(session_index, *head);
+		indices.insert(session_index, *head);
 	}
-	Ok(indeces)
+	Ok(indices)
 }
 
 /// Retrieve Set of active disputes from the dispute coordinator.

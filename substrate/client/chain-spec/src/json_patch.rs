@@ -22,9 +22,10 @@ use serde_json::Value;
 
 /// Recursively merges two JSON objects, `a` and `b`, into a single object.
 ///
-/// If a key exists in both objects, the value from `b` will override the value from `a`.
-/// If a key exists in `b` with a `null` value, it will be removed from `a`.
+/// If a key exists in both objects, the value from `b` will override the value from `a` (also if
+/// value in `b` is `null`).
 /// If a key exists only in `b` and not in `a`, it will be added to `a`.
+/// No keys will be removed from `a`.
 ///
 /// # Arguments
 ///
@@ -34,11 +35,7 @@ pub fn merge(a: &mut Value, b: Value) {
 	match (a, b) {
 		(Value::Object(a), Value::Object(b)) =>
 			for (k, v) in b {
-				if v.is_null() {
-					a.remove(&k);
-				} else {
-					merge(a.entry(k).or_insert(Value::Null), v);
-				}
+				merge(a.entry(k).or_insert(Value::Null), v);
 			},
 		(a, b) => *a = b,
 	};
@@ -166,7 +163,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test6_patch_removes_keys_if_null() {
+	fn test6_patch_does_not_remove_keys_if_null() {
 		let mut j1 = json!({
 			"a": {
 				"name": "xxx",
@@ -186,6 +183,16 @@ mod tests {
 		});
 
 		merge(&mut j1, j2);
-		assert_eq!(j1, json!({ "a": {"name":"xxx", "value":456, "enum_variant_2": 32 }}));
+		assert_eq!(
+			j1,
+			json!({
+				"a": {
+					"name":"xxx",
+					"value":456,
+					"enum_variant_1": null,
+					"enum_variant_2": 32
+				}
+			})
+		);
 	}
 }

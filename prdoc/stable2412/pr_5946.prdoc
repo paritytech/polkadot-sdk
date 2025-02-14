@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[FRAME] fix: Do not emit `Issued { amount: 0 }` event"
+
+doc:
+  - audience:
+    - Runtime Dev
+    - Runtime User
+    description: |
+      Filter out `Issued` events in `pallet-balances` module when its balance amount is zero.
+
+crates:
+  - name: pallet-balances
+    bump: patch

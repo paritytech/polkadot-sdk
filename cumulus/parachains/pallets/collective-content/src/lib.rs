@@ -46,7 +46,6 @@ pub use weights::WeightInfo;
 
 use frame_support::{traits::schedule::DispatchTime, BoundedVec};
 use sp_core::ConstU32;
-use sp_std::prelude::*;
 
 /// IPFS compatible CID.
 // Worst case 2 bytes base and codec, 2 bytes hash type and size, 64 bytes hash digest.
@@ -59,7 +58,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::BadOrigin, Saturating};
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]

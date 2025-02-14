@@ -31,28 +31,37 @@
 
 #![deny(missing_docs)]
 
-use futures::{channel::oneshot, future::FutureExt, join, select};
-use parity_scale_codec::Encode;
+use codec::Encode;
+use error::{Error, Result};
+use futures::{channel::oneshot, future::FutureExt, select};
 use polkadot_node_primitives::{
 	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
 	SubmitCollationParams,
 };
 use polkadot_node_subsystem::{
-	messages::{CollationGenerationMessage, CollatorProtocolMessage},
-	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
-	SubsystemContext, SubsystemError, SubsystemResult,
+	messages::{CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage},
+	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
+	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_async_backing_params, request_availability_cores, request_persisted_validation_data,
-	request_validation_code, request_validation_code_hash, request_validators,
+	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
+	request_validation_code_hash, request_validators,
+	runtime::{request_node_features, ClaimQueueSnapshot},
 };
 use polkadot_primitives::{
-	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
-	CollatorPair, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
+	collator_signature_payload,
+	node_features::FeatureIndex,
+	vstaging::{
+		transpose_claim_queue, CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt,
+		ClaimQueueOffset, CommittedCandidateReceiptV2, TransposedClaimQueue,
+	},
+	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
 	ValidationCodeHash,
 };
+use schnellru::{ByLength, LruMap};
 use sp_core::crypto::Pair;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 mod error;
 
@@ -67,6 +76,7 @@ const LOG_TARGET: &'static str = "parachain::collation-generation";
 /// Collation Generation Subsystem
 pub struct CollationGenerationSubsystem {
 	config: Option<Arc<CollationGenerationConfig>>,
+	session_info_cache: SessionInfoCache,
 	metrics: Metrics,
 }
 
@@ -74,7 +84,7 @@ pub struct CollationGenerationSubsystem {
 impl CollationGenerationSubsystem {
 	/// Create a new instance of the `CollationGenerationSubsystem`.
 	pub fn new(metrics: Metrics) -> Self {
-		Self { config: None, metrics }
+		Self { config: None, metrics, session_info_cache: SessionInfoCache::new() }
 	}
 
 	/// Run this subsystem
@@ -115,19 +125,8 @@ impl CollationGenerationSubsystem {
 				activated,
 				..
 			}))) => {
-				// follow the procedure from the guide
-				if let Some(config) = &self.config {
-					let metrics = self.metrics.clone();
-					if let Err(err) = handle_new_activations(
-						config.clone(),
-						activated.into_iter().map(|v| v.hash),
-						ctx,
-						metrics,
-					)
-					.await
-					{
-						gum::warn!(target: LOG_TARGET, err = ?err, "failed to handle new activations");
-					}
+				if let Err(err) = self.handle_new_activation(activated.map(|v| v.hash), ctx).await {
+					gum::warn!(target: LOG_TARGET, err = ?err, "failed to handle new activation");
 				}
 
 				false
@@ -146,24 +145,14 @@ impl CollationGenerationSubsystem {
 			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::Reinitialize(config),
 			}) => {
-				if self.config.is_none() {
-					gum::error!(target: LOG_TARGET, "no initial initialization");
-				} else {
-					self.config = Some(Arc::new(config));
-				}
+				self.config = Some(Arc::new(config));
 				false
 			},
 			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(params),
 			}) => {
-				if let Some(config) = &self.config {
-					if let Err(err) =
-						handle_submit_collation(params, config, ctx, &self.metrics).await
-					{
-						gum::error!(target: LOG_TARGET, ?err, "Failed to submit collation");
-					}
-				} else {
-					gum::error!(target: LOG_TARGET, "Collation submitted before initialization");
+				if let Err(err) = self.handle_submit_collation(params, ctx).await {
+					gum::error!(target: LOG_TARGET, ?err, "Failed to submit collation");
 				}
 
 				false
@@ -180,6 +169,306 @@ impl CollationGenerationSubsystem {
 			},
 		}
 	}
+
+	async fn handle_submit_collation<Context>(
+		&mut self,
+		params: SubmitCollationParams,
+		ctx: &mut Context,
+	) -> Result<()> {
+		let Some(config) = &self.config else {
+			return Err(Error::SubmittedBeforeInit);
+		};
+		let _timer = self.metrics.time_submit_collation();
+
+		let SubmitCollationParams {
+			relay_parent,
+			collation,
+			parent_head,
+			validation_code_hash,
+			result_sender,
+			core_index,
+		} = params;
+
+		let mut validation_data = match request_persisted_validation_data(
+			relay_parent,
+			config.para_id,
+			OccupiedCoreAssumption::TimedOut,
+			ctx.sender(),
+		)
+		.await
+		.await??
+		{
+			Some(v) => v,
+			None => {
+				gum::debug!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent,
+					our_para = %config.para_id,
+					"No validation data for para - does it exist at this relay-parent?",
+				);
+				return Ok(())
+			},
+		};
+
+		// We need to swap the parent-head data, but all other fields here will be correct.
+		validation_data.parent_head = parent_head;
+
+		let claim_queue = request_claim_queue(relay_parent, ctx.sender()).await.await??;
+
+		let session_index =
+			request_session_index_for_child(relay_parent, ctx.sender()).await.await??;
+
+		let session_info =
+			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
+		let collation = PreparedCollation {
+			collation,
+			relay_parent,
+			para_id: config.para_id,
+			validation_data,
+			validation_code_hash,
+			n_validators: session_info.n_validators,
+			core_index,
+			session_index,
+		};
+
+		construct_and_distribute_receipt(
+			collation,
+			config.key.clone(),
+			ctx.sender(),
+			result_sender,
+			&mut self.metrics,
+			session_info.v2_receipts,
+			&transpose_claim_queue(claim_queue),
+		)
+		.await?;
+
+		Ok(())
+	}
+
+	async fn handle_new_activation<Context>(
+		&mut self,
+		maybe_activated: Option<Hash>,
+		ctx: &mut Context,
+	) -> Result<()> {
+		let Some(config) = &self.config else {
+			return Ok(());
+		};
+
+		let Some(relay_parent) = maybe_activated else { return Ok(()) };
+
+		// If there is no collation function provided, bail out early.
+		// Important: Lookahead collator and slot based collator do not use `CollatorFn`.
+		if config.collator.is_none() {
+			return Ok(())
+		}
+
+		let para_id = config.para_id;
+
+		let _timer = self.metrics.time_new_activation();
+
+		let session_index =
+			request_session_index_for_child(relay_parent, ctx.sender()).await.await??;
+
+		let session_info =
+			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
+		let n_validators = session_info.n_validators;
+
+		let claim_queue =
+			ClaimQueueSnapshot::from(request_claim_queue(relay_parent, ctx.sender()).await.await??);
+
+		let assigned_cores = claim_queue
+			.iter_all_claims()
+			.filter_map(|(core_idx, para_ids)| {
+				para_ids.iter().any(|&para_id| para_id == config.para_id).then_some(*core_idx)
+			})
+			.collect::<Vec<_>>();
+
+		// Nothing to do if no core is assigned to us at any depth.
+		if assigned_cores.is_empty() {
+			return Ok(())
+		}
+
+		// We are being very optimistic here, but one of the cores could be pending availability
+		// for some more blocks, or even time out. We assume all cores are being freed.
+
+		let mut validation_data = match request_persisted_validation_data(
+			relay_parent,
+			para_id,
+			// Just use included assumption always. If there are no pending candidates it's a
+			// no-op.
+			OccupiedCoreAssumption::Included,
+			ctx.sender(),
+		)
+		.await
+		.await??
+		{
+			Some(v) => v,
+			None => {
+				gum::debug!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent,
+					our_para = %para_id,
+					"validation data is not available",
+				);
+				return Ok(())
+			},
+		};
+
+		let validation_code_hash = match request_validation_code_hash(
+			relay_parent,
+			para_id,
+			// Just use included assumption always. If there are no pending candidates it's a
+			// no-op.
+			OccupiedCoreAssumption::Included,
+			ctx.sender(),
+		)
+		.await
+		.await??
+		{
+			Some(v) => v,
+			None => {
+				gum::debug!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent,
+					our_para = %para_id,
+					"validation code hash is not found.",
+				);
+				return Ok(())
+			},
+		};
+
+		let task_config = config.clone();
+		let metrics = self.metrics.clone();
+		let mut task_sender = ctx.sender().clone();
+
+		ctx.spawn(
+			"chained-collation-builder",
+			Box::pin(async move {
+				let transposed_claim_queue = transpose_claim_queue(claim_queue.0.clone());
+
+				// Track used core indexes not to submit collations on the same core.
+				let mut used_cores = HashSet::new();
+
+				for i in 0..assigned_cores.len() {
+					// Get the collation.
+					let collator_fn = match task_config.collator.as_ref() {
+						Some(x) => x,
+						None => return,
+					};
+
+					let (collation, result_sender) =
+						match collator_fn(relay_parent, &validation_data).await {
+							Some(collation) => collation.into_inner(),
+							None => {
+								gum::debug!(
+									target: LOG_TARGET,
+									?para_id,
+									"collator returned no collation on collate",
+								);
+								return
+							},
+						};
+
+					// Use the core_selector method from CandidateCommitments to extract
+					// CoreSelector and ClaimQueueOffset.
+					let mut commitments = CandidateCommitments::default();
+					commitments.upward_messages = collation.upward_messages.clone();
+
+					let (cs_index, cq_offset) = match commitments.core_selector() {
+						// Use the CoreSelector's index if provided.
+						Ok(Some((sel, off))) => (sel.0 as usize, off),
+						// Fallback to the sequential index if no CoreSelector is provided.
+						Ok(None) => (i, ClaimQueueOffset(0)),
+						Err(err) => {
+							gum::debug!(
+								target: LOG_TARGET,
+								?para_id,
+								"error processing UMP signals: {}",
+								err
+							);
+							return
+						},
+					};
+
+					// Identify the cores to build collations on using the given claim queue offset.
+					let cores_to_build_on = claim_queue
+						.iter_claims_at_depth(cq_offset.0 as usize)
+						.filter_map(|(core_idx, para_id)| {
+							(para_id == task_config.para_id).then_some(core_idx)
+						})
+						.collect::<Vec<_>>();
+
+					if cores_to_build_on.is_empty() {
+						gum::debug!(
+							target: LOG_TARGET,
+							?para_id,
+							"no core is assigned to para at depth {}",
+							cq_offset.0,
+						);
+						return
+					}
+
+					let descriptor_core_index =
+						cores_to_build_on[cs_index % cores_to_build_on.len()];
+
+					// Ensure the core index has not been used before.
+					if used_cores.contains(&descriptor_core_index.0) {
+						gum::warn!(
+							target: LOG_TARGET,
+							?para_id,
+							"parachain repeatedly selected the same core index: {}",
+							descriptor_core_index.0,
+						);
+						return
+					}
+
+					used_cores.insert(descriptor_core_index.0);
+					gum::trace!(
+						target: LOG_TARGET,
+						?para_id,
+						"selected core index: {}",
+						descriptor_core_index.0,
+					);
+
+					// Distribute the collation.
+					let parent_head = collation.head_data.clone();
+					if let Err(err) = construct_and_distribute_receipt(
+						PreparedCollation {
+							collation,
+							para_id,
+							relay_parent,
+							validation_data: validation_data.clone(),
+							validation_code_hash,
+							n_validators,
+							core_index: descriptor_core_index,
+							session_index,
+						},
+						task_config.key.clone(),
+						&mut task_sender,
+						result_sender,
+						&metrics,
+						session_info.v2_receipts,
+						&transposed_claim_queue,
+					)
+					.await
+					{
+						gum::error!(
+							target: LOG_TARGET,
+							"Failed to construct and distribute collation: {}",
+							err
+						);
+						return
+					}
+
+					// Chain the collations. All else stays the same as we build the chained
+					// collation on same relay parent.
+					validation_data.parent_head = parent_head;
+				}
+			}),
+		)?;
+
+		Ok(())
+	}
 }
 
 #[overseer::subsystem(CollationGeneration, error=SubsystemError, prefix=self::overseer)]
@@ -195,247 +484,46 @@ impl<Context> CollationGenerationSubsystem {
 	}
 }
 
-#[overseer::contextbounds(CollationGeneration, prefix = self::overseer)]
-async fn handle_new_activations<Context>(
-	config: Arc<CollationGenerationConfig>,
-	activated: impl IntoIterator<Item = Hash>,
-	ctx: &mut Context,
-	metrics: Metrics,
-) -> crate::error::Result<()> {
-	// follow the procedure from the guide:
-	// https://paritytech.github.io/polkadot-sdk/book/node/collators/collation-generation.html
-
-	if config.collator.is_none() {
-		return Ok(())
-	}
-
-	let _overall_timer = metrics.time_new_activations();
-
-	for relay_parent in activated {
-		let _relay_parent_timer = metrics.time_new_activations_relay_parent();
-
-		let (availability_cores, validators, async_backing_params) = join!(
-			request_availability_cores(relay_parent, ctx.sender()).await,
-			request_validators(relay_parent, ctx.sender()).await,
-			request_async_backing_params(relay_parent, ctx.sender()).await,
-		);
-
-		let availability_cores = availability_cores??;
-		let n_validators = validators??.len();
-		let async_backing_params = async_backing_params?.ok();
-
-		for (core_idx, core) in availability_cores.into_iter().enumerate() {
-			let _availability_core_timer = metrics.time_new_activations_availability_core();
-
-			let (scheduled_core, assumption) = match core {
-				CoreState::Scheduled(scheduled_core) =>
-					(scheduled_core, OccupiedCoreAssumption::Free),
-				CoreState::Occupied(occupied_core) => match async_backing_params {
-					Some(params) if params.max_candidate_depth >= 1 => {
-						// maximum candidate depth when building on top of a block
-						// pending availability is necessarily 1 - the depth of the
-						// pending block is 0 so the child has depth 1.
-
-						// TODO [now]: this assumes that next up == current.
-						// in practice we should only set `OccupiedCoreAssumption::Included`
-						// when the candidate occupying the core is also of the same para.
-						if let Some(scheduled) = occupied_core.next_up_on_available {
-							(scheduled, OccupiedCoreAssumption::Included)
-						} else {
-							continue
-						}
-					},
-					_ => {
-						gum::trace!(
-							target: LOG_TARGET,
-							core_idx = %core_idx,
-							relay_parent = ?relay_parent,
-							"core is occupied. Keep going.",
-						);
-						continue
-					},
-				},
-				CoreState::Free => {
-					gum::trace!(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						"core is free. Keep going.",
-					);
-					continue
-				},
-			};
-
-			if scheduled_core.para_id != config.para_id {
-				gum::trace!(
-					target: LOG_TARGET,
-					core_idx = %core_idx,
-					relay_parent = ?relay_parent,
-					our_para = %config.para_id,
-					their_para = %scheduled_core.para_id,
-					"core is not assigned to our para. Keep going.",
-				);
-				continue
-			}
-
-			// we get validation data and validation code synchronously for each core instead of
-			// within the subtask loop, because we have only a single mutable handle to the
-			// context, so the work can't really be distributed
-
-			let validation_data = match request_persisted_validation_data(
-				relay_parent,
-				scheduled_core.para_id,
-				assumption,
-				ctx.sender(),
-			)
-			.await
-			.await??
-			{
-				Some(v) => v,
-				None => {
-					gum::trace!(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						relay_parent = ?relay_parent,
-						our_para = %config.para_id,
-						their_para = %scheduled_core.para_id,
-						"validation data is not available",
-					);
-					continue
-				},
-			};
-
-			let validation_code_hash = match obtain_validation_code_hash_with_assumption(
-				relay_parent,
-				scheduled_core.para_id,
-				assumption,
-				ctx.sender(),
-			)
-			.await?
-			{
-				Some(v) => v,
-				None => {
-					gum::trace!(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						relay_parent = ?relay_parent,
-						our_para = %config.para_id,
-						their_para = %scheduled_core.para_id,
-						"validation code hash is not found.",
-					);
-					continue
-				},
-			};
-
-			let task_config = config.clone();
-			let metrics = metrics.clone();
-			let mut task_sender = ctx.sender().clone();
-			ctx.spawn(
-				"collation-builder",
-				Box::pin(async move {
-					let collator_fn = match task_config.collator.as_ref() {
-						Some(x) => x,
-						None => return,
-					};
-
-					let (collation, result_sender) =
-						match collator_fn(relay_parent, &validation_data).await {
-							Some(collation) => collation.into_inner(),
-							None => {
-								gum::debug!(
-									target: LOG_TARGET,
-									para_id = %scheduled_core.para_id,
-									"collator returned no collation on collate",
-								);
-								return
-							},
-						};
-
-					construct_and_distribute_receipt(
-						PreparedCollation {
-							collation,
-							para_id: scheduled_core.para_id,
-							relay_parent,
-							validation_data,
-							validation_code_hash,
-							n_validators,
-						},
-						task_config.key.clone(),
-						&mut task_sender,
-						result_sender,
-						&metrics,
-					)
-					.await;
-				}),
-			)?;
-		}
-	}
-
-	Ok(())
+#[derive(Clone)]
+struct PerSessionInfo {
+	v2_receipts: bool,
+	n_validators: usize,
 }
 
-#[overseer::contextbounds(CollationGeneration, prefix = self::overseer)]
-async fn handle_submit_collation<Context>(
-	params: SubmitCollationParams,
-	config: &CollationGenerationConfig,
-	ctx: &mut Context,
-	metrics: &Metrics,
-) -> crate::error::Result<()> {
-	let _timer = metrics.time_submit_collation();
+struct SessionInfoCache(LruMap<SessionIndex, PerSessionInfo>);
 
-	let SubmitCollationParams {
-		relay_parent,
-		collation,
-		parent_head,
-		validation_code_hash,
-		result_sender,
-	} = params;
+impl SessionInfoCache {
+	fn new() -> Self {
+		Self(LruMap::new(ByLength::new(2)))
+	}
 
-	let validators = request_validators(relay_parent, ctx.sender()).await.await??;
-	let n_validators = validators.len();
+	async fn get<Sender: SubsystemSender<RuntimeApiMessage>>(
+		&mut self,
+		relay_parent: Hash,
+		session_index: SessionIndex,
+		sender: &mut Sender,
+	) -> Result<PerSessionInfo> {
+		if let Some(info) = self.0.get(&session_index) {
+			return Ok(info.clone())
+		}
 
-	// We need to swap the parent-head data, but all other fields here will be correct.
-	let mut validation_data = match request_persisted_validation_data(
-		relay_parent,
-		config.para_id,
-		OccupiedCoreAssumption::TimedOut,
-		ctx.sender(),
-	)
-	.await
-	.await??
-	{
-		Some(v) => v,
-		None => {
-			gum::debug!(
-				target: LOG_TARGET,
-				relay_parent = ?relay_parent,
-				our_para = %config.para_id,
-				"No validation data for para - does it exist at this relay-parent?",
-			);
-			return Ok(())
-		},
-	};
+		let n_validators =
+			request_validators(relay_parent, &mut sender.clone()).await.await??.len();
 
-	validation_data.parent_head = parent_head;
+		let node_features = request_node_features(relay_parent, session_index, sender)
+			.await?
+			.unwrap_or(NodeFeatures::EMPTY);
 
-	let collation = PreparedCollation {
-		collation,
-		relay_parent,
-		para_id: config.para_id,
-		validation_data,
-		validation_code_hash,
-		n_validators,
-	};
-
-	construct_and_distribute_receipt(
-		collation,
-		config.key.clone(),
-		ctx.sender(),
-		result_sender,
-		metrics,
-	)
-	.await;
-
-	Ok(())
+		let info = PerSessionInfo {
+			v2_receipts: node_features
+				.get(FeatureIndex::CandidateReceiptV2 as usize)
+				.map(|b| *b)
+				.unwrap_or(false),
+			n_validators,
+		};
+		self.0.insert(session_index, info);
+		Ok(self.0.get(&session_index).expect("Just inserted").clone())
+	}
 }
 
 struct PreparedCollation {
@@ -445,6 +533,8 @@ struct PreparedCollation {
 	validation_data: PersistedValidationData,
 	validation_code_hash: ValidationCodeHash,
 	n_validators: usize,
+	core_index: CoreIndex,
+	session_index: SessionIndex,
 }
 
 /// Takes a prepared collation, along with its context, and produces a candidate receipt
@@ -455,7 +545,9 @@ async fn construct_and_distribute_receipt(
 	sender: &mut impl overseer::CollationGenerationSenderTrait,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
-) {
+	v2_receipts: bool,
+	transposed_claim_queue: &TransposedClaimQueue,
+) -> Result<()> {
 	let PreparedCollation {
 		collation,
 		para_id,
@@ -463,9 +555,12 @@ async fn construct_and_distribute_receipt(
 		validation_data,
 		validation_code_hash,
 		n_validators,
+		core_index,
+		session_index,
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
+	let parent_head_data = validation_data.parent_head.clone();
 	let parent_head_data_hash = validation_data.parent_head.hash();
 
 	// Apply compression to the block data.
@@ -479,15 +574,7 @@ async fn construct_and_distribute_receipt(
 		// As such, honest collators never produce an uncompressed PoV which starts with
 		// a compression magic number, which would lead validators to reject the collation.
 		if encoded_size > validation_data.max_pov_size as usize {
-			gum::debug!(
-				target: LOG_TARGET,
-				para_id = %para_id,
-				size = encoded_size,
-				max_size = validation_data.max_pov_size,
-				"PoV exceeded maximum size"
-			);
-
-			return
+			return Err(Error::POVSizeExceeded(encoded_size, validation_data.max_pov_size as usize))
 		}
 
 		pov
@@ -503,18 +590,7 @@ async fn construct_and_distribute_receipt(
 		&validation_code_hash,
 	);
 
-	let erasure_root = match erasure_root(n_validators, validation_data, pov.clone()) {
-		Ok(erasure_root) => erasure_root,
-		Err(err) => {
-			gum::error!(
-				target: LOG_TARGET,
-				para_id = %para_id,
-				err = ?err,
-				"failed to calculate erasure root",
-			);
-			return
-		},
-	};
+	let erasure_root = erasure_root(n_validators, validation_data, pov.clone())?;
 
 	let commitments = CandidateCommitments {
 		upward_messages: collation.upward_messages,
@@ -525,73 +601,83 @@ async fn construct_and_distribute_receipt(
 		hrmp_watermark: collation.hrmp_watermark,
 	};
 
-	let ccr = CandidateReceipt {
-		commitments_hash: commitments.hash(),
-		descriptor: CandidateDescriptor {
-			signature: key.sign(&signature_payload),
-			para_id,
-			relay_parent,
-			collator: key.public(),
-			persisted_validation_data_hash,
-			pov_hash,
-			erasure_root,
-			para_head: commitments.head_data.hash(),
-			validation_code_hash,
-		},
+	let receipt = if v2_receipts {
+		let ccr = CommittedCandidateReceiptV2 {
+			descriptor: CandidateDescriptorV2::new(
+				para_id,
+				relay_parent,
+				core_index,
+				session_index,
+				persisted_validation_data_hash,
+				pov_hash,
+				erasure_root,
+				commitments.head_data.hash(),
+				validation_code_hash,
+			),
+			commitments,
+		};
+
+		ccr.check_core_index(&transposed_claim_queue)
+			.map_err(Error::CandidateReceiptCheck)?;
+
+		ccr.to_plain()
+	} else {
+		if commitments.core_selector().map_err(Error::CandidateReceiptCheck)?.is_some() {
+			gum::warn!(
+				target: LOG_TARGET,
+				?pov_hash,
+				?relay_parent,
+				para_id = %para_id,
+				"Candidate commitments contain UMP signal without v2 receipts being enabled.",
+			);
+		}
+		CandidateReceipt {
+			commitments_hash: commitments.hash(),
+			descriptor: CandidateDescriptor {
+				signature: key.sign(&signature_payload),
+				para_id,
+				relay_parent,
+				collator: key.public(),
+				persisted_validation_data_hash,
+				pov_hash,
+				erasure_root,
+				para_head: commitments.head_data.hash(),
+				validation_code_hash,
+			}
+			.into(),
+		}
 	};
 
 	gum::debug!(
 		target: LOG_TARGET,
-		candidate_hash = ?ccr.hash(),
+		candidate_hash = ?receipt.hash(),
 		?pov_hash,
 		?relay_parent,
 		para_id = %para_id,
+		?core_index,
 		"candidate is generated",
 	);
 	metrics.on_collation_generated();
 
 	sender
-		.send_message(CollatorProtocolMessage::DistributeCollation(
-			ccr,
+		.send_message(CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt: receipt,
 			parent_head_data_hash,
 			pov,
+			parent_head_data,
 			result_sender,
-		))
+			core_index,
+		})
 		.await;
-}
 
-async fn obtain_validation_code_hash_with_assumption(
-	relay_parent: Hash,
-	para_id: ParaId,
-	assumption: OccupiedCoreAssumption,
-	sender: &mut impl overseer::CollationGenerationSenderTrait,
-) -> crate::error::Result<Option<ValidationCodeHash>> {
-	match request_validation_code_hash(relay_parent, para_id, assumption, sender)
-		.await
-		.await?
-	{
-		Ok(Some(v)) => Ok(Some(v)),
-		Ok(None) => Ok(None),
-		Err(RuntimeApiError::NotSupported { .. }) => {
-			match request_validation_code(relay_parent, para_id, assumption, sender).await.await? {
-				Ok(Some(v)) => Ok(Some(v.hash())),
-				Ok(None) => Ok(None),
-				Err(e) => {
-					// We assume that the `validation_code` API is always available, so any error
-					// is unexpected.
-					Err(e.into())
-				},
-			}
-		},
-		Err(e @ RuntimeApiError::Execution { .. }) => Err(e.into()),
-	}
+	Ok(())
 }
 
 fn erasure_root(
 	n_validators: usize,
 	persisted_validation: PersistedValidationData,
 	pov: PoV,
-) -> crate::error::Result<Hash> {
+) -> Result<Hash> {
 	let available_data =
 		AvailableData { validation_data: persisted_validation, pov: Arc::new(pov) };
 

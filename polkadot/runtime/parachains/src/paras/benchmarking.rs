@@ -16,11 +16,15 @@
 
 use super::*;
 use crate::configuration::HostConfiguration;
-use frame_benchmarking::benchmarks;
+use alloc::vec;
+use frame_benchmarking::v2::*;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use primitives::{HeadData, Id as ParaId, ValidationCode, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE};
+use polkadot_primitives::{
+	HeadData, Id as ParaId, ValidationCode, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
+};
 use sp_runtime::traits::{One, Saturating};
 
+pub mod mmr_setup;
 mod pvf_check;
 
 use self::pvf_check::{VoteCause, VoteOutcome};
@@ -68,7 +72,7 @@ pub(crate) fn generate_disordered_upgrades<T: Config>() {
 
 fn generate_disordered_actions_queue<T: Config>() {
 	let mut queue = Vec::new();
-	let next_session = shared::Pallet::<T>::session_index().saturating_add(One::one());
+	let next_session = shared::CurrentSessionIndex::<T>::get().saturating_add(One::one());
 
 	for _ in 0..SAMPLE_SIZE {
 		let id = ParaId::from(1000);
@@ -80,41 +84,58 @@ fn generate_disordered_actions_queue<T: Config>() {
 	});
 }
 
-benchmarks! {
-	force_set_current_code {
-		let c in 1 .. MAX_CODE_SIZE;
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn force_set_current_code(c: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>) {
 		let new_code = ValidationCode(vec![0; c as usize]);
 		let para_id = ParaId::from(c as u32);
 		CurrentCodeHash::<T>::insert(&para_id, new_code.hash());
 		generate_disordered_pruning::<T>();
-	}: _(RawOrigin::Root, para_id, new_code)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id, new_code);
+
 		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into());
 	}
-	force_set_current_head {
-		let s in 1 .. MAX_HEAD_DATA_SIZE;
+
+	#[benchmark]
+	fn force_set_current_head(s: Linear<MIN_CODE_SIZE, MAX_HEAD_DATA_SIZE>) {
 		let new_head = HeadData(vec![0; s as usize]);
 		let para_id = ParaId::from(1000);
-	}: _(RawOrigin::Root, para_id, new_head)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id, new_head);
+
 		assert_last_event::<T>(Event::CurrentHeadUpdated(para_id).into());
 	}
-	force_set_most_recent_context {
+
+	#[benchmark]
+	fn force_set_most_recent_context() {
 		let para_id = ParaId::from(1000);
 		let context = BlockNumberFor::<T>::from(1000u32);
-	}: _(RawOrigin::Root, para_id, context)
-	force_schedule_code_upgrade {
-		let c in 1 .. MAX_CODE_SIZE;
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id, context);
+	}
+
+	#[benchmark]
+	fn force_schedule_code_upgrade(c: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>) {
 		let new_code = ValidationCode(vec![0; c as usize]);
 		let para_id = ParaId::from(c as u32);
 		let block = BlockNumberFor::<T>::from(c);
 		generate_disordered_upgrades::<T>();
-	}: _(RawOrigin::Root, para_id, new_code, block)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id, new_code, block);
+
 		assert_last_event::<T>(Event::CodeUpgradeScheduled(para_id).into());
 	}
-	force_note_new_head {
-		let s in 1 .. MAX_HEAD_DATA_SIZE;
+
+	#[benchmark]
+	fn force_note_new_head(s: Linear<MIN_CODE_SIZE, MAX_HEAD_DATA_SIZE>) {
 		let para_id = ParaId::from(1000);
 		let new_head = HeadData(vec![0; s as usize]);
 		let old_code_hash = ValidationCode(vec![0]).hash();
@@ -126,75 +147,106 @@ benchmarks! {
 		generate_disordered_pruning::<T>();
 		Pallet::<T>::schedule_code_upgrade(
 			para_id,
-			ValidationCode(vec![0]),
+			ValidationCode(vec![0u8; MIN_CODE_SIZE as usize]),
 			expired,
 			&config,
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
-	}: _(RawOrigin::Root, para_id, new_head)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id, new_head);
+
 		assert_last_event::<T>(Event::NewHeadNoted(para_id).into());
 	}
-	force_queue_action {
+
+	#[benchmark]
+	fn force_queue_action() {
 		let para_id = ParaId::from(1000);
 		generate_disordered_actions_queue::<T>();
-	}: _(RawOrigin::Root, para_id)
-	verify {
-		let next_session = crate::shared::Pallet::<T>::session_index().saturating_add(One::one());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id);
+
+		let next_session =
+			crate::shared::CurrentSessionIndex::<T>::get().saturating_add(One::one());
 		assert_last_event::<T>(Event::ActionQueued(para_id, next_session).into());
 	}
 
-	add_trusted_validation_code {
-		let c in 1 .. MAX_CODE_SIZE;
+	#[benchmark]
+	fn add_trusted_validation_code(c: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>) {
 		let new_code = ValidationCode(vec![0; c as usize]);
 
 		pvf_check::prepare_bypassing_bench::<T>(new_code.clone());
-	}: _(RawOrigin::Root, new_code)
 
-	poke_unused_validation_code {
+		#[extrinsic_call]
+		_(RawOrigin::Root, new_code);
+	}
+
+	#[benchmark]
+	fn poke_unused_validation_code() {
 		let code_hash = [0; 32].into();
-	}: _(RawOrigin::Root, code_hash)
 
-	include_pvf_check_statement {
+		#[extrinsic_call]
+		_(RawOrigin::Root, code_hash);
+	}
+
+	#[benchmark]
+	fn include_pvf_check_statement() {
 		let (stmt, signature) = pvf_check::prepare_inclusion_bench::<T>();
-	}: {
-		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+
+		#[block]
+		{
+			let _ =
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+		}
 	}
 
-	include_pvf_check_statement_finalize_upgrade_accept {
-		let (stmt, signature) = pvf_check::prepare_finalization_bench::<T>(
-			VoteCause::Upgrade,
-			VoteOutcome::Accept,
-		);
-	}: {
-		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+	#[benchmark]
+	fn include_pvf_check_statement_finalize_upgrade_accept() {
+		let (stmt, signature) =
+			pvf_check::prepare_finalization_bench::<T>(VoteCause::Upgrade, VoteOutcome::Accept);
+
+		#[block]
+		{
+			let _ =
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+		}
 	}
 
-	include_pvf_check_statement_finalize_upgrade_reject {
-		let (stmt, signature) = pvf_check::prepare_finalization_bench::<T>(
-			VoteCause::Upgrade,
-			VoteOutcome::Reject,
-		);
-	}: {
-		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+	#[benchmark]
+	fn include_pvf_check_statement_finalize_upgrade_reject() {
+		let (stmt, signature) =
+			pvf_check::prepare_finalization_bench::<T>(VoteCause::Upgrade, VoteOutcome::Reject);
+
+		#[block]
+		{
+			let _ =
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+		}
 	}
 
-	include_pvf_check_statement_finalize_onboarding_accept {
-		let (stmt, signature) = pvf_check::prepare_finalization_bench::<T>(
-			VoteCause::Onboarding,
-			VoteOutcome::Accept,
-		);
-	}: {
-		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+	#[benchmark]
+	fn include_pvf_check_statement_finalize_onboarding_accept() {
+		let (stmt, signature) =
+			pvf_check::prepare_finalization_bench::<T>(VoteCause::Onboarding, VoteOutcome::Accept);
+
+		#[block]
+		{
+			let _ =
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+		}
 	}
 
-	include_pvf_check_statement_finalize_onboarding_reject {
-		let (stmt, signature) = pvf_check::prepare_finalization_bench::<T>(
-			VoteCause::Onboarding,
-			VoteOutcome::Reject,
-		);
-	}: {
-		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+	#[benchmark]
+	fn include_pvf_check_statement_finalize_onboarding_reject() {
+		let (stmt, signature) =
+			pvf_check::prepare_finalization_bench::<T>(VoteCause::Onboarding, VoteOutcome::Reject);
+
+		#[block]
+		{
+			let _ =
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+		}
 	}
 
 	impl_benchmark_test_suite!(

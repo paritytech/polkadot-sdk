@@ -17,9 +17,10 @@
 
 //! Infinite precision unsigned integer for substrate runtime.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::{cell::RefCell, cmp::Ordering, ops};
 use num_traits::{One, Zero};
-use sp_std::{cell::RefCell, cmp::Ordering, ops, prelude::*, vec};
 
 // A sensible value for this would be half of the dword size of the host machine. Since the
 // runtime is compiled to 32bit webassembly, using 32 and 64 for single and double respectively
@@ -35,7 +36,7 @@ const SHIFT: usize = 32;
 const B: Double = Single::max_value() as Double + 1;
 
 static_assertions::const_assert!(
-	sp_std::mem::size_of::<Double>() - sp_std::mem::size_of::<Single>() == SHIFT / 8
+	core::mem::size_of::<Double>() - core::mem::size_of::<Single>() == SHIFT / 8
 );
 
 /// Splits a [`Double`] limb number into a tuple of two [`Single`] limb numbers.
@@ -438,9 +439,9 @@ impl BigUint {
 	}
 }
 
-impl sp_std::fmt::Debug for BigUint {
+impl core::fmt::Debug for BigUint {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(
 			f,
 			"BigUint {{ {:?} ({:?})}}",
@@ -450,7 +451,7 @@ impl sp_std::fmt::Debug for BigUint {
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		Ok(())
 	}
 }

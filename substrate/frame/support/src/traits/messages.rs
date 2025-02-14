@@ -19,15 +19,15 @@
 
 use super::storage::Footprint;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
 use sp_runtime::{traits::Convert, BoundedSlice, RuntimeDebug};
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_weights::{Weight, WeightMeter};
 
 /// Errors that can happen when attempting to process a message with
 /// [`ProcessMessage::process_message()`].
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
 pub enum ProcessMessageError {
 	/// The message data format is unknown (e.g. unrecognised header)
 	BadFormat,
@@ -46,6 +46,8 @@ pub enum ProcessMessageError {
 	/// the case that a queue is re-serviced within the same block after *yielding*. A queue is
 	/// not required to *yield* again when it is being re-serviced withing the same block.
 	Yield,
+	/// The message could not be processed for reaching the stack depth limit.
+	StackLimitReached,
 }
 
 /// Can process messages from a specific origin.
@@ -96,6 +98,8 @@ pub trait ServiceQueues {
 	/// - `weight_limit`: The maximum amount of dynamic weight that this call can use.
 	///
 	/// Returns the dynamic weight used by this call; is never greater than `weight_limit`.
+	/// Should only be called in top-level runtime entry points like `on_initialize` or `on_idle`.
+	/// Otherwise, stack depth limit errors may be miss-handled.
 	fn service_queues(weight_limit: Weight) -> Weight;
 
 	/// Executes a message that could not be executed by [`Self::service_queues()`] because it was
@@ -123,6 +127,8 @@ impl<OverweightAddr> ServiceQueues for NoopServiceQueues<OverweightAddr> {
 pub struct QueueFootprint {
 	/// The number of pages in the queue (including overweight pages).
 	pub pages: u32,
+	/// The number of pages that are ready (not yet processed and also not overweight).
+	pub ready_pages: u32,
 	/// The storage footprint of the queue (including overweight messages).
 	pub storage: Footprint,
 }

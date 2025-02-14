@@ -14,7 +14,7 @@
 //! documentation up-to-date, as the overhead is reduced by making sure everything is in one
 //! repository, and everything being in `.rs` files.
 //!
-//! > This is not say that a more visually appealing version of this crate (for example as an
+//! > This is not to say that a more visually appealing version of this crate (for example as an
 //! > `md-book`) cannot exist, but it would be outside the scope of this crate.
 //!
 //! Moreover, we acknowledge that a major pain point has been not only outdated *concepts*, but also
@@ -69,7 +69,8 @@
 //! > what topics are already covered in this crate, and how you can build on top of the information
 //! > that they already pose, rather than repeating yourself**.
 //!
-//! For more details see the [latest documenting guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DOCUMENTATION_GUIDELINES.md).
+//! For more details see the [latest documenting
+//! guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DOCUMENTATION_GUIDELINES.md).
 //!
 //! #### Example: Explaining `#[pallet::call]`
 //!
@@ -101,7 +102,7 @@
 //! * Before even getting started, what is with all of this `<T: Config>`? We link to
 //! [`crate::reference_docs::trait_based_programming`].
 //! * First, the name. Why is this called `pallet::call`? This goes back to `enum Call`, which is
-//! explained in [`crate::reference_docs::frame_composite_enums`]. Build on top of this!
+//! explained in [`crate::reference_docs::frame_runtime_types`]. Build on top of this!
 //! * Then, what is `origin`? Just an account id? [`crate::reference_docs::frame_origin`].
 //! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
 //! explained in the documentation of [`frame::prelude::DispatchResult`].
@@ -119,12 +120,6 @@
 //!
 //! </details>
 //!
-//! ## `docs.substrate.io`
-//!
-//! This crate is meant to gradually replace `docs.substrate.io`. As any content is added here, the
-//! corresponding counter-part should be marked as deprecated, as described
-//! [here](https://github.com/paritytech/polkadot-sdk-docs/issues/26).
-//!
 //! ## `crates.io` and Publishing
 //!
 //! As it stands now, this crate cannot be published to crates.io because of its use of
@@ -132,13 +127,22 @@
 //! compromise, but in the long term, we should work towards finding a way to maintain different
 //! revisions of this crate.
 //!
+//! ## Versioning
+//!
+//! So long as not deployed in `crates.io`, please notice that all of the information in this crate,
+//! namely in [`crate::guides`] and such are compatible with the master branch of `polkadot-sdk`. A
+//! few solutions have been proposed to improve this, please see
+//! [here](https://github.com/paritytech/polkadot-sdk/issues/6191).
+//!
 //! ## How to Develop Locally
 //!
 //! To view the docs specific [`crate`] locally for development, including the correct HTML headers
 //! injected, run:
 //!
 //! ```sh
-//! SKIP_WASM_BUILD=1 RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --no-deps --open
+//! SKIP_WASM_BUILD=1 \
+//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/assets/header.html --extend-css $(pwd)/docs/sdk/assets/theme.css --default-theme=ayu" \
+//! cargo doc -p polkadot-sdk-docs --no-deps --open
 //! ```
 //!
 //! If even faster build time for docs is needed, you can temporarily remove most of the

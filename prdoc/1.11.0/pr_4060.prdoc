@@ -1,0 +1,54 @@
+title: "Fix nostd build of several crates"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes feature and dependency configuration of several crate. This should allow for better no-std build capabilities.
+
+crates:
+  - name: cumulus-pallet-session-benchmarking
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: glutton-westend-runtime
+    bump: patch
+  - name: cumulus-primitives-parachain-inherent
+    bump: patch
+  - name: polkadot-primitives
+    bump: patch
+  - name: polkadot-runtime-parachains
+    bump: patch
+  - name: xcm-executor-integration-tests
+    bump: patch
+  - name: pallet-atomic-swap
+    bump: patch
+  - name: pallet-election-provider-support-benchmarking
+    bump: patch
+  - name: pallet-dev-mode
+    bump: patch
+  - name: pallet-example-offchain-worker
+    bump: patch
+  - name: pallet-indices
+    bump: patch
+  - name: pallet-nomination-pools
+    bump: patch
+  - name: pallet-nomination-pools-benchmarking
+    bump: patch
+  - name: pallet-offences-benchmarking
+    bump: patch
+  - name: pallet-root-offences
+    bump: patch
+  - name: pallet-session-benchmarking
+    bump: patch
+  - name: frame-system-benchmarking
+    bump: patch
+  - name: sp-consensus-babe
+    bump: patch
+  - name: sp-consensus-babe
+    bump: patch
+  - name: sp-core
+    bump: patch
+  - name: sp-session
+    bump: patch
+  - name: sp-transaction-storage-proof
+    bump: patch

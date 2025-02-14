@@ -14,20 +14,83 @@
 // limitations under the License.
 
 use super::*;
-use crate::mock::{pallet_dummy::Call, DummyExtension, PreDispatchCount, Runtime, RuntimeCall};
+use crate::mock::{
+	pallet_dummy::Call, DummyExtension, PrepareCount, Runtime, RuntimeCall, ValidateCount,
+};
 use frame_support::dispatch::DispatchInfo;
+use sp_runtime::{traits::DispatchTransaction, transaction_validity::TransactionSource};
 
 #[test]
 fn skip_feeless_payment_works() {
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.pre_dispatch(&0, &call, &DispatchInfo::default(), 0)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
 		.unwrap();
-	assert_eq!(PreDispatchCount::get(), 1);
+	assert_eq!(PrepareCount::get(), 1);
 
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.pre_dispatch(&0, &call, &DispatchInfo::default(), 0)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
 		.unwrap();
-	assert_eq!(PreDispatchCount::get(), 1);
+	assert_eq!(PrepareCount::get(), 1);
+}
+
+#[test]
+fn validate_works() {
+	assert_eq!(ValidateCount::get(), 0);
+
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
+	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+		.validate_only(
+			Some(0).into(),
+			&call,
+			&DispatchInfo::default(),
+			0,
+			TransactionSource::External,
+			0,
+		)
+		.unwrap();
+	assert_eq!(ValidateCount::get(), 1);
+	assert_eq!(PrepareCount::get(), 0);
+
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
+	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+		.validate_only(
+			Some(0).into(),
+			&call,
+			&DispatchInfo::default(),
+			0,
+			TransactionSource::External,
+			0,
+		)
+		.unwrap();
+	assert_eq!(ValidateCount::get(), 1);
+	assert_eq!(PrepareCount::get(), 0);
+}
+
+#[test]
+fn validate_prepare_works() {
+	assert_eq!(ValidateCount::get(), 0);
+
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
+	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
+		.unwrap();
+	assert_eq!(ValidateCount::get(), 1);
+	assert_eq!(PrepareCount::get(), 1);
+
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
+	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
+		.unwrap();
+	assert_eq!(ValidateCount::get(), 1);
+	assert_eq!(PrepareCount::get(), 1);
+
+	// Changes from previous prepare calls persist.
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
+	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
+		.unwrap();
+	assert_eq!(ValidateCount::get(), 2);
+	assert_eq!(PrepareCount::get(), 2);
 }

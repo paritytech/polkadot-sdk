@@ -17,13 +17,13 @@
 //! Adapters to work with [`frame_support::traits::fungible`] through XCM.
 
 use super::MintLocation;
+use core::{marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
-		fungible, Fortitude::Polite, Precision::Exact, Preservation::Preserve, Provenance::Minted,
+		fungible, Fortitude::Polite, Precision::Exact, Preservation::Expendable, Provenance::Minted,
 	},
 	Get,
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
 use xcm_executor::{
 	traits::{ConvertLocation, Error as MatchError, MatchesFungible, TransactAsset},
@@ -60,7 +60,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::transfer(&source, &dest, amount, Preserve)
+		Fungible::transfer(&source, &dest, amount, Expendable)
 			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
 		Ok(what.clone().into())
 	}
@@ -100,7 +100,7 @@ impl<
 	}
 
 	fn reduce_checked(checking_account: AccountId, amount: Fungible::Balance) {
-		let ok = Fungible::burn_from(&checking_account, amount, Exact, Polite).is_ok();
+		let ok = Fungible::burn_from(&checking_account, amount, Expendable, Exact, Polite).is_ok();
 		debug_assert!(ok, "`can_reduce_checked` must have returned `true` immediately prior; qed");
 	}
 }
@@ -151,7 +151,7 @@ impl<
 	fn can_check_out(_dest: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungible_adapter",
-			"check_out dest: {:?}, what: {:?}",
+			"can_check_out dest: {:?}, what: {:?}",
 			_dest,
 			what
 		);
@@ -210,7 +210,7 @@ impl<
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::burn_from(&who, amount, Exact, Polite)
+		Fungible::burn_from(&who, amount, Expendable, Exact, Polite)
 			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
 		Ok(what.clone().into())
 	}

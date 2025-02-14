@@ -1,0 +1,19 @@
+title: "malus-collator: implement malicious collator submitting same collation to all backing groups"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR modifies the undying collator to include a malus mode,
+      enabling it to submit the same collation to all assigned backing groups.
+
+      It also includes a test that spawns a network with the malus collator
+      and verifies that everything functions correctly.
+
+crates:
+  - name: polkadot
+    bump: none
+    validate: false
+  - name: test-parachain-undying
+    bump: patch
+  - name: test-parachain-undying-collator
+    bump: patch

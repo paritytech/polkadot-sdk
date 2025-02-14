@@ -254,7 +254,7 @@ fn test_nan_canonicalization(instantiation_strategy: InstantiationStrategy) {
 
 	/// A NaN with canonical payload bits.
 	const CANONICAL_NAN_BITS: u32 = 0x7fc00000;
-	/// A NaN value with an abitrary payload.
+	/// A NaN value with an arbitrary payload.
 	const ARBITRARY_NAN_BITS: u32 = 0x7f812345;
 
 	// This test works like this: we essentially do
@@ -272,7 +272,7 @@ fn test_nan_canonicalization(instantiation_strategy: InstantiationStrategy) {
 	// However, with the `canonicalize_nans` option turned on above, we expect that the output will
 	// be a canonical NaN.
 	//
-	// We exterpolate the results of this tests so that we assume that all intermediate computations
+	// We extrapolate the results of this tests so that we assume that all intermediate computations
 	// that involve floats are sanitized and cannot produce a non-deterministic NaN.
 
 	let params = (u32::to_le_bytes(ARBITRARY_NAN_BITS), u32::to_le_bytes(1)).encode();
@@ -455,7 +455,7 @@ fn test_max_memory_pages(
 
 // This test takes quite a while to execute in a debug build (over 6 minutes on a TR 3970x)
 // so it's ignored by default unless it was compiled with `--release`.
-#[cfg_attr(build_type = "debug", ignore)]
+#[cfg_attr(build_profile = "debug", ignore)]
 #[test]
 fn test_instances_without_reuse_are_not_leaked() {
 	let runtime = crate::create_runtime::<HostFunctions>(

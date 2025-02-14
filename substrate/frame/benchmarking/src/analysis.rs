@@ -41,7 +41,7 @@ pub enum BenchmarkSelector {
 
 /// Multiplies the value by 1000 and converts it into an u128.
 fn mul_1000_into_u128(value: f64) -> u128 {
-	// This is slighly more precise than the alternative of `(value * 1000.0) as u128`.
+	// This is slightly more precise than the alternative of `(value * 1000.0) as u128`.
 	(value as u128)
 		.saturating_mul(1000)
 		.saturating_add((value.fract() * 1000.0) as u128)

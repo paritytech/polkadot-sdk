@@ -17,11 +17,11 @@
 //! Adapters to work with [`frame_support::traits::tokens::nonfungibles`] through XCM.
 
 use crate::{AssetChecking, MintLocation};
+use core::{marker::PhantomData, result};
 use frame_support::{
 	ensure,
 	traits::{tokens::nonfungibles, Get},
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{
 	ConvertLocation, Error as MatchError, MatchesNonFungibles, TransactAsset,
@@ -270,7 +270,14 @@ impl<
 		CheckAsset: AssetChecking<Assets::CollectionId>,
 		CheckingAccount: Get<Option<AccountId>>,
 	> TransactAsset
-	for NonFungiblesAdapter<Assets, Matcher, AccountIdConverter, AccountId, CheckAsset, CheckingAccount>
+	for NonFungiblesAdapter<
+		Assets,
+		Matcher,
+		AccountIdConverter,
+		AccountId,
+		CheckAsset,
+		CheckingAccount,
+	>
 {
 	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		NonFungiblesMutateAdapter::<

@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Cumulus CLI library.
 
@@ -21,16 +22,16 @@
 use std::{
 	fs,
 	io::{self, Write},
-	net::SocketAddr,
 	path::PathBuf,
 	sync::Arc,
 };
 
 use codec::Encode;
 use sc_chain_spec::ChainSpec;
+use sc_cli::RpcEndpoint;
 use sc_client_api::HeaderBackend;
 use sc_service::{
-	config::{PrometheusConfig, TelemetryEndpoints},
+	config::{PrometheusConfig, RpcBatchRequestConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
 };
 use sp_core::hexdisplay::HexDisplay;
@@ -96,7 +97,7 @@ impl PurgeChainCmd {
 				Some('y') | Some('Y') => {},
 				_ => {
 					println!("Aborted");
-					return Ok(())
+					return Ok(());
 				},
 			}
 		}
@@ -423,7 +424,7 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_cors(is_dev)
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<SocketAddr>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<Vec<RpcEndpoint>>> {
 		self.base.rpc_addr(default_listen_port)
 	}
 
@@ -432,15 +433,23 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 	}
 
 	fn rpc_max_request_size(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_max_request_size)
+		self.base.rpc_max_request_size()
 	}
 
 	fn rpc_max_response_size(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_max_response_size)
+		self.base.rpc_max_response_size()
 	}
 
 	fn rpc_max_subscriptions_per_connection(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_max_subscriptions_per_connection)
+		self.base.rpc_max_subscriptions_per_connection()
+	}
+
+	fn rpc_buffer_capacity_per_connection(&self) -> sc_cli::Result<u32> {
+		Ok(self.base.rpc_params.rpc_message_buffer_capacity_per_connection)
+	}
+
+	fn rpc_batch_config(&self) -> sc_cli::Result<RpcBatchRequestConfig> {
+		self.base.rpc_batch_config()
 	}
 
 	fn transaction_pool(&self, is_dev: bool) -> sc_cli::Result<TransactionPoolOptions> {

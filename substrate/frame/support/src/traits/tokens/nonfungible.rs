@@ -26,9 +26,9 @@
 
 use super::nonfungibles;
 use crate::{dispatch::DispatchResult, traits::Get};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::TokenError;
-use sp_std::prelude::*;
 
 /// Trait for providing an interface to a read-only NFT-like set of items.
 pub trait Inspect<AccountId> {
@@ -125,7 +125,7 @@ pub struct ItemOf<
 	F: nonfungibles::Inspect<AccountId>,
 	A: Get<<F as nonfungibles::Inspect<AccountId>>::CollectionId>,
 	AccountId,
->(sp_std::marker::PhantomData<(F, A, AccountId)>);
+>(core::marker::PhantomData<(F, A, AccountId)>);
 
 impl<
 		F: nonfungibles::Inspect<AccountId>,

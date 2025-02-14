@@ -55,17 +55,6 @@ digraph {
     CandidateCommitmentsHash [label = "Hash", shape="doublecircle", fill="gray90"]
     CandidateCommitmentsHash -> CandidateCommitments:name
 
-    FullCandidateReceipt [label = <
-        <table>
-            <tr><td border="0" colspan="2" port="name">FullCandidateReceipt&lt;H = Hash, N = BlockNumber&gt;</td></tr>
-            <tr><td>inner</td><td port="inner">CandidateReceipt&lt;H&gt;</td></tr>
-            <tr><td>validation_data</td><td port="validation_data">ValidationData&lt;N&gt;</td></tr>
-        </table>
-    >]
-
-    FullCandidateReceipt:inner -> CandidateReceipt:name
-    FullCandidateReceipt:validation_data -> ValidationData:name
-
     CommittedCandidateReceipt [label = <
         <table>
             <tr><td border="0" colspan="2" port="name">CommittedCandidateReceipt&lt;H = Hash&gt;</td></tr>

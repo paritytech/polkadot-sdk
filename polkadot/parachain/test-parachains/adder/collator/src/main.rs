@@ -82,7 +82,6 @@ fn main() -> Result<()> {
 						),
 						enable_beefy: false,
 						force_authoring_backoff: false,
-						jaeger_agent: None,
 						telemetry_worker_handle: None,
 
 						// Collators don't spawn PVF workers, so we can disable version checks.
@@ -95,6 +94,11 @@ fn main() -> Result<()> {
 						overseer_message_channel_capacity_override: None,
 						malus_finality_delay: None,
 						hwbench: None,
+						execute_workers_max_num: None,
+						prepare_workers_hard_max_num: None,
+						prepare_workers_soft_max_num: None,
+						enable_approval_voting_parallel: false,
+						keep_finalized_for: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;

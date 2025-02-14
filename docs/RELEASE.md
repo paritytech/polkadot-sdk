@@ -14,14 +14,24 @@ Merging to it is restricted to [Backports](#backports).
 
 We are releasing multiple different things from this repository in one release, but we don't want to use the same
 version for everything. Thus, in the following we explain the versioning story for the crates, node and Westend &
-Rococo. To easily refer to a release, it shall be named by its date in the form `stableYYMMDD`.
+Rococo.
+
+To easily refer to a release, it shall be named by its date in the form `stableYYMM`. Patches to stable releases are
+tagged in the form of `stableYYMM-PATCH`, with `PATCH` ranging from 1 to 99. For example, the fourth patch to
+`stable2409` would be `stable2409-4`.
 
 ## Crate
 
-We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. SemVer requires a
-piece of software to first declare a public API. The public API of the Polkadot SDK is hereby declared as the sum of all
-crates' public APIs.
+We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. The definitions of
+`major`, `minor` and `patch` version for Rust crates are slightly altered from their standard for pre `1.0.0` versions.
+Quoting [rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html):  
 
+>Initial development releases starting with “0.y.z” can treat changes in “y” as a major release, and “z” as a minor
+release. “0.0.z” releases are always major changes. This is because Cargo uses the convention that only changes in the
+left-most non-zero component are considered incompatible.
+
+SemVer requires a piece of software to first declare a public API. The public API of the Polkadot SDK
+is hereby declared as the sum of all crates' public APIs.
 
 Inductively, the public API of our library crates is declared as all public items that are neither:
 - Inside a `__private` module
@@ -39,7 +49,7 @@ variable.
 
 ## Westend & Rococo
 
-For the these networks, in addition to incrementing the `Cargo.toml` version we also increment the `spec_version` and
+For these networks, in addition to incrementing the `Cargo.toml` version we also increment the `spec_version` and
 sometimes the `transaction_version`. The spec version is also following the node version. Its schema is: `M_mmm_ppp` and
 for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map
 from an on chain `spec_version` easily to the release in this repository.  
@@ -49,9 +59,10 @@ The Westend testnet will be updated to a new runtime every two weeks with the la
 
 **From `master` to `stable`**
 
-Backports in this direction can be anything that is audited and either a `minor` or a `patch` bump. [Security
-fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal
-API can also have `major` version bumps through backports.
+Backports in this direction can be anything that is audited and either a `minor` or a `patch` bump.
+See [BACKPORT.md](./BACKPORT.md) for more explanation. [Security fixes](#bug-and-security-fix)
+should be prioritized over additions or improvements. Crates that are declared as internal API can
+also have `major` version bumps through backports.
 
 **From `stable` to `master`**
 
@@ -158,5 +169,6 @@ Describes how developers should merge bug and security fixes.
 2. The Pull Request is marked as priority fix.
 3. Audit happens with priority.
 4. It is merged into `master`.
-5. It is automatically back-ported to `stable`.
-6. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
+5. Dev adds the `A4-needs-backport` label.
+6. It is automatically back-ported to `stable`.
+7. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.

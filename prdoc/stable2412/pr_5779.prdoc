@@ -1,0 +1,38 @@
+title: "[pallet-revive] last call return data API"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces 2 new syscall: `return_data_size` and `return_data_copy`,
+      resembling the semantics of the EVM `RETURNDATASIZE` and `RETURNDATACOPY` opcodes.
+
+      The ownership of `ExecReturnValue` (the return data) has moved to the `Frame`.
+      This allows implementing the new contract API surface functionality in ext with no additional copies.
+      Returned data is passed via contract memory, memory is (will be) metered,
+      hence the amount of returned data can not be statically known,
+      so we should avoid storing copies of the returned data if we can.
+      By moving the ownership of the exectuables return value into the `Frame` struct we achieve this.
+
+      A zero-copy implementation of those APIs would be technically possible without that internal change by making
+      the callsite in the runtime responsible for moving the returned data into the frame after any call.
+      However, resetting the stored output needs to be handled in ext, since plain transfers will _not_ affect the
+      stored return data (and we don't want to handle this special call case inside the `runtime` API).
+      This has drawbacks:
+        - It can not be tested easily in the mock.
+        - It introduces an inconsistency where resetting the stored output is handled in ext,
+          but the runtime API is responsible to store it back correctly after any calls made.
+          Instead, with ownership of the data in `Frame`, both can be handled in a single place.
+          Handling both in `fn run()` is more natural and leaves less room for runtime API bugs.
+
+      The returned output is reset each time _before_ running any executable in a nested stack.
+      This change should not incur any overhead to the overall memory usage as _only_ the returned data from the last
+      executed frame will be kept around at any time.
+
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-fixtures
+    bump: minor
+  - name: pallet-revive-uapi
+    bump: minor
+  

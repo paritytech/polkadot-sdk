@@ -24,7 +24,6 @@ use frame_support::{
 	pallet_prelude::ValueQuery, traits::PalletInfoAccess, weights::Weight, Blake2_128Concat,
 };
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
 
 /// Type used to encode the number of references an account has.
 type RefCount = u32;
