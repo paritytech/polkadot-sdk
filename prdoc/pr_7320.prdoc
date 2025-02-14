@@ -12,4 +12,4 @@ doc:
 
 crates:
   - name: pallet-proxy
-    bump: patch
+    bump: minor 
