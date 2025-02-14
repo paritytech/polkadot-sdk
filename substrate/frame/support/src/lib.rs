@@ -43,6 +43,7 @@ extern crate alloc;
 pub mod __private {
 	pub use alloc::{
 		boxed::Box,
+		fmt::Debug,
 		rc::Rc,
 		string::String,
 		vec,
