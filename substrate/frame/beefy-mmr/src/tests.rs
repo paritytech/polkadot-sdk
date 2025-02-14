@@ -24,11 +24,7 @@ use sp_consensus_beefy::{
 	AncestryHelper, Commitment, Payload, ValidatorSet,
 };
 
-use sp_core::H256;
-use sp_io::TestExternalities;
-use sp_runtime::{traits::Keccak256, DigestItem};
-
-use frame_support::traits::OnInitialize;
+use frame::traits::OnInitialize;
 
 use crate::mock::*;
 
@@ -43,7 +39,7 @@ pub fn beefy_log(log: ConsensusLog<BeefyId>) -> DigestItem {
 	DigestItem::Consensus(BEEFY_ENGINE_ID, log.encode())
 }
 
-fn read_mmr_leaf(ext: &mut TestExternalities, key: Vec<u8>) -> MmrLeaf {
+fn read_mmr_leaf(ext: &mut TestState, key: Vec<u8>) -> MmrLeaf {
 	type Node = pallet_mmr::primitives::DataOrHash<Keccak256, MmrLeaf>;
 	ext.persist_offchain_overlay();
 	let offchain_db = ext.offchain_db();

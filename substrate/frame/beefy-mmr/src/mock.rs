@@ -18,18 +18,9 @@
 use std::vec;
 
 use codec::Encode;
-use frame_support::{
-	construct_runtime, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
+
 use sp_consensus_beefy::mmr::MmrLeafVersion;
-use sp_io::TestExternalities;
-use sp_runtime::{
-	app_crypto::ecdsa::Public,
-	impl_opaque_keys,
-	traits::{ConvertInto, Keccak256, OpaqueKeys},
-	BuildStorage,
-};
+
 use sp_state_machine::BasicExternalities;
 
 use crate as pallet_beefy_mmr;
@@ -37,7 +28,6 @@ use crate as pallet_beefy_mmr;
 pub use sp_consensus_beefy::{
 	ecdsa_crypto::AuthorityId as BeefyId, mmr::BeefyDataProvider, ConsensusLog, BEEFY_ENGINE_ID,
 };
-use sp_core::offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -45,7 +35,7 @@ impl_opaque_keys! {
 	}
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 construct_runtime!(
 	pub enum Test
@@ -170,11 +160,11 @@ pub fn mock_authorities(vec: Vec<u8>) -> Vec<(u64, BeefyId)> {
 	vec.into_iter().map(|id| ((id as u64), mock_beefy_id(id))).collect()
 }
 
-pub fn new_test_ext(ids: Vec<u8>) -> TestExternalities {
+pub fn new_test_ext(ids: Vec<u8>) -> TestState {
 	new_test_ext_raw_authorities(mock_authorities(ids))
 }
 
-pub fn new_test_ext_raw_authorities(authorities: Vec<(u64, BeefyId)>) -> TestExternalities {
+pub fn new_test_ext_raw_authorities(authorities: Vec<(u64, BeefyId)>) -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let session_keys: Vec<_> = authorities
@@ -193,7 +183,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<(u64, BeefyId)>) -> TestExt
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	let mut ext: TestExternalities = t.into();
+	let mut ext: TestState = t.into();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));

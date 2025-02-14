@@ -201,11 +201,17 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::dispatch::{
+		DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo,
+	};
+	pub use frame_support::{
+		traits::{
+			Contains, Currency, EitherOf, EstimateNextSessionRotation, Everything, Get, Hooks,
+			IsSubType, KeyOwnerProofSystem, MapSuccess, NoOpPoll, OnFinalize, OnInitialize,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			VariantCount, VariantCountOf,
+		},
+		Parameter,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -231,9 +237,14 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		generic::{DigestItem, OpaqueDigestItemId},
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, Header, IsMember,
+			Member, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+			TrailingZeroInput, ValidateUnsigned,
+		},
+		KeyTypeId, Perbill,
 	};
 
 	/// Bounded storage related types.
@@ -242,7 +253,8 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		RuntimeAppPublic, TokenError,
 	};
 }
 
@@ -297,7 +309,10 @@ pub mod weights_prelude {
 	pub use frame_support::{
 		traits::Get,
 		weights::{
-			constants::{ParityDbWeight, RocksDbWeight},
+			constants::{
+				ParityDbWeight, RocksDbWeight, RocksDbWeight as DbWeight,
+				WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS,
+			},
 			Weight,
 		},
 	};
@@ -403,17 +418,27 @@ pub mod runtime {
 		pub use sp_version::NativeVersion;
 
 		/// Macro to implement runtime APIs.
-		pub use sp_api::impl_runtime_apis;
+		pub use sp_api::{decl_runtime_apis, impl_runtime_apis};
 
 		// Types often used in the runtime APIs.
-		pub use sp_core::OpaqueMetadata;
+		pub use sp_core::{
+			offchain::testing,
+			OpaqueMetadata,
+		};
+
 		pub use sp_genesis_builder::{
 			PresetId, Result as GenesisBuilderResult, DEV_RUNTIME_PRESET,
 			LOCAL_TESTNET_RUNTIME_PRESET,
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
 		pub use sp_keyring::Sr25519Keyring;
-		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
+		pub use sp_runtime::{
+			transaction_validity::{
+				InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
+				TransactionValidityError, ValidTransaction,
+			},
+			ApplyExtrinsicResult, ExtrinsicInclusionMode,
+		};
 	}
 
 	/// Types and traits for runtimes that implement runtime APIs.
@@ -535,6 +560,7 @@ pub mod traits {
 /// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+	pub use sp_runtime::traits::One;
 }
 
 /// All derive macros used in frame.
@@ -554,7 +580,12 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+	pub use frame_support::crypto::ecdsa::ECDSAExt;
 }
+
+pub use sp_runtime::{
+	app_crypto::ecdsa::Public, curve::PiecewiseLinear, impl_opaque_keys, testing::TestXt,
+};
 
 /// All account management related traits.
 ///
@@ -583,6 +614,8 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_session;
+	pub use sp_staking;
 
 	pub use codec;
 	pub use scale_info;

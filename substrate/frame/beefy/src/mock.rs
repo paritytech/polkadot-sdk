@@ -23,22 +23,8 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen, Weight,
 };
-use frame_support::{
-	construct_runtime, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
-};
-use frame_system::pallet_prelude::HeaderFor;
+
 use pallet_session::historical as pallet_session_historical;
-use sp_core::{crypto::KeyTypeId, ConstU128};
-use sp_runtime::{
-	app_crypto::ecdsa::Public,
-	curve::PiecewiseLinear,
-	impl_opaque_keys,
-	testing::TestXt,
-	traits::{Header as HeaderT, OpaqueKeys},
-	BuildStorage, Perbill,
-};
-use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
 
 use crate as pallet_beefy;
@@ -52,7 +38,7 @@ impl_opaque_keys! {
 	}
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 construct_runtime!(
 	pub enum Test
@@ -276,7 +262,7 @@ impl ExtBuilder {
 		self
 	}
 
-	pub fn build(self) -> sp_io::TestExternalities {
+	pub fn build(self) -> TestState {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let balances: Vec<_> =

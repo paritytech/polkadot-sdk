@@ -35,12 +35,6 @@
 
 extern crate alloc;
 
-use sp_runtime::{
-	generic::OpaqueDigestItemId,
-	traits::{Convert, Header, Member},
-	SaturatedConversion,
-};
-
 use alloc::vec::Vec;
 use codec::Decode;
 use pallet_mmr::{primitives::AncestryProof, LeafDataProvider, NodesUtils, ParentNumberAndHash};
@@ -51,8 +45,7 @@ use sp_consensus_beefy::{
 	ValidatorSet as BeefyValidatorSet,
 };
 
-use frame_support::{crypto::ecdsa::ECDSAExt, pallet_prelude::Weight, traits::Get};
-use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
+use frame::{prelude::*, runtime::apis::decl_runtime_apis};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -73,7 +66,7 @@ where
 	T: pallet_beefy::Config,
 {
 	fn on_new_root(root: &sp_consensus_beefy::MmrRootHash) {
-		let digest = sp_runtime::generic::DigestItem::Consensus(
+		let digest = DigestItem::Consensus(
 			sp_consensus_beefy::BEEFY_ENGINE_ID,
 			codec::Encode::encode(&sp_consensus_beefy::ConsensusLog::<
 				<T as pallet_beefy::Config>::BeefyId,
@@ -87,7 +80,7 @@ where
 pub struct BeefyEcdsaToEthereum;
 impl Convert<sp_consensus_beefy::ecdsa_crypto::AuthorityId, Vec<u8>> for BeefyEcdsaToEthereum {
 	fn convert(beefy_id: sp_consensus_beefy::ecdsa_crypto::AuthorityId) -> Vec<u8> {
-		sp_core::ecdsa::Public::from(beefy_id)
+		frame::deps::sp_core::ecdsa::Public::from(beefy_id)
 			.to_eth_address()
 			.map(|v| v.to_vec())
 			.map_err(|_| {
@@ -97,14 +90,13 @@ impl Convert<sp_consensus_beefy::ecdsa_crypto::AuthorityId, Vec<u8>> for BeefyEc
 	}
 }
 
-type MerkleRootOf<T> = <<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output;
+type MerkleRootOf<T> = <<T as pallet_mmr::Config>::Hashing as Hash>::Output;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	#![allow(missing_docs)]
 
 	use super::*;
-	use frame_support::pallet_prelude::*;
 
 	/// BEEFY-MMR pallet.
 	#[pallet::pallet]
@@ -377,7 +369,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-sp_api::decl_runtime_apis! {
+decl_runtime_apis! {
 	/// API useful for BEEFY light clients.
 	pub trait BeefyMmrApi<H>
 	where

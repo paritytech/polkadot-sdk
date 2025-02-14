@@ -15,25 +15,18 @@ workspace = true
 array-bytes = { optional = true, workspace = true, default-features = true }
 binary-merkle-tree = { workspace = true }
 codec = { features = ["derive"], workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
 pallet-beefy = { workspace = true }
 pallet-mmr = { workspace = true }
 pallet-session = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
-sp-api = { workspace = true }
 sp-consensus-beefy = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-sp-staking = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -41,36 +34,23 @@ std = [
 	"array-bytes",
 	"binary-merkle-tree/std",
 	"codec/std",
-	"frame-benchmarking/std",
-	"frame-support/std",
-	"frame-system/std",
+	"frame/std",
 	"log/std",
 	"pallet-beefy/std",
 	"pallet-mmr/std",
 	"pallet-session/std",
 	"scale-info/std",
 	"serde",
-	"sp-api/std",
 	"sp-consensus-beefy/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-staking/std",
 	"sp-state-machine/std",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
 	"pallet-beefy/try-runtime",
+	"frame/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
-	"sp-runtime/try-runtime",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 ]
