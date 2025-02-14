@@ -9,8 +9,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use frame_support::traits::tokens::Balance as BalanceT;
 use snowbridge_merkle_tree::MerkleProof;
-use snowbridge_outbound_queue_primitives::v2::{DryRunError, OutboundMessage};
-use xcm::prelude::Xcm;
 
 sp_api::decl_runtime_apis! {
 	pub trait OutboundQueueV2Api<Balance> where Balance: BalanceT
@@ -19,9 +17,5 @@ sp_api::decl_runtime_apis! {
 		/// The merkle root is stored in the block header as a
 		/// `sp_runtime::generic::DigestItem::Other`
 		fn prove_message(leaf_index: u64) -> Option<MerkleProof>;
-
-		/// Dry run the xcm to get the OutboundMessage
-		/// which can be used to estimate the execution cost on Ethereum
-		fn dry_run(xcm: Xcm<()>) -> Result<(OutboundMessage,Balance),DryRunError>;
 	}
 }
