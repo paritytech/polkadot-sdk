@@ -17,19 +17,13 @@
 
 use super::{Config, Kind, OffenceDetails, Pallet, Perbill, SessionIndex, LOG_TARGET};
 use alloc::vec::Vec;
-use frame_support::{
-	pallet_prelude::ValueQuery,
-	storage_alias,
-	traits::{Get, GetStorageVersion, OnRuntimeUpgrade},
-	weights::Weight,
-	Twox64Concat,
-};
-use sp_staking::offence::OnOffenceHandler;
+
+use frame::deps::sp_staking::offence::OnOffenceHandler;
+use frame::traits::OnRuntimeUpgrade;
+use frame::testing_prelude::*;
 
 #[cfg(feature = "try-runtime")]
-use frame_support::ensure;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 mod v0 {
 	use super::*;
@@ -45,7 +39,7 @@ mod v0 {
 }
 
 pub mod v1 {
-	use frame_support::traits::StorageVersion;
+	use StorageVersion;
 
 	use super::*;
 
@@ -118,8 +112,7 @@ mod test {
 	use super::*;
 	use crate::mock::{new_test_ext, with_on_offence_fractions, Runtime as T, KIND};
 	use codec::Encode;
-	use sp_runtime::Perbill;
-	use sp_staking::offence::OffenceDetails;
+	use frame::testing_prelude::*;
 
 	#[test]
 	fn migration_to_v1_works() {
