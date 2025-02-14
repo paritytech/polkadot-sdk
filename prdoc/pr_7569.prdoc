@@ -1,0 +1,11 @@
+title: 'slot-based-collator: Allow multiple blocks per slot'
+doc:
+- audience: Node Operator
+  description: Adds multiple blocks per slot support to the slot-based collator
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot
+  bump: major
