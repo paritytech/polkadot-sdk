@@ -130,7 +130,7 @@ pub mod pallet {
 		/// Send xcm message failure
 		Send,
 		/// Withdraw fee asset failure
-		FundsUnavailable,
+		FeesNotMet,
 		/// Convert to reanchored location failure
 		LocationConversionFailed,
 		/// The desired destination was unreachable, generally because there is a no way of routing
@@ -141,7 +141,7 @@ pub mod pallet {
 	impl<T: Config> From<SendError> for Error<T> {
 		fn from(e: SendError) -> Self {
 			match e {
-				SendError::Fees => Error::<T>::FundsUnavailable,
+				SendError::Fees => Error::<T>::FeesNotMet,
 				SendError::NotApplicable => Error::<T>::Unreachable,
 				_ => Error::<T>::Send,
 			}
@@ -218,7 +218,7 @@ pub mod pallet {
 						Error::<T>::from(err)
 					},
 				)?;
-			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FundsUnavailable)?;
+			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FeesNotMet)?;
 			Ok(message_id.into())
 		}
 
@@ -226,10 +226,10 @@ pub mod pallet {
 			let dummy_context =
 				XcmContext { origin: None, message_id: Default::default(), topic: None };
 			T::AssetTransactor::can_check_out(origin, fee, &dummy_context)
-				.map_err(|_| Error::<T>::FundsUnavailable)?;
+				.map_err(|_| Error::<T>::FeesNotMet)?;
 			T::AssetTransactor::check_out(origin, fee, &dummy_context);
 			T::AssetTransactor::withdraw_asset(fee, origin, None)
-				.map_err(|_| Error::<T>::FundsUnavailable)?;
+				.map_err(|_| Error::<T>::FeesNotMet)?;
 			Ok(())
 		}
 
