@@ -45,22 +45,7 @@ extern crate alloc;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
-use sp_arithmetic::traits::Saturating;
-use sp_runtime::{
-	traits::{Convert, StaticLookup},
-	ArithmeticError::Overflow,
-	DispatchError, Perbill, RuntimeDebug,
-};
-
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{
-		EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers,
-		RankedMembersSwapHandler, VoteTally,
-	},
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
+use frame::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -71,6 +56,11 @@ pub mod weights;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+use frame::runtime::prelude::storage::KeyLenOf;
+
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 /// A number of members.
 pub type MemberIndex = u32;
@@ -376,12 +366,9 @@ pub trait BenchmarkSetup<AccountId> {
 	fn ensure_member(acc: &AccountId);
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, storage::KeyLenOf};
-	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::MaybeConvert;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -859,9 +846,9 @@ pub mod pallet {
 		/// Determine the rank of the account behind the `Signed` origin `o`, `None` if the account
 		/// is unknown to this collective or `o` is not `Signed`.
 		pub fn as_rank(
-			o: &<T::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin,
+			o: &<T::RuntimeOrigin as OriginTrait>::PalletsOrigin,
 		) -> Option<u16> {
-			use frame_support::traits::CallerTrait;
+			use frame::traits::CallerTrait;
 			o.as_signed().and_then(Self::rank_of)
 		}
 
@@ -878,7 +865,7 @@ pub mod pallet {
 	#[cfg(any(feature = "try-runtime", test))]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Ensure the correctness of the state of this pallet.
-		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		pub fn do_try_state() -> Result<(), TryRuntimeError> {
 			Self::try_state_members()?;
 			Self::try_state_index()?;
 
@@ -892,7 +879,7 @@ pub mod pallet {
 		/// [`Rank`] in Members should be in [`MemberCount`]
 		/// [`Sum`] of [`MemberCount`] index should be the same as the sum of all the index attained
 		/// for rank possessed by [`Members`]
-		fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state_members() -> Result<(),TryRuntimeError> {
 			MemberCount::<T, I>::iter().try_for_each(|(_, member_index)| -> DispatchResult {
 				let total_members = Members::<T, I>::iter().count();
 				ensure!(
@@ -929,7 +916,7 @@ pub mod pallet {
 		/// [`Rank`] in [`IdToIndex`] should be the same as the the [`Rank`] in  [`IndexToId`]
 		/// [`Rank`] of the member [`who`] in [`IdToIndex`] should be the same as the [`Rank`] of
 		/// the member [`who`] in [`Members`]
-		fn try_state_index() -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state_index() -> Result<(), TryRuntimeError> {
 			IdToIndex::<T, I>::iter().try_for_each(
 				|(rank, who, member_index)| -> DispatchResult {
 					let who_from_index = IndexToId::<T, I>::get(rank, member_index).unwrap();
