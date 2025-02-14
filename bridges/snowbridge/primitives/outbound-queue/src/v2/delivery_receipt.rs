@@ -11,7 +11,7 @@ sol! {
 	event InboundMessageDispatched(uint64 indexed nonce, bool success, bytes32 reward_address);
 }
 
-/// Envelope of the delivery proof
+/// Delivery receipt
 #[derive(Clone, RuntimeDebug)]
 pub struct DeliveryReceipt<AccountId>
 where
