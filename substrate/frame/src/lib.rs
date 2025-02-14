@@ -201,13 +201,14 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, DispatchResultWithPostInfo};
+	pub use frame_support::{
+		defensive, defensive_assert,
+		traits::{
+			Contains, Defensive, Get, EitherOf, EstimateNextSessionRotation, Hooks, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+		},
 	};
-
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
@@ -231,13 +232,14 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+	pub use sp_runtime::{traits::{
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy, One, Zero,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
-	};
 
-	/// Bounded storage related types.
-	pub use sp_runtime::{BoundedSlice, BoundedVec};
+}, 	testing::{Digest, DigestItem, Header},
+BuildStorage,};
+    /// Bounded storage related types.
+	pub use sp_runtime::{WeakBoundedVec, BoundedVec};
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -552,7 +554,7 @@ pub mod derive {
 }
 
 pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512, crypto::{ByteArray, Pair, UncheckedFrom, VrfSecret, Wraps}, ed25519::Public as EphemeralPublic,};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
@@ -583,6 +585,7 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_crypto_hashing;
 
 	pub use codec;
 	pub use scale_info;
