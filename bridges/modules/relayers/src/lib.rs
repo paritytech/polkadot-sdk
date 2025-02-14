@@ -438,7 +438,7 @@ pub mod pallet {
 		RewardRegistered {
 			/// Relayer account that can claim reward.
 			relayer: T::AccountId,
-			/// Relayer can claim reward.
+			/// Relayer can claim this kind of reward.
 			reward_kind: T::RewardKind,
 			/// Reward amount.
 			reward: T::Reward,
@@ -447,7 +447,7 @@ pub mod pallet {
 		RewardPaid {
 			/// Relayer account that has been rewarded.
 			relayer: T::AccountId,
-			/// Relayer has received reward.
+			/// Relayer has received reward of this kind.
 			reward_kind: T::RewardKind,
 			/// Reward amount.
 			reward: T::Reward,
