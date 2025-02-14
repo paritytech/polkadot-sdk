@@ -450,41 +450,39 @@ fn sandbox_worker(worker_info: &mut WorkerInfo, security_status: &SecurityStatus
 	}
 
 	#[cfg(target_os = "linux")]
-	if security_status.can_enable_landlock_fs {
-		if let Err(err) =
-			security::landlock::enable_for_worker(worker_info, security::landlock::LANDLOCK_ABI_FS)
-		{
-			// We previously were able to enable, so this should never happen. Shutdown if
-			// running in secure mode.
-			let err = format!("could not fully enable landlock: {:?}", err);
-			gum::error!(
-				target: LOG_TARGET,
-				?worker_info,
-				"{}. This should not happen, please report an issue",
-				err
-			);
-			if security_status.secure_validator_mode {
-				worker_shutdown(worker_info, &err);
-			}
-		}
-	}
+	{
+		use crate::worker::security::landlock::{LANDLOCK_ABI_FS, LANDLOCK_ABI_NET};
 
-	#[cfg(target_os = "linux")]
-	if security_status.can_enable_landlock_net {
-		if let Err(err) =
-			security::landlock::enable_for_worker(worker_info, security::landlock::LANDLOCK_ABI_NET)
-		{
-			// We previously were able to enable, so this should never happen. Shutdown if
-			// running in secure mode.
-			let err = format!("could not fully enable landlock: {:?}", err);
-			gum::error!(
-				target: LOG_TARGET,
-				?worker_info,
-				"{}. This should not happen, please report an issue",
-				err
-			);
-			if security_status.secure_validator_mode {
-				worker_shutdown(worker_info, &err);
+		// Use the ABI corresponding to the largest supported landlock security feature.
+		let abi =
+			if security_status.can_enable_landlock_fs && security_status.can_enable_landlock_net {
+				Some(if (LANDLOCK_ABI_FS as u32) > (LANDLOCK_ABI_NET as u32) {
+					LANDLOCK_ABI_FS
+				} else {
+					LANDLOCK_ABI_NET
+				})
+			} else if security_status.can_enable_landlock_fs {
+				Some(LANDLOCK_ABI_FS)
+			} else if security_status.can_enable_landlock_net {
+				Some(LANDLOCK_ABI_NET)
+			} else {
+				None
+			};
+
+		if let Some(abi) = abi {
+			if let Err(err) = security::landlock::enable_for_worker(worker_info, abi) {
+				// We previously were able to enable, so this should never happen. Shutdown if
+				// running in secure mode.
+				let err = format!("could not fully enable landlock: {:?}", err);
+				gum::error!(
+					target: LOG_TARGET,
+					?worker_info,
+					"{}. This should not happen, please report an issue",
+					err
+				);
+				if security_status.secure_validator_mode {
+					worker_shutdown(worker_info, &err);
+				}
 			}
 		}
 	}
