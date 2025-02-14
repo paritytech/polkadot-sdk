@@ -8,22 +8,21 @@
 //!
 //! [Elastic scaling](https://polkadot.network/blog/elastic-scaling-streamling-growth-on-polkadot)
 //! is a feature that enables parachains to seamlessly scale up/down the number of used cores.
-//! This can be used to increase the compute or storage throughput of a parachain or
-//! to lower the latency between a transaction being submitted and it getting built in a parachain
-//! block.
+//! This can be used to increase the available compute and bandwidth resources of a parachain or
+//! to lower the transaction inclusion latency by decreasing block time.
 //!
 //! ## Performance characteristics and constraints
 //!
 //! Elastic scaling is still considered experimental software, so stability is not guaranteed.
 //! If you encounter any problems,
 //! [please open an issue](https://github.com/paritytech/polkadot-sdk/issues).
-//! Below are described the constraints of the implementation:
+//! Below are described the constraints and performance characteristics of the implementation:
 //!
 //! 1. **Bounded compute throughput**. Each parachain block gets at most 2 seconds of execution on
 //!    the relay chain. Therefore, assuming the full 2 seconds are used, a parachain can only
 //!    utilise at most 3 cores in a relay chain slot of 6 seconds. If the full execution time is not
-//!    being used or if collators are able to author blocks faster than the validators are able to
-//!    run them, higher core counts can be achieved.
+//!    being used or if all collators are able to author blocks faster than the reference hardware,
+//!    higher core counts can be achieved.
 //! 2. **Sequential block execution**. Each collator must import the previous block before authoring
 //!    a new one. At present this happens sequentially, which limits the maximum compute throughput when
 //!    using multiple collators. To briefly explain the reasoning: first, the previous collator spends
@@ -40,16 +39,16 @@
 //!    problem. Developments required for streamlining block production are tracked by [this issue](https://github.com/paritytech/polkadot-sdk/issues/5190).
 //! 3. **Lack of out-of-the-box automated scaling.** For true elasticity, the parachain must be able
 //!    to seamlessly acquire or sell coretime as the user demand grows and shrinks over time, in an
-//!    automated manner. This is
-//!    currently lacking - a parachain can only scale up or down by “manually” acquiring coretime.
+//!    automated manner. This is currently lacking - a parachain can only scale up or down by
+//!    implementing some off-chain solution for managing the core time resources.
 //!    This is not in the scope of the relay chain functionality. Parachains can already start
 //!    implementing such autoscaling, but we aim to provide a framework/examples for developing
 //!    autoscaling strategies.
 //!    Tracked by [this issue](https://github.com/paritytech/polkadot-sdk/issues/1487).
 //!    An in-progress external implementation by RegionX can be found [here](https://github.com/RegionX-Labs/On-Demand).
 //!
-//! Another important constraint is that when a parachain forks, the number of blocks backed per
-//! relay chain block decreases.
+//! Another important constraint is that when a parachain forks, the throughput decreases and
+//! latency increases because the number of blocks backed per relay chain block goes down.
 //!
 //! ## Using elastic scaling
 //!
@@ -59,8 +58,8 @@
 //!
 //! ### Prerequisites
 //!
-//! - Ensure Asynchronous Backing is enabled on the relay chain network and you have enabled it on
-//!   the parachain using [`crate::guides::async_backing_guide`].
+//! - Ensure Asynchronous Backing (6-second blocks) has been enabled on the parachain using
+//!   [`crate::guides::async_backing_guide`].
 //! - Ensure the `AsyncBackingParams.max_candidate_depth` value is configured to a value that is at
 //!   least double the maximum targeted parachain velocity. For example, if the parachain will build
 //!   at most 3 candidates per relay chain block, the `max_candidate_depth` should be at least 6.
