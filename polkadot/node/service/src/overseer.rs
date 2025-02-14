@@ -600,7 +600,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		network_service,
 		sync_service,
 		authority_discovery_service,
-		collation_req_v1_receiver,
+		collation_req_v1_receiver: _,
 		collation_req_v2_receiver,
 		available_data_req_receiver,
 		registry,
@@ -703,7 +703,6 @@ where
 				IsParachainNode::Collator(collator_pair) => ProtocolSide::Collator {
 					peer_id: network_service.local_peer_id(),
 					collator_pair,
-					request_receiver_v1: collation_req_v1_receiver,
 					request_receiver_v2: collation_req_v2_receiver,
 					metrics: Metrics::register(registry)?,
 				},

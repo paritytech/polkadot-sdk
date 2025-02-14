@@ -29,10 +29,13 @@ use super::{watcher, BlockHash, ChainApi, ExtrinsicHash};
 
 static LOG_TARGET: &str = "txpool::watcher";
 
-/// Single event used in dropped by limits stream. It is one of Ready/Future/Dropped.
-pub type DroppedByLimitsEvent<H, BH> = (H, TransactionStatus<H, BH>);
-/// Stream of events used to determine if a transaction was dropped.
-pub type DroppedByLimitsStream<H, BH> = TracingUnboundedReceiver<DroppedByLimitsEvent<H, BH>>;
+/// Single event used in aggregated stream. Tuple containing hash of transactions and its status.
+pub type TransactionStatusEvent<H, BH> = (H, TransactionStatus<H, BH>);
+/// Stream of events providing statuses of all the transactions within the pool.
+pub type AggregatedStream<H, BH> = TracingUnboundedReceiver<TransactionStatusEvent<H, BH>>;
+
+/// Warning threshold for (unbounded) channel used in aggregated stream.
+const AGGREGATED_STREAM_WARN_THRESHOLD: usize = 100_000;
 
 /// Extrinsic pool default listener.
 pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
@@ -40,10 +43,16 @@ pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
 	watchers: HashMap<H, watcher::Sender<H, BlockHash<C>>>,
 	finality_watchers: LinkedHashMap<ExtrinsicHash<C>, Vec<H>>,
 
-	/// The sink used to notify dropped-by-enforcing-limits transactions. Also ready and future
-	/// statuses are reported via this channel to allow consumer of the stream tracking actual
-	/// drops.
-	dropped_by_limits_sink: Option<TracingUnboundedSender<DroppedByLimitsEvent<H, BlockHash<C>>>>,
+	/// The sink used to notify dropped by enforcing limits or by being usurped, or invalid
+	/// transactions.
+	///
+	/// Note: Ready and future statuses are alse communicated through this channel, enabling the
+	/// stream consumer to track views that reference the transaction.
+	dropped_stream_sink: Option<TracingUnboundedSender<TransactionStatusEvent<H, BlockHash<C>>>>,
+
+	/// The sink of the single, merged stream providing updates for all the transactions in the
+	/// associated pool.
+	aggregated_stream_sink: Option<TracingUnboundedSender<TransactionStatusEvent<H, BlockHash<C>>>>,
 }
 
 /// Maximum number of blocks awaiting finality at any time.
@@ -54,7 +63,8 @@ impl<H: hash::Hash + Eq + Debug, C: ChainApi> Default for Listener<H, C> {
 		Self {
 			watchers: Default::default(),
 			finality_watchers: Default::default(),
-			dropped_by_limits_sink: None,
+			dropped_stream_sink: None,
+			aggregated_stream_sink: None,
 		}
 	}
 }
@@ -84,19 +94,58 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		sender.new_watcher(hash)
 	}
 
-	/// Creates a new single stream for entire pool.
+	/// Creates a new single stream intended to watch dropped transactions only.
 	///
-	/// The stream can be used to subscribe to life-cycle events of all extrinsics in the pool.
-	pub fn create_dropped_by_limits_stream(&mut self) -> DroppedByLimitsStream<H, BlockHash<C>> {
-		let (sender, single_stream) = tracing_unbounded("mpsc_txpool_watcher", 100_000);
-		self.dropped_by_limits_sink = Some(sender);
+	/// The stream can be used to subscribe to events related to dropping of all extrinsics in the
+	/// pool.
+	pub fn create_dropped_by_limits_stream(&mut self) -> AggregatedStream<H, BlockHash<C>> {
+		let (sender, single_stream) =
+			tracing_unbounded("mpsc_txpool_watcher", AGGREGATED_STREAM_WARN_THRESHOLD);
+		self.dropped_stream_sink = Some(sender);
 		single_stream
 	}
 
-	/// Notify the listeners about extrinsic broadcast.
+	/// Creates a new single merged stream for all extrinsics in the associated pool.
+	///
+	/// The stream can be used to subscribe to life-cycle events of all extrinsics in the pool. For
+	/// some implementations (e.g. fork-aware pool) this approach may be more efficient than using
+	/// individual streams for every transaction.
+	///
+	/// Note: some of the events which are currently ignored on the other side of this channel
+	/// (external watcher) are not sent.
+	pub fn create_aggregated_stream(&mut self) -> AggregatedStream<H, BlockHash<C>> {
+		let (sender, aggregated_stream) =
+			tracing_unbounded("mpsc_txpool_aggregated_stream", AGGREGATED_STREAM_WARN_THRESHOLD);
+		self.aggregated_stream_sink = Some(sender);
+		aggregated_stream
+	}
+
+	/// Notify the listeners about the extrinsic broadcast.
 	pub fn broadcasted(&mut self, hash: &H, peers: Vec<String>) {
 		trace!(target: LOG_TARGET, "[{:?}] Broadcasted", hash);
 		self.fire(hash, |watcher| watcher.broadcast(peers));
+	}
+
+	/// Sends given event to the `dropped_stream_sink`.
+	fn send_to_dropped_stream_sink(&mut self, tx: &H, status: TransactionStatus<H, BlockHash<C>>) {
+		if let Some(ref sink) = self.dropped_stream_sink {
+			if let Err(e) = sink.unbounded_send((tx.clone(), status.clone())) {
+				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: {:?} send message failed: {:?}", tx, status, e);
+			}
+		}
+	}
+
+	/// Sends given event to the `aggregated_stream_sink`.
+	fn send_to_aggregated_stream_sink(
+		&mut self,
+		tx: &H,
+		status: TransactionStatus<H, BlockHash<C>>,
+	) {
+		if let Some(ref sink) = self.aggregated_stream_sink {
+			if let Err(e) = sink.unbounded_send((tx.clone(), status.clone())) {
+				trace!(target: LOG_TARGET, "[{:?}] aggregated_stream {:?} send message failed: {:?}", tx, status, e);
+			}
+		}
 	}
 
 	/// New transaction was added to the ready pool or promoted from the future pool.
@@ -107,22 +156,17 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 			self.fire(old, |watcher| watcher.usurped(tx.clone()));
 		}
 
-		if let Some(ref sink) = self.dropped_by_limits_sink {
-			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Ready)) {
-				trace!(target: LOG_TARGET, "[{:?}] dropped_sink/ready: send message failed: {:?}", tx, e);
-			}
-		}
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Ready);
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::Ready);
 	}
 
 	/// New transaction was added to the future pool.
 	pub fn future(&mut self, tx: &H) {
 		trace!(target: LOG_TARGET, "[{:?}] Future", tx);
 		self.fire(tx, |watcher| watcher.future());
-		if let Some(ref sink) = self.dropped_by_limits_sink {
-			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Future)) {
-				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: send message failed: {:?}", tx, e);
-			}
-		}
+
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Future);
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::Future);
 	}
 
 	/// Transaction was dropped from the pool because of enforcing the limit.
@@ -130,11 +174,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		trace!(target: LOG_TARGET, "[{:?}] Dropped (limits enforced)", tx);
 		self.fire(tx, |watcher| watcher.limit_enforced());
 
-		if let Some(ref sink) = self.dropped_by_limits_sink {
-			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Dropped)) {
-				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: send message failed: {:?}", tx, e);
-			}
-		}
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Dropped);
 	}
 
 	/// Transaction was replaced with other extrinsic.
@@ -142,13 +182,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		trace!(target: LOG_TARGET, "[{:?}] Dropped (replaced with {:?})", tx, by);
 		self.fire(tx, |watcher| watcher.usurped(by.clone()));
 
-		if let Some(ref sink) = self.dropped_by_limits_sink {
-			if let Err(e) =
-				sink.unbounded_send((tx.clone(), TransactionStatus::Usurped(by.clone())))
-			{
-				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: send message failed: {:?}", tx, e);
-			}
-		}
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Usurped(by.clone()));
 	}
 
 	/// Transaction was dropped from the pool because of the failure during the resubmission of
@@ -162,6 +196,8 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	pub fn invalid(&mut self, tx: &H) {
 		trace!(target: LOG_TARGET, "[{:?}] Extrinsic invalid", tx);
 		self.fire(tx, |watcher| watcher.invalid());
+
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Invalid);
 	}
 
 	/// Transaction was pruned from the pool.
@@ -174,11 +210,17 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		let tx_index = txs.len() - 1;
 
 		self.fire(tx, |watcher| watcher.in_block(block_hash, tx_index));
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::InBlock((block_hash, tx_index)));
 
 		while self.finality_watchers.len() > MAX_FINALITY_WATCHERS {
 			if let Some((hash, txs)) = self.finality_watchers.pop_front() {
 				for tx in txs {
 					self.fire(&tx, |watcher| watcher.finality_timeout(hash));
+					//todo: do we need this? [related issue: #5482]
+					self.send_to_aggregated_stream_sink(
+						&tx,
+						TransactionStatus::FinalityTimeout(hash),
+					);
 				}
 			}
 		}
@@ -188,7 +230,8 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	pub fn retracted(&mut self, block_hash: BlockHash<C>) {
 		if let Some(hashes) = self.finality_watchers.remove(&block_hash) {
 			for hash in hashes {
-				self.fire(&hash, |watcher| watcher.retracted(block_hash))
+				self.fire(&hash, |watcher| watcher.retracted(block_hash));
+				// note: [#5479], we do not send to aggregated stream.
 			}
 		}
 	}

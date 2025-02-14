@@ -109,6 +109,10 @@
 //!
 //! ### Cargo Remote
 //!
+//! Warning: cargo remote by default doesn't transfer hidden files to the remote machine. But hidden
+//! files can be useful, e.g. for sqlx usage. On the other hand using `--transfer-hidden` flag will
+//! transfer `.git` which is big.
+//!
 //! If you have a powerful remote server available, you may consider using
 //! [cargo-remote](https://github.com/sgeisler/cargo-remote) to execute cargo commands on it,
 //! freeing up local resources for other tasks like `rust-analyzer`.
