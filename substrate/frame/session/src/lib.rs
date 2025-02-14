@@ -114,6 +114,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+mod disabling;
 
 extern crate alloc;
 
@@ -138,10 +139,23 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
 	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{offence::OffenceSeverity, SessionIndex};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+pub(crate) const LOG_TARGET: &str = "runtime::session";
+
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] 💸 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
 
 /// Decides whether the session should be ended.
 pub trait ShouldEndSession<BlockNumber> {
@@ -644,7 +658,7 @@ impl<T: Config> Pallet<T> {
 		// Inform the session handlers that a session is going to end.
 		T::SessionHandler::on_before_session_ending();
 		T::SessionManager::end_session(session_index);
-		log::trace!(target: "runtime::session", "ending_session {:?}", session_index);
+		log!(trace, "rotating session {:?}", session_index);
 
 		// Get queued session keys and validators.
 		let session_keys = QueuedKeys::<T>::get();
@@ -721,6 +735,10 @@ impl<T: Config> Pallet<T> {
 
 		// Tell everyone about the new session keys.
 		T::SessionHandler::on_new_session::<T::Keys>(changed, &session_keys, &queued_amalgamated);
+	}
+
+	pub fn offending_validator(validator: T::ValidatorId, severity: OffenceSeverity) {
+		// todo(ank4n)
 	}
 
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
