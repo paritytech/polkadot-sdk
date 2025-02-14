@@ -135,6 +135,7 @@ use frame_support::{
 	weights::Weight,
 	Parameter,
 };
+use frame_support::traits::Defensive;
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
@@ -794,7 +795,7 @@ impl<T: Config> Pallet<T> {
 
 		// If the validator is not disabled, return false.
 		DisabledValidators::<T>::mutate(|disabled| {
-			if let Ok(index) = disabled.binary_search(&i) {
+			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
 				disabled.remove(index);
 				true
 			} else {
