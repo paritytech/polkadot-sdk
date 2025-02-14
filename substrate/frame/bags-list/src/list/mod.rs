@@ -35,7 +35,7 @@ use frame_election_provider_support::ScoreProvider;
 use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, DefensiveOption, Get},
-	DefaultNoBound, PalletError,
+	CloneNoBound, DefaultNoBound, EqNoBound, PalletError, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
@@ -615,18 +615,27 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 /// desirable to ensure that there is some element of first-come, first-serve to the list's
 /// iteration so that there's no incentive to churn ids positioning to improve the chances of
 /// appearing within the ids set.
-#[derive(DefaultNoBound, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	DefaultNoBound,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]
-#[cfg_attr(feature = "std", derive(frame_support::DebugNoBound, Clone, PartialEq))]
 pub struct Bag<T: Config<I>, I: 'static = ()> {
-	head: Option<T::AccountId>,
-	tail: Option<T::AccountId>,
+	pub head: Option<T::AccountId>,
+	pub tail: Option<T::AccountId>,
 
 	#[codec(skip)]
-	bag_upper: T::Score,
+	pub bag_upper: T::Score,
 	#[codec(skip)]
-	_phantom: PhantomData<I>,
+	pub _phantom: PhantomData<I>,
 }
 
 impl<T: Config<I>, I: 'static> Bag<T, I> {
@@ -815,10 +824,18 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 }
 
 /// A Node is the fundamental element comprising the doubly-linked list described by `Bag`.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+	RuntimeDebugNoBound,
+)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]
-#[cfg_attr(feature = "std", derive(frame_support::DebugNoBound, Clone, PartialEq))]
 pub struct Node<T: Config<I>, I: 'static = ()> {
 	pub(crate) id: T::AccountId,
 	pub(crate) prev: Option<T::AccountId>,

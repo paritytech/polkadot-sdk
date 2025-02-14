@@ -74,7 +74,7 @@ macro_rules! log {
 	};
 }
 
-type BalanceOf<T> =
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type BlockNumberFor<T> =
@@ -88,9 +88,9 @@ pub type BlockNumberFor<T> =
 )]
 pub struct Timepoint<BlockNumber> {
 	/// The height of the chain at the point in time.
-	height: BlockNumber,
+	pub height: BlockNumber,
 	/// The index of the extrinsic at the point in time.
-	index: u32,
+	pub index: u32,
 }
 
 /// An open multisig operation.
@@ -101,13 +101,13 @@ where
 	MaxApprovals: Get<u32>,
 {
 	/// The extrinsic when the multisig operation was opened.
-	when: Timepoint<BlockNumber>,
+	pub when: Timepoint<BlockNumber>,
 	/// The amount held in reserve of the `depositor`, to be returned once the operation ends.
-	deposit: Balance,
+	pub deposit: Balance,
 	/// The account who opened it (i.e. the first to approve it).
-	depositor: AccountId,
+	pub depositor: AccountId,
 	/// The approvals achieved so far, including the depositor. Always sorted.
-	approvals: BoundedVec<AccountId, MaxApprovals>,
+	pub approvals: BoundedVec<AccountId, MaxApprovals>,
 }
 
 type CallHash = [u8; 32];

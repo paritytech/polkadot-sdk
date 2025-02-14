@@ -178,9 +178,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type AllowedRelayParents<T: Config> =
 		StorageValue<_, AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>, ValueQuery>;
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
 }
 
 impl<T: Config> Pallet<T> {

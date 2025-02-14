@@ -348,9 +348,6 @@ pub mod pallet {
 		ParaId,
 		VecDeque<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>>,
 	>;
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
 }
 
 const LOG_TARGET: &str = "runtime::inclusion";
