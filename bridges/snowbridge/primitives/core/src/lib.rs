@@ -8,12 +8,12 @@
 #[cfg(test)]
 mod tests;
 
-pub mod inbound;
 pub mod location;
 pub mod operating_mode;
-pub mod outbound;
 pub mod pricing;
+pub mod reward;
 pub mod ringbuffer;
+pub mod sparse_bitmap;
 
 pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
 pub use polkadot_parachain_primitives::primitives::{
@@ -36,6 +36,8 @@ use xcm::prelude::{Junction::Parachain, Location};
 pub use operating_mode::BasicOperatingMode;
 
 pub use pricing::{PricingParameters, Rewards};
+
+pub use reward::{PaymentProcedure, ether_asset};
 
 pub fn sibling_sovereign_account<T>(para_id: ParaId) -> T::AccountId
 where

@@ -1196,13 +1196,22 @@ pub use snowbridge_core;
 #[cfg(feature = "snowbridge-ethereum")]
 pub use snowbridge_ethereum;
 
-/// Snowbridge Outbound Queue Merkle Tree.
-#[cfg(feature = "snowbridge-outbound-queue-merkle-tree")]
-pub use snowbridge_outbound_queue_merkle_tree;
+/// Snowbridge Merkle Tree.
+#[cfg(feature = "snowbridge-merkle-tree")]
+pub use snowbridge_merkle_tree;
+
+/// Snowbridge outbound primitives.
+#[cfg(feature = "snowbridge-outbound-queue-primitives")]
+pub use snowbridge_outbound_queue_primitives;
 
 /// Snowbridge Outbound Queue Runtime API.
 #[cfg(feature = "snowbridge-outbound-queue-runtime-api")]
 pub use snowbridge_outbound_queue_runtime_api;
+
+/// Snowbridge Outbound Queue Runtime API V2.
+#[cfg(feature = "snowbridge-outbound-queue-runtime-api-v2")]
+pub use snowbridge_outbound_queue_runtime_api_v2;
+
 
 /// Snowbridge Ethereum Client Pallet.
 #[cfg(feature = "snowbridge-pallet-ethereum-client")]
@@ -1224,13 +1233,25 @@ pub use snowbridge_pallet_inbound_queue_fixtures;
 #[cfg(feature = "snowbridge-pallet-outbound-queue")]
 pub use snowbridge_pallet_outbound_queue;
 
+/// Snowbridge Outbound Queue Pallet V2.
+#[cfg(feature = "snowbridge-pallet-outbound-queue-v2")]
+pub use snowbridge_pallet_outbound_queue_v2;
+
 /// Snowbridge System Pallet.
 #[cfg(feature = "snowbridge-pallet-system")]
 pub use snowbridge_pallet_system;
 
+/// Snowbridge System Pallet V2.
+#[cfg(feature = "snowbridge-pallet-system-v2")]
+pub use snowbridge_pallet_system_v2;
+
+/// Snowbridge System Frontend Pallet.
+#[cfg(feature = "snowbridge-pallet-system-frontend")]
+pub use snowbridge_pallet_system_frontend;
+
 /// Snowbridge Router Primitives.
-#[cfg(feature = "snowbridge-router-primitives")]
-pub use snowbridge_router_primitives;
+#[cfg(feature = "snowbridge-inbound-queue-primitives")]
+pub use snowbridge_inbound_queue_primitives;
 
 /// Snowbridge Runtime Common.
 #[cfg(feature = "snowbridge-runtime-common")]

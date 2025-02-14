@@ -21,12 +21,16 @@ use codec::{Decode, Encode};
 use emulated_integration_tests_common::{PENPAL_B_ID, RESERVABLE_ASSET_ID};
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
-use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
-use snowbridge_core::{inbound::InboundQueueFixture, AssetMetadata, TokenIdOf};
-use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
-use snowbridge_router_primitives::inbound::{
-	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
+use rococo_westend_system_emulated_network::{
+	asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner,
+	penpal_emulated_chain::PARA_ID_B,
 };
+use snowbridge_core::{AssetMetadata, TokenIdOf};
+use snowbridge_inbound_queue_primitives::{
+	v1::{Command, Destination, MessageV1, VersionedMessage},
+	EthereumLocationsConverterFor, InboundQueueFixture,
+};
+use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
 use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
@@ -62,7 +66,7 @@ pub fn send_inbound_message(fixture: InboundQueueFixture) -> DispatchResult {
 	.unwrap();
 	EthereumInboundQueue::submit(
 		BridgeHubWestendRuntimeOrigin::signed(BridgeHubWestendSender::get()),
-		fixture.message,
+		fixture.event,
 	)
 }
 
@@ -400,25 +404,6 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		(ethereum_sovereign.clone(), INITIAL_FUND),
 	]);
 
-	// Register ETH
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			origin_location.clone(),
-			ethereum_sovereign.into(),
-			true,
-			1000,
-		));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::ForceCreated { .. }) => {},
-			]
-		);
-	});
 	const ETH_AMOUNT: u128 = 1_000_000_000_000_000_000;
 
 	BridgeHubWestend::execute_with(|| {
@@ -915,6 +900,123 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 					if *who == assethub_sovereign
 			)),
 			"AssetHub sovereign takes remote fee."
+		);
+	});
+}
+
+/// Tests sending a token to a 3rd party parachain, called PenPal. The token reserve is
+/// still located on AssetHub.
+#[test]
+fn send_token_from_ethereum_to_penpal() {
+	let asset_hub_sovereign = BridgeHubWestend::sovereign_account_id_of(Location::new(
+		1,
+		[Parachain(AssetHubWestend::para_id().into())],
+	));
+	// Fund AssetHub sovereign account so it can pay execution fees for the asset transfer
+	BridgeHubWestend::fund_accounts(vec![(asset_hub_sovereign.clone(), INITIAL_FUND)]);
+	// Fund PenPal receiver (covering ED)
+	PenpalB::fund_accounts(vec![(PenpalBReceiver::get(), INITIAL_FUND)]);
+
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as Chain>::System::set_storage(
+			<PenpalB as Chain>::RuntimeOrigin::root(),
+			vec![(
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
+				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
+			)],
+		));
+	});
+
+	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
+
+	// The Weth asset location, identified by the contract address on Ethereum
+	let weth_asset_location: Location =
+		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
+
+	let origin_location = (Parent, Parent, ethereum_network_v5).into();
+
+	// Fund ethereum sovereign on AssetHub
+	let ethereum_sovereign: AccountId =
+		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+
+	// Create asset on the Penpal parachain.
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
+			<PenpalB as Chain>::RuntimeOrigin::root(),
+			weth_asset_location.clone(),
+			asset_hub_sovereign.clone().into(),
+			false,
+			1000,
+		));
+
+		assert!(<PenpalB as PenpalBPallet>::ForeignAssets::asset_exists(
+			weth_asset_location.clone()
+		));
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			weth_asset_location.clone().try_into().unwrap(),
+			asset_hub_sovereign.into(),
+			false,
+			1,
+		));
+
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
+			weth_asset_location.clone().try_into().unwrap(),
+		));
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let message = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendToken {
+				token: WETH.into(),
+				destination: Destination::ForeignAccountId32 {
+					para_id: PARA_ID_B,
+					id: PenpalBReceiver::get().into(),
+					fee: 100_000_000_000u128,
+				},
+				amount: TOKEN_AMOUNT,
+				fee: XCM_FEE,
+			},
+		});
+		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
+		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+
+		// Check that the send token message was sent using xcm
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) =>{},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		// Check that the assets were issued on AssetHub
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+			]
+		);
+	});
+
+	PenpalB::execute_with(|| {
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+		// Check that the assets were issued on PenPal
+		assert_expected_events!(
+			PenpalB,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
+			]
 		);
 	});
 }

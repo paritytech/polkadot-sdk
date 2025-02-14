@@ -18,15 +18,13 @@ use emulated_integration_tests_common::xcm_emulator::ConvertLocation;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::BridgeHubRococoParaSender as BridgeHubRococoSender;
-use snowbridge_core::{inbound::InboundQueueFixture, outbound::OperatingMode};
+use snowbridge_inbound_queue_primitives::InboundQueueFixture;
+use snowbridge_outbound_queue_primitives::OperatingMode;
 use snowbridge_pallet_inbound_queue_fixtures::{
 	register_token::make_register_token_message, send_native_eth::make_send_native_eth_message,
 	send_token::make_send_token_message, send_token_to_penpal::make_send_token_to_penpal_message,
 };
 use snowbridge_pallet_system;
-use snowbridge_router_primitives::inbound::{
-	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
-};
 use sp_core::H256;
 use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
@@ -63,7 +61,7 @@ pub fn send_inbound_message(fixture: InboundQueueFixture) -> DispatchResult {
 	.unwrap();
 	EthereumInboundQueue::submit(
 		BridgeHubRococoRuntimeOrigin::signed(BridgeHubRococoSender::get()),
-		fixture.message,
+		fixture.event,
 	)
 }
 

@@ -9,10 +9,12 @@ use snowbridge_beacon_primitives::{
 };
 use snowbridge_core::{
 	gwei,
-	inbound::{Log, Proof, VerificationError},
 	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
-use snowbridge_router_primitives::inbound::MessageToXcm;
+use snowbridge_inbound_queue_primitives::{
+	Log, Proof, VerificationError,
+	v1::MessageToXcm,
+};
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},

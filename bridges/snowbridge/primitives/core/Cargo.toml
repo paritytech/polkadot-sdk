@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
+log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 
@@ -28,41 +29,38 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-
-snowbridge-beacon-primitives = { workspace = true }
-
 ethabi = { workspace = true }
+xcm-executor = { workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
-xcm-executor = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"ethabi/std",
-	"frame-support/std",
-	"frame-system/std",
-	"polkadot-parachain-primitives/std",
-	"scale-info/std",
-	"serde/std",
-	"snowbridge-beacon-primitives/std",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"xcm-builder/std",
-	"xcm/std",
+    "codec/std",
+    "ethabi/std",
+    "frame-support/std",
+    "frame-system/std",
+    "polkadot-parachain-primitives/std",
+    "scale-info/std",
+    "serde/std",
+    "sp-arithmetic/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "xcm-builder/std",
+    "xcm-executor/std",
+    "xcm/std",
 ]
 serde = ["dep:serde", "scale-info/serde"]
 runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "polkadot-parachain-primitives/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
+    "xcm-builder/runtime-benchmarks",
+    "xcm-executor/runtime-benchmarks",
+    "xcm/runtime-benchmarks",
 ]

@@ -30,3 +30,4 @@ xcm = { workspace = true }
 
 # Bridges
 bp-bridge-hub-westend = { workspace = true }
+snowbridge-inbound-queue-primitives = { workspace = true, default-features = true }
