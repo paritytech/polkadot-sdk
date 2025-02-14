@@ -147,10 +147,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::FrontendOrigin::ensure_origin(origin)?;
 
-			let origin_location: Location =
+			let location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let agent_id = Self::location_to_agent_id(&origin_location)?;
+			let agent_id = Self::location_to_agent_id(&location)?;
 
 			// Record the agent id or fail if it has already been created
 			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);
@@ -160,10 +160,7 @@ pub mod pallet {
 
 			Self::send(agent_id, command, fee)?;
 
-			Self::deposit_event(Event::<T>::CreateAgent {
-				location: Box::new(origin_location),
-				agent_id,
-			});
+			Self::deposit_event(Event::<T>::CreateAgent { location: Box::new(location), agent_id });
 			Ok(())
 		}
 
