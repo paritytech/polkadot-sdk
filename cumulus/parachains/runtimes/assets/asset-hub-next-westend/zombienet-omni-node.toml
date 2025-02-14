@@ -10,7 +10,7 @@ rpc_port = 9944
 [[relaychain.nodes]]
 name = "bob"
 validator = true
-ws_port = 9955
+rpc_port = 9955
 
 [[parachains]]
 id = 1000
