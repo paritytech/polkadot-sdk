@@ -24,7 +24,6 @@ use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
 use snowbridge_core::AssetMetadata;
 use sp_core::H256;
-use sp_io::hashing::blake2_256;
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::TransactAsset;
