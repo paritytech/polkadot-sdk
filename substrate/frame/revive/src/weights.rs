@@ -885,7 +885,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(183, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `n` is `[0, 416]`.
-	fn seal_take_transient_storage(n: u32, ) -> Weight {
+	fn seal_take_transient_storage(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -915,7 +915,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 33_731
 			.saturating_add(Weight::from_parts(6_570_214, 0).saturating_mul(t.into()))
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(2, 0).saturating_mul(i.into()))
+			.saturating_add(Weight::from_parts(1, 0).saturating_mul(i.into()))
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(t.into())))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
@@ -1790,7 +1790,7 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(183, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `n` is `[0, 416]`.
-	fn seal_take_transient_storage(n: u32, ) -> Weight {
+	fn seal_take_transient_storage(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1820,7 +1820,7 @@ impl WeightInfo for () {
 			// Standard Error: 33_731
 			.saturating_add(Weight::from_parts(6_570_214, 0).saturating_mul(t.into()))
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(2, 0).saturating_mul(i.into()))
+			.saturating_add(Weight::from_parts(1, 0).saturating_mul(i.into()))
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(t.into())))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
