@@ -6,11 +6,6 @@ export enum Asset {
 	// Add more tokens as needed
 }
 
-const assetIndexMap: Record<Asset, number> = {
-	[Asset.USDT]: 1984,
-	[Asset.WND]: 1,
-};
-
 export class AssetMap {
 	private map: Record<Asset, number>;
 
