@@ -513,7 +513,6 @@ macro_rules! implement_fixed {
 			}
 
 			/// Convert into a `u32` value.
-			#[cfg(any(feature = "std", test))]
 			pub fn to_u32(self) -> u32 {
 				(self.0 / <Self as FixedPointNumber>::DIV) as u32
 			}
