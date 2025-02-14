@@ -801,25 +801,32 @@ impl_runtime_apis! {
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			use crate::xcm_config::RelayLocation;
+			use cumulus_primitives_core::ParaId;
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					xcm_config::RelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
+
+				pub RandomParaId: ParaId = ParaId::new(43211234);
+				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 			}
 
 			use xcm::latest::prelude::*;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(Parent.into())
+					Some(RandomParaLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -827,9 +834,9 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(RelayLocation::get())
 						},
-						Parent.into(),
+						RandomParaLocation::get(),
 					))
 				}
 
@@ -842,8 +849,8 @@ impl_runtime_apis! {
 				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Contracts-System-Para only supports teleports to system parachain.
 					// Relay/native token can be teleported between Contracts-System-Para and Relay.
-					let native_location = Parent.into();
-					let dest = Parent.into();
+					let native_location =RelayLocation::get();
+					let dest = RandomParaLocation::get();
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
 						dest
@@ -852,7 +859,7 @@ impl_runtime_apis! {
 
 				fn get_asset() -> Asset {
 					Asset {
-						id: AssetId(Location::parent()),
+						id: AssetId(RelayLocation::get()),
 						fun: Fungible(EXISTENTIAL_DEPOSIT),
 					}
 				}
