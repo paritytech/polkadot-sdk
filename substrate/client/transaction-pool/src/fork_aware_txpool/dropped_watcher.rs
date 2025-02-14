@@ -22,13 +22,12 @@
 //! by any view are detected and properly notified.
 
 use crate::{
-	common::log_xt::log_xt_trace,
+	common::tracing_log_xt::log_xt_trace,
 	fork_aware_txpool::stream_map_util::next_event,
 	graph::{self, BlockHash, ExtrinsicHash},
 	LOG_TARGET,
 };
 use futures::stream::StreamExt;
-use log::{debug, trace};
 use sc_transaction_pool_api::TransactionStatus;
 use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
@@ -41,6 +40,7 @@ use std::{
 	pin::Pin,
 };
 use tokio_stream::StreamMap;
+use tracing::{debug, trace};
 
 /// Represents a transaction that was removed from the transaction pool, including the reason of its
 /// removal.
@@ -53,11 +53,13 @@ pub struct DroppedTransaction<Hash> {
 }
 
 impl<Hash> DroppedTransaction<Hash> {
-	fn new_usurped(tx_hash: Hash, by: Hash) -> Self {
+	/// Creates a new instance with reason set to `DroppedReason::Usurped(by)`.
+	pub fn new_usurped(tx_hash: Hash, by: Hash) -> Self {
 		Self { reason: DroppedReason::Usurped(by), tx_hash }
 	}
 
-	fn new_enforced_by_limts(tx_hash: Hash) -> Self {
+	/// Creates a new instance with reason set to `DroppedReason::LimitsEnforced`.
+	pub fn new_enforced_by_limts(tx_hash: Hash) -> Self {
 		Self { reason: DroppedReason::LimitsEnforced, tx_hash }
 	}
 }
@@ -72,7 +74,7 @@ pub enum DroppedReason<Hash> {
 }
 
 /// Dropped-logic related event from the single view.
-pub type ViewStreamEvent<C> = crate::graph::DroppedByLimitsEvent<ExtrinsicHash<C>, BlockHash<C>>;
+pub type ViewStreamEvent<C> = crate::graph::TransactionStatusEvent<ExtrinsicHash<C>, BlockHash<C>>;
 
 /// Dropped-logic stream of events coming from the single view.
 type ViewStream<C> = Pin<Box<dyn futures::Stream<Item = ViewStreamEvent<C>> + Send>>;
@@ -223,7 +225,7 @@ where
 				log_xt_trace!(
 					target: LOG_TARGET,
 					xts.clone(),
-					"[{:?}] dropped_watcher: finalized xt removed"
+					"dropped_watcher: finalized xt removed"
 				);
 				xts.iter().for_each(|xt| {
 					self.ready_transaction_views.remove(xt);
@@ -256,11 +258,13 @@ where
 				self.future_transaction_views.entry(tx_hash).or_default().insert(block_hash);
 			},
 			TransactionStatus::Ready | TransactionStatus::InBlock(..) => {
-				// note: if future transaction was once seens as the ready we may want to treat it
-				// as ready transactions. Unreferenced future transactions are more likely to be
-				// removed when the last referencing view is removed then ready transactions.
-				// Transcaction seen as ready is likely quite close to be included in some
-				// future fork.
+				// note: if future transaction was once seen as the ready we may want to treat it
+				// as ready transaction. The rationale behind this is as follows: we want to remove
+				// unreferenced future transactions when the last referencing view is removed (to
+				// avoid clogging mempool). For ready transactions we prefer to keep them in mempool
+				// even if no view is currently referencing them. Future transcaction once seen as
+				// ready is likely quite close to be included in some future fork (it is close to be
+				// ready, so we make exception and treat such transaction as ready).
 				if let Some(mut views) = self.future_transaction_views.remove(&tx_hash) {
 					views.insert(block_hash);
 					self.ready_transaction_views.insert(tx_hash, views);
@@ -275,7 +279,7 @@ where
 						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 					}
 				} else {
-					debug!("[{:?}] dropped_watcher: removing (non-tracked) tx", tx_hash);
+					debug!(target: LOG_TARGET, ?tx_hash, "dropped_watcher: removing (non-tracked) tx");
 					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 				}
 			},
@@ -329,14 +333,14 @@ where
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
 				if let Some(dropped) = ctx.get_pending_dropped_transaction() {
-					debug!("dropped_watcher: sending out (pending): {dropped:?}");
+					trace!("dropped_watcher: sending out (pending): {dropped:?}");
 					return Some((dropped, ctx));
 				}
 				tokio::select! {
 					biased;
 					Some(event) = next_event(&mut ctx.stream_map) => {
 						if let Some(dropped) = ctx.handle_event(event.0, event.1) {
-							debug!("dropped_watcher: sending out: {dropped:?}");
+							trace!("dropped_watcher: sending out: {dropped:?}");
 							return Some((dropped, ctx));
 						}
 					},
