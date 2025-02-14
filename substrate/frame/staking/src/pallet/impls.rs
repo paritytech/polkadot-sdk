@@ -39,7 +39,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	offence::{OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OffenceSeverity, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
@@ -519,10 +519,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// disable all offending validators that have been disabled for the whole era
-		for (index, _) in <DisabledValidators<T>>::get() {
-			T::SessionInterface::disable_validator(index);
-		}
+		// todo(ank4n): add a config to disable a validator for minimum number of sessions.
 	}
 
 	/// End a session potentially ending an era.
@@ -609,9 +606,6 @@ impl<T: Config> Pallet<T> {
 			// Set ending era reward.
 			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
 			T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
-
-			// Clear disabled validators.
-			<DisabledValidators<T>>::kill();
 		}
 	}
 
@@ -1848,7 +1842,10 @@ where
 
 			// add offending validator to the set of offenders.
 			add_db_reads_writes(1, 1);
-			slashing::add_offending_validator::<T>(validator, *slash_fraction, offence_era);
+			T::SessionInterface::report_offence(
+				validator.clone(),
+				OffenceSeverity(*slash_fraction),
+			);
 
 			add_db_reads_writes(1, 0);
 			let prior_slash_fraction = ValidatorSlashInEra::<T>::get(offence_era, validator)
@@ -2367,8 +2364,7 @@ impl<T: Config> Pallet<T> {
 		Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_paged_exposures()?;
-		Self::check_count()?;
-		Self::ensure_disabled_validators_sorted()
+		Self::check_count()
 	}
 
 	/// Test invariants of:
@@ -2702,6 +2698,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/* todo: move to session try runtime
 	// Sorted by index
 	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
 		ensure!(
@@ -2710,4 +2707,6 @@ impl<T: Config> Pallet<T> {
 		);
 		Ok(())
 	}
+
+	 */
 }

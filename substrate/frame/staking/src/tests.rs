@@ -34,9 +34,11 @@ use frame_support::{
 	},
 	BoundedVec,
 };
-
 use mock::*;
 use pallet_balances::Error as BalancesError;
+use pallet_session::disabling::{
+	DisablingStrategy, UpToLimitDisablingStrategy, UpToLimitWithReEnablingDisablingStrategy,
+};
 use sp_runtime::{
 	assert_eq_error_rate, bounded_vec,
 	traits::{BadOrigin, Dispatchable},
@@ -7913,17 +7915,17 @@ mod ledger_recovery {
 
 mod byzantine_threshold_disabling_strategy {
 	use crate::{
-		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy,
+		tests::{DisablingStrategy, Test, UpToLimitDisablingStrategy},
+		ActiveEra, ActiveEraInfo,
 	};
 	use sp_runtime::Perbill;
-	use sp_staking::{offence::OffenceSeverity, EraIndex};
+	use sp_staking::offence::OffenceSeverity;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
 	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
 	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
 	const MIN_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
-	const SLASH_ERA: EraIndex = 1;
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
 	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
 
@@ -7938,7 +7940,6 @@ mod byzantine_threshold_disabling_strategy {
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -7956,7 +7957,6 @@ mod byzantine_threshold_disabling_strategy {
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -7974,7 +7974,6 @@ mod byzantine_threshold_disabling_strategy {
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -7985,18 +7984,17 @@ mod byzantine_threshold_disabling_strategy {
 
 mod disabling_strategy_with_reenabling {
 	use crate::{
-		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy,
-		UpToLimitWithReEnablingDisablingStrategy,
+		tests::{DisablingStrategy, Test, UpToLimitWithReEnablingDisablingStrategy},
+		ActiveEra, ActiveEraInfo,
 	};
 	use sp_runtime::Perbill;
-	use sp_staking::{offence::OffenceSeverity, EraIndex};
+	use sp_staking::offence::OffenceSeverity;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
 	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
 	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
 	const LOW_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
-	const SLASH_ERA: EraIndex = 1;
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
 	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
 
@@ -8011,7 +8009,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8029,7 +8026,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8049,7 +8045,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8070,7 +8065,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					LOW_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8088,7 +8082,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8109,7 +8102,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8131,7 +8123,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8152,7 +8143,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					LOW_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8171,7 +8161,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 

@@ -47,7 +47,6 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	offence::OffenceSeverity,
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
@@ -58,11 +57,10 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
-	DisablingStrategy, EraPayout, EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
-	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
+	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -325,10 +323,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
-		/// `DisablingStragegy` controls how validators are disabled
-		#[pallet::no_default_bounds]
-		type DisablingStrategy: DisablingStrategy<Self>;
-
 		/// Maximum number of invulnerable validators.
 		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
@@ -396,7 +390,6 @@ pub mod pallet {
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxDisabledValidators = ConstU32<100>;
 			type EventListeners = ();
-			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -767,11 +760,13 @@ pub mod pallet {
 	///
 	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
 	/// represents how severe is the offence that got the validator disabled.
-	/// todo(ank4n): remove this.
+	/// todo(ank4n): Migrate kill.
+	/*
 	#[pallet::storage]
 	pub type DisabledValidators<T: Config> =
 		StorageValue<_, BoundedVec<(u32, OffenceSeverity), T::MaxDisabledValidators>, ValueQuery>;
 
+	*/
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).

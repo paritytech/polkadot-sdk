@@ -76,9 +76,12 @@ pub mod v17 {
 	}
 
 	#[frame_support::storage_alias]
-	type OldUnappliedSlashes<T: Config> =
+	pub type OldUnappliedSlashes<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, EraIndex, Vec<OldUnappliedSlash<T>>, ValueQuery>;
 
+	#[frame_support::storage_alias]
+	pub type DisabledValidators<T: Config> =
+		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<100>>, ValueQuery>;
 	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
 		fn on_runtime_upgrade() -> Weight {
@@ -206,7 +209,7 @@ pub mod v16 {
 			// Decode state to get old_disabled_validators in a format of Vec<u32>
 			let old_disabled_validators =
 				Vec::<u32>::decode(&mut state.as_slice()).expect("Failed to decode state");
-			let new_disabled_validators = DisabledValidators::<T>::get();
+			let new_disabled_validators = v17::DisabledValidators::<T>::get();
 
 			// Compare lengths
 			frame_support::ensure!(
@@ -224,7 +227,7 @@ pub mod v16 {
 
 			// Verify severity
 			let max_severity = OffenceSeverity(Perbill::from_percent(100));
-			let new_disabled_validators = DisabledValidators::<T>::get();
+			let new_disabled_validators = v17::DisabledValidators::<T>::get();
 			for (_, severity) in new_disabled_validators {
 				frame_support::ensure!(severity == max_severity, "Severity mismatch");
 			}
@@ -247,7 +250,7 @@ pub mod v15 {
 	use super::*;
 
 	// The disabling strategy used by staking pallet
-	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;
+	type DefaultDisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy;
 
 	#[storage_alias]
 	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;

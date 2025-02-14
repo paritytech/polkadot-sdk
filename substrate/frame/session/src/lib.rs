@@ -106,7 +106,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod disabling;
+pub mod disabling;
 #[cfg(feature = "historical")]
 pub mod historical;
 pub mod migrations;
@@ -129,8 +129,8 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
-		OneSessionHandler, ValidatorRegistration, ValidatorSet,
+		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get, OneSessionHandler,
+		ValidatorRegistration, ValidatorSet,
 	},
 	weights::Weight,
 	Parameter,
@@ -652,8 +652,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Public function to access the disabled validators.
-	pub fn disabled_validators() -> Vec<(u32, OffenceSeverity)> {
-		DisabledValidators::<T>::get()
+	pub fn disabled_validators() -> Vec<u32> {
+		DisabledValidators::<T>::get().iter().map(|(i, _)| *i).collect()
 	}
 
 	/// Move on to next session. Register new validator set and session keys. Changes to the
@@ -780,22 +780,27 @@ impl<T: Config> Pallet<T> {
 					disabled.remove(index);
 					// Emit event that a validator got re-enabled
 					let reenabled_stash = Validators::<T>::get()[reenable_idx as usize].clone();
-					Self::deposit_event(Event::ValidatorReenabled {
-						validator: reenabled_stash,
-					});
+					Self::deposit_event(Event::ValidatorReenabled { validator: reenabled_stash });
 				}
 			}
 		});
 	}
 
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
-	pub fn disable_index(_i: u32) -> bool {
-		false
-	}
+	pub fn disable_index(i: u32) -> bool {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
+			return false
+		}
 
-	/// Re-enable the validator of index `i`, returns `false` if the validator was already enabled.
-	pub fn enable_index(_i: u32) -> bool {
-		true
+		// If the validator is not disabled, return false.
+		DisabledValidators::<T>::mutate(|disabled| {
+			if let Ok(index) = disabled.binary_search(&i) {
+				disabled.remove(index);
+				true
+			} else {
+				false
+			}
+		})
 	}
 
 	/// Disable the validator identified by `c`. (If using with the staking pallet,
@@ -996,13 +1001,11 @@ impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
 
 impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
-		DisabledValidators::<T>::get()
-			.binary_search_by_key(&index, |(i, _)| *i)
-			.is_ok()
+		DisabledValidators::<T>::get().binary_search_by_key(&index, |(i, _)| *i).is_ok()
 	}
 
 	fn disabled_validators() -> Vec<u32> {
-		DisabledValidators::<T>::get().iter().map(|(i, _)| *i).collect()
+		Self::disabled_validators()
 	}
 }
 
