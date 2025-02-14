@@ -12,7 +12,7 @@
 //! to lower the latency between a transaction being submitted and it getting built in a parachain
 //! block.
 //!
-//! ## Current constraints
+//! ## Performance characteristics and constraints
 //!
 //! Elastic scaling is still considered experimental software, so stability is not guaranteed.
 //! If you encounter any problems,
@@ -22,20 +22,22 @@
 //! 1. **Bounded compute throughput**. Each parachain block gets at most 2 seconds of execution on
 //!    the relay chain. Therefore, assuming the full 2 seconds are used, a parachain can only
 //!    utilise at most 3 cores in a relay chain slot of 6 seconds. If the full execution time is not
-//!    being used, or if collators are able to author blocks faster than the validators are able to
+//!    being used or if collators are able to author blocks faster than the validators are able to
 //!    run them, higher core counts can be achieved.
-//! 2. **Single collator requirement for consistently scaling beyond a core at full authorship
-//!    duration of 2 seconds per block.** Using the current implementation with multiple collators
-//!    adds additional latency to the block production pipeline. Assuming block execution takes
-//!    about the same as authorship, the additional overhead is equal the duration of the authorship
-//!    plus the block announcement. Each collator must first import the previous block before
-//!    authoring a new one, so it is clear that the highest throughput can be achieved using a
-//!    single collator. Experiments show that the peak performance using more than one collator
-//!    (measured up to 10 collators) is utilising 2 cores with authorship time of 1.3 seconds per
-//!    block, which leaves 400ms for networking overhead. This would allow for 2.6 seconds of
-//!    execution, compared to the 2 seconds async backing enabled.
-//!    The development required for enabling maximum compute throughput for multiple collators is tracked by
-//!    [this issue](https://github.com/paritytech/polkadot-sdk/issues/5190).
+//! 2. **Sequential block execution**. Each collator must import the previous block before authoring
+//!    a new one. At present this happens sequentially, which limits the maximum compute throughput when
+//!    using multiple collators. To briefly explain the reasoning: first, the previous collator spends
+//!    2 seconds building the block and announces it. The next collator fetches and executes it, wasting
+//!    2 seconds plus the block fetching duration out of its 2 second slot. Therefore, the next collator
+//!    cannot build a subsequent block in due time and ends up authoring a fork, which defeats the purpose
+//!    of elastic scaling. The highest throughput can therefore be achieved with a single collator but
+//!    this should obviously only be used for testing purposes, due to the clear lack of decentralisation
+//!    and resilience. Experiments show that the peak compute throughput using more than one collator
+//!    (measured up to 10 collators) is utilising 2 cores with authorship time of 1.3 seconds per block,
+//!    which leaves 400ms for networking overhead. This would allow for 2.6 seconds of execution, compared
+//!    to the 2 seconds async backing enabled. If block authoring duration is low and you attempt to
+//!    use elastic scaling for achieving low latency or increasing storage throughput, this is not a
+//!    problem. Developments required for streamlining block production are tracked by [this issue](https://github.com/paritytech/polkadot-sdk/issues/5190).
 //! 3. **Lack of out-of-the-box automated scaling.** For true elasticity, the parachain must be able
 //!    to seamlessly acquire or sell coretime as the user demand grows and shrinks over time, in an
 //!    automated manner. This is
@@ -44,9 +46,10 @@
 //!    implementing such autoscaling, but we aim to provide a framework/examples for developing
 //!    autoscaling strategies.
 //!    Tracked by [this issue](https://github.com/paritytech/polkadot-sdk/issues/1487).
+//!    An in-progress external implementation by RegionX can be found [here](https://github.com/RegionX-Labs/On-Demand).
 //!
-//! Another hard limitation that is not envisioned to ever be lifted is that parachains which create
-//! forks will generally not be able to utilise the full number of cores they acquire.
+//! Another important constraint is that when a parachain forks, the number of blocks backed per
+//! relay chain block decreases.
 //!
 //! ## Using elastic scaling
 //!
@@ -57,8 +60,7 @@
 //! - Ensure the `AsyncBackingParams.max_candidate_depth` value is configured to a value that is at
 //!   least double the maximum targeted parachain velocity. For example, if the parachain will build
 //!   at most 3 candidates per relay chain block, the `max_candidate_depth` should be at least 6.
-//! - Ensure enough coretime is assigned to the parachain. For maximum compute throughput the upper
-//!   bound is 3 cores.
+//! - Ensure enough coretime is assigned to the parachain.
 //! - Ensure the `CandidateReceiptV2` node feature is enabled on the relay chain configuration (node
 //!   feature bit number 3).
 //!
@@ -73,7 +75,8 @@
 //! This assumes you are using
 //! [the latest parachain template](https://github.com/paritytech/polkadot-sdk/tree/master/templates/parachain).
 //!
-//! This phase consists of plugging in the new slot-based collator.
+//! This phase consists of plugging in the new slot-based collator, which is a requirement for
+//! elastic scaling.
 //!
 //! 1. In `node/src/service.rs` import the slot based collator instead of the lookahead collator, as
 //!    well as the `SlotBasedBlockImport` and `SlotBasedBlockImportHandle`.
@@ -153,9 +156,10 @@
 //! ### Phase 2 - Configure core selection policy in the parachain runtime
 //!
 //! [RFC-103](https://polkadot-fellows.github.io/RFCs/approved/0103-introduce-core-index-commitment.html) enables
-//! parachain runtimes to constrain the execution of each block to a specified core. This ensures
-//! better security and liveness properties as described in the RFC. To make use of this feature,
-//! the `SelectCore` trait needs to be implemented.
+//! parachain runtimes to constrain the execution of each block to a specified core, ensuring better
+//! security and liveness, which is mandatory for launching in production. More details are
+//! described in the RFC. To make use of this feature, the `SelectCore` trait needs to be
+//! implemented.
 #![doc = docify::embed!("../../cumulus/pallets/parachain-system/src/lib.rs", SelectCore)]
 //!
 //! For the vast majority of use cases, you will not need to implement a custom core
