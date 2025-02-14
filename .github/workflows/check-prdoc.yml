@@ -48,8 +48,8 @@ jobs:
         run: |
           hits=$(find prdoc -name "pr_$GITHUB_PR*.prdoc" | wc -l)
           if (( hits > 0 )); then
-            echo "PR detected as silent, but a PRDoc was found, checking it as information"
-            $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR} || echo "Ignoring failure"
+            echo "PR detected as silent, but a PRDoc was found, checking it"
+            $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR}
           else
             echo "PR detected as silent, no PRDoc found, exiting..."
           fi
