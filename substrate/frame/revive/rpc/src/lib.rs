@@ -352,4 +352,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		let nonce = self.client.nonce(address, block).await?;
 		Ok(nonce)
 	}
+
+	async fn web3_client_version(&self) -> RpcResult<String> {
+		let branch = env!("GIT_BRANCH_NAME");
+		let commit = env!("GIT_COMMIT_HASH");
+		Ok(format!("eth-rpc/{branch}/{commit}"))
+	}
 }
