@@ -73,11 +73,6 @@ where
 		}
 	}
 
-	pub fn convert(&mut self) -> Result<Message, XcmConverterError> {
-		let result = self.to_ethereum_message()?;
-		Ok(result)
-	}
-
 	fn next(&mut self) -> Result<&'a Instruction<Call>, XcmConverterError> {
 		self.iter.next().ok_or(XcmConverterError::UnexpectedEndOfXcm)
 	}
@@ -209,7 +204,7 @@ where
 	/// e. Currently, `AliasOrigin` is always required, can distinguish the V2 process from V1.
 	/// 	it's required also for dispatching transact from that specific origin.
 	/// f. SetTopic is required for tracing the message all the way along.
-	fn to_ethereum_message(&mut self) -> Result<Message, XcmConverterError> {
+	pub fn convert(&mut self) -> Result<Message, XcmConverterError> {
 		// Get fee amount
 		let fee_amount = self.extract_remote_fee()?;
 
