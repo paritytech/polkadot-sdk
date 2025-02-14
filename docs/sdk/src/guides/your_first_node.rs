@@ -309,8 +309,8 @@ mod tests {
 	}
 
 	#[test]
-	fn omni_chain_dev_mode_works() {
-		// omni-chain dev-mode works with dev_chain_spec
+	fn omni_node_dev_mode_works() {
+		//Omni Node in dev mode works with parachain's template `dev_chain_spec`
 		let dev_chain_spec = std::env::current_dir().unwrap().parent()
 		.unwrap().parent()
 		.unwrap().join("templates")
@@ -323,14 +323,14 @@ mod tests {
 		let output = Command::new(omni_node)
 			.arg("--dev")
 			.args(["--chain", dev_chain_spec.to_str().unwrap()])
-			.timeout(std::time::Duration::from_secs(14))
+			.timeout(std::time::Duration::from_secs(70))
 			.output()
 			.unwrap();
 
-		// atleast 2 blocks should be imported
+		// atleast  blocks should be imported
 		assert!(String::from_utf8(output.stderr)
 			.unwrap()
-			.contains(format!("Imported #{}", 2).to_string().as_str()));
+			.contains(format!("Imported #{}", 7).to_string().as_str()));
 
 	}
 }
