@@ -34,7 +34,7 @@ pub use weights::*;
 
 use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
-use snowbridge_core::{AgentId, AgentIdOf, AssetMetadata, TokenId, TokenIdOf};
+use snowbridge_core::{AgentId, AgentIdOf as LocationHashOf, AssetMetadata, TokenId, TokenIdOf};
 use snowbridge_outbound_queue_primitives::{
 	v2::{Command, Message, SendMessage},
 	SendError,
@@ -77,9 +77,6 @@ pub mod pallet {
 		/// Origin check for XCM locations that transact with this pallet
 		type FrontendOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
 
-		/// Converts Location to AgentId
-		type AgentIdOf: ConvertLocation<AgentId>;
-
 		/// This chain's Universal Location.
 		type UniversalLocation: Get<InteriorLocation>;
 
@@ -95,7 +92,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// An CreateAgent message was sent to the Gateway
-		CreateAgent { location: Box<Location>, agent_id: AgentId },
+		CreateAgent { location: Box<Location>, agent_id: H256 },
 		/// Register Polkadot-native token as a wrapped ERC20 token on Ethereum
 		RegisterToken {
 			/// Location of Polkadot-native token
@@ -150,17 +147,17 @@ pub mod pallet {
 			let location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let agent_id = Self::location_to_agent_id(&location)?;
+			let message_origin = Self::location_to_message_origin(&location)?;
 
 			// Record the agent id or fail if it has already been created
-			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);
-			Agents::<T>::insert(agent_id, ());
+			ensure!(!Agents::<T>::contains_key(message_origin), Error::<T>::AgentAlreadyCreated);
+			Agents::<T>::insert(message_origin, ());
 
 			let command = Command::CreateAgent {};
 
-			Self::send(agent_id, command, fee)?;
+			Self::send(message_origin, command, fee)?;
 
-			Self::deposit_event(Event::<T>::CreateAgent { location: Box::new(location), agent_id });
+			Self::deposit_event(Event::<T>::CreateAgent { location: Box::new(location), agent_id: message_origin });
 			Ok(())
 		}
 
@@ -178,7 +175,7 @@ pub mod pallet {
 			fee: u128,
 		) -> DispatchResult {
 			let origin_location = T::FrontendOrigin::ensure_origin(origin)?;
-			let origin = Self::location_to_agent_id(&origin_location)?;
+			let message_origin = Self::location_to_message_origin(&origin_location)?;
 
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
@@ -199,7 +196,7 @@ pub mod pallet {
 				symbol: metadata.symbol.into_inner(),
 				decimals: metadata.decimals,
 			};
-			Self::send(origin, command, fee)?;
+			Self::send(message_origin, command, fee)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken {
 				location: location.clone().into(),
@@ -212,7 +209,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Send `command` to the Gateway from a specific origin/agent
-		fn send(origin: AgentId, command: Command, fee: u128) -> DispatchResult {
+		fn send(origin: H256, command: Command, fee: u128) -> DispatchResult {
 			let mut message = Message {
 				origin,
 				id: Default::default(),
@@ -237,9 +234,9 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::LocationReanchorFailed)
 		}
 
-		fn location_to_agent_id(location: &Location) -> Result<AgentId, Error<T>> {
+		pub fn location_to_message_origin(location: &Location) -> Result<H256, Error<T>> {
 			let reanchored_location = Self::reanchor(location)?;
-			AgentIdOf::convert_location(&reanchored_location)
+			LocationHashOf::convert_location(&reanchored_location)
 				.ok_or(Error::<T>::LocationConversionFailed)
 		}
 	}

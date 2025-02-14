@@ -5,10 +5,9 @@ use frame_support::{
 	traits::{tokens::fungible::Mutate, ConstU128, Contains},
 };
 use sp_core::H256;
-use xcm_executor::traits::ConvertLocation;
 
 use crate as snowbridge_system;
-use snowbridge_core::{sibling_sovereign_account, AgentId, ParaId};
+use snowbridge_core::{sibling_sovereign_account, ParaId};
 use snowbridge_outbound_queue_primitives::{
 	v2::{Message, SendMessage},
 	SendMessageFeeProvider,
@@ -190,7 +189,6 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = MockOkOutboundQueue;
 	type FrontendOrigin = EnsureXcm<AllowFromAssetHub>;
-	type AgentIdOf = snowbridge_core::AgentIdOf;
 	type WeightInfo = ();
 	type UniversalLocation = UniversalLocation;
 	type EthereumLocation = EthereumDestination;
@@ -218,9 +216,4 @@ pub fn new_test_ext(_genesis_build: bool) -> sp_io::TestExternalities {
 
 pub fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 	pallet_xcm_origin::Origin(location).into()
-}
-
-pub fn make_agent_id(location: Location) -> AgentId {
-	<Test as snowbridge_system::Config>::AgentIdOf::convert_location(&location)
-		.expect("convert location")
 }
