@@ -803,21 +803,26 @@ impl DenyExecution for DenyClearOrigin {
 // Dummy filter which denies nothing
 struct DenyNothing;
 impl DenyExecution for DenyNothing {
-	fn deny_execution<RuntimeCall>(_origin: &Location, _instructions: &mut [Instruction<RuntimeCall>], _max_weight: Weight, _properties: &mut Properties) -> Result<(), ProcessMessageError> {
+	fn deny_execution<RuntimeCall>(
+		_origin: &Location,
+		_instructions: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
 		Ok(())
 	}
 }
 
-// Dummy filter which wraps `DenyExecution` on `ShouldExecute`
-struct DenyWrapper<Deny: ShouldExecute>(PhantomData<Deny>);
-impl<Deny: ShouldExecute> DenyExecution for DenyWrapper<Deny> {
-	fn deny_execution<RuntimeCall>(
+// Test helper: Adapts a `DenyExecution` barrier to the `ShouldExecute` trait
+struct Executable<Barrier: DenyExecution>(PhantomData<Barrier>);
+impl<Barrier: DenyExecution> ShouldExecute for Executable<Barrier> {
+	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Deny::should_execute(origin, instructions, max_weight, properties)
+		Barrier::deny_execution(origin, instructions, max_weight, properties)
 	}
 }
 
@@ -891,14 +896,13 @@ fn deny_local_instructions_then_try_works() {
 	assert!(result.is_ok());
 
 	// Should deny recursively before allow
-	type BarrierDenyClearOrigin =
-		DenyWrapper<DenyThenTry<DenyLocalInstructions<DenyClearOrigin>, AllowAll>>;
+	type BarrierDenyClearOrigin = DenyThenTry<DenyLocalInstructions<DenyClearOrigin>, AllowAll>;
 	assert_deny_instructions_recursively::<BarrierDenyClearOrigin>();
 }
 
 #[test]
 fn deny_local_instructions_works() {
-	type Barrier = DenyLocalInstructions<DenyClearOrigin>;
+	type Barrier = Executable<DenyLocalInstructions<DenyClearOrigin>>;
 	assert_deny_instructions_recursively::<Barrier>();
 }
 
@@ -907,13 +911,6 @@ fn compare_deny_filters() {
 	type Denies = (DenyNothing, DenyReserveTransferToRelayChain);
 
 	fn assert_barrier<Barrier: ShouldExecute>(
-		top_level_result: Result<(), ProcessMessageError>,
-		nested_result: Result<(), ProcessMessageError>,
-	) {
-		assert_deny_barrier::<DenyWrapper<Barrier>>(top_level_result, nested_result);
-	}
-
-	fn assert_deny_barrier<Barrier: DenyExecution>(
 		top_level_result: Result<(), ProcessMessageError>,
 		nested_result: Result<(), ProcessMessageError>,
 	) {
@@ -931,13 +928,13 @@ fn compare_deny_filters() {
 			.into(),
 		);
 		let result =
-			Barrier::deny_execution(&origin, xcm.clone().inner_mut(), max_weight, &mut properties);
+			Barrier::should_execute(&origin, xcm.clone().inner_mut(), max_weight, &mut properties);
 		assert_eq!(top_level_result, result);
 
 		// Validate Nested
 		let mut nested_xcm = Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.into())].into());
 		let result =
-			Barrier::deny_execution(&origin, nested_xcm.inner_mut(), max_weight, &mut properties);
+			Barrier::should_execute(&origin, nested_xcm.inner_mut(), max_weight, &mut properties);
 		assert_eq!(nested_result, result);
 	}
 
@@ -951,18 +948,18 @@ fn compare_deny_filters() {
 	);
 
 	// `DenyLocalInstructions`: Top-level=Deny, Nested=Deny, TryAllow=No
-	assert_deny_barrier::<DenyLocalInstructions<Denies>>(
+	assert_barrier::<Executable<DenyLocalInstructions<Denies>>>(
 		Err(ProcessMessageError::Unsupported),
 		Err(ProcessMessageError::Unsupported),
 	);
 }
 
-fn assert_deny_instructions_recursively<Barrier: DenyExecution>() {
+fn assert_deny_instructions_recursively<Barrier: ShouldExecute>() {
 	// closure for (xcm, origin) testing with `Barrier` which denies `ClearOrigin`
 	// instruction
-	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+	let assert_barrier = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
-			Barrier::deny_execution(
+			Barrier::should_execute(
 				&origin,
 				&mut xcm,
 				Weight::from_parts(10, 10),
@@ -973,21 +970,13 @@ fn assert_deny_instructions_recursively<Barrier: DenyExecution>() {
 	};
 
 	// ok
-	assert_deny_execution(vec![ClearTransactStatus], Location::parent(), Ok(()));
+	assert_barrier(vec![ClearTransactStatus], Location::parent(), Ok(()));
 	// invalid top-level contains `ClearOrigin`
-	assert_deny_execution(
-		vec![ClearOrigin],
-		Location::parent(),
-		Err(ProcessMessageError::Unsupported),
-	);
+	assert_barrier(vec![ClearOrigin], Location::parent(), Err(ProcessMessageError::Unsupported));
 	// ok - SetAppendix with XCM without ClearOrigin
-	assert_deny_execution(
-		vec![SetAppendix(Xcm(vec![ClearTransactStatus]))],
-		Location::parent(),
-		Ok(()),
-	);
+	assert_barrier(vec![SetAppendix(Xcm(vec![ClearTransactStatus]))], Location::parent(), Ok(()));
 	// ok - DepositReserveAsset with XCM contains ClearOrigin
-	assert_deny_execution(
+	assert_barrier(
 		vec![DepositReserveAsset {
 			assets: Wild(All),
 			dest: Here.into(),
@@ -998,21 +987,21 @@ fn assert_deny_instructions_recursively<Barrier: DenyExecution>() {
 	);
 
 	// invalid - empty XCM
-	assert_deny_execution(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
+	assert_barrier(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
 	// invalid - SetAppendix with empty XCM
-	assert_deny_execution(
+	assert_barrier(
 		vec![SetAppendix(Xcm(vec![]))],
 		Location::parent(),
 		Err(ProcessMessageError::BadFormat),
 	);
 	// invalid SetAppendix contains `ClearOrigin`
-	assert_deny_execution(
+	assert_barrier(
 		vec![SetAppendix(Xcm(vec![ClearOrigin]))],
 		Location::parent(),
 		Err(ProcessMessageError::Unsupported),
 	);
 	// invalid nested SetAppendix contains `ClearOrigin`
-	assert_deny_execution(
+	assert_barrier(
 		vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
 			Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
 				SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
