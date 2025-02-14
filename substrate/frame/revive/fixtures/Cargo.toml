@@ -21,7 +21,7 @@ sp-io = { workspace = true, default-features = true, optional = true }
 
 [build-dependencies]
 anyhow = { workspace = true, default-features = true }
-polkavm-linker = { version = "0.19.0" }
+polkavm-linker = { version = "0.21.0" }
 toml = { workspace = true }
 
 [features]

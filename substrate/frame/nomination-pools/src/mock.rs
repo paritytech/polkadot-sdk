@@ -477,6 +477,7 @@ impl pools::Config for Runtime {
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = EnsureSignedBy<Admin, AccountId>;
+	type BlockNumberProvider = System;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
