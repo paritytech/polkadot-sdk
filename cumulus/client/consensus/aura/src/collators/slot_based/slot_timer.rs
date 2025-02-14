@@ -108,7 +108,10 @@ fn duration_now() -> Duration {
 	})
 }
 
-/// Returns the duration until the blockproduction attempt from now.
+/// Returns the duration until the next block production should be attempted.
+/// Returns:
+/// - Duration: The duration until the next attempt.
+/// - Timestamp: The time at which the attempt will take place.
 fn time_until_next_attempt(
 	now: Duration,
 	block_production_interval: Duration,
