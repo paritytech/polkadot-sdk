@@ -23,7 +23,6 @@ import {
 	ss58Address
 } from "@polkadot-labs/hdkd-helpers";
 
-// import { WsProvider } from '@polkadot/rpc-provider';
 import {Asset} from "./data/tokenMap";
 
 let hdkdKeyPairAlice, hdkdKeyPairBob;
