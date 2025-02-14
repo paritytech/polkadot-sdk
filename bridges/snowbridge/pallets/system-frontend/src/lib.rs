@@ -128,7 +128,7 @@ pub mod pallet {
 		/// Check location failure, should start from the dispatch origin as owner
 		InvalidAssetOwner,
 		/// Send xcm message failure
-		Send,
+		SendFailure,
 		/// Withdraw fee asset failure
 		FeesNotMet,
 		/// Convert to reanchored location failure
@@ -143,7 +143,7 @@ pub mod pallet {
 			match e {
 				SendError::Fees => Error::<T>::FeesNotMet,
 				SendError::NotApplicable => Error::<T>::Unreachable,
-				_ => Error::<T>::Send,
+				_ => Error::<T>::SendFailure,
 			}
 		}
 	}
