@@ -1,0 +1,8 @@
+title: Bump frame-metadata v16 to 19.0.0
+doc:
+- audience: Runtime Dev
+  description: Update to latest version of `frame-metadata` in order to support pallet
+    view function metadata.
+crates:
+- name: sp-metadata-ir
+  bump: patch
