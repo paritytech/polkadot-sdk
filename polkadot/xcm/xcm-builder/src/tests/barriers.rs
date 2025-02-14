@@ -800,6 +800,14 @@ impl DenyExecution for DenyClearOrigin {
 	}
 }
 
+// Dummy filter which denies nothing
+struct DenyNothing;
+impl DenyExecution for DenyNothing {
+	fn deny_execution<RuntimeCall>(_origin: &Location, _instructions: &mut [Instruction<RuntimeCall>], _max_weight: Weight, _properties: &mut Properties) -> Result<(), ProcessMessageError> {
+		Ok(())
+	}
+}
+
 // Dummy filter which wraps `DenyExecution` on `ShouldExecute`
 struct DenyWrapper<Deny: ShouldExecute>(PhantomData<Deny>);
 impl<Deny: ShouldExecute> DenyExecution for DenyWrapper<Deny> {
@@ -896,7 +904,7 @@ fn deny_local_instructions_works() {
 
 #[test]
 fn compare_deny_filters() {
-	type Denies = (DenyWrapper<AllowAll>, DenyReserveTransferToRelayChain);
+	type Denies = (DenyNothing, DenyReserveTransferToRelayChain);
 
 	fn assert_barrier<Barrier: ShouldExecute>(
 		top_level_result: Result<(), ProcessMessageError>,
