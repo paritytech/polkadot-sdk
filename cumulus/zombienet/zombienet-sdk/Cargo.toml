@@ -1,7 +1,7 @@
 [package]
 name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
-description = "Zomebienet-sdk tests."
+description = "Zomebienet-sdk tests for cumulus."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

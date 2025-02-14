@@ -1,6 +1,6 @@
 # How to run locally
 
-As a prerequisite, the `test-parachain` and `polkadot` binaries need to be installed.
+As a prerequisite, the `test-parachain` and `polkadot` binaries need to be installed or available under `$PATH`.
 
 ```
 # install test-parachain
