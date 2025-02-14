@@ -133,7 +133,6 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 				.into()
 		});
 
-
 	let ItemFn { attrs, vis, sig, block } = item_fn;
 
 	(quote! {
