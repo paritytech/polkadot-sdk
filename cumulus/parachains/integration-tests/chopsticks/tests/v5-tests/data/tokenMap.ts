@@ -31,11 +31,11 @@ export class AssetMap {
 		return {
 			// todo isAH interior needs to be X2 for AH and X3 for others. move to a variable
 			parents: isAH ? 0 : 1,
-			interior: asset == Asset.WND ? XcmV3Junctions.Here() : {
+			interior: asset == Asset.WND ? 'Here' : {
 				X3: [
 					{Parachain: 1000},
 					{PalletInstance: 50},
-					{GeneralIndex: 1984n},
+					{GeneralIndex: index},
 				],
 			},
 		};

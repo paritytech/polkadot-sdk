@@ -113,24 +113,25 @@ export const setup = async (): Promise<MockNetwork> => {
 
 						// TODO: detect asset supply increase and override it.
 						changes.Assets.Asset.push(
-							[[[[assetMap.getIndex(what)]], { supply: amount }]]
+							[[[assetMap.getIndex(what)]], { supply: amount }]
 						);
 						changes.Assets.Account.push(
 							[[assetMap.getIndex(what), who], { balance: amount }],
 						);
 					} else {
 						console.log('who, what, state, amount:', who, what, state, amount)
-						// changes.ForeignAssets = changes.ForeignAssets ?? {};
-						// changes.ForeignAssets.Asset = changes.ForeignAssets.Asset ?? [];
-						// changes.ForeignAssets.Account = changes.ForeignAssets.Account ?? [];
+						changes.ForeignAssets = changes.ForeignAssets ?? {};
+						changes.ForeignAssets.Asset = changes.ForeignAssets.Asset ?? [];
+						changes.ForeignAssets.Account = changes.ForeignAssets.Account ?? [];
 
 						// TODO: detect asset supply increase and override it.
-						// changes.ForeignAssets.Asset.push(
-						// 	[[assetMap.getRelativeLocation(what, false), {supply: amount }]]
-						// );
-						// changes.ForeignAssets.Account.push(
-						// 	[[assetMap.getRelativeLocation(what, false), who], { balance: amount }],
-						// );
+						changes.ForeignAssets.Asset.push(
+							[[assetMap.getRelativeLocation(what, false)], {supply: amount }]
+							// [[{ parents: 1, interior: 'Here' }], { supply: amount + 2n }],
+						);
+						changes.ForeignAssets.Account.push(
+							[[assetMap.getRelativeLocation(what, false), who], { balance: amount }],
+						);
 						// changes.ForeignAssets.Asset.push(
 						// 	[[{
 						// 		parents: 1,
@@ -144,35 +145,35 @@ export const setup = async (): Promise<MockNetwork> => {
 						// 	}],
 						// 		{ supply: amount + 1n }],
 						// );
-						changes.ForeignAssets = {
-							Asset: [
-								// [[{
-								// 	parents: 1,
-								// 	interior: {
-								// 		X3: [
-								// 			{Parachain: 1000},
-								// 			{PalletInstance: 50},
-								// 			{GeneralIndex: 1984n},
-								// 		],
-								// 	},
-								// }],
-								// 	{ supply: amount + 1n }],
-								[[{ parents: 1, interior: 'Here' }], { supply: amount + 2n }],
-							],
-							Account: [
-								// [[{ parents: 1, interior:
-								// 		{
-								// 		X3: [
-								// 			{Parachain: 1000},
-								// 			{PalletInstance: 50},
-								// 			{GeneralIndex: 1984n},
-								// 		],
-								// 	},
-								//
-								// }, who], { balance: amount + 1n }],
-								[[{ parents: 1, interior: 'Here' }, who], { balance: amount + 2n }],
-							],
-						};
+						// changes.ForeignAssets = {
+						// 	Asset: [
+						// 		// [[{
+						// 		// 	parents: 1,
+						// 		// 	interior: {
+						// 		// 		X3: [
+						// 		// 			{Parachain: 1000},
+						// 		// 			{PalletInstance: 50},
+						// 		// 			{GeneralIndex: 1984n},
+						// 		// 		],
+						// 		// 	},
+						// 		// }],
+						// 		// 	{ supply: amount + 1n }],
+						// 		[[{ parents: 1, interior: 'Here' }], { supply: amount + 2n }],
+						// 	],
+						// 	Account: [
+						// 		// [[{ parents: 1, interior:
+						// 		// 		{
+						// 		// 		X3: [
+						// 		// 			{Parachain: 1000},
+						// 		// 			{PalletInstance: 50},
+						// 		// 			{GeneralIndex: 1984n},
+						// 		// 		],
+						// 		// 	},
+						// 		//
+						// 		// }, who], { balance: amount + 1n }],
+						// 		[[{ parents: 1, interior: 'Here' }, who], { balance: amount + 2n }],
+						// 	],
+						// };
 
 						// changes.ForeignAssets.Account.push(
 						// 	[[{ parents: 1, interior:
@@ -188,14 +189,20 @@ export const setup = async (): Promise<MockNetwork> => {
 						// );
 					}
 				}
-				console.log('setting storage for penpal');
+				console.log('changes before setting storage: ', changes);
 				await parachain.dev.setStorage(changes);
 			},
 			setXcmVersion: async (version: number) => {
 				const changes: any = {};
-				changes.PolkadotXcm = {
-					SafeXcmVersion: version,
-				}
+				changes.PolkadotXcm = changes.PolkadotXcm ?? {};
+				changes.PolkadotXcm.SafeXcmVersion = changes.PolkadotXcm.SafeXcmVersion ?? 0;
+				changes.PolkadotXcm.SafeXcmVersion = 5;
+
+				changes.PolkadotXcm.SupportedVersion = changes.PolkadotXcm.SupportedVersion ?? [];
+				changes.PolkadotXcm.SupportedVersion.push(
+					[[5, { V5: {parents: 1, interior: { X1: [{Parachain: 1000}]}}}], 5]
+				);
+
 				await parachain.dev.setStorage(changes);
 			},
 			getSystemAsset: async (accounts: [SS58String][]) => {

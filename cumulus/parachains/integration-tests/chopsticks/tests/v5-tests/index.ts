@@ -506,30 +506,25 @@ beforeAll(async () => {
 // 	expect(alice_balance_after - alice_balance_before).toBe(withdraw_usdt);
 // });
 
-// this test scenario works together with the previous one.
-// previous test serves as a set-up for this one.
 test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", async () => {
 	const withdraw_usdt = 177_777_000n;
-
-	await network.parachain.setAssets([[aliceAddr, Asset.USDT, AssetState.Foreign, 177_777_000n]]);
-
-
-	// await network.parachain.setSystemAsset([[aliceAddr, 25_000_000_000_000n]]);
-	// await network.assetHub.setAssets([[network.paraSovAccOnAssetHub, Asset.USDT, AssetState.Local, withdraw_usdt], [network.paraSovAccOnAssetHub, Asset.USDT, AssetState.Local, 25_000_000_000_000n]]);
-	// await network.assetHub.setAssets([[network.paraSovAccOnAssetHub, Asset.USDT, AssetState.Local, withdraw_usdt]]);
-
-	// await network.parachain.setTokens([[aliceAddr, 'Relay', 25_000_000_000_000n]]);
-	// await network.parachain.setTokens([[aliceAddr, 'Para', 25_000_000_000_000n]]);
-	// await network.assetHub.setTokens([[network.paraSovAccOnAssetHub, 'USDT', 10n * withdraw_usdt], [network.paraSovAccOnAssetHub, 'Relay', 25_000_000_000_000n]]);
-
-	// const [alice_balance_before] = await network.assetHub.getTokens([[aliceAddr, 'USDT']]);
-	const [alice_balance_before] = await network.assetHub.getAssets([[aliceAddr, Asset.USDT, AssetState.Foreign]]);
-	console.log('alice_balance_before:', alice_balance_before);
+	const system_asset_amount = 25_000_000_000_000n;
 
 	await network.assetHub.setXcmVersion(5);
 	await network.parachain.setXcmVersion(5);
 
+	await network.parachain.setSystemAsset([[aliceAddr, system_asset_amount]]);
+	await network.parachain.setAssets([
+		[aliceAddr, Asset.USDT, AssetState.Foreign, withdraw_usdt],
+		[aliceAddr, Asset.WND, AssetState.Foreign, system_asset_amount]
+	]);
 
+	await network.assetHub.setAssets([
+		[network.paraSovAccOnAssetHub, Asset.USDT, AssetState.Local, withdraw_usdt],
+	]);
+	await network.assetHub.setSystemAsset([[network.paraSovAccOnAssetHub, system_asset_amount]]);
+
+	const [alice_balance_before] = await network.assetHub.getAssets([[aliceAddr, Asset.USDT, AssetState.Local]]);
 	const msg /*: Wnd_ahCalls['PolkadotXcm']['execute']['message']*/ = Enum('V5', [
 		Enum('WithdrawAsset', [
 			{
@@ -607,7 +602,7 @@ test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", asyn
 
 	await network.assetHub.context.ws.send('dev_newBlock', [{ count: 1 }])
 
-	const [alice_balance_after] = await network.assetHub.getAssets([[aliceAddr, Asset.USDT, AssetState.Foreign]]);
+	const [alice_balance_after] = await network.assetHub.getAssets([[aliceAddr, Asset.USDT, AssetState.Local]]);
 	expect(alice_balance_after - alice_balance_before).toBe(withdraw_usdt);
 });
 
