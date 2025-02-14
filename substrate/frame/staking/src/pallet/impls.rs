@@ -1840,13 +1840,15 @@ where
 				offence_era,
 			});
 
-			// add offending validator to the set of offenders.
-			add_db_reads_writes(1, 1);
-			T::SessionInterface::report_offence(
-				validator.clone(),
-				OffenceSeverity(*slash_fraction),
-			);
-
+			if offence_era == active_era.index {
+				// offence is in the current active era. Report it to session to maybe disable the
+				// validator.
+				add_db_reads_writes(2, 2);
+				T::SessionInterface::report_offence(
+					validator.clone(),
+					OffenceSeverity(*slash_fraction),
+				);
+			}
 			add_db_reads_writes(1, 0);
 			let prior_slash_fraction = ValidatorSlashInEra::<T>::get(offence_era, validator)
 				.map_or(Zero::zero(), |(f, _)| f);

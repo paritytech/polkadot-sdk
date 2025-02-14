@@ -129,13 +129,12 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get, OneSessionHandler,
-		ValidatorRegistration, ValidatorSet,
+		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
+		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
 	weights::Weight,
 	Parameter,
 };
-use frame_support::traits::Defensive;
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},

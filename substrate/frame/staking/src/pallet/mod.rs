@@ -1048,14 +1048,6 @@ pub mod pallet {
 		ControllerBatchDeprecated {
 			failures: u32,
 		},
-		/// Validator has been disabled.
-		ValidatorDisabled {
-			stash: T::AccountId,
-		},
-		/// Validator has been re-enabled.
-		ValidatorReenabled {
-			stash: T::AccountId,
-		},
 		/// Staking balance migrated from locks to holds, with any balance that could not be held
 		/// is force withdrawn.
 		CurrencyMigrated {

@@ -1028,6 +1028,14 @@ pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
 		.collect()
 }
 
+pub(crate) fn session_events() -> Vec<pallet_session::Event<Test>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Session(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
 parameter_types! {
 	static StakingEventsIndex: usize = 0;
 }
