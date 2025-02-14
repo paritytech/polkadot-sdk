@@ -1,6 +1,4 @@
-// import { createClient } from "polkadot-api";
 import { createClient, type ChainDefinition, type SS58String, type TypedApi } from "polkadot-api"
-import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
 import { setupNetworks, type NetworkContext } from "@acala-network/chopsticks-testing"
 import { XcmV3Junctions, XcmV3Junction, XcmVersionedLocation, wnd_penpal, wnd_rc, wnd_ah } from "@polkadot-api/descriptors"
@@ -14,12 +12,9 @@ export enum AssetState {
 export interface MockChain<T extends ChainDefinition> {
 	context: NetworkContext,
 	api: TypedApi<T>
-	// who, what, amount.
 	setSystemAsset: (accounts: [SS58String, bigint][]) => Promise<void>,
 	setAssets: (assets: [SS58String, Asset, AssetState, bigint][]) => Promise<void>,
-	// who, what.
 	getSystemAsset: (who: [SS58String][]) => Promise<bigint[]>,
-	// boolean = isForeign
 	getAssets: (assets: [SS58String, Asset, AssetState][]) => Promise<bigint[]>,
 	setXcmVersion: (version: number) => Promise<void>,
 }
@@ -83,7 +78,7 @@ export const setup = async (): Promise<MockNetwork> => {
 
 	const assetHubIndexMap: Record<Asset, number> = {
 		[Asset.USDT]: 1984,
-		[Asset.WND]: 2,
+		[Asset.WND]: 1,
 	};
 	const assetMap = new AssetMap(assetHubIndexMap);
 
@@ -119,7 +114,6 @@ export const setup = async (): Promise<MockNetwork> => {
 							[[assetMap.getIndex(what), who], { balance: amount }],
 						);
 					} else {
-						console.log('who, what, state, amount:', who, what, state, amount)
 						changes.ForeignAssets = changes.ForeignAssets ?? {};
 						changes.ForeignAssets.Asset = changes.ForeignAssets.Asset ?? [];
 						changes.ForeignAssets.Account = changes.ForeignAssets.Account ?? [];
@@ -127,69 +121,13 @@ export const setup = async (): Promise<MockNetwork> => {
 						// TODO: detect asset supply increase and override it.
 						changes.ForeignAssets.Asset.push(
 							[[assetMap.getRelativeRawLocation(what, false)], {supply: amount }]
-							// [[{ parents: 1, interior: 'Here' }], { supply: amount + 2n }],
 						);
 						changes.ForeignAssets.Account.push(
 							[[assetMap.getRelativeRawLocation(what, false), who], { balance: amount }],
 						);
-						// changes.ForeignAssets.Asset.push(
-						// 	[[{
-						// 		parents: 1,
-						// 		interior: {
-						// 			X3: [
-						// 				{Parachain: 1000},
-						// 				{PalletInstance: 50},
-						// 				{GeneralIndex: 1984n},
-						// 			],
-						// 		},
-						// 	}],
-						// 		{ supply: amount + 1n }],
-						// );
-						// changes.ForeignAssets = {
-						// 	Asset: [
-						// 		// [[{
-						// 		// 	parents: 1,
-						// 		// 	interior: {
-						// 		// 		X3: [
-						// 		// 			{Parachain: 1000},
-						// 		// 			{PalletInstance: 50},
-						// 		// 			{GeneralIndex: 1984n},
-						// 		// 		],
-						// 		// 	},
-						// 		// }],
-						// 		// 	{ supply: amount + 1n }],
-						// 		[[{ parents: 1, interior: 'Here' }], { supply: amount + 2n }],
-						// 	],
-						// 	Account: [
-						// 		// [[{ parents: 1, interior:
-						// 		// 		{
-						// 		// 		X3: [
-						// 		// 			{Parachain: 1000},
-						// 		// 			{PalletInstance: 50},
-						// 		// 			{GeneralIndex: 1984n},
-						// 		// 		],
-						// 		// 	},
-						// 		//
-						// 		// }, who], { balance: amount + 1n }],
-						// 		[[{ parents: 1, interior: 'Here' }, who], { balance: amount + 2n }],
-						// 	],
-						// };
-
-						// changes.ForeignAssets.Account.push(
-						// 	[[{ parents: 1, interior:
-						// 			{
-						// 			X3: [
-						// 				{Parachain: 1000},
-						// 				{PalletInstance: 50},
-						// 				{GeneralIndex: 1984n},
-						// 			],
-						// 		},
-						//
-						// 	}, who], { balance: amount + 1n }],
-						// );
 					}
 				}
-				console.log('changes before setting storage: ', changes);
+
 				await parachain.dev.setStorage(changes);
 			},
 			setXcmVersion: async (version: number) => {
@@ -233,95 +171,6 @@ export const setup = async (): Promise<MockNetwork> => {
 				}
 				return results;
 			},
-			// getTokens: async (tokens) => {
-			// 	const results = [];
-			// 	for (const [who, what] of tokens) {
-			// 		if (what === 'Para') {
-			// 			results.push((await parachainApi.query.System.Account.getValue(who)).data.free);
-			// 		} else if (what === 'Relay') {
-			// 			results.push((await parachainApi
-			// 				.query
-			// 				.ForeignAssets
-			// 				.Account
-			// 				.getValue({
-			// 					parents: 1, interior: XcmV3Junctions.Here()
-			// 				}, who))?.balance ?? 0n
-			// 			);
-			// 		} else if (what == 'USDT') {
-			// 			results.push((await parachainApi
-			// 				.query
-			// 				.ForeignAssets
-			// 				.Account
-			// 				.getValue({
-			// 					parents: 1, interior: XcmV3Junctions.X3([
-			// 						XcmV3Junction.Parachain(1000),
-			// 						XcmV3Junction.PalletInstance(50),
-			// 						XcmV3Junction.GeneralIndex(1984n),
-			// 					])}, who))?.balance ?? 0n
-			// 			);
-			// 		}
-			// 	}
-			// 	return results;
-			// },
-			// setTokens: async (tokens) => {
-			// 	const changes: any = {};
-			// 	for (const [who, what, amount] of tokens) {
-			// 		if (what === 'Para') {
-			// 			changes.System = {
-			// 				Account: [
-			// 					[[who], { providers: 1, data: { free: amount } }],
-			// 				],
-			// 			};
-			// 		} else if (what === 'Relay') {
-			// 			// changes.ForeignAssets = changes.ForeignAssets ?? {};
-			// 			// changes.ForeignAssets.Asset = changes.ForeignAssets.Asset ?? [];
-			// 			// changes.ForeignAssets.Account = changes.ForeignAssets.Account ?? [];
-			// 			//
-			// 			// changes.ForeignAssets.Asset.push();
-			// 			//
-			// 			// changes.Assets = changes.Assets ?? {};
-			// 			// changes.Assets.Asset = changes.Assets.Asset ?? [[[[1984]], { supply: amount }],];
-			// 			// changes.Assets.Account = changes.Assets.Account ?? [];
-			// 			// changes.Assets.Account.push(
-			// 			// 	[[1984, who], { balance: amount }],
-			// 			// );
-			//
-			// 			// todo: split setTOkens into setSystem and SetForeginAsset,
-			// 			// todo: make a map of tokens to use in set and get,
-			// 			changes.ForeignAssets = {
-			// 				Asset: [
-			// 					[[{
-			// 						parents: 1,
-			// 						interior: {
-			// 							X3: [
-			// 								{Parachain: 1000},
-			// 								{PalletInstance: 50},
-			// 								{GeneralIndex: 1984n},
-			// 							],
-			// 						},
-			// 					}],
-			// 						{ supply: amount + 1n }],
-			// 					[[{ parents: 1, interior: 'Here' }], { supply: amount + 2n }],
-			// 				],
-			// 				Account: [
-			// 					[[{ parents: 1, interior:
-			// 							{
-			// 							X3: [
-			// 								{Parachain: 1000},
-			// 								{PalletInstance: 50},
-			// 								{GeneralIndex: 1984n},
-			// 							],
-			// 						},
-			//
-			// 					}, who], { balance: amount + 1n }],
-			// 					[[{ parents: 1, interior: 'Here' }, who], { balance: amount + 2n }],
-			// 				],
-			// 			};
-			// 		}
-			// 	}
-			// 	console.log('setting tokens for Penpal');
-			// 	await parachain.dev.setStorage(changes);
-			// },
 		},
 		relay: {
 			context: polkadot,
@@ -338,53 +187,8 @@ export const setup = async (): Promise<MockNetwork> => {
 				await polkadot.dev.setStorage(changes);
 			},
 			setAssets: async (assets) => {
-				const changes: any = {};
-
-				// TODO: unimplemented for relay
-				// for (const [who, what, state, amount] of assets) {
-				// 	if (state === AssetState.Local) {
-				// 		changes.Assets = changes.Assets ?? {};
-				// 		changes.Assets.Asset = changes.Assets.Asset ?? [];
-				// 		changes.Assets.Account = changes.Assets.Account ?? [];
-				//
-				// 		// TODO: detect asset supply increase and override it.
-				// 		changes.Assets.Asset.push(
-				// 			[[[[assetMap.getIndex(what)]], { supply: amount }]]
-				// 		);
-				// 		changes.Assets.Account.push(
-				// 			[[assetMap.getIndex(what), who], { balance: amount }],
-				// 		);
-				// 	} else {
-				// 		changes.ForeignAssets = changes.ForeignAssets ?? {};
-				// 		changes.ForeignAssets.Asset = changes.ForeignAssets.Asset ?? [];
-				// 		changes.ForeignAssets.Account = changes.ForeignAssets.Account ?? [];
-				//
-				// 		// TODO: detect asset supply increase and override it.
-				// 		changes.ForeignAssets.Asset.push(
-				// 			[[assetMap.getRelativeLocation(what, true), {supply: amount }]]
-				// 		);
-				// 		changes.ForeignAssets.Account.push(
-				// 			[[assetMap.getRelativeLocation(what, true), who], { balance: amount }],
-				// 		);
-				// 	}
-				// }
-
-				await polkadot.dev.setStorage(changes);
+				throw new Error(`setAssets should not be called for Relay Chain`);
 			},
-
-			// setTokens: async (tokens) => {
-			// 	const changes: any = {};
-			// 	for (const [who, what, amount] of tokens) {
-			// 		if (what === 'Relay') {
-			// 			changes.System = changes.System ?? {};
-			// 			changes.System.Account = changes.System.Account ?? [];
-			// 			changes.System.Account.push(
-			// 				[[who], { providers: 1, data: { free: amount } }],
-			// 			);
-			// 		}
-			// 	}
-			// 	await polkadot.dev.setStorage(changes);
-			// },
 			setXcmVersion: async (version: number) => {
 				const changes: any = {};
 				changes.XcmPallet = {
@@ -400,48 +204,15 @@ export const setup = async (): Promise<MockNetwork> => {
 				return results;
 			},
 			getAssets: async(assets: [SS58String, Asset, AssetState][]) => {
-				// unimplemented for Relay
-				const results = [];
-				// for (const [who, what, state, isRelay] of assets) {
-				// 	if (state === AssetState.Local) {
-				// 		results.push((await relayApi
-				// 			.query
-				// 			.Assets
-				// 			.Account
-				// 			.getValue(assetMap.getIndex(what), who))?.balance ?? 0n
-				// 		);
-				// 	} else {
-				// 		results.push((await relayApi
-				// 			.query
-				// 			.ForeignAssets
-				// 			.Account
-				// 			.getValue(assetMap.getRelativeLocation(what, isRelay), who))?.balance ?? 0n
-				// 		);
-				// 	}
-				// }
-				return results;
+				throw new Error(`getAssets should not be called for Relay Chain`);
 			},
-
-			// getTokens: async (tokens) => {
-			// 	const results = [];
-			// 	for (const [who, what] of tokens) {
-			// 		if (what === 'Relay') {
-			// 			results.push((await relayApi
-			// 				.query
-			// 				.System
-			// 				.Account
-			// 				.getValue(who)).data.free
-			// 			);
-			// 		}
-			// 	}
-			// 	return results;
-			// },
 		},
 		assetHub: {
 			context: assetHub,
 			api: assetHubApi,
 			setSystemAsset: async (accounts) => {
 				const changes: any = {};
+
 				for (const [who,  amount] of accounts) {
 					changes.System = changes.System ?? {};
 					changes.System.Account = changes.System.Account ?? [];
@@ -449,6 +220,7 @@ export const setup = async (): Promise<MockNetwork> => {
 						[[who], { providers: 1, data: { free: amount } }],
 					);
 				}
+
 				await assetHub.dev.setStorage(changes);
 			},
 			setAssets: async (assets) => {
@@ -484,45 +256,19 @@ export const setup = async (): Promise<MockNetwork> => {
 
 				await assetHub.dev.setStorage(changes);
 			},
-			// setTokens: async (tokens) => {
-			// 	const changes: any = {};
-			// 	for (const [who, what, amount] of tokens) {
-			// 		if (what === 'Relay') {
-			// 			changes.System = changes.System ?? {};
-			// 			changes.System.Account = changes.System.Account ?? [];
-			// 			changes.System.Account.push(
-			// 				[[who], { providers: 1, data: { free: amount } }],
-			// 			);
-			// 		} else if (what == 'USDT') {
-			// 			changes.Assets = changes.Assets ?? {};
-			// 			changes.Assets.Asset = changes.Assets.Asset ?? [[[[1984]], { supply: amount }],];
-			// 			changes.Assets.Account = changes.Assets.Account ?? [];
-			// 			changes.Assets.Account.push(
-			// 				[[1984, who], { balance: amount }],
-			// 			);
-			// 			// changes.Assets = {
-			// 			// 	Asset: [
-			// 			// 		[[[what]], { supply: amount }],
-			// 			// 	],
-			// 			// 	Account: [
-			// 			// 		[[what, who], { balance: amount }],
-			// 			// 	],
-			// 			// };
-			// 		}
-			// 	}
-			// 	await assetHub.dev.setStorage(changes);
-			// },
-			// todo improve setXCMversion to be able to specify [chain -> version] map
+			// TODO improve setXCMversion to be able to specify [chain: version] map
 			setXcmVersion: async (version: number) => {
 				const changes: any = {};
+
 				changes.PolkadotXcm = changes.PolkadotXcm ?? {};
 				changes.PolkadotXcm.SafeXcmVersion = changes.PolkadotXcm.SafeXcmVersion ?? 0;
-				changes.PolkadotXcm.SafeXcmVersion = 5;
+				changes.PolkadotXcm.SafeXcmVersion = version;
 
 				changes.PolkadotXcm.SupportedVersion = changes.PolkadotXcm.SupportedVersion ?? [];
 				changes.PolkadotXcm.SupportedVersion.push(
-					[[5, { V5: {parents: 1, interior: { X1: [{Parachain: 2042}]}}}], 5]
+					[[version, { V5: {parents: 1, interior: { X1: [{Parachain: 2042}]}}}], version]
 				);
+
 				await assetHub.dev.setStorage(changes);
 			},
 			getSystemAsset: async (accounts: [SS58String][]) => {
@@ -553,42 +299,10 @@ export const setup = async (): Promise<MockNetwork> => {
 				}
 				return results;
 			},
-			// getTokens: async (tokens) => {
-			// 	const results = [];
-			// 	for (const [who, what] of tokens) {
-			// 		if (what === 'Relay') {
-			// 			results.push((await assetHubApi
-			// 				.query
-			// 				.System
-			// 				.Account
-			// 				.getValue(who)).data.free
-			// 			);
-			// 		} else if (what === 'USDT') {
-			// 			results.push((await assetHubApi
-			// 				.query
-			// 				.Assets
-			// 				.Account
-			// 				.getValue(1984, who))?.balance ?? 0n
-			// 			);
-			// 		}
-			// 	}
-			// 	return results;
-			// },
 		},
 		paraSovAccOnAssetHub,
 		paraSovAccOnRelay,
 	};
-}
-
-
-export function createPolkadotClient(endpoint, apiType) {
-    const client = createClient(getWsProvider(endpoint));
-    return client.getTypedApi(apiType);
-}
-
-export async function getFreeBalance(api, accountKey) {
-	const balance = await api.query.System.Account.getValue(accountKey);
-	return balance.data.free;
 }
 
 type WebSocketEndpoint = `wss://${string}`;

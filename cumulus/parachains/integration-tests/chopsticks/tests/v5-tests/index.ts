@@ -354,7 +354,6 @@ test("Initiate Teleport (AH -> RC) with remote fees", async () => {
 				},
 			})],
 			remote_xcm: [
-				// something is wrong here!
 				Enum('DepositAsset', {
 					assets: XcmV3MultiassetMultiAssetFilter.Wild({
 						type: 'All',
@@ -525,7 +524,6 @@ test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", asyn
 	await network.assetHub.setSystemAsset([[network.paraSovAccOnAssetHub, system_asset_amount]]);
 
 	const [alice_balance_before] = await network.assetHub.getAssets([[aliceAddr, Asset.USDT, AssetState.Local]]);
-	console.log('after getAssets');
 	const msg /*: Wnd_ahCalls['PolkadotXcm']['execute']['message']*/ = Enum('V5', [
 		Enum('WithdrawAsset', [
 			{
