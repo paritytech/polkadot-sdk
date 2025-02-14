@@ -100,6 +100,6 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(3_312_302, 0).saturating_mul(c.into()))
 	}
 	fn dispatch_as_fallible() -> Weight {
-		0.into()
+		Default::default()
 	}
 }
