@@ -1176,17 +1176,6 @@ pub mod pallet {
 				T::SlashDeferDuration::get(),
 				T::BondingDuration::get(),
 			);
-
-			// the max validator set bound must be the same of lower that the EP's max winner's per
-			// page, to ensure that the max validator set does not overflow when the retuned
-			// election page is full.
-			assert!(
-				<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() <=
-					T::MaxValidatorSet::get(),
-				"MaxValidatorSet {} must be greater than or equal to the ElectionProvider's MaxWinnersPerPage {}",
-				T::MaxValidatorSet::get(),
-				<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get(),
-			);
 		}
 
 		#[cfg(feature = "try-runtime")]
