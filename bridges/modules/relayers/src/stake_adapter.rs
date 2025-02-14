@@ -19,9 +19,9 @@
 
 use bp_relayers::StakeAndSlash;
 use codec::Codec;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::traits::{tokens::BalanceStatus, NamedReservableCurrency};
 use sp_runtime::{traits::Get, DispatchError, DispatchResult};
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 /// `StakeAndSlash` that works with `NamedReservableCurrency` and uses named
 /// reservations.

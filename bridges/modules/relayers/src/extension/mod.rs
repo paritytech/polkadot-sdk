@@ -31,6 +31,7 @@ use bp_relayers::{
 };
 use bp_runtime::{Chain, RangeInclusiveExt, StaticStrProvider};
 use codec::{Decode, Encode};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
@@ -53,7 +54,6 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransactionBuilder},
 	DispatchResult, RuntimeDebug,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 pub use grandpa_adapter::WithGrandpaChainExtensionConfig;
 pub use messages_adapter::WithMessagesExtensionConfig;

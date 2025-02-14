@@ -19,6 +19,7 @@
 
 use crate::{Config, Pallet};
 
+use alloc::collections::vec_deque::VecDeque;
 use bp_messages::{
 	source_chain::{DeliveryConfirmationPayments, RelayersRewards},
 	MessageNonce,
@@ -26,10 +27,10 @@ use bp_messages::{
 pub use bp_relayers::PayRewardFromAccount;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::Chain;
+use core::{marker::PhantomData, ops::RangeInclusive};
 use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
 use pallet_bridge_messages::LaneIdOf;
 use sp_arithmetic::traits::{Saturating, Zero};
-use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
 /// Adapter that allows relayers pallet to be used as a delivery+dispatch payment mechanism
 /// for the `pallet-bridge-messages` pallet and using `RewardsAccountParams`.

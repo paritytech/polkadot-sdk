@@ -16,6 +16,7 @@
 
 //! A module that is responsible for migration of storage.
 
+use alloc::vec::Vec;
 use frame_support::{
 	traits::{Get, StorageVersion},
 	weights::Weight,
@@ -31,10 +32,10 @@ pub mod v0 {
 	use bp_relayers::RewardsAccountOwner;
 	use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
 	use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+	use core::marker::PhantomData;
 	use frame_support::{pallet_prelude::OptionQuery, Blake2_128Concat, Identity};
 	use scale_info::TypeInfo;
 	use sp_runtime::traits::AccountIdConversion;
-	use sp_std::marker::PhantomData;
 
 	/// Structure used to identify the account that pays a reward to the relayer.
 	#[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
@@ -123,11 +124,11 @@ pub mod v1 {
 	use bp_relayers::RewardsAccountParams;
 	use bp_runtime::StorageDoubleMapKeyProvider;
 	use codec::{Codec, EncodeLike};
+	use core::marker::PhantomData;
 	use frame_support::{
 		pallet_prelude::OptionQuery, traits::UncheckedOnRuntimeUpgrade, Blake2_128Concat, Identity,
 	};
 	use sp_arithmetic::traits::Zero;
-	use sp_std::marker::PhantomData;
 
 	pub(crate) struct RelayerRewardsKeyProvider<AccountId, Reward, LaneId>(
 		PhantomData<(AccountId, Reward, LaneId)>,
@@ -214,7 +215,7 @@ pub mod v1 {
 
 			// list all rewards (we cannot do this as one step because of `drain` limitation)
 			let mut rewards_to_migrate =
-				sp_std::vec::Vec::with_capacity(v0::RelayerRewards::<T, I, LaneId>::iter().count());
+				Vec::with_capacity(v0::RelayerRewards::<T, I, LaneId>::iter().count());
 			for (key1, key2, reward) in v0::RelayerRewards::<T, I, LaneId>::drain() {
 				rewards_to_migrate.push((key1, key2, reward));
 				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
@@ -238,7 +239,7 @@ pub mod v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::DispatchError> {
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
 			use codec::Encode;
 			use frame_support::BoundedBTreeMap;
 			use sp_runtime::traits::ConstU32;
@@ -266,7 +267,7 @@ pub mod v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 			use codec::Decode;
 			use frame_support::BoundedBTreeMap;
 			use sp_runtime::traits::ConstU32;
@@ -328,8 +329,8 @@ pub mod v2 {
 	use crate::{Config, Pallet};
 	use bp_messages::LaneIdType;
 	use bp_relayers::RewardsAccountParams;
+	use core::marker::PhantomData;
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
-	use sp_std::marker::PhantomData;
 
 	/// Migrates the pallet storage to v2.
 	pub struct UncheckedMigrationV1ToV2<T, I, LaneId>(PhantomData<(T, I, LaneId)>);
@@ -347,7 +348,7 @@ pub mod v2 {
 
 			// list all rewards (we cannot do this as one step because of `drain` limitation)
 			let mut rewards_to_migrate =
-				sp_std::vec::Vec::with_capacity(v1::RelayerRewards::<T, I, LaneId>::iter().count());
+				Vec::with_capacity(v1::RelayerRewards::<T, I, LaneId>::iter().count());
 			for (key1, key2, reward) in v1::RelayerRewards::<T, I, LaneId>::drain() {
 				rewards_to_migrate.push((key1, key2, reward));
 				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
@@ -367,14 +368,14 @@ pub mod v2 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::DispatchError> {
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
 			use codec::Encode;
 			use frame_support::BoundedBTreeMap;
 			use sp_runtime::traits::ConstU32;
 
 			// collect actual rewards
 			let mut rewards: BoundedBTreeMap<
-				(T::AccountId, sp_std::vec::Vec<u8>),
+				(T::AccountId, Vec<u8>),
 				T::Reward,
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
@@ -396,20 +397,20 @@ pub mod v2 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 			use codec::{Decode, Encode};
 			use frame_support::BoundedBTreeMap;
 			use sp_runtime::traits::ConstU32;
 
 			let rewards_before: BoundedBTreeMap<
-				(T::AccountId, sp_std::vec::Vec<u8>),
+				(T::AccountId, Vec<u8>),
 				T::Reward,
 				ConstU32<{ u32::MAX }>,
 			> = Decode::decode(&mut &state[..]).unwrap();
 
 			// collect migrated rewards
 			let mut rewards_after: BoundedBTreeMap<
-				(T::AccountId, sp_std::vec::Vec<u8>),
+				(T::AccountId, Vec<u8>),
 				T::Reward,
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();

@@ -20,16 +20,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
+extern crate alloc;
+
 pub use bp_relayers::RewardLedger;
 use bp_relayers::{PaymentProcedure, Registration, RelayerRewardsKeyProvider, StakeAndSlash};
 use bp_runtime::StorageDoubleMapKeyProvider;
+use core::marker::PhantomData;
 use frame_support::{fail, traits::tokens::Balance};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_runtime::{
 	traits::{CheckedSub, IdentifyAccount},
 	Saturating,
 };
-use sp_std::marker::PhantomData;
 
 pub use pallet::*;
 pub use payment_adapter::{DeliveryConfirmationPaymentsAdapter, PayRewardFromAccount};
