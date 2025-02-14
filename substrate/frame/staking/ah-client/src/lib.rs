@@ -27,7 +27,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use pallet::*;
 extern crate alloc;
 
 use alloc::vec::Vec;
@@ -37,9 +36,6 @@ use sp_core::crypto::AccountId32;
 use sp_runtime::traits::Convert;
 use sp_staking::{offence::OffenceDetails, Exposure, SessionIndex};
 use xcm::prelude::*;
-
-/// The balance type of this pallet.
-pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
 
@@ -82,6 +78,9 @@ pub mod pallet {
 	use sp_staking::{offence::OnOffenceHandler, SessionIndex};
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
+	/// The balance type of this pallet.
+	pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -221,7 +220,7 @@ pub mod pallet {
 
 	impl<T> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T>
 	where
-		T: Config + pallet_authorship::Config + pallet_session::Config + crate::Config,
+		T: Config + pallet_authorship::Config + pallet_session::Config + Config,
 		T::AccountId: Into<AccountId32>,
 	{
 		// Notes the authored block in `BlockAuthors`.
