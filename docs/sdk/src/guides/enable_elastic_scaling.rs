@@ -53,6 +53,10 @@
 //!
 //! ## Using elastic scaling
 //!
+//! [Here](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/zombienet-sdk-tests/tests/elastic_scaling/slot_based_12cores.rs)
+//! is a zombienet test which exercises 500ms parachain blocks, which you can modify to test your
+//! parachain after going through the required phases below.
+//!
 //! ### Prerequisites
 //!
 //! - Ensure Asynchronous Backing is enabled on the relay chain network and you have enabled it on
@@ -199,6 +203,9 @@
 //! ```
 //!
 //! ### Phase 3 - Configure maximum scaling factor in the runtime
+//!
+//! *A sample test parachain runtime which has compile-time features for configuring elastic scaling
+//! can be found [here](https://github.com/paritytech/polkadot-sdk/blob/master/cumulus/test/runtime/src/lib.rs)*
 //!
 //! First of all, you need to decide the upper limit to how many parachain blocks you need to
 //! produce per relay chain block (in direct correlation with the number of acquired cores).
