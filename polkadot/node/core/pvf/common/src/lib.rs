@@ -102,8 +102,12 @@ mod tests {
 			"secure_validator_mode is false for default security status"
 		);
 		assert!(
-			!status.can_enable_landlock,
-			"can_enable_landlock is false for default security status"
+			!status.can_enable_landlock_fs,
+			"can_enable_landlock_fs is false for default security status"
+		);
+		assert!(
+			!status.can_enable_landlock_net,
+			"can_enable_landlock_net is false for default security status"
 		);
 		assert!(
 			!status.can_enable_seccomp,

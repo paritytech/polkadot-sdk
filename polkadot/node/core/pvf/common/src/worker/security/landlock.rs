@@ -178,7 +178,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_cannot_read_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_can_fully_enable().is_err() {
+		if check_can_fully_enable(LANDLOCK_ABI_FS).is_err() {
 			return
 		}
 
@@ -200,7 +200,7 @@ mod tests {
 			assert_eq!(s, TEXT);
 
 			// Apply Landlock with a read exception for only one of the files.
-			let status = try_restrict(vec![(path1, AccessFs::ReadFile)]);
+			let status = try_restrict(vec![(path1, AccessFs::ReadFile)], LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
@@ -221,7 +221,7 @@ mod tests {
 			));
 
 			// Apply Landlock for all files.
-			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>());
+			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>(), LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
@@ -243,7 +243,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_cannot_write_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_can_fully_enable().is_err() {
+		if check_can_fully_enable(LANDLOCK_ABI_FS).is_err() {
 			return
 		}
 
@@ -261,7 +261,7 @@ mod tests {
 			fs::write(path2, TEXT).unwrap();
 
 			// Apply Landlock with a write exception for only one of the files.
-			let status = try_restrict(vec![(path1, AccessFs::WriteFile)]);
+			let status = try_restrict(vec![(path1, AccessFs::WriteFile)], LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
@@ -279,7 +279,7 @@ mod tests {
 			));
 
 			// Apply Landlock for all files.
-			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>());
+			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>(), LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
@@ -298,11 +298,11 @@ mod tests {
 		assert!(handle.join().is_ok());
 	}
 
-	// Test that checks whether landlock under our ABI version is able to truncate files.
+	// Test that checks whether landlock under the FS ABI version is able to truncate files.
 	#[test]
 	fn restricted_thread_can_truncate_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_can_fully_enable().is_err() {
+		if check_can_fully_enable(LANDLOCK_ABI_FS).is_err() {
 			return
 		}
 
@@ -317,7 +317,8 @@ mod tests {
 			fs::write(path, TEXT).unwrap();
 
 			// Apply Landlock with all exceptions under the current ABI.
-			let status = try_restrict(vec![(path, AccessFs::from_all(LANDLOCK_ABI))]);
+			let status =
+				try_restrict(vec![(path, AccessFs::from_all(LANDLOCK_ABI_FS))], LANDLOCK_ABI_FS);
 			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
