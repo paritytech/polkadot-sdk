@@ -27,7 +27,15 @@ use sp_consensus_aura::AuraApi;
 use sp_core::Pair;
 use sp_runtime::traits::Member;
 use sp_timestamp::Timestamp;
-use std::{cmp::min, sync::Arc, time::Duration};
+use std::{
+	cmp::{max, min},
+	sync::Arc,
+	time::Duration,
+};
+
+/// Lower limits of allowed block production interval.
+/// Defensive mechanism, corresponds to 12 cores at 6 second block time.
+const BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS: Duration = Duration::from_millis(500);
 
 #[derive(Debug)]
 pub(crate) struct SlotInfo {
@@ -72,7 +80,8 @@ fn compute_next_wake_up_time(
 	if assigned_core_num > para_slots_per_relay_block &&
 		para_slot_duration.as_duration() >= relay_slot_duration
 	{
-		block_production_interval = relay_slot_duration / assigned_core_num;
+		block_production_interval =
+			max(relay_slot_duration / assigned_core_num, BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS);
 		tracing::debug!(
 			target: LOG_TARGET,
 			?block_production_interval,
@@ -196,8 +205,12 @@ mod tests {
 	#[case(6000, Some(2), 12000, 0, 3000, 15000, 2)]
 	#[case(6000, Some(3), 11999, 0, 1, 12000, 2)]
 	// High core count
-	//           |||||||
+	//           ||||||||
 	#[case(6000, Some(12), 0, 0, 500, 500, 0)]
+	/// Test that the minimum block interval is respected
+	/// at high core counts.
+	///          |||||||||
+	#[case(6000, Some(100), 0, 0, 500, 500, 0)]
 	// Test that slot_duration works correctly
 	//     ||||
 	#[case(2000, Some(1), 1000, 0, 1000, 2000, 1)]

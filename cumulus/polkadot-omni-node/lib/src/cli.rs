@@ -23,14 +23,18 @@ use crate::{
 		NodeExtraArgs,
 	},
 };
-use clap::{Command, CommandFactory, FromArgMatches};
+use clap::{Command, CommandFactory, FromArgMatches, ValueEnum};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
 	RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::{config::PrometheusConfig, BasePath};
-use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
+use std::{
+	fmt::{Debug, Display, Formatter},
+	marker::PhantomData,
+	path::PathBuf,
+};
 
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
@@ -137,11 +141,16 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub dev_block_time: Option<u64>,
 
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
+	/// Use slot-based collator which can handle elastic scaling.
 	/// Use with care, this flag is unstable and subject to change.
 	#[arg(long)]
 	pub experimental_use_slot_based: bool,
+
+	/// Authoring style to use.
+	#[arg(long, default_value_t = AuthoringStyle::Lookahead)]
+	pub authoring: AuthoringStyle,
 
 	/// Disable automatic hardware benchmarks.
 	///
@@ -168,10 +177,31 @@ pub struct Cli<Config: CliConfig> {
 	pub(crate) _phantom: PhantomData<Config>,
 }
 
+/// Collator implementation to use.
+#[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
+pub enum AuthoringStyle {
+	/// Use the lookahead collator. Builds a block once per imported relay chain block and
+	/// on relay chain forks. Default for asynchronous backing chains.
+	Lookahead,
+	/// Use the slot-based collator. Builds a block based on time. Can utilize multiple cores,
+	/// always builds on the best relay chain block available. Use this
+	SlotBased,
+}
+
+impl Display for AuthoringStyle {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			AuthoringStyle::Lookahead => write!(f, "lookahead"),
+			AuthoringStyle::SlotBased => write!(f, "slot-based"),
+		}
+	}
+}
+
 impl<Config: CliConfig> Cli<Config> {
 	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
 		NodeExtraArgs {
-			use_slot_based_consensus: self.experimental_use_slot_based,
+			use_slot_based_consensus: self.experimental_use_slot_based ||
+				self.authoring == AuthoringStyle::SlotBased,
 			export_pov: self.export_pov_to_path.clone(),
 		}
 	}

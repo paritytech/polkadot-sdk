@@ -61,7 +61,8 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling-500ms")
 				.with_default_args(vec![
-					("--experimental-use-slot-based").into(),
+					("--authoring").into(),
+					("slot-based").into(),
 					("-lparachain=debug,aura=debug").into(),
 				])
 				.with_collator(|n| n.with_name("collator-elastic"))

@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::path::PathBuf;
-
+use clap::ValueEnum;
 use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
@@ -23,6 +22,10 @@ use sc_cli::{
 	Result as CliResult, RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::BasePath;
+use std::{
+	fmt::{Display, Formatter},
+	path::PathBuf,
+};
 
 #[derive(Debug, clap::Parser)]
 #[command(
@@ -51,11 +54,36 @@ pub struct TestCollatorCli {
 	#[arg(long)]
 	pub fail_pov_recovery: bool,
 
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
+	/// Use slot-based collator which can handle elastic scaling.
 	/// Use with care, this flag is unstable and subject to change.
 	#[arg(long)]
 	pub experimental_use_slot_based: bool,
+
+	/// Authoring style to use.
+	#[arg(long, default_value_t = AuthoringStyle::Lookahead)]
+	pub authoring: AuthoringStyle,
+}
+
+/// Collator implementation to use.
+#[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
+pub enum AuthoringStyle {
+	/// Use the lookahead collator. Builds blocks once per relay chain block,
+	/// builds on relay chain forks.
+	Lookahead,
+	/// Use the slot-based collator which can handle elastic-scaling. Builds blocks based on time
+	/// and can utilize multiple cores, always builds on the best relay chain block available.
+	SlotBased,
+}
+
+impl Display for AuthoringStyle {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			AuthoringStyle::Lookahead => write!(f, "lookahead"),
+			AuthoringStyle::SlotBased => write!(f, "slot-based"),
+		}
+	}
 }
 
 #[derive(Debug, clap::Subcommand)]

@@ -1,9 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Test that parachains that use a single slot-based collator with elastic scaling MVP and with
-// elastic scaling with RFC103 can achieve full throughput of 3 candidates per block.
-
 use anyhow::anyhow;
 
 use crate::helpers::{
@@ -119,7 +116,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling-multi-block-slot")
 				.with_default_args(vec![
-					("--experimental-use-slot-based").into(),
+					("--authoring").into(),
+					("slot-based").into(),
 					("-lparachain=debug,aura=debug").into(),
 				])
 				.with_collator(|n| n.with_name("collator-0"))

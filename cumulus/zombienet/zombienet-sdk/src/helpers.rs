@@ -62,14 +62,11 @@ pub async fn assert_para_throughput(
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
 		let events = block.events().await?;
-		let is_session_change = events
-			.iter()
-			.find(|event| {
-				event.as_ref().is_ok_and(|event| {
-					event.pallet_name() == "Session" && event.variant_name() == "NewSession"
-				})
+		let is_session_change = events.iter().any(|event| {
+			event.as_ref().is_ok_and(|event| {
+				event.pallet_name() == "Session" && event.variant_name() == "NewSession"
 			})
-			.is_some();
+		});
 
 		if !had_first_session_change && is_session_change {
 			had_first_session_change = true;

@@ -72,7 +72,7 @@
 //!
 //! <div class="warning">Phase 1 is NOT needed if using the <code>polkadot-parachain</code> or
 //! <code>polkadot-omni-node</code> binary, or <code>polkadot-omni-node-lib</code> built from the
-//! latest polkadot-sdk release! Simply pass the <code>--experimental-use-slot-based</code>
+//! latest polkadot-sdk release! Simply pass the <code>--authoring slot-based</code>
 //! ([`polkadot_omni_node_lib::cli::Cli::experimental_use_slot_based`]) parameter to the command
 //! line and jump to Phase 2.</div>
 //!
