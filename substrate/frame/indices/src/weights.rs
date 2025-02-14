@@ -56,6 +56,7 @@ pub trait WeightInfo {
 	fn free() -> Weight;
 	fn force_transfer() -> Weight;
 	fn freeze() -> Weight;
+	fn reconsider() -> Weight;
 }
 
 /// Weights for `pallet_indices` using the Substrate node and recommended hardware.
@@ -120,6 +121,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	// TO-DO: Implement this.
+	fn reconsider() -> Weight {
+		Weight::from_parts(31_036_000, 3534)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -179,6 +186,13 @@ impl WeightInfo for () {
 		//  Measured:  `172`
 		//  Estimated: `3534`
 		// Minimum execution time: 30_356_000 picoseconds.
+		Weight::from_parts(31_036_000, 3534)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	// TO-DO: Implement this.
+	fn reconsider() -> Weight {
 		Weight::from_parts(31_036_000, 3534)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))

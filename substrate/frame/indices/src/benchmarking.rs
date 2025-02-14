@@ -112,6 +112,23 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn reconsider() -> Result<(), BenchmarkError> {
+		let account_index = T::AccountIndex::from(SEED);
+		// Setup accounts
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		// Claim the index
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
+		assert!(Accounts::<T>::contains_key(account_index));
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
+		Ok(())
+	}
+
 	// TODO in another PR: lookup and unlookup trait weights (not critical)
 
 	impl_benchmark_test_suite!(Pallet, mock::new_test_ext(), mock::Test);

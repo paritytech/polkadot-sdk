@@ -232,6 +232,57 @@ pub mod pallet {
 			Self::deposit_event(Event::IndexFrozen { index, who });
 			Ok(())
 		}
+
+		/// Reconsider the deposit reserved for an index.
+		/// 
+		/// The dispatch origin for this call must be _Signed_ and the signing account must have a
+		/// non-frozen account `index`.
+		/// 
+		/// The transaction fees is waived if the deposit is changed after reconsideration.
+		/// 
+		/// - `index`: the index whose deposit is to be reconsidered.
+		/// 
+		/// Emits `DepositReconsidered` if successful.
+		/// 
+		/// ## Complexity
+		/// - `O(1)`.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::reconsider())]
+		pub fn reconsider(origin: OriginFor<T>, index: T::AccountIndex) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResultWithPostInfo {
+				let (account, old_amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
+				ensure!(!perm, Error::<T>::Permanent);
+				ensure!(account == who, Error::<T>::NotOwner);
+
+				let new_amount = T::Deposit::get();
+
+				if new_amount > old_amount {
+					// Need to reserve more
+					let extra = new_amount.saturating_sub(old_amount);
+					T::Currency::reserve(&who, extra)?;
+				} else if new_amount < old_amount {
+					// Need to unreserve some
+					let excess = old_amount.saturating_sub(new_amount);
+					T::Currency::unreserve(&who, excess);
+				}
+
+				*maybe_value = Some((account, new_amount, perm));
+
+				if old_amount != new_amount {
+					Self::deposit_event(Event::DepositReconsidered {
+						who,
+						index,
+						old_deposit: old_amount,
+						new_deposit: new_amount,
+					});
+					Ok(Pays::No.into())
+				} else {
+					Ok(Pays::Yes.into())
+				}
+			})
+		}
 	}
 
 	#[pallet::event]
@@ -243,6 +294,8 @@ pub mod pallet {
 		IndexFreed { index: T::AccountIndex },
 		/// A account index has been frozen to its current account ID.
 		IndexFrozen { index: T::AccountIndex, who: T::AccountId },
+		/// A deposit to reserve an index has been reconsidered.
+		DepositReconsidered { who: T::AccountId, index: T::AccountIndex, old_deposit: BalanceOf<T>, new_deposit: BalanceOf<T> },
 	}
 
 	#[pallet::error]
