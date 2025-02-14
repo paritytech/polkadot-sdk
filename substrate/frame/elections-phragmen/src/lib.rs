@@ -616,7 +616,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new term with new_members. This indicates that enough candidates existed to run
-		/// the election, not that enough have has been elected. The inner value must be examined
+		/// the election, not that enough have been elected. The inner value must be examined
 		/// for this purpose. A `NewTerm(\[\])` indicates that some candidates got their bond
 		/// slashed and none were elected, whilst `EmptyTerm` means that no candidates existed to
 		/// begin with.
@@ -1476,6 +1476,7 @@ mod tests {
 						(5, 50 * self.balance_factor),
 						(6, 60 * self.balance_factor),
 					],
+					..Default::default()
 				},
 				elections: elections_phragmen::GenesisConfig::<Test> {
 					members: self.genesis_members,

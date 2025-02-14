@@ -66,7 +66,7 @@ impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
 #[macro_export]
 macro_rules! defensive {
 	() => {
-		frame_support::__private::log::error!(
+		$crate::__private::log::error!(
 			target: "runtime::defensive",
 			"{}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
@@ -74,7 +74,7 @@ macro_rules! defensive {
 		debug_assert!(false, "{}", $crate::traits::DEFENSIVE_OP_INTERNAL_ERROR);
 	};
 	($error:expr $(,)?) => {
-		frame_support::__private::log::error!(
+		$crate::__private::log::error!(
 			target: "runtime::defensive",
 			"{}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
@@ -83,7 +83,7 @@ macro_rules! defensive {
 		debug_assert!(false, "{}: {:?}", $crate::traits::DEFENSIVE_OP_INTERNAL_ERROR, $error);
 	};
 	($error:expr, $proof:expr $(,)?) => {
-		frame_support::__private::log::error!(
+		$crate::__private::log::error!(
 			target: "runtime::defensive",
 			"{}: {:?}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,

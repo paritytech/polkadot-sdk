@@ -65,6 +65,7 @@ use xcm_executor::XcmExecutor;
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const WestendLocation: Location = Location::parent();
+	pub const GovernanceLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
@@ -359,7 +360,7 @@ pub type TrustedTeleporters = (
 /// asset and the asset required for fee payment.
 pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
-	crate::NativeAndAssets,
+	crate::NativeAndNonPoolAssets,
 	(
 		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v5::Location>,
 		ForeignAssetsConvertedConcreteId,
@@ -409,7 +410,7 @@ impl xcm_executor::Config for XcmConfig {
 			WestendLocation,
 			crate::AssetConversion,
 			WeightToFee,
-			crate::NativeAndAssets,
+			crate::NativeAndNonPoolAssets,
 			(
 				TrustBackedAssetsAsLocation<
 					TrustBackedAssetsPalletLocation,
@@ -418,7 +419,7 @@ impl xcm_executor::Config for XcmConfig {
 				>,
 				ForeignAssetsConvertedConcreteId,
 			),
-			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
+			ResolveAssetTo<StakingPot, crate::NativeAndNonPoolAssets>,
 			AccountId,
 		>,
 		// This trader allows to pay with `is_sufficient=true` "Trust Backed" assets from dedicated

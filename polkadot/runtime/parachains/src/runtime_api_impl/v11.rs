@@ -404,10 +404,10 @@ pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
 	configuration::ActiveConfig::<T>::get().minimum_backing_votes
 }
 
-/// Implementation for `ParaBackingState` function from the runtime API
-pub fn backing_state<T: initializer::Config>(
+// Helper function that returns the backing constraints given a parachain id.
+pub(crate) fn backing_constraints<T: initializer::Config>(
 	para_id: ParaId,
-) -> Option<BackingState<T::Hash, BlockNumberFor<T>>> {
+) -> Option<Constraints<BlockNumberFor<T>>> {
 	let config = configuration::ActiveConfig::<T>::get();
 	// Async backing is only expected to be enabled with a tracker capacity of 1.
 	// Subsequent configuration update gets applied on new session, which always
@@ -423,12 +423,12 @@ pub fn backing_state<T: initializer::Config>(
 	{
 		shared::migration::v0::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
 			now,
-			config.async_backing_params.allowed_ancestry_len,
+			config.scheduler_params.lookahead.saturating_sub(1),
 		)
 	} else {
 		shared::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
 			now,
-			config.async_backing_params.allowed_ancestry_len,
+			config.scheduler_params.lookahead.saturating_sub(1),
 		)
 	};
 
@@ -461,7 +461,7 @@ pub fn backing_state<T: initializer::Config>(
 		})
 		.collect();
 
-	let constraints = Constraints {
+	Some(Constraints {
 		min_relay_parent_number,
 		max_pov_size: config.max_pov_size,
 		max_code_size: config.max_code_size,
@@ -476,7 +476,16 @@ pub fn backing_state<T: initializer::Config>(
 		validation_code_hash,
 		upgrade_restriction,
 		future_validation_code,
-	};
+	})
+}
+
+/// Implementation for `ParaBackingState` function from the runtime API
+#[deprecated(note = "`backing_state` will be removed. Use `backing_constraints` and
+	`candidates_pending_availability` instead.")]
+pub fn backing_state<T: initializer::Config>(
+	para_id: ParaId,
+) -> Option<BackingState<T::Hash, BlockNumberFor<T>>> {
+	let constraints = backing_constraints::<T>(para_id)?;
 
 	let pending_availability = {
 		crate::inclusion::PendingAvailability::<T>::get(&para_id)
@@ -502,6 +511,7 @@ pub fn backing_state<T: initializer::Config>(
 }
 
 /// Implementation for `AsyncBackingParams` function from the runtime API
+#[deprecated = "AsyncBackingParams are going to be removed and ignored by relay chain validators, in favour of dynamically computed values based on the claim queue assignments"]
 pub fn async_backing_params<T: configuration::Config>() -> AsyncBackingParams {
 	configuration::ActiveConfig::<T>::get().async_backing_params
 }
