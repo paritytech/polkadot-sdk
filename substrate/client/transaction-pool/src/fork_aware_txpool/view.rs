@@ -28,10 +28,11 @@ use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
 		self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash, IsValidator,
-		ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
+		TransactionFor, ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
+use indexmap::IndexMap;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus};
 use sp_blockchain::HashAndNumber;
@@ -39,11 +40,11 @@ use sp_runtime::{
 	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
 	SaturatedConversion,
 };
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 use tracing::{debug, trace};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
-	revalidated: HashMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
+	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
 	invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
 }
 
@@ -274,7 +275,7 @@ where
 		//todo: revalidate future, remove if invalid [#5496]
 
 		let mut invalid_hashes = Vec::new();
-		let mut revalidated = HashMap::new();
+		let mut revalidated = IndexMap::new();
 
 		let mut validation_results = vec![];
 		let mut batch_iter = batch.into_iter();
@@ -317,7 +318,12 @@ where
 			duration = ?revalidation_duration,
 			"view::revalidate"
 		);
-		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "view::revalidate result: {:?}");
+		log_xt_trace!(
+			data:tuple,
+			target:LOG_TARGET,
+			validation_results.iter().map(|x| (x.1, &x.0)),
+			"view::revalidate result: {:?}"
+		);
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
@@ -494,12 +500,12 @@ where
 	/// Refer to [`crate::graph::ValidatedPool::remove_subtree`] for more details.
 	pub fn remove_subtree<F>(
 		&self,
-		tx_hash: ExtrinsicHash<ChainApi>,
+		hashes: &[ExtrinsicHash<ChainApi>],
 		listener_action: F,
-	) -> Vec<ExtrinsicHash<ChainApi>>
+	) -> Vec<TransactionFor<ChainApi>>
 	where
 		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>),
 	{
-		self.pool.validated_pool().remove_subtree(tx_hash, listener_action)
+		self.pool.validated_pool().remove_subtree(hashes, listener_action)
 	}
 }
