@@ -348,6 +348,11 @@ impl Error {
 		Error::FailedToGetPendingExtrinsics { chain: C::NAME.into(), error: e.boxed() }
 	}
 
+	/// Constructs `FailedToGetPoolStatus` variant.
+	pub fn failed_to_get_pool_status<C: Chain>(e: Error) -> Self {
+		Error::FailedToGetPoolStatus { chain: C::NAME.into(), error: e.boxed() }
+	}
+
 	/// Constructs `FailedToSubmitTransaction` variant.
 	pub fn failed_to_submit_transaction<C: Chain>(e: Error) -> Self {
 		Error::FailedToSubmitTransaction { chain: C::NAME.into(), error: e.boxed() }

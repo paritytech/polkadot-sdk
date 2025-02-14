@@ -1,0 +1,24 @@
+title: 'client/rpc: Add new RPC for current transaction pool status'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+# Description
+    This PR adds a new RPC which shows the current status of the substrate transaction pool.
+
+    During one of the implementation of a queue which submits batch transaction in thousands, I did not find a way of getting the status of the pool. We set the pool limit in transactions and its size with `--pool-limit` & `--pool-kbytes` respectively. 
+    I wanted a way to find if the transaction pool is nearing its limit or not before any new bulk transactions are sent to the pool so the transaction do not get bounced, which is my current case. 
+
+    I have used `author_pendingExtrinsics` RPC but it does not give the bytes occupied in the pool. Since bytes occupied is also another crucial factor along with count for the limit to be enforced whether the pool is full or not.
+    Another downside of using this RPC is that that response is too big adding unnecessary load to the nodes and to parse the data as well. 
+
+    Since we are already using `status()` method at various places of `TransactionPool` trait. Send the data as a RPC too, benefitting with low response size.
+
+    In future I wish to add the current limits on count and size to this response as well. For now I will assume that `transaction-pool` will be full when `ready.count + future.count(10% of ready.count) > pool_limit` or `ready.total_bytes + future.total_bytes(10 > pool_limit_bytes`. 
+
+    ## Review Notes
+
+    Utilise the `status()` method of `TransactionPool` trait to expose that data as part of a new RPC call named `poolStatus` as part of `author`.
+    I have added tests to demonstrate the same. 
+crates:
+- name: sc-rpc
+  bump: patch

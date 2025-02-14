@@ -396,6 +396,10 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 		self.backend.pending_extrinsics().await
 	}
 
+	async fn pool_status(&self) -> Result<PoolStatus> {
+		self.backend.pool_status().await
+	}	
+
 	async fn submit_unsigned_extrinsic(&self, transaction: Bytes) -> Result<HashOf<C>> {
 		self.backend.submit_unsigned_extrinsic(transaction).await
 	}

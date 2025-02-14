@@ -33,7 +33,7 @@ use jsonrpsee::{core::async_trait, types::ErrorObject, Extensions, PendingSubscr
 use sc_rpc_api::check_if_safe;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
-	TransactionSource, TxHash,
+	TransactionSource, TxHash, PoolStatus
 };
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
@@ -69,6 +69,8 @@ impl<P, Client> Author<P, Client> {
 		Author { client, pool, keystore, executor }
 	}
 }
+
+
 
 /// Currently we treat all RPC transactions as externals.
 ///
@@ -153,6 +155,10 @@ where
 
 	fn pending_extrinsics(&self) -> Result<Vec<Bytes>> {
 		Ok(self.pool.ready().map(|tx| tx.data().encode().into()).collect())
+	}
+
+	fn pool_status(&self) -> Result<PoolStatus> {
+		Ok(self.pool.status().into())
 	}
 
 	fn remove_extrinsic(
