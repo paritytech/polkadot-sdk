@@ -79,7 +79,7 @@ pub mod pallet {
 		type OutboundQueue: SendMessage;
 
 		/// Origin check for XCM locations that transact with this pallet
-		type SiblingOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
+		type FrontendOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
 
 		/// Converts Location to AgentId
 		type AgentIdOf: ConvertLocation<AgentId>;
@@ -148,7 +148,7 @@ pub mod pallet {
 			location: Box<VersionedLocation>,
 			fee: u128,
 		) -> DispatchResult {
-			T::SiblingOrigin::ensure_origin(origin)?;
+			T::FrontendOrigin::ensure_origin(origin)?;
 
 			let origin_location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
@@ -190,7 +190,7 @@ pub mod pallet {
 			metadata: AssetMetadata,
 			fee: u128,
 		) -> DispatchResult {
-			let origin_location = T::SiblingOrigin::ensure_origin(origin)?;
+			let origin_location = T::FrontendOrigin::ensure_origin(origin)?;
 			let origin = AgentIdOf::convert_location(&origin_location)
 				.ok_or(Error::<T>::LocationConversionFailed)?;
 

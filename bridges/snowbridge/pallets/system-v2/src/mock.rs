@@ -189,7 +189,7 @@ impl Contains<Location> for AllowFromAssetHub {
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = MockOkOutboundQueue;
-	type SiblingOrigin = EnsureXcm<AllowFromAssetHub>;
+	type FrontendOrigin = EnsureXcm<AllowFromAssetHub>;
 	type AgentIdOf = snowbridge_core::AgentIdOf;
 	type WeightInfo = ();
 	type UniversalLocation = UniversalLocation;
