@@ -151,10 +151,13 @@ where
 	P: AsRef<Path>,
 	A: Into<BitFlags<AccessFs>>,
 {
-	let mut ruleset = Ruleset::default()
-		.handle_access(AccessFs::from_all(abi))?
-		.handle_access(AccessNet::from_all(abi))?
-		.create()?;
+	let mut ruleset = Ruleset::default().handle_access(AccessFs::from_all(abi))?;
+	if abi as u32 >= 4 {
+		// Enable network restrictions if supported by the ABI version.
+		ruleset = ruleset.handle_access(AccessNet::from_all(abi))?;
+	}
+	let mut ruleset = ruleset.create()?;
+
 	for (fs_path, access_bits) in fs_exceptions {
 		let paths = &[fs_path.as_ref().to_owned()];
 		let mut rules = path_beneath_rules(paths, access_bits).peekable();
