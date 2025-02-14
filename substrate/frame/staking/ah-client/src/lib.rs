@@ -82,6 +82,13 @@ pub mod pallet {
 	/// The balance type of this pallet.
 	pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
+	// `Exposure<T::AccountId, BalanceOf<T>>` will be removed. This type alias exists only to
+	// suppress clippy warnings.
+	type ElectedValidatorSet<T> = Vec<(
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+	)>;
+
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
@@ -134,7 +141,7 @@ pub mod pallet {
 		// #[pallet::weight(T::WeightInfo::new_validators())] // TODO
 		pub fn new_validator_set(
 			origin: OriginFor<T>,
-			new_validator_set: Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>,
+			new_validator_set: ElectedValidatorSet<T>,
 		) -> DispatchResult {
 			// Ignore requests not coming from the AssetHub or root.
 			Self::ensure_root_or_para(origin, <T as Config>::AssetHubId::get().into())?;
@@ -149,9 +156,7 @@ pub mod pallet {
 	impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
 		for Pallet<T>
 	{
-		fn new_session(
-			_: sp_staking::SessionIndex,
-		) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
+		fn new_session(_: sp_staking::SessionIndex) -> Option<ElectedValidatorSet<T>> {
 			// If there is a new validator set - return it. Otherwise return `None`.
 			ValidatorSet::<T>::take()
 		}
@@ -190,7 +195,7 @@ pub mod pallet {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_asset_hub_call::<T>(StakingCalls::RelayChainSessionEnd(session_index, authors)),
+				mk_asset_hub_call(StakingCalls::RelayChainSessionEnd(session_index, authors)),
 			]);
 
 			if let Err(err) = send_xcm::<T::SendXcm>(
@@ -207,7 +212,7 @@ pub mod pallet {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_asset_hub_call::<T>(StakingCalls::RelayChainSessionStart(session_index)),
+				mk_asset_hub_call(StakingCalls::RelayChainSessionStart(session_index)),
 			]);
 			if let Err(err) = send_xcm::<T::SendXcm>(
 				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
@@ -275,7 +280,7 @@ pub mod pallet {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_asset_hub_call::<T>(StakingCalls::NewRelayChainOffences(
+				mk_asset_hub_call(StakingCalls::NewRelayChainOffences(
 					slash_session,
 					offenders_and_slashes,
 				)),
@@ -311,7 +316,7 @@ pub mod pallet {
 		}
 	}
 
-	fn mk_asset_hub_call<T: Config>(call: StakingCalls) -> Instruction<()> {
+	fn mk_asset_hub_call(call: StakingCalls) -> Instruction<()> {
 		Instruction::Transact {
 			origin_kind: OriginKind::Superuser,
 			fallback_max_weight: None,
