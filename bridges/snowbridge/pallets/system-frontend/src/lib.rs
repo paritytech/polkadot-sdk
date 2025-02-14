@@ -167,7 +167,7 @@ pub mod pallet {
 				fee,
 			});
 
-			let message_id = Self::send(origin_location.clone(), Self::build_xcm(call.encode()))?;
+			let message_id = Self::send(origin_location.clone(), Self::build_xcm(&call))?;
 
 			Self::deposit_event(Event::<T>::CreateAgent { location: origin_location, message_id });
 			Ok(())
@@ -201,7 +201,7 @@ pub mod pallet {
 				fee,
 			});
 
-			let message_id = Self::send(origin_location.clone(), Self::build_xcm(call.encode()))?;
+			let message_id = Self::send(origin_location.clone(), Self::build_xcm(&call))?;
 
 			Self::deposit_event(Event::<T>::RegisterToken { location: asset_location, message_id });
 
@@ -233,13 +233,13 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn build_xcm(call: Vec<u8>) -> Xcm<()> {
+		fn build_xcm(call: &impl Encode) -> Xcm<()> {
 			Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				DescendOrigin(T::PalletLocation::get()),
 				Transact {
 					origin_kind: OriginKind::Xcm,
-					call: call.into(),
+					call: call.encode().into(),
 					fallback_max_weight: None,
 				},
 			])
