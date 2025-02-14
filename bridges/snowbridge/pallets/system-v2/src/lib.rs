@@ -52,10 +52,6 @@ pub use pallet::*;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-pub fn agent_id_of<T: Config>(location: &Location) -> Result<H256, DispatchError> {
-	T::AgentIdOf::convert_location(location).ok_or(Error::<T>::LocationConversionFailed.into())
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 pub trait BenchmarkHelper<O>
 where
@@ -160,7 +156,8 @@ pub mod pallet {
 				.reanchored(&ethereum_location, &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)?;
 
-			let agent_id = agent_id_of::<T>(&reanchored_location)?;
+			let agent_id = AgentIdOf::convert_location(&reanchored_location)
+				.ok_or(Error::<T>::LocationConversionFailed)?;
 
 			// Record the agent id or fail if it has already been created
 			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);
