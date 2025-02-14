@@ -9,6 +9,6 @@ crates:
 - name: frame-support
   bump: none
 - name: substrate-wasm-builder
-  bump: patch
+  bump: minor
 - name: pallet-example-view-functions
-  bump: patch
+  bump: minor
