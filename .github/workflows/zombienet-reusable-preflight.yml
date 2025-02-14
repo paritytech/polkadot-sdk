@@ -65,6 +65,11 @@ on:
       SOURCE_REF_SLUG:
         value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
 
+      BUILD_RUN_ID:
+        value: ${{ jobs.wait_build_images.outputs.BUILD_RUN_ID }}
+        description: |
+          Id of the build run, needed to download the artifacts.
+
       # Zombie vars
       PUSHGATEWAY_URL:
         value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
@@ -216,10 +221,13 @@ jobs:
     needs: [ci-env]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      BUILD_RUN_ID: ${{ steps.wait_build.outputs.BUILD_RUN_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Wait until "Build and push images" workflow is done
+        id: wait_build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -239,4 +247,15 @@ jobs:
             fi
             sleep 10
           done
-          echo "CI workflow is done."
+
+          #check if the build succeeded
+          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json name,conclusion,databaseId --jq '.[] | select(.name == "Build and push images") | .conclusion, .databaseId'))
+          CONCLUSION=${RUN_INFO[@]:0:1}
+          BUILD_RUN_ID=${RUN_INFO[@]:1:1}
+          if [[ $CONCLUSION == "success" ]]; then
+            echo "CI workflow succeeded. (build run_id: ${BUILD_RUN_ID})"
+            echo "BUILD_RUN_ID=${BUILD_RUN_ID}" >> $GITHUB_OUTPUT
+          else
+            echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLUSION"
+            exit 1
+          fi;

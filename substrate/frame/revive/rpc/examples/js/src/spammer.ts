@@ -9,26 +9,27 @@ import {
 } from './util'
 import { FlipperAbi } from '../abi/Flipper'
 
-//Run the substate node
-console.log('🚀 Start substrate-node...')
-killProcessOnPort(9944)
-spawn(
-	[
-		'./target/debug/substrate-node',
-		'--dev',
-		'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
-	],
-	{
-		stdout: Bun.file('/tmp/substrate-node.out.log'),
-		stderr: Bun.file('/tmp/substrate-node.err.log'),
-		cwd: polkadotSdkPath,
-	}
-)
+if (process.env.START_SUBSTRATE_NODE) {
+	//Run the substate node
+	console.log('🚀 Start substrate-node...')
+	killProcessOnPort(9944)
+	spawn(
+		[
+			'./target/debug/substrate-node',
+			'--dev',
+			'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
+		],
+		{
+			stdout: Bun.file('/tmp/substrate-node.out.log'),
+			stderr: Bun.file('/tmp/substrate-node.err.log'),
+			cwd: polkadotSdkPath,
+		}
+	)
+}
 
 // Run eth-rpc on 8545
-console.log('🚀 Start eth-rpc...')
 if (process.env.START_ETH_RPC) {
-	console.log('🔍 Start eth-rpc...')
+	console.log('🚀 Start eth-rpc...')
 	killProcessOnPort(8545)
 	spawn(
 		[
@@ -43,9 +44,9 @@ if (process.env.START_ETH_RPC) {
 			cwd: polkadotSdkPath,
 		}
 	)
-	await waitForHealth('http://localhost:8545').catch()
 }
 
+await waitForHealth('http://localhost:8545').catch()
 const env = await createEnv('eth-rpc')
 const wallet = env.accountWallet
 

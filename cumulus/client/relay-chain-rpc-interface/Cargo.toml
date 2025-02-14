@@ -48,8 +48,8 @@ rand = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-smoldot = { default_features = false, features = ["std"], workspace = true }
-smoldot-light = { default_features = false, features = ["std"], workspace = true }
+smoldot = { default-features = false, features = ["std"], workspace = true }
+smoldot-light = { default-features = false, features = ["std"], workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
 url = { workspace = true }

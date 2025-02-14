@@ -543,26 +543,22 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(30_000_000u32.into()),
+			T::Currency::minimum_balance().saturating_add(T::MinimumCreditPurchase::get()),
 		);
 		T::Currency::set_balance(&Broker::<T>::account_id(), T::Currency::minimum_balance());
-
-		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
-			.expect("Offer not high enough for configuration.");
-
-		let recipient: T::AccountId = account("recipient", 0, SEED);
-
-		Broker::<T>::do_pool(region, None, recipient, Final)
-			.map_err(|_| BenchmarkError::Weightless)?;
 
 		let beneficiary: RelayAccountIdOf<T> = account("beneficiary", 0, SEED);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 20_000_000u32.into(), beneficiary.clone());
+		_(RawOrigin::Signed(caller.clone()), T::MinimumCreditPurchase::get(), beneficiary.clone());
 
 		assert_last_event::<T>(
-			Event::CreditPurchased { who: caller, beneficiary, amount: 20_000_000u32.into() }
-				.into(),
+			Event::CreditPurchased {
+				who: caller,
+				beneficiary,
+				amount: T::MinimumCreditPurchase::get(),
+			}
+			.into(),
 		);
 
 		Ok(())

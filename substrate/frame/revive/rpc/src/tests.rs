@@ -230,7 +230,7 @@ async fn revert_call() -> anyhow::Result<()> {
 		.unwrap_err();
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
-	assert_eq!(call_err.message(), "execution reverted: This is a require error");
+	assert_eq!(call_err.message(), "execution reverted: revert: This is a require error");
 	assert_eq!(call_err.code(), 3);
 	Ok(())
 }

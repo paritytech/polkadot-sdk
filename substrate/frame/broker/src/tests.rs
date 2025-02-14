@@ -113,7 +113,7 @@ fn drop_history_works() {
 	TestExt::new()
 		.contribution_timeout(4)
 		.endow(1, 1000)
-		.endow(2, 30)
+		.endow(2, 50)
 		.execute_with(|| {
 			assert_ok!(Broker::do_start_sales(100, 1));
 			advance_to(2);
@@ -121,7 +121,7 @@ fn drop_history_works() {
 			// Place region in pool. Active in pool timeslices 4, 5, 6 = rcblocks 8, 10, 12; we
 			// expect to make/receive revenue reports on blocks 10, 12, 14.
 			assert_ok!(Broker::do_pool(region, Some(1), 1, Final));
-			assert_ok!(Broker::do_purchase_credit(2, 30, 2));
+			assert_ok!(Broker::do_purchase_credit(2, 50, 2));
 			advance_to(6);
 			// In the stable state with no pending payouts, we expect to see 3 items in
 			// InstaPoolHistory here since there is a latency of 1 timeslice (for generating the
@@ -691,6 +691,24 @@ fn purchase_works() {
 				}
 			),]
 		);
+	});
+}
+
+#[test]
+fn purchase_credit_works() {
+	TestExt::new().endow(1, 50).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let credits = CoretimeCredit::get();
+		assert_eq!(credits.get(&1), None);
+
+		assert_noop!(Broker::do_purchase_credit(1, 10, 1), Error::<Test>::CreditPurchaseTooSmall);
+		assert_noop!(Broker::do_purchase_credit(1, 100, 1), TokenError::FundsUnavailable);
+
+		assert_ok!(Broker::do_purchase_credit(1, 50, 1));
+		let credits = CoretimeCredit::get();
+		assert_eq!(credits.get(&1), Some(&50));
 	});
 }
 

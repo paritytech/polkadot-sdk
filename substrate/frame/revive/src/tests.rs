@@ -1034,7 +1034,10 @@ fn deploy_and_call_other_contract() {
 		// Call BOB contract, which attempts to instantiate and call the callee contract and
 		// makes various assertions on the results from those calls.
 		assert_ok!(builder::call(caller_addr)
-			.data((callee_code_hash, code_load_weight.ref_time()).encode())
+			.data(
+				(callee_code_hash, code_load_weight.ref_time(), code_load_weight.proof_size())
+					.encode()
+			)
 			.build());
 
 		assert_eq!(
@@ -4431,8 +4434,10 @@ fn tracing_works_for_transfers() {
 		trace(&mut tracer, || {
 			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
 		});
+
+		let traces = tracer.collect_traces();
 		assert_eq!(
-			tracer.collect_traces(),
+			traces,
 			vec![CallTrace {
 				from: ALICE_ADDR,
 				to: BOB_ADDR,
@@ -4501,20 +4506,18 @@ fn tracing_works() {
 				vec![CallTrace {
 					from: ALICE_ADDR,
 					to: addr,
-					input: (3u32, addr_callee).encode(),
+					input: (3u32, addr_callee).encode().into(),
 					call_type: Call,
 					logs: logs.clone(),
 					calls: vec![
 						CallTrace {
 							from: addr,
 							to: addr_callee,
-							input: 2u32.encode(),
+							input: 2u32.encode().into(),
 							output: hex_literal::hex!(
 										"08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001a546869732066756e6374696f6e20616c77617973206661696c73000000000000"
 									).to_vec().into(),
-							revert_reason: Some(
-								"execution reverted: This function always fails".to_string()
-							),
+							revert_reason: Some("revert: This function always fails".to_string()),
 							error: Some("execution reverted".to_string()),
 							call_type: Call,
 							..Default::default()
@@ -4522,14 +4525,14 @@ fn tracing_works() {
 						CallTrace {
 							from: addr,
 							to: addr,
-							input: (2u32, addr_callee).encode(),
+							input: (2u32, addr_callee).encode().into(),
 							call_type: Call,
 							logs: logs.clone(),
 							calls: vec![
 								CallTrace {
 									from: addr,
 									to: addr_callee,
-									input: 1u32.encode(),
+									input: 1u32.encode().into(),
 									output: Default::default(),
 									error: Some("ContractTrapped".to_string()),
 									call_type: Call,
@@ -4538,14 +4541,14 @@ fn tracing_works() {
 								CallTrace {
 									from: addr,
 									to: addr,
-									input: (1u32, addr_callee).encode(),
+									input: (1u32, addr_callee).encode().into(),
 									call_type: Call,
 									logs: logs.clone(),
 									calls: vec![
 										CallTrace {
 											from: addr,
 											to: addr_callee,
-											input: 0u32.encode(),
+											input: 0u32.encode().into(),
 											output: 0u32.to_le_bytes().to_vec().into(),
 											call_type: Call,
 											..Default::default()
@@ -4553,7 +4556,7 @@ fn tracing_works() {
 										CallTrace {
 											from: addr,
 											to: addr,
-											input: (0u32, addr_callee).encode(),
+											input: (0u32, addr_callee).encode().into(),
 											call_type: Call,
 											calls: vec![
 												CallTrace {

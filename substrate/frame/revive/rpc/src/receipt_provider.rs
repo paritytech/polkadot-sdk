@@ -17,6 +17,7 @@
 
 use jsonrpsee::core::async_trait;
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned, H256};
+use std::collections::HashMap;
 use tokio::join;
 
 mod cache;
@@ -39,6 +40,9 @@ pub trait ReceiptProvider: Send + Sync {
 
 	/// Deletes receipts associated with the specified block hash.
 	async fn remove(&self, block_hash: &H256);
+
+	/// Return all transaction hashes for the given block hash.
+	async fn block_transaction_hashes(&self, block_hash: &H256) -> Option<HashMap<usize, H256>>;
 
 	/// Get the receipt for the given block hash and transaction index.
 	async fn receipt_by_block_hash_and_index(
@@ -68,7 +72,7 @@ impl<Cache: ReceiptProvider, Archive: ReceiptProvider> ReceiptProvider for (Cach
 	}
 
 	async fn remove(&self, block_hash: &H256) {
-		self.0.remove(block_hash).await;
+		join!(self.0.remove(block_hash), self.1.remove(block_hash));
 	}
 
 	async fn receipt_by_block_hash_and_index(
@@ -90,6 +94,13 @@ impl<Cache: ReceiptProvider, Archive: ReceiptProvider> ReceiptProvider for (Cach
 			return Some(count);
 		}
 		self.1.receipts_count_per_block(block_hash).await
+	}
+
+	async fn block_transaction_hashes(&self, block_hash: &H256) -> Option<HashMap<usize, H256>> {
+		if let Some(hashes) = self.0.block_transaction_hashes(block_hash).await {
+			return Some(hashes);
+		}
+		self.1.block_transaction_hashes(block_hash).await
 	}
 
 	async fn receipt_by_hash(&self, hash: &H256) -> Option<ReceiptInfo> {

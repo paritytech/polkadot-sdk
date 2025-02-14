@@ -169,6 +169,22 @@ mod benchmarks {
 		assert_eq!(weight.consumed(), T::WeightInfo::bump_service_head());
 	}
 
+	// Worst case for calling `bump_service_head`.
+	#[benchmark]
+	fn set_service_head() {
+		setup_bump_service_head::<T>(0.into(), 1.into());
+		let mut weight = WeightMeter::new();
+		assert_eq!(ServiceHead::<T>::get().unwrap(), 0u32.into());
+
+		#[block]
+		{
+			assert!(MessageQueue::<T>::set_service_head(&mut weight, &1u32.into()).unwrap());
+		}
+
+		assert_eq!(ServiceHead::<T>::get().unwrap(), 1u32.into());
+		assert_eq!(weight.consumed(), T::WeightInfo::set_service_head());
+	}
+
 	#[benchmark]
 	fn reap_page() {
 		// Mock the storage to get a *cullable* but not *reapable* page.

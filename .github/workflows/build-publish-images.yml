@@ -234,10 +234,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
-          # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
-          ref: ${{ github.head_ref || github.ref_name }}
       - name: build
         run: |
           mkdir -p ./artifacts/substrate/

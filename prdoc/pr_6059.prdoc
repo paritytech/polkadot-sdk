@@ -1,0 +1,56 @@
+title: '[mq pallet] Custom next queue selectors'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Changes:
+    - Expose a `force_set_head` function from the `MessageQueue` pallet via a new trait: `ForceSetHead`. This can be used to force the MQ pallet to process this queue next.
+    - The change only exposes an internal function through a trait, no audit is required.
+
+    ## Context
+
+    For the Asset Hub Migration (AHM) we need a mechanism to prioritize the inbound upward messages and the inbound downward messages on the AH. To achieve this, a minimal (and no breaking) change is done to the MQ pallet in the form of adding the `force_set_head` function.
+
+    An example use of how to achieve prioritization is then demonstrated in `integration_test.rs::AhmPrioritizer`. Normally, all queues are scheduled round-robin like this:
+
+    `| Relay | Para(1) | Para(2) | ... | Relay | ... `
+
+    The prioritizer listens to changes to its queue and triggers if either:
+    - The queue processed in the last block (to keep the general round-robin scheduling)
+    - The queue did not process since `n` blocks (to prevent starvation if there are too many other queues)
+
+    In either situation, it schedules the queue for a streak of three consecutive blocks, such that it would become:
+
+    `| Relay | Relay | Relay | Para(1) | Para(2) | ... | Relay | Relay | Relay | ... `
+
+    It basically transforms the round-robin into an elongated round robin. Although different strategies can be injected into the pallet at runtime, this one seems to strike a good balance between general service level and prioritization.
+crates:
+- name: pallet-message-queue
+  bump: major
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: contracts-rococo-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: glutton-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor

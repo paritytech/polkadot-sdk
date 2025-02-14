@@ -601,6 +601,16 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
 			Ok(Step) => None,
 			Ok(Ecalli(idx)) => {
+				// This is a special hard coded syscall index which is used by benchmarks
+				// to abort contract execution. It is used to terminate the execution without
+				// breaking up a basic block. The fixed index is used so that the benchmarks
+				// don't have to deal with import tables.
+				if cfg!(feature = "runtime-benchmarks") && idx == SENTINEL {
+					return Some(Ok(ExecReturnValue {
+						flags: ReturnFlags::empty(),
+						data: Vec::new(),
+					}))
+				}
 				let Some(syscall_symbol) = module.imports().get(idx) else {
 					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
 				};

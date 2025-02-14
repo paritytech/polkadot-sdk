@@ -156,29 +156,23 @@ pub enum CallType {
 pub struct CallTrace<Gas = U256> {
 	/// Address of the sender.
 	pub from: H160,
-	/// Address of the receiver.
-	pub to: H160,
-	/// Call input data.
-	pub input: Vec<u8>,
-	/// Amount of value transferred.
-	#[serde(skip_serializing_if = "U256::is_zero")]
-	pub value: U256,
-	/// Type of call.
-	#[serde(rename = "type")]
-	pub call_type: CallType,
 	/// Amount of gas provided for the call.
 	pub gas: Gas,
 	/// Amount of gas used.
 	#[serde(rename = "gasUsed")]
 	pub gas_used: Gas,
+	/// Address of the receiver.
+	pub to: H160,
+	/// Call input data.
+	pub input: Bytes,
 	/// Return data.
-	#[serde(flatten, skip_serializing_if = "Bytes::is_empty")]
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
 	pub output: Bytes,
 	/// The error message if the call failed.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
 	/// The revert reason, if the call reverted.
-	#[serde(rename = "revertReason")]
+	#[serde(rename = "revertReason", skip_serializing_if = "Option::is_none")]
 	pub revert_reason: Option<String>,
 	/// List of sub-calls.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
@@ -186,6 +180,11 @@ pub struct CallTrace<Gas = U256> {
 	/// List of logs emitted during the call.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	pub logs: Vec<CallLog>,
+	/// Amount of value transferred.
+	pub value: U256,
+	/// Type of call.
+	#[serde(rename = "type")]
+	pub call_type: CallType,
 }
 
 /// A log emitted during a call.
@@ -195,12 +194,11 @@ pub struct CallTrace<Gas = U256> {
 pub struct CallLog {
 	/// The address of the contract that emitted the log.
 	pub address: H160,
-	/// The log's data.
-	#[serde(skip_serializing_if = "Bytes::is_empty")]
-	pub data: Bytes,
 	/// The topics used to index the log.
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub topics: Vec<H256>,
+	/// The log's data.
+	pub data: Bytes,
 	/// Position of the log relative to subcalls within the same trace
 	/// See <https://github.com/ethereum/go-ethereum/pull/28389> for details
 	#[serde(with = "super::hex_serde")]

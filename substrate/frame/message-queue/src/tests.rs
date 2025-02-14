@@ -2039,3 +2039,103 @@ fn process_message_ok_true_keeps_storage_changes() {
 		assert_eq!(sp_io::storage::exists(b"key"), true);
 	});
 }
+
+#[test]
+fn force_set_head_can_starve_other_queues() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		// Enqueue messages to three queues.
+		for _ in 0..2 {
+			MessageQueue::enqueue_message(msg("A"), Here);
+			MessageQueue::enqueue_message(msg("B"), There);
+			MessageQueue::enqueue_message(msg("C"), Everywhere(0));
+		}
+
+		// Servicing will only touch `Here` and `There`.
+		MessageQueue::service_queues(4.into_weight());
+		assert_eq!(
+			MessagesProcessed::take(),
+			vec![
+				(b"A".to_vec(), Here),
+				(b"A".to_vec(), Here),
+				(b"B".to_vec(), There),
+				(b"B".to_vec(), There)
+			]
+		);
+
+		// Some more traffic on our favorite queue.
+		MessageQueue::enqueue_message(msg("A"), Here);
+
+		// Hypothetically, it would proceed with `Everywhere(0)`, not our favorite queue:
+		frame_support::hypothetically! {{
+			MessageQueue::service_queues(1.into_weight());
+			assert_eq!(MessagesProcessed::take(), vec![(b"C".to_vec(), Everywhere(0))]);
+		}};
+
+		// But we won't let that happen and instead prioritize it:
+		assert!(Pallet::<Test>::force_set_head(&mut WeightMeter::new(), &Here).unwrap());
+
+		MessageQueue::service_queues(1.into_weight());
+		assert_eq!(MessagesProcessed::take(), vec![(b"A".to_vec(), Here)]);
+	});
+}
+
+#[test]
+fn force_set_head_noop_on_unready_queue() {
+	use crate::tests::MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		// enqueue and process one message
+		MessageQueue::enqueue_message(msg("A"), Here);
+		MessageQueue::service_queues(1.into_weight());
+		assert_ring(&[]);
+
+		let _guard = StorageNoopGuard::new();
+		let was_set = Pallet::<Test>::force_set_head(&mut WeightMeter::new(), &There).unwrap();
+		assert!(!was_set);
+	});
+}
+
+#[test]
+fn force_set_head_noop_on_current_head() {
+	use crate::tests::MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		MessageQueue::enqueue_message(msg("A"), Here);
+		MessageQueue::enqueue_message(msg("A"), Here);
+		MessageQueue::service_queues(1.into_weight());
+		assert_ring(&[Here]);
+
+		let _guard = StorageNoopGuard::new();
+		let was_set = Pallet::<Test>::force_set_head(&mut WeightMeter::new(), &Here).unwrap();
+		assert!(was_set);
+	});
+}
+
+#[test]
+fn force_set_head_noop_unprocessed_queue() {
+	use crate::tests::MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		MessageQueue::enqueue_message(msg("A"), Here);
+		assert_ring(&[Here]);
+
+		let _guard = StorageNoopGuard::new();
+		let was_set = Pallet::<Test>::force_set_head(&mut WeightMeter::new(), &Here).unwrap();
+		assert!(was_set);
+	});
+}
+
+#[test]
+fn force_set_head_works() {
+	use crate::tests::MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		MessageQueue::enqueue_message(msg("A"), Here);
+		MessageQueue::enqueue_message(msg("B"), There);
+		assert_eq!(ServiceHead::<Test>::get(), Some(Here));
+		assert_ring(&[Here, There]);
+
+		let was_set = Pallet::<Test>::force_set_head(&mut WeightMeter::new(), &There).unwrap();
+		assert!(was_set);
+
+		assert_eq!(ServiceHead::<Test>::get(), Some(There));
+		assert_ring(&[There, Here]);
+	});
+}
