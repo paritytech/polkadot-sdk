@@ -126,11 +126,11 @@ export const setup = async (): Promise<MockNetwork> => {
 
 						// TODO: detect asset supply increase and override it.
 						changes.ForeignAssets.Asset.push(
-							[[assetMap.getRelativeLocation(what, false)], {supply: amount }]
+							[[assetMap.getRelativeRawLocation(what, false)], {supply: amount }]
 							// [[{ parents: 1, interior: 'Here' }], { supply: amount + 2n }],
 						);
 						changes.ForeignAssets.Account.push(
-							[[assetMap.getRelativeLocation(what, false), who], { balance: amount }],
+							[[assetMap.getRelativeRawLocation(what, false), who], { balance: amount }],
 						);
 						// changes.ForeignAssets.Asset.push(
 						// 	[[{
@@ -474,10 +474,10 @@ export const setup = async (): Promise<MockNetwork> => {
 
 						// TODO: detect asset supply increase and override it.
 						changes.ForeignAssets.Asset.push(
-							[[assetMap.getRelativeLocation(what, true), {supply: amount }]]
+							[[assetMap.getRelativeRawLocation(what, true), {supply: amount }]]
 						);
 						changes.ForeignAssets.Account.push(
-							[[assetMap.getRelativeLocation(what, true), who], { balance: amount }],
+							[[assetMap.getRelativeRawLocation(what, true), who], { balance: amount }],
 						);
 					}
 				}
