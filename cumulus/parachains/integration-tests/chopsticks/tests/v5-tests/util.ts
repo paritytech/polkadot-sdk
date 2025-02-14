@@ -27,6 +27,18 @@ export interface MockNetwork {
 	paraSovAccOnAssetHub: SS58String,
 }
 
+const setSystemAsset = async (context: NetworkContext, accounts: [SS58String, bigint][]) => {
+	const changes: any = {};
+	for (const [who, amount] of accounts) {
+		changes.System = changes.System ?? {};
+		changes.System.Account = changes.System.Account ?? [];
+		changes.System.Account.push(
+			[[who], { providers: 1, data: { free: amount } }],
+		);
+	}
+	await context.dev.setStorage(changes);
+};
+
 export const setup = async (): Promise<MockNetwork> => {
 	const { parachain, polkadot, assetHub } = await setupNetworks({
 		parachain: {
@@ -34,7 +46,7 @@ export const setup = async (): Promise<MockNetwork> => {
 			'wasm-override': getPenpalWasm(),
 			'runtime-log-level': 5,
 			db: './db.sqlite',
-			 // todo should I specify the port inside .env or hardcoding is fine?
+			// TODO: ports might be moved to .env if needed.
 			port: 8006,
 		},
 		polkadot: {
@@ -86,17 +98,7 @@ export const setup = async (): Promise<MockNetwork> => {
 		parachain: {
 			context: parachain,
 			api: parachainApi,
-			setSystemAsset: async (accounts) => {
-				const changes: any = {};
-				for (const [who,  amount] of accounts) {
-					changes.System = changes.System ?? {};
-					changes.System.Account = changes.System.Account ?? [];
-					changes.System.Account.push(
-						[[who], { providers: 1, data: { free: amount } }],
-					);
-				}
-				await parachain.dev.setStorage(changes);
-			},
+			setSystemAsset: async (accounts) => setSystemAsset(parachain, accounts),
 			setAssets: async (assets) => {
 				const changes: any = {};
 
@@ -175,17 +177,7 @@ export const setup = async (): Promise<MockNetwork> => {
 		relay: {
 			context: polkadot,
 			api: relayApi,
-			setSystemAsset: async (accounts) => {
-				const changes: any = {};
-				for (const [who,  amount] of accounts) {
-					changes.System = changes.System ?? {};
-					changes.System.Account = changes.System.Account ?? [];
-					changes.System.Account.push(
-						[[who], { providers: 1, data: { free: amount } }],
-					);
-				}
-				await polkadot.dev.setStorage(changes);
-			},
+			setSystemAsset: async (accounts) => setSystemAsset(polkadot, accounts),
 			setAssets: async (assets) => {
 				throw new Error(`setAssets should not be called for Relay Chain`);
 			},
@@ -210,19 +202,7 @@ export const setup = async (): Promise<MockNetwork> => {
 		assetHub: {
 			context: assetHub,
 			api: assetHubApi,
-			setSystemAsset: async (accounts) => {
-				const changes: any = {};
-
-				for (const [who,  amount] of accounts) {
-					changes.System = changes.System ?? {};
-					changes.System.Account = changes.System.Account ?? [];
-					changes.System.Account.push(
-						[[who], { providers: 1, data: { free: amount } }],
-					);
-				}
-
-				await assetHub.dev.setStorage(changes);
-			},
+			setSystemAsset: async (accounts) => setSystemAsset(assetHub, accounts),
 			setAssets: async (assets) => {
 				const changes: any = {};
 

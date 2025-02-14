@@ -605,10 +605,6 @@ test("InitiateReserveWithdraw USDT from Penpal `Alice` to Asset Hub `Bob`", asyn
 	expect(alice_balance_after - alice_balance_before).toBe(withdraw_usdt);
 });
 
-async function delay(ms: number) {
-	return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 // test("Teleport and Transact from Westend's Asset Hub to Penpal", async () => {
 // 	const remarkWithEventCalldata = await PenpalApi.tx.System.remark_with_event({
 // 		remark: Binary.fromText("Hello, World!"),

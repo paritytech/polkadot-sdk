@@ -87,9 +87,3 @@ export class AssetMap {
 		};
 	}
 }
-
-const assetMap = new AssetMap(assetIndexMap);
-
-// Example usage:
-console.log(assetMap.getIndex(Asset.USDT)); // Output: 1
-console.log(assetMap.getRelativeLocation(Asset.WND, false));
