@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tSELECT block_hash, transaction_index\n\t\t\tFROM transaction_hashes\n\t\t\tWHERE transaction_hash = $1\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "block_hash",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "transaction_index",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "29af64347f700919dc2ee12463f332be50096d4e37be04ed8b6f46ac5c242043"
+}
