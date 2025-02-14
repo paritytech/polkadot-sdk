@@ -952,12 +952,12 @@ fn dispatch_as_works() {
 }
 
 #[test]
-fn dispatch_as_checked_works() {
+fn dispatch_as_fallible_works() {
 	new_test_ext().execute_with(|| {
 		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
 		assert_eq!(Balances::free_balance(666), 100);
 		assert_eq!(Balances::free_balance(777), 0);
-		assert_ok!(Utility::dispatch_as_checked(
+		assert_ok!(Utility::dispatch_as_fallible(
 			RuntimeOrigin::root(),
 			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(666))),
 			Box::new(call_transfer(777, 100))
@@ -966,7 +966,7 @@ fn dispatch_as_checked_works() {
 		assert_eq!(Balances::free_balance(777), 100);
 
 		assert_noop!(
-			Utility::dispatch_as_checked(
+			Utility::dispatch_as_fallible(
 				RuntimeOrigin::root(),
 				Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(777))),
 				Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))

@@ -93,7 +93,7 @@ mod benchmark {
 	}
 
 	#[benchmark]
-	fn dispatch_as_checked() {
+	fn dispatch_as_fallible() {
 		let caller = account("caller", SEED, SEED);
 		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
 		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller).into();

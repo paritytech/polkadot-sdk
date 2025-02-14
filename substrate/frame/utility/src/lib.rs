@@ -463,12 +463,12 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				T::WeightInfo::dispatch_as_checked()
+				T::WeightInfo::dispatch_as_fallible()
 					.saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
 		})]
-		pub fn dispatch_as_checked(
+		pub fn dispatch_as_fallible(
 			origin: OriginFor<T>,
 			as_origin: Box<T::PalletsOrigin>,
 			call: Box<<T as Config>::RuntimeCall>,
