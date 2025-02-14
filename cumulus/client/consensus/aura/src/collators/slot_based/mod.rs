@@ -95,9 +95,9 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
-	/// Drift slots by a fixed duration. This can be used to create more preferrable authoring
+	/// Offset slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
-	pub slot_drift: Duration,
+	pub slot_offset: Duration,
 	/// The handle returned by [`SlotBasedBlockImport`].
 	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
 	/// Spawner for spawning futures.
@@ -121,7 +121,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service,
 		authoring_duration,
 		reinitialize,
-		slot_drift,
+		slot_offset,
 		block_import_handle,
 		relay_chain_slot_duration,
 		spawner,
@@ -179,7 +179,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		authoring_duration,
 		collator_sender: tx,
 		relay_chain_slot_duration,
-		slot_drift,
+		slot_offset,
 	};
 
 	let block_builder_fut =

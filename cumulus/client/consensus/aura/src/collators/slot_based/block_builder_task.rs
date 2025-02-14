@@ -91,13 +91,13 @@ pub struct BuilderTaskParams<
 	/// Channel to send built blocks to the collation task.
 	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	pub relay_chain_slot_duration: Duration,
-	/// Drift every slot by this duration.
+	/// Offset all time operations by this duration.
 	/// This is a time quantity that is subtracted from the actual timestamp when computing
 	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the
 	/// intent to keep our "clock" slightly behind the relay chain one and thus reducing the
 	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
 	/// wait for relay chain notifications because we woke up too early).
-	pub slot_drift: Duration,
+	pub slot_offset: Duration,
 }
 
 /// Run block-builder.
@@ -145,12 +145,12 @@ where
 			authoring_duration,
 			relay_chain_slot_duration,
 			para_backend,
-			slot_drift,
+			slot_offset,
 		} = params;
 
-		let mut slot_timer = SlotTimer::<_, _, P>::new_with_drift(
+		let mut slot_timer = SlotTimer::<_, _, P>::new_with_offset(
 			para_client.clone(),
-			slot_drift,
+			slot_offset,
 			relay_chain_slot_duration,
 		);
 

@@ -46,9 +46,14 @@ pub(crate) struct SlotInfo {
 /// Manages block-production timings based on chain parameters and assigned cores.
 #[derive(Debug)]
 pub(crate) struct SlotTimer<Block, Client, P> {
+	/// Client that is used for runtime calls
 	client: Arc<Client>,
-	drift: Duration,
+	/// Offset the current time by this duration.
+	time_offset: Duration,
+	/// Last reported core count.
 	last_reported_core_num: Option<u32>,
+	/// Slot duration of the relay chain. This is used to compute how man block-production
+	/// attempts we should trigger per relay chain block.
 	relay_slot_duration: Duration,
 	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
 }
@@ -67,7 +72,7 @@ fn compute_next_wake_up_time(
 	relay_slot_duration: Duration,
 	core_count: Option<u32>,
 	time_now: Duration,
-	drift: Duration,
+	time_offset: Duration,
 ) -> (Duration, Timestamp, Slot) {
 	let para_slots_per_relay_block =
 		(relay_slot_duration.as_millis() / para_slot_duration.as_millis() as u128) as u32;
@@ -89,7 +94,7 @@ fn compute_next_wake_up_time(
 		);
 	}
 
-	let (duration, timestamp) = time_until_next_attempt(time_now, block_production_interval, drift);
+	let (duration, timestamp) = time_until_next_attempt(time_now, block_production_interval, time_offset);
 	let aura_slot = Slot::from_timestamp(timestamp, para_slot_duration);
 	(duration, timestamp, aura_slot)
 }
@@ -107,9 +112,9 @@ fn duration_now() -> Duration {
 fn time_until_next_attempt(
 	now: Duration,
 	block_production_interval: Duration,
-	drift: Duration,
+	offset: Duration,
 ) -> (Duration, Timestamp) {
-	let now = now.as_millis().saturating_sub(drift.as_millis());
+	let now = now.as_millis().saturating_sub(offset.as_millis());
 
 	let next_slot_time = ((now + block_production_interval.as_millis()) /
 		block_production_interval.as_millis()) *
@@ -128,17 +133,17 @@ where
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
 	/// Create a new slot timer.
-	pub fn new_with_drift(
+	pub fn new_with_offset(
 		client: Arc<Client>,
-		drift: Duration,
+		time_offset: Duration,
 		relay_slot_duration: Duration,
 	) -> Self {
 		Self {
 			client,
-			drift,
+			time_offset,
 			last_reported_core_num: None,
-			_marker: Default::default(),
 			relay_slot_duration,
+			_marker: Default::default(),
 		}
 	}
 
@@ -159,7 +164,7 @@ where
 			self.relay_slot_duration,
 			self.last_reported_core_num,
 			duration_now(),
-			self.drift,
+			self.time_offset,
 		);
 
 		tokio::time::sleep(time_until_next_attempt).await;
@@ -193,7 +198,7 @@ mod tests {
 	#[case(6000, None, 1000, 0, 5000, 6000, 1)]
 	#[case(6000, None, 0, 0, 6000, 6000, 1)]
 	#[case(6000, None, 6000, 0, 6000, 12000, 2)]
-	// Test that drift affects the current time correctly
+	// Test that offset affects the current time correctly
 	//                          ||||
 	#[case(6000, Some(1), 1000, 1000, 6000, 6000, 1)]
 	#[case(6000, Some(1), 12000, 2000, 2000, 12000, 2)]
@@ -232,7 +237,7 @@ mod tests {
 		#[case] para_slot_millis: u64,
 		#[case] core_count: Option<u32>,
 		#[case] time_now: u64,
-		#[case] drift_millis: u64,
+		#[case] offset_millis: u64,
 		#[case] expected_wait_duration: u128,
 		#[case] expected_timestamp: u64,
 		#[case] expected_slot: u64,
@@ -240,7 +245,7 @@ mod tests {
 		let para_slot_duration = SlotDuration::from_millis(para_slot_millis); // 6 second slots
 		let relay_slot_duration = Duration::from_millis(RELAY_CHAIN_SLOT_DURATION);
 		let time_now = Duration::from_millis(time_now); // 1 second passed
-		let drift = Duration::from_millis(drift_millis);
+		let offset = Duration::from_millis(offset_millis);
 		let expected_slot = Slot::from(expected_slot);
 
 		let (wait_duration, timestamp, aura_slot) = compute_next_wake_up_time(
@@ -248,7 +253,7 @@ mod tests {
 			relay_slot_duration,
 			core_count,
 			time_now,
-			drift,
+			offset,
 		);
 
 		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch."); // Should wait 5 seconds
