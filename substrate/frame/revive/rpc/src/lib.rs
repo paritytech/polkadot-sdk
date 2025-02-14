@@ -44,11 +44,8 @@ pub use receipt_provider::*;
 mod receipt_extractor;
 pub use receipt_extractor::*;
 
-mod rpc_health;
-pub use rpc_health::*;
-
-mod rpc_methods_gen;
-pub use rpc_methods_gen::*;
+mod apis;
+pub use apis::*;
 
 pub const LOG_TARGET: &str = "eth-rpc";
 
@@ -285,6 +282,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		};
 
 		Ok(self.client.receipts_count_per_block(&block.hash).await.map(U256::from))
+	}
+
+	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults> {
+		let logs = self.client.logs(filter).await?;
+		Ok(FilterResults::Logs(logs))
 	}
 
 	async fn get_storage_at(
