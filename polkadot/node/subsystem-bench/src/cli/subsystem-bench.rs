@@ -20,9 +20,11 @@
 use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
+use polkadot_primitives::Block;
 use polkadot_subsystem_bench::{approval, availability, configuration, statement};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use sc_network::NetworkWorker;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -140,21 +142,23 @@ impl BenchCli {
 			let usage = match objective {
 				TestObjective::DataAvailabilityRead(opts) => {
 					let state = availability::TestState::new(&test_config);
-					let (mut env, _protocol_config) = availability::prepare_test(
-						&state,
-						availability::TestDataAvailability::Read(opts),
-						true,
-					);
+					let (mut env, _protocol_config) =
+						availability::prepare_test::<Block, NetworkWorker<_, _>>(
+							&state,
+							availability::TestDataAvailability::Read(opts),
+							true,
+						);
 					env.runtime()
 						.block_on(availability::benchmark_availability_read(&mut env, &state))
 				},
 				TestObjective::DataAvailabilityWrite => {
 					let state = availability::TestState::new(&test_config);
-					let (mut env, _protocol_config) = availability::prepare_test(
-						&state,
-						availability::TestDataAvailability::Write,
-						true,
-					);
+					let (mut env, _protocol_config) =
+						availability::prepare_test::<Block, NetworkWorker<_, _>>(
+							&state,
+							availability::TestDataAvailability::Write,
+							true,
+						);
 					env.runtime()
 						.block_on(availability::benchmark_availability_write(&mut env, &state))
 				},
@@ -165,7 +169,8 @@ impl BenchCli {
 				},
 				TestObjective::StatementDistribution => {
 					let state = statement::TestState::new(&test_config);
-					let (mut env, _protocol_config) = statement::prepare_test(&state, true);
+					let (mut env, _protocol_config) =
+						statement::prepare_test::<Block, NetworkWorker<_, _>>(&state, true);
 					env.runtime()
 						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
 				},

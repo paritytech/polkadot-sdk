@@ -96,6 +96,11 @@ rand_chacha = { workspace = true, default-features = true }
 rand_core = { workspace = true }
 strum = { features = ["derive"], workspace = true, default-features = true }
 
+parking_lot = { workspace = true, default-features = true }
+polkadot-network-bridge = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
+array-bytes = { workspace = true, default-features = true }
+
 [features]
 default = []
 memprofile = [

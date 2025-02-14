@@ -25,6 +25,7 @@ pub(crate) mod environment;
 pub(crate) mod keyring;
 pub(crate) mod mock;
 pub(crate) mod network;
+pub(crate) mod network_utils;
 pub mod statement;
 pub mod usage;
 pub mod utils;
