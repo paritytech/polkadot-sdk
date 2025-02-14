@@ -119,6 +119,12 @@ pub mod code {
 
 		let blob: CodeVec = blob.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
 
+		#[cfg(feature = "std")]
+		if std::env::var_os("REVIVE_SKIP_VALIDATION").is_some() {
+			log::warn!(target: LOG_TARGET, "Skipping validation because env var REVIVE_SKIP_VALIDATION is set");
+			return Ok(blob)
+		}
+
 		let program = polkavm::ProgramBlob::parse(blob.as_slice().into()).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
 			Error::<T>::CodeRejected

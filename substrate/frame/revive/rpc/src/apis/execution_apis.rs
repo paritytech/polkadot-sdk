@@ -18,7 +18,7 @@
 //! Generated JSON-RPC methods.
 #![allow(missing_docs)]
 
-use super::*;
+use crate::*;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 #[rpc(server, client)]
@@ -94,6 +94,10 @@ pub trait EthRpc {
 	/// Returns code at a given address.
 	#[method(name = "eth_getCode")]
 	async fn get_code(&self, address: Address, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes>;
+
+	/// Returns an array of all logs matching filter with given id.
+	#[method(name = "eth_getLogs")]
+	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults>;
 
 	/// Returns the value from a storage position at a given address.
 	#[method(name = "eth_getStorageAt")]

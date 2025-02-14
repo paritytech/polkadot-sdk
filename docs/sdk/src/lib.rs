@@ -2,8 +2,8 @@
 //!
 //! The Polkadot SDK Developer Documentation.
 //!
-//! This crate is a *minimal*, but *always-accurate* source of information for those wishing to
-//! build on the Polkadot SDK.
+//! This crate is a *minimal*, *always-accurate* and low level source of truth about Polkadot-SDK.
+//! For more high level docs, please go to [docs.polkadot.com](https://docs.polkadot.com).
 //!
 //! ## Getting Started
 //!
