@@ -1,0 +1,26 @@
+error: expected `external_impls`
+  --> tests/ui/incorrect_extension_import.rs:48:2
+   |
+48 |     extension_impls!{ api }
+   |     ^^^^^^^^^^^^^^^
+
+error: expected `external_impls`
+  --> tests/ui/incorrect_extension_import.rs:54:2
+   |
+54 |     extension_impls! { super }
+   |     ^^^^^^^^^^^^^^^
+
+error: unused import: `substrate_test_runtime_client::runtime::Block`
+  --> tests/ui/incorrect_extension_import.rs:19:5
+   |
+19 | use substrate_test_runtime_client::runtime::Block;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error: unused import: `sp_runtime::traits::Block`
+  --> tests/ui/incorrect_extension_import.rs:18:5
+   |
+18 | use sp_runtime::traits::Block as BlockT;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
