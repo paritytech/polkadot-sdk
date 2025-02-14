@@ -27,10 +27,10 @@
 // benchmark
 // pallet
 // --extrinsic=*
-// --runtime=target/production/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm
+// --runtime=target/production/wbuild/contracts-rococo-runtime/contracts_rococo_runtime.wasm
 // --pallet=pallet_message_queue
 // --header=/__w/polkadot-sdk/polkadot-sdk/cumulus/file_header.txt
-// --output=./cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights
+// --output=./cumulus/parachains/runtimes/contracts/contracts-rococo/src/weights
 // --wasm-execution=compiled
 // --steps=50
 // --repeat=20
@@ -38,6 +38,8 @@
 // --no-storage-info
 // --no-min-squares
 // --no-median-slopes
+// --genesis-builder-policy=none
+// --exclude-pallets=pallet_xcm
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -56,10 +58,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	fn ready_ring_knit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `260`
+		//  Measured:  `202`
 		//  Estimated: `6044`
-		// Minimum execution time: 14_762_000 picoseconds.
-		Weight::from_parts(15_170_000, 0)
+		// Minimum execution time: 14_083_000 picoseconds.
+		Weight::from_parts(14_655_000, 0)
 			.saturating_add(Weight::from_parts(0, 6044))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -70,10 +72,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `MaxEncodedLen`)
 	fn ready_ring_unknit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `255`
+		//  Measured:  `197`
 		//  Estimated: `6044`
-		// Minimum execution time: 13_040_000 picoseconds.
-		Weight::from_parts(13_763_000, 0)
+		// Minimum execution time: 12_765_000 picoseconds.
+		Weight::from_parts(13_198_000, 0)
 			.saturating_add(Weight::from_parts(0, 6044))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -82,10 +84,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	fn service_queue_base() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `42`
+		//  Measured:  `0`
 		//  Estimated: `3517`
-		// Minimum execution time: 4_919_000 picoseconds.
-		Weight::from_parts(5_213_000, 0)
+		// Minimum execution time: 2_700_000 picoseconds.
+		Weight::from_parts(2_892_000, 0)
 			.saturating_add(Weight::from_parts(0, 3517))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -94,10 +96,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(105521), added: 107996, mode: `MaxEncodedLen`)
 	fn service_page_base_completion() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `109`
+		//  Measured:  `47`
 		//  Estimated: `108986`
-		// Minimum execution time: 7_497_000 picoseconds.
-		Weight::from_parts(7_748_000, 0)
+		// Minimum execution time: 4_849_000 picoseconds.
+		Weight::from_parts(4_985_000, 0)
 			.saturating_add(Weight::from_parts(0, 108986))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -106,10 +108,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(105521), added: 107996, mode: `MaxEncodedLen`)
 	fn service_page_base_no_completion() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `109`
+		//  Measured:  `47`
 		//  Estimated: `108986`
-		// Minimum execution time: 7_545_000 picoseconds.
-		Weight::from_parts(7_795_000, 0)
+		// Minimum execution time: 5_049_000 picoseconds.
+		Weight::from_parts(5_165_000, 0)
 			.saturating_add(Weight::from_parts(0, 108986))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -122,8 +124,8 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 262_800_000 picoseconds.
-		Weight::from_parts(272_183_000, 0)
+		// Minimum execution time: 258_710_000 picoseconds.
+		Weight::from_parts(261_251_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -133,10 +135,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	fn bump_service_head() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `208`
+		//  Measured:  `150`
 		//  Estimated: `3517`
-		// Minimum execution time: 8_440_000 picoseconds.
-		Weight::from_parts(8_894_000, 0)
+		// Minimum execution time: 7_453_000 picoseconds.
+		Weight::from_parts(7_790_000, 0)
 			.saturating_add(Weight::from_parts(0, 3517))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -147,10 +149,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `MaxEncodedLen`)
 	fn set_service_head() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `198`
+		//  Measured:  `140`
 		//  Estimated: `3517`
-		// Minimum execution time: 7_192_000 picoseconds.
-		Weight::from_parts(7_484_000, 0)
+		// Minimum execution time: 6_311_000 picoseconds.
+		Weight::from_parts(6_576_000, 0)
 			.saturating_add(Weight::from_parts(0, 3517))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -161,10 +163,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(105521), added: 107996, mode: `MaxEncodedLen`)
 	fn reap_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `105646`
+		//  Measured:  `105588`
 		//  Estimated: `108986`
-		// Minimum execution time: 83_423_000 picoseconds.
-		Weight::from_parts(84_122_000, 0)
+		// Minimum execution time: 80_897_000 picoseconds.
+		Weight::from_parts(81_550_000, 0)
 			.saturating_add(Weight::from_parts(0, 108986))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -175,10 +177,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(105521), added: 107996, mode: `MaxEncodedLen`)
 	fn execute_overweight_page_removed() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `105646`
+		//  Measured:  `105588`
 		//  Estimated: `108986`
-		// Minimum execution time: 109_221_000 picoseconds.
-		Weight::from_parts(110_617_000, 0)
+		// Minimum execution time: 107_875_000 picoseconds.
+		Weight::from_parts(108_864_000, 0)
 			.saturating_add(Weight::from_parts(0, 108986))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -189,10 +191,10 @@ impl<T: frame_system::Config> pallet_message_queue::WeightInfo for WeightInfo<T>
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(105521), added: 107996, mode: `MaxEncodedLen`)
 	fn execute_overweight_page_updated() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `105646`
+		//  Measured:  `105588`
 		//  Estimated: `108986`
-		// Minimum execution time: 172_899_000 picoseconds.
-		Weight::from_parts(175_824_000, 0)
+		// Minimum execution time: 171_534_000 picoseconds.
+		Weight::from_parts(172_497_000, 0)
 			.saturating_add(Weight::from_parts(0, 108986))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
