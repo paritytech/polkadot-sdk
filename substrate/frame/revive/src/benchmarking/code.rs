@@ -50,7 +50,7 @@ impl WasmModule {
 
 	/// Same as as `with_num_instructions` but based on the blob size.
 	///
-	/// This is neeeded when we need to weigh a blob without knowing how much instructions it
+	/// This is needed when we weigh a blob without knowing how much instructions it
 	/// contains.
 	pub fn sized(size: u32) -> Self {
 		// Due to variable length encoding of instructions this is not precise. But we only
