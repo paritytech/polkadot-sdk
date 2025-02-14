@@ -244,7 +244,7 @@ pub mod pallet {
 				},
 			])
 		}
-
+		/// Reanchors `location` relative to BridgeHub.
 		fn reanchor(location: &Location) -> Result<Location, Error<T>> {
 			location
 				.clone()
