@@ -15,19 +15,53 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! A collator for Aura that looks ahead of the most recently included parachain block
-//! when determining what to build upon.
+//! # Architecture Overview
 //!
-//! The block building mechanism consists of two parts:
-//! 	1. A block-builder task that builds parachain blocks at each of our slots.
-//! 	2. A collator task that transforms the blocks into a collation and submits them to the relay
-//!     chain.
+//! The block building mechanism operates through two coordinated tasks:
 //!
-//! Blocks are built on every parachain slot if there is a core scheduled on the relay chain. At the
-//! beginning of each block building loop, we determine how many blocks we expect to build per relay
-//! chain block. The collator implementation then expects that we have that many cores scheduled
-//! during the relay chain block. After the block is built, the block builder task sends it to
-//! the collation task which compresses it and submits it to the collation-generation subsystem.
+//! 1. **Block Builder Task**: Orchestrates the timing and execution of parachain block production
+//! 2. **Collator Task**: Processes built blocks into collations for relay chain submission
+//!
+//! # Block Builder Task Details
+//!
+//! The block builder task manages block production timing and execution through an iterative process:
+//!
+//! 1. Awaits the next production signal from [`slot_timer::SlotTimer`]
+//! 2. Retrieves the current best relay chain block and identifies a valid parent block
+//!    (see [`cumulus_client_consensus_common::find_potential_parents`] for parent selection criteria)
+//! 3. Validates that:
+//!    - The parachain has an assigned core on the relay chain
+//!    - No block has been previously built on the target core
+//! 4. Executes block building and import operations
+//! 5. Transmits the completed block to the collator task
+//!
+//! # Block Production Timing
+//!
+//! When a block is produced is determined by the following parameters:
+//!
+//! - Parachain slot duration
+//! - Number of assigned parachain cores
+//! - Parachain runtime configuration
+//!
+//! ## Timing Examples
+//!
+//! The following table demonstrates various timing configurations and their effects. The "AURA Slot"
+//! column shows which author is responsible for the block.
+//!
+//! | Slot Duration (ms) | Cores | Production Attempts (ms) | AURA Slot  |
+//! |-------------------|--------|-------------------------|------------|
+//! | 2000              | 3      | 0, 2000, 4000, 6000    | 0, 1, 2, 3 |
+//! | 6000              | 1      | 0, 6000, 12000, 18000  | 0, 1, 2, 3 |
+//! | 6000              | 3      | 0, 2000, 4000, 6000    | 0, 0, 0, 1 |
+//! | 12000             | 1      | 0, 6000, 12000, 18000  | 0, 0, 1, 1 |
+//! | 12000             | 3      | 0, 2000, 4000, 6000    | 0, 0, 0, 0 |
+//!
+//! # Collator Task Details
+//!
+//! The collator task receives built blocks from the block builder task and performs two primary functions:
+//!
+//! 1. Block compression
+//! 2. Submission to the collation-generation subsystem
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
 use codec::Codec;
