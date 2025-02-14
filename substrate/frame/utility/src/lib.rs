@@ -459,9 +459,6 @@ pub mod pallet {
 		/// Almost the same as [`Pallet::dispatch_as`] but check the result of the call.
 		///
 		/// The dispatch origin for this call must be _Root_.
-		///
-		/// ## Complexity
-		/// - O(1).
 		#[pallet::call_index(6)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
