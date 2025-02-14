@@ -5,4 +5,10 @@ doc:
     view function metadata.
 crates:
 - name: sp-metadata-ir
+  bump: minor
+- name: frame-support
+  bump: none
+- name: substrate-wasm-builder
+  bump: patch
+- name: pallet-example-view-functions
   bump: patch
