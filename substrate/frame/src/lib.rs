@@ -202,10 +202,15 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::{
+		defensive, defensive_assert, ensure,
+		traits::{
+			fungible::{Inspect, Mutate, Unbalanced},
+			tokens::Preservation,
+			Contains, Currency, EitherOf, EstimateNextSessionRotation, Get, GetCallName, Imbalance,
+			IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers,
+			RankedMembersSwapHandler, UnfilteredDispatchable,
+		},
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -231,9 +236,13 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, IdentityLookup,
+			ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+			TrailingZeroInput, Zero,
+		},
+		BuildStorage, FixedU128, Perbill, Perquintill,
 	};
 
 	/// Bounded storage related types.
