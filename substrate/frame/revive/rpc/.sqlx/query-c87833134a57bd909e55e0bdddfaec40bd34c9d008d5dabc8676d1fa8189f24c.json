@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- pgsql\n\t\t\tSELECT block_hash, transaction_index\n\t\t\tFROM transaction_hashes\n\t\t\tWHERE transaction_hash = $1\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_hash",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "transaction_index",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bpchar"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "c87833134a57bd909e55e0bdddfaec40bd34c9d008d5dabc8676d1fa8189f24c"
+}

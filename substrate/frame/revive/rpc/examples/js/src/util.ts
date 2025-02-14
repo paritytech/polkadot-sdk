@@ -162,6 +162,14 @@ export function timeout(ms: number) {
 	return new Promise((_resolve, reject) => setTimeout(() => reject(new Error('timeout hit')), ms))
 }
 
+export function wait(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export function timeout(ms: number) {
+	return new Promise((_resolve, reject) => setTimeout(() => reject(new Error('timeout hit')), ms))
+}
+
 // wait for http request to return 200
 export function waitForHealth(url: string) {
 	return new Promise<void>((resolve, reject) => {

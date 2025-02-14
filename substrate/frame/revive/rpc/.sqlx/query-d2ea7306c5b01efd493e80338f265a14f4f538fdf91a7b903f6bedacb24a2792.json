@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- pgsql\n\t\t\t\tINSERT INTO transaction_hashes (transaction_hash, block_hash, transaction_index)\n\t\t\t\tVALUES ($1, $2, $3)\n\n\t\t\t\tON CONFLICT(transaction_hash) DO UPDATE SET\n\t\t\t\tblock_hash = EXCLUDED.block_hash,\n\t\t\t\ttransaction_index = EXCLUDED.transaction_index\n\t\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bpchar",
+        "Bpchar",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d2ea7306c5b01efd493e80338f265a14f4f538fdf91a7b903f6bedacb24a2792"
+}
