@@ -50,6 +50,7 @@ mod module1 {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RuntimeOrigin: From<Origin<Self, I>>;
@@ -158,6 +159,7 @@ mod module2 {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		type Amount: Parameter + MaybeSerializeDeserialize + Default + MaxEncodedLen;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RuntimeOrigin: From<Origin<Self, I>>;

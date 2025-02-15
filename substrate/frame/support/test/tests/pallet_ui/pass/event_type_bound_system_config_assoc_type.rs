@@ -24,6 +24,7 @@ mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<Hash = sp_core::H256> {
 		type Bar: Clone + std::fmt::Debug + Eq;
+		#[allow(deprecated)]
 		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 	}
 

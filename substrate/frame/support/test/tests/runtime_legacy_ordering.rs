@@ -52,6 +52,7 @@ mod module1 {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
@@ -206,7 +207,6 @@ pub mod module3 {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		#[allow(deprecated)]
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}

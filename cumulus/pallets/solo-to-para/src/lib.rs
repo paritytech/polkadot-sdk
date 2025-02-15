@@ -33,6 +33,7 @@ pub mod pallet {
 	pub trait Config:
 		frame_system::Config + parachain_system::Config + pallet_sudo::Config
 	{
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
