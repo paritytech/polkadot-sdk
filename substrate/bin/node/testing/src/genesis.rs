@@ -24,7 +24,7 @@ use kitchensink_runtime::{
 	RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig,
 };
 use sp_keyring::Ed25519Keyring;
-use sp_runtime::Perbill;
+use sp_runtime::{BoundedVec, Perbill};
 
 /// Create genesis runtime configuration for tests.
 pub fn config() -> RuntimeGenesisConfig {
@@ -47,7 +47,7 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 
 	RuntimeGenesisConfig {
 		indices: IndicesConfig { indices: vec![] },
-		balances: BalancesConfig { balances: endowed },
+		balances: BalancesConfig { balances: endowed, ..Default::default() },
 		session: SessionConfig {
 			keys: vec![
 				(alice(), dave(), session_keys_from_seed(Ed25519Keyring::Alice.into())),
@@ -65,7 +65,8 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 			validator_count: 3,
 			minimum_validator_count: 0,
 			slash_reward_fraction: Perbill::from_percent(10),
-			invulnerables: vec![alice(), bob(), charlie()],
+			invulnerables: BoundedVec::try_from(vec![alice(), bob(), charlie()])
+				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			..Default::default()
 		},
 		society: SocietyConfig { pot: 0 },

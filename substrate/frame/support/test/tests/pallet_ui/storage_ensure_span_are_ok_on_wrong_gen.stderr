@@ -65,7 +65,7 @@ error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
              &mut T
              Arc<T>
              Box<T>
-             Cow<'a, T>
+             Cow<'_, T>
              Rc<T>
              Vec<T>
              bytes::bytes::Bytes
@@ -148,7 +148,7 @@ error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
              &mut T
              Arc<T>
              Box<T>
-             Cow<'a, T>
+             Cow<'_, T>
              Rc<T>
              Vec<T>
              bytes::bytes::Bytes
@@ -210,7 +210,7 @@ error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
              &mut T
              Arc<T>
              Box<T>
-             Cow<'a, T>
+             Cow<'_, T>
              Rc<T>
              Vec<T>
              bytes::bytes::Bytes
