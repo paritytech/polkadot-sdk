@@ -146,6 +146,7 @@ pub mod v17 {
 /// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
+	use frame_support::Twox64Concat;
 	use sp_staking::offence::OffenceSeverity;
 
 	#[frame_support::storage_alias]

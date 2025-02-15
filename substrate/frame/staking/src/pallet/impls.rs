@@ -49,8 +49,8 @@ use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf, Nominations,
-	NominationsQuota, NullIdentity, PositiveImbalanceOf, RewardDestination, SessionInterface,
-	SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, SnapshotStatus,
+	StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -1708,6 +1708,53 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 	}
 }
 
+impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
+	for Pallet<T>
+{
+	fn new_session(
+		new_index: SessionIndex,
+	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
+		<Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
+			let current_era = CurrentEra::<T>::get()
+				// Must be some as a new era has been created.
+				.unwrap_or(0);
+
+			validators
+				.into_iter()
+				.map(|v| {
+					let exposure = Self::eras_stakers(current_era, &v);
+					(v, exposure)
+				})
+				.collect()
+		})
+	}
+	fn new_session_genesis(
+		new_index: SessionIndex,
+	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
+		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index).map(
+			|validators| {
+				let current_era = CurrentEra::<T>::get()
+					// Must be some as a new era has been created.
+					.unwrap_or(0);
+
+				validators
+					.into_iter()
+					.map(|v| {
+						let exposure = Self::eras_stakers(current_era, &v);
+						(v, exposure)
+					})
+					.collect()
+			},
+		)
+	}
+	fn start_session(start_index: SessionIndex) {
+		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
+	}
+	fn end_session(end_index: SessionIndex) {
+		<Self as pallet_session::SessionManager<_>>::end_session(end_index)
+	}
+}
+
 impl<T: Config> historical::SessionManager<T::AccountId, ()> for Pallet<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
 		<Self as pallet_session::SessionManager<_>>::new_session(new_index)
@@ -1742,10 +1789,7 @@ impl<T: Config>
 	for Pallet<T>
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-	T: pallet_session::historical::Config<
-		FullIdentification = (),
-		FullIdentificationOf = NullIdentity,
-	>,
+	T: pallet_session::historical::Config,
 	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
 	T::ValidatorIdOf: Convert<
@@ -2379,7 +2423,6 @@ impl<T: Config> Pallet<T> {
 	/// -- SHOULD ONLY BE CALLED AT THE END OF A GIVEN BLOCK.
 	pub fn ensure_snapshot_metadata_state(now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		use sp_runtime::traits::One;
-
 		let next_election = Self::next_election_prediction(now);
 		let pages = Self::election_pages().saturated_into::<BlockNumberFor<T>>();
 		let election_prep_start = next_election - pages;

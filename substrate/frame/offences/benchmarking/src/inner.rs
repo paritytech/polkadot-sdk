@@ -171,6 +171,13 @@ fn make_offenders<T: Config>(
 }
 
 #[cfg(test)]
+fn run_staking_next_block<T: Config>() {
+	use frame_support::traits::Hooks;
+	System::<T>::set_block_number(System::<T>::block_number().saturating_add(1u32.into()));
+	Staking::<T>::on_initialize(System::<T>::block_number());
+}
+
+#[cfg(test)]
 fn assert_all_slashes_applied<T>(offender_count: usize)
 where
 	T: Config,
@@ -185,7 +192,7 @@ where
 	// (n nominators + one validator) * slashed + Slash Reported
 	assert_eq!(
 		System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
-		1 * (offender_count + 1) as usize + 1
+		1 * (offender_count + 1) as usize + 2
 	);
 	// offence
 	assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
@@ -232,6 +239,8 @@ mod benchmarks {
 
 		#[cfg(test)]
 		{
+			// slashes applied at the next block.
+			run_staking_next_block::<T>();
 			assert_all_slashes_applied::<T>(n as usize);
 		}
 
@@ -266,6 +275,8 @@ mod benchmarks {
 		}
 		#[cfg(test)]
 		{
+			// slashes applied at the next block.
+			run_staking_next_block::<T>();
 			assert_all_slashes_applied::<T>(n as usize);
 		}
 

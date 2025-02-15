@@ -675,8 +675,6 @@ impl_opaque_keys! {
 
 #[cfg(feature = "staking-playground")]
 pub mod staking_playground {
-	use pallet_staking::Exposure;
-
 	use super::*;
 
 	/// An adapter to make the chain work with --dev only, even though it is running a large staking
@@ -711,61 +709,43 @@ pub mod staking_playground {
 		}
 	}
 
-	impl pallet_session::historical::SessionManager<AccountId, Exposure<AccountId, Balance>>
-		for AliceAsOnlyValidator
-	{
+	impl pallet_session::historical::SessionManager<AccountId, ()> for AliceAsOnlyValidator {
 		fn end_session(end_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				Exposure<AccountId, Balance>,
-			>>::end_session(end_index)
+			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::end_session(
+				end_index,
+			)
 		}
 
-		fn new_session(
-			new_index: sp_staking::SessionIndex,
-		) -> Option<Vec<(AccountId, Exposure<AccountId, Balance>)>> {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				Exposure<AccountId, Balance>,
-			>>::new_session(new_index)
+		fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<(AccountId, ())>> {
+			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::new_session(
+				new_index,
+			)
 			.map(|_ignored| {
 				// construct a fake exposure for alice.
-				vec![(
-					sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(),
-					pallet_staking::Exposure {
-						total: 1_000_000_000,
-						own: 1_000_000_000,
-						others: vec![],
-					},
-				)]
+				vec![(sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(), ())]
 			})
 		}
 
 		fn new_session_genesis(
 			new_index: sp_staking::SessionIndex,
-		) -> Option<Vec<(AccountId, Exposure<AccountId, Balance>)>> {
+		) -> Option<Vec<(AccountId, ())>> {
 			<Staking as pallet_session::historical::SessionManager<
 				AccountId,
-				Exposure<AccountId, Balance>,
+				(),
 			>>::new_session_genesis(new_index)
 			.map(|_ignored| {
 				// construct a fake exposure for alice.
 				vec![(
 					sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(),
-					pallet_staking::Exposure {
-						total: 1_000_000_000,
-						own: 1_000_000_000,
-						others: vec![],
-					},
+					(),
 				)]
 			})
 		}
 
 		fn start_session(start_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				Exposure<AccountId, Balance>,
-			>>::start_session(start_index)
+			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::start_session(
+				start_index,
+			)
 		}
 	}
 }
@@ -4031,7 +4011,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+			use frame_benchmarking::{baseline, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
@@ -4056,7 +4036,7 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+			use frame_benchmarking::{baseline, BenchmarkBatch};
 			use sp_storage::TrackedStorageKey;
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency

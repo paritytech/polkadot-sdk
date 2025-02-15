@@ -536,8 +536,8 @@ impl pallet_session::Config for Runtime {
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
 }
 
 pub struct MaybeSignedPhase;
@@ -2623,7 +2623,7 @@ sp_api::impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
 
 			use pallet_session_benchmarking::Pallet as SessionBench;
@@ -2651,7 +2651,7 @@ sp_api::impl_runtime_apis! {
 			alloc::string::String,
 		> {
 			use frame_support::traits::WhitelistedStorageKeys;
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
+			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 			// Trying to add benchmarks directly to some pallets caused cyclic dependency issues.
 			// To get around that, we separated the benchmarks into its own crate.
