@@ -22,12 +22,12 @@
 // SOFTWARE.
 
 use crate as pallet_template;
-use frame_support::{derive_impl, sp_runtime::BuildStorage};
+use frame::testing_prelude::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -48,6 +48,6 @@ impl pallet_template::Config for Test {
 }
 
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
