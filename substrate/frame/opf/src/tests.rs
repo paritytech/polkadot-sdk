@@ -297,7 +297,7 @@ fn vote_removal_works() {
 
 		// ProjectFund is correctly updated
 		let project_fund_before = ProjectFunds::<Test>::get(101);
-		assert_eq!(project_fund_before[0], 6000);
+		assert_eq!(project_fund_before.positive_funds, 6000);
 
 		// Voter's funds are locked
 		let locked_balance0 =
@@ -324,7 +324,7 @@ fn vote_removal_works() {
 
 		// ProjectFund is correctly updated
 		let project_fund_after = ProjectFunds::<Test>::get(101);
-		assert_eq!(project_fund_after[0], 5000);
+		assert_eq!(project_fund_after.positive_funds, 5000);
 	})
 }
 
@@ -352,7 +352,7 @@ fn vote_overwrite_works() {
 
 		// 2000 is allocated to project 101
 		let mut funds = ProjectFunds::<Test>::get(101);
-		assert_eq!(funds[0], 2000);
+		assert_eq!(funds.positive_funds, 2000);
 
 		// Bob nominate project_103 with an amount of 5000 with a conviction of 1 => amount
 		// is the amount allocated to the project
@@ -366,7 +366,7 @@ fn vote_overwrite_works() {
 
 		// 10000 is allocated to project 103
 		funds = ProjectFunds::<Test>::get(103);
-		assert_eq!(funds[0], 5000);
+		assert_eq!(funds.positive_funds, 5000);
 
 		// Voter's funds are locked
 		let mut locked_balance0 = <<Test as Config>::NativeBalance as fungible::hold::Inspect<
@@ -386,7 +386,7 @@ fn vote_overwrite_works() {
 
 		// Allocated amount to project 103 is now 13500
 		funds = ProjectFunds::<Test>::get(103);
-		assert_eq!(funds[0], 9000);
+		assert_eq!(funds.positive_funds, 9000);
 
 		// Storage was correctly updated
 		let vote_info = Votes::<Test>::get(103, BOB).unwrap();

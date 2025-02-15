@@ -84,6 +84,17 @@ pub enum SpendState {
 	Failed,
 }
 
+#[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct Funds<T: Config> {
+	pub positive_funds: BalanceOf<T>,
+	pub negative_funds: BalanceOf<T>,
+}
+impl<T: Config> Default for Funds<T> {
+	fn default() -> Self {
+		Funds { positive_funds: Zero::zero(), negative_funds: Zero::zero() }
+	}
+}
 //Processed Reward status
 #[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]

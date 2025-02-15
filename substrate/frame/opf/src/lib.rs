@@ -162,13 +162,8 @@ pub mod pallet {
 
 	/// Returns (positive_funds,negative_funds) of Whitelisted Project accounts
 	#[pallet::storage]
-	pub type ProjectFunds<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		ProjectId<T>,
-		BoundedVec<BalanceOf<T>, ConstU32<2>>,
-		ValueQuery,
-	>;
+	pub type ProjectFunds<T: Config> =
+		CountedStorageMap<_, Twox64Concat, ProjectId<T>, Funds<T>, ValueQuery>;
 
 	/// Returns Votes Infos against (project_id, voter_id) key
 	#[pallet::storage]
