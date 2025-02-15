@@ -1,4 +1,4 @@
-import { compile } from '@parity/revive'
+import { compile, SolcOutput } from '@parity/revive'
 import { format } from 'prettier'
 import { parseArgs } from 'node:util'
 import solc from 'solc'
@@ -8,13 +8,17 @@ import { basename, join } from 'path'
 type CompileInput = Parameters<typeof compile>[0]
 
 const {
-	values: { filter },
+	values: { filter, solcOnly },
 } = parseArgs({
 	args: process.argv.slice(2),
 	options: {
 		filter: {
 			type: 'string',
 			short: 'f',
+		},
+		solcOnly: {
+			type: 'boolean',
+			short: 's',
 		},
 	},
 })
@@ -54,35 +58,23 @@ for (const file of input) {
 		[name]: { content: readFileSync(join(contractsDir, file), 'utf8') },
 	}
 
-	console.log('Compiling with revive...')
-	const reviveOut = await compile(input)
+	if (!solcOnly) {
+		console.log('Compiling with revive...')
+		const reviveOut = await compile(input, { bin: 'resolc' })
 
-	for (const contracts of Object.values(reviveOut.contracts)) {
-		for (const [name, contract] of Object.entries(contracts)) {
-			console.log(`📜 Add PVM contract ${name}`)
-			const abi = contract.abi
-			const abiName = `${name}Abi`
-			writeFileSync(
-				join(abiDir, `${name}.json`),
-				JSON.stringify(abi, null, 2)
-			)
-
-			writeFileSync(
-				join(abiDir, `${name}.ts`),
-				await format(`export const ${abiName} = ${JSON.stringify(abi, null, 2)} as const`, {
-					parser: 'typescript',
-				})
-			)
-
-			writeFileSync(
-				join(pvmDir, `${name}.polkavm`),
-				Buffer.from(contract.evm.bytecode.object, 'hex')
-			)
+		for (const contracts of Object.values(reviveOut.contracts)) {
+			for (const [name, contract] of Object.entries(contracts)) {
+				console.log(`📜 Add PVM contract ${name}`)
+				writeFileSync(
+					join(pvmDir, `${name}.polkavm`),
+					Buffer.from(contract.evm.bytecode.object, 'hex')
+				)
+			}
 		}
 	}
 
 	console.log(`Compile with solc ${file}`)
-	const evmOut = JSON.parse(evmCompile(input)) as typeof reviveOut
+	const evmOut = JSON.parse(evmCompile(input)) as SolcOutput
 
 	for (const contracts of Object.values(evmOut.contracts)) {
 		for (const [name, contract] of Object.entries(contracts)) {
@@ -90,6 +82,17 @@ for (const file of input) {
 			writeFileSync(
 				join(evmDir, `${name}.bin`),
 				Buffer.from(contract.evm.bytecode.object, 'hex')
+			)
+
+			const abi = contract.abi
+			const abiName = `${name}Abi`
+			writeFileSync(join(abiDir, `${name}.json`), JSON.stringify(abi, null, 2))
+
+			writeFileSync(
+				join(abiDir, `${name}.ts`),
+				await format(`export const ${abiName} = ${JSON.stringify(abi, null, 2)} as const`, {
+					parser: 'typescript',
+				})
 			)
 		}
 	}

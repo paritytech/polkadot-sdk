@@ -20,10 +20,7 @@
 use super::*;
 use crate::paras_registrar;
 use alloc::collections::btree_map::BTreeMap;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{OnFinalize, OnInitialize},
-};
+use frame_support::{derive_impl, parameter_types};
 use frame_system::limits;
 use polkadot_primitives::{Balance, BlockNumber, MAX_CODE_SIZE};
 use polkadot_runtime_parachains::{configuration, origin, shared};
@@ -169,6 +166,7 @@ pub fn new_test_ext() -> TestExternalities {
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10_000_000), (2, 10_000_000), (3, 10_000_000)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -205,26 +203,21 @@ pub const VALIDATORS: &[Sr25519Keyring] = &[
 pub fn run_to_block(n: BlockNumber) {
 	// NOTE that this function only simulates modules of interest. Depending on new pallet may
 	// require adding it here.
-	assert!(System::block_number() < n);
-	while System::block_number() < n {
-		let b = System::block_number();
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().before_finalize(|bn| {
+			// Session change every 3 blocks.
+			if (bn + 1) % BLOCKS_PER_SESSION == 0 {
+				let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
+				let validators_pub_keys = VALIDATORS.iter().map(|v| v.public().into()).collect();
 
-		if System::block_number() > 1 {
-			System::on_finalize(System::block_number());
-		}
-		// Session change every 3 blocks.
-		if (b + 1) % BLOCKS_PER_SESSION == 0 {
-			let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
-			let validators_pub_keys = VALIDATORS.iter().map(|v| v.public().into()).collect();
+				shared::Pallet::<Test>::set_session_index(session_index);
+				shared::Pallet::<Test>::set_active_validators_ascending(validators_pub_keys);
 
-			shared::Pallet::<Test>::set_session_index(session_index);
-			shared::Pallet::<Test>::set_active_validators_ascending(validators_pub_keys);
-
-			Parachains::test_on_new_session();
-		}
-		System::set_block_number(b + 1);
-		System::on_initialize(System::block_number());
-	}
+				Parachains::test_on_new_session();
+			}
+		}),
+	);
 }
 
 pub fn run_to_session(n: BlockNumber) {

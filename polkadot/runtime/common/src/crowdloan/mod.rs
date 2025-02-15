@@ -859,10 +859,7 @@ mod crypto {
 mod tests {
 	use super::*;
 
-	use frame_support::{
-		assert_noop, assert_ok, derive_impl, parameter_types,
-		traits::{OnFinalize, OnInitialize},
-	};
+	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	use polkadot_primitives::Id as ParaId;
 	use sp_core::H256;
 	use std::{cell::RefCell, collections::BTreeMap, sync::Arc};
@@ -1086,6 +1083,7 @@ mod tests {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(1, 1000), (2, 2000), (3, 3000), (4, 4000)],
+			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -1110,18 +1108,6 @@ mod tests {
 			return para
 		}
 		unreachable!()
-	}
-
-	fn run_to_block(n: u64) {
-		while System::block_number() < n {
-			Crowdloan::on_finalize(System::block_number());
-			Balances::on_finalize(System::block_number());
-			System::on_finalize(System::block_number());
-			System::set_block_number(System::block_number() + 1);
-			System::on_initialize(System::block_number());
-			Balances::on_initialize(System::block_number());
-			Crowdloan::on_initialize(System::block_number());
-		}
 	}
 
 	fn last_event() -> RuntimeEvent {
@@ -1427,7 +1413,7 @@ mod tests {
 			);
 
 			// Move past end date
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 
 			// Cannot contribute to ended fund
 			assert_noop!(
@@ -1452,7 +1438,7 @@ mod tests {
 			// crowdloan that has starting period 1.
 			let para_3 = new_para();
 			assert_ok!(Crowdloan::create(RuntimeOrigin::signed(1), para_3, 1000, 1, 4, 40, None));
-			run_to_block(40);
+			System::run_to_block::<AllPalletsWithSystem>(40);
 			let now = System::block_number();
 			assert_eq!(TestAuctioneer::lease_period_index(now).unwrap().0, 2);
 			assert_noop!(
@@ -1484,12 +1470,12 @@ mod tests {
 				None
 			));
 
-			run_to_block(8);
+			System::run_to_block::<AllPalletsWithSystem>(8);
 			// Can def contribute when auction is running.
 			assert!(TestAuctioneer::auction_status(System::block_number()).is_ending().is_some());
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 250, None));
 
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			// Can't contribute when auction is in the VRF delay period.
 			assert!(TestAuctioneer::auction_status(System::block_number()).is_vrf());
 			assert_noop!(
@@ -1497,7 +1483,7 @@ mod tests {
 				Error::<Test>::VrfDelayInProgress
 			);
 
-			run_to_block(15);
+			System::run_to_block::<AllPalletsWithSystem>(15);
 			// Its fine to contribute when no auction is running.
 			assert!(!TestAuctioneer::auction_status(System::block_number()).is_in_progress());
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 250, None));
@@ -1527,15 +1513,15 @@ mod tests {
 			let bidder = Crowdloan::fund_account_id(index);
 
 			// Fund crowdloan
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 100, None));
-			run_to_block(3);
+			System::run_to_block::<AllPalletsWithSystem>(3);
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(3), para, 150, None));
-			run_to_block(5);
+			System::run_to_block::<AllPalletsWithSystem>(5);
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(4), para, 200, None));
-			run_to_block(8);
+			System::run_to_block::<AllPalletsWithSystem>(8);
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 250, None));
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 
 			assert_eq!(
 				bids(),
@@ -1562,7 +1548,7 @@ mod tests {
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 100, None));
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(3), para, 50, None));
 
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			let account_id = Crowdloan::fund_account_id(index);
 			// para has no reserved funds, indicating it did not win the auction.
 			assert_eq!(Balances::reserved_balance(&account_id), 0);
@@ -1592,7 +1578,7 @@ mod tests {
 			assert_ok!(Crowdloan::create(RuntimeOrigin::signed(1), para, 1000, 1, 1, 9, None));
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 100, None));
 
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			let account_id = Crowdloan::fund_account_id(index);
 
 			// user sends the crowdloan funds trying to make an accounting error
@@ -1637,7 +1623,7 @@ mod tests {
 			);
 
 			// Move to the end of the crowdloan
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			assert_ok!(Crowdloan::refund(RuntimeOrigin::signed(1337), para));
 
 			// Funds are returned
@@ -1672,7 +1658,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(account_id), 21000);
 
 			// Move to the end of the crowdloan
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			assert_ok!(Crowdloan::refund(RuntimeOrigin::signed(1337), para));
 			assert_eq!(
 				last_event(),
@@ -1706,7 +1692,7 @@ mod tests {
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 100, None));
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(3), para, 50, None));
 
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			// All funds are refunded
 			assert_ok!(Crowdloan::refund(RuntimeOrigin::signed(2), para));
 
@@ -1731,7 +1717,7 @@ mod tests {
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 100, None));
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(3), para, 50, None));
 
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 
 			// We test the historic case where crowdloan accounts only have one provider:
 			{
@@ -1771,7 +1757,7 @@ mod tests {
 				Error::<Test>::NotReadyToDissolve
 			);
 
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			set_winner(para, 1, true);
 			// Can't dissolve when it won.
 			assert_noop!(
@@ -1816,13 +1802,13 @@ mod tests {
 			// simulate the reserving of para's funds. this actually happens in the Slots pallet.
 			assert_ok!(Balances::reserve(&account_id, 149));
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_noop!(
 				Crowdloan::withdraw(RuntimeOrigin::signed(2), 2, para),
 				Error::<Test>::BidOrLeaseActive
 			);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			// simulate the unreserving of para's funds, now that the lease expired. this actually
 			// happens in the Slots pallet.
 			Balances::unreserve(&account_id, 150);
@@ -1950,7 +1936,7 @@ mod tests {
 				Error::<Test>::NoContributions
 			);
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para_1, 100, None));
-			run_to_block(6);
+			System::run_to_block::<AllPalletsWithSystem>(6);
 			assert_ok!(Crowdloan::poke(RuntimeOrigin::signed(1), para_1));
 			assert_eq!(crowdloan::NewRaise::<Test>::get(), vec![para_1]);
 			assert_noop!(

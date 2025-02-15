@@ -203,7 +203,7 @@ where
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok((fee, InitialPayment::Nothing))
-		} else if let Some(asset_id) = self.asset_id {
+		} else if let Some(asset_id) = self.asset_id.clone() {
 			T::OnChargeAssetTransaction::withdraw_fee(
 				who,
 				call,
@@ -234,7 +234,7 @@ where
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok(())
-		} else if let Some(asset_id) = self.asset_id {
+		} else if let Some(asset_id) = self.asset_id.clone() {
 			T::OnChargeAssetTransaction::can_withdraw_fee(
 				who,
 				call,
@@ -359,7 +359,7 @@ where
 					tip,
 					who,
 					initial_payment,
-					asset_id: self.asset_id,
+					asset_id: self.asset_id.clone(),
 					weight: self.weight(call),
 				})
 			},

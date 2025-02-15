@@ -53,7 +53,7 @@ use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2, TransposedClaimQueue,
+		ClaimQueueOffset, CommittedCandidateReceiptV2, TransposedClaimQueue,
 	},
 	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
 	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
@@ -61,7 +61,7 @@ use polkadot_primitives::{
 };
 use schnellru::{ByLength, LruMap};
 use sp_core::crypto::Pair;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 mod error;
 
@@ -276,13 +276,15 @@ impl CollationGenerationSubsystem {
 		let claim_queue =
 			ClaimQueueSnapshot::from(request_claim_queue(relay_parent, ctx.sender()).await.await??);
 
-		let cores_to_build_on = claim_queue
-			.iter_claims_at_depth(0)
-			.filter_map(|(core_idx, para_id)| (para_id == config.para_id).then_some(core_idx))
+		let assigned_cores = claim_queue
+			.iter_all_claims()
+			.filter_map(|(core_idx, para_ids)| {
+				para_ids.iter().any(|&para_id| para_id == config.para_id).then_some(*core_idx)
+			})
 			.collect::<Vec<_>>();
 
-		// Nothing to do if no core assigned to us.
-		if cores_to_build_on.is_empty() {
+		// Nothing to do if no core is assigned to us at any depth.
+		if assigned_cores.is_empty() {
 			return Ok(())
 		}
 
@@ -342,9 +344,13 @@ impl CollationGenerationSubsystem {
 		ctx.spawn(
 			"chained-collation-builder",
 			Box::pin(async move {
-				let transposed_claim_queue = transpose_claim_queue(claim_queue.0);
+				let transposed_claim_queue = transpose_claim_queue(claim_queue.0.clone());
 
-				for core_index in cores_to_build_on {
+				// Track used core indexes not to submit collations on the same core.
+				let mut used_cores = HashSet::new();
+
+				for i in 0..assigned_cores.len() {
+					// Get the collation.
 					let collator_fn = match task_config.collator.as_ref() {
 						Some(x) => x,
 						None => return,
@@ -363,6 +369,68 @@ impl CollationGenerationSubsystem {
 							},
 						};
 
+					// Use the core_selector method from CandidateCommitments to extract
+					// CoreSelector and ClaimQueueOffset.
+					let mut commitments = CandidateCommitments::default();
+					commitments.upward_messages = collation.upward_messages.clone();
+
+					let (cs_index, cq_offset) = match commitments.core_selector() {
+						// Use the CoreSelector's index if provided.
+						Ok(Some((sel, off))) => (sel.0 as usize, off),
+						// Fallback to the sequential index if no CoreSelector is provided.
+						Ok(None) => (i, ClaimQueueOffset(0)),
+						Err(err) => {
+							gum::debug!(
+								target: LOG_TARGET,
+								?para_id,
+								"error processing UMP signals: {}",
+								err
+							);
+							return
+						},
+					};
+
+					// Identify the cores to build collations on using the given claim queue offset.
+					let cores_to_build_on = claim_queue
+						.iter_claims_at_depth(cq_offset.0 as usize)
+						.filter_map(|(core_idx, para_id)| {
+							(para_id == task_config.para_id).then_some(core_idx)
+						})
+						.collect::<Vec<_>>();
+
+					if cores_to_build_on.is_empty() {
+						gum::debug!(
+							target: LOG_TARGET,
+							?para_id,
+							"no core is assigned to para at depth {}",
+							cq_offset.0,
+						);
+						return
+					}
+
+					let descriptor_core_index =
+						cores_to_build_on[cs_index % cores_to_build_on.len()];
+
+					// Ensure the core index has not been used before.
+					if used_cores.contains(&descriptor_core_index.0) {
+						gum::warn!(
+							target: LOG_TARGET,
+							?para_id,
+							"parachain repeatedly selected the same core index: {}",
+							descriptor_core_index.0,
+						);
+						return
+					}
+
+					used_cores.insert(descriptor_core_index.0);
+					gum::trace!(
+						target: LOG_TARGET,
+						?para_id,
+						"selected core index: {}",
+						descriptor_core_index.0,
+					);
+
+					// Distribute the collation.
 					let parent_head = collation.head_data.clone();
 					if let Err(err) = construct_and_distribute_receipt(
 						PreparedCollation {
@@ -372,7 +440,7 @@ impl CollationGenerationSubsystem {
 							validation_data: validation_data.clone(),
 							validation_code_hash,
 							n_validators,
-							core_index,
+							core_index: descriptor_core_index,
 							session_index,
 						},
 						task_config.key.clone(),

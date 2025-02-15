@@ -49,8 +49,8 @@ use pallet_nis::WithMaximumOf;
 use polkadot_primitives::{
 	slashing,
 	vstaging::{
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes,
+		async_backing::Constraints, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
 	},
 	AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateHash, CoreIndex,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
@@ -78,7 +78,9 @@ use polkadot_runtime_parachains::{
 	initializer as parachains_initializer, on_demand as parachains_on_demand,
 	origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::v11 as parachains_runtime_api_impl,
+	runtime_api_impl::{
+		v11 as parachains_runtime_api_impl, vstaging as parachains_staging_runtime_api_impl,
+	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -342,6 +344,7 @@ impl pallet_scheduler::Config for Runtime {
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = OriginPrivilegeCmp;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -819,6 +822,7 @@ impl pallet_society::Config for Runtime {
 	type MaxPayouts = ConstU32<8>;
 	type MaxBids = ConstU32<512>;
 	type PalletId = SocietyPalletId;
+	type BlockNumberProvider = System;
 	type WeightInfo = ();
 }
 
@@ -1127,7 +1131,6 @@ impl Get<InteriorLocation> for BrokerPot {
 impl coretime::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
 	type BrokerId = BrokerId;
 	type BrokerPotLocation = BrokerPot;
 	type WeightInfo = weights::polkadot_runtime_parachains_coretime::WeightInfo<Runtime>;
@@ -1822,7 +1825,7 @@ mod benches {
 		[polkadot_runtime_parachains::initializer, Initializer]
 		[polkadot_runtime_parachains::paras_inherent, ParaInherent]
 		[polkadot_runtime_parachains::paras, Paras]
-		[polkadot_runtime_parachains::assigner_on_demand, OnDemandAssignmentProvider]
+		[polkadot_runtime_parachains::on_demand, OnDemandAssignmentProvider]
 		// Substrate
 		[pallet_balances, Balances]
 		[pallet_balances, NisCounterpartBalances]
@@ -1885,7 +1888,8 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			match asset.try_as::<AssetId>() {
+			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
+			match latest_asset_id {
 				Ok(asset_id) if asset_id.0 == xcm_config::TokenLocation::get() => {
 					// for native token
 					Ok(WeightToFee::weight_to_fee(&weight))
@@ -1983,7 +1987,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(11)]
+	#[api_version(12)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2121,10 +2125,12 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::vstaging::async_backing::BackingState> {
+			#[allow(deprecated)]
 			parachains_runtime_api_impl::backing_state::<Runtime>(para_id)
 		}
 
 		fn async_backing_params() -> polkadot_primitives::AsyncBackingParams {
+			#[allow(deprecated)]
 			parachains_runtime_api_impl::async_backing_params::<Runtime>()
 		}
 
@@ -2146,6 +2152,14 @@ sp_api::impl_runtime_apis! {
 
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
 			parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
+		}
+
+		fn backing_constraints(para_id: ParaId) -> Option<Constraints> {
+			parachains_staging_runtime_api_impl::backing_constraints::<Runtime>(para_id)
+		}
+
+		fn scheduling_lookahead() -> u32 {
+			parachains_staging_runtime_api_impl::scheduling_lookahead::<Runtime>()
 		}
 	}
 
@@ -2276,7 +2290,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn current_set_id() -> fg_primitives::SetId {
-			Grandpa::current_set_id()
+			pallet_grandpa::CurrentSetId::<Runtime>::get()
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
@@ -2433,7 +2447,7 @@ sp_api::impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -2456,7 +2470,7 @@ sp_api::impl_runtime_apis! {
 			alloc::string::String,
 		> {
 			use frame_support::traits::WhitelistedStorageKeys;
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
+			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;
