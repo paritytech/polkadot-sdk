@@ -138,7 +138,7 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
-	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
+	ConsensusEngineId, DispatchError, KeyTypeId, Perbill, Permill, RuntimeAppPublic,
 };
 use sp_staking::{offence::OffenceSeverity, SessionIndex};
 
@@ -787,14 +787,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
-	pub fn disable_index(i: u32, o: OffenceSeverity) -> bool {
+	///
+	/// Note: This sets the OffenceSeverity to the lowest value.
+	pub fn disable_index(i: u32) -> bool {
 		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
 			return false
 		}
 
 		DisabledValidators::<T>::mutate(|disabled| {
 			if let Err(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
-				disabled.insert(index, (i, o));
+				disabled.insert(index, (i, OffenceSeverity(Perbill::zero())));
 				T::SessionHandler::on_disabled(i);
 				return true
 			}
@@ -808,11 +810,11 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `false` either if the validator could not be found or it was already
 	/// disabled.
-	pub fn disable(c: &T::ValidatorId, o: OffenceSeverity) -> bool {
+	pub fn disable(c: &T::ValidatorId) -> bool {
 		Validators::<T>::get()
 			.iter()
 			.position(|i| i == c)
-			.map(|i| Self::disable_index(i as u32, o))
+			.map(|i| Self::disable_index(i as u32))
 			.unwrap_or(false)
 	}
 

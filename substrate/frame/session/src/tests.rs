@@ -27,7 +27,7 @@ use crate::mock::{
 
 use codec::Decode;
 use sp_core::crypto::key_types::DUMMY;
-use sp_runtime::{testing::UintAuthorityId, Perbill};
+use sp_runtime::testing::UintAuthorityId;
 
 use frame_support::{
 	assert_noop, assert_ok,
@@ -249,7 +249,7 @@ fn session_changed_flag_works() {
 		assert!(before_session_end_called());
 		reset_before_session_end_called();
 
-		Session::disable_index(0, OffenceSeverity(Perbill::default()));
+		Session::disable_index(0);
 		force_new_session();
 		initialize_block(3);
 		assert!(!session_changed());
@@ -376,9 +376,9 @@ fn disable_index_returns_false_if_already_disabled() {
 		force_new_session();
 		initialize_block(2);
 
-		assert_eq!(Session::disable_index(0, OffenceSeverity(Perbill::default())), true);
-		assert_eq!(Session::disable_index(0, OffenceSeverity(Perbill::default())), false);
-		assert_eq!(Session::disable_index(1, OffenceSeverity(Perbill::default())), true);
+		assert_eq!(Session::disable_index(0), true);
+		assert_eq!(Session::disable_index(0), false);
+		assert_eq!(Session::disable_index(1), true);
 	});
 }
 
