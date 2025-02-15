@@ -30,7 +30,7 @@ pub type JfyiResult<T> = std::result::Result<T, JfyiError>;
 #[allow(missing_docs)]
 #[fatality::fatality(splitable)]
 pub enum Error {
-	/// We received a legacy `SubystemError::Context` error which is considered fatal.
+	/// We received a legacy `SubsystemError::Context` error which is considered fatal.
 	#[fatal]
 	#[error("SubsystemError::Context error: {0}")]
 	SubsystemContext(String),
