@@ -116,7 +116,6 @@ mod tests {
 	const CHAIN_SPEC_BUILDER: &'static str = "chain-spec-builder";
 	const OMNI_NODE: &'static str = "polkadot-omni-node";
 
-	const DEV_CHAIN_SPEC: &'static str = "dev_chain_spec.json";
 
 	fn cargo() -> Command {
 		Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()))
