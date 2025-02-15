@@ -146,12 +146,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
-						// Todo:
-						// This won't work as Barrier is checked before execution of any
-						// instruction, so we have to allow execution from root location
-						// not sure if it will cause insecurity
-						// Equals<SnowbridgeFrontendLocation>,
-						Equals<AssethubLocation>,
+						Equals<SnowbridgeFrontendLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,

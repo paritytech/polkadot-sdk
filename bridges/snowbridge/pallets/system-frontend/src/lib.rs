@@ -235,8 +235,8 @@ pub mod pallet {
 
 		fn build_xcm(call: &impl Encode) -> Xcm<()> {
 			Xcm(vec![
-				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				DescendOrigin(T::PalletLocation::get()),
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				Transact {
 					origin_kind: OriginKind::Xcm,
 					call: call.encode().into(),
