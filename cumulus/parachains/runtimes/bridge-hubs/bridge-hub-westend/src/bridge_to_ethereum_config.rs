@@ -57,7 +57,7 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	EthereumNetwork,
 	snowbridge_pallet_outbound_queue::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
-	(EthereumSystem, EthereumSystemV2),
+	EthereumSystem,
 >;
 
 pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
@@ -65,7 +65,7 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	EthereumNetwork,
 	snowbridge_pallet_outbound_queue_v2::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
-	(EthereumSystem, EthereumSystemV2),
+	EthereumSystemV2,
 	AssetHubParaId,
 >;
 
@@ -280,8 +280,6 @@ impl snowbridge_pallet_system_v2::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_system_v2::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
-	type UniversalLocation = UniversalLocation;
-	type EthereumLocation = EthereumLocation;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

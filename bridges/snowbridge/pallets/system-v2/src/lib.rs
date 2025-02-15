@@ -34,7 +34,7 @@ pub use weights::*;
 
 use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
-use snowbridge_core::{AgentId, AgentIdOf as LocationHashOf, AssetMetadata, TokenId, TokenIdOf};
+use snowbridge_core::{AgentIdOf as LocationHashOf, AssetMetadata, TokenId, TokenIdOf};
 use snowbridge_outbound_queue_primitives::{
 	v2::{Command, Message, SendMessage},
 	SendError,
@@ -44,6 +44,8 @@ use sp_runtime::traits::MaybeEquivalence;
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
+
+use snowbridge_pallet_system::{Agents, ForeignToNativeId, NativeToForeignId};
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::OriginTrait;
@@ -68,7 +70,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + snowbridge_pallet_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Send messages to Ethereum
@@ -76,12 +78,6 @@ pub mod pallet {
 
 		/// Origin check for XCM locations that transact with this pallet
 		type FrontendOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
-
-		/// This chain's Universal Location.
-		type UniversalLocation: Get<InteriorLocation>;
-
-		/// The bridges configured Ethereum location
-		type EthereumLocation: Get<Location>;
 
 		type WeightInfo: WeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
@@ -113,21 +109,6 @@ pub mod pallet {
 		Send(SendError),
 	}
 
-	/// The set of registered agents
-	#[pallet::storage]
-	#[pallet::getter(fn agents)]
-	pub type Agents<T: Config> = StorageMap<_, Twox64Concat, AgentId, (), OptionQuery>;
-
-	/// Lookup table for foreign token ID to native location relative to ethereum
-	#[pallet::storage]
-	pub type ForeignToNativeId<T: Config> =
-		StorageMap<_, Blake2_128Concat, TokenId, xcm::v5::Location, OptionQuery>;
-
-	/// Lookup table for native location relative to ethereum to foreign token ID
-	#[pallet::storage]
-	pub type NativeToForeignId<T: Config> =
-		StorageMap<_, Blake2_128Concat, xcm::v5::Location, TokenId, OptionQuery>;
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Sends a command to the Gateway contract to instantiate a new agent contract representing
@@ -136,7 +117,7 @@ pub mod pallet {
 		/// - `location`: The location representing the agent
 		/// - `fee`: Ether to pay for the execution cost on Ethereum
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::create_agent())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::create_agent())]
 		pub fn create_agent(
 			origin: OriginFor<T>,
 			location: Box<VersionedLocation>,
@@ -157,7 +138,10 @@ pub mod pallet {
 
 			Self::send(message_origin, command, fee)?;
 
-			Self::deposit_event(Event::<T>::CreateAgent { location: Box::new(location), agent_id: message_origin });
+			Self::deposit_event(Event::<T>::CreateAgent {
+				location: Box::new(location),
+				agent_id: message_origin,
+			});
 			Ok(())
 		}
 
@@ -167,7 +151,7 @@ pub mod pallet {
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
 		/// - `fee`: Ether to pay for the execution cost on Ethereum
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::register_token())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_token())]
 		pub fn register_token(
 			origin: OriginFor<T>,
 			asset_id: Box<VersionedLocation>,
@@ -219,10 +203,11 @@ pub mod pallet {
 			let hash = sp_io::hashing::blake2_256(&message.encode());
 			message.id = hash.into();
 
-			let (ticket, _) =
-				T::OutboundQueue::validate(&message).map_err(|err| Error::<T>::Send(err))?;
+			let (ticket, _) = <T as pallet::Config>::OutboundQueue::validate(&message)
+				.map_err(|err| Error::<T>::Send(err))?;
 
-			T::OutboundQueue::deliver(ticket).map_err(|err| Error::<T>::Send(err))?;
+			<T as pallet::Config>::OutboundQueue::deliver(ticket)
+				.map_err(|err| Error::<T>::Send(err))?;
 			Ok(())
 		}
 
