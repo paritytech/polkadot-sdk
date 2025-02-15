@@ -1034,7 +1034,10 @@ fn deploy_and_call_other_contract() {
 		// Call BOB contract, which attempts to instantiate and call the callee contract and
 		// makes various assertions on the results from those calls.
 		assert_ok!(builder::call(caller_addr)
-			.data((callee_code_hash, code_load_weight.ref_time()).encode())
+			.data(
+				(callee_code_hash, code_load_weight.ref_time(), code_load_weight.proof_size())
+					.encode()
+			)
 			.build());
 
 		assert_eq!(

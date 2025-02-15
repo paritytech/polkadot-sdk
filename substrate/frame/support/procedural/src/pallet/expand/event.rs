@@ -120,7 +120,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			#frame_support::CloneNoBound,
 			#frame_support::EqNoBound,
 			#frame_support::PartialEqNoBound,
-			#frame_support::RuntimeDebugNoBound,
+			#frame_support::DebugNoBound,
 			#frame_support::__private::codec::Encode,
 			#frame_support::__private::codec::Decode,
 			#frame_support::__private::scale_info::TypeInfo,
