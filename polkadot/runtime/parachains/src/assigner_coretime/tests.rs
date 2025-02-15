@@ -148,13 +148,13 @@ fn end_hint_is_properly_honored() {
 
 		assert_eq!(
 			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
-			Some(1.into()),
+			Some(&1.into()),
 			"Assignment should now be present"
 		);
 
 		assert_eq!(
 			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
-			Some(1.into()),
+			Some(&1.into()),
 			"Nothing changed, assignment should still be present"
 		);
 
@@ -383,9 +383,9 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 
 		// Rotate through the first two schedules
 		run_to_block(start_1, |n| if n == start_1 { Some(Default::default()) } else { None });
-		CoretimeAssigner::pop_assignment_for_core(core_idx);
+		CoretimeAssigner::advance_assignments(|_| false);
 		run_to_block(start_2, |n| if n == start_2 { Some(Default::default()) } else { None });
-		CoretimeAssigner::pop_assignment_for_core(core_idx);
+		CoretimeAssigner::advance_assignments(|_| false);
 
 		// Use saved starting block numbers to check that schedules chain
 		// together correctly
@@ -464,18 +464,18 @@ fn ensure_workload_works() {
 		let mut core_descriptor = CoreDescriptors::<Test>::get().entry(core_idx).or_default();
 
 		CoretimeAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor, &AccessMode::Pop);
-		assert_eq!(core_descriptor, assignments_queued_descriptor);
+		assert_eq!(core_descriptor, &assignments_queued_descriptor);
 
 		// Case 3: Next schedule exists in CoreSchedules for core. Next starting
 		// block has been reached. Swaps new WorkState into CoreDescriptors from
 		// CoreSchedules.
 		CoretimeAssigner::ensure_workload(11u32, core_idx, &mut core_descriptor, &AccessMode::Pop);
-		assert_eq!(core_descriptor, assignments_active_descriptor);
+		assert_eq!(core_descriptor, &assignments_active_descriptor);
 
 		// Case 4: end_hint reached but new schedule start not yet reached. WorkState in
 		// CoreDescriptor is cleared
 		CoretimeAssigner::ensure_workload(15u32, core_idx, &mut core_descriptor, &AccessMode::Pop);
-		assert_eq!(core_descriptor, empty_descriptor);
+		assert_eq!(core_descriptor, &empty_descriptor);
 	});
 }
 

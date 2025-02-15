@@ -1109,9 +1109,6 @@ impl parachains_paras_inherent::Config for Runtime {
 }
 
 impl parachains_scheduler::Config for Runtime {
-	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
-	// otherwise provide a migration.
-	type AssignmentProvider = CoretimeAssignmentProvider;
 }
 
 parameter_types! {
@@ -1724,7 +1721,8 @@ pub mod migrations {
         pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
         parachains_configuration::migration::v7::MigrateToV7<Runtime>,
         assigned_slots::migration::v1::MigrateToV1<Runtime>,
-        parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
+		// TODO: Add migration
+        // parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
         parachains_configuration::migration::v8::MigrateToV8<Runtime>,
         parachains_configuration::migration::v9::MigrateToV9<Runtime>,
         paras_registrar::migration::MigrateToV1<Runtime, ()>,
@@ -1756,13 +1754,16 @@ pub mod migrations {
         // This needs to come after the `parachains_configuration` above as we are reading the configuration.
         coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl, TIMESLICE_PERIOD>,
         parachains_configuration::migration::v12::MigrateToV12<Runtime>,
-        parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
+		// TODO: Add migration
+        // parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
+        // parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
 
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
 		parachains_shared::migration::MigrateToV1<Runtime>,
-        parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
+		// TODO: Add proper migration.
+        // parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
     );
 }
 

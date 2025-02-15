@@ -338,15 +338,10 @@ fn place_order_keep_alive_keeps_alive() {
 			para_id
 		),);
 
-		let queue_status = QueueStatus::<Test>::get();
-		let spot_price = queue_status.traffic.saturating_mul_int(
+		let spot_price = OnDemand::get_queue_status().traffic.saturating_mul_int(
 			config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<Test>>(),
 		);
 		assert_eq!(Balances::free_balance(&alice), max_amt.saturating_sub(spot_price));
-		assert_eq!(
-			FreeEntries::<Test>::get().pop(),
-			Some(EnqueuedOrder::new(QueueIndex(0), para_id))
-		);
 	});
 }
 
@@ -365,10 +360,11 @@ fn place_order_with_credits() {
 		assert_eq!(Credits::<Test>::get(alice), initial_credit);
 
 		assert!(!Paras::is_parathread(para_id));
-		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });
+		let current_block = 100;
+		run_to_block(current_block, |n| if n == current_block { Some(Default::default()) } else { None });
 		assert!(Paras::is_parathread(para_id));
 
-		let queue_status = QueueStatus::<Test>::get();
+		let queue_status = OnDemand::get_queue_status();
 		let spot_price = queue_status.traffic.saturating_mul_int(
 			config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<Test>>(),
 		);
@@ -380,10 +376,7 @@ fn place_order_with_credits() {
 			para_id
 		));
 		assert_eq!(Credits::<Test>::get(alice), initial_credit.saturating_sub(spot_price));
-		assert_eq!(
-			FreeEntries::<Test>::get().pop(),
-			Some(EnqueuedOrder::new(QueueIndex(0), para_id))
-		);
+		assert_eq!(OnDemand::peek_order_queue().pop_assignment_for_cores::<Test>(current_block, 1).next(), Some(para_id));
 
 		// Insufficient credits:
 		Credits::<Test>::insert(alice, 1u128);
