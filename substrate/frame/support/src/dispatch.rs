@@ -687,6 +687,30 @@ impl<T> PaysFee<T> for (u64, Pays) {
 	}
 }
 
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub struct VersionedCall<Call> {
+    pub call: Call,
+    pub transaction_version: u32,
+}
+
+impl<Call> VersionedCall<Call> {
+	pub fn new(call: Call, transaction_version: u32) -> Self {
+		Self {
+			transaction_version,
+			call,
+		}
+	}
+    pub fn validate(&self, current_transaction_version: u32) -> Result<(), DispatchError> {
+        if self.transaction_version != current_transaction_version {
+            Err(DispatchError::Other("Transaction version mismatch"))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+
+
 // END TODO
 
 #[cfg(test)]

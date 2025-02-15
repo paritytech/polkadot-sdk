@@ -108,12 +108,14 @@ where
 	depositor: AccountId,
 	/// The approvals achieved so far, including the depositor. Always sorted.
 	approvals: BoundedVec<AccountId, MaxApprovals>,
+	/// The versioned call to be executed.
+	call: VersionedCall<Call>,
 }
 
 type CallHash = [u8; 32];
 
 enum CallOrHash<T: Config> {
-	Call(<T as Config>::RuntimeCall),
+	Call(VersionedCall<<T as Config>::RuntimeCall>),
 	Hash([u8; 32]),
 }
 
@@ -360,7 +362,7 @@ pub mod pallet {
 			threshold: u16,
 			other_signatories: Vec<T::AccountId>,
 			maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
-			call: Box<<T as Config>::RuntimeCall>,
+			call: Box<VersionedCall<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
@@ -542,10 +544,14 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// We only bother fetching/decoding call if we know that we're ready to execute.
-			if let Some(call) = maybe_call.filter(|_| approvals >= threshold) {
+			if let Some(versioned_call) = maybe_call.filter(|_| approvals >= threshold) {
+				// Verify the transaction version.
+				let current_transaction_version = <Runtime as Get<u32>>::get();
+				versioned_call.validate(current_transaction_version)?;
+
 				// verify weight
 				ensure!(
-					call.get_dispatch_info().call_weight.all_lte(max_weight),
+					versioned_call.call.get_dispatch_info().call_weight.all_lte(max_weight),
 					Error::<T>::MaxWeightTooLow
 				);
 
@@ -554,7 +560,7 @@ impl<T: Config> Pallet<T> {
 				<Multisigs<T>>::remove(&id, call_hash);
 				T::Currency::unreserve(&m.depositor, m.deposit);
 
-				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
+				let result = versioned_call.call.dispatch(RawOrigin::Signed(id.clone()).into());
 				Self::deposit_event(Event::MultisigExecuted {
 					approving: who,
 					timepoint,

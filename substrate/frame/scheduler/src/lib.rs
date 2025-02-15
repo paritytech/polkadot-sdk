@@ -87,6 +87,7 @@ pub mod weights;
 
 extern crate alloc;
 
+use frame_support::dispatch::VersionedCall;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
@@ -154,7 +155,7 @@ pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// This task's priority.
 	priority: schedule::Priority,
 	/// The call to be dispatched.
-	call: Call,
+	call: VersionedCall<Call>,
 	/// If the call is periodic, then this points to the information concerning that.
 	maybe_periodic: Option<schedule::Period<BlockNumber>>,
 	/// The origin with which to dispatch the call.
@@ -174,7 +175,10 @@ where
 		Self {
 			maybe_id: None,
 			priority: self.priority,
-			call: self.call.clone(),
+			call: VersionedCall {
+                call: self.call.call.clone(),
+                transaction_version: self.call.transaction_version,
+            },
 			maybe_periodic: None,
 			origin: self.origin.clone(),
 			_phantom: Default::default(),
@@ -1210,6 +1214,23 @@ impl<T: Config> Pallet<T> {
 				None => continue,
 				Some(t) => t,
 			};
+
+			 // Validate the VersionedCall
+			 let current_version = <RuntimeVersion as Get<u32>>::get();
+			 let call = match task.call.validate(current_version) {
+				 Ok(call) => call,
+				 Err(_) => {
+					 // Log an error or handle the version mismatch
+					 log::error!(
+						 "Scheduled call version mismatch: expected {}, got {}",
+						 current_version,
+						 task.call.transaction_version
+					 );
+					 dropped += 1;
+					 continue; // Skip this task
+				 }
+			 };
+			 
 			let base_weight = T::WeightInfo::service_task(
 				task.call.lookup_len().map(|x| x as usize),
 				task.maybe_id.is_some(),
