@@ -521,8 +521,8 @@ impl<T: Config> Pallet<T> {
 
 			// trigger election in the last session of the era
 			if start_session + 1 == next_active_era_start_session_index {
+				// TODO: trigger election
 				// Self::trigger_election();
-				todo!()
 			}
 		}
 
