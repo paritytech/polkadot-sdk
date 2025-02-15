@@ -197,6 +197,7 @@ mod tests {
 	#[case(6000, Some(1), 1000, 0, 5000, 6000, 1)]
 	#[case(6000, Some(1), 0, 0, 6000, 6000, 1)]
 	#[case(6000, Some(1), 6000, 0, 6000, 12000, 2)]
+	#[case(6000, Some(0), 6000, 0, 6000, 12000, 2)]
 	// Test that `None` core defaults to 1
 	//           ||||
 	#[case(6000, None, 1000, 0, 5000, 6000, 1)]
@@ -225,6 +226,7 @@ mod tests {
 	#[case(2000, Some(1), 1000, 0, 1000, 2000, 1)]
 	#[case(2000, Some(1), 3000, 0, 1000, 4000, 2)]
 	#[case(2000, Some(1), 10000, 0, 2000, 12000, 6)]
+	#[case(2000, Some(2), 1000, 0, 1000, 2000, 1)]
 	// Cores are ignored if relay_slot_duration != para_slot_duration
 	//           |||||||
 	#[case(2000, Some(3), 3000, 0, 1000, 4000, 2)]
