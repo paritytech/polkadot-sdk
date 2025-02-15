@@ -95,7 +95,7 @@ pub mod pallet {
 
 	// TODO: should contain some initial state, otherwise starting from genesis won't work
 	#[pallet::storage]
-	pub type ValidatorSet<T: Config> = StorageValue<_, Option<ElectedValidatorSet>, ValueQuery>;
+	pub type ValidatorSet<T: Config> = StorageValue<_, Option<ElectedValidatorSet<T>>, ValueQuery>;
 
 	/// Keeps track of the session points for each block author in the current session.
 	#[pallet::storage]
