@@ -1136,23 +1136,23 @@ pub mod pallet_macros {
 	/// 			Ok(())
 	/// 		}
 	///
-	///                 // Implicit weight definition, the macro looks up to the weight info defined in
-	///                 // `#[pallet::call(weight = $WeightInfo)]` attribute. Then use
-	///                 // `$WeightInfo::do_something_else` as the weight function.
-	///                 #[pallet::call_index(1)]
-	///                 pub fn do_something_else(
-	///                     origin: OriginFor<T>,
-	///                     bar: u64,
-	///                 ) -> DispatchResult {
-	///                     Ok(())
-	///                 }
-	/// 	}
-	///
-	///             /// The `WeightInfo` trait defines weight functions for dispatchable calls.
-	///             pub trait WeightInfo {
-	///                 fn do_something() -> Weight;
-	///                 fn do_something_else() -> Weight;
+	///             // Implicit weight definition, the macro looks up to the weight info defined in
+	///             // `#[pallet::call(weight = $WeightInfo)]` attribute. Then use
+	///             // `$WeightInfo::do_something_else` as the weight function.
+	///             #[pallet::call_index(1)]
+	///             pub fn do_something_else(
+	///                 origin: OriginFor<T>,
+	///                 bar: u64,
+	///             ) -> DispatchResult {
+	///                 Ok(())
 	///             }
+	///     }
+	///
+	///     /// The `WeightInfo` trait defines weight functions for dispatchable calls.
+	///     pub trait WeightInfo {
+	///         fn do_something() -> Weight;
+	///         fn do_something_else() -> Weight;
+	///     }
 	/// }
 	/// ```
 	pub use frame_support_procedural::weight;
