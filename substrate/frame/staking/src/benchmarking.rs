@@ -19,32 +19,32 @@
 
 use super::*;
 use crate::{asset, ConfigOp, Pallet as Staking};
-use testing_utils::*;
-
 use codec::Decode;
+pub use frame_benchmarking::{
+	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
+};
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
-	traits::{Get, Imbalance, UnfilteredDispatchable},
+	traits::{Get, Imbalance},
 };
+use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
 use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
-
-pub use frame_benchmarking::{
-	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
-};
-use frame_system::RawOrigin;
+use testing_utils::*;
 
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
 const MAX_SLASHES: u32 = 1000;
 
-type MaxValidators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
-type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
+type BenchMaxValidators<T> =
+	<<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
+type BenchMaxNominators<T> =
+	<<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
 
 // Add slashing spans to a user account. Not relevant for actual use, only to benchmark
 // read and write operations.
@@ -73,6 +73,7 @@ pub fn create_validator_with_nominators<T: Config>(
 	dead_controller: bool,
 	unique_controller: bool,
 	destination: RewardDestination<T::AccountId>,
+	era: u32,
 ) -> Result<(T::AccountId, Vec<(T::AccountId, T::AccountId)>), &'static str> {
 	// Clean up any existing state.
 	clear_validators_and_nominators::<T>();
@@ -113,9 +114,16 @@ pub fn create_validator_with_nominators<T: Config>(
 	}
 
 	ValidatorCount::<T>::put(1);
+	MinimumValidatorCount::<T>::put(1);
 
-	// Start a new Era
-	let new_validators = Staking::<T>::try_trigger_new_era(SessionIndex::one(), true).unwrap();
+	// Start a new (genesis) Era
+	// populate electable stashes as it gets read within `try_plan_new_era`
+
+	// ElectableStashes::<T>::put(
+	// 	BoundedBTreeSet::try_from(vec![v_stash.clone()].into_iter().collect::<BTreeSet<_>>())
+	// 		.unwrap(),
+	// );
+	let new_validators = Staking::<T>::try_plan_new_era(SessionIndex::one(), true).unwrap();
 
 	assert_eq!(new_validators.len(), 1);
 	assert_eq!(new_validators[0], v_stash, "Our validator was not selected!");
@@ -128,14 +136,13 @@ pub fn create_validator_with_nominators<T: Config>(
 		individual: points_individual.into_iter().collect(),
 	};
 
-	let current_era = CurrentEra::<T>::get().unwrap();
-	ErasRewardPoints::<T>::insert(current_era, reward);
+	ErasRewardPoints::<T>::insert(era, reward);
 
 	// Create reward pool
 	let total_payout = asset::existential_deposit::<T>()
 		.saturating_mul(upper_bound.into())
 		.saturating_mul(1000u32.into());
-	<ErasValidatorReward<T>>::insert(current_era, total_payout);
+	<ErasValidatorReward<T>>::insert(era, total_payout);
 
 	Ok((v_stash, nominators))
 }
@@ -222,6 +229,123 @@ const USER_SEED: u32 = 999666;
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+
+	#[benchmark]
+	fn on_initialize_noop() {
+		assert!(ElectableStashes::<T>::get().is_empty());
+		assert_eq!(NextElectionPage::<T>::get(), None);
+
+		#[block]
+		{
+			Pallet::<T>::on_initialize(1_u32.into());
+		}
+
+		assert!(ElectableStashes::<T>::get().is_empty());
+		assert_eq!(NextElectionPage::<T>::get(), None);
+	}
+
+	#[benchmark]
+	fn do_elect_paged_inner(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		// TODO: re-benchmark this
+		// use frame_election_provider_support::{
+		// 	BoundedSupport, BoundedSupportsOf, ElectionProvider,
+		// };
+		// let mut bounded_random_supports = BoundedSupportsOf::<T::ElectionProvider>::default();
+		// for i in 0..v {
+		// 	let backed = account("validator", i, SEED);
+		// 	let mut total = 0;
+		// 	let voters = (0..<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get())
+		// 		.map(|j| {
+		// 			let voter = account("nominator", j, SEED);
+		// 			let support = 100000;
+		// 			total += support;
+		// 			(voter, support)
+		// 		})
+		// 		.collect::<Vec<_>>()
+		// 		.try_into()
+		// 		.unwrap();
+		// 	bounded_random_supports
+		// 		.try_push((backed, BoundedSupport { total, voters }))
+		// 		.map_err(|_| "bound failed")
+		// 		.expect("map is over the correct bound");
+		// }
+
+		#[block]
+		{
+			// assert_eq!(Pallet::<T>::do_elect_paged_inner(bounded_random_supports), Ok(v as
+			// usize));
+		}
+
+		// assert!(!ElectableStashes::<T>::get().is_empty());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn get_npos_voters(
+		// number of validator intention. we will iterate all of them.
+		v: Linear<{ BenchMaxValidators::<T>::get() / 2 }, { BenchMaxValidators::<T>::get() }>,
+
+		// number of nominator intention. we will iterate all of them.
+		n: Linear<{ BenchMaxNominators::<T>::get() / 2 }, { BenchMaxNominators::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+
+		assert_eq!(Validators::<T>::count(), v);
+		assert_eq!(Nominators::<T>::count(), n);
+
+		let num_voters = (v + n) as usize;
+
+		// default bounds are unbounded.
+		let voters;
+		#[block]
+		{
+			voters = <Staking<T>>::get_npos_voters(
+				DataProviderBounds::default(),
+				&SnapshotStatus::<T::AccountId>::Waiting,
+			);
+		}
+
+		assert_eq!(voters.len(), num_voters);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn get_npos_targets(
+		// number of validator intention.
+		v: Linear<{ BenchMaxValidators::<T>::get() / 2 }, { BenchMaxValidators::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		// number of nominator intention.
+		let n = BenchMaxNominators::<T>::get();
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+
+		let targets;
+
+		#[block]
+		{
+			// default bounds are unbounded.
+			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
+		}
+
+		assert_eq!(targets.len() as u32, v);
+
+		Ok(())
+	}
 
 	#[benchmark]
 	fn bond() {
@@ -569,7 +693,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_validator_count() {
-		let validator_count = MaxValidators::<T>::get();
+		let validator_count = BenchMaxValidators::<T>::get();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, validator_count);
@@ -603,7 +727,7 @@ mod benchmarks {
 
 	#[benchmark]
 	// Worst case scenario, the list of invulnerables is very long.
-	fn set_invulnerables(v: Linear<0, { MaxValidators::<T>::get() }>) {
+	fn set_invulnerables(v: Linear<0, { T::MaxInvulnerables::get() }>) {
 		let mut invulnerables = Vec::new();
 		for i in 0..v {
 			invulnerables.push(account("invulnerable", i, SEED));
@@ -699,15 +823,20 @@ mod benchmarks {
 	fn payout_stakers_alive_staked(
 		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
 	) -> Result<(), BenchmarkError> {
+		// reset genesis era 0 so that triggering the new genesis era works as expected.
+		CurrentEra::<T>::set(Some(0));
+		let current_era = CurrentEra::<T>::get().unwrap();
+		Staking::<T>::clear_era_information(current_era);
+
 		let (validator, nominators) = create_validator_with_nominators::<T>(
 			n,
 			T::MaxExposurePageSize::get() as u32,
 			false,
 			true,
 			RewardDestination::Staked,
+			current_era,
 		)?;
 
-		let current_era = CurrentEra::<T>::get().unwrap();
 		// set the commission for this particular era as well.
 		<ErasValidatorPrefs<T>>::insert(
 			current_era,
@@ -822,91 +951,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn new_era(v: Linear<1, 10>, n: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		create_validators_with_nominators_for_era::<T>(
-			v,
-			n,
-			MaxNominationsOf::<T>::get() as usize,
-			false,
-			None,
-		)?;
-		let session_index = SessionIndex::one();
-
-		let validators;
-		#[block]
-		{
-			validators =
-				Staking::<T>::try_trigger_new_era(session_index, true).ok_or("`new_era` failed")?;
-		}
-
-		assert!(validators.len() == v as usize);
-
-		Ok(())
-	}
-
-	#[benchmark(extra)]
-	fn payout_all(v: Linear<1, 10>, n: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		create_validators_with_nominators_for_era::<T>(
-			v,
-			n,
-			MaxNominationsOf::<T>::get() as usize,
-			false,
-			None,
-		)?;
-		// Start a new Era
-		let new_validators = Staking::<T>::try_trigger_new_era(SessionIndex::one(), true).unwrap();
-		assert!(new_validators.len() == v as usize);
-
-		let current_era = CurrentEra::<T>::get().unwrap();
-		let mut points_total = 0;
-		let mut points_individual = Vec::new();
-		let mut payout_calls_arg = Vec::new();
-
-		for validator in new_validators.iter() {
-			points_total += 10;
-			points_individual.push((validator.clone(), 10));
-			payout_calls_arg.push((validator.clone(), current_era));
-		}
-
-		// Give Era Points
-		let reward = EraRewardPoints::<T::AccountId> {
-			total: points_total,
-			individual: points_individual.into_iter().collect(),
-		};
-
-		ErasRewardPoints::<T>::insert(current_era, reward);
-
-		// Create reward pool
-		let total_payout = asset::existential_deposit::<T>() * 1000u32.into();
-		<ErasValidatorReward<T>>::insert(current_era, total_payout);
-
-		let caller: T::AccountId = whitelisted_caller();
-		let origin = RawOrigin::Signed(caller);
-		let calls: Vec<_> = payout_calls_arg
-			.iter()
-			.map(|arg| {
-				Call::<T>::payout_stakers_by_page {
-					validator_stash: arg.0.clone(),
-					era: arg.1,
-					page: 0,
-				}
-				.encode()
-			})
-			.collect();
-
-		#[block]
-		{
-			for call in calls {
-				<Call<T> as Decode>::decode(&mut &*call)
-					.expect("call is encoded above, encoding must be correct")
-					.dispatch_bypass_filter(origin.clone().into())?;
-			}
-		}
-
-		Ok(())
-	}
-
 	#[benchmark(extra)]
 	fn do_slash(
 		l: Linear<1, { T::MaxUnlockingChunks::get() as u32 }>,
@@ -935,67 +979,6 @@ mod benchmarks {
 
 		let balance_after = asset::stakeable_balance::<T>(&stash);
 		assert!(balance_before > balance_after);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn get_npos_voters(
-		// number of validator intention. we will iterate all of them.
-		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
-
-		// number of nominator intention. we will iterate all of them.
-		n: Linear<{ MaxNominators::<T>::get() / 2 }, { MaxNominators::<T>::get() }>,
-	) -> Result<(), BenchmarkError> {
-		create_validators_with_nominators_for_era::<T>(
-			v,
-			n,
-			MaxNominationsOf::<T>::get() as usize,
-			false,
-			None,
-		)?;
-
-		assert_eq!(Validators::<T>::count(), v);
-		assert_eq!(Nominators::<T>::count(), n);
-
-		let num_voters = (v + n) as usize;
-
-		// default bounds are unbounded.
-		let voters;
-		#[block]
-		{
-			voters = <Staking<T>>::get_npos_voters(DataProviderBounds::default());
-		}
-
-		assert_eq!(voters.len(), num_voters);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn get_npos_targets(
-		// number of validator intention.
-		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
-	) -> Result<(), BenchmarkError> {
-		// number of nominator intention.
-		let n = MaxNominators::<T>::get();
-		create_validators_with_nominators_for_era::<T>(
-			v,
-			n,
-			MaxNominationsOf::<T>::get() as usize,
-			false,
-			None,
-		)?;
-
-		let targets;
-
-		#[block]
-		{
-			// default bounds are unbounded.
-			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
-		}
-
-		assert_eq!(targets.len() as u32, v);
 
 		Ok(())
 	}
@@ -1199,18 +1182,18 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			let n = 10;
 
+			let current_era = CurrentEra::<Test>::get().unwrap();
 			let (validator_stash, nominators) = create_validator_with_nominators::<Test>(
 				n,
 				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
 				false,
 				false,
 				RewardDestination::Staked,
+				current_era,
 			)
 			.unwrap();
 
 			assert_eq!(nominators.len() as u32, n);
-
-			let current_era = CurrentEra::<Test>::get().unwrap();
 
 			let original_stakeable_balance = asset::stakeable_balance::<Test>(&validator_stash);
 			assert_ok!(Staking::payout_stakers_by_page(
@@ -1237,6 +1220,7 @@ mod tests {
 				false,
 				false,
 				RewardDestination::Staked,
+				CurrentEra::<Test>::get().unwrap(),
 			)
 			.unwrap();
 

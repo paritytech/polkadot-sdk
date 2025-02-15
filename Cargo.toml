@@ -345,6 +345,7 @@ members = [
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
+	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
 	"substrate/frame/election-provider-support",
@@ -641,7 +642,7 @@ bitvec = { version = "1.0.1", default-features = false }
 blake2 = { version = "0.10.4", default-features = false }
 blake2b_simd = { version = "1.0.2", default-features = false }
 blake3 = { version = "1.5" }
-bounded-collections = { version = "0.2.2", default-features = false }
+bounded-collections = { version = "0.2.3", default-features = false }
 bounded-vec = { version = "0.7" }
 bp-asset-hub-rococo = { path = "bridges/chains/chain-asset-hub-rococo", default-features = false }
 bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", default-features = false }
@@ -689,7 +690,7 @@ clap-num = { version = "1.0.2" }
 clap_complete = { version = "4.5.13" }
 cmd_lib = { version = "1.9.5" }
 coarsetime = { version = "0.1.22" }
-codec = { version = "3.6.12", default-features = false, package = "parity-scale-codec" }
+codec = { version = "3.7.4", default-features = false, package = "parity-scale-codec" }
 collectives-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend" }
 collectives-westend-runtime = { path = "cumulus/parachains/runtimes/collectives/collectives-westend" }
 color-eyre = { version = "0.6.3", default-features = false }
@@ -768,7 +769,7 @@ fatality = { version = "0.1.1" }
 fdlimit = { version = "0.3.0" }
 femme = { version = "2.2.1" }
 filetime = { version = "0.2.16" }
-finality-grandpa = { version = "0.16.2", default-features = false }
+finality-grandpa = { version = "0.16.3", default-features = false }
 finality-relay = { path = "bridges/relays/finality" }
 first-pallet = { package = "polkadot-sdk-docs-first-pallet", path = "docs/sdk/packages/guides/first-pallet", default-features = false }
 first-runtime = { package = "polkadot-sdk-docs-first-runtime", path = "docs/sdk/packages/guides/first-runtime", default-features = false }
@@ -1323,7 +1324,7 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.38", default-features = false }
+subxt = { version = "0.38.1", default-features = false }
 subxt-metadata = { version = "0.38.0", default-features = false }
 subxt-signer = { version = "0.38" }
 syn = { version = "2.0.87" }
