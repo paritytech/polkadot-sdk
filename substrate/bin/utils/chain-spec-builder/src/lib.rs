@@ -83,6 +83,18 @@ pub struct CreateCmd {
 	/// errors will be reported.
 	#[arg(long, short = 'v')]
 	verify: bool,
+	/// Chain properties in `KEY=VALUE` format.
+	///
+	/// Multiple `KEY=VALUE` entries can be specified and separated by a comma.
+	///
+	/// Example: `--properties tokenSymbol=UNIT,tokenDecimals=12,ss58Format=42,isEthereum=false`
+	/// Or: `--properties tokenSymbol=UNIT --properties tokenDecimals=12 --properties ss58Format=42
+	/// --properties=isEthereum=false`
+	///
+	/// The first uses comma as separation and the second passes the argument multiple times. Both
+	/// styles can also be mixed.
+	#[arg(long, default_value = "tokenSymbol=UNIT,tokenDecimals=12")]
+	pub properties: Vec<String>,
 	#[command(subcommand)]
 	action: GenesisBuildAction,
 
@@ -385,15 +397,44 @@ impl CreateCmd {
 	}
 }
 
-/// Processes `CreateCmd` and returns string represenataion of JSON version of `ChainSpec`.
+/// Parses chain properties passed as a comma-separated KEY=VALUE pairs.
+fn parse_properties(raw: &String, props: &mut sc_chain_spec::Properties) -> Result<(), String> {
+	for pair in raw.split(',') {
+		let mut iter = pair.splitn(2, '=');
+		let key = iter
+			.next()
+			.ok_or_else(|| format!("Invalid chain property key: {pair}"))?
+			.trim()
+			.to_owned();
+		let value_str = iter
+			.next()
+			.ok_or_else(|| format!("Invalid chain property value for key: {key}"))?
+			.trim();
+
+		// Try to parse as bool, number, or fallback to String
+		let value = match value_str.parse::<bool>() {
+			Ok(b) => Value::Bool(b),
+			Err(_) => match value_str.parse::<u32>() {
+				Ok(i) => Value::Number(i.into()),
+				Err(_) => Value::String(value_str.to_string()),
+			},
+		};
+
+		props.insert(key, value);
+	}
+	Ok(())
+}
+
+/// Processes `CreateCmd` and returns string representation of JSON version of `ChainSpec`.
 pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
 	let code = cmd.get_runtime_code()?;
 
 	let chain_type = &cmd.chain_type;
 
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "UNIT".into());
-	properties.insert("tokenDecimals".into(), 12.into());
+	for raw in &cmd.properties {
+		parse_properties(raw, &mut properties)?;
+	}
 
 	let builder = ChainSpec::builder(&code[..], Default::default())
 		.with_name(&cmd.chain_name[..])
