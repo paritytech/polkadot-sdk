@@ -39,17 +39,18 @@ def from_pr_number(n, audience, bump, force):
 def translate_audience(audience):
 	aliases = {
 		'runtime_dev': 'Runtime Dev',
-		'runtime_user': 'Runtime Operator',
+		'runtime_user': 'Runtime User',
 		'node_dev': 'Node Dev',
-		'node_user': 'Node User',
+		'node_operator': 'Node Operator',
+		'todo': 'Todo',
 	}
 
-	if audience in aliases:
-		to = aliases[audience]
-		print(f"Translated audience '{audience}' to '{to}'")
-		audience = to
+	mapped = [aliases.get(a) for a in audience]
+	if len(mapped) == 1:
+		mapped = mapped[0]
 
-	return audience
+	print(f"Translated audience '{audience}' to '{mapped}'")
+	return mapped
 
 def create_prdoc(pr, audience, title, description, patch, bump, force):
 	path = f"prdoc/pr_{pr}.prdoc"
@@ -128,7 +129,7 @@ def setup_yaml():
 # parse_args is also used by cmd/cmd.py
 # if pr_required is False, then --pr is optional, as it can be derived from the PR comment body
 def setup_parser(parser=None, pr_required=True):
-	allowed_audiences = ["runtime_dev", "runtime_user", "node_dev", "node_operator"]
+	allowed_audiences = ["runtime_dev", "runtime_user", "node_dev", "node_operator", "todo"]
 	if parser is None:
 		parser = argparse.ArgumentParser()
 	parser.add_argument("--pr", type=int, required=pr_required, help="The PR number to generate the PrDoc for.")
@@ -144,11 +145,7 @@ def main(args):
 	print(f"Args: {args}, force: {args.force}")
 	setup_yaml()
 	try:
-		# Convert snake_case audience arguments to title case
-		mapped_audiences = [snake_to_title(a) for a in args.audience]
-		if len(mapped_audiences) == 1:
-			mapped_audiences = mapped_audiences[0]
-		from_pr_number(args.pr, mapped_audiences, args.bump, args.force)
+		from_pr_number(args.pr, args.audience, args.bump, args.force)
 		return 0
 	except Exception as e:
 		print(f"Error generating prdoc: {e}")
