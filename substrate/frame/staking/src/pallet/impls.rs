@@ -49,8 +49,8 @@ use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
-	SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, SnapshotStatus,
+	StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
