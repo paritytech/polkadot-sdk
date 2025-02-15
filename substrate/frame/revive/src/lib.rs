@@ -654,6 +654,7 @@ pub mod pallet {
 					num_topic: 0,
 					len: max_payload_size,
 				})
+				.saturating_add(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::HostFn))
 				.ref_time()))
 			.saturating_mul(max_payload_size as u64))
 			.try_into()

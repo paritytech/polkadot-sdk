@@ -43,7 +43,8 @@ pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
 	watchers: HashMap<H, watcher::Sender<H, BlockHash<C>>>,
 	finality_watchers: LinkedHashMap<ExtrinsicHash<C>, Vec<H>>,
 
-	/// The sink used to notify dropped by enforcing limits or by being usurped transactions.
+	/// The sink used to notify dropped by enforcing limits or by being usurped, or invalid
+	/// transactions.
 	///
 	/// Note: Ready and future statuses are alse communicated through this channel, enabling the
 	/// stream consumer to track views that reference the transaction.
@@ -195,6 +196,8 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	pub fn invalid(&mut self, tx: &H) {
 		trace!(target: LOG_TARGET, "[{:?}] Extrinsic invalid", tx);
 		self.fire(tx, |watcher| watcher.invalid());
+
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Invalid);
 	}
 
 	/// Transaction was pruned from the pool.
