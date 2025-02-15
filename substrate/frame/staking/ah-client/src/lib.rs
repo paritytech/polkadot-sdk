@@ -49,7 +49,7 @@ enum AssetHubRuntimePallets {
 	RcClient(StakingCalls),
 }
 
-/// Call encoding for the calls needed from the Broker pallet.
+/// Call encoding for the calls needed from the rc-client pallet.
 #[derive(Encode, Decode)]
 enum StakingCalls {
 	/// A session with the given index has started.
@@ -95,11 +95,7 @@ pub mod pallet {
 
 	// TODO: should contain some initial state, otherwise starting from genesis won't work
 	#[pallet::storage]
-	pub type ValidatorSet<T: Config> = StorageValue<
-		_,
-		Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>>,
-		ValueQuery,
-	>;
+	pub type ValidatorSet<T: Config> = StorageValue<_, Option<ElectedValidatorSet>, ValueQuery>;
 
 	/// Keeps track of the session points for each block author in the current session.
 	#[pallet::storage]
