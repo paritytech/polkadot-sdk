@@ -7,6 +7,17 @@ doc:
       iterator of `Cow<'static, Tracks<_, _, _>>` instead of a static slice in order to support more 
       flexible implementations that can define referenda tracks dynamically.
 
+  - audience: Runtime Users
+    description: |
+      There is a change in `pallet-referenda`. Now, the tracks might have some trailing null values (`\0`). This means
+      display representation of the tracks' names must be sanitized.
+
 crates:
   - name: pallet-referenda
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: colletives-westend-runtime
     bump: major
