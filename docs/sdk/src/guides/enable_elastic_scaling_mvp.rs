@@ -92,7 +92,7 @@
 //!     - Remove the `overseer_handle` param (also remove the
 //!     `OverseerHandle` type import if it’s not used elsewhere).
 //!     - Rename `AuraParams` to `SlotBasedParams`, remove the `overseer_handle` field and add a
-//!     `slot_drift` field with a   value of `Duration::from_secs(1)`.
+//!     `slot_offset` field with a   value of `Duration::from_secs(1)`.
 //!     - Replace the single future returned by `aura::run` with the two futures returned by it and
 //!     spawn them as separate tasks:
 #![doc = docify::embed!("../../cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", launch_slot_based_collator)]
