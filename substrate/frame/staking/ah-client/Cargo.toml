@@ -6,7 +6,6 @@ version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
-publish = false
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
