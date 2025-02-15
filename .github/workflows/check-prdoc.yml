@@ -47,12 +47,6 @@ jobs:
           echo "Labels: ${labels}"
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
-      - name: Early exit if PR is silent
-        if: github.event.pull_request.number != ''
-        if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
-        run: |
-          exit 0
-
       - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
         if: github.event.pull_request.number != ''
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
