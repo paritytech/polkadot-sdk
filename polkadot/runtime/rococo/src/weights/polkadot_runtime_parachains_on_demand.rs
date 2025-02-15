@@ -65,7 +65,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 	/// Storage: `OnDemandAssignmentProvider::FreeEntries` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::FreeEntries` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `s` is `[1, 9999]`.
-	fn place_order_keep_alive(s: u32, ) -> Weight {
+	fn place_order_keep_alive() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `270 + s * (8 ±0)`
 		//  Estimated: `3733 + s * (8 ±0)`
@@ -73,10 +73,8 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 		Weight::from_parts(28_146_882, 0)
 			.saturating_add(Weight::from_parts(0, 3733))
 			// Standard Error: 140
-			.saturating_add(Weight::from_parts(21_283, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
-			.saturating_add(Weight::from_parts(0, 8).saturating_mul(s.into()))
 	}
 	/// Storage: `OnDemandAssignmentProvider::QueueStatus` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::QueueStatus` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -89,7 +87,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 	/// Storage: `OnDemandAssignmentProvider::FreeEntries` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::FreeEntries` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `s` is `[1, 9999]`.
-	fn place_order_allow_death(s: u32, ) -> Weight {
+	fn place_order_allow_death() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `270 + s * (8 ±0)`
 		//  Estimated: `3733 + s * (8 ±0)`
@@ -97,10 +95,8 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 		Weight::from_parts(31_024_579, 0)
 			.saturating_add(Weight::from_parts(0, 3733))
 			// Standard Error: 119
-			.saturating_add(Weight::from_parts(20_989, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
-			.saturating_add(Weight::from_parts(0, 8).saturating_mul(s.into()))
 	}
 	/// Storage: `OnDemandAssignmentProvider::QueueStatus` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::QueueStatus` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -113,7 +109,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 	/// Storage: `OnDemandAssignmentProvider::FreeEntries` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::FreeEntries` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `s` is `[1, 9999]`.
-	fn place_order_with_credits(s: u32, ) -> Weight {
+	fn place_order_with_credits() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `270 + s * (8 ±0)`
 		//  Estimated: `3733 + s * (8 ±0)`
@@ -121,9 +117,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 		Weight::from_parts(28_146_882, 0)
 			.saturating_add(Weight::from_parts(0, 3733))
 			// Standard Error: 140
-			.saturating_add(Weight::from_parts(21_283, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
-			.saturating_add(Weight::from_parts(0, 8).saturating_mul(s.into()))
 	}
 }

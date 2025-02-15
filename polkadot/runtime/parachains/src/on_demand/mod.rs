@@ -382,7 +382,7 @@ pub mod pallet {
 		/// Events:
 		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::place_order_with_credits(QueueStatus::<T>::get().size()))]
+		#[pallet::weight(<T as Config>::WeightInfo::place_order_with_credits())]
 		pub fn place_order_with_credits(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
