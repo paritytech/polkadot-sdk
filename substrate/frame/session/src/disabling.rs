@@ -38,6 +38,15 @@ pub struct DisablingDecision {
 	pub reenable: Option<u32>,
 }
 
+impl<T: Config> DisablingStrategy<T> for () {
+	fn decision(
+		_offender_stash: &T::ValidatorId,
+		_offender_slash_severity: OffenceSeverity,
+		_currently_disabled: &Vec<(u32, OffenceSeverity)>,
+	) -> DisablingDecision {
+		DisablingDecision { disable: None, reenable: None }
+	}
+}
 /// Calculate the disabling limit based on the number of validators and the disabling limit factor.
 ///
 /// This is a sensible default implementation for the disabling limit factor for most disabling
