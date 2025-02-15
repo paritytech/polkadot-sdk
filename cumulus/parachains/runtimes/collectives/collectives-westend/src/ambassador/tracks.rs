@@ -280,6 +280,3 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 		}
 	}
 }
-
-// implements [`frame_support::traits::Get`] for [`TracksInfo`]
-pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);

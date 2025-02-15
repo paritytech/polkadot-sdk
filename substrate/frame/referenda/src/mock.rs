@@ -190,7 +190,6 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 		}
 	}
 }
-impl_tracksinfo_get!(TestTracksInfo, u64, u64);
 
 impl Config for Test {
 	type WeightInfo = ();

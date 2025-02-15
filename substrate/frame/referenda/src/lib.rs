@@ -117,35 +117,6 @@ pub mod benchmarking;
 
 pub use frame_support::traits::Get;
 
-#[macro_export]
-macro_rules! impl_tracksinfo_get {
-	($tracksinfo:ty, $balance:ty, $blocknumber:ty) => {
-		impl
-			$crate::Get<
-				$crate::Vec<
-					$crate::Track<
-						<$tracksinfo as $crate::TracksInfo<$balance, $blocknumber>>::Id,
-						$balance,
-						$blocknumber,
-					>,
-				>,
-			> for $tracksinfo
-		{
-			fn get() -> $crate::Vec<
-				$crate::Track<
-					<$tracksinfo as $crate::TracksInfo<$balance, $blocknumber>>::Id,
-					$balance,
-					$blocknumber,
-				>,
-			> {
-				<$tracksinfo as $crate::TracksInfo<$balance, $blocknumber>>::tracks()
-					.map(|t| t.into_owned())
-					.collect()
-			}
-		}
-	};
-}
-
 const ASSEMBLY_ID: LockIdentifier = *b"assembly";
 
 #[frame_support::pallet]
@@ -236,20 +207,11 @@ pub mod pallet {
 
 		// The other stuff.
 		/// Information concerning the different referendum tracks.
-		#[pallet::constant]
-		type Tracks: Get<
-				Vec<
-					Track<
-						<Self::Tracks as TracksInfo<BalanceOf<Self, I>, BlockNumberFor<Self, I>>>::Id,
-						BalanceOf<Self, I>,
-						BlockNumberFor<Self, I>,
-					>,
-				>,
-			> + TracksInfo<
-				BalanceOf<Self, I>,
-				BlockNumberFor<Self, I>,
-				RuntimeOrigin = <Self::RuntimeOrigin as OriginTrait>::PalletsOrigin,
-			>;
+		type Tracks: TracksInfo<
+			BalanceOf<Self, I>,
+			BlockNumberFor<Self, I>,
+			RuntimeOrigin = <Self::RuntimeOrigin as OriginTrait>::PalletsOrigin,
+		>;
 
 		/// The preimage provider.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
@@ -258,6 +220,14 @@ pub mod pallet {
 		///
 		/// Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
+	}
+
+	#[pallet::extra_constants]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		#[pallet::constant_name(Tracks)]
+		fn tracks() -> Vec<Track<TrackIdOf<T, I>, BalanceOf<T, I>, BlockNumberFor<T, I>>> {
+			T::Tracks::tracks().map(|t| t.into_owned()).collect()
+		}
 	}
 
 	/// The next free referendum index, aka the number of referenda started so far.
