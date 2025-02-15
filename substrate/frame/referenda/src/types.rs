@@ -18,7 +18,9 @@
 //! Miscellaneous additional datatypes.
 
 use super::*;
+use alloc::borrow::Cow;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
 	Parameter,
@@ -26,7 +28,6 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
 use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
-use sp_std::{borrow::Cow, fmt::Debug};
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

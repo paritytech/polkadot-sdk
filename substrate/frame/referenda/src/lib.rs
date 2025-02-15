@@ -100,7 +100,7 @@ pub use self::{
 		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf,
 		Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex,
 		ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf,
-		TallyOf, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
+		TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -240,9 +240,9 @@ pub mod pallet {
 		type Tracks: Get<
 				Vec<
 					Track<
-						<Self::Tracks as TracksInfo<BalanceOf<Self, I>, BlockNumberFor<Self>>>::Id,
+						<Self::Tracks as TracksInfo<BalanceOf<Self, I>, BlockNumberFor<Self, I>>>::Id,
 						BalanceOf<Self, I>,
-						BlockNumberFor<Self>,
+						BlockNumberFor<Self, I>,
 					>,
 				>,
 			> + TracksInfo<

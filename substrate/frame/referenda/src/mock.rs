@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::{self as pallet_referenda, types::Track};
+use alloc::borrow::Cow;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -33,7 +34,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Hash},
 	BuildStorage, DispatchResult, Perbill,
 };
-use sp_std::borrow::Cow;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

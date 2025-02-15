@@ -18,8 +18,8 @@
 
 use super::*;
 
+use alloc::borrow::Cow;
 use sp_runtime::str_array as s;
-use sp_std::borrow::Cow;
 
 const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
 	sp_arithmetic::FixedI64::from_rational(x as u128, 100)

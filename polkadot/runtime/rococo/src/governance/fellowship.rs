@@ -16,13 +16,13 @@
 
 //! Elements of governance concerning the Rococo Fellowship.
 
+use alloc::borrow::Cow;
 use frame_support::traits::{MapSuccess, TryMapSuccess};
 use pallet_referenda::{Track, TrackInfo};
 use sp_runtime::{
 	str_array as s,
 	traits::{CheckedReduceBy, ConstU16, Replace, ReplaceWithDefault},
 };
-use sp_std::borrow::Cow;
 
 use super::*;
 use crate::{CENTS, DAYS};
