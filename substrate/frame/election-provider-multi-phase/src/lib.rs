@@ -298,7 +298,12 @@ pub type SolutionAccuracyOf<T> =
 	<SolutionOf<<T as crate::Config>::MinerConfig> as NposSolution>::Accuracy;
 /// The fallback election type.
 pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProviderBase>::Error;
-
+/// The block number type used within this pallet.
+///
+/// This derives the block number from the configured `BlockNumberProvider`,
+/// allowing flexibility in whether block numbers come from the local chain (`frame_system::Pallet<T>`)
+/// or an external source like the Relay Chain.
+///
 pub type BlockNumberFor<T> =
 	<<T as crate::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
@@ -715,7 +720,23 @@ pub mod pallet {
 		/// The configuration of benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
 
-		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		/// A configurable provider for the block number used by this pallet.
+		///
+		/// By default, this should be set to `frame_system::Pallet<T>` to maintain the previous behavior,
+		/// where block numbers are sourced from the local chain.
+		///
+		/// However, developers can configure this to derive block numbers from an external source,
+		/// such as the Relay Chain in a parachain setup. This is particularly important for features that
+		/// rely on consistent block progression across chains.
+		///
+		/// **Usage Considerations:**
+		/// - If using the local parachain’s block number, set this to `frame_system::Pallet<T>`.
+		/// - If requiring Relay Chain synchronization, use a provider that fetches the Relay Chain block number.
+		///
+		/// Clients should **not assume** the block number always refers to the local chain.
+		/// Instead, they must verify the configured `BlockNumberProvider` to understand the source of block numbers.
+		///
+		/// Default: `frame_system::Pallet<T>`
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// The weight of the pallet.
