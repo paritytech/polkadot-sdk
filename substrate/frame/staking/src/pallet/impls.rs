@@ -2381,7 +2381,6 @@ impl<T: Config> Pallet<T> {
 	/// -- SHOULD ONLY BE CALLED AT THE END OF A GIVEN BLOCK.
 	pub fn ensure_snapshot_metadata_state(now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		use sp_runtime::traits::One;
-
 		let next_election = Self::next_election_prediction(now);
 		let pages = Self::election_pages().saturated_into::<BlockNumberFor<T>>();
 		let election_prep_start = next_election - pages;
