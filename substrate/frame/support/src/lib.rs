@@ -1148,11 +1148,11 @@ pub mod pallet_macros {
 	///                 }
 	/// 	}
 	///
-	///     /// The `WeightInfo` trait defines weight functions for dispatchable calls.
-	///     pub trait WeightInfo {
-	///         fn do_something() -> Weight;
-	///         fn do_something_else() -> Weight;
-	///     }
+	///             /// The `WeightInfo` trait defines weight functions for dispatchable calls.
+	///             pub trait WeightInfo {
+	///                 fn do_something() -> Weight;
+	///                 fn do_something_else() -> Weight;
+	///             }
 	/// }
 	/// ```
 	pub use frame_support_procedural::weight;
