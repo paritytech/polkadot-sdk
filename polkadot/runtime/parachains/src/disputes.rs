@@ -372,6 +372,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + configuration::Config + session_info::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RewardValidators: RewardValidators;
 		type SlashingHandler: SlashingHandler<BlockNumberFor<Self>>;

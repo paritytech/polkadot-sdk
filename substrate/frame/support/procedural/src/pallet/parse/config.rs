@@ -19,7 +19,7 @@ use super::helper;
 use frame_support_procedural_tools::{get_cfg_attributes, get_doc_literals, is_using_frame_crate};
 use proc_macro_warning::Warning;
 use quote::ToTokens;
-use syn::{spanned::Spanned, token, Token, TraitItemType};
+use syn::{parse_quote, spanned::Spanned, token, Token, TraitItemType};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -474,17 +474,20 @@ impl ConfigDef {
 			// add deprecation notice for `RuntimeEvent`, iff pallet is not `frame_system`
 			if is_event && !is_frame_system {
 				if let syn::TraitItem::Type(type_event) = trait_item {
-					type_event.attrs.push(syn::parse_quote!(#[allow(deprecated)]));
+					let allow_dep: syn::Attribute = parse_quote!(#[allow(deprecated)]);
 
-					let warning = Warning::new_deprecated("RuntimeEvent")
+					// Check if the `#[allow(deprecated)]` attribute is present
+					if !type_event.attrs.iter().any(|attr| attr == &allow_dep) {
+						let warning = Warning::new_deprecated("RuntimeEvent")
 						.old("have `RuntimeEvent` associated type in the pallet config")
 						.new("remove it or explicitly define it as an associated type bound in the system supertrait: \n
 							pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> { }")
 						.help_link("https://github.com/paritytech/polkadot-sdk/pull/7229")
-						.span(type_event.span())
+						.span(type_event.ident.span())
 						.build_or_panic();
 
-					warnings.push(warning);
+						warnings.push(warning);
+					}
 				}
 			}
 

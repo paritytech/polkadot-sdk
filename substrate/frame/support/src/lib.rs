@@ -1344,7 +1344,8 @@ pub mod pallet_macros {
 	/// #
 	/// # 	#[pallet::config]
 	/// # 	pub trait Config: frame_system::Config {
-	/// # 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	/// # 		#[allow(deprecated)]
+	///         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	/// # 	}
 	/// }
 	/// ```
@@ -1511,7 +1512,8 @@ pub mod pallet_macros {
 	/// 	pub trait Config: frame_system::Config {
 	/// 		/// The overarching event type.
 	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
-	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	/// 		#[allow(deprecated)]
+	///         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	///
 	/// 		/// A more complex type.
 	/// 		#[pallet::no_default] // Example of type where no default should be provided
@@ -1581,7 +1583,6 @@ pub mod pallet_macros {
 	/// Furthermore, the `without_automatic_metadata` argument can be used in combination with
 	/// the [`#[pallet::include_metadata]`](`include_metadata`) attribute to selectively
 	/// include only certain associated types in the metadata collection.
-	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
@@ -1595,18 +1596,20 @@ pub mod pallet_macros {
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
-	/// 	#[pallet::config(with_default, without_automatic_metadata)] // <- with_default and without_automatic_metadata are optional
-	/// 	pub trait Config: frame_system::Config {
+	/// 	#[pallet::config(with_default, without_automatic_metadata)] // <- with_default and
+	/// without_automatic_metadata are optional 	pub trait Config: frame_system::Config {
 	/// 		/// The overarching event type.
 	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
-	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	/// 		#[allow(deprecated)]
+	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as
+	/// 			frame_system::Config>::RuntimeEvent>;
 	///
 	/// 		/// A simple type.
 	/// 		// Type that would have been included in metadata, but is now excluded.
 	/// 		type SimpleType: From<u32> + TypeInfo;
 	///
-	/// 		// The `pallet::include_metadata` is used to selectively include this type in metadata.
-	/// 		#[pallet::include_metadata]
+	/// 		// The `pallet::include_metadata` is used to selectively include this type in
+	/// metadata. 		#[pallet::include_metadata]
 	/// 		type SelectivelyInclude: From<u32> + TypeInfo;
 	/// 	}
 	///
@@ -1993,7 +1996,8 @@ pub mod pallet_macros {
 	/// 	#[pallet::config]
 	/// 	pub trait Config: frame_system::Config {
 	/// 		/// The overarching runtime event type.
-	/// 		type RuntimeEvent: From<Event<Self>>
+	/// 		#[allow(deprecated)]
+	///         type RuntimeEvent: From<Event<Self>>
 	/// 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	/// 	}
 	/// }
