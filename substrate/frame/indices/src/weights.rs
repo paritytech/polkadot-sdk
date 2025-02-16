@@ -121,7 +121,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	// TO-DO: Implement this.
+	// TO-DO: Run CI cmd bot to generate real weights.
 	fn reconsider() -> Weight {
 		Weight::from_parts(31_036_000, 3534)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
@@ -191,7 +191,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 
-	// TO-DO: Implement this.
+	// TO-DO: Run CI cmd bot to generate real weights.
 	fn reconsider() -> Weight {
 		Weight::from_parts(31_036_000, 3534)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))

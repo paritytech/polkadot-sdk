@@ -118,14 +118,23 @@ mod benchmarks {
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		// Set initial deposit to 10
+		mock::IndexDeposit::set(10);
+		assert_eq!(T::Deposit::get(), 10u64.into());
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+		// Verify the initial deposit amount in storage
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, 10u64.into());
+		// Set new deposit value to 1
+		mock::IndexDeposit::set(1);
+		assert_eq!(T::Deposit::get(), 1u64.into());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account_index);
 
 		assert!(Accounts::<T>::contains_key(account_index));
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, 1u64.into());
 		Ok(())
 	}
 
