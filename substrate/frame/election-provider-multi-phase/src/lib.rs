@@ -244,7 +244,7 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, SizeBound},
 	BoundedSupports, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
@@ -336,7 +336,7 @@ pub trait BenchmarkingConfig {
 }
 
 /// Current phase of the pallet.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Phase<Bn> {
 	/// Nothing, the election is not happening.
 	Off,
@@ -398,7 +398,7 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 }
 
 /// The type of `Computation` that provided this election data.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum ElectionCompute {
 	/// Election was computed on-chain.
 	OnChain,
@@ -424,7 +424,9 @@ impl Default for ElectionCompute {
 ///
 /// Such a solution should never become effective in anyway before being checked by the
 /// `Pallet::feasibility_check`.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, PartialOrd, Ord, TypeInfo)]
+#[derive(
+	PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen,
+)]
 pub struct RawSolution<S> {
 	/// the solution itself.
 	pub solution: S,
@@ -451,6 +453,7 @@ impl<C: Default> Default for RawSolution<C> {
 	RuntimeDebug,
 	DefaultNoBound,
 	scale_info::TypeInfo,
+	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(AccountId, MaxWinners, MaxBackersPerWinner))]
 pub struct ReadySolution<AccountId, MaxWinners, MaxBackersPerWinner>
@@ -490,7 +493,7 @@ pub struct RoundSnapshot<AccountId, DataProvider> {
 /// This is stored automatically on-chain, and it contains the **size of the entire snapshot**.
 /// This is also used in dispatchables as weight witness data and should **only contain the size of
 /// the presented solution**, not the entire snapshot.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, Default, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct SolutionOrSnapshotSize {
 	/// The length of voters.
 	#[codec(compact)]
