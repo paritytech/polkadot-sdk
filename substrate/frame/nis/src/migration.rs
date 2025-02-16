@@ -82,10 +82,7 @@ pub mod switch_block_number_provider {
 					Receipts::<T>::get(index).ok_or("Receipt missing after migration")?;
 
 				// Verify expiry conversion
-				ensure!(
-					new_receipt.expiry == expected_expiry,
-					"Receipt expiry conversion failed"
-				);
+				ensure!(new_receipt.expiry == expected_expiry, "Receipt expiry conversion failed");
 
 				// Verify other fields unchanged
 				ensure!(
@@ -97,11 +94,9 @@ pub mod switch_block_number_provider {
 
 			// Verify Summary migration
 			let new_summary = Summary::<T>::get();
-			let expected_last_period = BlockConverter::convert_block_number(old_summary.last_period);
-			ensure!(
-				new_summary.last_period == expected_last_period,
-				"Summary conversion failed"
-			);
+			let expected_last_period =
+				BlockConverter::convert_block_number(old_summary.last_period);
+			ensure!(new_summary.last_period == expected_last_period, "Summary conversion failed");
 			log::info!(target: TARGET, "All reciept record expiry period and summary record thaw period begining migrated to new blok number provider");
 			Ok(())
 		}
