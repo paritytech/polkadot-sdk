@@ -19,7 +19,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{Error, Expr, Ident, ItemFn};
+use syn::{parse_macro_input, Error, Expr, Ident, ItemFn, Meta, MetaNameValue};
 
 /// Add a log prefix to the function.
 ///
@@ -104,40 +104,59 @@ use syn::{Error, Expr, Ident, ItemFn};
 /// ```
 #[proc_macro_attribute]
 pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
-	let item_fn = syn::parse_macro_input!(item as ItemFn);
+    let item_fn = parse_macro_input!(item as ItemFn);
 
-	if arg.is_empty() {
-		return Error::new(
-			Span::call_site(),
-			"missing argument: name of the node. Example: sc_cli::prefix_logs_with(<expr>)",
-		)
-		.to_compile_error()
-		.into()
-	}
+    if arg.is_empty() {
+        return Error::new(
+            Span::call_site(),
+            "missing argument: name of the node. Example: #[prefix_logs_with(\"node_name\")]",
+        )
+            .to_compile_error()
+            .into();
+    }
 
-	let name = syn::parse_macro_input!(arg as Expr);
+    let name = parse_macro_input!(arg as Expr);
 
-	let crate_name = match crate_name("sc-tracing").or_else(|_| crate_name("polkadot-sdk")) {
-		Ok(FoundCrate::Itself) | Ok(FoundCrate::Name(_)) => Ident::new("sc_tracing", Span::call_site()),
-		Err(_) => return Error::new(
-			Span::call_site(),
-			"Neither `sc-tracing` nor `polkadot-sdk` was found in your dependencies, or no enabled feature in `polkadot-sdk` pulls in `sc-tracing`."
-		).to_compile_error().into(),
-	};
+    // Default to `sc_tracing`
+    let mut custom_crate: Option<Ident> = None;
 
-	let ItemFn { attrs, vis, sig, block } = item_fn;
+    for attr in &item_fn.attrs {
+        if attr.path().is_ident("sc_tracing") {
+            if let Ok(Meta::List(meta_list)) = attr.meta.clone().try_into() {
+                for nested in meta_list.tokens.clone().into_iter() {
+                    if let Ok(Meta::NameValue(MetaNameValue { path, value, .. })) =
+                        syn::parse2(nested.into())
+                    {
+                        if path.is_ident("crate") {
+                            if let syn::Expr::Lit(syn::ExprLit {
+                                                      lit: syn::Lit::Str(lit),
+                                                      ..
+                                                  }) = value
+                            {
+                                custom_crate = Some(Ident::new(&lit.value(), Span::call_site()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-	(quote! {
-		#(#attrs)*
-		#vis #sig {
-			let span = #crate_name::tracing::info_span!(
-				#crate_name::logging::PREFIX_LOG_SPAN,
-				name = #name,
-			);
-			let _enter = span.enter();
+    let crate_name = custom_crate.unwrap_or_else(|| Ident::new("sc_tracing", Span::call_site()));
 
-			#block
-		}
-	})
-	.into()
+    let ItemFn { attrs, vis, sig, block } = item_fn;
+
+    (quote! {
+        #(#attrs)*
+        #vis #sig {
+            let span = #crate_name::tracing::info_span!(
+                #crate_name::logging::PREFIX_LOG_SPAN,
+                name = #name,
+            );
+            let _enter = span.enter();
+
+            #block
+        }
+    })
+        .into()
 }
