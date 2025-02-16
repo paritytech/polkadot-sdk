@@ -22,7 +22,7 @@ use crate::{
 	weights,
 	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
-	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler,
+	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, System,
 	WestendTreasuryAccount, DAYS,
 };
 use cumulus_primitives_core::ParaId;
@@ -212,6 +212,7 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
 	type MaxRank = ConstU32<9>;
+	type BlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
 }
 
 pub type FellowshipSalaryInstance = pallet_salary::Instance1;
@@ -334,5 +335,5 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		sp_core::ConstU8<1>,
 		ConstU32<1000>,
 	>;
-	type BlockNumberProvider = crate::System;
+	type BlockNumberProvider = System;
 }
