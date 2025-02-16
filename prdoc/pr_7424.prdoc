@@ -1,10 +1,10 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Bounded Slashing: Paginated Offence Processing & Slash Application
+title: 'Bounded Slashing: Paginated Offence Processing & Slash Application'
 
 doc:
-  - audience: Runtime Developers
+  - audience: Runtime Dev
     description: |
       This PR refactors the slashing mechanism in `pallet-staking` to be bounded by introducing paged offence processing and paged slash application.
 
