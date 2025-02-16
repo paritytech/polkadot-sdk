@@ -1578,7 +1578,7 @@ pub mod pallet_macros {
 	/// # 	use frame_support::pallet_prelude::*;
 	/// # 	use frame_system::pallet_prelude::*;
 	/// # 	use core::fmt::Debug;
-	/// # 	use frame_support::traits::Contains;
+	/// # 	use frame_support::traits::{Contains, VariantCount};
 	/// #
 	/// # 	pub trait SomeMoreComplexBound {}
 	/// #
@@ -2027,6 +2027,9 @@ pub mod pallet_macros {
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	///
 	/// 	#[pallet::event]
 	/// 	#[pallet::generate_deposit(fn deposit_event)] // Optional
 	/// 	pub enum Event<T> {
@@ -2043,6 +2046,7 @@ pub mod pallet_macros {
 	/// system supertrait's `RuntimeEvent `associated type, i.e:
 	///
 	/// ```rs
+	/// 	#[pallet::config]
 	/// 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {}
 	/// ```
 	///
