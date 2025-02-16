@@ -27,7 +27,7 @@ pub struct NativeAsset;
 impl ContainsPair<Asset, Location> for NativeAsset {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "NativeAsset asset: {:?}, origin: {:?}", asset, origin);
-		matches!(asset.id, AssetId(ref id) if id == origin)
+		matches!(asset.id, AssetId(ref id) if id.chain_location() == *origin)
 	}
 }
 
@@ -204,6 +204,34 @@ mod tests {
 				Filter::contains(&(location.clone(), assets.clone())),
 				expected_result,
 				"expected_result: {expected_result} not matched for (location, assets): ({:?}, {:?})!", location, assets,
+			)
+		}
+	}
+	#[test]
+	fn native_asset_filter_works() {
+		frame_support::parameter_types! {
+			pub ParaA: Location = Location::new(1, [Parachain(1001)]);
+			pub ParaB: Location = Location::new(1, [Parachain(1002)]);
+
+			pub AssetXLocation: Location = Location::new(1, [Parachain(1001), GeneralIndex(1111)]);
+			pub AssetYLocation: Location = Location::new(1, [Parachain(1001)]);
+			pub AssetZLocation: Location = Location::new(1, [Parachain(1002)]);
+		}
+
+		let test_data: Vec<(Location, Asset, bool)> = vec![
+			(ParaA::get(), (AssetXLocation::get(), 1).into(), true),
+			(ParaA::get(), (AssetYLocation::get(), 1).into(), true),
+			(ParaA::get(), (AssetZLocation::get(), 1).into(), false),
+			(ParaB::get(), (AssetXLocation::get(), 1).into(), false),
+			(ParaB::get(), (AssetYLocation::get(), 1).into(), false),
+			(ParaB::get(), (AssetZLocation::get(), 1).into(), true),
+		];
+
+		for (location, asset, expected_result) in test_data {
+			assert_eq!(
+				NativeAsset::contains(&asset.clone(), &location.clone()),
+				expected_result,
+				"expected_result: {expected_result} not matched for (location, asset): ({:?}, {:?})!", location, asset,
 			)
 		}
 	}
