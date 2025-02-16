@@ -43,14 +43,13 @@ use bridge_runtime_common::extensions::{
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::traits::Contains;
-use snowbridge_inbound_queue_primitives::v2::Message;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, DispatchError,
+	ApplyExtrinsicResult,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -100,10 +99,7 @@ use parachains_common::{
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use snowbridge_core::{AgentId, PricingParameters};
-use snowbridge_outbound_queue_primitives::{
-	v1::{Command, Fee},
-	v2::{DryRunError, OutboundMessage},
-};
+use snowbridge_outbound_queue_primitives::v1::{Command, Fee};
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
 use xcm::VersionedLocation;
@@ -945,9 +941,6 @@ impl_runtime_apis! {
 	impl snowbridge_outbound_queue_runtime_api_v2::OutboundQueueV2Api<Block, Balance> for Runtime {
 		fn prove_message(leaf_index: u64) -> Option<snowbridge_merkle_tree::MerkleProof> {
 			snowbridge_pallet_outbound_queue_v2::api::prove_message::<Runtime>(leaf_index)
-		}
-		fn dry_run(xcm: Xcm<()>) -> Result<(OutboundMessage,Balance),DryRunError> {
-			snowbridge_pallet_outbound_queue_v2::api::dry_run::<Runtime>(xcm)
 		}
 	}
 

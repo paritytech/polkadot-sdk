@@ -24,7 +24,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-pub mod api;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

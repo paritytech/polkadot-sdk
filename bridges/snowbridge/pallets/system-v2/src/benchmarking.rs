@@ -15,7 +15,7 @@ mod benchmarks {
 	#[benchmark]
 	fn create_agent() -> Result<(), BenchmarkError> {
 		let origin_location = Location::new(1, [Parachain(1000)]);
-		let origin = T::Helper::make_xcm_origin(origin_location);
+		let origin = <T as Config>::Helper::make_xcm_origin(origin_location);
 
 		let agent_origin = Box::new(VersionedLocation::from(Location::parent()));
 
@@ -28,7 +28,7 @@ mod benchmarks {
 	#[benchmark]
 	fn register_token() -> Result<(), BenchmarkError> {
 		let origin_location = Location::new(1, [Parachain(1000)]);
-		let origin = T::Helper::make_xcm_origin(origin_location);
+		let origin = <T as Config>::Helper::make_xcm_origin(origin_location);
 
 		let relay_token_asset_id: Location = Location::parent();
 		let asset = Box::new(VersionedLocation::from(relay_token_asset_id));

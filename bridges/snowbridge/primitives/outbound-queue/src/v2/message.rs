@@ -4,7 +4,6 @@
 
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
-use hex_literal::hex;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160, H256};
@@ -19,7 +18,6 @@ use alloy_core::{
 	primitives::{Address, Bytes, FixedBytes, U256},
 	sol_types::SolValue,
 };
-use xcm::prelude::Location;
 
 pub mod abi {
 	use alloy_core::sol;
@@ -122,8 +120,6 @@ pub const MAX_COMMANDS: u32 = 8;
 /// A message which can be accepted by implementations of `/[`SendMessage`\]`
 #[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
 pub struct Message {
-	/// Origin Location
-	pub origin_location: Location,
 	/// Origin
 	pub origin: H256,
 	/// ID
@@ -186,11 +182,11 @@ pub enum Command {
 	CallContract {
 		/// Target contract address
 		target: H160,
-		/// The call data to the contract
-		data: Vec<u8>,
-		/// The dynamic gas component that needs to be specified when executing the contract
-		gas_limit: u64,
-		/// Ether Value(require to prefund the agent first)
+		/// ABI-encoded calldata
+		calldata: Vec<u8>,
+		/// Maximum gas to forward to target contract
+		gas: u64,
+		/// Include ether held by agent contract
 		value: u128,
 	},
 }
@@ -244,7 +240,7 @@ impl Command {
 				amount: *amount,
 			}
 			.abi_encode(),
-			Command::CallContract { target, data, value, .. } => CallContractParams {
+			Command::CallContract { target, calldata: data, value, .. } => CallContractParams {
 				target: Address::from(target.as_fixed_bytes()),
 				data: Bytes::from(data.to_vec()),
 				value: U256::try_from(*value).unwrap(),
@@ -311,7 +307,7 @@ impl GasMeter for ConstantGasMeter {
 			Command::UnlockNativeToken { .. } => 100_000,
 			Command::RegisterForeignToken { .. } => 1_200_000,
 			Command::MintForeignToken { .. } => 100_000,
-			Command::CallContract { gas_limit, .. } => *gas_limit,
+			Command::CallContract { gas: gas_limit, .. } => *gas_limit,
 		}
 	}
 }
@@ -320,14 +316,4 @@ impl GasMeter for () {
 	fn maximum_dispatch_gas_used_at_most(_: &Command) -> u64 {
 		1
 	}
-}
-
-// Origin for high-priority governance commands
-pub fn primary_governance_origin() -> H256 {
-	hex!("0000000000000000000000000000000000000000000000000000000000000001").into()
-}
-
-// Origin for lower-priority governance commands
-pub fn second_governance_origin() -> H256 {
-	hex!("0000000000000000000000000000000000000000000000000000000000000002").into()
 }

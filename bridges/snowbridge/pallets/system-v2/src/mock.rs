@@ -3,19 +3,22 @@
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{tokens::fungible::Mutate, ConstU128, Contains},
+	PalletId,
 };
 use sp_core::H256;
-use xcm_executor::traits::ConvertLocation;
 
-use crate as snowbridge_system;
-use snowbridge_core::{sibling_sovereign_account, AgentId, ParaId};
+use crate as snowbridge_system_v2;
+use snowbridge_core::{
+	gwei, meth, sibling_sovereign_account, AllowSiblingsOnly, ParaId, PricingParameters, Rewards,
+};
 use snowbridge_outbound_queue_primitives::{
+	v1::{Fee, Message as MessageV1, SendMessage as SendMessageV1},
 	v2::{Message, SendMessage},
 	SendMessageFeeProvider,
 };
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	AccountId32, BuildStorage,
+	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
+	AccountId32, BuildStorage, FixedU128,
 };
 use xcm::prelude::*;
 
@@ -89,7 +92,8 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		XcmOrigin: pallet_xcm_origin::{Pallet, Origin},
-		EthereumSystem: snowbridge_system,
+		EthereumSystem: snowbridge_pallet_system,
+		EthereumSystemV2: snowbridge_system_v2,
 	}
 );
 
@@ -146,6 +150,32 @@ impl SendMessageFeeProvider for MockOkOutboundQueue {
 	}
 }
 
+pub struct MockOkOutboundQueueV1;
+impl SendMessageV1 for MockOkOutboundQueueV1 {
+	type Ticket = ();
+
+	fn validate(
+		_: &MessageV1,
+	) -> Result<
+		(Self::Ticket, Fee<<Self as SendMessageFeeProvider>::Balance>),
+		snowbridge_outbound_queue_primitives::SendError,
+	> {
+		Ok(((), Fee::from((0, 0))))
+	}
+
+	fn deliver(_: Self::Ticket) -> Result<H256, snowbridge_outbound_queue_primitives::SendError> {
+		Ok(H256::zero())
+	}
+}
+
+impl SendMessageFeeProvider for MockOkOutboundQueueV1 {
+	type Balance = u128;
+
+	fn local_fee() -> Self::Balance {
+		1
+	}
+}
+
 parameter_types! {
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub const RelayNetwork: Option<NetworkId> = Some(Polkadot);
@@ -157,7 +187,6 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub Fee: u64 = 1000;
 	pub const InitialFunding: u128 = 1_000_000_000_000;
 	pub BridgeHubParaId: ParaId = ParaId::new(1002);
 	pub AssetHubParaId: ParaId = ParaId::new(1000);
@@ -189,8 +218,39 @@ impl Contains<Location> for AllowFromAssetHub {
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = MockOkOutboundQueue;
-	type SiblingOrigin = EnsureXcm<AllowFromAssetHub>;
+	type FrontendOrigin = EnsureXcm<AllowFromAssetHub>;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
+}
+
+parameter_types! {
+	pub TreasuryAccount: AccountId = PalletId(*b"py/trsry").into_account_truncating();
+	pub Parameters: PricingParameters<u128> = PricingParameters {
+		exchange_rate: FixedU128::from_rational(1, 400),
+		fee_per_gas: gwei(20),
+		rewards: Rewards { local: 10_000_000_000, remote: meth(1) },
+		multiplier: FixedU128::from_rational(4, 3)
+	};
+	pub const InboundDeliveryCost: u128 = 1_000_000_000;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
+	fn make_xcm_origin(location: Location) -> RuntimeOrigin {
+		RuntimeOrigin::from(pallet_xcm_origin::Origin(location))
+	}
+}
+
+impl snowbridge_pallet_system::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type OutboundQueue = MockOkOutboundQueueV1;
+	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
 	type AgentIdOf = snowbridge_core::AgentIdOf;
+	type Token = Balances;
+	type TreasuryAccount = TreasuryAccount;
+	type DefaultPricingParameters = Parameters;
+	type InboundDeliveryCost = InboundDeliveryCost;
 	type WeightInfo = ();
 	type UniversalLocation = UniversalLocation;
 	type EthereumLocation = EthereumDestination;
@@ -218,9 +278,4 @@ pub fn new_test_ext(_genesis_build: bool) -> sp_io::TestExternalities {
 
 pub fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 	pallet_xcm_origin::Origin(location).into()
-}
-
-pub fn make_agent_id(location: Location) -> AgentId {
-	<Test as snowbridge_system::Config>::AgentIdOf::convert_location(&location)
-		.expect("convert location")
 }

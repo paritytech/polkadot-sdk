@@ -3,8 +3,10 @@
 use crate as snowbridge_system_frontend;
 use crate::mock::pallet_xcm_origin::EnsureXcm;
 use codec::Encode;
-use frame_support::{derive_impl, parameter_types, traits::Everything};
-use hex_literal::hex;
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{AsEnsureOriginWithArg, Everything},
+};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -168,18 +170,39 @@ impl TransactAsset for SuccessfulTransactor {
 	}
 }
 
+pub enum Weightless {}
+impl PreparedMessage for Weightless {
+	fn weight_of(&self) -> Weight {
+		unreachable!();
+	}
+}
+
+pub struct MockXcmExecutor;
+impl<C> ExecuteXcm<C> for MockXcmExecutor {
+	type Prepared = Weightless;
+	fn prepare(message: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
+		Err(message)
+	}
+	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
+		unreachable!()
+	}
+	fn charge_fees(_: impl Into<Location>, _: Assets) -> xcm::latest::Result {
+		Ok(())
+	}
+}
+
 parameter_types! {
-	pub storage WETH: Location = Location::new(
+	pub storage Ether: Location = Location::new(
 				2,
 				[
 					GlobalConsensus(Ethereum { chain_id: 11155111 }),
-					AccountKey20 {
-						network: None,
-						key: hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"),
-					},
 				],
 	);
 	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
+	pub BridgeHubLocation: Location = Location::new(1, [Parachain(1002)]);
+	pub UniversalLocation: InteriorLocation =
+		[GlobalConsensus(Polkadot), Parachain(1000)].into();
+	pub PalletLocation: InteriorLocation = [PalletInstance(80)].into();
 }
 
 impl crate::Config for Test {
@@ -188,11 +211,14 @@ impl crate::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 	type CreateAgentOrigin = EnsureXcm<Everything>;
-	type RegisterTokenOrigin = EnsureXcm<Everything>;
+	type RegisterTokenOrigin = AsEnsureOriginWithArg<EnsureXcm<Everything>>;
 	type XcmSender = MockXcmSender;
 	type AssetTransactor = SuccessfulTransactor;
-	type FeeAsset = WETH;
-	type DeliveryFee = DeliveryFee;
+	type EthereumLocation = Ether;
+	type XcmExecutor = MockXcmExecutor;
+	type BridgeHubLocation = BridgeHubLocation;
+	type UniversalLocation = UniversalLocation;
+	type PalletLocation = PalletLocation;
 }
 
 // Build genesis storage according to the mock runtime.

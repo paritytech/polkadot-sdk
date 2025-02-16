@@ -36,7 +36,7 @@ pub const INITIAL_FUND: u128 = 50_000_000_000_000;
 pub const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 pub const AGENT_ADDRESS: [u8; 20] = hex!("90A987B944Cb1dCcE5564e5FDeCD7a54D3de27Fe");
 pub const TOKEN_AMOUNT: u128 = 10_000_000_000_000;
-pub const REMOTE_FEE_AMOUNT_IN_WETH: u128 = 400_000_000_000;
+pub const REMOTE_FEE_AMOUNT_IN_ETHER: u128 = 400_000_000_000;
 pub const LOCAL_FEE_AMOUNT_IN_DOT: u128 = 800_000_000_000;
 
 pub const EXECUTION_WEIGHT: u64 = 8_000_000_000;
@@ -358,73 +358,6 @@ pub fn register_pal_on_bh() {
 		assert_expected_events!(
 			BridgeHubWestend,
 			vec![RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::RegisterToken { .. }) => {},]
-		);
-	});
-}
-
-pub fn register_ah_user_agent_on_ethereum() {
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
-
-		let location = Location::new(
-			1,
-			[
-				Parachain(AssetHubWestend::para_id().into()),
-				AccountId32 { network: None, id: AssetHubWestendSender::get().into() },
-			],
-		);
-
-		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystemV2::create_agent(
-			RuntimeOrigin::root(),
-			bx!(location.into()),
-			REMOTE_FEE_AMOUNT_IN_WETH,
-		));
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::CreateAgent{ .. }) => {},]
-		);
-	});
-}
-
-pub fn register_penpal_agent_on_ethereum() {
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
-
-		let location = Location::new(1, [Parachain(PenpalB::para_id().into())]);
-
-		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystemV2::create_agent(
-			RuntimeOrigin::root(),
-			bx!(location.into()),
-			REMOTE_FEE_AMOUNT_IN_WETH
-		));
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::CreateAgent{ .. }) => {},]
-		);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
-
-		let location = Location::new(
-			1,
-			[
-				Parachain(PenpalB::para_id().into()),
-				AccountId32 { network: None, id: PenpalBSender::get().into() },
-			],
-		);
-
-		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystemV2::create_agent(
-			RuntimeOrigin::root(),
-			bx!(location.into()),
-			REMOTE_FEE_AMOUNT_IN_WETH,
-		));
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::CreateAgent{ .. }) => {},]
 		);
 	});
 }

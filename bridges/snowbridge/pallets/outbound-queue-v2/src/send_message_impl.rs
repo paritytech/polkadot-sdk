@@ -9,7 +9,7 @@ use frame_support::{
 	traits::{EnqueueMessage, Get},
 };
 use snowbridge_outbound_queue_primitives::{
-	v2::{primary_governance_origin, Message, SendMessage},
+	v2::{Message, SendMessage},
 	SendError, SendMessageFeeProvider,
 };
 use sp_core::H256;
@@ -38,10 +38,6 @@ where
 
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
 		let origin = AggregateMessageOrigin::SnowbridgeV2(ticket.origin);
-
-		if ticket.origin != primary_governance_origin() {
-			ensure!(!Self::operating_mode().is_halted(), SendError::Halted);
-		}
 
 		let message =
 			BoundedVec::try_from(ticket.encode()).map_err(|_| SendError::MessageTooLarge)?;

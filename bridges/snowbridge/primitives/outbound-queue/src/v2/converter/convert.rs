@@ -9,14 +9,16 @@ use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
 
 use crate::v2::{
 	message::{Command, Message},
-	TransactInfo,
+	ContractCall,
 };
 
+use crate::v2::convert::XcmConverterError::{AssetResolutionFailed, FilterDoesNotConsumeAllAssets};
 use sp_core::H160;
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
+use XcmConverterError::*;
 
 /// Errors that can be thrown to the pattern matching step.
 #[derive(PartialEq, Debug)]
@@ -71,11 +73,6 @@ where
 		}
 	}
 
-	pub fn convert(&mut self) -> Result<Message, XcmConverterError> {
-		let result = self.to_ethereum_message()?;
-		Ok(result)
-	}
-
 	fn next(&mut self) -> Result<&'a Instruction<Call>, XcmConverterError> {
 		self.iter.next().ok_or(XcmConverterError::UnexpectedEndOfXcm)
 	}
@@ -109,18 +106,105 @@ where
 		Ok(fee_amount)
 	}
 
-	/// Convert the xcm into the Message which will be executed
-	/// on Ethereum Gateway contract, we expect an input of the form:
-	/// # WithdrawAsset(WETH)
-	/// # PayFees(WETH)
-	/// # ReserveAssetDeposited(PNA) | WithdrawAsset(ENA)
-	/// # AliasOrigin(Origin)
-	/// # DepositAsset(PNA|ENA)
-	/// # Transact() ---Optional
-	/// # SetTopic
-	fn to_ethereum_message(&mut self) -> Result<Message, XcmConverterError> {
-		use XcmConverterError::*;
+	/// Extract ethereum native assets
+	fn extract_ethereum_native_assets(
+		&mut self,
+		enas: &Assets,
+		deposit_assets: &AssetFilter,
+		recipient: H160,
+	) -> Result<Vec<Command>, XcmConverterError> {
+		let mut commands: Vec<Command> = Vec::new();
+		for ena in enas.clone().inner().iter() {
+			// Check the the deposit asset filter matches what was reserved.
+			if !deposit_assets.matches(ena) {
+				return Err(FilterDoesNotConsumeAllAssets);
+			}
 
+			// only fungible asset is allowed
+			let (token, amount) = match ena {
+				Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+					match inner_location.unpack() {
+						(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
+							Some((H160(*key), *amount)),
+						// To allow ether
+						(0, []) => Some((H160([0; 20]), *amount)),
+						_ => None,
+					},
+				_ => None,
+			}
+			.ok_or(AssetResolutionFailed)?;
+
+			// transfer amount must be greater than 0.
+			ensure!(amount > 0, ZeroAssetTransfer);
+
+			commands.push(Command::UnlockNativeToken { token, recipient, amount });
+		}
+		Ok(commands)
+	}
+
+	/// Extract polkadot native assets
+	fn extract_polkadot_native_assets(
+		&mut self,
+		pnas: &Assets,
+		deposit_assets: &AssetFilter,
+		recipient: H160,
+	) -> Result<Vec<Command>, XcmConverterError> {
+		let mut commands: Vec<Command> = Vec::new();
+		ensure!(pnas.len() > 0, NoReserveAssets);
+		for pna in pnas.clone().inner().iter() {
+			if !deposit_assets.matches(pna) {
+				return Err(FilterDoesNotConsumeAllAssets);
+			}
+
+			// Only fungible is allowed
+			let (asset_id, amount) = match pna {
+				Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+					Some((inner_location.clone(), *amount)),
+				_ => None,
+			}
+			.ok_or(AssetResolutionFailed)?;
+
+			// transfer amount must be greater than 0.
+			ensure!(amount > 0, ZeroAssetTransfer);
+
+			// Ensure PNA already registered
+			let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
+			let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
+			ensure!(asset_id == expected_asset_id, InvalidAsset);
+
+			commands.push(Command::MintForeignToken { token_id, recipient, amount });
+		}
+		Ok(commands)
+	}
+
+	/// Convert the xcm into an outbound message which can be dispatched to
+	/// the Gateway contract on Ethereum
+	///
+	/// Assets being transferred can either be Polkadot-native assets (PNA)
+	/// or Ethereum-native assets (ENA).
+	///
+	/// Expected Input Syntax:
+	/// ```ignore
+	/// WithdrawAsset(ETH)
+	/// PayFees(ETH)
+	/// ReserveAssetDeposited(PNA) | WithdrawAsset(ENA)
+	/// AliasOrigin(Origin)
+	/// DepositAsset(Asset)
+	/// Transact() [OPTIONAL]
+	/// SetTopic(Topic)
+	/// ```
+	/// Notes:
+	/// a. Fee asset will be checked and currently only Ether is allowed
+	/// b. For a specific transfer, either `ReserveAssetDeposited` or `WithdrawAsset` should be
+	/// 	present
+	/// c. `ReserveAssetDeposited` and `WithdrawAsset` can also be present in any order within the
+	/// 	same message
+	/// d. Currently, teleport asset is not allowed, transfer types other than
+	/// 	above will cause the conversion to fail
+	/// e. Currently, `AliasOrigin` is always required, can distinguish the V2 process from V1.
+	/// 	it's required also for dispatching transact from that specific origin.
+	/// f. SetTopic is required for tracing the message all the way along.
+	pub fn convert(&mut self) -> Result<Message, XcmConverterError> {
 		// Get fee amount
 		let fee_amount = self.extract_remote_fee()?;
 
@@ -172,66 +256,27 @@ where
 
 		// Make sure there are reserved assets.
 		if enas.is_none() && pnas.is_none() {
-			return Err(NoReserveAssets)
+			return Err(NoReserveAssets);
 		}
 
 		let mut commands: Vec<Command> = Vec::new();
 
 		// ENA transfer commands
 		if let Some(enas) = enas {
-			for ena in enas.clone().inner().iter() {
-				// Check the the deposit asset filter matches what was reserved.
-				if !deposit_assets.matches(ena) {
-					return Err(FilterDoesNotConsumeAllAssets)
-				}
-
-				// only fungible asset is allowed
-				let (token, amount) = match ena {
-					Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
-						match inner_location.unpack() {
-							(0, [AccountKey20 { network, key }])
-								if self.network_matches(network) =>
-								Some((H160(*key), *amount)),
-							_ => None,
-						},
-					_ => None,
-				}
-				.ok_or(AssetResolutionFailed)?;
-
-				// transfer amount must be greater than 0.
-				ensure!(amount > 0, ZeroAssetTransfer);
-
-				commands.push(Command::UnlockNativeToken { token, recipient, amount });
-			}
+			commands.append(&mut self.extract_ethereum_native_assets(
+				enas,
+				deposit_assets,
+				recipient,
+			)?);
 		}
 
 		// PNA transfer commands
 		if let Some(pnas) = pnas {
-			ensure!(pnas.len() > 0, NoReserveAssets);
-			for pna in pnas.clone().inner().iter() {
-				// Check the the deposit asset filter matches what was reserved.
-				if !deposit_assets.matches(pna) {
-					return Err(FilterDoesNotConsumeAllAssets)
-				}
-
-				// Only fungible is allowed
-				let (asset_id, amount) = match pna {
-					Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
-						Some((inner_location.clone(), *amount)),
-					_ => None,
-				}
-				.ok_or(AssetResolutionFailed)?;
-
-				// transfer amount must be greater than 0.
-				ensure!(amount > 0, ZeroAssetTransfer);
-
-				// Ensure PNA already registered
-				let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
-				let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
-				ensure!(asset_id == expected_asset_id, InvalidAsset);
-
-				commands.push(Command::MintForeignToken { token_id, recipient, amount });
-			}
+			commands.append(&mut self.extract_polkadot_native_assets(
+				pnas,
+				deposit_assets,
+				recipient,
+			)?);
 		}
 
 		// Transact commands
@@ -239,14 +284,12 @@ where
 		if let Some(transact_call) = transact_call {
 			let _ = self.next();
 			let transact =
-				TransactInfo::decode_all(&mut transact_call.clone().into_encoded().as_slice())
+				ContractCall::decode_all(&mut transact_call.clone().into_encoded().as_slice())
 					.map_err(|_| TransactDecodeFailed)?;
-			commands.push(Command::CallContract {
-				target: transact.target,
-				data: transact.data,
-				gas_limit: transact.gas_limit,
-				value: transact.value,
-			});
+			match transact {
+				ContractCall::V1 { target, calldata, gas, value } => commands
+					.push(Command::CallContract { target: target.into(), calldata, gas, value }),
+			}
 		}
 
 		// ensure SetTopic exists
@@ -254,7 +297,6 @@ where
 
 		let message = Message {
 			id: (*topic_id).into(),
-			origin_location: origin_location.clone(),
 			origin,
 			fee: fee_amount,
 			commands: BoundedVec::try_from(commands).map_err(|_| TooManyCommands)?,
@@ -262,7 +304,7 @@ where
 
 		// All xcm instructions must be consumed before exit.
 		if self.next().is_ok() {
-			return Err(EndOfXcmMessageExpected)
+			return Err(EndOfXcmMessageExpected);
 		}
 
 		Ok(message)

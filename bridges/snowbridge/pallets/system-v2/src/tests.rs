@@ -11,15 +11,10 @@ fn create_agent() {
 
 		let agent_origin = Location::new(1, [Parachain(2000)]);
 
-		let reanchored_location = agent_origin
-			.clone()
-			.reanchored(&EthereumDestination::get(), &UniversalLocation::get())
-			.unwrap();
-
-		let agent_id = make_agent_id(reanchored_location);
+		let agent_id = EthereumSystemV2::location_to_message_origin(&agent_origin).unwrap();
 
 		assert!(!Agents::<Test>::contains_key(agent_id));
-		assert_ok!(EthereumSystem::create_agent(
+		assert_ok!(EthereumSystemV2::create_agent(
 			origin,
 			Box::new(VersionedLocation::from(agent_origin)),
 			1
@@ -33,7 +28,7 @@ fn create_agent() {
 fn create_agent_bad_origin() {
 	new_test_ext(true).execute_with(|| {
 		assert_noop!(
-			EthereumSystem::create_agent(
+			EthereumSystemV2::create_agent(
 				make_xcm_origin(Location::new(1, []),),
 				Box::new(Here.into()),
 				1,
@@ -43,7 +38,7 @@ fn create_agent_bad_origin() {
 
 		// None origin not allowed
 		assert_noop!(
-			EthereumSystem::create_agent(RuntimeOrigin::none(), Box::new(Here.into()), 1),
+			EthereumSystemV2::create_agent(RuntimeOrigin::none(), Box::new(Here.into()), 1),
 			BadOrigin
 		);
 	});
@@ -55,7 +50,7 @@ fn register_tokens_succeeds() {
 		let origin = make_xcm_origin(Location::new(1, [Parachain(1000)]));
 		let versioned_location: VersionedLocation = Location::parent().into();
 
-		assert_ok!(EthereumSystem::register_token(
+		assert_ok!(EthereumSystemV2::register_token(
 			origin,
 			Box::new(versioned_location),
 			Default::default(),

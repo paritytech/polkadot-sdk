@@ -19,9 +19,24 @@ use frame_support::pallet_prelude::TypeInfo;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
 use snowbridge_core::AssetMetadata;
 use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
-use snowbridge_outbound_queue_primitives::v2::TransactInfo;
+use snowbridge_outbound_queue_primitives::v2::ContractCall;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
+
+#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
+pub enum EthereumSystemFrontendCall {
+	#[codec(index = 1)]
+	CreateAgent { fee: u128 },
+	#[codec(index = 2)]
+	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata, fee: u128 },
+}
+
+#[allow(clippy::large_enum_variant)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
+pub enum EthereumSystemFrontend {
+	#[codec(index = 80)]
+	EthereumSystemFrontend(EthereumSystemFrontendCall),
+}
 
 #[test]
 fn send_weth_from_asset_hub_to_ethereum() {
@@ -38,7 +53,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 
 		let remote_fee_asset =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
 		let reserve_asset = Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT) };
 
@@ -82,6 +97,67 @@ fn send_weth_from_asset_hub_to_ethereum() {
 	});
 }
 
+pub fn register_relay_token_from_asset_hub_with_sudo() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
+				RuntimeOrigin::root(),
+				bx!(VersionedLocation::from(Location { parents: 1, interior: [].into() })),
+				AssetMetadata {
+					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 12,
+				},
+				REMOTE_FEE_AMOUNT_IN_ETHER
+			)
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+// #[test]
+pub fn register_relay_token_from_asset_hub_user_origin() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
+				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				bx!(VersionedLocation::from(Location { parents: 1, interior: [].into() })),
+				AssetMetadata {
+					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 12,
+				},
+				REMOTE_FEE_AMOUNT_IN_ETHER
+			)
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
 #[test]
 fn transfer_relay_token_from_ah() {
 	let ethereum_sovereign: AccountId =
@@ -91,6 +167,10 @@ fn transfer_relay_token_from_ah() {
 
 	fund_on_bh();
 
+	// register token in either of the follow way should work
+	// a. register_relay_token_on_bh();
+	// b. register_relay_token_from_asset_hub_with_sudo();
+	// c. register_relay_token_from_asset_hub_user_origin();
 	register_relay_token_on_bh();
 
 	register_assets_on_ah();
@@ -105,7 +185,7 @@ fn transfer_relay_token_from_ah() {
 		let local_fee_asset =
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 		let remote_fee_asset =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
 		let assets = vec![
 			Asset {
@@ -181,7 +261,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		let local_fee_asset =
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 		let remote_fee_asset =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
 		let weth_asset = Asset { id: weth_location().into(), fun: Fungible(TOKEN_AMOUNT) };
 
@@ -233,12 +313,37 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 }
 
 #[test]
-fn transact_with_agent() {
+fn register_agent_from_asset_hub() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::create_agent(
+				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				REMOTE_FEE_AMOUNT_IN_ETHER
+			)
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn transact_with_agent_from_asset_hub() {
 	let weth_asset_location: Location = weth_location();
 
 	fund_on_bh();
 
-	register_ah_user_agent_on_ethereum();
+	register_agent_from_asset_hub();
 
 	register_assets_on_ah();
 
@@ -251,7 +356,7 @@ fn transact_with_agent() {
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 
 		let remote_fee_asset =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
 		let reserve_asset =
 			Asset { id: AssetId(weth_asset_location.clone()), fun: Fungible(TOKEN_AMOUNT) };
@@ -261,12 +366,12 @@ fn transact_with_agent() {
 		let beneficiary =
 			Location::new(0, [AccountKey20 { network: None, key: AGENT_ADDRESS.into() }]);
 
-		let transact_info = TransactInfo {
+		let transact_info = ContractCall::V1 {
 			target: Default::default(),
-			data: vec![],
-			gas_limit: 40000,
+			calldata: vec![],
+			gas: 40000,
 			// value should be less than the transfer amount, require validation on BH Exporter
-			value: 4 * (TOKEN_AMOUNT - REMOTE_FEE_AMOUNT_IN_WETH) / 5,
+			value: 4 * (TOKEN_AMOUNT - REMOTE_FEE_AMOUNT_IN_ETHER) / 5,
 		};
 
 		let xcms = VersionedXcm::from(Xcm(vec![
@@ -310,19 +415,204 @@ fn transact_with_agent() {
 	});
 }
 
+#[test]
+fn register_token_from_penpal() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	create_pools_on_ah();
+	set_trust_reserve_on_penpal();
+	register_assets_on_penpal();
+	fund_on_penpal();
+	let penpal_user_location = Location::new(
+		1,
+		[
+			Parachain(PenpalB::para_id().into()),
+			AccountId32 {
+				network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
+				id: PenpalBSender::get().into(),
+			},
+		],
+	);
+	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHub::get();
+	let foreign_asset_at_asset_hub =
+		Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
+			.appended_with(asset_location_on_penpal)
+			.unwrap();
+	PenpalB::execute_with(|| {
+		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
+
+		let local_fee_asset_on_penpal =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+
+		let remote_fee_asset_on_ah =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
+		let remote_fee_asset_on_ethereum =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
+		let call = EthereumSystemFrontend::EthereumSystemFrontend(
+			EthereumSystemFrontendCall::RegisterToken {
+				asset_id: Box::new(VersionedLocation::from(foreign_asset_at_asset_hub)),
+				metadata: Default::default(),
+				fee: REMOTE_FEE_AMOUNT_IN_ETHER,
+			},
+		);
+
+		let assets = vec![
+			local_fee_asset_on_penpal.clone(),
+			remote_fee_asset_on_ah.clone(),
+			remote_fee_asset_on_ethereum.clone(),
+		];
+
+		let xcm = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset_on_penpal.clone() },
+			InitiateTransfer {
+				destination: asset_hub(),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset_on_ah.clone().into(),
+				))),
+				preserve_origin: true,
+				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset_on_ethereum.clone().into(),
+				))],
+				remote_xcm: Xcm(vec![
+					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						call: call.encode().into(),
+						fallback_max_weight: None,
+					},
+					ExpectTransactStatus(MaybeErrorCode::Success),
+				]),
+			},
+		]));
+
+		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::root(),
+			bx!(xcm.clone()),
+			Weight::from(EXECUTION_WEIGHT),
+		));
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { .. }) => {},]
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn register_user_agent_from_penpal() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	create_pools_on_ah();
+	set_trust_reserve_on_penpal();
+	register_assets_on_penpal();
+	fund_on_penpal();
+	let penpal_user_location = Location::new(
+		1,
+		[
+			Parachain(PenpalB::para_id().into()),
+			AccountId32 {
+				network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
+				id: PenpalBSender::get().into(),
+			},
+		],
+	);
+	PenpalB::execute_with(|| {
+		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
+
+		let local_fee_asset_on_penpal =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+
+		let remote_fee_asset_on_ah =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
+		let remote_fee_asset_on_ethereum =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
+		let call = EthereumSystemFrontend::EthereumSystemFrontend(
+			EthereumSystemFrontendCall::CreateAgent { fee: REMOTE_FEE_AMOUNT_IN_ETHER },
+		);
+
+		let assets = vec![
+			local_fee_asset_on_penpal.clone(),
+			remote_fee_asset_on_ah.clone(),
+			remote_fee_asset_on_ethereum.clone(),
+		];
+
+		let xcm = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset_on_penpal.clone() },
+			InitiateTransfer {
+				destination: asset_hub(),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset_on_ah.clone().into(),
+				))),
+				preserve_origin: true,
+				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset_on_ethereum.clone().into(),
+				))],
+				remote_xcm: Xcm(vec![
+					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						call: call.encode().into(),
+						fallback_max_weight: None,
+					},
+					ExpectTransactStatus(MaybeErrorCode::Success),
+				]),
+			},
+		]));
+
+		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(PenpalBSender::get()),
+			bx!(xcm.clone()),
+			Weight::from(EXECUTION_WEIGHT),
+		));
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { .. }) => {},]
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
 fn send_message_from_penpal_to_ethereum(sudo: bool) {
 	// bh
 	fund_on_bh();
-	register_penpal_agent_on_ethereum();
+	register_user_agent_from_penpal();
 	// ah
 	register_assets_on_ah();
 	register_pal_on_ah();
 	register_pal_on_bh();
 	fund_on_ah();
-	create_pools_on_ah();
 	// penpal
 	set_trust_reserve_on_penpal();
-	register_assets_on_penpal();
 	fund_on_penpal();
 
 	PenpalB::execute_with(|| {
@@ -332,10 +622,10 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
 
 		let remote_fee_asset_on_ah =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
 		let remote_fee_asset_on_ethereum =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
 		let pna =
 			Asset { id: AssetId(LocalTeleportableToAssetHub::get()), fun: Fungible(TOKEN_AMOUNT) };
@@ -356,7 +646,7 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 		];
 
 		let transact_info =
-			TransactInfo { target: Default::default(), data: vec![], gas_limit: 40000, value: 0 };
+			ContractCall::V1 { target: Default::default(), calldata: vec![], gas: 40000, value: 0 };
 
 		let xcm = VersionedXcm::from(Xcm(vec![
 			WithdrawAsset(assets.clone().into()),
@@ -447,108 +737,4 @@ fn send_message_from_penpal_to_ethereum_with_sudo() {
 #[test]
 fn send_message_from_penpal_to_ethereum_with_user_origin() {
 	send_message_from_penpal_to_ethereum(false)
-}
-
-#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum ControlFrontendCall {
-	#[codec(index = 1)]
-	CreateAgent { fee: u128 },
-	#[codec(index = 2)]
-	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata, fee: u128 },
-}
-
-#[allow(clippy::large_enum_variant)]
-#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum SnowbridgeControlFrontend {
-	#[codec(index = 80)]
-	Control(ControlFrontendCall),
-}
-
-#[test]
-fn create_user_agent_from_penpal() {
-	fund_on_bh();
-	register_assets_on_ah();
-	fund_on_ah();
-	create_pools_on_ah();
-	set_trust_reserve_on_penpal();
-	register_assets_on_penpal();
-	fund_on_penpal();
-	let penpal_user_location = Location::new(
-		1,
-		[
-			Parachain(PenpalB::para_id().into()),
-			AccountId32 {
-				network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
-				id: PenpalBSender::get().into(),
-			},
-		],
-	);
-	PenpalB::execute_with(|| {
-		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
-
-		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
-
-		let remote_fee_asset_on_ah =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
-
-		let remote_fee_asset_on_ethereum =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_WETH) };
-
-		let call = SnowbridgeControlFrontend::Control(ControlFrontendCall::CreateAgent {
-			fee: REMOTE_FEE_AMOUNT_IN_WETH,
-		});
-
-		let assets = vec![
-			local_fee_asset_on_penpal.clone(),
-			remote_fee_asset_on_ah.clone(),
-			remote_fee_asset_on_ethereum.clone(),
-		];
-
-		let xcm = VersionedXcm::from(Xcm(vec![
-			WithdrawAsset(assets.clone().into()),
-			PayFees { asset: local_fee_asset_on_penpal.clone() },
-			InitiateTransfer {
-				destination: asset_hub(),
-				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset_on_ah.clone().into(),
-				))),
-				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset_on_ethereum.clone().into(),
-				))],
-				remote_xcm: Xcm(vec![
-					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
-					Transact {
-						origin_kind: OriginKind::Xcm,
-						call: call.encode().into(),
-						fallback_max_weight: None,
-					},
-					ExpectTransactStatus(MaybeErrorCode::Success),
-				]),
-			},
-		]));
-
-		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(PenpalBSender::get()),
-			bx!(xcm.clone()),
-			Weight::from(EXECUTION_WEIGHT),
-		));
-	});
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { .. }) => {},]
-		);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
-		);
-	});
 }

@@ -1,27 +1,26 @@
 pub mod converter;
+pub mod delivery_receipt;
 pub mod message;
-pub mod message_receipt;
 
 pub use converter::*;
+pub use delivery_receipt::*;
 pub use message::*;
-pub use message_receipt::*;
 
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_core::H160;
 use sp_std::prelude::*;
 
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-pub enum DryRunError {
-	ConvertLocationFailed,
-	ConvertXcmFailed,
-}
-
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct TransactInfo {
-	pub target: H160,
-	pub data: Vec<u8>,
-	pub gas_limit: u64,
-	pub value: u128,
+pub enum ContractCall {
+	V1 {
+		/// Target contract address
+		target: [u8; 20],
+		/// ABI-encoded calldata
+		calldata: Vec<u8>,
+		/// Include ether held by agent contract
+		value: u128,
+		/// Maximum gas to forward to target contract
+		gas: u64,
+	},
 }
