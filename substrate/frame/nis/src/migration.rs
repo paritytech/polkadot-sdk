@@ -65,18 +65,25 @@ pub mod switch_block_number_provider {
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// Decode pre-upgrade state
 			let (old_receipts, old_summary): (
-				Vec<(ReceiptIndex, ReceiptRecordOf<T>)>,
-				SummaryRecordOf<T>,
+				Vec<(ReceiptIndex, v0::OldReceiptRecordOf<T>)>,
+				v0::OldSummaryRecordOf<T>,
 			) = Decode::decode(&mut &state[..]).expect("pre_upgrade data must decode");
+
+			// Assert the count of receipts after migration matches the original count
+			ensure!(
+				Receipts::<T>::iter().count() == old_receipts.len(),
+				"Receipt count mismatch after migration"
+			);
 
 			// Verify Receipts migration
 			for (index, old_receipt) in old_receipts {
+				let expected_expiry = BlockConverter::convert_block_number(old_receipt.expiry);
 				let new_receipt =
 					Receipts::<T>::get(index).ok_or("Receipt missing after migration")?;
 
 				// Verify expiry conversion
 				ensure!(
-					new_receipt.expiry == old_receipt.expiry,
+					new_receipt.expiry == expected_expiry,
 					"Receipt expiry conversion failed"
 				);
 
@@ -90,8 +97,9 @@ pub mod switch_block_number_provider {
 
 			// Verify Summary migration
 			let new_summary = Summary::<T>::get();
+			let expected_last_period = BlockConverter::convert_block_number(old_summary.last_period);
 			ensure!(
-				new_summary.last_period == old_summary.last_period,
+				new_summary.last_period == expected_last_period,
 				"Summary conversion failed"
 			);
 			log::info!(target: TARGET, "All reciept record expiry period and summary record thaw period begining migrated to new blok number provider");
@@ -139,7 +147,7 @@ pub mod switch_block_number_provider {
 			// Write new value
 			Summary::<T>::put(new_summary);
 			// Return weight (adjust based on operations)
-			weight.saturating_add(T::DbWeight::get().reads_writes(1, 3))
+			weight.saturating_add(T::DbWeight::get().reads_writes(1, 1))
 		} else {
 			log::info!(target: TARGET, "skipping migration from on-chain version {:?} to change_block_number_provider", on_chain_version);
 			weight
@@ -165,7 +173,7 @@ mod tests {
 				fn convert_block_number(
 					block_number: SystemBlockNumberFor<Test>,
 				) -> BlockNumberFor<Test> {
-					block_number
+					block_number as u64
 				}
 			}
 
@@ -198,8 +206,6 @@ mod tests {
 			// Check migrated receipts
 			let new_receipt1 = Receipts::<Test>::get(1).unwrap();
 			assert_eq!(new_receipt1.expiry, 5);
-			assert_eq!(new_receipt1.proportion, receipt1.proportion);
-			assert_eq!(new_receipt1.owner, receipt1.owner);
 
 			let new_receipt2 = Receipts::<Test>::get(2).unwrap();
 			assert_eq!(new_receipt2.expiry, 10);

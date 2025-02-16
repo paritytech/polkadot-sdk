@@ -12,4 +12,4 @@ doc:
 
 crates:
   - name: pallet-nis
-    bump: minor
+    bump: major
