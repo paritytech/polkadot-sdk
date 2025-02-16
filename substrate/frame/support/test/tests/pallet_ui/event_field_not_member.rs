@@ -24,8 +24,6 @@ mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Bar;
-		#[allow(deprecated)]
-		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 	}
 
 	#[pallet::pallet]

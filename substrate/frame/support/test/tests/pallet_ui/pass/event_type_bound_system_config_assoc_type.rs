@@ -22,10 +22,10 @@ mod pallet {
 	use frame_system::pallet_prelude::BlockNumberFor;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<Hash = sp_core::H256> {
+	pub trait Config:
+		frame_system::Config<Hash = sp_core::H256, RuntimeEvent: From<Event<Self>>>
+	{
 		type Bar: Clone + std::fmt::Debug + Eq;
-		#[allow(deprecated)]
-		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 	}
 
 	#[pallet::pallet]
