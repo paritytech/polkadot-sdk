@@ -470,7 +470,6 @@ pub mod pallet {
 	pub trait Config: 'static + Eq + Clone {
 		/// The aggregated event type of the runtime.
 		#[pallet::no_default_bounds]
-		#[allow(deprecated)]
 		type RuntimeEvent: Parameter
 			+ Member
 			+ From<Event<Self>>

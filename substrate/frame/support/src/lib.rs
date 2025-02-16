@@ -1345,9 +1345,7 @@ pub mod pallet_macros {
 	/// 	pub struct Pallet<T>(_);
 	/// #
 	/// # 	#[pallet::config]
-	/// # 	pub trait Config: frame_system::Config {
-	/// # 		#[allow(deprecated)]
-	///         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	/// # 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 	/// # 	}
 	/// }
 	/// ```
@@ -1484,12 +1482,6 @@ pub mod pallet_macros {
 	/// optionally other supertraits and a where clause. (Specifying other supertraits here is
 	/// known as [tight coupling](https://docs.substrate.io/reference/how-to-guides/pallet-design/use-tight-coupling/))
 	///
-	/// The associated type `RuntimeEvent` is reserved. If defined, it must have the bounds
-	/// `From<Event>` and `IsType<<Self as frame_system::Config>::RuntimeEvent>`.
-	///
-	/// [`#[pallet::event]`](`event`) must be present if `RuntimeEvent`
-	/// exists as a config item in your `#[pallet::config]`.
-	///
 	/// ## Optional: `with_default`
 	///
 	/// An optional `with_default` argument may also be specified. Doing so will automatically
@@ -1512,11 +1504,6 @@ pub mod pallet_macros {
 	///
 	/// 	#[pallet::config(with_default)] // <- with_default is optional
 	/// 	pub trait Config: frame_system::Config {
-	/// 		/// The overarching event type.
-	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
-	/// 		#[allow(deprecated)]
-	///         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	///
 	/// 		/// A more complex type.
 	/// 		#[pallet::no_default] // Example of type where no default should be provided
 	/// 		type MoreComplexType: SomeMoreComplexBound;
@@ -1598,20 +1585,17 @@ pub mod pallet_macros {
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
-	/// 	#[pallet::config(with_default, without_automatic_metadata)] // <- with_default and
-	/// without_automatic_metadata are optional 	pub trait Config: frame_system::Config {
-	/// 		/// The overarching event type.
-	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
-	/// 		#[allow(deprecated)]
-	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as
-	/// 			frame_system::Config>::RuntimeEvent>;
-	///
+	/// 	#[pallet::config(with_default, without_automatic_metadata)] // <- with_default and without_automatic_metadata are optional
+	/// 	pub trait Config: frame_system::Config {
+	/// 		/// The overarching freeze reason.
+	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeFreezeReason
+	/// 		type RuntimeFreezeReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
 	/// 		/// A simple type.
 	/// 		// Type that would have been included in metadata, but is now excluded.
 	/// 		type SimpleType: From<u32> + TypeInfo;
 	///
-	/// 		// The `pallet::include_metadata` is used to selectively include this type in
-	/// metadata. 		#[pallet::include_metadata]
+	/// 		// The `pallet::include_metadata` is used to selectively include this type in metadata.
+	/// 		#[pallet::include_metadata]
 	/// 		type SelectivelyInclude: From<u32> + TypeInfo;
 	/// 	}
 	///
@@ -2049,21 +2033,18 @@ pub mod pallet_macros {
 	/// 		/// SomeEvent doc
 	/// 		SomeEvent(u16, u32), // SomeEvent with two fields
 	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {
-	/// 		/// The overarching runtime event type.
-	/// 		#[allow(deprecated)]
-	///         type RuntimeEvent: From<Event<Self>>
-	/// 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	/// 	}
 	/// }
 	/// ```
 	///
 	/// I.e. an enum (with named or unnamed fields variant), named `Event`, with generic: none
 	/// or `T` or `T: Config`, and optional w here clause.
 	///
-	/// `RuntimeEvent` must be defined in the `Config`, as shown in the example.
+	/// Macro expansion automatically appends `From<Event<Self>>` bound to
+	/// system supertrait's `RuntimeEvent `associated type, i.e:
+	///
+	/// ```rs
+	/// 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {}
+	/// ```
 	///
 	/// Each field must implement [`Clone`], [`Eq`], [`PartialEq`], [`codec::Encode`],
 	/// [`codec::Decode`], and [`Debug`] (on std only). For ease of use, bound by the trait

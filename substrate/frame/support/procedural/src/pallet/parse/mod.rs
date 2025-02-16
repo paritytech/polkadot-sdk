@@ -72,6 +72,7 @@ pub struct Def {
 	pub frame_support: syn::Path,
 	pub dev_mode: bool,
 	pub view_functions: Option<view_functions::ViewFunctionsImplDef>,
+	pub is_frame_system: bool,
 }
 
 impl Def {
@@ -106,12 +107,14 @@ impl Def {
 		let mut type_values = vec![];
 		let mut composites: Vec<CompositeDef> = vec![];
 		let mut view_functions = None;
+		let mut is_frame_system = false;
 
 		for (index, item) in items.iter_mut().enumerate() {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config{ with_default, is_frame_system, without_automatic_metadata, ..}) if config.is_none() =>
+				Some(PalletAttr::Config{ with_default, is_frame_system: is_frame_system_val, without_automatic_metadata, ..}) if config.is_none() => {
+					is_frame_system = is_frame_system_val;
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
 						index,
@@ -119,7 +122,8 @@ impl Def {
 						with_default,
 						without_automatic_metadata,
 						is_frame_system,
-					)?),
+					)?);
+				},
 				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
 					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
 					pallet_struct = Some(p);
@@ -258,10 +262,10 @@ impl Def {
 			frame_support,
 			dev_mode,
 			view_functions,
+			is_frame_system,
 		};
 
 		def.check_instance_usage()?;
-		def.check_event_usage()?;
 
 		Ok(def)
 	}
@@ -357,32 +361,6 @@ impl Def {
 		}
 		*tasks = result;
 		Ok(())
-	}
-
-	/// Check that usage of trait `Event` is consistent with the definition, i.e. it is declared
-	/// and trait defines type or type bound `RuntimeEvent`, or not declared and no trait associated
-	/// type.
-	fn check_event_usage(&self) -> syn::Result<()> {
-		match (self.config.has_event_type, self.config.has_event_bound, self.event.is_some()) {
-			(true, false, false) => {
-				let msg = "Invalid usage of RuntimeEvent, `Config` contains associated type `RuntimeEvent`, \
-					but enum `Event` is not declared (i.e. no use of `#[pallet::event]`). \
-					Note that type `RuntimeEvent` in trait is reserved to work alongside pallet event.";
-				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
-			},
-			(false, true, false) => {
-				let msg = "Invalid usage of `RuntimeEvent`, `frame_system::Config` contains associated type bound `RuntimeEvent`, \
-					but enum `Event` is not declared (i.e. no use of `#[pallet::event]`). \
-					Note that type associated type bound `RuntimeEvent` in trait is reserved to work alongside pallet event.";
-				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
-			},
-			(true, true, _) => {
-				let msg = "Invalid usage of RuntimeEvent, `Config` contains associated type `RuntimeEvent` and associated type bound `RuntimeEvent`. \
-					Only one of them should be used.";
-				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
-			},
-			_ => Ok(()),
-		}
 	}
 
 	/// Check that usage of trait `Config` is consistent with the definition, i.e. it is used with

@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: "FRAME: Remove `RuntimeEvent` associated type from `Config` trait"
+title: "FRAME: Deprecate `RuntimeEvent` associated type from `Config` trait"
 doc:
   - audience: Runtime Dev
     description: |
@@ -25,12 +25,12 @@ doc:
             type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
       }
       ```
-
-      Or if developers want to explicitly define the `RuntimeEvent` type bound, they can still do so.
+      The latter compiles but is redundant since the associated type bound is automatically appended 
+      if pallet defines `Event` type, i.e it looks like this after macro expansion:
 
       ```rs
       #[pallet::config]
-      pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+      pub trait Config: frame_system::Config + frame_system::Config<RuntimeEvent: From<Event<Self>>> {
       }
       ```
 
