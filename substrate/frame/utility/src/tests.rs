@@ -262,6 +262,14 @@ fn call_foobar(err: bool, start_weight: Weight, end_weight: Option<Weight>) -> R
 	RuntimeCall::Example(ExampleCall::foobar { err, start_weight, end_weight })
 }
 
+fn utility_events() -> Vec<Event> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Utility(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
 #[test]
 fn as_derivative_works() {
 	new_test_ext().execute_with(|| {
@@ -914,4 +922,56 @@ fn with_weight_works() {
 			frame_support::dispatch::DispatchClass::Operational
 		);
 	})
+}
+
+#[test]
+fn dispatch_as_works() {
+	new_test_ext().execute_with(|| {
+		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
+		assert_eq!(Balances::free_balance(666), 100);
+		assert_eq!(Balances::free_balance(777), 0);
+		assert_ok!(Utility::dispatch_as(
+			RuntimeOrigin::root(),
+			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(666))),
+			Box::new(call_transfer(777, 100))
+		));
+		assert_eq!(Balances::free_balance(666), 0);
+		assert_eq!(Balances::free_balance(777), 100);
+
+		System::reset_events();
+		assert_ok!(Utility::dispatch_as(
+			RuntimeOrigin::root(),
+			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(777))),
+			Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))
+		));
+		assert_eq!(
+			utility_events(),
+			vec![Event::DispatchedAs { result: Err(DispatchError::BadOrigin) }]
+		);
+	})
+}
+
+#[test]
+fn dispatch_as_fallible_works() {
+	new_test_ext().execute_with(|| {
+		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
+		assert_eq!(Balances::free_balance(666), 100);
+		assert_eq!(Balances::free_balance(777), 0);
+		assert_ok!(Utility::dispatch_as_fallible(
+			RuntimeOrigin::root(),
+			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(666))),
+			Box::new(call_transfer(777, 100))
+		));
+		assert_eq!(Balances::free_balance(666), 0);
+		assert_eq!(Balances::free_balance(777), 100);
+
+		assert_noop!(
+			Utility::dispatch_as_fallible(
+				RuntimeOrigin::root(),
+				Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(777))),
+				Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))
+			),
+			DispatchError::BadOrigin,
+		);
+	});
 }
