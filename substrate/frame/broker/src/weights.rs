@@ -82,6 +82,7 @@ pub trait WeightInfo {
 	fn enable_auto_renew() -> Weight;
 	fn disable_auto_renew() -> Weight;
 	fn on_new_timeslice() -> Weight;
+	fn remove_assignment() -> Weight;
 }
 
 /// Weights for `pallet_broker` using the Substrate node and recommended hardware.
@@ -557,6 +558,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 245_000 picoseconds.
 		Weight::from_parts(290_000, 0)
 	}
+
+fn remove_assignment() -> Weight {
+        todo!()
+    }
 }
 
 // For backwards compatibility and tests.
@@ -1031,4 +1036,8 @@ impl WeightInfo for () {
 		// Minimum execution time: 245_000 picoseconds.
 		Weight::from_parts(290_000, 0)
 	}
+
+fn remove_assignment() -> Weight {
+        todo!()
+    }
 }
