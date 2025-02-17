@@ -18,7 +18,7 @@ use codec::Encode;
 use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{Everything, Nothing},
+	traits::{Disabled, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -197,6 +197,8 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = XcmPallet;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, KusamaNetwork>;
 
 impl pallet_xcm::Config for Runtime {
@@ -224,6 +226,8 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 impl origin::Config for Runtime {}
