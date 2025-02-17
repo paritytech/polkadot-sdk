@@ -328,6 +328,10 @@ pub use pallet_assets;
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
 
+/// Provides holding features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-holder")]
+pub use pallet_assets_holder;
+
 /// FRAME pallet for manage vesting on Assets.
 #[cfg(feature = "pallet-assets-vesting")]
 pub use pallet_assets_vesting;
@@ -446,6 +450,10 @@ pub use pallet_democracy;
 /// FRAME example pallet.
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
+
+/// PALLET multi phase+block election providers.
+#[cfg(feature = "pallet-election-provider-multi-block")]
+pub use pallet_election_provider_multi_block;
 
 /// PALLET two phase election providers.
 #[cfg(feature = "pallet-election-provider-multi-phase")]
