@@ -144,6 +144,7 @@ jobs:
           bun add polkadot-api
           bun add @polkadot-api/descriptors
           bun add @polkadot-labs/hdkd
+          bun add @acala-network/chopsticks-testing
           echo "Running tests"
           cd cumulus/parachains/integration-tests/chopsticks/tests/v5-tests
           bun test ./index.ts
