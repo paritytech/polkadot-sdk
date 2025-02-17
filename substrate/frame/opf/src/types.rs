@@ -30,7 +30,7 @@ pub use frame_support::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 			DispatchTime, MaybeHashed,
 		},
-		tokens::{Precision, Preservation},
+		tokens::{Fortitude, Precision, Preservation},
 		Bounded, Currency, DefensiveOption, EnsureOrigin, LockIdentifier, OriginTrait,
 		QueryPreimage, StorePreimage, UnfilteredDispatchable,
 	},

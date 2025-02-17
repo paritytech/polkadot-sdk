@@ -329,7 +329,6 @@ fn vote_removal_works() {
 fn vote_overwrite_works() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
-		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 		// Bob nominate project_101 with an amount of 1000 with a conviction of 2 => amount*2
 		// is the amount allocated to the project
@@ -400,7 +399,6 @@ fn vote_overwrite_works() {
 fn voting_action_locked() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
-		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 
@@ -454,8 +452,16 @@ fn not_enough_funds_to_vote() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
-		let balance_plus =
-			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&BOB) + 100;
+		let balance_plus = <Test as Config>::NativeBalance::reducible_balance(
+			&BOB,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		) + 100;
+		let balance = <Test as Config>::NativeBalance::reducible_balance(
+			&BOB,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
 
 		// Bob vote with wrong amount
 		assert_noop!(
@@ -463,6 +469,35 @@ fn not_enough_funds_to_vote() {
 				RawOrigin::Signed(BOB).into(),
 				101,
 				balance_plus,
+				true,
+				pallet_democracy::Conviction::Locked1x
+			),
+			Error::<Test>::NotEnoughFunds
+		);
+
+		//Bob commits 1/3rd of his balance to project 101
+		let balance_minus = <Test as Config>::NativeBalance::reducible_balance(
+			&BOB,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.checked_div(3)
+		.unwrap();
+
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			102,
+			balance_minus,
+			true,
+			pallet_democracy::Conviction::Locked1x
+		));
+
+		//Bob tries to commit total_balance to project 102
+		assert_noop!(
+			Opf::vote(
+				RawOrigin::Signed(BOB).into(),
+				103,
+				balance,
 				true,
 				pallet_democracy::Conviction::Locked1x
 			),

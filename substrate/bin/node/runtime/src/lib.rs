@@ -3041,7 +3041,7 @@ mod runtime {
 
 	#[runtime::pallet_index(84)]
 	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
-  
+
 	// Order is important!
 	#[runtime::pallet_index(85)]
 	pub type MultiBlock = pallet_election_provider_multi_block::Pallet<Runtime>;
@@ -3052,7 +3052,7 @@ mod runtime {
 	#[runtime::pallet_index(88)]
 	pub type MultiBlockSigned = pallet_election_provider_multi_block::signed::Pallet<Runtime>;
 
-  #[runtime::pallet_index(89)]
+	#[runtime::pallet_index(89)]
 	pub type Opf = pallet_opf::Pallet<Runtime>;
 }
 

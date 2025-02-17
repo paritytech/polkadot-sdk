@@ -422,11 +422,18 @@ pub mod pallet {
 			// Get current voting round & check if we are in voting period or not
 			Self::period_check()?;
 			// Check that voter has enough funds to vote
-			let voter_balance = T::NativeBalance::total_balance(&voter);
-			ensure!(voter_balance > amount, Error::<T>::NotEnoughFunds);
+			let voter_balance = T::NativeBalance::reducible_balance(
+				&voter,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			ensure!(voter_balance >= amount, Error::<T>::NotEnoughFunds);
 
 			// Check the available un-holded balance
-			let voter_holds = T::NativeBalance::total_balance_on_hold(&voter);
+			let voter_holds = T::NativeBalance::balance_on_hold(
+				&<T as Config>::RuntimeHoldReason::from(HoldReason::FundsReserved),
+				&voter,
+			);
 			let available_funds = voter_balance.saturating_sub(voter_holds);
 			ensure!(available_funds > amount, Error::<T>::NotEnoughFunds);
 
