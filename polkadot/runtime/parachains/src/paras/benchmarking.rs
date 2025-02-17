@@ -249,6 +249,30 @@ mod benchmarks {
 		}
 	}
 
+	#[benchmark]
+	fn authorize_force_set_current_code_hash() {
+		let para_id = ParaId::from(1000);
+		let code_hash = [0; 32].into();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id, code_hash);
+
+		assert_last_event::<T>(Event::CodeAuthorized { para_id, code_hash }.into());
+	}
+
+	#[benchmark]
+	fn apply_authorized_force_set_current_code(c: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>) {
+		let new_code = ValidationCode(vec![0; c as usize]);
+		let para_id = ParaId::from(c as u32);
+		AuthorizedCodeHash::<T>::insert(&para_id, new_code.hash());
+		generate_disordered_pruning::<T>();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id, new_code);
+
+		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into());
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(Default::default()),
