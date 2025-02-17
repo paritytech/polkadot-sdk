@@ -2111,5 +2111,30 @@ fn authorize_and_apply_set_current_code_works() {
 		check_code_is_stored(&code_3);
 	})
 }
+
+#[test]
+fn force_set_current_code_works() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let code_1 = ValidationCode(vec![1]);
+		let code_1_hash = code_1.hash();
+		let root = RuntimeOrigin::root();
+		let non_root = RuntimeOrigin::signed(1);
+
+		// check before
+		assert!(CurrentCodeHash::<Test>::get(para_a).is_none());
+		check_code_is_not_stored(&code_1);
+
+		// non-root user cannot execute
+		assert_err!(
+			Paras::force_set_current_code(non_root, para_a, code_1.clone()),
+			DispatchError::BadOrigin,
+		);
+		// root can execute
+		assert_ok!(Paras::force_set_current_code(root, para_a, code_1.clone()));
+
+		// check after
+		assert_eq!(CurrentCodeHash::<Test>::get(para_a), Some(code_1_hash));
+		check_code_is_stored(&code_1);
 	})
 }
