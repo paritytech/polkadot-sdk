@@ -52,8 +52,7 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 	// associated type nor type bound is defined.
 	if let Some(event) = &def.event {
 		if !def.is_frame_system {
-			let frame_system = crate::generate_access_from_frame_or_crate("frame-system")
-				.expect("should have access to frame-system");
+			let frame_system = &def.frame_system;
 
 			// can't use `type_use_gen()` since it returns `T`, not `Self`
 			let event_use_gen = match event.gen_kind {
@@ -156,7 +155,6 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 	});
 
 	quote::quote!(
-		#[allow(deprecated)]
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 
 			#[doc(hidden)]
