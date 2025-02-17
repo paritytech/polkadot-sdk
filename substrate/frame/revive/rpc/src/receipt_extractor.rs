@@ -146,7 +146,7 @@ impl ReceiptExtractor {
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		if let Some(earliest_receipt_block) = self.earliest_receipt_block {
 			if block.number() < earliest_receipt_block {
-				log::debug!(target: LOG_TARGET, "Block number {block_number} is less than earliest receipt block {earliest_receipt_block}. Skipping.", block_number = block.number(), earliest_receipt_block = earliest_receipt_block);
+				log::trace!(target: LOG_TARGET, "Block number {block_number} is less than earliest receipt block {earliest_receipt_block}. Skipping.", block_number = block.number(), earliest_receipt_block = earliest_receipt_block);
 				return Ok(vec![]);
 			}
 		}
