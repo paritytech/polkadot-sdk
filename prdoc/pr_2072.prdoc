@@ -6,11 +6,11 @@ doc:
       Change the return type of the trait method `pallet_referenda::TracksInfo::tracks` to return an 
       iterator of `Cow<'static, Tracks<_, _, _>>` instead of a static slice in order to support more 
       flexible implementations that can define referenda tracks dynamically.
-
-  - audience: Runtime Users
+  - audience: Runtime User
     description: |
-      There is a change in `pallet-referenda`. Now, the tracks might have some trailing null values (`\0`). This means
-      display representation of the tracks' names must be sanitized.
+      There is a change in `pallet-referenda`. Now, the tracks are retrieved as a list of `Track`s. Also, the names of
+      the tracks might have some trailing null values (`\0`). This means display representation of the tracks' names
+      must be sanitized.
 
 crates:
   - name: pallet-referenda
@@ -19,5 +19,5 @@ crates:
     bump: major
   - name: rococo-runtime
     bump: major
-  - name: colletives-westend-runtime
+  - name: collectives-westend-runtime
     bump: major
