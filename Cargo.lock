@@ -6483,18 +6483,18 @@ dependencies = [
 
 [[package]]
 name = "enumflags2"
-version = "0.7.7"
+version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c041f5090df68b32bcd905365fd51769c8b9d553fe87fde0b683534f10c01bd2"
+checksum = "ba2f4b465f5318854c6f8dd686ede6c0a9dc67d4b1ac241cf0eb51521a309147"
 dependencies = [
  "enumflags2_derive",
 ]
 
 [[package]]
 name = "enumflags2_derive"
-version = "0.7.7"
+version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e9a1f9f7d83e59740248a6e14ecf93929ade55027844dfcea78beafccc15745"
+checksum = "fc4caf64a58d7a6d65ab00639b046ff54399a39f5f2554728895ace4b297cd79"
 dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
@@ -12162,6 +12162,23 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.2",
+]
+
+[[package]]
+name = "pallet-assets-holder"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "log",
+ "pallet-assets 29.1.0",
+ "pallet-balances 28.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -18755,6 +18772,7 @@ dependencies = [
  "pallet-asset-tx-payment 28.0.0",
  "pallet-assets 29.1.0",
  "pallet-assets-freezer 0.1.0",
+ "pallet-assets-holder",
  "pallet-atomic-swap 28.0.0",
  "pallet-aura 27.0.0",
  "pallet-authority-discovery 28.0.0",
