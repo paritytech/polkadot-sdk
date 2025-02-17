@@ -241,17 +241,16 @@ pub mod pallet {
 
 	/// The overall status of the system.
 	#[pallet::storage]
-	pub(super) type Params<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, ParamsOf<T, I>, ValueQuery>;
+	pub type Params<T: Config<I>, I: 'static = ()> = StorageValue<_, ParamsOf<T, I>, ValueQuery>;
 
 	/// The status of a claimant.
 	#[pallet::storage]
-	pub(super) type Member<T: Config<I>, I: 'static = ()> =
+	pub type Member<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, MemberStatusOf<T>, OptionQuery>;
 
 	/// Some evidence together with the desired outcome for which it was presented.
 	#[pallet::storage]
-	pub(super) type MemberEvidence<T: Config<I>, I: 'static = ()> =
+	pub type MemberEvidence<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, (Wish, Evidence<T, I>), OptionQuery>;
 
 	#[pallet::event]
