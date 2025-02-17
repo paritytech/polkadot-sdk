@@ -258,7 +258,10 @@ pub mod pallet {
 
 				let new_amount = T::Deposit::get();
 
-				if new_amount > old_amount {
+				if old_amount == new_amount {
+					*maybe_value = Some((account, old_amount, perm));
+					return Ok(Pays::Yes.into());
+				} else if new_amount > old_amount {
 					// Need to reserve more
 					let extra = new_amount.saturating_sub(old_amount);
 					T::Currency::reserve(&who, extra)?;
@@ -270,17 +273,13 @@ pub mod pallet {
 
 				*maybe_value = Some((account, new_amount, perm));
 
-				if old_amount != new_amount {
-					Self::deposit_event(Event::DepositReconsidered {
-						who,
-						index,
-						old_deposit: old_amount,
-						new_deposit: new_amount,
-					});
-					Ok(Pays::No.into())
-				} else {
-					Ok(Pays::Yes.into())
-				}
+				Self::deposit_event(Event::DepositReconsidered {
+					who,
+					index,
+					old_deposit: old_amount,
+					new_deposit: new_amount,
+				});
+				Ok(Pays::No.into())
 			})
 		}
 	}
