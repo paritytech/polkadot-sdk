@@ -297,7 +297,9 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 /// Allows for the message to receive teleports or reserve asset transfers and altering
 /// the origin before indicating `UnpaidExecution`.
 pub struct AllowExplicitUnpaidExecutionFrom<T, Aliasers = ()>(PhantomData<(T, Aliasers)>);
-impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T, Aliasers> {
+impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldExecute
+	for AllowExplicitUnpaidExecutionFrom<T, Aliasers>
+{
 	fn should_execute<Call>(
 		origin: &Location,
 		instructions: &mut [Instruction<Call>],
@@ -309,9 +311,9 @@ impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldEx
 			"AllowExplicitUnpaidExecutionFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
 			origin, instructions, max_weight, _properties,
 		);
-		// We will read up to 5 instructions. This allows up to 3 asset transfer instructions, thus covering
-		// all possible transfer types, followed by a potential origin altering instruction, then the expected
-		// `UnpaidExecution` instruction.
+		// We will read up to 5 instructions. This allows up to 3 asset transfer instructions, thus
+		// covering all possible transfer types, followed by a potential origin altering
+		// instruction, then the expected `UnpaidExecution` instruction.
 		let mut actual_origin = origin.clone();
 		let processed = Cell::new(0usize);
 		let instructions_to_process = 5;
@@ -321,12 +323,17 @@ impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldEx
 			.match_next_inst_while(
 				|inst| {
 					processed.get() < instructions_to_process &&
-						matches!(inst, ReceiveTeleportedAsset(_) | ReserveAssetDeposited(_) | WithdrawAsset(_) | SetHints { .. })
+						matches!(
+							inst,
+							ReceiveTeleportedAsset(_) |
+								ReserveAssetDeposited(_) | WithdrawAsset(_) |
+								SetHints { .. }
+						)
 				},
 				|_| {
 					processed.set(processed.get() + 1);
 					Ok(ControlFlow::Continue(()))
-				}
+				},
 			)?
 			// Then we go through all origin altering instructions and we
 			// alter the original origin.
@@ -335,17 +342,16 @@ impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldEx
 				|inst| {
 					match inst {
 						ClearOrigin => {
-							// We don't support the `ClearOrigin` instruction since we always need to know
-							// the origin to know if it's allowed unpaid execution.
+							// We don't support the `ClearOrigin` instruction since we always need
+							// to know the origin to know if it's allowed unpaid execution.
 							return Err(ProcessMessageError::Unsupported);
 						},
-						AliasOrigin(target) => {
+						AliasOrigin(target) =>
 							if Aliasers::contains(&actual_origin, &target) {
 								actual_origin = target.clone();
 							} else {
 								return Err(ProcessMessageError::Unsupported);
-							}
-						},
+							},
 						DescendOrigin(child) if child != &Here => {
 							let Ok(_) = actual_origin.append_with(child.clone()) else {
 								return Err(ProcessMessageError::Unsupported);
@@ -355,7 +361,7 @@ impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldEx
 					};
 					processed.set(processed.get() + 1);
 					Ok(ControlFlow::Continue(()))
-				}
+				},
 			)?
 			// We finally match on the required `UnpaidExecution` instruction.
 			.match_next_inst(|inst| match inst {
