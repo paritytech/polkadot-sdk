@@ -119,6 +119,7 @@ pub type DescribeAllTerminal = (
 	DescribeBodyTerminal,
 );
 
+
 pub struct DescribeFamily<DescribeInterior>(PhantomData<DescribeInterior>);
 impl<Suffix: DescribeLocation> DescribeLocation for DescribeFamily<Suffix> {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
@@ -412,6 +413,7 @@ impl<UniversalLocation, AccountId> GlobalConsensusConvertsFor<UniversalLocation,
 	}
 }
 
+
 /// Converts a location which is a top-level parachain (i.e. a parachain held on a
 /// Relay-chain which provides its own consensus) into a 32-byte `AccountId`.
 ///
@@ -457,6 +459,31 @@ impl<UniversalLocation, AccountId>
 		(b"glblcnsnss/prchn_", network, para_id).using_encoded(blake2_256)
 	}
 }
+
+pub struct ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>(PhantomData<(UniversalLocation, AccountId)>);
+
+impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone>
+    ConvertLocation<AccountId> for ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>
+{
+    fn convert_location(location: &Location) -> Option<AccountId> {
+        let universal_source = UniversalLocation::get();
+        let (remote_network, remote_location) = ensure_is_remote(universal_source, location.clone()).ok()?;
+
+        let consensus_bytes = (b"external_consensus_", remote_network).using_encoded(blake2_256);
+
+        let sublocation_bytes = match remote_location.as_slice() {
+            [Parachain(para_id), tail @ ..] => {
+                let tail_bytes = tail.iter().map(|j| j.encode()).collect::<Vec<_>>();
+                (b"parachain_", para_id, tail_bytes).using_encoded(blake2_256)
+            },
+            _ => return None,
+        };
+
+        let final_bytes = (consensus_bytes, sublocation_bytes).using_encoded(blake2_256);
+        Some(AccountId::from(final_bytes))
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -1010,4 +1037,5 @@ mod tests {
 			actual_description
 		);
 	}
+
 }

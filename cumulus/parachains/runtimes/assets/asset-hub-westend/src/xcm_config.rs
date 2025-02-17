@@ -96,15 +96,16 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
-	// Foreign locations alias into accounts according to a hash of their standard description.
-	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
-	// Different global consensus parachain sovereign account.
-	// (Used for over-bridge transfers and reserve processing)
-	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
-	// Ethereum contract sovereign account.
-	// (Used to get convert ethereum contract locations to sovereign account)
-	EthereumLocationsConverterFor<AccountId>,
+	GlobalLocationToAccount<UniversalLocation, AccountId>,
 );
+
+pub type GlobalLocationToAccount<UniversalLocation, AccountId> = (
+    HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
+    GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
+	EthereumLocationsConverterFor<AccountId>,
+    ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
+);
+
 
 /// Means for transacting the native currency on this chain.
 pub type FungibleTransactor = FungibleAdapter<
