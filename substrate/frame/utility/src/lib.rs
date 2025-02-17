@@ -456,7 +456,8 @@ pub mod pallet {
 		}
 
 		/// Dispatches a function call with a provided origin.
-		/// Almost the same as [`Pallet::dispatch_as`] but check the result of the call.
+		///
+		/// Almost the same as [`Pallet::dispatch_as`] but forwards any error of the inner call.
 		///
 		/// The dispatch origin for this call must be _Root_.
 		#[pallet::call_index(6)]

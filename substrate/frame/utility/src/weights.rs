@@ -127,7 +127,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
 	fn dispatch_as_fallible() -> Weight {
-		Default::default()
+		Weight::MAX
 	}
 }
 
@@ -198,6 +198,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
 	fn dispatch_as_fallible() -> Weight {
-		Default::default()
+		Weight::MAX
 	}
 }
