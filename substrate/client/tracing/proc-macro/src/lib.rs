@@ -117,13 +117,18 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 
     let name = syn::parse_macro_input!(arg as Expr);
 
-    // Check if `polkadot-sdk` is available
     let crate_name = match crate_name("sc-tracing") {
         Ok(FoundCrate::Itself) => Ident::new("sc_tracing", Span::call_site()),
-        Ok(FoundCrate::Name(crate_name)) if crate_name.starts_with("polkadot_sdk") => {
+
+        // Check if `sc-tracing` is coming from `polkadot-sdk`
+        Ok(FoundCrate::Name(crate_name)) if crate_name == "polkadot-sdk" => {
             Ident::new("polkadot_sdk::sc_tracing", Span::call_site())
         }
+
+        // If `sc-tracing` is used elsewhere, use the detected crate name
         Ok(FoundCrate::Name(crate_name)) => Ident::new(&crate_name, Span::call_site()),
+
+        // If the crate is not found, return a compilation error
         Err(e) => return Error::new(Span::call_site(), e).to_compile_error().into(),
     };
 
