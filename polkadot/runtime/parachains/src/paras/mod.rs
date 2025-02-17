@@ -119,7 +119,7 @@ use codec::{Decode, Encode};
 use core::{cmp, mem};
 use frame_support::{
 	dispatch::PostDispatchInfo, pallet_prelude::*, traits::EstimateNextSessionRotation,
-	DefaultNoBound
+	DefaultNoBound,
 };
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
@@ -661,10 +661,7 @@ pub mod pallet {
 		/// Current code has been updated for a Para. `para_id`
 		CurrentCodeUpdated(ParaId),
 		/// New code hash has been authorized for a Para.
-		CodeAuthorized {
-			code_hash: ValidationCodeHash,
-			para_id: ParaId,
-		},
+		CodeAuthorized { code_hash: ValidationCodeHash, para_id: ParaId },
 		/// Current head has been updated for a Para. `para_id`
 		CurrentHeadUpdated(ParaId),
 		/// A code upgrade has been scheduled for a Para. `para_id`
@@ -809,7 +806,8 @@ pub mod pallet {
 
 	/// The code hash of a para which is authorized.
 	#[pallet::storage]
-	pub(super) type AuthorizedCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
+	pub(super) type AuthorizedCodeHash<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
@@ -1184,7 +1182,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			// if one is already authorized, means it has not been applied yet, so we just replace it.
+			// if one is already authorized, means it has not been applied yet, so we just replace
+			// it.
 			if let Some(already_authorized) = AuthorizedCodeHash::<T>::take(para) {
 				log::warn!(
 					target: LOG_TARGET,
@@ -1199,10 +1198,7 @@ pub mod pallet {
 
 			// insert authorized code hash.
 			AuthorizedCodeHash::<T>::insert(&para, new_code_hash);
-			Self::deposit_event(Event::CodeAuthorized {
-				para_id: para,
-				code_hash: new_code_hash,
-			});
+			Self::deposit_event(Event::CodeAuthorized { para_id: para, code_hash: new_code_hash });
 
 			Ok(())
 		}
@@ -2251,10 +2247,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Force set the current code for the given parachain.
-	fn do_force_set_current_code_update(
-		para: ParaId,
-		new_code: ValidationCode,
-	) {
+	fn do_force_set_current_code_update(para: ParaId, new_code: ValidationCode) {
 		let new_code_hash = new_code.hash();
 		Self::increase_code_ref(&new_code_hash, &new_code);
 		Self::set_current_code(para, new_code_hash, frame_system::Pallet::<T>::block_number());
