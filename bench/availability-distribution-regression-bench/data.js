@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739815818864,
+  "lastUpdate": 1739818320387,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -54295,6 +54295,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022144143079999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nikola.djoric@parity.io",
+            "name": "nprt",
+            "username": "nprt"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d61032b977b18cc962cdb23e7a3df7386e503e09",
+          "message": "implement web3_clientVersion (#7580)\n\nImplements the `web3_clientVersion` method. This is a common requirement\nfor external Ethereum libraries when querying a client.\n\nFixes paritytech/contract-issues#26.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-02-17T17:50:46Z",
+          "tree_id": "26d38d57645767a30e5bae619bb71290ee780d15",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d61032b977b18cc962cdb23e7a3df7386e503e09"
+        },
+        "date": 1739818303311,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15541214486666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012759996426666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02245484043333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008871734853333401,
             "unit": "seconds"
           }
         ]
