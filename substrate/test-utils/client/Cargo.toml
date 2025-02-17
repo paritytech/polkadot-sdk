@@ -21,9 +21,7 @@ async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
-sc-client-db = { features = [
-	"test-helpers",
-], workspace = true }
+sc-client-db = { features = ["test-helpers"], workspace = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-service = { workspace = true }

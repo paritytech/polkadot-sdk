@@ -23,8 +23,8 @@
 #[cfg(feature = "full_crypto")]
 use crate::crypto::VrfSecret;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable,
+	Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 };
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
@@ -166,6 +166,8 @@ impl TraitPair for Pair {
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
+
+impl NonAggregatable for Pair {}
 
 /// Bandersnatch VRF types and operations.
 pub mod vrf {
@@ -763,7 +765,9 @@ pub mod ring_vrf {
 #[cfg(test)]
 mod tests {
 	use super::{ring_vrf::*, vrf::*, *};
-	use crate::crypto::{VrfPublic, VrfSecret, DEV_PHRASE};
+	use crate::crypto::{
+		ProofOfPossessionGenerator, ProofOfPossessionVerifier, VrfPublic, VrfSecret, DEV_PHRASE,
+	};
 
 	const DEV_SEED: &[u8; SEED_SERIALIZED_SIZE] = &[0xcb; SEED_SERIALIZED_SIZE];
 	const TEST_DOMAIN_SIZE: u32 = 1024;
@@ -1086,5 +1090,14 @@ mod tests {
 		let enc2 = vd2.encode();
 
 		assert_eq!(enc1, enc2);
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let pop = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
+		assert!(!Pair::verify_proof_of_possession(&pop, &other_pair.public()));
 	}
 }
