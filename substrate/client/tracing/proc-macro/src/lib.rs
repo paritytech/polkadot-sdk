@@ -104,38 +104,47 @@ use syn::{parse_macro_input, Error, Expr, Ident, ItemFn, Meta, MetaNameValue};
 /// ```
 #[proc_macro_attribute]
 pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
-    let item_fn = syn::parse_macro_input!(item as ItemFn);
+	let item_fn = syn::parse_macro_input!(item as ItemFn);
 
-    if arg.is_empty() {
-        return Error::new(
-            Span::call_site(),
-            "missing argument: name of the node. Example: sc_cli::prefix_logs_with(<expr>)",
-        )
-            .to_compile_error()
-            .into();
-    }
+	if arg.is_empty() {
+		return Error::new(
+			Span::call_site(),
+			"missing argument: name of the node. Example: sc_cli::prefix_logs_with(<expr>)",
+		)
+		.to_compile_error()
+		.into();
+	}
 
-    let name = syn::parse_macro_input!(arg as Expr);
+	let name = syn::parse_macro_input!(arg as Expr);
 
-    let (sdk_crate, tracing_crate) = match crate_name("polkadot-sdk").or_else(|_| crate_name("sc-tracing")) {
-        Ok(FoundCrate::Itself) => (Ident::new("polkadot_sdk", Span::call_site()), Ident::new("tracing", Span::call_site())),
-        Ok(FoundCrate::Name(crate_name)) => (Ident::new(&crate_name, Span::call_site()), Ident::new("tracing", Span::call_site())),
-        Err(_) => (Ident::new("sc_tracing", Span::call_site()), Ident::new("sc_tracing", Span::call_site())),
-    };
+	let (sdk_crate, tracing_crate) = match crate_name("polkadot-sdk")
+		.or_else(|_| crate_name("sc-tracing"))
+	{
+		Ok(FoundCrate::Itself) => (
+			Ident::new("polkadot_sdk", Span::call_site()),
+			Ident::new("tracing", Span::call_site()),
+		),
+		Ok(FoundCrate::Name(crate_name)) =>
+			(Ident::new(&crate_name, Span::call_site()), Ident::new("tracing", Span::call_site())),
+		Err(_) => (
+			Ident::new("sc_tracing", Span::call_site()),
+			Ident::new("sc_tracing", Span::call_site()),
+		),
+	};
 
-    let ItemFn { attrs, vis, sig, block } = item_fn;
+	let ItemFn { attrs, vis, sig, block } = item_fn;
 
-    (quote! {
-        #(#attrs)*
-        #vis #sig {
-            let span = #tracing_crate::info_span!(
-                #sdk_crate::logging::PREFIX_LOG_SPAN,
-                name = #name,
-            );
-            let _enter = span.enter();
+	(quote! {
+		#(#attrs)*
+		#vis #sig {
+			let span = #tracing_crate::info_span!(
+				#sdk_crate::logging::PREFIX_LOG_SPAN,
+				name = #name,
+			);
+			let _enter = span.enter();
 
-            #block
-        }
-    })
-        .into()
+			#block
+		}
+	})
+	.into()
 }
