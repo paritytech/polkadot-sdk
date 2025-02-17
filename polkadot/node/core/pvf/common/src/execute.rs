@@ -18,7 +18,13 @@ use crate::error::InternalValidationError;
 use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+
+#[derive(Encode, Decode)]
+pub enum Execution {
+	Wasm,
+	Pvm(Arc<Vec<u8>>),
+}
 
 /// The payload of the one-time handshake that is done when a worker process is created. Carries
 /// data from the host to the worker.
