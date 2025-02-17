@@ -43,6 +43,9 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
+	#[pallet::error]
+	pub enum Error<T> {}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
 

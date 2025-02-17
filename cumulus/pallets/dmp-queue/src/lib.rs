@@ -146,6 +146,9 @@ pub mod pallet {
 		Completed { error: bool },
 	}
 
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {

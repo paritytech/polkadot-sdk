@@ -164,6 +164,9 @@ pub mod mock_msg_queue {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
 	#[pallet::storage]
 	#[pallet::getter(fn parachain_id)]
 	pub(super) type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;

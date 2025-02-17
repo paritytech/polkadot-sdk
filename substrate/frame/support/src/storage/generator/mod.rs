@@ -78,6 +78,9 @@ mod tests {
 			CallFiltered,
 		}
 
+		#[pallet::call]
+		impl<T: Config> Pallet<T> {}
+
 		#[pallet::storage]
 		pub type Value<T> = StorageValue<_, (u64, u64), ValueQuery>;
 
