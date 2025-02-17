@@ -18,7 +18,6 @@ use crate::*;
 
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
-use tracing_test::internal::global_buf;
 use xcm::latest::QueryResponseInfo;
 use xcm_simulator::{mock_message_queue::ReceivedDmp, TestExt};
 
@@ -515,49 +514,22 @@ fn query_holding() {
 
 #[test]
 fn reserve_transfer_with_error() {
-	use sp_tracing::{
-		tracing::subscriber,
-		tracing_subscriber,
-		tracing_subscriber::fmt::MakeWriter,
-	};
+	use sp_tracing::{tracing::subscriber, tracing_subscriber};
 	use std::{
 		io::Write,
 		sync::{Arc, Mutex},
 	};
+	use tracing_subscriber::fmt::MakeWriter;
 
 	// Reset the test network
 	MockNet::reset();
 
-	// **Custom Log Capturing Writer**
-	struct StringWriter(Arc<Mutex<Vec<u8>>>);
-
-	impl Write for StringWriter {
-		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-			self.0.lock().unwrap().extend_from_slice(buf);
-			Ok(buf.len())
-		}
-		fn flush(&mut self) -> std::io::Result<()> {
-			Ok(())
-		}
-	}
-
-	// **Implement MakeWriter for StringWriter**
-	impl<'a> MakeWriter<'a> for StringWriter {
-		type Writer = Self;
-
-		fn make_writer(&'a self) -> Self::Writer {
-			StringWriter(self.0.clone()) // Clone Arc to allow multiple writers
-		}
-	}
-
-	struct LogCapture {
-		buffer: Arc<Mutex<Vec<u8>>>,
-	}
+	// Custom Log Capturing Writer
+	struct LogCapture(Arc<Mutex<Vec<u8>>>);
 
 	impl Write for LogCapture {
 		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-			let mut logs = self.buffer.lock().unwrap();
-			logs.extend_from_slice(buf);
+			self.0.lock().unwrap().extend_from_slice(buf);
 			Ok(buf.len())
 		}
 
@@ -568,20 +540,18 @@ fn reserve_transfer_with_error() {
 
 	impl<'a> MakeWriter<'a> for LogCapture {
 		type Writer = Self;
-
 		fn make_writer(&'a self) -> Self::Writer {
-			LogCapture { buffer: Arc::clone(&self.buffer) }
+			LogCapture(Arc::clone(&self.0))
 		}
 	}
 
+	// Initialise Log Capture
 	let log_buffer = Arc::new(Mutex::new(Vec::new()));
-	let writer = LogCapture { buffer: Arc::clone(&log_buffer) };
-
 	let subscriber = tracing_subscriber::fmt()
-		.with_writer(writer) // Redirect logs to custom writer
+		.with_writer(LogCapture(Arc::clone(&log_buffer)))
 		.finish();
 
-	// **Execute the XCM transfer**
+	// Execute XCM Transfer and Capture Logs
 	subscriber::with_default(subscriber, || {
 		Relay::execute_with(|| {
 			let invalid_dest = Box::new(Parachain(9999).into());
@@ -598,8 +568,8 @@ fn reserve_transfer_with_error() {
 			assert!(result.is_err(), "Expected an error due to invalid destination");
 		});
 
+		// Ensure no balance change due to the error
 		ParaA::execute_with(|| {
-			// Ensure no balance change due to the error
 			assert_eq!(
 				pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
 				INITIAL_BALANCE
@@ -607,10 +577,8 @@ fn reserve_transfer_with_error() {
 		});
 	});
 
-	// **Retrieve Captured Logs**
+	// Assertions on Captured Logs
 	let logs = String::from_utf8(log_buffer.lock().unwrap().clone()).unwrap();
-
-	// **Assertions on Logs**
 	assert!(
 		logs.contains("XCM validate_send failed"),
 		"Expected 'XCM validate_send failed' in logs."
