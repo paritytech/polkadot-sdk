@@ -286,4 +286,20 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn authorize_force_set_current_code_hash() -> Weight {
+		// TODO: FAIL-CI fresh
+		Weight::from_parts(120_274_000, 0)
+			.saturating_add(Weight::from_parts(0, 30147))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn apply_authorized_force_set_current_code(c: u32, ) -> Weight {
+		// TODO: FAIL-CI fresh
+		Weight::from_parts(33_700_000, 0)
+			.saturating_add(Weight::from_parts(0, 11774))
+			// Standard Error: 10
+			.saturating_add(Weight::from_parts(2_659, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(6))
+	}
 }
