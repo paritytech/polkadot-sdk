@@ -1,4 +1,4 @@
-title: "Implement `pallet-assets-holder`"
+title: "Implement `pallet-assets-holder` and consider ED part of frozen amount in `pallet-assets`"
 
 doc:
   - audience: Runtime Dev
