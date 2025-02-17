@@ -107,7 +107,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	generic, impl_opaque_keys,
+	generic, impl_opaque_keys, str_array as s,
 	traits::{
 		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
 		MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
@@ -116,6 +116,7 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, MultiSignature, MultiSigner, Perbill,
 	Percent, Permill, Perquintill, RuntimeDebug,
 };
+use sp_std::{borrow::Cow, prelude::*};
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -1260,43 +1261,20 @@ pub struct TracksInfo;
 impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 	type Id = u16;
 	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-	fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
-		static DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 1] = [(
-			0u16,
-			pallet_referenda::TrackInfo {
-				name: "root",
-				max_deciding: 1,
-				decision_deposit: 10,
-				prepare_period: 4,
-				decision_period: 4,
-				confirm_period: 2,
-				min_enactment_period: 4,
-				min_approval: pallet_referenda::Curve::LinearDecreasing {
-					length: Perbill::from_percent(100),
-					floor: Perbill::from_percent(50),
-					ceil: Perbill::from_percent(100),
-				},
-				min_support: pallet_referenda::Curve::LinearDecreasing {
-					length: Perbill::from_percent(100),
-					floor: Perbill::from_percent(0),
-					ceil: Perbill::from_percent(100),
-				},
-			},
-		)];
-		&DATA[..]
+
+	fn tracks(
+	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
+	{
+		dynamic_params::referenda::Tracks::get().into_iter().map(Cow::Owned)
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
-		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
-			match system_origin {
-				frame_system::RawOrigin::Root => Ok(0),
-				_ => Err(()),
-			}
-		} else {
-			Err(())
-		}
+		dynamic_params::referenda::Origins::get()
+			.iter()
+			.find(|(o, _)| id == o)
+			.map(|(_, track_id)| *track_id)
+			.ok_or(())
 	}
 }
-pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);
 
 impl pallet_referenda::Config for Runtime {
 	type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;
@@ -2050,6 +2028,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = StringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = ();
@@ -2077,6 +2056,7 @@ impl pallet_assets::Config<Instance2> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = StringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
@@ -2654,6 +2634,46 @@ pub mod dynamic_params {
 		#[codec(index = 1)]
 		pub static ByteDeposit: Balance = 1 * CENTS;
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod referenda {
+		/// The configuration for the tracks
+		#[codec(index = 0)]
+		pub static Tracks: BoundedVec<
+			pallet_referenda::Track<u16, Balance, BlockNumber>,
+			ConstU32<100>,
+		> = BoundedVec::truncate_from(vec![pallet_referenda::Track {
+			id: 0u16,
+			info: pallet_referenda::TrackInfo {
+				name: s("root"),
+				max_deciding: 1,
+				decision_deposit: 10,
+				prepare_period: 4,
+				decision_period: 4,
+				confirm_period: 2,
+				min_enactment_period: 4,
+				min_approval: pallet_referenda::Curve::LinearDecreasing {
+					length: Perbill::from_percent(100),
+					floor: Perbill::from_percent(50),
+					ceil: Perbill::from_percent(100),
+				},
+				min_support: pallet_referenda::Curve::LinearDecreasing {
+					length: Perbill::from_percent(100),
+					floor: Perbill::from_percent(0),
+					ceil: Perbill::from_percent(100),
+				},
+			},
+		}]);
+
+		/// A list mapping every origin with a track Id
+		#[codec(index = 1)]
+		pub static Origins: BoundedVec<(OriginCaller, u16), ConstU32<100>> =
+			BoundedVec::truncate_from(vec![(
+				OriginCaller::system(frame_system::RawOrigin::Root),
+				0,
+			)]);
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -2676,6 +2696,10 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 	) -> Result<Self::Success, RuntimeOrigin> {
 		match key {
 			RuntimeParametersKey::Storage(_) => {
+				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
+				return Ok(())
+			},
+			RuntimeParametersKey::Referenda(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
 				return Ok(())
 			},
