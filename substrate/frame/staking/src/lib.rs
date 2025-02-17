@@ -353,7 +353,7 @@ use frame_support::{
 		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -845,31 +845,19 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
+#[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound)]
+#[scale_info(skip_type_params(T))]
+pub struct UnappliedSlash<T: Config> {
 	/// The stash ID of the offending validator.
-	validator: AccountId,
+	validator: T::AccountId,
 	/// The validator's own slash.
-	own: Balance,
+	own: BalanceOf<T>,
 	/// All other slashed stakers and amounts.
-	others: Vec<(AccountId, Balance)>,
+	others: WeakBoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporters: Vec<AccountId>,
+	reporter: Option<T::AccountId>,
 	/// The amount of payout.
-	payout: Balance,
-}
-
-impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
-	/// Initializes the default object using the given `validator`.
-	pub fn default_from(validator: AccountId) -> Self {
-		Self {
-			validator,
-			own: Zero::zero(),
-			others: vec![],
-			reporters: vec![],
-			payout: Zero::zero(),
-		}
-	}
+	payout: BalanceOf<T>,
 }
 
 /// Something that defines the maximum number of nominations per nominator based on a curve.
@@ -921,10 +909,7 @@ pub trait SessionInterface<AccountId> {
 impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-	T: pallet_session::historical::Config<
-		FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		FullIdentificationOf = ExposureOf<T>,
-	>,
+	T: pallet_session::historical::Config,
 	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
 	T::ValidatorIdOf: Convert<
@@ -1068,6 +1053,13 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
 		ActiveEra::<T>::get()
 			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
+	}
+}
+
+pub struct NullIdentity;
+impl<T> Convert<T, Option<()>> for NullIdentity {
+	fn convert(_: T) -> Option<()> {
+		Some(())
 	}
 }
 
