@@ -210,6 +210,7 @@ mod tests {
 		type ValidatorId = AuthorityId;
 		type ValidatorIdOf = ConvertInto;
 		type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+		type DisablingStrategy = ();
 		type WeightInfo = ();
 	}
 

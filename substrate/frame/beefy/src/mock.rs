@@ -184,6 +184,7 @@ impl pallet_session::Config for Test {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <MockSessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 

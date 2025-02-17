@@ -482,6 +482,7 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, ValidatorManager>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
@@ -1757,6 +1758,9 @@ pub mod migrations {
         coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl, TIMESLICE_PERIOD>,
         parachains_configuration::migration::v12::MigrateToV12<Runtime>,
         parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
+
+		// migrates session storage item
+		pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
 
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,

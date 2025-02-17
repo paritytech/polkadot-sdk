@@ -759,6 +759,8 @@ impl pallet_session::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
+
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 	#[cfg(not(feature = "staking-playground"))]
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -874,7 +876,6 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
-	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
 }

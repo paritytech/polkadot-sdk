@@ -148,6 +148,8 @@ impl pallet_session::Config for Test {
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type DisablingStrategy =
+		pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
 }
 
@@ -363,8 +365,6 @@ impl crate::pallet::pallet::Config for Test {
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type DisablingStrategy =
-		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
 }
@@ -1025,6 +1025,14 @@ pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
 		.into_iter()
 		.map(|r| r.event)
 		.filter_map(|e| if let RuntimeEvent::Staking(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
+pub(crate) fn session_events() -> Vec<pallet_session::Event<Test>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Session(inner) = e { Some(inner) } else { None })
 		.collect()
 }
 

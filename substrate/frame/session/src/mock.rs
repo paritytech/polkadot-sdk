@@ -248,6 +248,10 @@ impl Convert<u64, Option<u64>> for TestValidatorIdOf {
 	}
 }
 
+// Disabling threshold for `UpToLimitDisablingStrategy` and
+// `UpToLimitWithReEnablingDisablingStrategy``
+pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
+
 impl Config for Test {
 	type ShouldEndSession = TestShouldEndSession;
 	#[cfg(feature = "historical")]
@@ -260,6 +264,8 @@ impl Config for Test {
 	type Keys = MockSessionKeys;
 	type RuntimeEvent = RuntimeEvent;
 	type NextSessionRotation = ();
+	type DisablingStrategy =
+		disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
 }
 

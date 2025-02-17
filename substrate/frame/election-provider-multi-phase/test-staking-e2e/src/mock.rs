@@ -142,6 +142,9 @@ impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<Runtime>;
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<
+		SLASHING_DISABLING_FACTOR,
+	>;
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Runtime {
@@ -335,8 +338,6 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type EventListeners = (Pools, DelegatedStaking);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
-	type DisablingStrategy =
-		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<SLASHING_DISABLING_FACTOR>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
 
