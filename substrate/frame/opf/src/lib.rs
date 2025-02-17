@@ -181,39 +181,28 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Reward successfully claimed
-		RewardClaimed {
-			when: ProvidedBlockNumberFor<T>,
-			amount: BalanceOf<T>,
-			project_id: ProjectId<T>,
-		},
+		RewardClaimed { amount: BalanceOf<T>, project_id: ProjectId<T> },
 
 		/// A Spend was created
-		SpendCreated {
-			when: ProvidedBlockNumberFor<T>,
-			amount: BalanceOf<T>,
-			project_id: ProjectId<T>,
-		},
+		SpendCreated { amount: BalanceOf<T>, project_id: ProjectId<T> },
 
 		/// Payment will be enacted for corresponding project
 		WillBeEnacted { project_id: ProjectId<T> },
 
-		/// Reward successfully assigned
-		RewardsAssigned { when: ProvidedBlockNumberFor<T> },
-
 		/// User's vote successfully submitted
-		VoteCasted { who: VoterId<T>, when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
+		VoteCasted { who: VoterId<T>, project_id: ProjectId<T> },
 
 		/// User's vote successfully removed
-		VoteRemoved { who: VoterId<T>, when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
+		VoteRemoved { who: VoterId<T>, project_id: ProjectId<T> },
 
 		/// Project added to whitelisted projects list
-		Projectlisted { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
+		Projectlisted { project_id: ProjectId<T> },
 
 		/// Several projects added to whitelisted projects list
-		Projectslisted { when: ProvidedBlockNumberFor<T>, projects_id: Vec<ProjectId<T>> },
+		Projectslisted { projects_id: Vec<ProjectId<T>> },
 
 		/// Project removed from whitelisted projects list
-		ProjectUnlisted { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
+		ProjectUnlisted { project_id: ProjectId<T> },
 
 		/// Project Funding Accepted by voters
 		ProjectFundingAccepted { project_id: ProjectId<T>, amount: BalanceOf<T> },
@@ -225,13 +214,13 @@ pub mod pallet {
 		ProjectFundingRejected { project_id: ProjectId<T> },
 
 		/// A new voting round started
-		VotingRoundStarted { when: ProvidedBlockNumberFor<T>, round_number: u32 },
+		VotingRoundStarted { round_number: u32 },
 
 		/// The users voting period ended. Reward calculation will start.
-		VoteActionLocked { when: ProvidedBlockNumberFor<T>, round_number: u32 },
+		VoteActionLocked { round_number: u32 },
 
 		/// The voting round ended
-		VotingRoundEnded { when: ProvidedBlockNumberFor<T>, round_number: u32 },
+		VotingRoundEnded { round_number: u32 },
 	}
 
 	#[pallet::error]
@@ -319,7 +308,7 @@ pub mod pallet {
 			let current_round_index = round_index.saturating_sub(1);
 
 			let mut round_infos =
-				VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
+				VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::InvalidResult)?;
 
 			// Check no Project batch has been submitted yet
 			ensure!(!round_infos.batch_submitted, Error::<T>::BatchAlreadySubmitted);
@@ -355,7 +344,7 @@ pub mod pallet {
 			}
 			VotingRounds::<T>::mutate(current_round_index, |round| *round = Some(round_infos));
 
-			Self::deposit_event(Event::Projectslisted { when, projects_id: projects_id.to_vec() });
+			Self::deposit_event(Event::Projectslisted { projects_id: projects_id.to_vec() });
 			Ok(())
 		}
 
@@ -384,9 +373,8 @@ pub mod pallet {
 			project_id: ProjectId<T>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			let when = T::BlockNumberProvider::current_block_number();
 			WhiteListedProjectAccounts::<T>::remove(&project_id);
-			Self::deposit_event(Event::<T>::ProjectUnlisted { when, project_id });
+			Self::deposit_event(Event::<T>::ProjectUnlisted { project_id });
 
 			Ok(())
 		}
@@ -409,7 +397,7 @@ pub mod pallet {
 		/// ### Parameters
 		/// - `project_id`: The account that will receive the reward.
 		/// - `amount`: Amount that will be locked in user’s balance to nominate a project.
-		/// - `is_fund`: Parameter that defines if user’s vote is in favor (*true*), or against
+		/// - `fund`: Parameter that defines if user’s vote is in favor (*true*), or against
 		///   (*false*)
 		/// the project funding.
 		/// - `conviction`: Used to calculate the value allocated to the project, & determine
@@ -420,15 +408,14 @@ pub mod pallet {
 		/// - [`Error::<T>::NotEnoughFunds`]: The user does not have enough balance to cast a vote
 		///  
 		/// ## Events
-		/// - [`Event::<T>::VoteCasted { who, when, project_id }`]: User's vote successfully
-		///   submitted
+		/// - [`Event::<T>::VoteCasted { who, project_id }`]: User's vote successfully submitted
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config>::WeightInfo::vote(T::MaxProjects::get()))]
 		pub fn vote(
 			origin: OriginFor<T>,
 			project_id: ProjectId<T>,
 			#[pallet::compact] amount: BalanceOf<T>,
-			is_fund: bool,
+			fund: bool,
 			conviction: Democracy::Conviction,
 		) -> DispatchResult {
 			let voter = ensure_signed(origin.clone())?;
@@ -449,15 +436,14 @@ pub mod pallet {
 
 			// Funds lock is handled by the opf pallet
 			let conv = Democracy::Conviction::None;
-			let vote = Democracy::Vote { aye: is_fund, conviction: conv };
+			let vote = Democracy::Vote { aye: fund, conviction: conv };
 			let converted_amount = Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
 			let account_vote = Democracy::AccountVote::Standard { vote, balance: converted_amount };
 
-			Self::try_vote(voter.clone(), project_id.clone(), amount, is_fund, conviction)?;
+			Self::try_vote(voter.clone(), project_id.clone(), amount, fund, conviction)?;
 			Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
 
-			let when = T::BlockNumberProvider::current_block_number();
-			Self::deposit_event(Event::<T>::VoteCasted { who: voter, when, project_id });
+			Self::deposit_event(Event::<T>::VoteCasted { who: voter, project_id });
 
 			Ok(())
 		}
@@ -480,8 +466,7 @@ pub mod pallet {
 		/// - [`Error::<T>::NoProjectAvailable`]: No project found under this project_id
 		///  
 		/// ## Events
-		/// - [`Event::<T>::VoteRemoved { who, when, project_id }`]: User's vote successfully
-		///   removed
+		/// - [`Event::<T>::VoteRemoved { who, project_id }`]: User's vote successfully removed
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::remove_vote(T::MaxProjects::get()))]
 		pub fn remove_vote(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
@@ -493,11 +478,9 @@ pub mod pallet {
 			// Remove previous vote from Referendum
 			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
 				.ok_or(Error::<T>::NoProjectAvailable)?;
-			let ref_index = infos.index;
-			Democracy::Pallet::<T>::remove_vote(origin, ref_index)?;
+			Democracy::Pallet::<T>::remove_vote(origin, infos.index)?;
 
-			let when = T::BlockNumberProvider::current_block_number();
-			Self::deposit_event(Event::<T>::VoteRemoved { who: voter, when, project_id });
+			Self::deposit_event(Event::<T>::VoteRemoved { who: voter, project_id });
 			Ok(())
 		}
 
@@ -539,7 +522,6 @@ pub mod pallet {
 				});
 				Self::spend(info.amount, project_id.clone())?;
 				Self::deposit_event(Event::RewardClaimed {
-					when: now,
 					amount: info.amount,
 					project_id: project_id.clone(),
 				});
@@ -560,7 +542,6 @@ pub mod pallet {
 
 			let ref_index = infos.index;
 			let amount = infos.amount;
-			let when = T::BlockNumberProvider::current_block_number();
 			if let Some(ref_infos) = Democracy::ReferendumInfoOf::<T>::get(ref_index) {
 				match ref_infos {
 					Democracy::ReferendumInfo::Finished { approved: true, .. } => {
@@ -575,7 +556,6 @@ pub mod pallet {
 						let new_spend = SpendInfo::<T>::new(&infos);
 						Self::deposit_event(Event::ProjectFundingAccepted { project_id, amount });
 						Self::deposit_event(Event::SpendCreated {
-							when,
 							amount: new_spend.amount,
 							project_id: infos.project_id.clone(),
 						});

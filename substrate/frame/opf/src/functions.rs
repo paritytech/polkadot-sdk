@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
 		voter_id: VoterId<T>,
 		project: ProjectId<T>,
 		amount: BalanceOf<T>,
-		is_fund: bool,
+		fund: bool,
 		conviction: Democracy::Conviction,
 	) -> DispatchResult {
 		let origin = T::RuntimeOrigin::from(RawOrigin::Signed(voter_id.clone()));
@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
 		// Create vote infos and store/adjust them
 		let round_number = NextVotingRoundNumber::<T>::get().saturating_sub(1);
 		let mut round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
-		if is_fund {
+		if fund {
 			round.total_positive_votes_amount =
 				round.total_positive_votes_amount.saturating_add(conviction_fund);
 		} else {
@@ -105,7 +105,7 @@ impl<T: Config> Pallet<T> {
 		let mut new_vote = VoteInfo {
 			amount,
 			round: round.clone(),
-			is_fund,
+			fund,
 			conviction,
 			funds_unlock_block: round.round_ending_block,
 		};
@@ -120,7 +120,7 @@ impl<T: Config> Pallet<T> {
 				Self::conviction_amount(old_amount, old_conviction).ok_or("Invalid conviction")?;
 			ProjectFunds::<T>::mutate(&project, |val| {
 				let mut val0 = val.clone();
-				if is_fund {
+				if fund {
 					val0.positive_funds = val0
 						.positive_funds
 						.saturating_add(conviction_fund)
@@ -149,7 +149,7 @@ impl<T: Config> Pallet<T> {
 			Votes::<T>::insert(&project, &voter_id, new_vote);
 			ProjectFunds::<T>::mutate(&project, |val| {
 				let mut val0 = val.clone();
-				if is_fund {
+				if fund {
 					val0.positive_funds = val0.positive_funds.saturating_add(conviction_fund);
 				} else {
 					val0.negative_funds = val0.negative_funds.saturating_add(conviction_fund);
@@ -219,7 +219,7 @@ impl<T: Config> Pallet<T> {
 			let infos = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let amount = infos.amount;
 			let conviction = infos.conviction;
-			let is_fund = infos.is_fund;
+			let fund = infos.fund;
 
 			let conviction_fund =
 				Self::conviction_amount(amount, conviction).ok_or("Invalid conviction")?;
@@ -227,7 +227,7 @@ impl<T: Config> Pallet<T> {
 			// Update Round infos
 			let round_number = NextVotingRoundNumber::<T>::get().saturating_sub(1);
 			let mut round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
-			if is_fund {
+			if fund {
 				round.total_positive_votes_amount =
 					round.total_positive_votes_amount.saturating_sub(conviction_fund);
 			} else {
@@ -242,7 +242,7 @@ impl<T: Config> Pallet<T> {
 			// Update ProjectFund Storage
 			ProjectFunds::<T>::mutate(&project, |val| {
 				let mut val0 = val.clone();
-				if is_fund {
+				if fund {
 					val0.positive_funds = val0.positive_funds.saturating_sub(conviction_fund);
 				} else {
 					val0.negative_funds = val0.negative_funds.saturating_sub(conviction_fund);
@@ -334,27 +334,26 @@ impl<T: Config> Pallet<T> {
 
 		let current_round_index = round_index.saturating_sub(1);
 
-		let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
-		let round_ending_block = round_infos.round_ending_block;
+		if let Some(round_infos) = VotingRounds::<T>::get(current_round_index) {
+			let round_ending_block = round_infos.round_ending_block;
 
-		if now >= round_ending_block {
-			// Emmit event
-			Self::deposit_event(Event::<T>::VoteActionLocked {
-				when: now,
-				round_number: round_infos.round_number,
-			});
-			// Emmit events
-			Self::deposit_event(Event::<T>::VotingRoundEnded {
-				when: now,
-				round_number: round_infos.round_number,
-			});
-			// prepare reward distribution
-			// for now we are using the temporary-constant reward.
-			let _ = Self::calculate_rewards(T::TemporaryRewards::get())
-				.map_err(|_| Error::<T>::FailedRewardCalculation);
+			if now >= round_ending_block {
+				// Emmit event
+				Self::deposit_event(Event::<T>::VoteActionLocked {
+					round_number: round_infos.round_number,
+				});
+				// Emmit events
+				Self::deposit_event(Event::<T>::VotingRoundEnded {
+					round_number: round_infos.round_number,
+				});
+				// prepare reward distribution
+				// for now we are using the temporary-constant reward.
+				let _ = Self::calculate_rewards(T::TemporaryRewards::get())
+					.map_err(|_| Error::<T>::FailedRewardCalculation);
 
-			// Clear ProjectFunds storage
-			ProjectFunds::<T>::drain();
+				// Clear ProjectFunds storage
+				ProjectFunds::<T>::drain();
+			}
 		}
 		meter.consumed()
 	}

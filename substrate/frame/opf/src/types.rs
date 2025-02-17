@@ -165,7 +165,7 @@ pub struct VoteInfo<T: Config> {
 	pub round: VotingRoundInfo<T>,
 
 	/// Whether the vote is "fund" / "not fund"
-	pub is_fund: bool,
+	pub fund: bool,
 
 	pub conviction: Democracy::Conviction,
 
@@ -187,13 +187,19 @@ impl<T: Config> VoteInfo<T> {
 impl<T: Config> Default for VoteInfo<T> {
 	// Dummy vote infos used to handle errors
 	fn default() -> Self {
-		// get round number
-		let round = VotingRounds::<T>::get(0).expect("Round 0 exists");
 		let amount = Zero::zero();
-		let is_fund = false;
+		let fund = false;
 		let conviction = Democracy::Conviction::None;
-		let funds_unlock_block = round.round_ending_block;
-		VoteInfo { amount, round, is_fund, conviction, funds_unlock_block }
+
+		// get round number
+		if let Some(round) = VotingRounds::<T>::get(0) {
+			let funds_unlock_block = round.round_ending_block;
+			VoteInfo { amount, round, fund, conviction, funds_unlock_block }
+		} else {
+			let round = VotingRoundInfo::<T>::new();
+			let funds_unlock_block = round.round_ending_block;
+			VoteInfo { amount, round, fund, conviction, funds_unlock_block }
+		}
 	}
 }
 
@@ -223,10 +229,7 @@ impl<T: Config> VotingRoundInfo<T> {
 		let total_positive_votes_amount = BalanceOf::<T>::zero();
 		let total_negative_votes_amount = BalanceOf::<T>::zero();
 
-		Pallet::<T>::deposit_event(Event::<T>::VotingRoundStarted {
-			when: round_starting_block,
-			round_number,
-		});
+		Pallet::<T>::deposit_event(Event::<T>::VotingRoundStarted { round_number });
 
 		let round_infos = VotingRoundInfo {
 			round_number,

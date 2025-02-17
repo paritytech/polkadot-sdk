@@ -8896,7 +8896,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.8",
  "tokio",
  "tower-service",
  "tracing",
@@ -16745,7 +16745,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand",
- "rand_core 0.5.1",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -20546,7 +20546,7 @@ dependencies = [
  "gimli 0.31.1",
  "hashbrown 0.14.5",
  "log",
- "object 0.36.1",
+ "object 0.36.7",
  "polkavm-common 0.21.0",
  "regalloc2 0.9.3",
  "rustc-demangle",
@@ -21026,7 +21026,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "once_cell",
@@ -21072,7 +21072,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "proc-macro2 1.0.93",
  "quote 1.0.38",
  "syn 2.0.98",
@@ -24189,7 +24189,7 @@ version = "28.0.0"
 dependencies = [
  "async-trait",
  "futures",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "log",
  "parity-scale-codec",
  "serde",

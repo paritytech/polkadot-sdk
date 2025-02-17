@@ -73,10 +73,7 @@ fn first_round_creation_works() {
 		};
 
 		// The righ event was emitted
-		expect_events(vec![RuntimeEvent::Opf(Event::VotingRoundStarted {
-			when: now,
-			round_number: 0,
-		})]);
+		expect_events(vec![RuntimeEvent::Opf(Event::VotingRoundStarted { round_number: 0 })]);
 
 		// The storage infos are correct
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
@@ -235,7 +232,7 @@ fn rewards_calculation_works() {
 
 		// The right events are emitted
 		expect_events(vec![
-			RuntimeEvent::Opf(Event::VotingRoundEnded { when: now, round_number: 0 }),
+			RuntimeEvent::Opf(Event::VotingRoundEnded { round_number: 0 }),
 			RuntimeEvent::Democracy(pallet_democracy::Event::Passed { ref_index: 0 }),
 		]);
 
@@ -344,11 +341,7 @@ fn vote_overwrite_works() {
 			pallet_democracy::Conviction::Locked2x
 		));
 
-		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {
-			who: BOB,
-			when: now,
-			project_id: 101,
-		})]);
+		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted { who: BOB, project_id: 101 })]);
 
 		// 2000 is allocated to project 101
 		let mut funds = ProjectFunds::<Test>::get(101);
@@ -420,11 +413,7 @@ fn voting_action_locked() {
 			pallet_democracy::Conviction::Locked3x
 		));
 
-		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {
-			who: BOB,
-			when: now,
-			project_id: 101,
-		})]);
+		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted { who: BOB, project_id: 101 })]);
 
 		// Bob nominate project_103 with an amount of 5000
 		assert_ok!(Opf::vote(
@@ -564,11 +553,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 
 		// Claim does not work after claiming period
 		expect_events(vec![
-			RuntimeEvent::Opf(Event::RewardClaimed {
-				when: now,
-				amount: spend_101.amount,
-				project_id: 101,
-			}),
+			RuntimeEvent::Opf(Event::RewardClaimed { amount: spend_101.amount, project_id: 101 }),
 			RuntimeEvent::Opf(Event::ExpiredClaim { expired_when: expire, project_id: 102 }),
 		]);
 	})
