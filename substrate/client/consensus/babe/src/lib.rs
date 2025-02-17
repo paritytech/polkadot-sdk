@@ -1641,7 +1641,7 @@ where
 			// chain.
 			block.fork_choice = {
 				let (last_best, last_best_number) = (info.best_hash, info.best_number);
-
+			
 				let last_best_weight = if &last_best == block.header.parent_hash() {
 					// the parent=genesis case is already covered for loading parent weight,
 					// so we don't need to cover again here.
@@ -1655,14 +1655,42 @@ where
 							)
 						})?
 				};
-
-				Some(ForkChoiceStrategy::Custom(if total_weight > last_best_weight {
-					true
-				} else if total_weight == last_best_weight {
-					number > last_best_number
-				} else {
-					false
-				}))
+			
+				// Determine if the current block is primary or secondary
+				let is_primary = pre_digest.is_primary();
+			
+				// Determine if the last best block is primary or secondary
+				let last_best_is_primary = {
+					let last_best_header = self.client.header(last_best)
+						.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
+						.ok_or_else(|| {
+							ConsensusError::ChainLookup(
+								"No header for last best block.".to_string(),
+							)
+						})?;
+					let last_best_pre_digest = find_pre_digest::<Block>(&last_best_header).expect(
+						"valid babe headers must contain a predigest; header has been already verified; qed",
+					);
+					last_best_pre_digest.is_primary()
+				};
+			
+				Some(ForkChoiceStrategy::Custom(
+					if is_primary && !last_best_is_primary {
+						// Always prefer primary blocks over secondary blocks
+						true
+					} else if !is_primary && last_best_is_primary {
+						// Never prefer secondary blocks over primary blocks
+						false
+					} else if total_weight > last_best_weight {
+						// If both are primary or both are secondary, prefer the heavier chain
+						true
+					} else if total_weight == last_best_weight {
+						// If weights are equal, prefer the longer chain
+						number > last_best_number
+					} else {
+						false
+					}
+				))
 			};
 
 			// Release the mutex, but it stays locked
