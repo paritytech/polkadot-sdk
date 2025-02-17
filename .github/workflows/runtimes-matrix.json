@@ -67,7 +67,7 @@
   },
   {
     "name": "bridge-hub-westend",
-    "package": "bridge-hub-rococo-runtime",
+    "package": "bridge-hub-westend-runtime",
     "path": "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend",
     "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",

@@ -23,6 +23,7 @@ use crate::{
 
 use bp_relayers::{BatchCallUnpacker, ExtensionCallData, ExtensionCallInfo, ExtensionConfig};
 use bp_runtime::{Chain, StaticStrProvider};
+use core::marker::PhantomData;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_system::Config as SystemConfig;
 use pallet_bridge_grandpa::{
@@ -37,7 +38,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionValidityError},
 	Saturating,
 };
-use sp_std::marker::PhantomData;
 
 /// Adapter to be used in signed extension configuration, when bridging with remote
 /// chains that are using GRANDPA finality.

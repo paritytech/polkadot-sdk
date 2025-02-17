@@ -316,23 +316,16 @@ where
 			})?;
 		{
 			let common = self.mut_base().mut_common();
-			crate::messages::metrics::add_relay_balances_metrics::<
-				_,
-				Self::Right,
-				MessagesLaneIdOf<Self::L2R>,
-			>(
-				common.left.client.clone(), &common.metrics_params, &common.left.accounts, &lanes_l2r
+			crate::messages::metrics::add_relay_balances_metrics::<_>(
+				common.left.client.clone(),
+				&common.metrics_params,
+				&common.left.accounts,
 			)
 			.await?;
-			crate::messages::metrics::add_relay_balances_metrics::<
-				_,
-				Self::Left,
-				MessagesLaneIdOf<Self::R2L>,
-			>(
+			crate::messages::metrics::add_relay_balances_metrics::<_>(
 				common.right.client.clone(),
 				&common.metrics_params,
 				&common.right.accounts,
-				&lanes_r2l,
 			)
 			.await?;
 		}
