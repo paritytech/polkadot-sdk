@@ -189,7 +189,7 @@ where
 	// make sure that all slashes have been applied
 	// deposit to reporter + reporter account endowed.
 	assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2);
-	// (n nominators + one validator) * slashed + Slash Reported
+	// (n nominators + one validator) * slashed + Slash Reported + Slash Computed
 	assert_eq!(
 		System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
 		1 * (offender_count + 1) as usize + 2

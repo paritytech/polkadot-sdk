@@ -51,12 +51,12 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Keys of the current authority set.
-	pub(super) type Keys<T: Config> =
+	pub type Keys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	#[pallet::storage]
 	/// Keys of the next authority set.
-	pub(super) type NextKeys<T: Config> =
+	pub type NextKeys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
