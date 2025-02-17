@@ -87,6 +87,7 @@ pub mod weights;
 
 extern crate alloc;
 
+use frame_support::dispatch::VersionedCall;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
@@ -141,7 +142,7 @@ pub struct RetryConfig<Period> {
 struct ScheduledV1<Call, BlockNumber> {
 	maybe_id: Option<Vec<u8>>,
 	priority: schedule::Priority,
-	call: Call,
+	call: VersionedCall<Call>,
 	maybe_periodic: Option<schedule::Period<BlockNumber>>,
 }
 
@@ -154,7 +155,7 @@ pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// This task's priority.
 	priority: schedule::Priority,
 	/// The call to be dispatched.
-	call: Call,
+	call: VersionedCall<Call>,
 	/// If the call is periodic, then this points to the information concerning that.
 	maybe_periodic: Option<schedule::Period<BlockNumber>>,
 	/// The origin with which to dispatch the call.
@@ -174,12 +175,32 @@ where
 		Self {
 			maybe_id: None,
 			priority: self.priority,
-			call: self.call.clone(),
+			call: VersionedCall {
+                call: self.call.call.clone(),
+                transaction_version: self.call.transaction_version,
+            },
 			maybe_periodic: None,
 			origin: self.origin.clone(),
 			_phantom: Default::default(),
 		}
 	}
+}
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Runtime {
+	type BlockWeights = BlockWeights;
+	type RuntimeOrigin = RuntimeOrigin;
+	type Nonce = u64;
+	type RuntimeCall = RuntimeCall;
+	type Block = TestBlock;
+	type RuntimeEvent = RuntimeEvent;
+	type Version = RuntimeVersion;
+	type AccountData = pallet_balances::AccountData<Balance>;
+	type PreInherents = MockedSystemCallbacks;
+	type PostInherents = MockedSystemCallbacks;
+	type PostTransactions = MockedSystemCallbacks;
+	type MultiBlockMigrator = MockedModeGetter;
+	type ExtensionsWeightInfo = MockExtensionsWeights;
 }
 
 use crate::{Scheduled as ScheduledV3, Scheduled as ScheduledV2};
@@ -630,6 +651,14 @@ pub mod pallet {
 			Self::do_cancel_retry(origin.caller(), task)?;
 			Self::deposit_event(Event::RetryCancelled { task, id: Some(id) });
 			Ok(())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(0)]
+		pub fn execute_call(origin: OriginFor<T>, call: VersionedCall<T::Call>) -> DispatchResult {
+			let current_transaction_version = <Runtime as frame_system::Config>::Version::get().transaction_version;
+			call.validate(current_transaction_version)?;
+			call.call.dispatch(origin.into())
 		}
 	}
 }
@@ -1239,6 +1268,23 @@ impl<T: Config> Pallet<T> {
 				None => continue,
 				Some(t) => t,
 			};
+
+			 // Validate the VersionedCall
+			 let current_version = <RuntimeVersion as Get<u32>>::get();
+			 let call = match task.call.validate(current_version) {
+				 Ok(call) => call,
+				 Err(_) => {
+					 // Log an error or handle the version mismatch
+					 log::error!(
+						 "Scheduled call version mismatch: expected {}, got {}",
+						 current_version,
+						 task.call.transaction_version
+					 );
+					 dropped += 1;
+					 continue; // Skip this task
+				 }
+			 };
+
 			let base_weight = T::WeightInfo::service_task(
 				task.call.lookup_len().map(|x| x as usize),
 				task.maybe_id.is_some(),

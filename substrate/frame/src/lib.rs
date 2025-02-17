@@ -201,7 +201,7 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, VersionedCall};
 	pub use frame_support::traits::{
 		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
 		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
