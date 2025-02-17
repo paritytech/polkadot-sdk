@@ -24,7 +24,7 @@ crates:
 - name: pallet-grandpa
   bump: patch
 - name: westend-runtime
-  bump: patch
+  bump: minor
 - name: pallet-beefy
   bump: patch
 - name: pallet-beefy-mmr
@@ -36,30 +36,30 @@ crates:
 - name: pallet-session-benchmarking
   bump: patch
 - name: rococo-runtime
-  bump: patch
+  bump: minor
 - name: pallet-collator-selection
   bump: patch
 - name: pallet-root-offences
   bump: patch
 - name: asset-hub-rococo-runtime
-  bump: patch
+  bump: minor
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: bridge-hub-rococo-runtime
-  bump: patch
+  bump: minor
 - name: bridge-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: collectives-westend-runtime
-  bump: patch
+  bump: minor
 - name: coretime-rococo-runtime
-  bump: patch
+  bump: minor
 - name: coretime-westend-runtime
-  bump: patch
+  bump: minor
 - name: people-rococo-runtime
-  bump: patch
+  bump: minor
 - name: people-westend-runtime
-  bump: patch
+  bump: minor
 - name: penpal-runtime
-  bump: patch
+  bump: minor
 - name: contracts-rococo-runtime
-  bump: patch
+  bump: minor
