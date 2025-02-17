@@ -118,6 +118,33 @@ jobs:
           # confirm checksum
           sha256sum -c checksum.sha256
 
+  test_papi_chopsticks_docs:
+    timeout-minutes: 40
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          forklift cargo build --release -p westend-runtime
+          forklift cargo build --release -p asset-hub-westend-runtime
+          cp target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm cumulus/parachains/integration-tests/chopsticks/wasms/
+          cp target/release/wbuild/westend-runtime/westend_runtime.compact.compressed.wasm cumulus/parachains/integration-tests/chopsticks/wasms/
+
+          echo "Installing bun"
+          curl -fsSL https://bun.sh/install | bash
+          bun add polkadot-api
+          bun add @polkadot-labs/hdkd
+          # cd cumulus/parachains/integration-tests/chopsticks
+          # bunx @acala-network/chopsticks@latest xcm -r configs/westend-override.yaml -p configs/westend-asset-hub-override.yaml
+          echo "Running tests"
+          cd cumulus/parachains/integration-tests/chopsticks/tests/v5-tests
+          bun test ./index.ts
+
   cargo-check-benches:
     needs: [preflight]
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
