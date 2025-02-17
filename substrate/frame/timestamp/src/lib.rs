@@ -52,12 +52,11 @@
 //!
 //! ```
 //! use pallet_timestamp::{self as timestamp};
+//! use frame::prelude::*;
 //!
-//! #[frame_support::pallet]
+//! #[frame::pallet]
 //! pub mod pallet {
 //! 	use super::*;
-//! 	use frame_support::pallet_prelude::*;
-//! 	use frame_system::pallet_prelude::*;
 //!
 //! 	#[pallet::pallet]
 //! 	pub struct Pallet<T>(_);
@@ -88,22 +87,22 @@
 //! included in a block.
 //!
 //! To provide inherent data to the runtime, this pallet implements
-//! [`ProvideInherent`](frame_support::inherent::ProvideInherent). It will only create an inherent
-//! if the [`Call::set`] dispatchable is called, using the
-//! [`inherent`](frame_support::pallet_macros::inherent) macro which enables validator nodes to call
+//! [`ProvideInherent`](frame::deps::frame_support::inherent::ProvideInherent). It will only create
+//! an inherent if the [`Call::set`] dispatchable is called, using the
+//! [`inherent`](frame::pallet_macros::inherent) macro which enables validator nodes to call
 //! into the runtime to check that the timestamp provided is valid.
-//! The implementation of [`ProvideInherent`](frame_support::inherent::ProvideInherent) specifies a
-//! constant called `MAX_TIMESTAMP_DRIFT_MILLIS` which is used to determine the acceptable range for
-//! a valid timestamp. If a block author sets a timestamp to anything that is more than this
-//! constant, a validator node will reject the block.
+//! The implementation of [`ProvideInherent`](frame::deps::frame_support::inherent::ProvideInherent)
+//! specifies a constant called `MAX_TIMESTAMP_DRIFT_MILLIS` which is used to determine the
+//! acceptable range for a valid timestamp. If a block author sets a timestamp to anything that is
+//! more than this constant, a validator node will reject the block.
 //!
 //! The pallet also ensures that a timestamp is set at the start of each block by running an
-//! assertion in the `on_finalize` runtime hook. See [`frame_support::traits::Hooks`] for more
+//! assertion in the `on_finalize` runtime hook. See [`frame::traits::Hooks`] for more
 //! information about how hooks work.
 //!
 //! Because inherents are applied to a block in the order they appear in the runtime
 //! construction, the index of this pallet in
-//! [`construct_runtime`](frame_support::construct_runtime) must always be less than any other
+//! [`construct_runtime`](construct_runtime) must always be less than any other
 //! pallet that depends on it.
 //!
 //! The [`Config::OnTimestampSet`] configuration trait can be set to another pallet we want to
@@ -134,18 +133,18 @@ mod tests;
 pub mod weights;
 
 use core::{cmp, result};
-use frame_support::traits::{OnTimestampSet, Time, UnixTime};
-use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
+use frame::{
+	runtime::prelude::*,
+	traits::{OnTimestampSet, Scale, Time, UnixTime},
+};
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{derive_impl, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
 
 	/// Default preludes for [`Config`].
 	pub mod config_preludes {
@@ -157,7 +156,7 @@ pub mod pallet {
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		#[frame_support::register_default_impl(TestDefaultConfig)]
+		#[register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
 			type Moment = u64;
 			type OnTimestampSet = ();
@@ -354,7 +353,7 @@ impl<T: Config> Time for Pallet<T> {
 	/// A type that represents a unit of time.
 	type Moment = T::Moment;
 
-	fn now() -> Self::Moment {
+	fn now() -> <pallet::Pallet<T> as Time>::Moment {
 		Now::<T>::get()
 	}
 }
