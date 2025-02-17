@@ -121,6 +121,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"libsecp256k1/hmac",
 	"libsecp256k1/static-context",

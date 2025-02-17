@@ -85,7 +85,7 @@ pub struct TransactionInfo {
 }
 
 fn num_chunks(bytes: u32) -> u32 {
-	((bytes as u64 + CHUNK_SIZE as u64 - 1) / CHUNK_SIZE as u64) as u32
+	(bytes as u64).div_ceil(CHUNK_SIZE as u64) as u32
 }
 
 #[frame_support::pallet]

@@ -109,11 +109,6 @@ fn create_cargo_toml<'a>(
 	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
 	fs::write(output_dir.join("Cargo.toml"), cargo_toml.clone())
 		.with_context(|| format!("Failed to write {cargo_toml:?}"))?;
-	fs::copy(
-		fixtures_dir.join("build/_rust-toolchain.toml"),
-		output_dir.join("rust-toolchain.toml"),
-	)
-	.context("Failed to write toolchain file")?;
 	Ok(())
 }
 

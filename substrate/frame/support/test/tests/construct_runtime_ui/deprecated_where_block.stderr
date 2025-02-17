@@ -86,7 +86,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `Pallet<Runtime>: Callable<Runtime>`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `Callable<T>` is implemented for `Pallet<T>`
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
@@ -237,7 +237,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `&frame_system::Event<Runtime>: std::fmt::Debug`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `std::fmt::Debug` is implemented for `frame_system::Event<T>`
    = note: required for `frame_system::Event<Runtime>` to implement `std::fmt::Debug`
@@ -256,7 +256,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `&frame_system::Error<Runtime>: std::fmt::Debug`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `std::fmt::Debug` is implemented for `frame_system::Error<T>`
    = note: required for `frame_system::Error<Runtime>` to implement `std::fmt::Debug`
@@ -295,7 +295,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `RawOrigin<_>: Into<_>`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = note: required for `RawOrigin<_>` to implement `Into<RuntimeOrigin>`
    = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
@@ -344,7 +344,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `Pallet<Runtime>: PalletInfoAccess`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `PalletInfoAccess` is implemented for `Pallet<T>`
    = note: required for `Pallet<Runtime>` to implement `PalletInfoAccess`
@@ -360,7 +360,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `Pallet<Runtime>: Callable<Runtime>`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `Callable<T>` is implemented for `Pallet<T>`
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
@@ -376,7 +376,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `Pallet<Runtime>: Callable<Runtime>`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `Callable<T>` is implemented for `Pallet<T>`
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
@@ -466,7 +466,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `Pallet<Runtime>: Callable<Runtime>`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `Callable<T>` is implemented for `Pallet<T>`
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
@@ -569,7 +569,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:26:3
    |
 26 |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-   |         ^^^^^^ the trait `Config` is not implemented for `Runtime`, which is required by `Pallet<Runtime>: ViewFunctionIdPrefix`
+   |         ^^^^^^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `ViewFunctionIdPrefix` is implemented for `Pallet<T>`
    = note: required for `Pallet<Runtime>` to implement `ViewFunctionIdPrefix`
@@ -784,7 +784,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `GenesisConfig<Runtime>: Serialize`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `Serialize` is implemented for `GenesisConfig<T>`
    = note: required for `GenesisConfig<Runtime>` to implement `Serialize`
@@ -846,10 +846,13 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `GenesisConfig<Runtime>: std::default::Default`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
-   = help: the trait `std::default::Default` is implemented for `GenesisConfig<T>`
-   = note: required for `GenesisConfig<Runtime>` to implement `std::default::Default`
+note: required by a bound in `GenesisConfig`
+  --> $WORKSPACE/substrate/frame/system/src/lib.rs
+   |
+   |     pub struct GenesisConfig<T: Config> {
+   |                                 ^^^^^^ required by this bound in `GenesisConfig`
    = note: this error originates in the derive macro `Default` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
@@ -862,7 +865,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 ...  |
 27 | |     }
 28 | | }
-   | |_^ the trait `Config` is not implemented for `Runtime`, which is required by `(Pallet<Runtime>,): OnGenesis`
+   | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the following other types implement trait `OnGenesis`:
              ()

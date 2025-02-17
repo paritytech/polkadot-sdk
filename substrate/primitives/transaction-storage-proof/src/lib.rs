@@ -189,10 +189,8 @@ pub mod registration {
 		let mut target_chunk_key = Default::default();
 		let mut chunk_proof = Default::default();
 
-		let total_chunks: u64 = transactions
-			.iter()
-			.map(|t| ((t.len() + CHUNK_SIZE - 1) / CHUNK_SIZE) as u64)
-			.sum();
+		let total_chunks: u64 =
+			transactions.iter().map(|t| t.len().div_ceil(CHUNK_SIZE) as u64).sum();
 		let mut buf = [0u8; 8];
 		buf.copy_from_slice(&random_hash[0..8]);
 		let random_u64 = u64::from_be_bytes(buf);

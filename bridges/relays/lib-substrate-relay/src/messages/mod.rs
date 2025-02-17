@@ -820,6 +820,7 @@ mod tests {
 	}
 
 	// mock runtime with `pallet_bridge_messages`
+	#[allow(unexpected_cfgs)]
 	mod mock {
 		use super::super::*;
 		use bp_messages::{target_chain::ForbidInboundMessages, HashedLaneId};

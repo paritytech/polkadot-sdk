@@ -7,6 +7,7 @@ license.workspace = true
 description = "Fixtures for testing and benchmarking"
 homepage.workspace = true
 repository.workspace = true
+rust-version = "1.84"
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true
