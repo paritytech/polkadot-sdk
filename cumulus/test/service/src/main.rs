@@ -18,6 +18,7 @@ mod cli;
 
 use std::sync::Arc;
 
+use crate::cli::AuthoringStyle;
 use cli::{RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_primitives_core::relay_chain::CollatorPair;
 use cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
@@ -102,7 +103,8 @@ fn main() -> Result<(), sc_cli::Error> {
 					cumulus_test_service::Consensus::Null
 				})
 				.unwrap_or(cumulus_test_service::Consensus::Aura);
-
+			let use_slot_based_collator =
+				cli.experimental_use_slot_based || cli.authoring == AuthoringStyle::SlotBased;
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
 					match relay_chain_config.network.network_backend {
@@ -121,7 +123,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
-								cli.experimental_use_slot_based,
+								use_slot_based_collator,
 							)
 							.await,
 						sc_network::config::NetworkBackendType::Litep2p =>
@@ -139,7 +141,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
-								cli.experimental_use_slot_based,
+								use_slot_based_collator,
 							)
 							.await,
 					}
