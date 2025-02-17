@@ -57,38 +57,30 @@ mod benchmarking;
 pub mod migration;
 mod tests;
 pub mod weights;
+pub use pallet::*;
+pub use weights::WeightInfo;
 
 extern crate alloc;
-
-/// The log target for this pallet.
-const LOG_TARGET: &str = "runtime::child-bounties";
-
 use alloc::vec::Vec;
-
 use frame_support::traits::{
 	tokens::ConversionFromAssetBalance,
 	Currency,
-	ExistenceRequirement::{AllowDeath, KeepAlive},
-	Get, OnUnbalanced, ReservableCurrency, WithdrawReasons,
+	ExistenceRequirement::AllowDeath,
+	Get, OnUnbalanced, ReservableCurrency
 };
-
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, BadOrigin, BlockNumberProvider, CheckedSub, Saturating, StaticLookup,
+		AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup,
 		Zero,
 	},
 	DispatchResult, RuntimeDebug,
 };
-
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
 };
 use pallet_bounties::BountyStatus;
 use scale_info::TypeInfo;
-pub use weights::WeightInfo;
-
-pub use pallet::*;
 
 type BeneficiaryLookupOf<T> = pallet_treasury::BeneficiaryLookupOf<T>;
 type DepositBalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
@@ -98,6 +90,9 @@ type BountyIndex = pallet_bounties::BountyIndex;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BlockNumberFor<T> =
 	<<T as pallet_treasury::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
+/// The log target for this pallet.
+const LOG_TARGET: &str = "runtime::child-bounties";
 
 /// A child bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -331,7 +326,7 @@ pub mod pallet {
 			ensure!(signer == curator, BountiesError::<T>::RequireCurator);
 
 			// Read parent bounty account info.
-			let parent_bounty_account =
+			let _parent_bounty_account =
 				pallet_bounties::Pallet::<T>::bounty_account_id(parent_bounty_id);
 
 			// Ensure parent bounty has enough balance after adding child-bounty.
@@ -349,7 +344,7 @@ pub mod pallet {
 
 			// Get child-bounty ID.
 			let child_bounty_id = ParentTotalChildBounties::<T>::get(parent_bounty_id);
-			let child_bounty_account =
+			let _child_bounty_account =
 				Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
 
 			// Transfer funds from parent bounty to child-bounty.
@@ -468,7 +463,7 @@ pub mod pallet {
 			stash: BeneficiaryLookupOf<T>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
-			let stash = T::BeneficiaryLookup::lookup(stash)?;
+			let _stash = T::BeneficiaryLookup::lookup(stash)?;
 
 			let (parent_curator, _) = Self::ensure_bounty_active(parent_bounty_id)?;
 			// Mutate child-bounty.
@@ -746,7 +741,7 @@ pub mod pallet {
 
 					if let ChildBountyStatus::PendingPayout {
 						ref curator,
-						ref beneficiary,
+						beneficiary: _,
 						ref unlock_at,
 					} = child_bounty.status
 					{
@@ -758,7 +753,7 @@ pub mod pallet {
 						);
 
 						// Make curator fee payment.
-						let child_bounty_account =
+						let _child_bounty_account =
 							Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
 						// TODO: use Paymaster trait here
 						// let balance = T::Currency::free_balance(&child_bounty_account);
@@ -991,9 +986,9 @@ impl<T: Config> Pallet<T> {
 				});
 
 				// Transfer fund from child-bounty to parent bounty.
-				let parent_bounty_account =
+				let _parent_bounty_account =
 					pallet_bounties::Pallet::<T>::bounty_account_id(parent_bounty_id);
-				let child_bounty_account =
+				let _child_bounty_account =
 					Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
 				// TODO: use paymaster transfer instead of currency
 				// let balance = T::Currency::free_balance(&child_bounty_account);
