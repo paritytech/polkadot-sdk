@@ -43,6 +43,7 @@ extern crate alloc;
 pub mod __private {
 	pub use alloc::{
 		boxed::Box,
+		fmt::Debug,
 		rc::Rc,
 		string::String,
 		vec,
@@ -1098,34 +1099,61 @@ pub mod pallet_macros {
 
 	/// Allows specifying the weight of a call.
 	///
-	/// Each dispatchable needs to define a weight with the `#[pallet::weight($expr)]`
-	/// attribute. The first argument must be `origin: OriginFor<T>`.
+	/// Each dispatchable needs to define a weight.
+	/// This attribute allows to define a weight using the expression:
+	/// `#[pallet::weight($expr)]` Note that argument of the call are available inside the
+	/// expression.
+	///
+	/// If not defined explicitly, the weight can be implicitly inferred from the weight info
+	/// defined in the attribute `pallet::call`: `#[pallet::call(weight = $WeightInfo)]`.
+	/// Or it can be simply ignored when the pallet is in `dev_mode`.
 	///
 	/// ## Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// # 	use frame_support::pallet_prelude::*;
-	/// # 	use frame_system::pallet_prelude::*;
-	/// #
+	///  	use frame_support::pallet_prelude::*;
+	///  	use frame_system::pallet_prelude::*;
+	///
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
-	/// 	#[pallet::call]
+	///  	#[pallet::config]
+	///  	pub trait Config: frame_system::Config {
+	///         /// Type for specifying dispatchable weights.
+	///         type WeightInfo: WeightInfo;
+	///     }
+	///
+	/// 	#[pallet::call(weight = <T as Config>::WeightInfo)]
 	/// 	impl<T: Config> Pallet<T> {
-	/// 		#[pallet::weight({0})] // <- set actual weight here
+	/// 		// Explicit weight definition
+	/// 		#[pallet::weight(<T as Config>::WeightInfo::do_something())]
 	/// 		#[pallet::call_index(0)]
-	/// 		pub fn something(
-	/// 			_: OriginFor<T>,
+	/// 		pub fn do_something(
+	/// 			origin: OriginFor<T>,
 	/// 			foo: u32,
 	/// 		) -> DispatchResult {
-	/// 			unimplemented!()
+	/// 			Ok(())
 	/// 		}
-	/// 	}
-	/// #
-	/// # 	#[pallet::config]
-	/// # 	pub trait Config: frame_system::Config {}
+	///
+	///             // Implicit weight definition, the macro looks up to the weight info defined in
+	///             // `#[pallet::call(weight = $WeightInfo)]` attribute. Then use
+	///             // `$WeightInfo::do_something_else` as the weight function.
+	///             #[pallet::call_index(1)]
+	///             pub fn do_something_else(
+	///                 origin: OriginFor<T>,
+	///                 bar: u64,
+	///             ) -> DispatchResult {
+	///                 Ok(())
+	///             }
+	///     }
+	///
+	///     /// The `WeightInfo` trait defines weight functions for dispatchable calls.
+	///     pub trait WeightInfo {
+	///         fn do_something() -> Weight;
+	///         fn do_something_else() -> Weight;
+	///     }
 	/// }
 	/// ```
 	pub use frame_support_procedural::weight;
@@ -2181,9 +2209,69 @@ pub mod pallet_macros {
 	///   [`crate::dispatch::DispatchResultWithPostInfo`]).
 	///
 	/// **WARNING**: modifying dispatchables, changing their order (i.e. using [`call_index`]),
-	/// removing some, etc., must be done with care. This will change the encoding of the , and
-	/// the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration might be
-	/// needed. This is why the use of `call_index` is mandatory by default in FRAME.
+	/// removing some, etc., must be done with care. This will change the encoding of the call,
+	/// and the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration
+	/// might be needed. This is why the use of `call_index` is mandatory by default in FRAME.
+	///
+	/// ## Weight info
+	///
+	/// Each call needs to define a weight.
+	/// * The weight can be defined explicitly using the attribute `#[pallet::weight($expr)]`
+	///   (Note that argument of the call are available inside the expression).
+	/// * Or it can be defined implicitly, the weight info for the calls needs to be specified
+	///   in the call attribute: `#[pallet::call(weight = $WeightInfo)]`, then each call that
+	///   doesn't have explicit weight will use `$WeightInfo::$call_name` as the weight.
+	///
+	/// * Or it can be simply ignored when the pallet is in `dev_mode`.
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     use frame_support::pallet_prelude::*;
+	///     use frame_system::pallet_prelude::*;
+	///
+	///     #[pallet::pallet]
+	///     pub struct Pallet<T>(_);
+	///
+	///     #[pallet::config]
+	///     pub trait Config: frame_system::Config {
+	///         /// Type for specifying dispatchable weights.
+	///         type WeightInfo: WeightInfo;
+	///     }
+	///
+	///     /// The `WeightInfo` trait defines weight functions for dispatchable calls.
+	///     pub trait WeightInfo {
+	///         fn do_something() -> Weight;
+	///         fn do_something_else() -> Weight;
+	///     }
+	///
+	///     #[pallet::call(weight = <T as Config>::WeightInfo)]
+	///     impl<T: Config> Pallet<T> {
+	///         // Explicit weight definition using `#[pallet::weight(...)]`
+	///         #[pallet::weight(<T as Config>::WeightInfo::do_something())]
+	///         #[pallet::call_index(0)]
+	///         pub fn do_something(
+	///             origin: OriginFor<T>,
+	///             foo: u32,
+	///         ) -> DispatchResult {
+	///             // Function logic here
+	///             Ok(())
+	///         }
+	///
+	///         // Implicit weight definition, the macro looks up to the weight info defined in
+	///         // `#[pallet::call(weight = $WeightInfo)]` attribute. Then use
+	///         // `$WeightInfo::do_something_else` as the weight function.
+	///         #[pallet::call_index(1)]
+	///         pub fn do_something_else(
+	///             origin: OriginFor<T>,
+	///             bar: u64,
+	///         ) -> DispatchResult {
+	///             // Function logic here
+	///             Ok(())
+	///         }
+	///     }
+	/// }
+	/// ```
 	///
 	/// ## Default Behavior
 	///

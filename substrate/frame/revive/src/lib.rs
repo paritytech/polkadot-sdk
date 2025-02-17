@@ -41,7 +41,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, GasEncoder, GenericTransaction},
+	evm::{runtime::GAS_PRICE, CallTrace, GasEncoder, GenericTransaction, TracerConfig},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -654,6 +654,7 @@ pub mod pallet {
 					num_topic: 0,
 					len: max_payload_size,
 				})
+				.saturating_add(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::HostFn))
 				.ref_time()))
 			.saturating_mul(max_payload_size as u64))
 			.try_into()
@@ -1327,6 +1328,12 @@ where
 		Self::convert_evm_to_native(fee, ConversionPrecision::RoundUp)
 	}
 
+	/// Convert a weight to a gas value.
+	pub fn evm_gas_from_weight(weight: Weight) -> U256 {
+		let fee = T::WeightPrice::convert(weight);
+		Self::evm_fee_to_gas(fee)
+	}
+
 	/// Get the block gas limit.
 	pub fn evm_block_gas_limit() -> U256 {
 		let max_block_weight = T::BlockWeights::get()
@@ -1334,8 +1341,7 @@ where
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		let fee = T::WeightPrice::convert(max_block_weight);
-		Self::evm_fee_to_gas(fee)
+		Self::evm_gas_from_weight(max_block_weight)
 	}
 
 	/// Get the gas price.
@@ -1508,5 +1514,35 @@ sp_api::decl_runtime_apis! {
 			address: H160,
 			key: [u8; 32],
 		) -> GetStorageResult;
+
+
+		/// Traces the execution of an entire block and returns call traces.
+		///
+		/// This is intended to be called through `state_call` to replay the block from the
+		/// parent block.
+		///
+		/// See eth-rpc `debug_traceBlockByNumber` for usage.
+		fn trace_block(
+			block: Block,
+			config: TracerConfig
+		) -> Vec<(u32, CallTrace)>;
+
+		/// Traces the execution of a specific transaction within a block.
+		///
+		/// This is intended to be called through `state_call` to replay the block from the
+		/// parent hash up to the transaction.
+		///
+		/// See eth-rpc `debug_traceTransaction` for usage.
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+			config: TracerConfig
+		) -> Option<CallTrace>;
+
+		/// Dry run and return the trace of the given call.
+		///
+		/// See eth-rpc `debug_traceCall` for usage.
+		fn trace_call(tx: GenericTransaction, config: TracerConfig) -> Result<CallTrace, EthTransactError>;
+
 	}
 }
