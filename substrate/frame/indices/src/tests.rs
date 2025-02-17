@@ -20,7 +20,7 @@
 #![cfg(test)]
 
 use super::{mock::*, *};
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, pallet_prelude::Pays};
 use pallet_balances::Error as BalancesError;
 use sp_runtime::MultiAddress::Id;
 
@@ -117,5 +117,130 @@ fn force_transfer_index_on_free_should_work() {
 		assert_ok!(Indices::force_transfer(RuntimeOrigin::root(), Id(3), 0, false));
 		assert_eq!(Balances::reserved_balance(3), 0);
 		assert_eq!(Indices::lookup_index(0), Some(3));
+	});
+}
+
+#[test]
+fn reconsider_should_fail_for_unassigned_index() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Indices::reconsider(Some(1).into(), 0),
+			Error::<Test>::NotAssigned
+		);
+	});
+}
+
+#[test]
+fn reconsider_should_fail_for_wrong_owner() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Indices::claim(Some(1).into(), 0));
+		assert_noop!(
+			Indices::reconsider(Some(2).into(), 0),
+			Error::<Test>::NotOwner
+		);
+	});
+}
+
+#[test]
+fn reconsider_should_fail_for_permanent_index() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Indices::claim(Some(1).into(), 0));
+		assert_ok!(Indices::freeze(Some(1).into(), 0));
+		assert_noop!(
+			Indices::reconsider(Some(1).into(), 0),
+			Error::<Test>::Permanent
+		);
+	});
+}
+
+#[test]
+fn reconsider_should_fail_for_insufficient_balance() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Indices::claim(Some(1).into(), 0));
+
+		// Set deposit higher than available balance
+		IndexDeposit::set(1000);
+
+		assert_noop!(
+			Indices::reconsider(Some(1).into(), 0),
+			BalancesError::<Test, _>::InsufficientBalance
+		);
+	});
+}
+
+#[test]
+fn reconsider_should_work_when_deposit_increases() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Indices::claim(Some(1).into(), 0));
+		assert_eq!(Balances::reserved_balance(1), 1);
+
+		// Change deposit to 2
+		IndexDeposit::set(2);
+
+		// Reconsider should work and be free
+		let initial_balance = Balances::free_balance(1);
+		let result = Indices::reconsider(Some(1).into(), 0);
+		assert_ok!(result.as_ref());
+		let post_info = result.unwrap();
+		assert_eq!(post_info.pays_fee, Pays::No);
+		assert_eq!(Balances::reserved_balance(1), 2);
+
+		// Balance should only reduce by the deposit difference
+		assert_eq!(Balances::free_balance(1), initial_balance - 1);
+
+		System::assert_has_event(Event::DepositReconsidered { 
+			who: 1, 
+			index: 0, 
+			old_deposit: 1, 
+			new_deposit: 2 
+		}.into());
+	});
+}
+
+#[test]
+fn reconsider_should_work_when_deposit_decreases() {
+	new_test_ext().execute_with(|| {
+		// Set initial deposit to 2
+		IndexDeposit::set(2);
+		assert_ok!(Indices::claim(Some(1).into(), 0));
+		assert_eq!(Balances::reserved_balance(1), 2);
+
+		// Change deposit to 1
+		IndexDeposit::set(1);
+
+		let initial_balance = Balances::free_balance(1);
+		let result = Indices::reconsider(Some(1).into(), 0);
+		assert_ok!(result.as_ref());
+		let post_info = result.unwrap();
+		assert_eq!(post_info.pays_fee, Pays::No);
+		assert_eq!(Balances::reserved_balance(1), 1);
+
+		// Balance should increase by the unreserved amount
+		assert_eq!(Balances::free_balance(1), initial_balance + 1);
+
+		System::assert_has_event(Event::DepositReconsidered {
+			who: 1,
+			index: 0,
+			old_deposit: 2,
+			new_deposit: 1
+		}.into());
+	});
+}
+
+#[test]
+fn reconsider_should_charge_fee_when_deposit_unchanged() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Indices::claim(Some(1).into(), 0));
+		assert_eq!(Balances::reserved_balance(1), 1);
+
+		// Reconsider with same deposit amount
+		let result = Indices::reconsider(Some(1).into(), 0);
+		assert_ok!(result.as_ref());
+		// Verify fee payment
+		let post_info = result.unwrap();
+		assert_eq!(post_info.pays_fee, Pays::Yes);
+
+		// Reserved balance should remain the same
+		assert_eq!(Balances::reserved_balance(1), 1);
 	});
 }

@@ -21,6 +21,7 @@
 
 use crate::*;
 use frame_benchmarking::v2::*;
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
 
@@ -109,6 +110,42 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), account_index);
 
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().2, true);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn reconsider() -> Result<(), BenchmarkError> {
+		let account_index = T::AccountIndex::from(SEED);
+		// Setup accounts
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+
+		let original_deposit = T::Deposit::get();
+
+		// Claim the index
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+		// Verify the initial deposit amount in storage
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
+
+		// Double the deposited amount in storage
+		Accounts::<T>::try_mutate(account_index, |maybe_value| -> Result<(), BenchmarkError> {
+			let (account, amount, perm) = maybe_value.take().ok_or(BenchmarkError::Skip)?;
+			*maybe_value = Some((account, amount.saturating_mul(2u32.into()), perm));
+			Ok(())
+		})?;
+
+		// Verify the deposit was doubled
+		assert_eq!(
+			Accounts::<T>::get(account_index).unwrap().1,
+			original_deposit.saturating_mul(2u32.into())
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
+		assert!(Accounts::<T>::contains_key(account_index));
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
 		Ok(())
 	}
 
