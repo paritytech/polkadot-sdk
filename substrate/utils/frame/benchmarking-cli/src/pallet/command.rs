@@ -598,6 +598,7 @@ impl PalletCmd {
 				let benchmark_name = &benchmark.name;
 				if extrinsic.is_empty() ||
 					extrinsic.as_bytes() == &b"*"[..] ||
+					extrinsic.as_bytes() == &b"all"[..] ||
 					extrinsics.contains(&&benchmark_name[..])
 				{
 					benchmarks_to_run.push((
@@ -645,7 +646,10 @@ impl PalletCmd {
 	fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
 		let include = self.pallet.clone().unwrap_or_default();
 
-		let included = include.is_empty() || include == "*" || include.as_bytes() == pallet;
+		let included = include.is_empty() ||
+			include == "*" ||
+			include == "all" ||
+			include.as_bytes() == pallet;
 		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
 
 		included && !excluded
