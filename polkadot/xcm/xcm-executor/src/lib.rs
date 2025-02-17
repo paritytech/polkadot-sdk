@@ -1296,7 +1296,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						message.push(ClearOrigin);
 					}
 
-					// If not intending to pay for fees then we send the `UnpaidExecution`
+					// If not intending to pay for fees then we append the `UnpaidExecution`
 					// _AFTER_ origin altering instructions.
 					// When origin is not preserved, it's probably going to fail on the receiver.
 					if wants_unpaid_execution {
