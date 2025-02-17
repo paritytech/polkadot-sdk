@@ -30,7 +30,7 @@ use codec::DecodeAll;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSetProtocolNames, ValidationVersion},
 	request_response::{outgoing::Requests, ReqProtocolNames},
-	v1 as protocol_v1, v2 as protocol_v2, ObservedRole, Versioned,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, ObservedRole, Versioned,
 };
 use polkadot_node_subsystem::{FromOrchestra, OverseerSignal};
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
@@ -289,7 +289,7 @@ fn send_messages_to_peers() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(peer, ValidationVersion::V3, PeerSet::Validation, ObservedRole::Full)
 			.timeout(TIMEOUT)
 			.await
 			.expect("Timeout does not occur");
@@ -298,7 +298,7 @@ fn send_messages_to_peers() {
 		// so the single item sink has to be free explicitly
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, ValidationVersion::V3, PeerSet::Collation, ObservedRole::Full)
 			.timeout(TIMEOUT)
 			.await
 			.expect("Timeout does not occur");
@@ -307,9 +307,9 @@ fn send_messages_to_peers() {
 
 		{
 			let approval_distribution_message =
-				protocol_v1::ApprovalDistributionMessage::Approvals(Vec::new());
+				protocol_v3::ApprovalDistributionMessage::Approvals(Vec::new());
 
-			let message_v1 = protocol_v1::ValidationProtocol::ApprovalDistribution(
+			let message_v1 = protocol_v3::ValidationProtocol::ApprovalDistribution(
 				approval_distribution_message.clone(),
 			);
 
@@ -317,7 +317,7 @@ fn send_messages_to_peers() {
 				.send(FromOrchestra::Communication {
 					msg: NetworkBridgeTxMessage::SendValidationMessage(
 						vec![peer],
-						Versioned::V1(message_v1.clone()),
+						Versioned::V3(message_v1.clone()),
 					),
 				})
 				.timeout(TIMEOUT)
@@ -383,10 +383,10 @@ fn network_protocol_versioning_send() {
 
 		let peer_ids: Vec<_> = (0..4).map(|_| PeerId::random()).collect();
 		let peers = [
-			(peer_ids[0], PeerSet::Validation, ValidationVersion::V2),
-			(peer_ids[1], PeerSet::Collation, ValidationVersion::V1),
-			(peer_ids[2], PeerSet::Validation, ValidationVersion::V1),
-			(peer_ids[3], PeerSet::Collation, ValidationVersion::V2),
+			(peer_ids[0], PeerSet::Validation, ValidationVersion::V3),
+			(peer_ids[1], PeerSet::Collation, ValidationVersion::V3),
+			(peer_ids[2], PeerSet::Validation, ValidationVersion::V3),
+			(peer_ids[3], PeerSet::Collation, ValidationVersion::V3),
 		];
 
 		for &(peer_id, peer_set, version) in &peers {
@@ -400,9 +400,9 @@ fn network_protocol_versioning_send() {
 		// send a validation protocol message.
 		{
 			let approval_distribution_message =
-				protocol_v2::ApprovalDistributionMessage::Approvals(Vec::new());
+				protocol_v3::ApprovalDistributionMessage::Approvals(Vec::new());
 
-			let msg = protocol_v2::ValidationProtocol::ApprovalDistribution(
+			let msg = protocol_v3::ValidationProtocol::ApprovalDistribution(
 				approval_distribution_message.clone(),
 			);
 
@@ -413,7 +413,7 @@ fn network_protocol_versioning_send() {
 				.send(FromOrchestra::Communication {
 					msg: NetworkBridgeTxMessage::SendValidationMessage(
 						receivers.clone(),
-						Versioned::V2(msg.clone()),
+						Versioned::V3(msg.clone()),
 					),
 				})
 				.timeout(TIMEOUT)

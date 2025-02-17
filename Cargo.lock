@@ -17448,6 +17448,7 @@ dependencies = [
  "always-assert",
  "assert_matches",
  "async-trait",
+ "bitvec",
  "bytes",
  "fatality",
  "futures",
