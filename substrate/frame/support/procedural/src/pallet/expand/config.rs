@@ -126,7 +126,7 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 				ty: #frame_support::__private::scale_info::meta_type::<
 						<T as Config #trait_use_gen>::#ident
 					>(),
-				docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
+				docs: #frame_support::__private::vec![ #( #doc ),* ],
 			}
 		})
 	});
@@ -136,9 +136,9 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 
 			#[doc(hidden)]
 			pub fn pallet_associated_types_metadata()
-				-> #frame_support::__private::sp_std::vec::Vec<#frame_support::__private::metadata_ir::PalletAssociatedTypeMetadataIR>
+				-> #frame_support::__private::vec::Vec<#frame_support::__private::metadata_ir::PalletAssociatedTypeMetadataIR>
 			{
-				#frame_support::__private::sp_std::vec![ #( #types ),* ]
+				#frame_support::__private::vec![ #( #types ),* ]
 			}
 		}
 	)

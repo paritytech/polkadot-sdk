@@ -21,7 +21,7 @@ use crate::{self as pallet_nis, Perquintill, WithMaximumOf};
 
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::Inspect, ConstU32, ConstU64, OnFinalize, OnInitialize, StorageMapShim},
+	traits::{fungible::Inspect, ConstU32, ConstU64, StorageMapShim},
 	weights::Weight,
 	PalletId,
 };
@@ -133,6 +133,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test, Instance1> {
 		balances: vec![(1, 100), (2, 100), (3, 100), (4, 100)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -144,16 +145,4 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[cfg(feature = "runtime-benchmarks")]
 pub fn new_test_ext_empty() -> sp_io::TestExternalities {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
-}
-
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		Nis::on_finalize(System::block_number());
-		Balances::on_finalize(System::block_number());
-		System::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Balances::on_initialize(System::block_number());
-		Nis::on_initialize(System::block_number());
-	}
 }
