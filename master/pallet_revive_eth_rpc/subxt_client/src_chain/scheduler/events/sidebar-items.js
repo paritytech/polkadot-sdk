@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["call_unavailable","canceled","dispatched","periodic_failed","permanently_overweight","retry_cancelled","retry_failed","retry_set","scheduled"],"struct":["CallUnavailable","Canceled","Dispatched","PeriodicFailed","PermanentlyOverweight","RetryCancelled","RetryFailed","RetrySet","Scheduled"]};

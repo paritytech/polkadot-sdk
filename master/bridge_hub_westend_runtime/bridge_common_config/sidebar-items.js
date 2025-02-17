@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DeliveryRewardInBalance","RelayerStakeLease","RelayerStakeReserveId","RequiredStakeForStakeAndSlash"],"type":["RelayersForLegacyLaneIdsMessagesInstance"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["XcmReceivedFrom"],"fn":["assert_metadata","assert_total","mock_open_hrmp_channel"],"mod":["test_cases"],"struct":["CollatorSessionKey","CollatorSessionKeys","ExtBuilder","RuntimeHelper","SlotDurations"],"trait":["BasicParachainRuntime"],"type":["AccountIdOf","BalanceOf","RuntimeCallOf","SessionKeysOf","ValidatorIdOf"]};

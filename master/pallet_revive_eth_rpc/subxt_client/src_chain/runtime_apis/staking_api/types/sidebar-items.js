@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["eras_stakers_page_count","nominations_quota","pending_rewards"],"struct":["ErasStakersPageCount","NominationsQuota","PendingRewards"]};

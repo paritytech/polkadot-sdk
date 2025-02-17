@@ -1,0 +1,230 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait for maps that store all its value after a unique prefix."><title>StoragePrefixedMap in frame_support::storage - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">StoragePrefixedMap</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.pallet_prefix">pallet_prefix</a></li><li><a href="#tymethod.storage_prefix">storage_prefix</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.clear">clear</a></li><li><a href="#method.final_prefix">final_prefix</a></li><li><a href="#method.iter_values">iter_values</a></li><li><a href="#method.remove_all">remove_all</a></li><li><a href="#method.translate_values">translate_values</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame_support::storage</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">frame_support</a>::<wbr><a href="index.html">storage</a>::<wbr><a class="trait" href="#">StoragePrefixedMap</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support/storage/mod.rs.html#1364-1466">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait StoragePrefixedMap&lt;Value: FullCodec&gt; {
+    // Required methods
+    fn <a href="#tymethod.pallet_prefix" class="fn">pallet_prefix</a>() -&gt; &amp;'static [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>] <a href="#" class="tooltip" data-notable-ty="&amp;&#39;static [u8]">ⓘ</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_prefix" class="fn">storage_prefix</a>() -&gt; &amp;'static [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>] <a href="#" class="tooltip" data-notable-ty="&amp;&#39;static [u8]">ⓘ</a>;
+
+    // Provided methods
+    fn <a href="#method.final_prefix" class="fn">final_prefix</a>() -&gt; [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>] { ... }
+<span class="item-spacer"></span>    fn <a href="#method.remove_all" class="fn">remove_all</a>(limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;) -&gt; <a class="enum" href="child/enum.KillStorageResult.html" title="enum frame_support::storage::child::KillStorageResult">KillStorageResult</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.clear" class="fn">clear</a>(limit: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;) -&gt; <a class="struct" href="child/struct.MultiRemovalResults.html" title="struct frame_support::storage::child::MultiRemovalResults">MultiRemovalResults</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.iter_values" class="fn">iter_values</a>() -&gt; <a class="struct" href="struct.PrefixIterator.html" title="struct frame_support::storage::PrefixIterator">PrefixIterator</a>&lt;Value&gt; <a href="#" class="tooltip" data-notable-ty="PrefixIterator&lt;Value&gt;">ⓘ</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.translate_values" class="fn">translate_values</a>&lt;OldValue: <a class="trait" href="../pallet_prelude/trait.Decode.html" title="trait frame_support::pallet_prelude::Decode">Decode</a>, F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(OldValue) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Value&gt;&gt;(
+        f: F,
+    ) { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait for maps that store all its value after a unique prefix.</p>
+<p>By default the final prefix is:</p>
+<div class="example-wrap"><pre class="language-nocompile"><code>Twox128(pallet_prefix) ++ Twox128(storage_prefix)
+</code></pre></div></div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.pallet_prefix" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#1366">source</a><h4 class="code-header">fn <a href="#tymethod.pallet_prefix" class="fn">pallet_prefix</a>() -&gt; &amp;'static [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>] <a href="#" class="tooltip" data-notable-ty="&amp;&#39;static [u8]">ⓘ</a></h4></section></summary><div class="docblock"><p>Pallet prefix. Used for generating final key.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_prefix" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#1369">source</a><h4 class="code-header">fn <a href="#tymethod.storage_prefix" class="fn">storage_prefix</a>() -&gt; &amp;'static [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>] <a href="#" class="tooltip" data-notable-ty="&amp;&#39;static [u8]">ⓘ</a></h4></section></summary><div class="docblock"><p>Storage prefix. Used for generating final key.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.final_prefix" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#1372-1374">source</a><h4 class="code-header">fn <a href="#method.final_prefix" class="fn">final_prefix</a>() -&gt; [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>]</h4></section></summary><div class="docblock"><p>Final full prefix that prefixes all keys.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_all" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#1388-1390">source</a><h4 class="code-header">fn <a href="#method.remove_all" class="fn">remove_all</a>(limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;) -&gt; <a class="enum" href="child/enum.KillStorageResult.html" title="enum frame_support::storage::child::KillStorageResult">KillStorageResult</a></h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>clear</code> instead</span></div></span></summary><div class="docblock"><p>Remove all values in the overlay and up to <code>limit</code> in the backend.</p>
+<p>All values in the client overlay will be deleted, if there is some <code>limit</code> then up to
+<code>limit</code> values are deleted from the client backend, if <code>limit</code> is none then all values in
+the client backend are deleted.</p>
+<h5 id="note"><a class="doc-anchor" href="#note">§</a>Note</h5>
+<p>Calling this multiple times per block with a <code>limit</code> set leads always to the same keys being
+removed and the same result being returned. This happens because the keys to delete in the
+overlay are not taken into account when deleting keys in the backend.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#1415-1417">source</a><h4 class="code-header">fn <a href="#method.clear" class="fn">clear</a>(limit: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;) -&gt; <a class="struct" href="child/struct.MultiRemovalResults.html" title="struct frame_support::storage::child::MultiRemovalResults">MultiRemovalResults</a></h4></section></summary><div class="docblock"><p>Attempt to remove all items from the map.</p>
+<p>Returns <a href="child/struct.MultiRemovalResults.html" title="struct frame_support::storage::child::MultiRemovalResults"><code>MultiRemovalResults</code></a> to inform about the result. Once
+the resultant <code>maybe_cursor</code> field is <code>None</code>, then no further items remain to be deleted.</p>
+<p>NOTE: After the initial call for any given map, it is important that no further items
+are inserted into the map. If so, then the map may not be empty when the resultant
+<code>maybe_cursor</code> is <code>None</code>.</p>
+<h5 id="limit"><a class="doc-anchor" href="#limit">§</a>Limit</h5>
+<p>A <code>limit</code> must always be provided through in order to cap the maximum
+amount of deletions done in a single call. This is one fewer than the
+maximum number of backend iterations which may be done by this operation and as such
+represents the maximum number of backend deletions which may happen. A <code>limit</code> of zero
+implies that no keys will be deleted, though there may be a single iteration done.</p>
+<h5 id="cursor"><a class="doc-anchor" href="#cursor">§</a>Cursor</h5>
+<p>A <em>cursor</em> may be passed in to this operation with <code>maybe_cursor</code>. <code>None</code> should only be
+passed once (in the initial call) for any given storage map. Subsequent calls
+operating on the same map should always pass <code>Some</code>, and this should be equal to the
+previous call result’s <code>maybe_cursor</code> field.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.iter_values" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#1422-1431">source</a><h4 class="code-header">fn <a href="#method.iter_values" class="fn">iter_values</a>() -&gt; <a class="struct" href="struct.PrefixIterator.html" title="struct frame_support::storage::PrefixIterator">PrefixIterator</a>&lt;Value&gt; <a href="#" class="tooltip" data-notable-ty="PrefixIterator&lt;Value&gt;">ⓘ</a></h4></section></summary><div class="docblock"><p>Iter over all value of the storage.</p>
+<p>NOTE: If a value failed to decode because storage is corrupted then it is skipped.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.translate_values" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#1446-1465">source</a><h4 class="code-header">fn <a href="#method.translate_values" class="fn">translate_values</a>&lt;OldValue: <a class="trait" href="../pallet_prelude/trait.Decode.html" title="trait frame_support::pallet_prelude::Decode">Decode</a>, F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(OldValue) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Value&gt;&gt;(f: F)</h4></section></summary><div class="docblock"><p>Translate the values of all elements by a function <code>f</code>, in the map in no particular order.
+By returning <code>None</code> from <code>f</code> for an element, you’ll remove it from the map.</p>
+<p>NOTE: If a value fail to decode because storage is corrupted then it is skipped.</p>
+<h5 id="warning"><a class="doc-anchor" href="#warning">§</a>Warning</h5>
+<p>This function must be used with care, before being updated the storage still contains the
+old type, thus other calls (such as <code>get</code>) will fail at decoding it.</p>
+<h5 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h5>
+<p>This would typically be called inside the module implementation of on_runtime_upgrade.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-StoragePrefixedMap%3CValue%3E-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E" class="impl"><a class="src rightside" href="../../src/frame_support/storage/types/double_map.rs.html#185-205">source</a><a href="#impl-StoragePrefixedMap%3CValue%3E-for-StorageDoubleMap%3CPrefix,+Hasher1,+Key1,+Hasher2,+Key2,+Value,+QueryKind,+OnEmpty,+MaxValues%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues&gt; <a class="trait" href="trait.StoragePrefixedMap.html" title="trait frame_support::storage::StoragePrefixedMap">StoragePrefixedMap</a>&lt;Value&gt; for <a class="struct" href="types/struct.StorageDoubleMap.html" title="struct frame_support::storage::types::StorageDoubleMap">StorageDoubleMap</a>&lt;Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues&gt;<div class="where">where
+    Prefix: <a class="trait" href="../traits/trait.StorageInstance.html" title="trait frame_support::traits::StorageInstance">StorageInstance</a>,
+    Hasher1: <a class="trait" href="../trait.StorageHasher.html" title="trait frame_support::StorageHasher">StorageHasher</a>,
+    Hasher2: <a class="trait" href="../trait.StorageHasher.html" title="trait frame_support::StorageHasher">StorageHasher</a>,
+    Key1: FullCodec,
+    Key2: FullCodec,
+    Value: FullCodec,
+    QueryKind: <a class="trait" href="types/trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait">QueryKindTrait</a>&lt;Value, OnEmpty&gt;,
+    OnEmpty: <a class="trait" href="../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;QueryKind::<a class="associatedtype" href="types/trait.QueryKindTrait.html#associatedtype.Query" title="type frame_support::storage::types::QueryKindTrait::Query">Query</a>&gt; + 'static,
+    MaxValues: <a class="trait" href="../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;&gt;,</div></h3></section><section id="impl-StoragePrefixedMap%3CValue%3E-for-StorageMap%3CPrefix,+Hasher,+Key,+Value,+QueryKind,+OnEmpty,+MaxValues%3E" class="impl"><a class="src rightside" href="../../src/frame_support/storage/types/map.rs.html#130-147">source</a><a href="#impl-StoragePrefixedMap%3CValue%3E-for-StorageMap%3CPrefix,+Hasher,+Key,+Value,+QueryKind,+OnEmpty,+MaxValues%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues&gt; <a class="trait" href="trait.StoragePrefixedMap.html" title="trait frame_support::storage::StoragePrefixedMap">StoragePrefixedMap</a>&lt;Value&gt; for <a class="struct" href="types/struct.StorageMap.html" title="struct frame_support::storage::types::StorageMap">StorageMap</a>&lt;Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues&gt;<div class="where">where
+    Prefix: <a class="trait" href="../traits/trait.StorageInstance.html" title="trait frame_support::traits::StorageInstance">StorageInstance</a>,
+    Hasher: <a class="trait" href="../trait.StorageHasher.html" title="trait frame_support::StorageHasher">StorageHasher</a>,
+    Key: FullCodec,
+    Value: FullCodec,
+    QueryKind: <a class="trait" href="types/trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait">QueryKindTrait</a>&lt;Value, OnEmpty&gt;,
+    OnEmpty: <a class="trait" href="../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;QueryKind::<a class="associatedtype" href="types/trait.QueryKindTrait.html#associatedtype.Query" title="type frame_support::storage::types::QueryKindTrait::Query">Query</a>&gt; + 'static,
+    MaxValues: <a class="trait" href="../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;&gt;,</div></h3></section><section id="impl-StoragePrefixedMap%3CValue%3E-for-StorageNMap%3CPrefix,+Key,+Value,+QueryKind,+OnEmpty,+MaxValues%3E" class="impl"><a class="src rightside" href="../../src/frame_support/storage/types/nmap.rs.html#123-139">source</a><a href="#impl-StoragePrefixedMap%3CValue%3E-for-StorageNMap%3CPrefix,+Key,+Value,+QueryKind,+OnEmpty,+MaxValues%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Prefix, Key, Value, QueryKind, OnEmpty, MaxValues&gt; <a class="trait" href="trait.StoragePrefixedMap.html" title="trait frame_support::storage::StoragePrefixedMap">StoragePrefixedMap</a>&lt;Value&gt; for <a class="struct" href="types/struct.StorageNMap.html" title="struct frame_support::storage::types::StorageNMap">StorageNMap</a>&lt;Prefix, Key, Value, QueryKind, OnEmpty, MaxValues&gt;<div class="where">where
+    Prefix: <a class="trait" href="../traits/trait.StorageInstance.html" title="trait frame_support::traits::StorageInstance">StorageInstance</a>,
+    Key: <a class="trait" href="types/trait.KeyGenerator.html" title="trait frame_support::storage::types::KeyGenerator">KeyGenerator</a>,
+    Value: FullCodec,
+    QueryKind: <a class="trait" href="types/trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait">QueryKindTrait</a>&lt;Value, OnEmpty&gt;,
+    OnEmpty: <a class="trait" href="../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;QueryKind::<a class="associatedtype" href="types/trait.QueryKindTrait.html#associatedtype.Query" title="type frame_support::storage::types::QueryKindTrait::Query">Query</a>&gt; + 'static,
+    MaxValues: <a class="trait" href="../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;&gt;,</div></h3></section></div><script src="../../trait.impl/frame_support/storage/trait.StoragePrefixedMap.js" async></script><script type="text/json" id="notable-traits-data">{"&'static [u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u8.html\">u8</a>]</div>","PrefixIterator<Value>":"<h3>Notable traits for <code><a class=\"struct\" href=\"struct.PrefixIterator.html\" title=\"struct frame_support::storage::PrefixIterator\">PrefixIterator</a>&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval: <a class=\"trait\" href=\"trait.PrefixIteratorOnRemoval.html\" title=\"trait frame_support::storage::PrefixIteratorOnRemoval\">PrefixIteratorOnRemoval</a>&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for <a class=\"struct\" href=\"struct.PrefixIterator.html\" title=\"struct frame_support::storage::PrefixIterator\">PrefixIterator</a>&lt;T, OnRemoval&gt;</div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

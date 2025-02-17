@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Admin","Freezer","Id","IsFrozen","IsSufficient","Issuer","MinBalance","Owner"]};

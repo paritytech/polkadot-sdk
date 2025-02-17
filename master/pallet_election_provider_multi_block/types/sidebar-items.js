@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ElectionCompute","Phase"],"struct":["ElectionResult","ElectionScore","PagedRawSolution","SolutionOrSnapshotSize"],"trait":["NposSolution","PadSolutionPages","Pagify"],"type":["AssignmentOf","FallbackErrorOf","PageIndex","SolutionAccuracyOf","SolutionOf","SolutionTargetIndexOf","SolutionVoterIndexOf"]};

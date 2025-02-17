@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["add_proxy","announce","create_pure","kill_pure","proxy","proxy_announced","reject_announcement","remove_announcement","remove_proxy"],"struct":["AddProxy","Announce","CreatePure","KillPure","Proxy","ProxyAnnounced","RejectAnnouncement","RemoveAnnouncement","RemoveProxies","RemoveProxy"]};

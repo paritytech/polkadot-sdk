@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate client interfaces."><title>sc_client_api - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_client_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_client_api/index.html">sc_client_api</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sc_client_api</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sc_client_api/lib.rs.html#19-90">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate client interfaces.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.blockchain"><code>pub use sp_blockchain as blockchain;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="backend/index.html" title="mod sc_client_api::backend">backend</a>::*;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="call_executor/index.html" title="mod sc_client_api::call_executor">call_executor</a>::*;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="client/index.html" title="mod sc_client_api::client">client</a>::*;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="notifications/index.html" title="mod sc_client_api::notifications">notifications</a>::*;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="proof_provider/index.html" title="mod sc_client_api::proof_provider">proof_provider</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="backend/index.html" title="mod sc_client_api::backend">backend</a></div><div class="desc docblock-short">Substrate Client data backend</div></li><li><div class="item-name"><a class="mod" href="call_executor/index.html" title="mod sc_client_api::call_executor">call_executor</a></div><div class="desc docblock-short">A method call executor interface.</div></li><li><div class="item-name"><a class="mod" href="client/index.html" title="mod sc_client_api::client">client</a></div><div class="desc docblock-short">A set of APIs supported by the client along with their primitives.</div></li><li><div class="item-name"><a class="mod" href="execution_extensions/index.html" title="mod sc_client_api::execution_extensions">execution_extensions</a></div><div class="desc docblock-short">Execution extensions for runtime calls.</div></li><li><div class="item-name"><a class="mod" href="in_mem/index.html" title="mod sc_client_api::in_mem">in_mem</a></div><div class="desc docblock-short">In memory client backend</div></li><li><div class="item-name"><a class="mod" href="leaves/index.html" title="mod sc_client_api::leaves">leaves</a></div><div class="desc docblock-short">Helper for managing the set of available leaves in the chain for DB implementations.</div></li><li><div class="item-name"><a class="mod" href="notifications/index.html" title="mod sc_client_api::notifications">notifications</a></div><div class="desc docblock-short">Storage notifications</div></li><li><div class="item-name"><a class="mod" href="proof_provider/index.html" title="mod sc_client_api::proof_provider">proof_provider</a></div><div class="desc docblock-short">Proof utilities</div></li><li><div class="item-name"><a class="mod" href="utils/index.html" title="mod sc_client_api::utils">utils</a></div><div class="desc docblock-short">Utility methods for the client.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.CompactProof.html" title="struct sc_client_api::CompactProof">CompactProof</a></div><div class="desc docblock-short">Storage proof in compact form.</div></li><li><div class="item-name"><a class="struct" href="struct.PrefixedStorageKey.html" title="struct sc_client_api::PrefixedStorageKey">PrefixedStorageKey</a></div><div class="desc docblock-short">Storage key of a child trie, it contains the prefix to the key.</div></li><li><div class="item-name"><a class="struct" href="struct.StorageData.html" title="struct sc_client_api::StorageData">StorageData</a></div><div class="desc docblock-short">Storage data associated to a <a href="struct.StorageKey.html" title="struct sc_client_api::StorageKey"><code>StorageKey</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a></div><div class="desc docblock-short">Storage key.</div></li><li><div class="item-name"><a class="struct" href="struct.StorageProof.html" title="struct sc_client_api::StorageProof">StorageProof</a></div><div class="desc docblock-short">A proof that some set of key-value pairs are included in the storage trie. The proof contains
+the storage values so that the partial storage backend can be reconstructed by a verifier that
+does not already have access to the key-value pairs.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.ChildInfo.html" title="enum sc_client_api::ChildInfo">ChildInfo</a></div><div class="desc docblock-short">Information related to a child state.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.HeaderBackend.html" title="trait sc_client_api::HeaderBackend">HeaderBackend</a></div><div class="desc docblock-short">Blockchain database header backend. Does not perform any validation.</div></li><li><div class="item-name"><a class="trait" href="trait.UsageProvider.html" title="trait sc_client_api::UsageProvider">UsageProvider</a></div><div class="desc docblock-short">Usage Information Provider interface</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

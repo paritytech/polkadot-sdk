@@ -1,0 +1,220 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Re-export the solution generation macro. Generates a struct to store the election result in a small/compact way. This can encode a structure which is the equivalent of a `sp_npos_elections::Assignment&lt;_&gt;`."><title>generate_solution_type in frame_election_provider_support - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_election_provider_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_election_provider_support/index.html">frame_election_provider_support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="index.html">frame_election_provider_support</a>::<wbr><a class="macro" href="#">generate_solution_type</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/frame_election_provider_solution_type/lib.rs.html#126">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>generate_solution_type!() { <span class="comment">/* proc-macro */</span> }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Re-export the solution generation macro.
+Generates a struct to store the election result in a small/compact way. This can encode a
+structure which is the equivalent of a <code>sp_npos_elections::Assignment&lt;_&gt;</code>.</p>
+<p>The following data types can be configured by the macro.</p>
+<ul>
+<li>The identifier of the voter. This can be any type that supports <code>parity-scale-codec</code>’s compact
+encoding.</li>
+<li>The identifier of the target. This can be any type that supports <code>parity-scale-codec</code>’s
+compact encoding.</li>
+<li>The accuracy of the ratios. This must be one of the <code>PerThing</code> types defined in
+<code>sp-arithmetic</code>.</li>
+<li>The maximum number of voters. This must be of type <code>Get&lt;u32&gt;</code>. Check <a href="https://github.com/paritytech/substrate/issues/10866">https://github.com/paritytech/substrate/issues/10866</a>
+for more details. This is used to bound the struct, by leveraging the fact that <code>votes1.len() &lt; votes2.len() &lt; ... &lt; votesn.len()</code> (the details of the struct is explained further below).
+We know that <code>sum_i votes_i.len() &lt;= MaxVoters</code>, and we know that the maximum size of the
+struct would be achieved if all voters fall in the last bucket. One can also check the tests
+and more specifically <code>max_encoded_len_exact</code> for a concrete example.</li>
+</ul>
+<p>Moreover, the maximum number of edges per voter (distribution per assignment) also need to be
+specified. Attempting to convert from/to an assignment with more distributions will fail.</p>
+<p>For example, the following generates a public struct with name <code>TestSolution</code> with <code>u16</code> voter
+type, <code>u8</code> target type and <code>Perbill</code> accuracy with maximum of 4 edges per voter.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">generate_solution_type!</span>(<span class="kw">pub struct </span>TestSolution::&lt;
+    VoterIndex = u16,
+    TargetIndex = u8,
+    Accuracy = Perbill,
+    MaxVoters = ConstU32::&lt;<span class="number">10</span>&gt;,
+&gt;(<span class="number">4</span>));</code></pre></div>
+<p>The output of this macro will roughly look like:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">struct </span>TestSolution {
+	voters1: <span class="macro">vec!</span>[(u16 <span class="comment">/* voter */</span>, u8 <span class="comment">/* target */</span>)]
+	voters2: <span class="macro">vec!</span>[
+		(u16 <span class="comment">/* voter */</span>, [u8 <span class="comment">/* first target*/</span>, Perbill <span class="comment">/* proportion for first target */</span>], u8 <span class="comment">/* last target */</span>)
+	]
+	voters3: <span class="macro">vec!</span>[
+		(u16 <span class="comment">/* voter */</span>,  [
+			(u8 <span class="comment">/* first target*/</span>, Perbill <span class="comment">/* proportion for first target */ </span>),
+			(u8 <span class="comment">/* second target */</span>, Perbill <span class="comment">/* proportion for second target*/</span>)
+		], u8 <span class="comment">/* last target */</span>)
+		],
+	voters4: ...,
+}
+
+<span class="kw">impl </span>NposSolution <span class="kw">for </span>TestSolution {};
+<span class="kw">impl </span>Solution <span class="kw">for </span>TestSolution {};</code></pre></div>
+<p>The given struct provides function to convert from/to <code>Assignment</code> as part of
+<code>frame_election_provider_support::NposSolution</code> trait:</p>
+<ul>
+<li><code>fn from_assignment&lt;..&gt;(..)</code></li>
+<li><code>fn into_assignment&lt;..&gt;(..)</code></li>
+</ul>
+<h3 id="compact-encoding"><a class="doc-anchor" href="#compact-encoding">§</a>Compact Encoding</h3>
+<p>The generated struct is by default deriving both <code>Encode</code> and <code>Decode</code>. This is okay but could
+lead to many <code>0</code>s in the solution. If prefixed with <code>#[compact]</code>, then a custom compact encoding
+for numbers will be used, similar to how <code>parity-scale-codec</code>’s <code>Compact</code> works.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">generate_solution_type!</span>(
+    <span class="attr">#[compact]
+    </span><span class="kw">pub struct </span>TestSolutionCompact::&lt;
+         VoterIndex = u16,
+         TargetIndex = u8,
+         Accuracy = Perbill,
+         MaxVoters = ConstU32::&lt;<span class="number">10</span>&gt;,
+    &gt;(<span class="number">8</span>)
+);</code></pre></div>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

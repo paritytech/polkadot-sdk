@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Mode"],"struct":["BeaconHeader","CompactBeaconState","CompactExecutionHeader","ExecutionHeaderState","ExecutionPayloadHeader","FinalizedHeaderState","Fork","ForkData","ForkVersions","PublicKey","Signature","SigningData","SyncAggregate","SyncCommittee","SyncCommitteePrepared"],"type":["ForkVersion","ValidatorIndex"]};

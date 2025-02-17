@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Primitives for GRANDPA integration, suitable for WASM compilation."><title>sp_consensus_grandpa - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_consensus_grandpa/index.html">sp_consensus_grandpa</a><span class="version">13.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sp_consensus_grandpa</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sp_consensus_grandpa/lib.rs.html#18-548">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Primitives for GRANDPA integration, suitable for WASM compilation.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.EquivocationProof.html" title="struct sp_consensus_grandpa::EquivocationProof">EquivocationProof</a></div><div class="desc docblock-short">Proof of voter misbehavior on a given set id. Misbehavior/equivocation in
+GRANDPA happens when a voter votes on the same round (either at prevote or
+precommit stage) for different blocks. Proving is achieved by collecting the
+signed messages of conflicting votes.</div></li><li><div class="item-name"><a class="struct" href="struct.GrandpaJustification.html" title="struct sp_consensus_grandpa::GrandpaJustification">GrandpaJustification</a></div><div class="desc docblock-short">A GRANDPA justification for block finality, it includes a commit message and
+an ancestry proof including all headers routing all precommit target blocks
+to the commit target block. Due to the current voting strategy the precommit
+targets should be the same as the commit target, since honest voters don’t
+vote past authority set change blocks.</div></li><li><div class="item-name"><a class="struct" href="struct.ScheduledChange.html" title="struct sp_consensus_grandpa::ScheduledChange">ScheduledChange</a></div><div class="desc docblock-short">A scheduled change of authority set.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.ConsensusLog.html" title="enum sp_consensus_grandpa::ConsensusLog">ConsensusLog</a></div><div class="desc docblock-short">An consensus log item for GRANDPA.</div></li><li><div class="item-name"><a class="enum" href="enum.Equivocation.html" title="enum sp_consensus_grandpa::Equivocation">Equivocation</a></div><div class="desc docblock-short">Wrapper object for GRANDPA equivocation proofs, useful for unifying prevote
+and precommit equivocations under a common type.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.CLIENT_LOG_TARGET.html" title="constant sp_consensus_grandpa::CLIENT_LOG_TARGET">CLIENT_LOG_TARGET</a></div><div class="desc docblock-short">The log target to be used by client code.</div></li><li><div class="item-name"><a class="constant" href="constant.GRANDPA_ENGINE_ID.html" title="constant sp_consensus_grandpa::GRANDPA_ENGINE_ID">GRANDPA_ENGINE_ID</a></div><div class="desc docblock-short">The <code>ConsensusEngineId</code> of GRANDPA.</div></li><li><div class="item-name"><a class="constant" href="constant.KEY_TYPE.html" title="constant sp_consensus_grandpa::KEY_TYPE">KEY_TYPE</a></div><div class="desc docblock-short">Key type for GRANDPA module.</div></li><li><div class="item-name"><a class="constant" href="constant.RUNTIME_LOG_TARGET.html" title="constant sp_consensus_grandpa::RUNTIME_LOG_TARGET">RUNTIME_LOG_TARGET</a></div><div class="desc docblock-short">The log target to be used by runtime code.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.GrandpaApi.html" title="trait sp_consensus_grandpa::GrandpaApi">GrandpaApi</a></div><div class="desc docblock-short">APIs for integrating the GRANDPA finality gadget into runtimes.
+This should be implemented on the runtime side.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.check_equivocation_proof.html" title="fn sp_consensus_grandpa::check_equivocation_proof">check_equivocation_proof</a></div><div class="desc docblock-short">Verifies the equivocation proof by making sure that both votes target
+different blocks and that its signatures are valid.</div></li><li><div class="item-name"><a class="fn" href="fn.check_message_signature.html" title="fn sp_consensus_grandpa::check_message_signature">check_message_signature</a></div><div class="desc docblock-short">Check a message signature by encoding the message as a localized payload and
+verifying the provided signature using the expected authority id.</div></li><li><div class="item-name"><a class="fn" href="fn.check_message_signature_with_buffer.html" title="fn sp_consensus_grandpa::check_message_signature_with_buffer">check_message_signature_with_buffer</a></div><div class="desc docblock-short">Check a message signature by encoding the message as a localized payload and
+verifying the provided signature using the expected authority id.
+The encoding necessary to verify the signature will be done using the given
+buffer, the original content of the buffer will be cleared.</div></li><li><div class="item-name"><a class="fn" href="fn.localized_payload.html" title="fn sp_consensus_grandpa::localized_payload">localized_payload</a></div><div class="desc docblock-short">Encode round message localized to a given round and set id.</div></li><li><div class="item-name"><a class="fn" href="fn.localized_payload_with_buffer.html" title="fn sp_consensus_grandpa::localized_payload_with_buffer">localized_payload_with_buffer</a></div><div class="desc docblock-short">Encode round message localized to a given round and set id using the given
+buffer. The given buffer will be cleared and the resulting encoded payload
+will always be written to the start of the buffer.</div></li><li><div class="item-name"><a class="fn" href="fn.sign_message.html" title="fn sp_consensus_grandpa::sign_message">sign_message</a></div><div class="desc docblock-short">Localizes the message to the given set and round and signs the payload.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AuthorityId.html" title="type sp_consensus_grandpa::AuthorityId">AuthorityId</a></div><div class="desc docblock-short">Identity of a Grandpa authority.</div></li><li><div class="item-name"><a class="type" href="type.AuthorityIndex.html" title="type sp_consensus_grandpa::AuthorityIndex">AuthorityIndex</a></div><div class="desc docblock-short">The index of an authority.</div></li><li><div class="item-name"><a class="type" href="type.AuthorityList.html" title="type sp_consensus_grandpa::AuthorityList">AuthorityList</a></div><div class="desc docblock-short">A list of Grandpa authorities with associated weights.</div></li><li><div class="item-name"><a class="type" href="type.AuthorityPair.html" title="type sp_consensus_grandpa::AuthorityPair">AuthorityPair</a></div><div class="desc docblock-short">The grandpa crypto scheme defined via the keypair type.</div></li><li><div class="item-name"><a class="type" href="type.AuthoritySignature.html" title="type sp_consensus_grandpa::AuthoritySignature">AuthoritySignature</a></div><div class="desc docblock-short">Signature for a Grandpa authority.</div></li><li><div class="item-name"><a class="type" href="type.AuthorityWeight.html" title="type sp_consensus_grandpa::AuthorityWeight">AuthorityWeight</a></div><div class="desc docblock-short">The weight of an authority.</div></li><li><div class="item-name"><a class="type" href="type.CatchUp.html" title="type sp_consensus_grandpa::CatchUp">CatchUp</a></div><div class="desc docblock-short">A catch up message for this chain’s block type.</div></li><li><div class="item-name"><a class="type" href="type.Commit.html" title="type sp_consensus_grandpa::Commit">Commit</a></div><div class="desc docblock-short">A commit message for this chain’s block type.</div></li><li><div class="item-name"><a class="type" href="type.CompactCommit.html" title="type sp_consensus_grandpa::CompactCommit">CompactCommit</a></div><div class="desc docblock-short">A compact commit message for this chain’s block type.</div></li><li><div class="item-name"><a class="type" href="type.Message.html" title="type sp_consensus_grandpa::Message">Message</a></div><div class="desc docblock-short">A GRANDPA message for a substrate chain.</div></li><li><div class="item-name"><a class="type" href="type.OpaqueKeyOwnershipProof.html" title="type sp_consensus_grandpa::OpaqueKeyOwnershipProof">OpaqueKeyOwnershipProof</a></div><div class="desc docblock-short">An opaque type used to represent the key ownership proof at the runtime API
+boundary. The inner value is an encoded representation of the actual key
+ownership proof which will be parameterized when defining the runtime. At
+the runtime API boundary this type is unknown and as such we keep this
+opaque representation, implementors of the runtime API will have to make
+sure that all usages of <code>OpaqueKeyOwnershipProof</code> refer to the same type.</div></li><li><div class="item-name"><a class="type" href="type.Precommit.html" title="type sp_consensus_grandpa::Precommit">Precommit</a></div><div class="desc docblock-short">A precommit message for this chain’s block type.</div></li><li><div class="item-name"><a class="type" href="type.Prevote.html" title="type sp_consensus_grandpa::Prevote">Prevote</a></div><div class="desc docblock-short">A prevote message for this chain’s block type.</div></li><li><div class="item-name"><a class="type" href="type.PrimaryPropose.html" title="type sp_consensus_grandpa::PrimaryPropose">PrimaryPropose</a></div><div class="desc docblock-short">A primary propose message for this chain’s block type.</div></li><li><div class="item-name"><a class="type" href="type.RoundNumber.html" title="type sp_consensus_grandpa::RoundNumber">RoundNumber</a></div><div class="desc docblock-short">The round indicator.</div></li><li><div class="item-name"><a class="type" href="type.SetId.html" title="type sp_consensus_grandpa::SetId">SetId</a></div><div class="desc docblock-short">The monotonic identifier of a GRANDPA set of authorities.</div></li><li><div class="item-name"><a class="type" href="type.SignedMessage.html" title="type sp_consensus_grandpa::SignedMessage">SignedMessage</a></div><div class="desc docblock-short">A signed message.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

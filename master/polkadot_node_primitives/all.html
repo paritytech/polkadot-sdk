@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_node_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_node_primitives/index.html">polkadot_node_primitives</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.AvailableData.html">AvailableData</a></li><li><a href="struct.BabeEpoch.html">BabeEpoch</a></li><li><a href="struct.BabeEpochConfiguration.html">BabeEpochConfiguration</a></li><li><a href="struct.BlockData.html">BlockData</a></li><li><a href="struct.Collation.html">Collation</a></li><li><a href="struct.CollationGenerationConfig.html">CollationGenerationConfig</a></li><li><a href="struct.CollationResult.html">CollationResult</a></li><li><a href="struct.CollationSecondedSignal.html">CollationSecondedSignal</a></li><li><a href="struct.ErasureChunk.html">ErasureChunk</a></li><li><a href="struct.PoV.html">PoV</a></li><li><a href="struct.Proof.html">Proof</a></li><li><a href="struct.SessionWindowSize.html">SessionWindowSize</a></li><li><a href="struct.SubmitCollationParams.html">SubmitCollationParams</a></li><li><a href="approval/criteria/struct.Config.html">approval::criteria::Config</a></li><li><a href="approval/criteria/struct.InvalidAssignment.html">approval::criteria::InvalidAssignment</a></li><li><a href="approval/criteria/struct.OurAssignment.html">approval::criteria::OurAssignment</a></li><li><a href="approval/time/struct.DelayedApprovalTimer.html">approval::time::DelayedApprovalTimer</a></li><li><a href="approval/time/struct.SystemClock.html">approval::time::SystemClock</a></li><li><a href="approval/v1/struct.AssignmentCert.html">approval::v1::AssignmentCert</a></li><li><a href="approval/v1/struct.BlockApprovalMeta.html">approval::v1::BlockApprovalMeta</a></li><li><a href="approval/v1/struct.IndirectAssignmentCert.html">approval::v1::IndirectAssignmentCert</a></li><li><a href="approval/v1/struct.IndirectSignedApprovalVote.html">approval::v1::IndirectSignedApprovalVote</a></li><li><a href="approval/v1/struct.RelayVRFStory.html">approval::v1::RelayVRFStory</a></li><li><a href="approval/v1/struct.Slot.html">approval::v1::Slot</a></li><li><a href="approval/v1/struct.UnsafeVRFPreOutput.html">approval::v1::UnsafeVRFPreOutput</a></li><li><a href="approval/v1/struct.VrfPreOutput.html">approval::v1::VrfPreOutput</a></li><li><a href="approval/v1/struct.VrfProof.html">approval::v1::VrfProof</a></li><li><a href="approval/v1/struct.VrfSignature.html">approval::v1::VrfSignature</a></li><li><a href="approval/v1/struct.VrfTranscript.html">approval::v1::VrfTranscript</a></li><li><a href="approval/v2/struct.AssignmentCertV2.html">approval::v2::AssignmentCertV2</a></li><li><a href="approval/v2/struct.BitIndex.html">approval::v2::BitIndex</a></li><li><a href="approval/v2/struct.Bitfield.html">approval::v2::Bitfield</a></li><li><a href="approval/v2/struct.IndirectAssignmentCertV2.html">approval::v2::IndirectAssignmentCertV2</a></li><li><a href="approval/v2/struct.IndirectSignedApprovalVoteV2.html">approval::v2::IndirectSignedApprovalVoteV2</a></li><li><a href="approval/v2/struct.Slot.html">approval::v2::Slot</a></li><li><a href="approval/v2/struct.VrfPreOutput.html">approval::v2::VrfPreOutput</a></li><li><a href="approval/v2/struct.VrfProof.html">approval::v2::VrfProof</a></li><li><a href="approval/v2/struct.VrfSignature.html">approval::v2::VrfSignature</a></li><li><a href="approval/v2/struct.VrfTranscript.html">approval::v2::VrfTranscript</a></li><li><a href="disputes/struct.CandidateVotes.html">disputes::CandidateVotes</a></li><li><a href="disputes/struct.DisputeMessage.html">disputes::DisputeMessage</a></li><li><a href="disputes/struct.InvalidDisputeVote.html">disputes::InvalidDisputeVote</a></li><li><a href="disputes/struct.SignedDisputeStatement.html">disputes::SignedDisputeStatement</a></li><li><a href="disputes/struct.UncheckedDisputeMessage.html">disputes::UncheckedDisputeMessage</a></li><li><a href="disputes/struct.ValidCandidateVotes.html">disputes::ValidCandidateVotes</a></li><li><a href="disputes/struct.ValidDisputeVote.html">disputes::ValidDisputeVote</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.BabeAllowedSlots.html">BabeAllowedSlots</a></li><li><a href="enum.InvalidCandidate.html">InvalidCandidate</a></li><li><a href="enum.MaybeCompressedPoV.html">MaybeCompressedPoV</a></li><li><a href="enum.MerkleProofError.html">MerkleProofError</a></li><li><a href="enum.Statement.html">Statement</a></li><li><a href="enum.StatementWithPVD.html">StatementWithPVD</a></li><li><a href="enum.ValidationResult.html">ValidationResult</a></li><li><a href="approval/criteria/enum.InvalidAssignmentReason.html">approval::criteria::InvalidAssignmentReason</a></li><li><a href="approval/v1/enum.ApprovalError.html">approval::v1::ApprovalError</a></li><li><a href="approval/v1/enum.AssignmentCertKind.html">approval::v1::AssignmentCertKind</a></li><li><a href="approval/v2/enum.ApprovalConversionError.html">approval::v2::ApprovalConversionError</a></li><li><a href="approval/v2/enum.AssignmentCertKindV2.html">approval::v2::AssignmentCertKindV2</a></li><li><a href="approval/v2/enum.AssignmentConversionError.html">approval::v2::AssignmentConversionError</a></li><li><a href="approval/v2/enum.BitfieldError.html">approval::v2::BitfieldError</a></li><li><a href="disputes/enum.DisputeMessageCheckError.html">disputes::DisputeMessageCheckError</a></li><li><a href="disputes/enum.DisputeStatus.html">disputes::DisputeStatus</a></li><li><a href="disputes/enum.SignedDisputeStatementError.html">disputes::SignedDisputeStatementError</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="approval/criteria/trait.AssignmentCriteria.html">approval::criteria::AssignmentCriteria</a></li><li><a href="approval/time/trait.Clock.html">approval::time::Clock</a></li><li><a href="approval/time/trait.ClockExt.html">approval::time::ClockExt</a></li><li><a href="approval/v2/trait.AsBitIndex.html">approval::v2::AsBitIndex</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.new_session_window_size.html">new_session_window_size</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="approval/time/fn.slot_number_to_tick.html">approval::time::slot_number_to_tick</a></li><li><a href="approval/time/fn.tick_to_slot_number.html">approval::time::tick_to_slot_number</a></li><li><a href="approval/time/fn.tranche_to_tick.html">approval::time::tranche_to_tick</a></li><li><a href="approval/v1/fn.babe_unsafe_vrf_info.html">approval::v1::babe_unsafe_vrf_info</a></li><li><a href="disputes/fn.dispute_is_inactive.html">disputes::dispute_is_inactive</a></li><li><a href="fn.maybe_compress_pov.html">maybe_compress_pov</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.BabeRandomness.html">BabeRandomness</a></li><li><a href="type.BlockWeight.html">BlockWeight</a></li><li><a href="type.CollatorFn.html">CollatorFn</a></li><li><a href="type.HorizontalMessages.html">HorizontalMessages</a></li><li><a href="type.SignedFullStatement.html">SignedFullStatement</a></li><li><a href="type.SignedFullStatementWithPVD.html">SignedFullStatementWithPVD</a></li><li><a href="type.UncheckedSignedFullStatement.html">UncheckedSignedFullStatement</a></li><li><a href="type.UpwardMessages.html">UpwardMessages</a></li><li><a href="approval/time/type.Tick.html">approval::time::Tick</a></li><li><a href="approval/v1/type.DelayTranche.html">approval::v1::DelayTranche</a></li><li><a href="approval/v1/type.Randomness.html">approval::v1::Randomness</a></li><li><a href="approval/v2/type.CandidateBitfield.html">approval::v2::CandidateBitfield</a></li><li><a href="approval/v2/type.CoreBitfield.html">approval::v2::CoreBitfield</a></li><li><a href="approval/v2/type.Randomness.html">approval::v2::Randomness</a></li><li><a href="disputes/type.InvalidVoteData.html">disputes::InvalidVoteData</a></li><li><a href="disputes/type.Timestamp.html">disputes::Timestamp</a></li><li><a href="disputes/type.ValidVoteData.html">disputes::ValidVoteData</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION.html">DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION</a></li><li><a href="constant.DISPUTE_WINDOW.html">DISPUTE_WINDOW</a></li><li><a href="constant.MAX_FINALITY_LAG.html">MAX_FINALITY_LAG</a></li><li><a href="constant.NODE_VERSION.html">NODE_VERSION</a></li><li><a href="constant.POV_BOMB_LIMIT.html">POV_BOMB_LIMIT</a></li><li><a href="constant.VALIDATION_CODE_BOMB_LIMIT.html">VALIDATION_CODE_BOMB_LIMIT</a></li><li><a href="approval/time/constant.TICK_DURATION_MILLIS.html">approval::time::TICK_DURATION_MILLIS</a></li><li><a href="approval/time/constant.TICK_TOO_FAR_IN_FUTURE.html">approval::time::TICK_TOO_FAR_IN_FUTURE</a></li><li><a href="approval/v1/constant.ASSIGNED_CORE_CONTEXT.html">approval::v1::ASSIGNED_CORE_CONTEXT</a></li><li><a href="approval/v1/constant.CORE_RANDOMNESS_CONTEXT.html">approval::v1::CORE_RANDOMNESS_CONTEXT</a></li><li><a href="approval/v1/constant.RELAY_VRF_DELAY_CONTEXT.html">approval::v1::RELAY_VRF_DELAY_CONTEXT</a></li><li><a href="approval/v1/constant.RELAY_VRF_MODULO_CONTEXT.html">approval::v1::RELAY_VRF_MODULO_CONTEXT</a></li><li><a href="approval/v1/constant.RELAY_VRF_STORY_CONTEXT.html">approval::v1::RELAY_VRF_STORY_CONTEXT</a></li><li><a href="approval/v1/constant.TRANCHE_RANDOMNESS_CONTEXT.html">approval::v1::TRANCHE_RANDOMNESS_CONTEXT</a></li><li><a href="approval/v2/constant.ASSIGNED_CORE_CONTEXT.html">approval::v2::ASSIGNED_CORE_CONTEXT</a></li><li><a href="approval/v2/constant.CORE_RANDOMNESS_CONTEXT.html">approval::v2::CORE_RANDOMNESS_CONTEXT</a></li><li><a href="approval/v2/constant.RELAY_VRF_MODULO_CONTEXT.html">approval::v2::RELAY_VRF_MODULO_CONTEXT</a></li><li><a href="disputes/constant.ACTIVE_DURATION_SECS.html">disputes::ACTIVE_DURATION_SECS</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

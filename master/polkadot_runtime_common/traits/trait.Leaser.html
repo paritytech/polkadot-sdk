@@ -1,0 +1,215 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Lease manager. Used by the auction module to handle parachain slot leases."><title>Leaser in polkadot_runtime_common::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_runtime_common/index.html">polkadot_runtime_common</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">Leaser</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AccountId">AccountId</a></li><li><a href="#associatedtype.Currency">Currency</a></li><li><a href="#associatedtype.LeasePeriod">LeasePeriod</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.already_leased">already_leased</a></li><li><a href="#tymethod.deposit_held">deposit_held</a></li><li><a href="#tymethod.lease_out">lease_out</a></li><li><a href="#tymethod.lease_period_index">lease_period_index</a></li><li><a href="#tymethod.lease_period_length">lease_period_length</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_runtime_common::traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_runtime_common</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">Leaser</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/polkadot_runtime_common/traits.rs.html#104-160">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Leaser&lt;BlockNumber&gt; {
+    type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>;
+    type <a href="#associatedtype.LeasePeriod" class="associatedtype">LeasePeriod</a>;
+    type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: ReservableCurrency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;;
+
+    // Required methods
+    fn <a href="#tymethod.lease_out" class="fn">lease_out</a>(
+        para: ParaId,
+        leaser: &amp;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>,
+        amount: &lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.Currency" title="type polkadot_runtime_common::traits::Leaser::Currency">Currency</a> as Currency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;&gt;::Balance,
+        period_begin: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
+        period_count: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.LeaseError.html" title="enum polkadot_runtime_common::traits::LeaseError">LeaseError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.deposit_held" class="fn">deposit_held</a>(
+        para: ParaId,
+        leaser: &amp;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>,
+    ) -&gt; &lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.Currency" title="type polkadot_runtime_common::traits::Leaser::Currency">Currency</a> as Currency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;&gt;::Balance;
+<span class="item-spacer"></span>    fn <a href="#tymethod.lease_period_length" class="fn">lease_period_length</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.tuple.html">(BlockNumber, BlockNumber)</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.lease_period_index" class="fn">lease_period_index</a>(
+        block: BlockNumber,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>)&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.already_leased" class="fn">already_leased</a>(
+        para_id: ParaId,
+        first_period: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
+        last_period: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Lease manager. Used by the auction module to handle parachain slot leases.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.AccountId" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#106">source</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a></h4></section></summary><div class="docblock"><p>An account identifier for a leaser.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.LeasePeriod" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#109">source</a><h4 class="code-header">type <a href="#associatedtype.LeasePeriod" class="associatedtype">LeasePeriod</a></h4></section></summary><div class="docblock"><p>The measurement type for counting lease periods (generally just a <code>BlockNumber</code>).</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#112">source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: ReservableCurrency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;</h4></section></summary><div class="docblock"><p>The currency type in which the lease is taken.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.lease_out" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#126-132">source</a><h4 class="code-header">fn <a href="#tymethod.lease_out" class="fn">lease_out</a>(
+    para: ParaId,
+    leaser: &amp;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>,
+    amount: &lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.Currency" title="type polkadot_runtime_common::traits::Leaser::Currency">Currency</a> as Currency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;&gt;::Balance,
+    period_begin: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
+    period_count: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.LeaseError.html" title="enum polkadot_runtime_common::traits::LeaseError">LeaseError</a>&gt;</h4></section></summary><div class="docblock"><p>Lease a new parachain slot for <code>para</code>.</p>
+<p><code>leaser</code> shall have a total of <code>amount</code> balance reserved by the implementer of this trait.</p>
+<p>Note: The implementer of the trait (the leasing system) is expected to do all
+reserve/unreserve calls. The caller of this trait <em>SHOULD NOT</em> pre-reserve the deposit
+(though should ensure that it is reservable).</p>
+<p>The lease will last from <code>period_begin</code> for <code>period_count</code> lease periods. It is undefined if
+the <code>para</code> already has a slot leased during those periods.</p>
+<p>Returns <code>Err</code> in the case of an error, and in which case nothing is changed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.deposit_held" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#136-139">source</a><h4 class="code-header">fn <a href="#tymethod.deposit_held" class="fn">deposit_held</a>(
+    para: ParaId,
+    leaser: &amp;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>,
+) -&gt; &lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.Currency" title="type polkadot_runtime_common::traits::Leaser::Currency">Currency</a> as Currency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;&gt;::Balance</h4></section></summary><div class="docblock"><p>Return the amount of balance currently held in reserve on <code>leaser</code>’s account for leasing
+<code>para</code>. This won’t go down outside a lease period.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.lease_period_length" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#144">source</a><h4 class="code-header">fn <a href="#tymethod.lease_period_length" class="fn">lease_period_length</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.tuple.html">(BlockNumber, BlockNumber)</a></h4></section></summary><div class="docblock"><p>The length of a lease period, and any offset which may be introduced.
+This is only used in benchmarking to automate certain calls.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.lease_period_index" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#150">source</a><h4 class="code-header">fn <a href="#tymethod.lease_period_index" class="fn">lease_period_index</a>(block: BlockNumber) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>)&gt;</h4></section></summary><div class="docblock"><p>Returns the lease period at <code>block</code>, and if this is the first block of a new lease period.</p>
+<p>Will return <code>None</code> if the first lease period has not started yet, for example when an offset
+is placed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.already_leased" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#155-159">source</a><h4 class="code-header">fn <a href="#tymethod.already_leased" class="fn">already_leased</a>(
+    para_id: ParaId,
+    first_period: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
+    last_period: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns true if the parachain already has a lease in any of lease periods in the inclusive
+range <code>[first_period, last_period]</code>, intersected with the unbounded range
+[<code>current_lease_period</code>..] .</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Leaser%3C%3C%3C%3CT+as+Config%3E::Block+as+HeaderProvider%3E::HeaderT+as+Header%3E::Number%3E-for-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../src/polkadot_runtime_common/slots/mod.rs.html#336-498">source</a><a href="#impl-Leaser%3C%3C%3C%3CT+as+Config%3E::Block+as+HeaderProvider%3E::HeaderT+as+Header%3E::Number%3E-for-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="../slots/pallet/trait.Config.html" title="trait polkadot_runtime_common::slots::pallet::Config">Config</a>&gt; <a class="trait" href="trait.Leaser.html" title="trait polkadot_runtime_common::traits::Leaser">Leaser</a>&lt;&lt;&lt;&lt;T as Config&gt;::Block as HeaderProvider&gt;::HeaderT as Header&gt;::Number&gt; for <a class="struct" href="../slots/pallet/struct.Pallet.html" title="struct polkadot_runtime_common::slots::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.AccountId-1" class="associatedtype trait-impl"><a href="#associatedtype.AccountId-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a> = &lt;T as Config&gt;::AccountId</h4></section><section id="associatedtype.LeasePeriod-1" class="associatedtype trait-impl"><a href="#associatedtype.LeasePeriod-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.LeasePeriod" class="associatedtype">LeasePeriod</a> = &lt;&lt;&lt;T as Config&gt;::Block as HeaderProvider&gt;::HeaderT as Header&gt;::Number</h4></section><section id="associatedtype.Currency-1" class="associatedtype trait-impl"><a href="#associatedtype.Currency-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a> = &lt;T as <a class="trait" href="../slots/pallet/trait.Config.html" title="trait polkadot_runtime_common::slots::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../slots/pallet/trait.Config.html#associatedtype.Currency" title="type polkadot_runtime_common::slots::pallet::Config::Currency">Currency</a></h4></section></div></details></div><script src="../../trait.impl/polkadot_runtime_common/traits/trait.Leaser.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

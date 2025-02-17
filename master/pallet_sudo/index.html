@@ -1,0 +1,286 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Made with Substrate, for Polkadot."><title>pallet_sudo - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_sudo" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_sudo/index.html">pallet_sudo</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_sudo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_sudo/lib.rs.html#18-367">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><blockquote>
+<p>Made with <em>Substrate</em>, for <em>Polkadot</em>.</p>
+</blockquote>
+<p><a href="https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/sudo"><img src="https://img.shields.io/badge/github-8da0cb?style=for-the-badge&amp;labelColor=555555&amp;logo=github" alt="github" /></a>
+<a href="https://polkadot.network"><img src="https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&amp;logo=polkadot&amp;logoColor=white" alt="polkadot" /></a></p>
+<h2 id="sudo-pallet"><a class="doc-anchor" href="#sudo-pallet">§</a>Sudo Pallet</h2>
+<p>A pallet to provide a way to execute privileged runtime calls using a specified sudo (“superuser
+do”) account.</p>
+<h3 id="pallet-api"><a class="doc-anchor" href="#pallet-api">§</a>Pallet API</h3>
+<p>See the <a href="pallet/index.html" title="mod pallet_sudo::pallet"><code>pallet</code></a> module for more information about the interfaces this pallet exposes,
+including its configuration trait, dispatchables, storage items, events and errors.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>In Substrate blockchains, pallets may contain dispatchable calls that can only be called at
+the system level of the chain (i.e. dispatchables that require a <code>Root</code> origin).
+Setting a privileged account, called the <em>sudo key</em>, allows you to make such calls as an
+extrinsic.</p>
+<p>Here’s an example of a privileged function in another pallet:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[frame_support::pallet]
+</span><span class="kw">pub mod </span>pallet {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+
+	<span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+
+	<span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+
+	<span class="attr">#[pallet::call]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="attr">#[pallet::weight(<span class="number">0</span>)]
+        </span><span class="kw">pub fn </span>privileged_function(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
+            ensure_root(origin)<span class="question-mark">?</span>;
+
+            <span class="comment">// do something...
+
+            </span><span class="prelude-val">Ok</span>(())
+        }
+	}
+}</code></pre></div>
+<p>With the Sudo pallet configured in your chain’s runtime you can execute this privileged
+function by constructing a call using the <a href="pallet/struct.Pallet.html#method.sudo" title="associated function pallet_sudo::pallet::Pallet::sudo"><code>sudo</code></a> dispatchable.</p>
+<p>To use this pallet in your runtime, a sudo key must be specified in the <a href="pallet/struct.GenesisConfig.html" title="struct pallet_sudo::pallet::GenesisConfig"><code>GenesisConfig</code></a> of
+the pallet. You can change this key at anytime once your chain is live using the
+<a href="pallet/struct.Pallet.html#method.set_key" title="associated function pallet_sudo::pallet::Pallet::set_key"><code>set_key</code></a> dispatchable, however <strong>only one sudo key can be set at a
+time</strong>. The pallet also allows you to make a call using
+<a href="pallet/struct.Pallet.html#method.sudo_unchecked_weight" title="associated function pallet_sudo::pallet::Pallet::sudo_unchecked_weight"><code>sudo_unchecked_weight</code></a>, which allows the sudo account to
+execute a call with a custom weight.</p>
+<div class="example-wrap" style="display:inline-block"><pre class="compile_fail"
+style="white-space:normal;font:inherit;">
+<strong>Note:</strong> this pallet is not meant to be used inside other pallets. It is only
+meant to be used by constructing runtime calls from outside the runtime.
+</pre></div>
+<p>This pallet also defines a <a href="sp_runtime::traits::TransactionExtension"><code>TransactionExtension</code></a>
+called <a href="struct.CheckOnlySudoAccount.html" title="struct pallet_sudo::CheckOnlySudoAccount"><code>CheckOnlySudoAccount</code></a> to ensure that only signed transactions by the sudo account are
+accepted by the transaction pool. The intended use of this signed extension is to prevent other
+accounts from spamming the transaction pool for the initial phase of a chain, during which
+developers may only want a sudo account to be able to make transactions.</p>
+<p>Learn more about the <code>Root</code> origin in the <a href="frame_system::RawOrigin"><code>RawOrigin</code></a> type
+documentation.</p>
+<h4 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h4>
+<ol>
+<li>You can make a privileged runtime call using <code>sudo</code> with an account that matches the sudo
+key.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>sudo_basics() {
+	<span class="comment">// Configure a default test environment and set the root `key` to 1.
+	</span>new_test_ext(<span class="number">1</span>).execute_with(|| {
+		<span class="comment">// A privileged function should work when `sudo` is passed the root `key` as `origin`.
+		</span><span class="kw">let </span>call = Box::new(RuntimeCall::Logger(LoggerCall::privileged_i32_log {
+			i: <span class="number">42</span>,
+			weight: Weight::from_parts(<span class="number">1_000</span>, <span class="number">0</span>),
+		}));
+		<span class="macro">assert_ok!</span>(Sudo::sudo(RuntimeOrigin::signed(<span class="number">1</span>), call));
+		<span class="macro">assert_eq!</span>(Logger::i32_log(), <span class="macro">vec!</span>[<span class="number">42i32</span>]);
+
+		<span class="comment">// A privileged function should not work when `sudo` is passed a non-root `key` as `origin`.
+		</span><span class="kw">let </span>call = Box::new(RuntimeCall::Logger(LoggerCall::privileged_i32_log {
+			i: <span class="number">42</span>,
+			weight: Weight::from_parts(<span class="number">1_000</span>, <span class="number">0</span>),
+		}));
+		<span class="macro">assert_noop!</span>(Sudo::sudo(RuntimeOrigin::signed(<span class="number">2</span>), call), Error::&lt;Test&gt;::RequireSudo);
+	});
+}</code></pre></div>
+<ol start="2">
+<li>Only an existing sudo key can set a new one.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>set_key_basics() {
+	new_test_ext(<span class="number">1</span>).execute_with(|| {
+		<span class="comment">// A root `key` can change the root `key`
+		</span><span class="macro">assert_ok!</span>(Sudo::set_key(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">2</span>));
+		<span class="macro">assert_eq!</span>(Key::&lt;Test&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">2u64</span>));
+	});
+
+	new_test_ext(<span class="number">1</span>).execute_with(|| {
+		<span class="comment">// A non-root `key` will trigger a `RequireSudo` error and a non-root `key` cannot change
+		// the root `key`.
+		</span><span class="macro">assert_noop!</span>(Sudo::set_key(RuntimeOrigin::signed(<span class="number">2</span>), <span class="number">3</span>), Error::&lt;Test&gt;::RequireSudo);
+	});
+}</code></pre></div>
+<ol start="3">
+<li>You can also make non-privileged calls using <code>sudo_as</code>.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>sudo_as_emits_events_correctly() {
+	new_test_ext(<span class="number">1</span>).execute_with(|| {
+		<span class="comment">// A non-privileged function will work when passed to `sudo_as` with the root `key`.
+		</span><span class="kw">let </span>call = Box::new(RuntimeCall::Logger(LoggerCall::non_privileged_log {
+			i: <span class="number">42</span>,
+			weight: Weight::from_parts(<span class="number">1</span>, <span class="number">0</span>),
+		}));
+		<span class="macro">assert_ok!</span>(Sudo::sudo_as(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">2</span>, call));
+		System::assert_has_event(TestEvent::Sudo(Event::SudoAsDone { sudo_result: <span class="prelude-val">Ok</span>(()) }));
+	});
+}</code></pre></div>
+<h3 id="low-level--implementation-details"><a class="doc-anchor" href="#low-level--implementation-details">§</a>Low Level / Implementation Details</h3>
+<p>This pallet checks that the caller of its dispatchables is a signed account and ensures that the
+caller matches the sudo key in storage.
+A caller of this pallet’s dispatchables does not pay any fees to dispatch a call. If the account
+making one of these calls is not the sudo key, the pallet returns a <a href="pallet/enum.Error.html#variant.RequireSudo" title="variant pallet_sudo::pallet::Error::RequireSudo"><code>Error::RequireSudo</code></a>
+error.</p>
+<p>Once an origin is verified, sudo calls use <code>dispatch_bypass_filter</code> from the
+<a href="frame_support::traits::UnfilteredDispatchable"><code>UnfilteredDispatchable</code></a> trait to allow call
+execution without enforcing any further origin checks.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_sudo::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_sudo::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_sudo::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_sudo::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_sudo</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.CheckOnlySudoAccount.html" title="struct pallet_sudo::CheckOnlySudoAccount">CheckOnlySudoAccount</a></div><div class="desc docblock-short">Ensure that signed transactions are only valid if they are signed by sudo account.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

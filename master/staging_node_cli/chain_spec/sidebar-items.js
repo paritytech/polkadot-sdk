@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["authority_keys_from_seed","development_config","flaming_fir_config","local_testnet_config","staging_testnet_config","testnet_genesis"],"struct":["Extensions","RuntimeGenesisConfig"],"type":["AccountId","Balance","ChainSpec","Signature"]};

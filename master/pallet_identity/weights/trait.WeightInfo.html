@@ -1,0 +1,353 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_identity`."><title>WeightInfo in pallet_identity::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_identity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_identity/index.html">pallet_identity</a><span class="version">29.0.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.accept_username">accept_username</a></li><li><a href="#tymethod.add_registrar">add_registrar</a></li><li><a href="#tymethod.add_sub">add_sub</a></li><li><a href="#tymethod.add_username_authority">add_username_authority</a></li><li><a href="#tymethod.cancel_request">cancel_request</a></li><li><a href="#tymethod.clear_identity">clear_identity</a></li><li><a href="#tymethod.kill_identity">kill_identity</a></li><li><a href="#tymethod.kill_username">kill_username</a></li><li><a href="#tymethod.migration_v2_authority_step">migration_v2_authority_step</a></li><li><a href="#tymethod.migration_v2_cleanup_authority_step">migration_v2_cleanup_authority_step</a></li><li><a href="#tymethod.migration_v2_cleanup_username_step">migration_v2_cleanup_username_step</a></li><li><a href="#tymethod.migration_v2_identity_step">migration_v2_identity_step</a></li><li><a href="#tymethod.migration_v2_pending_username_step">migration_v2_pending_username_step</a></li><li><a href="#tymethod.migration_v2_username_step">migration_v2_username_step</a></li><li><a href="#tymethod.provide_judgement">provide_judgement</a></li><li><a href="#tymethod.quit_sub">quit_sub</a></li><li><a href="#tymethod.remove_expired_approval">remove_expired_approval</a></li><li><a href="#tymethod.remove_sub">remove_sub</a></li><li><a href="#tymethod.remove_username">remove_username</a></li><li><a href="#tymethod.remove_username_authority">remove_username_authority</a></li><li><a href="#tymethod.rename_sub">rename_sub</a></li><li><a href="#tymethod.request_judgement">request_judgement</a></li><li><a href="#tymethod.set_account_id">set_account_id</a></li><li><a href="#tymethod.set_fee">set_fee</a></li><li><a href="#tymethod.set_fields">set_fields</a></li><li><a href="#tymethod.set_identity">set_identity</a></li><li><a href="#tymethod.set_primary_username">set_primary_username</a></li><li><a href="#tymethod.set_subs_new">set_subs_new</a></li><li><a href="#tymethod.set_subs_old">set_subs_old</a></li><li><a href="#tymethod.set_username_for">set_username_for</a></li><li><a href="#tymethod.unbind_username">unbind_username</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_identity::weights</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_identity</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_identity/weights.rs.html#53-85">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 31 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.add_registrar" class="fn">add_registrar</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_identity" class="fn">set_identity</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_subs_new" class="fn">set_subs_new</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_subs_old" class="fn">set_subs_old</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_identity" class="fn">clear_identity</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.request_judgement" class="fn">request_judgement</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_request" class="fn">cancel_request</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_fee" class="fn">set_fee</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_account_id" class="fn">set_account_id</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_fields" class="fn">set_fields</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.provide_judgement" class="fn">provide_judgement</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.kill_identity" class="fn">kill_identity</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.add_sub" class="fn">add_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.rename_sub" class="fn">rename_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_sub" class="fn">remove_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.quit_sub" class="fn">quit_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.add_username_authority" class="fn">add_username_authority</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_username_authority" class="fn">remove_username_authority</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_username_for" class="fn">set_username_for</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.accept_username" class="fn">accept_username</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_expired_approval" class="fn">remove_expired_approval</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_primary_username" class="fn">set_primary_username</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unbind_username" class="fn">unbind_username</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_username" class="fn">remove_username</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.kill_username" class="fn">kill_username</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migration_v2_authority_step" class="fn">migration_v2_authority_step</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migration_v2_username_step" class="fn">migration_v2_username_step</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migration_v2_identity_step" class="fn">migration_v2_identity_step</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migration_v2_pending_username_step" class="fn">migration_v2_pending_username_step</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migration_v2_cleanup_authority_step" class="fn">migration_v2_cleanup_authority_step</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migration_v2_cleanup_username_step" class="fn">migration_v2_cleanup_username_step</a>() -&gt; Weight;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_identity</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.add_registrar" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#54">source</a><h4 class="code-header">fn <a href="#tymethod.add_registrar" class="fn">add_registrar</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_identity" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#55">source</a><h4 class="code-header">fn <a href="#tymethod.set_identity" class="fn">set_identity</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_subs_new" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#56">source</a><h4 class="code-header">fn <a href="#tymethod.set_subs_new" class="fn">set_subs_new</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_subs_old" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#57">source</a><h4 class="code-header">fn <a href="#tymethod.set_subs_old" class="fn">set_subs_old</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.clear_identity" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.clear_identity" class="fn">clear_identity</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.request_judgement" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#59">source</a><h4 class="code-header">fn <a href="#tymethod.request_judgement" class="fn">request_judgement</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.cancel_request" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#60">source</a><h4 class="code-header">fn <a href="#tymethod.cancel_request" class="fn">cancel_request</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_fee" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#61">source</a><h4 class="code-header">fn <a href="#tymethod.set_fee" class="fn">set_fee</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_account_id" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#62">source</a><h4 class="code-header">fn <a href="#tymethod.set_account_id" class="fn">set_account_id</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_fields" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#63">source</a><h4 class="code-header">fn <a href="#tymethod.set_fields" class="fn">set_fields</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.provide_judgement" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#64">source</a><h4 class="code-header">fn <a href="#tymethod.provide_judgement" class="fn">provide_judgement</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.kill_identity" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#65">source</a><h4 class="code-header">fn <a href="#tymethod.kill_identity" class="fn">kill_identity</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.add_sub" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#66">source</a><h4 class="code-header">fn <a href="#tymethod.add_sub" class="fn">add_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.rename_sub" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.rename_sub" class="fn">rename_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.remove_sub" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#68">source</a><h4 class="code-header">fn <a href="#tymethod.remove_sub" class="fn">remove_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.quit_sub" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#69">source</a><h4 class="code-header">fn <a href="#tymethod.quit_sub" class="fn">quit_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.add_username_authority" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.add_username_authority" class="fn">add_username_authority</a>() -&gt; Weight</h4></section><section id="tymethod.remove_username_authority" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#71">source</a><h4 class="code-header">fn <a href="#tymethod.remove_username_authority" class="fn">remove_username_authority</a>() -&gt; Weight</h4></section><section id="tymethod.set_username_for" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#72">source</a><h4 class="code-header">fn <a href="#tymethod.set_username_for" class="fn">set_username_for</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.accept_username" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.accept_username" class="fn">accept_username</a>() -&gt; Weight</h4></section><section id="tymethod.remove_expired_approval" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#74">source</a><h4 class="code-header">fn <a href="#tymethod.remove_expired_approval" class="fn">remove_expired_approval</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_primary_username" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#75">source</a><h4 class="code-header">fn <a href="#tymethod.set_primary_username" class="fn">set_primary_username</a>() -&gt; Weight</h4></section><section id="tymethod.unbind_username" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#76">source</a><h4 class="code-header">fn <a href="#tymethod.unbind_username" class="fn">unbind_username</a>() -&gt; Weight</h4></section><section id="tymethod.remove_username" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#77">source</a><h4 class="code-header">fn <a href="#tymethod.remove_username" class="fn">remove_username</a>() -&gt; Weight</h4></section><section id="tymethod.kill_username" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#78">source</a><h4 class="code-header">fn <a href="#tymethod.kill_username" class="fn">kill_username</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.migration_v2_authority_step" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#79">source</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_authority_step" class="fn">migration_v2_authority_step</a>() -&gt; Weight</h4></section><section id="tymethod.migration_v2_username_step" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#80">source</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_username_step" class="fn">migration_v2_username_step</a>() -&gt; Weight</h4></section><section id="tymethod.migration_v2_identity_step" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#81">source</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_identity_step" class="fn">migration_v2_identity_step</a>() -&gt; Weight</h4></section><section id="tymethod.migration_v2_pending_username_step" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#82">source</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_pending_username_step" class="fn">migration_v2_pending_username_step</a>() -&gt; Weight</h4></section><section id="tymethod.migration_v2_cleanup_authority_step" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#83">source</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_cleanup_authority_step" class="fn">migration_v2_cleanup_authority_step</a>() -&gt; Weight</h4></section><section id="tymethod.migration_v2_cleanup_username_step" class="method"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#84">source</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_cleanup_username_step" class="fn">migration_v2_cleanup_username_step</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#578-1064">source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait pallet_identity::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.add_registrar" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#582-592">source</a><a href="#method.add_registrar" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.add_registrar" class="fn">add_registrar</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::Registrars</code> (r:1 w:1)
+Proof: <code>Identity::Registrars</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1141), added: 1636, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 19]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_identity" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#596-606">source</a><a href="#method.set_identity" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_identity" class="fn">set_identity</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::IdentityOf</code> (r:1 w:1)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 20]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_subs_new" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#614-627">source</a><a href="#method.set_subs_new" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_subs_new" class="fn">set_subs_new</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::IdentityOf</code> (r:1 w:0)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SubsOf</code> (r:1 w:1)
+Proof: <code>Identity::SubsOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3258), added: 5733, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SuperOf</code> (r:100 w:100)
+Proof: <code>Identity::SuperOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(114), added: 2589, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_subs_old" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#635-646">source</a><a href="#method.set_subs_old" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_subs_old" class="fn">set_subs_old</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::IdentityOf</code> (r:1 w:0)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SubsOf</code> (r:1 w:1)
+Proof: <code>Identity::SubsOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3258), added: 5733, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SuperOf</code> (r:0 w:100)
+Proof: <code>Identity::SuperOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(114), added: 2589, mode: <code>MaxEncodedLen</code>)
+The range of component <code>p</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_identity" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#655-668">source</a><a href="#method.clear_identity" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.clear_identity" class="fn">clear_identity</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::SubsOf</code> (r:1 w:1)
+Proof: <code>Identity::SubsOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3258), added: 5733, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::IdentityOf</code> (r:1 w:1)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SuperOf</code> (r:0 w:100)
+Proof: <code>Identity::SuperOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(114), added: 2589, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 20]</code>.
+The range of component <code>s</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.request_judgement" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#674-684">source</a><a href="#method.request_judgement" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.request_judgement" class="fn">request_judgement</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::Registrars</code> (r:1 w:0)
+Proof: <code>Identity::Registrars</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1141), added: 1636, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::IdentityOf</code> (r:1 w:1)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 20]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_request" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#688-698">source</a><a href="#method.cancel_request" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_request" class="fn">cancel_request</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::IdentityOf</code> (r:1 w:1)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 20]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_fee" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#702-712">source</a><a href="#method.set_fee" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_fee" class="fn">set_fee</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::Registrars</code> (r:1 w:1)
+Proof: <code>Identity::Registrars</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1141), added: 1636, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 19]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_account_id" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#716-726">source</a><a href="#method.set_account_id" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_account_id" class="fn">set_account_id</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::Registrars</code> (r:1 w:1)
+Proof: <code>Identity::Registrars</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1141), added: 1636, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 19]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_fields" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#730-740">source</a><a href="#method.set_fields" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_fields" class="fn">set_fields</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::Registrars</code> (r:1 w:1)
+Proof: <code>Identity::Registrars</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1141), added: 1636, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 19]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.provide_judgement" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#746-756">source</a><a href="#method.provide_judgement" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.provide_judgement" class="fn">provide_judgement</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::Registrars</code> (r:1 w:0)
+Proof: <code>Identity::Registrars</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1141), added: 1636, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::IdentityOf</code> (r:1 w:1)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 19]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.kill_identity" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#767-780">source</a><a href="#method.kill_identity" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.kill_identity" class="fn">kill_identity</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::SubsOf</code> (r:1 w:1)
+Proof: <code>Identity::SubsOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3258), added: 5733, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::IdentityOf</code> (r:1 w:1)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SuperOf</code> (r:0 w:100)
+Proof: <code>Identity::SuperOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(114), added: 2589, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 20]</code>.
+The range of component <code>s</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.add_sub" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#788-798">source</a><a href="#method.add_sub" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.add_sub" class="fn">add_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::IdentityOf</code> (r:1 w:0)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SuperOf</code> (r:1 w:1)
+Proof: <code>Identity::SuperOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(114), added: 2589, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SubsOf</code> (r:1 w:1)
+Proof: <code>Identity::SubsOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3258), added: 5733, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 99]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.rename_sub" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#804-814">source</a><a href="#method.rename_sub" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.rename_sub" class="fn">rename_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::IdentityOf</code> (r:1 w:0)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SuperOf</code> (r:1 w:1)
+Proof: <code>Identity::SuperOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(114), added: 2589, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_sub" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#822-832">source</a><a href="#method.remove_sub" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_sub" class="fn">remove_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::IdentityOf</code> (r:1 w:0)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SuperOf</code> (r:1 w:1)
+Proof: <code>Identity::SuperOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(114), added: 2589, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SubsOf</code> (r:1 w:1)
+Proof: <code>Identity::SubsOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3258), added: 5733, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.quit_sub" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#840-850">source</a><a href="#method.quit_sub" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.quit_sub" class="fn">quit_sub</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::SuperOf</code> (r:1 w:1)
+Proof: <code>Identity::SuperOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(114), added: 2589, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::SubsOf</code> (r:1 w:1)
+Proof: <code>Identity::SubsOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3258), added: 5733, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:0)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 99]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.add_username_authority" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#853-860">source</a><a href="#method.add_username_authority" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.add_username_authority" class="fn">add_username_authority</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::AuthorityOf</code> (r:0 w:1)
+Proof: <code>Identity::AuthorityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_username_authority" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#863-871">source</a><a href="#method.remove_username_authority" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_username_authority" class="fn">remove_username_authority</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::AuthorityOf</code> (r:1 w:1)
+Proof: <code>Identity::AuthorityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_username_for" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#883-891">source</a><a href="#method.set_username_for" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_username_for" class="fn">set_username_for</a>(_p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::AuthorityOf</code> (r:1 w:1)
+Proof: <code>Identity::AuthorityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UsernameInfoOf</code> (r:1 w:1)
+Proof: <code>Identity::UsernameInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(98), added: 2573, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::PendingUsernames</code> (r:1 w:0)
+Proof: <code>Identity::PendingUsernames</code> (<code>max_values</code>: None, <code>max_size</code>: Some(102), added: 2577, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UsernameOf</code> (r:1 w:1)
+Proof: <code>Identity::UsernameOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+The range of component <code>p</code> is <code>[0, 1]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.accept_username" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#898-906">source</a><a href="#method.accept_username" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.accept_username" class="fn">accept_username</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::PendingUsernames</code> (r:1 w:1)
+Proof: <code>Identity::PendingUsernames</code> (<code>max_values</code>: None, <code>max_size</code>: Some(102), added: 2577, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UsernameOf</code> (r:1 w:1)
+Proof: <code>Identity::UsernameOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UsernameInfoOf</code> (r:0 w:1)
+Proof: <code>Identity::UsernameInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(98), added: 2573, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_expired_approval" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#914-922">source</a><a href="#method.remove_expired_approval" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_expired_approval" class="fn">remove_expired_approval</a>(_p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::PendingUsernames</code> (r:1 w:1)
+Proof: <code>Identity::PendingUsernames</code> (<code>max_values</code>: None, <code>max_size</code>: Some(102), added: 2577, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::AuthorityOf</code> (r:1 w:0)
+Proof: <code>Identity::AuthorityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+The range of component <code>p</code> is <code>[0, 1]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_primary_username" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#927-935">source</a><a href="#method.set_primary_username" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_primary_username" class="fn">set_primary_username</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::UsernameInfoOf</code> (r:1 w:0)
+Proof: <code>Identity::UsernameInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(98), added: 2573, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UsernameOf</code> (r:0 w:1)
+Proof: <code>Identity::UsernameOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.unbind_username" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#942-950">source</a><a href="#method.unbind_username" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.unbind_username" class="fn">unbind_username</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::UsernameInfoOf</code> (r:1 w:0)
+Proof: <code>Identity::UsernameInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(98), added: 2573, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::AuthorityOf</code> (r:1 w:0)
+Proof: <code>Identity::AuthorityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UnbindingUsernames</code> (r:1 w:1)
+Proof: <code>Identity::UnbindingUsernames</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_username" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#959-967">source</a><a href="#method.remove_username" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_username" class="fn">remove_username</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::UnbindingUsernames</code> (r:1 w:1)
+Proof: <code>Identity::UnbindingUsernames</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UsernameInfoOf</code> (r:1 w:1)
+Proof: <code>Identity::UsernameInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(98), added: 2573, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UsernameOf</code> (r:1 w:1)
+Proof: <code>Identity::UsernameOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::AuthorityOf</code> (r:1 w:0)
+Proof: <code>Identity::AuthorityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.kill_username" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#979-987">source</a><a href="#method.kill_username" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.kill_username" class="fn">kill_username</a>(_p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::UsernameInfoOf</code> (r:1 w:1)
+Proof: <code>Identity::UsernameInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(98), added: 2573, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UsernameOf</code> (r:1 w:1)
+Proof: <code>Identity::UsernameOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UnbindingUsernames</code> (r:1 w:1)
+Proof: <code>Identity::UnbindingUsernames</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::AuthorityOf</code> (r:1 w:0)
+Proof: <code>Identity::AuthorityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+The range of component <code>p</code> is <code>[0, 1]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migration_v2_authority_step" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#992-1000">source</a><a href="#method.migration_v2_authority_step" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_authority_step" class="fn">migration_v2_authority_step</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: UNKNOWN KEY <code>0x2aeddc77fe58c98d50bd37f1b90840f99622d1423cdd16f5c33e2b531c34a53d</code> (r:2 w:0)
+Proof: UNKNOWN KEY <code>0x2aeddc77fe58c98d50bd37f1b90840f99622d1423cdd16f5c33e2b531c34a53d</code> (r:2 w:0)
+Storage: <code>Identity::AuthorityOf</code> (r:0 w:1)
+Proof: <code>Identity::AuthorityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migration_v2_username_step" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#1005-1013">source</a><a href="#method.migration_v2_username_step" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_username_step" class="fn">migration_v2_username_step</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: UNKNOWN KEY <code>0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3</code> (r:2 w:0)
+Proof: UNKNOWN KEY <code>0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3</code> (r:2 w:0)
+Storage: <code>Identity::UsernameInfoOf</code> (r:0 w:1)
+Proof: <code>Identity::UsernameInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(98), added: 2573, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migration_v2_identity_step" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#1018-1026">source</a><a href="#method.migration_v2_identity_step" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_identity_step" class="fn">migration_v2_identity_step</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::IdentityOf</code> (r:2 w:1)
+Proof: <code>Identity::IdentityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(7538), added: 10013, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Identity::UsernameOf</code> (r:0 w:1)
+Proof: <code>Identity::UsernameOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migration_v2_pending_username_step" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#1029-1037">source</a><a href="#method.migration_v2_pending_username_step" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_pending_username_step" class="fn">migration_v2_pending_username_step</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::PendingUsernames</code> (r:2 w:1)
+Proof: <code>Identity::PendingUsernames</code> (<code>max_values</code>: None, <code>max_size</code>: Some(102), added: 2577, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migration_v2_cleanup_authority_step" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#1042-1050">source</a><a href="#method.migration_v2_cleanup_authority_step" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_cleanup_authority_step" class="fn">migration_v2_cleanup_authority_step</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::AuthorityOf</code> (r:2 w:0)
+Proof: <code>Identity::AuthorityOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)
+Storage: UNKNOWN KEY <code>0x2aeddc77fe58c98d50bd37f1b90840f99622d1423cdd16f5c33e2b531c34a53d</code> (r:1 w:1)
+Proof: UNKNOWN KEY <code>0x2aeddc77fe58c98d50bd37f1b90840f99622d1423cdd16f5c33e2b531c34a53d</code> (r:1 w:1)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migration_v2_cleanup_username_step" class="method trait-impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#1055-1063">source</a><a href="#method.migration_v2_cleanup_username_step" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migration_v2_cleanup_username_step" class="fn">migration_v2_cleanup_username_step</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Identity::UsernameInfoOf</code> (r:2 w:0)
+Proof: <code>Identity::UsernameInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(98), added: 2573, mode: <code>MaxEncodedLen</code>)
+Storage: UNKNOWN KEY <code>0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3</code> (r:1 w:1)
+Proof: UNKNOWN KEY <code>0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3</code> (r:1 w:1)</p>
+</div></details></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_identity/weights.rs.html#89-575">source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfo.html" title="trait pallet_identity::weights::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct pallet_identity::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/pallet_identity/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

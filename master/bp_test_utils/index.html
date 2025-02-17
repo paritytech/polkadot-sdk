@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Utilities for testing runtime code."><title>bp_test_utils - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bp_test_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bp_test_utils/index.html">bp_test_utils</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#constants">Constants</a></li><li><a href="#functions">Functions</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">bp_test_utils</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/bp_test_utils/lib.rs.html#17-349">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Utilities for testing runtime code.</p>
+</div></details><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.generate_owned_bridge_module_tests.html" title="macro bp_test_utils::generate_owned_bridge_module_tests">generate_owned_bridge_module_tests</a></div><div class="desc docblock-short">Adds methods for testing the <code>set_owner()</code> and <code>set_operating_mode()</code> for a pallet.
+Some values are hardcoded like:</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Account.html" title="struct bp_test_utils::Account">Account</a></div><div class="desc docblock-short">A test account which can be used to sign messages.</div></li><li><div class="item-name"><a class="struct" href="struct.JustificationGeneratorParams.html" title="struct bp_test_utils::JustificationGeneratorParams">JustificationGeneratorParams</a></div><div class="desc docblock-short">Configuration parameters when generating test GRANDPA justifications.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.ALICE.html" title="constant bp_test_utils::ALICE">ALICE</a></div><div class="desc docblock-short">Set of test accounts with friendly names: Alice.</div></li><li><div class="item-name"><a class="constant" href="constant.BOB.html" title="constant bp_test_utils::BOB">BOB</a></div><div class="desc docblock-short">Set of test accounts with friendly names: Bob.</div></li><li><div class="item-name"><a class="constant" href="constant.CHARLIE.html" title="constant bp_test_utils::CHARLIE">CHARLIE</a></div><div class="desc docblock-short">Set of test accounts with friendly names: Charlie.</div></li><li><div class="item-name"><a class="constant" href="constant.DAVE.html" title="constant bp_test_utils::DAVE">DAVE</a></div><div class="desc docblock-short">Set of test accounts with friendly names: Dave.</div></li><li><div class="item-name"><a class="constant" href="constant.EVE.html" title="constant bp_test_utils::EVE">EVE</a></div><div class="desc docblock-short">Set of test accounts with friendly names: Eve.</div></li><li><div class="item-name"><a class="constant" href="constant.FERDIE.html" title="constant bp_test_utils::FERDIE">FERDIE</a></div><div class="desc docblock-short">Set of test accounts with friendly names: Ferdie.</div></li><li><div class="item-name"><a class="constant" href="constant.PARAS_PALLET_NAME.html" title="constant bp_test_utils::PARAS_PALLET_NAME">PARAS_PALLET_NAME</a></div><div class="desc docblock-short">Name of the <code>Paras</code> pallet used across tests.</div></li><li><div class="item-name"><a class="constant" href="constant.TEST_GRANDPA_ROUND.html" title="constant bp_test_utils::TEST_GRANDPA_ROUND">TEST_GRANDPA_ROUND</a></div><div class="desc docblock-short">GRANDPA round number used across tests.</div></li><li><div class="item-name"><a class="constant" href="constant.TEST_GRANDPA_SET_ID.html" title="constant bp_test_utils::TEST_GRANDPA_SET_ID">TEST_GRANDPA_SET_ID</a></div><div class="desc docblock-short">GRANDPA validators set id used across tests.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.accounts.html" title="fn bp_test_utils::accounts">accounts</a></div><div class="desc docblock-short">Get a list of “unique” accounts.</div></li><li><div class="item-name"><a class="fn" href="fn.authority_list.html" title="fn bp_test_utils::authority_list">authority_list</a></div><div class="desc docblock-short">Convenience function to get a list of Grandpa authorities.</div></li><li><div class="item-name"><a class="fn" href="fn.header_id.html" title="fn bp_test_utils::header_id">header_id</a></div><div class="desc docblock-short">Convenience function for generating a Header ID at a given block number.</div></li><li><div class="item-name"><a class="fn" href="fn.make_default_justification.html" title="fn bp_test_utils::make_default_justification">make_default_justification</a></div><div class="desc docblock-short">Make a valid GRANDPA justification with sensible defaults</div></li><li><div class="item-name"><a class="fn" href="fn.make_justification_for_header.html" title="fn bp_test_utils::make_justification_for_header">make_justification_for_header</a></div><div class="desc docblock-short">Generate justifications in a way where we are able to tune the number of pre-commits
+and vote ancestries which are included in the justification.</div></li><li><div class="item-name"><a class="fn" href="fn.prepare_parachain_heads_proof.html" title="fn bp_test_utils::prepare_parachain_heads_proof">prepare_parachain_heads_proof</a></div><div class="desc docblock-short">Make valid proof for parachain <code>heads</code></div></li><li><div class="item-name"><a class="fn" href="fn.signed_precommit.html" title="fn bp_test_utils::signed_precommit">signed_precommit</a></div><div class="desc docblock-short">Create signed precommit with given target.</div></li><li><div class="item-name"><a class="fn" href="fn.test_header.html" title="fn bp_test_utils::test_header">test_header</a></div><div class="desc docblock-short">Get a header for testing.</div></li><li><div class="item-name"><a class="fn" href="fn.test_header_with_root.html" title="fn bp_test_utils::test_header_with_root">test_header_with_root</a></div><div class="desc docblock-short">Get a header for testing with given <code>state_root</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.test_keyring.html" title="fn bp_test_utils::test_keyring">test_keyring</a></div><div class="desc docblock-short">Get the corresponding identities from the keyring for the “standard” authority set.</div></li><li><div class="item-name"><a class="fn" href="fn.verification_context.html" title="fn bp_test_utils::verification_context">verification_context</a></div><div class="desc docblock-short">Get a valid justification verification context for a GRANDPA round.</div></li><li><div class="item-name"><a class="fn" href="fn.voter_set.html" title="fn bp_test_utils::voter_set">voter_set</a></div><div class="desc docblock-short">Get a valid set of voters for a Grandpa round.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

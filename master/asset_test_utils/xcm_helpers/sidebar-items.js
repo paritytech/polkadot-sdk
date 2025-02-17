@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["pay_over_xcm_delivery_fees","query_response_delivery_fees","teleport_assets_delivery_fees"]};

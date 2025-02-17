@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DescribeGlobalPrefix","DescribeHere","DescribeTokenTerminal","ParaId","SiblingParaId","U256"],"trait":["IsSystem"],"type":["AgentId","AgentIdOf","TokenId","TokenIdOf"]};

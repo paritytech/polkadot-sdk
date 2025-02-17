@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["force_set_pallet_state","initialize","set_operating_mode","set_owner","submit_finality_proof","submit_finality_proof_ex"]};

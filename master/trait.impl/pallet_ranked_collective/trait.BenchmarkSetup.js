@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"pallet_core_fellowship":[["impl&lt;T: <a class=\"trait\" href=\"pallet_core_fellowship/pallet/trait.Config.html\" title=\"trait pallet_core_fellowship::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; BenchmarkSetup&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_core_fellowship/pallet/struct.Pallet.html\" title=\"struct pallet_core_fellowship::pallet::Pallet\">Pallet</a>&lt;T, I&gt;"]],
+"pallet_ranked_collective":[],
+"pallet_salary":[["impl&lt;T: <a class=\"trait\" href=\"pallet_salary/pallet/trait.Config.html\" title=\"trait pallet_salary::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; BenchmarkSetup&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_salary/pallet/struct.Pallet.html\" title=\"struct pallet_salary::pallet::Pallet\">Pallet</a>&lt;T, I&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

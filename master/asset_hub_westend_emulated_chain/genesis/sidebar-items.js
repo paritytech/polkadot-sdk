@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ED","PARA_ID","USDT_ED"],"fn":["genesis"],"struct":["AssetHubWestendAssetOwner"]};

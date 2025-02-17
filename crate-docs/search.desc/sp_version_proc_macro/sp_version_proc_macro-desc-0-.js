@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sp_version_proc_macro", 0, "A proc-macro that generates a custom wasm section from a …")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AssetHubRococoLocation","AssetHubRococoToAssetHubWestendMessagesLane","AssetHubWestendUniversalLocation","FixMessagesV1Migration"],"type":["StaticToDynamicLanes"]};

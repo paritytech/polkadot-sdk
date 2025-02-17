@@ -1,0 +1,248 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Hook into disputes handling."><title>DisputesHandler in polkadot_runtime_parachains::disputes - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_runtime_parachains/index.html">polkadot_runtime_parachains</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">DisputesHandler</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.concluded_invalid">concluded_invalid</a></li><li><a href="#tymethod.filter_dispute_data">filter_dispute_data</a></li><li><a href="#tymethod.included_state">included_state</a></li><li><a href="#tymethod.initializer_finalize">initializer_finalize</a></li><li><a href="#tymethod.initializer_initialize">initializer_initialize</a></li><li><a href="#tymethod.initializer_on_new_session">initializer_on_new_session</a></li><li><a href="#tymethod.is_frozen">is_frozen</a></li><li><a href="#tymethod.note_included">note_included</a></li><li><a href="#tymethod.process_checked_multi_dispute_data">process_checked_multi_dispute_data</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.deduplicate_and_sort_dispute_data">deduplicate_and_sort_dispute_data</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-DisputesHandler%3CBlockNumber%3E-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_runtime_parachains::disputes</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_runtime_parachains</a>::<wbr><a href="index.html">disputes</a>::<wbr><a class="trait" href="#">DisputesHandler</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/polkadot_runtime_parachains/disputes.rs.html#179-248">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait DisputesHandler&lt;BlockNumber: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>&gt; {
+    // Required methods
+    fn <a href="#tymethod.is_frozen" class="fn">is_frozen</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.filter_dispute_data" class="fn">filter_dispute_data</a>(
+        statement_set: DisputeStatementSet,
+        post_conclusion_acceptance_period: BlockNumber,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;CheckedDisputeStatementSet&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.process_checked_multi_dispute_data" class="fn">process_checked_multi_dispute_data</a>(
+        statement_sets: &amp;CheckedMultiDisputeStatementSet,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(SessionIndex, CandidateHash)&gt;, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.note_included" class="fn">note_included</a>(
+        session: SessionIndex,
+        candidate_hash: CandidateHash,
+        included_in: BlockNumber,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.included_state" class="fn">included_state</a>(
+        session: SessionIndex,
+        candidate_hash: CandidateHash,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BlockNumber&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.concluded_invalid" class="fn">concluded_invalid</a>(
+        session: SessionIndex,
+        candidate_hash: CandidateHash,
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.initializer_initialize" class="fn">initializer_initialize</a>(now: BlockNumber) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.initializer_finalize" class="fn">initializer_finalize</a>();
+<span class="item-spacer"></span>    fn <a href="#tymethod.initializer_on_new_session" class="fn">initializer_on_new_session</a>(
+        notification: &amp;<a class="struct" href="../initializer/struct.SessionChangeNotification.html" title="struct polkadot_runtime_parachains::initializer::SessionChangeNotification">SessionChangeNotification</a>&lt;BlockNumber&gt;,
+    );
+
+    // Provided method
+    fn <a href="#method.deduplicate_and_sort_dispute_data" class="fn">deduplicate_and_sort_dispute_data</a>(
+        statement_sets: &amp;mut MultiDisputeStatementSet,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Hook into disputes handling.</p>
+<p>Allows decoupling parachains handling from disputes so that it can
+potentially be disabled when instantiating a specific runtime.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.is_frozen" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#182">source</a><h4 class="code-header">fn <a href="#tymethod.is_frozen" class="fn">is_frozen</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Whether the chain is frozen, if the chain is frozen it will not accept
+any new parachain blocks for backing or inclusion.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.filter_dispute_data" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#215-218">source</a><h4 class="code-header">fn <a href="#tymethod.filter_dispute_data" class="fn">filter_dispute_data</a>(
+    statement_set: DisputeStatementSet,
+    post_conclusion_acceptance_period: BlockNumber,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;CheckedDisputeStatementSet&gt;</h4></section></summary><div class="docblock"><p>Filter a single dispute statement set.</p>
+<p>Used in cases where more granular control is required, i.e. when
+accounting for maximum block weight.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.process_checked_multi_dispute_data" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#222-224">source</a><h4 class="code-header">fn <a href="#tymethod.process_checked_multi_dispute_data" class="fn">process_checked_multi_dispute_data</a>(
+    statement_sets: &amp;CheckedMultiDisputeStatementSet,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(SessionIndex, CandidateHash)&gt;, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Handle sets of dispute statements corresponding to 0 or more candidates.
+Returns a vector of freshly created disputes.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.note_included" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#227-231">source</a><h4 class="code-header">fn <a href="#tymethod.note_included" class="fn">note_included</a>(
+    session: SessionIndex,
+    candidate_hash: CandidateHash,
+    included_in: BlockNumber,
+)</h4></section></summary><div class="docblock"><p>Note that the given candidate has been included.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.included_state" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#235">source</a><h4 class="code-header">fn <a href="#tymethod.included_state" class="fn">included_state</a>(
+    session: SessionIndex,
+    candidate_hash: CandidateHash,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BlockNumber&gt;</h4></section></summary><div class="docblock"><p>Retrieve the included state of a given candidate in a particular session. If it
+returns <code>Some</code>, then we have a local dispute for the given <code>candidate_hash</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.concluded_invalid" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#238">source</a><h4 class="code-header">fn <a href="#tymethod.concluded_invalid" class="fn">concluded_invalid</a>(
+    session: SessionIndex,
+    candidate_hash: CandidateHash,
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Whether the given candidate concluded invalid in a dispute with supermajority.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.initializer_initialize" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#241">source</a><h4 class="code-header">fn <a href="#tymethod.initializer_initialize" class="fn">initializer_initialize</a>(now: BlockNumber) -&gt; Weight</h4></section></summary><div class="docblock"><p>Called by the initializer to initialize the disputes pallet.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.initializer_finalize" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#244">source</a><h4 class="code-header">fn <a href="#tymethod.initializer_finalize" class="fn">initializer_finalize</a>()</h4></section></summary><div class="docblock"><p>Called by the initializer to finalize the disputes pallet.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.initializer_on_new_session" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#247">source</a><h4 class="code-header">fn <a href="#tymethod.initializer_on_new_session" class="fn">initializer_on_new_session</a>(
+    notification: &amp;<a class="struct" href="../initializer/struct.SessionChangeNotification.html" title="struct polkadot_runtime_parachains::initializer::SessionChangeNotification">SessionChangeNotification</a>&lt;BlockNumber&gt;,
+)</h4></section></summary><div class="docblock"><p>Called by the initializer to note that a new session has started.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.deduplicate_and_sort_dispute_data" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#191-209">source</a><h4 class="code-header">fn <a href="#method.deduplicate_and_sort_dispute_data" class="fn">deduplicate_and_sort_dispute_data</a>(
+    statement_sets: &amp;mut MultiDisputeStatementSet,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Remove dispute statement duplicates and sort the non-duplicates based on
+local (lower indices) vs remotes (higher indices) and age (older with lower indices).</p>
+<p>Returns <code>Ok(())</code> if no duplicates were present, <code>Err(())</code> otherwise.</p>
+<p>Unsorted data does not change the return value, while the node side
+is generally expected to pass them in sorted.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-DisputesHandler%3CBlockNumber%3E-for-()" class="impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#250-300">source</a><a href="#impl-DisputesHandler%3CBlockNumber%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;BlockNumber: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>&gt; <a class="trait" href="trait.DisputesHandler.html" title="trait polkadot_runtime_parachains::disputes::DisputesHandler">DisputesHandler</a>&lt;BlockNumber&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="method.is_frozen" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#251-253">source</a><a href="#method.is_frozen" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.is_frozen" class="fn">is_frozen</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section><section id="method.deduplicate_and_sort_dispute_data-1" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#255-260">source</a><a href="#method.deduplicate_and_sort_dispute_data-1" class="anchor">§</a><h4 class="code-header">fn <a href="#method.deduplicate_and_sort_dispute_data" class="fn">deduplicate_and_sort_dispute_data</a>(
+    statement_sets: &amp;mut MultiDisputeStatementSet,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="method.filter_dispute_data" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#262-267">source</a><a href="#method.filter_dispute_data" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.filter_dispute_data" class="fn">filter_dispute_data</a>(
+    _set: DisputeStatementSet,
+    _post_conclusion_acceptance_period: BlockNumber,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;CheckedDisputeStatementSet&gt;</h4></section><section id="method.process_checked_multi_dispute_data" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#269-273">source</a><a href="#method.process_checked_multi_dispute_data" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.process_checked_multi_dispute_data" class="fn">process_checked_multi_dispute_data</a>(
+    _statement_sets: &amp;CheckedMultiDisputeStatementSet,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(SessionIndex, CandidateHash)&gt;, DispatchError&gt;</h4></section><section id="method.note_included" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#275-280">source</a><a href="#method.note_included" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.note_included" class="fn">note_included</a>(
+    _session: SessionIndex,
+    _candidate_hash: CandidateHash,
+    _included_in: BlockNumber,
+)</h4></section><section id="method.included_state" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#282-287">source</a><a href="#method.included_state" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.included_state" class="fn">included_state</a>(
+    _session: SessionIndex,
+    _candidate_hash: CandidateHash,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BlockNumber&gt;</h4></section><section id="method.concluded_invalid" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#289-291">source</a><a href="#method.concluded_invalid" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.concluded_invalid" class="fn">concluded_invalid</a>(
+    _session: SessionIndex,
+    _candidate_hash: CandidateHash,
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section><section id="method.initializer_initialize" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#293-295">source</a><a href="#method.initializer_initialize" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.initializer_initialize" class="fn">initializer_initialize</a>(_now: BlockNumber) -&gt; Weight</h4></section><section id="method.initializer_finalize" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#297">source</a><a href="#method.initializer_finalize" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.initializer_finalize" class="fn">initializer_finalize</a>()</h4></section><section id="method.initializer_on_new_session" class="method trait-impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#299">source</a><a href="#method.initializer_on_new_session" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.initializer_on_new_session" class="fn">initializer_on_new_session</a>(
+    _notification: &amp;<a class="struct" href="../initializer/struct.SessionChangeNotification.html" title="struct polkadot_runtime_parachains::initializer::SessionChangeNotification">SessionChangeNotification</a>&lt;BlockNumber&gt;,
+)</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-DisputesHandler%3C%3C%3C%3CT+as+Config%3E::Block+as+HeaderProvider%3E::HeaderT+as+Header%3E::Number%3E-for-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#302-354">source</a><a href="#impl-DisputesHandler%3C%3C%3C%3CT+as+Config%3E::Block+as+HeaderProvider%3E::HeaderT+as+Header%3E::Number%3E-for-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="pallet/trait.Config.html" title="trait polkadot_runtime_parachains::disputes::pallet::Config">Config</a>&gt; <a class="trait" href="trait.DisputesHandler.html" title="trait polkadot_runtime_parachains::disputes::DisputesHandler">DisputesHandler</a>&lt;&lt;&lt;&lt;T as Config&gt;::Block as HeaderProvider&gt;::HeaderT as Header&gt;::Number&gt; for <a class="struct" href="pallet/struct.Pallet.html" title="struct polkadot_runtime_parachains::disputes::pallet::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    BlockNumberFor&lt;T&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>,</div></h3></section></div><script src="../../trait.impl/polkadot_runtime_parachains/disputes/trait.DisputesHandler.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

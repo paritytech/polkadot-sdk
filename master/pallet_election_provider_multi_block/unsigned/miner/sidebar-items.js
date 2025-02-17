@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MinerError","SnapshotType"],"struct":["BaseMiner","MineInput"],"trait":["MinerConfig"],"type":["SupportsOfMiner"]};

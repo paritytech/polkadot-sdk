@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AssetHubWestend","BridgeTable","EthereumEcosystem","EthereumNetwork","SiblingBridgeHubWithBridgeHubWestendInstance","UniversalAliases","WestendEcosystem","WestendNetwork","WndLocation"],"type":["WestendOrEthereumAssetFromAssetHubWestend"]};

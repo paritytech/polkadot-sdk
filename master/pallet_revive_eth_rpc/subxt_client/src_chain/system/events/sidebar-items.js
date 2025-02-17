@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["extrinsic_failed","extrinsic_success","killed_account","new_account","remarked","upgrade_authorized"],"struct":["CodeUpdated","ExtrinsicFailed","ExtrinsicSuccess","KilledAccount","NewAccount","Remarked","UpgradeAuthorized"]};

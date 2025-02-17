@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["NewBouncer","NewNominator","NewRoot","PoolId"]};

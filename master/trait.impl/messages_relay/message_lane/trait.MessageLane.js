@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"substrate_relay_helper":[["impl&lt;P: <a class=\"trait\" href=\"substrate_relay_helper/messages/trait.SubstrateMessageLane.html\" title=\"trait substrate_relay_helper::messages::SubstrateMessageLane\">SubstrateMessageLane</a>&gt; <a class=\"trait\" href=\"messages_relay/message_lane/trait.MessageLane.html\" title=\"trait messages_relay::message_lane::MessageLane\">MessageLane</a> for <a class=\"struct\" href=\"substrate_relay_helper/messages/struct.MessageLaneAdapter.html\" title=\"struct substrate_relay_helper::messages::MessageLaneAdapter\">MessageLaneAdapter</a>&lt;P&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

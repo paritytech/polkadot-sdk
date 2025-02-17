@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_xcm/index.html">pallet_xcm</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.EnsureResponse.html">EnsureResponse</a></li><li><a href="struct.EnsureXcm.html">EnsureXcm</a></li><li><a href="struct.IsMajorityOfBody.html">IsMajorityOfBody</a></li><li><a href="struct.IsVoiceOfBody.html">IsVoiceOfBody</a></li><li><a href="struct.LockTicket.html">LockTicket</a></li><li><a href="struct.ReduceTicket.html">ReduceTicket</a></li><li><a href="struct.TestWeightInfo.html">TestWeightInfo</a></li><li><a href="struct.UnlockTicket.html">UnlockTicket</a></li><li><a href="struct.XcmPassthrough.html">XcmPassthrough</a></li><li><a href="benchmarking/struct.Pallet.html">benchmarking::Pallet</a></li><li><a href="migration/struct.MigrateToLatestXcmVersion.html">migration::MigrateToLatestXcmVersion</a></li><li><a href="migration/v1/struct.VersionUncheckedMigrateToV1.html">migration::v1::VersionUncheckedMigrateToV1</a></li><li><a href="pallet/struct.CurrentXcmVersion.html">pallet::CurrentXcmVersion</a></li><li><a href="pallet/struct.GenesisConfig.html">pallet::GenesisConfig</a></li><li><a href="pallet/struct.Pallet.html">pallet::Pallet</a></li><li><a href="pallet/struct.RemoteLockedFungibleRecord.html">pallet::RemoteLockedFungibleRecord</a></li><li><a href="pallet/struct.VersionDiscoveryQueueSize.html">pallet::VersionDiscoveryQueueSize</a></li><li><a href="pallet/storage_types/struct.AssetTraps.html">pallet::storage_types::AssetTraps</a></li><li><a href="pallet/storage_types/struct.CurrentMigration.html">pallet::storage_types::CurrentMigration</a></li><li><a href="pallet/storage_types/struct.LockedFungibles.html">pallet::storage_types::LockedFungibles</a></li><li><a href="pallet/storage_types/struct.Queries.html">pallet::storage_types::Queries</a></li><li><a href="pallet/storage_types/struct.QueryCounter.html">pallet::storage_types::QueryCounter</a></li><li><a href="pallet/storage_types/struct.RecordedXcm.html">pallet::storage_types::RecordedXcm</a></li><li><a href="pallet/storage_types/struct.RemoteLockedFungibles.html">pallet::storage_types::RemoteLockedFungibles</a></li><li><a href="pallet/storage_types/struct.SafeXcmVersion.html">pallet::storage_types::SafeXcmVersion</a></li><li><a href="pallet/storage_types/struct.ShouldRecordXcm.html">pallet::storage_types::ShouldRecordXcm</a></li><li><a href="pallet/storage_types/struct.SupportedVersion.html">pallet::storage_types::SupportedVersion</a></li><li><a href="pallet/storage_types/struct.VersionDiscoveryQueue.html">pallet::storage_types::VersionDiscoveryQueue</a></li><li><a href="pallet/storage_types/struct.VersionNotifiers.html">pallet::storage_types::VersionNotifiers</a></li><li><a href="pallet/storage_types/struct.VersionNotifyTargets.html">pallet::storage_types::VersionNotifyTargets</a></li><li><a href="pallet/storage_types/struct.XcmExecutionSuspended.html">pallet::storage_types::XcmExecutionSuspended</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="pallet/enum.Call.html">pallet::Call</a></li><li><a href="pallet/enum.Error.html">pallet::Error</a></li><li><a href="pallet/enum.Event.html">pallet::Event</a></li><li><a href="pallet/enum.Origin.html">pallet::Origin</a></li><li><a href="pallet/enum.QueryStatus.html">pallet::QueryStatus</a></li><li><a href="pallet/enum.VersionMigrationStage.html">pallet::VersionMigrationStage</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.WeightInfo.html">WeightInfo</a></li><li><a href="benchmarking/trait.Config.html">benchmarking::Config</a></li><li><a href="pallet/trait.Config.html">pallet::Config</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="benchmarking/helpers/fn.native_teleport_as_asset_transfer.html">benchmarking::helpers::native_teleport_as_asset_transfer</a></li><li><a href="fn.ensure_response.html">ensure_response</a></li><li><a href="fn.ensure_xcm.html">ensure_xcm</a></li><li><a href="pallet/dispatchables/fn.claim_assets.html">pallet::dispatchables::claim_assets</a></li><li><a href="pallet/dispatchables/fn.execute.html">pallet::dispatchables::execute</a></li><li><a href="pallet/dispatchables/fn.force_default_xcm_version.html">pallet::dispatchables::force_default_xcm_version</a></li><li><a href="pallet/dispatchables/fn.force_subscribe_version_notify.html">pallet::dispatchables::force_subscribe_version_notify</a></li><li><a href="pallet/dispatchables/fn.force_suspension.html">pallet::dispatchables::force_suspension</a></li><li><a href="pallet/dispatchables/fn.force_unsubscribe_version_notify.html">pallet::dispatchables::force_unsubscribe_version_notify</a></li><li><a href="pallet/dispatchables/fn.force_xcm_version.html">pallet::dispatchables::force_xcm_version</a></li><li><a href="pallet/dispatchables/fn.limited_reserve_transfer_assets.html">pallet::dispatchables::limited_reserve_transfer_assets</a></li><li><a href="pallet/dispatchables/fn.limited_teleport_assets.html">pallet::dispatchables::limited_teleport_assets</a></li><li><a href="pallet/dispatchables/fn.reserve_transfer_assets.html">pallet::dispatchables::reserve_transfer_assets</a></li><li><a href="pallet/dispatchables/fn.send.html">pallet::dispatchables::send</a></li><li><a href="pallet/dispatchables/fn.teleport_assets.html">pallet::dispatchables::teleport_assets</a></li><li><a href="pallet/dispatchables/fn.transfer_assets.html">pallet::dispatchables::transfer_assets</a></li><li><a href="pallet/dispatchables/fn.transfer_assets_using_type_and_then.html">pallet::dispatchables::transfer_assets_using_type_and_then</a></li><li><a href="pallet/migrations/fn.migrate_to_v1.html">pallet::migrations::migrate_to_v1</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="migration/v1/type.MigrateToV1.html">migration::v1::MigrateToV1</a></li><li><a href="pallet/type.BalanceOf.html">pallet::BalanceOf</a></li><li><a href="pallet/type.Module.html">pallet::Module</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

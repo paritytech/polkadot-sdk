@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"bridge_hub_common":[["impl&lt;FromOrigin, ToGlobalConsensus&gt; DenyExecution for <a class=\"struct\" href=\"bridge_hub_common/barriers/struct.DenyExportMessageFrom.html\" title=\"struct bridge_hub_common::barriers::DenyExportMessageFrom\">DenyExportMessageFrom</a>&lt;FromOrigin, ToGlobalConsensus&gt;<div class=\"where\">where\n    FromOrigin: Contains&lt;Location&gt;,\n    ToGlobalConsensus: Contains&lt;NetworkId&gt;,</div>"]],
+"staging_xcm_builder":[["impl DenyExecution for <a class=\"struct\" href=\"staging_xcm_builder/struct.DenyReserveTransferToRelayChain.html\" title=\"struct staging_xcm_builder::DenyReserveTransferToRelayChain\">DenyReserveTransferToRelayChain</a>"]],
+"staging_xcm_executor":[]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

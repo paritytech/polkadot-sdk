@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"glutton_westend_runtime":[["impl&lt;T: <a class=\"trait\" href=\"frame_system/pallet/trait.Config.html\" title=\"trait frame_system::pallet::Config\">Config</a>&gt; <a class=\"trait\" href=\"pallet_message_queue/weights/trait.WeightInfo.html\" title=\"trait pallet_message_queue::weights::WeightInfo\">WeightInfo</a> for <a class=\"struct\" href=\"glutton_westend_runtime/weights/pallet_message_queue/struct.WeightInfo.html\" title=\"struct glutton_westend_runtime::weights::pallet_message_queue::WeightInfo\">WeightInfo</a>&lt;T&gt;"]],
+"pallet_message_queue":[]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

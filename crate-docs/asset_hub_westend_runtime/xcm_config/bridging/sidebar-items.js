@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["to_rococo"],"struct":["BridgeTable","SiblingBridgeHub","SiblingBridgeHubParaId","XcmBridgeHubRouterByteFee","XcmBridgeHubRouterFeeAssetId"],"type":["NetworkExportTable"]};

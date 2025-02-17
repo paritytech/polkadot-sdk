@@ -1,0 +1,6 @@
+(function() {var implementors = {
+"pallet_nis":[["impl&lt;A: TypedGet&gt; ConvertBack&lt;Perquintill, &lt;A as TypedGet&gt;::Type&gt; for <a class=\"struct\" href=\"pallet_nis/struct.WithMaximumOf.html\" title=\"struct pallet_nis::WithMaximumOf\">WithMaximumOf</a>&lt;A&gt;<div class=\"where\">where\n    A::Type: RationalArg + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html\" title=\"trait core::convert::From\">From</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u64.html\">u64</a>&gt;,\n    <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u64.html\">u64</a>: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/convert/trait.TryFrom.html\" title=\"trait core::convert::TryFrom\">TryFrom</a>&lt;A::Type&gt;,\n    <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u128.html\">u128</a>: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/convert/trait.TryFrom.html\" title=\"trait core::convert::TryFrom\">TryFrom</a>&lt;A::Type&gt;,</div>"]],
+"polkadot_sdk_frame":[],
+"polkadot_service":[],
+"sp_runtime":[]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

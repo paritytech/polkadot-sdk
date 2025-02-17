@@ -1,0 +1,251 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Method call executor."><title>CallExecutor in polkadot_service - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_service/index.html">polkadot_service</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">CallExecutor</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Backend">Backend</a></li><li><a href="#associatedtype.Error">Error</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.call">call</a></li><li><a href="#tymethod.contextual_call">contextual_call</a></li><li><a href="#tymethod.execution_extensions">execution_extensions</a></li><li><a href="#tymethod.prove_execution">prove_execution</a></li><li><a href="#tymethod.runtime_version">runtime_version</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-CallExecutor%3CBlock%3E-for-LocalCallExecutor%3CBlock,+B,+E%3E">LocalCallExecutor&lt;Block, B, E&gt;</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate polkadot_service</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">polkadot_service</a>::<wbr><a class="trait" href="#">CallExecutor</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sc_client_api/call_executor.rs.html#44">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait CallExecutor&lt;B&gt;: <a class="trait" href="../sc_executor/trait.RuntimeVersionOf.html" title="trait sc_executor::RuntimeVersionOf">RuntimeVersionOf</a><div class="where">where
+    B: <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>,</div>{
+    type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="../sp_state_machine/error/trait.Error.html" title="trait sp_state_machine::error::Error">Error</a>;
+    type <a href="#associatedtype.Backend" class="associatedtype">Backend</a>: <a class="trait" href="trait.Backend.html" title="trait polkadot_service::Backend">Backend</a>&lt;B&gt;;
+
+    // Required methods
+    fn <a href="#tymethod.execution_extensions" class="fn">execution_extensions</a>(&amp;self) -&gt; &amp;<a class="struct" href="../sc_client_api/execution_extensions/struct.ExecutionExtensions.html" title="struct sc_client_api::execution_extensions::ExecutionExtensions">ExecutionExtensions</a>&lt;B&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.call" class="fn">call</a>(
+        &amp;self,
+        at_hash: &lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+        method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+        call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+        context: <a class="enum" href="../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.contextual_call" class="fn">contextual_call</a>(
+        &amp;self,
+        at_hash: &lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+        method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+        call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+        changes: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../sp_state_machine/overlayed_changes/struct.OverlayedChanges.html" title="struct sp_state_machine::overlayed_changes::OverlayedChanges">OverlayedChanges</a>&lt;&lt;&lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Header" title="type polkadot_service::BlockT::Header">Header</a> as <a class="trait" href="trait.HeaderT.html" title="trait polkadot_service::HeaderT">Header</a>&gt;::<a class="associatedtype" href="trait.HeaderT.html#associatedtype.Hashing" title="type polkadot_service::HeaderT::Hashing">Hashing</a>&gt;&gt;,
+        proof_recorder: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sp_trie/recorder/struct.Recorder.html" title="struct sp_trie::recorder::Recorder">Recorder</a>&lt;&lt;&lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Header" title="type polkadot_service::BlockT::Header">Header</a> as <a class="trait" href="trait.HeaderT.html" title="trait polkadot_service::HeaderT">Header</a>&gt;::<a class="associatedtype" href="trait.HeaderT.html#associatedtype.Hashing" title="type polkadot_service::HeaderT::Hashing">Hashing</a>&gt;&gt;,
+        call_context: <a class="enum" href="../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
+        extensions: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../sp_externalities/extensions/struct.Extensions.html" title="struct sp_externalities::extensions::Extensions">Extensions</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>(
+        &amp;self,
+        at_hash: &lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../sp_version/struct.RuntimeVersion.html" title="struct sp_version::RuntimeVersion">RuntimeVersion</a>, <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.prove_execution" class="fn">prove_execution</a>(
+        &amp;self,
+        at_hash: &lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+        method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+        call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="../sp_trie/storage_proof/struct.StorageProof.html" title="struct sp_trie::storage_proof::StorageProof">StorageProof</a>), <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Method call executor.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Error" class="method"><a class="src rightside" href="../src/sc_client_api/call_executor.rs.html#46">source</a><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="../sp_state_machine/error/trait.Error.html" title="trait sp_state_machine::error::Error">Error</a></h4></section></summary><div class="docblock"><p>Externalities error type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Backend" class="method"><a class="src rightside" href="../src/sc_client_api/call_executor.rs.html#49">source</a><h4 class="code-header">type <a href="#associatedtype.Backend" class="associatedtype">Backend</a>: <a class="trait" href="trait.Backend.html" title="trait polkadot_service::Backend">Backend</a>&lt;B&gt;</h4></section></summary><div class="docblock"><p>The backend used by the node.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.execution_extensions" class="method"><a class="src rightside" href="../src/sc_client_api/call_executor.rs.html#52">source</a><h4 class="code-header">fn <a href="#tymethod.execution_extensions" class="fn">execution_extensions</a>(&amp;self) -&gt; &amp;<a class="struct" href="../sc_client_api/execution_extensions/struct.ExecutionExtensions.html" title="struct sc_client_api::execution_extensions::ExecutionExtensions">ExecutionExtensions</a>&lt;B&gt;</h4></section></summary><div class="docblock"><p>Returns the <a href="../sc_client_api/execution_extensions/struct.ExecutionExtensions.html" title="struct sc_client_api::execution_extensions::ExecutionExtensions"><code>ExecutionExtensions</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.call" class="method"><a class="src rightside" href="../src/sc_client_api/call_executor.rs.html#57-63">source</a><h4 class="code-header">fn <a href="#tymethod.call" class="fn">call</a>(
+    &amp;self,
+    at_hash: &lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+    method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    context: <a class="enum" href="../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Execute a call to a contract on top of state in a block of given hash.</p>
+<p>No changes are made.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.contextual_call" class="method"><a class="src rightside" href="../src/sc_client_api/call_executor.rs.html#70-79">source</a><h4 class="code-header">fn <a href="#tymethod.contextual_call" class="fn">contextual_call</a>(
+    &amp;self,
+    at_hash: &lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+    method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    changes: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../sp_state_machine/overlayed_changes/struct.OverlayedChanges.html" title="struct sp_state_machine::overlayed_changes::OverlayedChanges">OverlayedChanges</a>&lt;&lt;&lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Header" title="type polkadot_service::BlockT::Header">Header</a> as <a class="trait" href="trait.HeaderT.html" title="trait polkadot_service::HeaderT">Header</a>&gt;::<a class="associatedtype" href="trait.HeaderT.html#associatedtype.Hashing" title="type polkadot_service::HeaderT::Hashing">Hashing</a>&gt;&gt;,
+    proof_recorder: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sp_trie/recorder/struct.Recorder.html" title="struct sp_trie::recorder::Recorder">Recorder</a>&lt;&lt;&lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Header" title="type polkadot_service::BlockT::Header">Header</a> as <a class="trait" href="trait.HeaderT.html" title="trait polkadot_service::HeaderT">Header</a>&gt;::<a class="associatedtype" href="trait.HeaderT.html#associatedtype.Hashing" title="type polkadot_service::HeaderT::Hashing">Hashing</a>&gt;&gt;,
+    call_context: <a class="enum" href="../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
+    extensions: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../sp_externalities/extensions/struct.Extensions.html" title="struct sp_externalities::extensions::Extensions">Extensions</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Execute a contextual call on top of state in a block of a given hash.</p>
+<p>No changes are made.
+Before executing the method, passed header is installed as the current header
+of the execution context.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.runtime_version" class="method"><a class="src rightside" href="../src/sc_client_api/call_executor.rs.html#84">source</a><h4 class="code-header">fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>(
+    &amp;self,
+    at_hash: &lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../sp_version/struct.RuntimeVersion.html" title="struct sp_version::RuntimeVersion">RuntimeVersion</a>, <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Extract RuntimeVersion of given block</p>
+<p>No changes are made.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.prove_execution" class="method"><a class="src rightside" href="../src/sc_client_api/call_executor.rs.html#89-94">source</a><h4 class="code-header">fn <a href="#tymethod.prove_execution" class="fn">prove_execution</a>(
+    &amp;self,
+    at_hash: &lt;B as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+    method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="../sp_trie/storage_proof/struct.StorageProof.html" title="struct sp_trie::storage_proof::StorageProof">StorageProof</a>), <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Prove the execution of the given <code>method</code>.</p>
+<p>No changes are made.</p>
+</div></details></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-CallExecutor%3CBlock%3E-for-LocalCallExecutor%3CBlock,+B,+E%3E" class="impl"><a class="src rightside" href="../src/sc_service/client/call_executor.rs.html#80-84">source</a><a href="#impl-CallExecutor%3CBlock%3E-for-LocalCallExecutor%3CBlock,+B,+E%3E" class="anchor">§</a><h3 class="code-header">impl&lt;B, E, Block&gt; <a class="trait" href="trait.CallExecutor.html" title="trait polkadot_service::CallExecutor">CallExecutor</a>&lt;Block&gt; for <a class="struct" href="../sc_service/client/call_executor/struct.LocalCallExecutor.html" title="struct sc_service::client::call_executor::LocalCallExecutor">LocalCallExecutor</a>&lt;Block, B, E&gt;<div class="where">where
+    B: <a class="trait" href="trait.Backend.html" title="trait polkadot_service::Backend">Backend</a>&lt;Block&gt;,
+    E: <a class="trait" href="../sp_core/traits/trait.CodeExecutor.html" title="trait sp_core::traits::CodeExecutor">CodeExecutor</a> + <a class="trait" href="../sc_executor/trait.RuntimeVersionOf.html" title="trait sc_executor::RuntimeVersionOf">RuntimeVersionOf</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + 'static,
+    Block: <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Error-1" class="associatedtype trait-impl"><a href="#associatedtype.Error-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a> = &lt;E as <a class="trait" href="../sp_core/traits/trait.CodeExecutor.html" title="trait sp_core::traits::CodeExecutor">CodeExecutor</a>&gt;::<a class="associatedtype" href="../sp_core/traits/trait.CodeExecutor.html#associatedtype.Error" title="type sp_core::traits::CodeExecutor::Error">Error</a></h4></section><section id="associatedtype.Backend-1" class="associatedtype trait-impl"><a href="#associatedtype.Backend-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Backend" class="associatedtype">Backend</a> = B</h4></section><section id="method.execution_extensions" class="method trait-impl"><a class="src rightside" href="../src/sc_service/client/call_executor.rs.html#90">source</a><a href="#method.execution_extensions" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.execution_extensions" class="fn">execution_extensions</a>(&amp;self) -&gt; &amp;<a class="struct" href="../sc_client_api/execution_extensions/struct.ExecutionExtensions.html" title="struct sc_client_api::execution_extensions::ExecutionExtensions">ExecutionExtensions</a>&lt;Block&gt;</h4></section><section id="method.call" class="method trait-impl"><a class="src rightside" href="../src/sc_service/client/call_executor.rs.html#94-100">source</a><a href="#method.call" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.call" class="fn">call</a>(
+    &amp;self,
+    at_hash: &lt;Block as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+    method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    context: <a class="enum" href="../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;</h4></section><section id="method.contextual_call" class="method trait-impl"><a class="src rightside" href="../src/sc_service/client/call_executor.rs.html#129-138">source</a><a href="#method.contextual_call" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.contextual_call" class="fn">contextual_call</a>(
+    &amp;self,
+    at_hash: &lt;Block as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+    method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    changes: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../sp_state_machine/overlayed_changes/struct.OverlayedChanges.html" title="struct sp_state_machine::overlayed_changes::OverlayedChanges">OverlayedChanges</a>&lt;&lt;&lt;Block as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Header" title="type polkadot_service::BlockT::Header">Header</a> as <a class="trait" href="trait.HeaderT.html" title="trait polkadot_service::HeaderT">Header</a>&gt;::<a class="associatedtype" href="trait.HeaderT.html#associatedtype.Hashing" title="type polkadot_service::HeaderT::Hashing">Hashing</a>&gt;&gt;,
+    recorder: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sp_trie/recorder/struct.Recorder.html" title="struct sp_trie::recorder::Recorder">Recorder</a>&lt;&lt;&lt;Block as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Header" title="type polkadot_service::BlockT::Header">Header</a> as <a class="trait" href="trait.HeaderT.html" title="trait polkadot_service::HeaderT">Header</a>&gt;::<a class="associatedtype" href="trait.HeaderT.html#associatedtype.Hashing" title="type polkadot_service::HeaderT::Hashing">Hashing</a>&gt;&gt;,
+    call_context: <a class="enum" href="../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
+    extensions: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../sp_externalities/extensions/struct.Extensions.html" title="struct sp_externalities::extensions::Extensions">Extensions</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;</h4></section><section id="method.runtime_version" class="method trait-impl"><a class="src rightside" href="../src/sc_service/client/call_executor.rs.html#192">source</a><a href="#method.runtime_version" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>(
+    &amp;self,
+    at_hash: &lt;Block as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../sp_version/struct.RuntimeVersion.html" title="struct sp_version::RuntimeVersion">RuntimeVersion</a>, <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;</h4></section><section id="method.prove_execution" class="method trait-impl"><a class="src rightside" href="../src/sc_service/client/call_executor.rs.html#203-208">source</a><a href="#method.prove_execution" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.prove_execution" class="fn">prove_execution</a>(
+    &amp;self,
+    at_hash: &lt;Block as <a class="trait" href="trait.BlockT.html" title="trait polkadot_service::BlockT">Block</a>&gt;::<a class="associatedtype" href="trait.BlockT.html#associatedtype.Hash" title="type polkadot_service::BlockT::Hash">Hash</a>,
+    method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="../sp_trie/storage_proof/struct.StorageProof.html" title="struct sp_trie::storage_proof::StorageProof">StorageProof</a>), <a class="enum" href="../sp_blockchain/error/enum.Error.html" title="enum sp_blockchain::error::Error">Error</a>&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sc_client_api/call_executor/trait.CallExecutor.js" data-ignore-extern-crates="sc_service" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

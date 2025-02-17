@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AccountVote","Conviction","UnvoteScope","Voting"],"mod":["benchmarking","pallet","weights"],"struct":["Casting","Delegating","Delegations","Tally","Vote"],"type":["BalanceOf","BlockNumberFor","ClassOf","IndexOf","PollIndexOf","TallyOf","VotesOf","VotingOf"]};

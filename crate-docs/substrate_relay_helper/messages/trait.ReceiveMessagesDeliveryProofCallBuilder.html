@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Different ways of building `receive_messages_delivery_proof` calls."><title>ReceiveMessagesDeliveryProofCallBuilder in substrate_relay_helper::messages - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../substrate_relay_helper/index.html">substrate_relay_helper</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">ReceiveMessagesDeliveryProofCallBuilder</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.build_receive_messages_delivery_proof_call">build_receive_messages_delivery_proof_call</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In substrate_relay_helper::messages</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../substrate_relay_helper/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">substrate_relay_helper</a>::<wbr><a href="index.html">messages</a>::<wbr><a class="trait" href="#">ReceiveMessagesDeliveryProofCallBuilder</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/substrate_relay_helper/messages/mod.rs.html#469-476">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait ReceiveMessagesDeliveryProofCallBuilder&lt;P: <a class="trait" href="trait.SubstrateMessageLane.html" title="trait substrate_relay_helper::messages::SubstrateMessageLane">SubstrateMessageLane</a>&gt; {
+    // Required method
+    fn <a href="#tymethod.build_receive_messages_delivery_proof_call" class="fn">build_receive_messages_delivery_proof_call</a>(
+        proof: <a class="type" href="target/type.SubstrateMessagesDeliveryProof.html" title="type substrate_relay_helper::messages::target::SubstrateMessagesDeliveryProof">SubstrateMessagesDeliveryProof</a>&lt;P::<a class="associatedtype" href="trait.SubstrateMessageLane.html#associatedtype.TargetChain" title="type substrate_relay_helper::messages::SubstrateMessageLane::TargetChain">TargetChain</a>&gt;,
+        trace_call: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
+    ) -&gt; CallOf&lt;P::<a class="associatedtype" href="trait.SubstrateMessageLane.html#associatedtype.SourceChain" title="type substrate_relay_helper::messages::SubstrateMessageLane::SourceChain">SourceChain</a>&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Different ways of building <code>receive_messages_delivery_proof</code> calls.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.build_receive_messages_delivery_proof_call" class="method"><a class="src rightside" href="../../src/substrate_relay_helper/messages/mod.rs.html#472-475">source</a><h4 class="code-header">fn <a href="#tymethod.build_receive_messages_delivery_proof_call" class="fn">build_receive_messages_delivery_proof_call</a>(
+    proof: <a class="type" href="target/type.SubstrateMessagesDeliveryProof.html" title="type substrate_relay_helper::messages::target::SubstrateMessagesDeliveryProof">SubstrateMessagesDeliveryProof</a>&lt;P::<a class="associatedtype" href="trait.SubstrateMessageLane.html#associatedtype.TargetChain" title="type substrate_relay_helper::messages::SubstrateMessageLane::TargetChain">TargetChain</a>&gt;,
+    trace_call: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
+) -&gt; CallOf&lt;P::<a class="associatedtype" href="trait.SubstrateMessageLane.html#associatedtype.SourceChain" title="type substrate_relay_helper::messages::SubstrateMessageLane::SourceChain">SourceChain</a>&gt;</h4></section></summary><div class="docblock"><p>Given messages delivery proof, build call of <code>receive_messages_delivery_proof</code> function of
+bridge messages module at the source chain.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-ReceiveMessagesDeliveryProofCallBuilder%3CP%3E-for-DirectReceiveMessagesDeliveryProofCallBuilder%3CP,+R,+I%3E" class="impl"><a class="src rightside" href="../../src/substrate_relay_helper/messages/mod.rs.html#484-519">source</a><a href="#impl-ReceiveMessagesDeliveryProofCallBuilder%3CP%3E-for-DirectReceiveMessagesDeliveryProofCallBuilder%3CP,+R,+I%3E" class="anchor">§</a><h3 class="code-header">impl&lt;P, R, I&gt; <a class="trait" href="trait.ReceiveMessagesDeliveryProofCallBuilder.html" title="trait substrate_relay_helper::messages::ReceiveMessagesDeliveryProofCallBuilder">ReceiveMessagesDeliveryProofCallBuilder</a>&lt;P&gt; for <a class="struct" href="struct.DirectReceiveMessagesDeliveryProofCallBuilder.html" title="struct substrate_relay_helper::messages::DirectReceiveMessagesDeliveryProofCallBuilder">DirectReceiveMessagesDeliveryProofCallBuilder</a>&lt;P, R, I&gt;<div class="where">where
+    P: <a class="trait" href="trait.SubstrateMessageLane.html" title="trait substrate_relay_helper::messages::SubstrateMessageLane">SubstrateMessageLane</a>,
+    R: <a class="trait" href="../../pallet_bridge_messages/pallet/trait.Config.html" title="trait pallet_bridge_messages::pallet::Config">BridgeMessagesConfig</a>&lt;I&gt;,
+    I: 'static,
+    R::<a class="associatedtype" href="../../pallet_bridge_messages/pallet/trait.Config.html#associatedtype.BridgedChain" title="type pallet_bridge_messages::pallet::Config::BridgedChain">BridgedChain</a>: <a class="trait" href="../../bp_runtime/chain/trait.Chain.html" title="trait bp_runtime::chain::Chain">Chain</a>&lt;Hash = <a class="type" href="../../bp_runtime/chain/type.HashOf.html" title="type bp_runtime::chain::HashOf">HashOf</a>&lt;P::<a class="associatedtype" href="trait.SubstrateMessageLane.html#associatedtype.TargetChain" title="type substrate_relay_helper::messages::SubstrateMessageLane::TargetChain">TargetChain</a>&gt;&gt;,
+    CallOf&lt;P::<a class="associatedtype" href="trait.SubstrateMessageLane.html#associatedtype.SourceChain" title="type substrate_relay_helper::messages::SubstrateMessageLane::SourceChain">SourceChain</a>&gt;: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="../../pallet_bridge_messages/pallet/enum.Call.html" title="enum pallet_bridge_messages::pallet::Call">Call</a>&lt;R, I&gt;&gt; + <a class="trait" href="../../frame_support/dispatch/trait.GetDispatchInfo.html" title="trait frame_support::dispatch::GetDispatchInfo">GetDispatchInfo</a>,</div></h3></section></div><script src="../../trait.impl/substrate_relay_helper/messages/trait.ReceiveMessagesDeliveryProofCallBuilder.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

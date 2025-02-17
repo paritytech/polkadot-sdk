@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["dispatchables","storage_types"],"struct":["GenesisConfig","Instance1","MaybeMaxParachains","MaybeMaxTotalParachainHashes","Pallet"],"trait":["BoundedBridgeGrandpaConfig","Config"],"type":["ImportedParaHeads","Module","PalletOperatingMode","PalletOwner","ParasInfo","StoredParaHeadDataOf","WeightInfoOf"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["as_derivative","batch","batch_all","dispatch_as","force_batch","if_else","with_weight"]};

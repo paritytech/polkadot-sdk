@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["queue_totals","queues","receipts","summary"]};

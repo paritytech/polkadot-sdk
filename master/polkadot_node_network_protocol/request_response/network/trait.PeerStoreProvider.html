@@ -1,0 +1,183 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait providing peer reputation management and connection candidates."><title>PeerStoreProvider in polkadot_node_network_protocol::request_response::network - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_network_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_node_network_protocol/index.html">polkadot_node_network_protocol</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">PeerStoreProvider</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.add_known_peer">add_known_peer</a></li><li><a href="#tymethod.is_banned">is_banned</a></li><li><a href="#tymethod.outgoing_candidates">outgoing_candidates</a></li><li><a href="#tymethod.peer_reputation">peer_reputation</a></li><li><a href="#tymethod.peer_role">peer_role</a></li><li><a href="#tymethod.register_protocol">register_protocol</a></li><li><a href="#tymethod.report_disconnect">report_disconnect</a></li><li><a href="#tymethod.report_peer">report_peer</a></li><li><a href="#tymethod.set_peer_role">set_peer_role</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_node_network_protocol::request_response::network</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">polkadot_node_network_protocol</a>::<wbr><a href="../index.html">request_response</a>::<wbr><a href="index.html">network</a>::<wbr><a class="trait" href="#">PeerStoreProvider</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait PeerStoreProvider: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {
+    // Required methods
+    fn <a href="#tymethod.is_banned" class="fn">is_banned</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.register_protocol" class="fn">register_protocol</a>(&amp;self, protocol_handle: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn ProtocolHandle&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.report_disconnect" class="fn">report_disconnect</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.report_peer" class="fn">report_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>, change: <a class="struct" href="../../struct.ReputationChange.html" title="struct polkadot_node_network_protocol::ReputationChange">ReputationChange</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_peer_role" class="fn">set_peer_role</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>, role: ObservedRole);
+<span class="item-spacer"></span>    fn <a href="#tymethod.peer_reputation" class="fn">peer_reputation</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.i32.html">i32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.peer_role" class="fn">peer_role</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ObservedRole&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.outgoing_candidates" class="fn">outgoing_candidates</a>(
+        &amp;self,
+        count: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+        ignored: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.add_known_peer" class="fn">add_known_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>);
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait providing peer reputation management and connection candidates.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.is_banned" class="method"><h4 class="code-header">fn <a href="#tymethod.is_banned" class="fn">is_banned</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Check whether the peer is banned.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.register_protocol" class="method"><h4 class="code-header">fn <a href="#tymethod.register_protocol" class="fn">register_protocol</a>(&amp;self, protocol_handle: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn ProtocolHandle&gt;)</h4></section></summary><div class="docblock"><p>Register a protocol handle to disconnect peers whose reputation drops below the threshold.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.report_disconnect" class="method"><h4 class="code-header">fn <a href="#tymethod.report_disconnect" class="fn">report_disconnect</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>)</h4></section></summary><div class="docblock"><p>Report peer disconnection for reputation adjustment.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.report_peer" class="method"><h4 class="code-header">fn <a href="#tymethod.report_peer" class="fn">report_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>, change: <a class="struct" href="../../struct.ReputationChange.html" title="struct polkadot_node_network_protocol::ReputationChange">ReputationChange</a>)</h4></section></summary><div class="docblock"><p>Adjust peer reputation.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_peer_role" class="method"><h4 class="code-header">fn <a href="#tymethod.set_peer_role" class="fn">set_peer_role</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>, role: ObservedRole)</h4></section></summary><div class="docblock"><p>Set peer role.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.peer_reputation" class="method"><h4 class="code-header">fn <a href="#tymethod.peer_reputation" class="fn">peer_reputation</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.i32.html">i32</a></h4></section></summary><div class="docblock"><p>Get peer reputation.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.peer_role" class="method"><h4 class="code-header">fn <a href="#tymethod.peer_role" class="fn">peer_role</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ObservedRole&gt;</h4></section></summary><div class="docblock"><p>Get peer role, if available.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.outgoing_candidates" class="method"><h4 class="code-header">fn <a href="#tymethod.outgoing_candidates" class="fn">outgoing_candidates</a>(
+    &amp;self,
+    count: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ignored: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>&gt;</h4></section></summary><div class="docblock"><p>Get candidates with highest reputations for initiating outgoing connections.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.add_known_peer" class="method"><h4 class="code-header">fn <a href="#tymethod.add_known_peer" class="fn">add_known_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a>)</h4></section></summary><div class="docblock"><p>Add known peer.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-PeerStoreProvider-for-PeerStoreHandle" class="impl"><a href="#impl-PeerStoreProvider-for-PeerStoreHandle" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.PeerStoreProvider.html" title="trait polkadot_node_network_protocol::request_response::network::PeerStoreProvider">PeerStoreProvider</a> for PeerStoreHandle</h3></section></div><script src="../../../trait.impl/sc_network/peer_store/trait.PeerStoreProvider.js" data-ignore-extern-crates="sc_network" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

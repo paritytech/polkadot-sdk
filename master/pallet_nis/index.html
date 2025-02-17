@@ -1,0 +1,201 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Non-Interactive Staking (NIS) Pallet"><title>pallet_nis - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_nis" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_nis/index.html">pallet_nis</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_nis</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_nis/lib.rs.html#18-1163">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="non-interactive-staking-nis-pallet"><a class="doc-anchor" href="#non-interactive-staking-nis-pallet">§</a>Non-Interactive Staking (NIS) Pallet</h2>
+<p>A pallet allowing accounts to auction for being frozen and receive open-ended
+inflation-protection in return.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>Lock up tokens, for at least as long as you offer, and be free from both inflation and
+intermediate reward or exchange until the tokens become unlocked.</p>
+<h3 id="design"><a class="doc-anchor" href="#design">§</a>Design</h3>
+<p>Queues for each of <code>1..QueueCount</code> periods, given in blocks (<code>Period</code>). Queues are limited in
+size to something sensible, <code>MaxQueueLen</code>. A secondary storage item with <code>QueueCount</code> x <code>u32</code>
+elements with the number of items in each queue.</p>
+<p>Queues are split into two parts. The first part is a priority queue based on bid size. The
+second part is just a FIFO (the size of the second part is set with <code>FifoQueueLen</code>). Items are
+always prepended so that removal is always O(1) since removal often happens many times under a
+single weighed function (<code>on_initialize</code>) yet placing bids only ever happens once per weighed
+function (<code>place_bid</code>). If the queue has a priority portion, then it remains sorted in order of
+bid size so that smaller bids fall off as it gets too large.</p>
+<p>Account may enqueue a balance with some number of <code>Period</code>s lock up, up to a maximum of
+<code>QueueCount</code>. The balance gets reserved. There’s a minimum of <code>MinBid</code> to avoid dust.</p>
+<p>Until your bid is consolidated and you receive a receipt, you can retract it instantly and the
+funds are unreserved.</p>
+<p>There’s a target proportion of effective total issuance (i.e. accounting for existing receipts)
+which the pallet attempts to have frozen at any one time. It will likely be gradually increased
+over time by governance.</p>
+<p>As the proportion of effective total issuance represented by outstanding receipts drops below
+<code>FrozenFraction</code>, then bids are taken from queues and consolidated into receipts, with the queue
+of the greatest period taking priority. If the item in the queue’s locked amount is greater than
+the amount remaining to achieve <code>FrozenFraction</code>, then it is split up into multiple bids and
+becomes partially consolidated.</p>
+<p>With the consolidation of a bid, the bid amount is taken from the owner and a receipt is issued.
+The receipt records the proportion of the bid compared to effective total issuance at the time
+of consolidation. The receipt has two independent elements: a “main” non-fungible receipt and
+a second set of fungible “counterpart” tokens. The accounting functionality of the latter must
+be provided through the <code>Counterpart</code> trait item. The main non-fungible receipt may have its
+owner transferred through the pallet’s implementation of <code>nonfungible::Transfer</code>.</p>
+<p>A later <code>thaw</code> function may be called in order to reduce the recorded proportion or entirely
+remove the receipt in return for the appropriate proportion of the effective total issuance.
+This may happen no earlier than queue’s period after the point at which the receipt was issued.
+The call must be made by the owner of both the “main” non-fungible receipt and the appropriate
+amount of counterpart tokens.</p>
+<p><code>NoCounterpart</code> may be provided as an implementation for the counterpart token system in which
+case they are completely disregarded from the thawing logic.</p>
+<h3 id="terms"><a class="doc-anchor" href="#terms">§</a>Terms</h3>
+<ul>
+<li><em>Effective total issuance</em>: The total issuance of balances in the system, equal to the active
+issuance plus the value of all outstanding receipts, less <code>IgnoredIssuance</code>.</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_nis::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_nis::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_nis::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_nis</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.NoCounterpart.html" title="struct pallet_nis::NoCounterpart">NoCounterpart</a></div></li><li><div class="item-name"><a class="struct" href="struct.WithMaximumOf.html" title="struct pallet_nis::WithMaximumOf">WithMaximumOf</a></div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.BenchmarkSetup.html" title="trait pallet_nis::BenchmarkSetup">BenchmarkSetup</a></div><div class="desc docblock-short">Setup the empty genesis state for benchmarking.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

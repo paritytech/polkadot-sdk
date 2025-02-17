@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["child_bounties","child_bounty_count","child_bounty_descriptions_v1","children_curator_fees","parent_child_bounties","parent_total_child_bounties","v0_to_v1_child_bounty_ids"]};

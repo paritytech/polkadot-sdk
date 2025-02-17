@@ -1,0 +1,1 @@
+searchState.loadedDescShard("asset_hub_rococo_integration_tests", 0, "")

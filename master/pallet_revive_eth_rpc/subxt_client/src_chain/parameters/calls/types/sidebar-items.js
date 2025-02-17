@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["set_parameter"],"struct":["SetParameter"]};

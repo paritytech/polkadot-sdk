@@ -1,0 +1,348 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about composite enums and other runtime level types, such as “RuntimeEvent” and “RuntimeCall”."><title>polkadot_sdk_docs::reference_docs::frame_runtime_types - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function() {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+
+nav.side-bar {
+	width: 300px;
+}
+
+.sidebar-table-of-contents {
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
+
+.sidebar-table-of-contents a {
+    display: block;
+    margin: 0.2em 0;
+}
+
+.sidebar-table-of-contents .h2 {
+    font-weight: bold;
+    margin-left: 0;
+}
+
+.sidebar-table-of-contents .h3 {
+    margin-left: 1em;
+}
+
+.sidebar-table-of-contents .h4 {
+    margin-left: 2em;
+}
+
+.sidebar h2.location {
+  display: none;
+}
+
+.sidebar-elems {
+  display: none;
+}
+
+/* Center the 'Expand for More' button */
+.expand-button {
+  display: inline-block; /* Use inline-block for sizing */
+  margin: 10px auto; /* Auto margins for horizontal centering */
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  width: auto;
+  /* Centering the button within its parent container */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module frame_runtime_types</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">frame_runtime_types</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/frame_runtime_types.rs.html#1-306">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about composite enums and other runtime level types, such as “RuntimeEvent” and
+“RuntimeCall”.</p>
+<h2 id="frame-runtime-types"><a href="#frame-runtime-types">FRAME Runtime Types</a></h2>
+<p>This reference document briefly explores the idea around types generated at the runtime level by
+the FRAME macros.</p>
+<blockquote>
+<p>As of now, many of these important types are generated within the internals of
+<a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>construct_runtime</code></a>, and there is no easy way for you to visually know they exist.
+<a href="https://github.com/paritytech/polkadot-sdk/pull/1378">#polkadot-sdk#1378</a> is meant to
+significantly improve this. Exploring the rust-docs of a runtime, such as <a href="runtime/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime"><code>runtime</code></a> which is
+defined in this module is as of now the best way to learn about these types.</p>
+</blockquote>
+<h3 id="composite-enums"><a href="#composite-enums">Composite Enums</a></h3>
+<p>Many types within a FRAME runtime follow the following structure:</p>
+<ul>
+<li>Each individual pallet defines a type, for example <code>Foo</code>.</li>
+<li>At the runtime level, these types are amalgamated into a single type, for example
+<code>RuntimeFoo</code>.</li>
+</ul>
+<p>As the names suggest, all composite enums in a FRAME runtime start their name with <code>Runtime</code>.
+For example, <code>RuntimeCall</code> is a representation of the most high level <code>Call</code>-able type in the
+runtime.</p>
+<p>Composite enums are generally convertible to their individual parts as such:</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart LR
+    RuntimeCall --"TryInto"--> PalletCall
+    PalletCall --"Into"--> RuntimeCall
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>In that one can always convert from the inner type into the outer type, but not vice versa. This
+is usually expressed by implementing <code>From</code>, <code>TryFrom</code>, <code>From&lt;Result&lt;_&gt;&gt;</code> and similar traits.</p>
+<h4 id="example"><a href="#example">Example</a></h4>
+<p>We provide the following two pallets: <a href="pallet_foo/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::pallet_foo"><code>pallet_foo</code></a> and <a href="pallet_bar/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::pallet_bar"><code>pallet_bar</code></a>. Each define a
+dispatchable, and <code>Foo</code> also defines a custom origin. Lastly, <code>Bar</code> defines an additional
+<code>GenesisConfig</code>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet(dev_mode)]
+</span><span class="kw">pub mod </span>pallet_foo {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+
+	<span class="attr">#[pallet::origin]
+	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	</span><span class="kw">pub enum </span>Origin {
+		A,
+		B,
+	}
+
+	<span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+
+	<span class="attr">#[pallet::call]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="kw">pub fn </span>foo(_origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
+			<span class="macro">todo!</span>();
+		}
+
+		<span class="kw">pub fn </span>other(_origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
+			<span class="macro">todo!</span>();
+		}
+	}
+}</code></pre></div>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet(dev_mode)]
+</span><span class="kw">pub mod </span>pallet_bar {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+
+	<span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+
+	<span class="attr">#[pallet::genesis_config]
+	#[derive(DefaultNoBound)]
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
+		<span class="kw">pub </span>initial_account: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
+	}
+
+	<span class="attr">#[pallet::genesis_build]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
+		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
+	}
+
+	<span class="attr">#[pallet::call]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="kw">pub fn </span>bar(_origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
+			<span class="macro">todo!</span>();
+		}
+	}
+}</code></pre></div>
+<p>Let’s explore how each of these affect the <a href="runtime/enum.RuntimeCall.html" title="enum polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeCall"><code>RuntimeCall</code></a>, <a href="runtime/struct.RuntimeOrigin.html" title="struct polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeOrigin"><code>RuntimeOrigin</code></a> and
+<a href="runtime/struct.RuntimeGenesisConfig.html" title="struct polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeGenesisConfig"><code>RuntimeGenesisConfig</code></a> generated in <a href="runtime/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime"><code>runtime</code></a> by respectively.</p>
+<p>As observed, <a href="runtime/enum.RuntimeCall.html" title="enum polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeCall"><code>RuntimeCall</code></a> has 3 variants, one for each pallet and one for <code>frame_system</code>. If
+you explore further, you will soon realize that each variant is merely a pointer to the <code>Call</code>
+type in each pallet, for example <a href="pallet_foo/enum.Call.html" title="enum polkadot_sdk_docs::reference_docs::frame_runtime_types::pallet_foo::Call"><code>pallet_foo::Call</code></a>.</p>
+<p><a href="runtime/struct.RuntimeOrigin.html" title="struct polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeOrigin"><code>RuntimeOrigin</code></a>’s <a href="runtime/enum.OriginCaller.html" title="enum polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::OriginCaller"><code>OriginCaller</code></a> has two variants, one for system, and one for <code>pallet_foo</code>
+which utilized <a href="../../../frame_support_procedural/attr.origin.html" title="attr frame_support_procedural::origin"><code>frame::pallet_macros::origin</code></a>.</p>
+<p>Finally, <a href="runtime/struct.RuntimeGenesisConfig.html" title="struct polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeGenesisConfig"><code>RuntimeGenesisConfig</code></a> is composed of <code>frame_system</code> and a variant for <code>pallet_bar</code>’s
+<a href="pallet_bar/struct.GenesisConfig.html" title="struct polkadot_sdk_docs::reference_docs::frame_runtime_types::pallet_bar::GenesisConfig"><code>pallet_bar::GenesisConfig</code></a>.</p>
+<p>You can find other composite enums by scanning <a href="runtime/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime"><code>runtime</code></a> for other types who’s name starts
+with <code>Runtime</code>. Some of the more noteworthy ones are:</p>
+<ul>
+<li><a href="runtime/enum.RuntimeEvent.html" title="enum polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeEvent"><code>RuntimeEvent</code></a></li>
+<li><a href="runtime/enum.RuntimeError.html" title="enum polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeError"><code>RuntimeError</code></a></li>
+<li><a href="runtime/enum.RuntimeHoldReason.html" title="enum polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeHoldReason"><code>RuntimeHoldReason</code></a></li>
+</ul>
+<h4 id="adding-further-constraints-to-runtime-composite-enums"><a href="#adding-further-constraints-to-runtime-composite-enums">Adding Further Constraints to Runtime Composite Enums</a></h4>
+<p>This section explores a common scenario where a pallet has access to one of these runtime
+composite enums, but it wishes to further specify it by adding more trait bounds to it.</p>
+<p>Let’s take the example of <code>RuntimeCall</code>. This is an associated type in
+<a href="../../../frame_system/pallet/trait.Config.html#associatedtype.RuntimeCall" title="associated type frame_system::pallet::Config::RuntimeCall"><code>frame_system::Config::RuntimeCall</code></a>, and all pallets have access to this type, because they
+have access to <a href="../../../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config"><code>frame_system::Config</code></a>. Finally, this type is meant to be set to outer call of
+the entire runtime.</p>
+<p>But, let’s not forget that this is information that <em>we know</em>, and the Rust compiler does not.
+All that the rust compiler knows about this type is <em>ONLY</em> what the trait bounds of
+<a href="../../../frame_system/pallet/trait.Config.html#associatedtype.RuntimeCall" title="associated type frame_system::pallet::Config::RuntimeCall"><code>frame_system::Config::RuntimeCall</code></a> are specifying:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::no_default_bounds]
+</span><span class="kw">type </span>RuntimeCall: Parameter
+	+ Dispatchable&lt;RuntimeOrigin = <span class="self">Self</span>::RuntimeOrigin&gt;
+	+ Debug
+	+ From&lt;Call&lt;<span class="self">Self</span>&gt;&gt;;</code></pre></div>
+<p>So, when at a given pallet, one accesses <code>&lt;T as frame_system::Config&gt;::RuntimeCall</code>, the type is
+extremely opaque from the perspective of the Rust compiler.</p>
+<p>How can a pallet access the <code>RuntimeCall</code> type with further constraints? For example, each
+pallet has its own <code>enum Call</code>, and knows that its local <code>Call</code> is a part of <code>RuntimeCall</code>,
+therefore there should be a <code>impl From&lt;Call&lt;_&gt;&gt; for RuntimeCall</code>.</p>
+<p>The only way to express this using Rust’s associated types is for the pallet to <strong>define its own
+associated type <code>RuntimeCall</code>, and further specify what it thinks <code>RuntimeCall</code> should be</strong>.</p>
+<p>In this case, we will want to assert the existence of <a href="../../../frame_support/traits/misc/trait.IsSubType.html" title="trait frame_support::traits::misc::IsSubType"><code>frame::traits::IsSubType</code></a>, which is
+very similar to <a href="https://doc.rust-lang.org/1.75.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom"><code>TryFrom</code></a>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::config]
+</span><span class="kw">pub trait </span>Config: frame_system::Config {
+	<span class="kw">type </span>RuntimeCall: IsSubType&lt;Call&lt;<span class="self">Self</span>&gt;&gt;;
+}</code></pre></div>
+<p>And indeed, at the runtime level, this associated type would be the same <code>RuntimeCall</code> that is
+passed to <code>frame_system</code>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>pallet_with_specific_runtime_call::Config <span class="kw">for </span>Runtime {
+	<span class="comment">// an implementation of `IsSubType` is provided by `construct_runtime`.
+	</span><span class="kw">type </span>RuntimeCall = RuntimeCall;
+}</code></pre></div>
+<blockquote>
+<p>In other words, the degree of specificity that <a href="../../../frame_system/pallet/trait.Config.html#associatedtype.RuntimeCall" title="associated type frame_system::pallet::Config::RuntimeCall"><code>frame_system::Config::RuntimeCall</code></a> has is
+not enough for the pallet to work with. Therefore, the pallet has to define its own associated
+type representing <code>RuntimeCall</code>.</p>
+</blockquote>
+<p>Another way to look at this is:</p>
+<p><code>pallet_with_specific_runtime_call::Config::RuntimeCall</code> and <code>frame_system::Config::RuntimeCall</code>
+are two different representations of the same concrete type that is only known when the runtime
+is being constructed.</p>
+<p>Now, within this pallet, this new <code>RuntimeCall</code> can be used, and it can use its new trait
+bounds, such as being <a href="../../../frame_support/traits/misc/trait.IsSubType.html" title="trait frame_support::traits::misc::IsSubType"><code>frame::traits::IsSubType</code></a>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="kw">fn </span>_do_something_useful_with_runtime_call(call: &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall) {
+		<span class="comment">// check if the runtime call given is of this pallet&#39;s variant.
+		</span><span class="kw">let </span>_maybe_my_call: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Call&lt;T&gt;&gt; = call.is_sub_type();
+		<span class="macro">todo!</span>();
+	}
+}</code></pre></div>
+<h4 id="asserting-equality-of-multiple-runtime-composite-enums"><a href="#asserting-equality-of-multiple-runtime-composite-enums">Asserting Equality of Multiple Runtime Composite Enums</a></h4>
+<p>Recall that in the above example, <code>&lt;T as Config&gt;::RuntimeCall</code> and <code>&lt;T as frame_system::Config&gt;::RuntimeCall</code> are expected to be equal types, but at the compile-time we
+have to represent them with two different associated types with different bounds. Would it not
+be cool if we had a test to make sure they actually resolve to the same concrete type once the
+runtime is constructed? The following snippet exactly does that:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::hooks]
+</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>integrity_test() {
+		<span class="kw">use </span>core::any::TypeId;
+		<span class="macro">assert_eq!</span>(
+			TypeId::of::&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(),
+			TypeId::of::&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall&gt;()
+		);
+	}
+}</code></pre></div>
+<p>We leave it to the reader to further explore what <a href="../../../frame_support/traits/hooks/trait.Hooks.html#method.integrity_test" title="associated function frame_support::traits::hooks::Hooks::integrity_test"><code>frame::traits::Hooks::integrity_test</code></a> is,
+and what <a href="https://doc.rust-lang.org/1.75.0/core/any/struct.TypeId.html" title="struct core::any::TypeId"><code>core::any::TypeId</code></a> is. Another way to assert this is using
+<a href="../../../frame_support/traits/misc/trait.IsType.html" title="trait frame_support::traits::misc::IsType"><code>frame::traits::IsType</code></a>.</p>
+<h3 id="type-aliases"><a href="#type-aliases">Type Aliases</a></h3>
+<p>A number of type aliases are generated by the <code>construct_runtime</code> which are also noteworthy:</p>
+<ul>
+<li><a href="runtime/type.PalletFoo.html" title="type polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::PalletFoo"><code>runtime::PalletFoo</code></a> is an alias to <a href="pallet_foo/struct.Pallet.html" title="struct polkadot_sdk_docs::reference_docs::frame_runtime_types::pallet_foo::Pallet"><code>pallet_foo::Pallet</code></a>. Same for <code>PalletBar</code>, and
+<code>System</code></li>
+<li><a href="runtime/type.AllPalletsWithSystem.html" title="type polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::AllPalletsWithSystem"><code>runtime::AllPalletsWithSystem</code></a> is an alias for a tuple of all of the above. This type is
+important to FRAME internals such as <code>executive</code>, as it implements traits such as
+<a href="../../../frame_support/traits/hooks/trait.Hooks.html" title="trait frame_support::traits::hooks::Hooks"><code>frame::traits::Hooks</code></a>.</li>
+</ul>
+<h3 id="further-details"><a href="#further-details">Further Details</a></h3>
+<ul>
+<li><a href="../frame_origin/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_origin"><code>crate::reference_docs::frame_origin</code></a> explores further details about the usage of
+<code>RuntimeOrigin</code>.</li>
+<li><a href="runtime/enum.RuntimeCall.html" title="enum polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime::RuntimeCall"><code>RuntimeCall</code></a> is a particularly interesting composite enum as it dictates the encoding of an
+extrinsic. See <a href="../signed_extensions/index.html" title="mod polkadot_sdk_docs::reference_docs::signed_extensions"><code>crate::reference_docs::signed_extensions</code></a> for more information.</li>
+<li>See the documentation of <a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>construct_runtime</code></a>.</li>
+<li>See the corresponding lecture in the <a href="https://polkadot-blockchain-academy.github.io/pba-book/frame/outer-enum/page.html">pba-book</a>.</li>
+</ul>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet_bar/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::pallet_bar">pallet_bar</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet_foo/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::pallet_foo">pallet_foo</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet_with_specific_runtime_call/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::pallet_with_specific_runtime_call">pallet_with_specific_runtime_call</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="runtime/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime">runtime</a></div></li><li><div class="item-name"><a class="mod" href="runtime_with_specific_runtime_call/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types::runtime_with_specific_runtime_call">runtime_with_specific_runtime_call</a></div></li></ul></section></div></main></body></html>
