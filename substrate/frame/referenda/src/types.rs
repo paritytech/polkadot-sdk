@@ -18,6 +18,7 @@
 //! Miscellaneous additional datatypes.
 
 use super::*;
+use alloc::borrow::Cow;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
@@ -30,6 +31,10 @@ use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type BlockNumberFor<T, I> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
 pub type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
@@ -43,7 +48,7 @@ pub type PalletsOriginOf<T> =
 pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 	TrackIdOf<T, I>,
 	PalletsOriginOf<T>,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	BoundedCallOf<T, I>,
 	BalanceOf<T, I>,
 	TallyOf<T, I>,
@@ -53,19 +58,19 @@ pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 pub type ReferendumStatusOf<T, I> = ReferendumStatus<
 	TrackIdOf<T, I>,
 	PalletsOriginOf<T>,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	BoundedCallOf<T, I>,
 	BalanceOf<T, I>,
 	TallyOf<T, I>,
 	<T as frame_system::Config>::AccountId,
 	ScheduleAddressOf<T, I>,
 >;
-pub type DecidingStatusOf<T> = DecidingStatus<BlockNumberFor<T>>;
-pub type TrackInfoOf<T, I = ()> = TrackInfo<BalanceOf<T, I>, BlockNumberFor<T>>;
+pub type DecidingStatusOf<T, I> = DecidingStatus<BlockNumberFor<T, I>>;
+pub type TrackInfoOf<T, I = ()> = TrackInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>;
 pub type TrackIdOf<T, I> =
-	<<T as Config<I>>::Tracks as TracksInfo<BalanceOf<T, I>, BlockNumberFor<T>>>::Id;
+	<<T as Config<I>>::Tracks as TracksInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>>::Id;
 pub type ScheduleAddressOf<T, I> = <<T as Config<I>>::Scheduler as Anon<
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	CallOf<T, I>,
 	PalletsOriginOf<T>,
 >>::Address;
@@ -111,10 +116,13 @@ pub struct Deposit<AccountId, Balance> {
 	pub amount: Balance,
 }
 
-#[derive(Clone, Encode, TypeInfo)]
-pub struct TrackInfo<Balance, Moment> {
+pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
+
+/// Detailed information about the configuration of a referenda track
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug)]
+pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
 	/// Name of this track.
-	pub name: &'static str,
+	pub name: [u8; N],
 	/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
 	pub max_deciding: u32,
@@ -136,42 +144,67 @@ pub struct TrackInfo<Balance, Moment> {
 	pub min_support: Curve,
 }
 
+/// Track groups the information of a voting track with its corresponding identifier
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug)]
+pub struct Track<Id, Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
+	pub id: Id,
+	pub info: TrackInfo<Balance, Moment, N>,
+}
+
 /// Information on the voting tracks.
-pub trait TracksInfo<Balance, Moment> {
+pub trait TracksInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN>
+where
+	Balance: Clone + Debug + Eq + 'static,
+	Moment: Clone + Debug + Eq + 'static,
+{
 	/// The identifier for a track.
 	type Id: Copy + Parameter + Ord + PartialOrd + Send + Sync + 'static + MaxEncodedLen;
 
 	/// The origin type from which a track is implied.
 	type RuntimeOrigin;
 
-	/// Sorted array of known tracks and their information.
+	/// Return the sorted iterable list of known tracks and their information.
 	///
-	/// The array MUST be sorted by `Id`. Consumers of this trait are advised to assert
+	/// The iterator MUST be sorted by `Id`. Consumers of this trait are advised to assert
 	/// [`Self::check_integrity`] prior to any use.
-	fn tracks() -> &'static [(Self::Id, TrackInfo<Balance, Moment>)];
+	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, Balance, Moment, N>>>;
 
 	/// Determine the voting track for the given `origin`.
 	fn track_for(origin: &Self::RuntimeOrigin) -> Result<Self::Id, ()>;
 
-	/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
-	fn info(id: Self::Id) -> Option<&'static TrackInfo<Balance, Moment>> {
-		let tracks = Self::tracks();
-		let maybe_index = tracks.binary_search_by_key(&id, |t| t.0).ok()?;
+	/// Return the list of identifiers of the known tracks.
+	fn track_ids() -> impl Iterator<Item = Self::Id> {
+		Self::tracks().map(|x| x.id)
+	}
 
-		tracks.get(maybe_index).map(|(_, info)| info)
+	/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
+	fn info(id: Self::Id) -> Option<Cow<'static, TrackInfo<Balance, Moment, N>>> {
+		Self::tracks().find(|x| x.id == id).map(|t| match t {
+			Cow::Borrowed(x) => Cow::Borrowed(&x.info),
+			Cow::Owned(x) => Cow::Owned(x.info),
+		})
 	}
 
 	/// Check assumptions about the static data that this trait provides.
-	fn check_integrity() -> Result<(), &'static str>
-	where
-		Balance: 'static,
-		Moment: 'static,
-	{
-		if Self::tracks().windows(2).all(|w| w[0].0 < w[1].0) {
-			Ok(())
-		} else {
-			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
-		}
+	fn check_integrity() -> Result<(), &'static str> {
+		use core::cmp::Ordering;
+		// Adapted from Iterator::is_sorted implementation available in nightly
+		// https://github.com/rust-lang/rust/issues/53485
+		let mut iter = Self::tracks();
+		let mut last = match iter.next() {
+			Some(ref e) => e.id,
+			None => return Ok(()),
+		};
+		iter.all(|curr| {
+			let curr = curr.as_ref().id;
+			if let Ordering::Greater = last.cmp(&curr) {
+				return false;
+			}
+			last = curr;
+			true
+		})
+		.then_some(())
+		.ok_or("The tracks that were returned by `tracks` were not sorted by `Id`")
 	}
 }
 
@@ -547,7 +580,7 @@ impl Debug for Curve {
 mod tests {
 	use super::*;
 	use frame_support::traits::ConstU32;
-	use sp_runtime::PerThing;
+	use sp_runtime::{str_array as s, PerThing};
 
 	const fn percent(x: u128) -> FixedI64 {
 		FixedI64::from_rational(x, 100)
@@ -699,12 +732,12 @@ mod tests {
 		impl TracksInfo<u64, u64> for BadTracksInfo {
 			type Id = u8;
 			type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
-			fn tracks() -> &'static [(Self::Id, TrackInfo<u64, u64>)] {
-				static DATA: [(u8, TrackInfo<u64, u64>); 2] = [
-					(
-						1u8,
-						TrackInfo {
-							name: "root",
+			fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, u64, u64>>> {
+				static DATA: [Track<u8, u64, u64>; 2] = [
+					Track {
+						id: 1u8,
+						info: TrackInfo {
+							name: s("root"),
 							max_deciding: 1,
 							decision_deposit: 10,
 							prepare_period: 4,
@@ -722,11 +755,11 @@ mod tests {
 								ceil: Perbill::from_percent(100),
 							},
 						},
-					),
-					(
-						0u8,
-						TrackInfo {
-							name: "none",
+					},
+					Track {
+						id: 0u8,
+						info: TrackInfo {
+							name: s("none"),
 							max_deciding: 3,
 							decision_deposit: 1,
 							prepare_period: 2,
@@ -744,9 +777,9 @@ mod tests {
 								ceil: Perbill::from_percent(100),
 							},
 						},
-					),
+					},
 				];
-				&DATA[..]
+				DATA.iter().map(Cow::Borrowed)
 			}
 			fn track_for(_: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
 				unimplemented!()
