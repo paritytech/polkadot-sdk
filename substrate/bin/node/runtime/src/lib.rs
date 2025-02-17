@@ -676,8 +676,6 @@ impl_opaque_keys! {
 
 #[cfg(feature = "staking-playground")]
 pub mod staking_playground {
-	use pallet_staking::Exposure;
-
 	use super::*;
 
 	/// An adapter to make the chain work with --dev only, even though it is running a large staking
@@ -712,61 +710,43 @@ pub mod staking_playground {
 		}
 	}
 
-	impl pallet_session::historical::SessionManager<AccountId, Exposure<AccountId, Balance>>
-		for AliceAsOnlyValidator
-	{
+	impl pallet_session::historical::SessionManager<AccountId, ()> for AliceAsOnlyValidator {
 		fn end_session(end_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				Exposure<AccountId, Balance>,
-			>>::end_session(end_index)
+			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::end_session(
+				end_index,
+			)
 		}
 
-		fn new_session(
-			new_index: sp_staking::SessionIndex,
-		) -> Option<Vec<(AccountId, Exposure<AccountId, Balance>)>> {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				Exposure<AccountId, Balance>,
-			>>::new_session(new_index)
+		fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<(AccountId, ())>> {
+			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::new_session(
+				new_index,
+			)
 			.map(|_ignored| {
 				// construct a fake exposure for alice.
-				vec![(
-					sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(),
-					pallet_staking::Exposure {
-						total: 1_000_000_000,
-						own: 1_000_000_000,
-						others: vec![],
-					},
-				)]
+				vec![(sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(), ())]
 			})
 		}
 
 		fn new_session_genesis(
 			new_index: sp_staking::SessionIndex,
-		) -> Option<Vec<(AccountId, Exposure<AccountId, Balance>)>> {
+		) -> Option<Vec<(AccountId, ())>> {
 			<Staking as pallet_session::historical::SessionManager<
 				AccountId,
-				Exposure<AccountId, Balance>,
+				(),
 			>>::new_session_genesis(new_index)
 			.map(|_ignored| {
 				// construct a fake exposure for alice.
 				vec![(
 					sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(),
-					pallet_staking::Exposure {
-						total: 1_000_000_000,
-						own: 1_000_000_000,
-						others: vec![],
-					},
+					(),
 				)]
 			})
 		}
 
 		fn start_session(start_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				Exposure<AccountId, Balance>,
-			>>::start_session(start_index)
+			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::start_session(
+				start_index,
+			)
 		}
 	}
 }
@@ -790,8 +770,8 @@ impl pallet_session::Config for Runtime {
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 pallet_staking_reward_curve::build! {

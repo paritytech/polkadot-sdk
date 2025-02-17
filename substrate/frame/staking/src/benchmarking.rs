@@ -802,21 +802,33 @@ mod benchmarks {
 
 	#[benchmark]
 	fn cancel_deferred_slash(s: Linear<1, MAX_SLASHES>) {
-		let mut unapplied_slashes = Vec::new();
 		let era = EraIndex::one();
-		let dummy = || T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap();
-		for _ in 0..MAX_SLASHES {
-			unapplied_slashes
-				.push(UnappliedSlash::<T::AccountId, BalanceOf<T>>::default_from(dummy()));
-		}
-		UnappliedSlashes::<T>::insert(era, &unapplied_slashes);
+		let dummy_account = || T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 
-		let slash_indices: Vec<u32> = (0..s).collect();
+		// Insert `s` unapplied slashes with the new key structure
+		for i in 0..s {
+			let slash_key = (dummy_account(), Perbill::from_percent(i as u32 % 100), i);
+			let unapplied_slash = UnappliedSlash::<T> {
+				validator: slash_key.0.clone(),
+				own: Zero::zero(),
+				others: WeakBoundedVec::default(),
+				reporter: Default::default(),
+				payout: Zero::zero(),
+			};
+			UnappliedSlashes::<T>::insert(era, slash_key.clone(), unapplied_slash);
+		}
+
+		let slash_keys: Vec<_> = (0..s)
+			.map(|i| (dummy_account(), Perbill::from_percent(i as u32 % 100), i))
+			.collect();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, era, slash_indices);
+		_(RawOrigin::Root, era, slash_keys.clone());
 
-		assert_eq!(UnappliedSlashes::<T>::get(&era).len(), (MAX_SLASHES - s) as usize);
+		// Ensure all `s` slashes are removed
+		for key in &slash_keys {
+			assert!(UnappliedSlashes::<T>::get(era, key).is_none());
+		}
 	}
 
 	#[benchmark]
@@ -1134,6 +1146,46 @@ mod benchmarks {
 		_(RawOrigin::Signed(stash.clone()), stash.clone());
 
 		assert_eq!(asset::staked::<T>(&stash), stake);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn apply_slash() -> Result<(), BenchmarkError> {
+		let era = EraIndex::one();
+		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
+		let (validator, nominators) = create_validator_with_nominators::<T>(
+			T::MaxExposurePageSize::get() as u32,
+			T::MaxExposurePageSize::get() as u32,
+			false,
+			true,
+			RewardDestination::Staked,
+			era,
+		)?;
+		let slash_fraction = Perbill::from_percent(10);
+		let page_index = 0;
+		let slashed_balance = BalanceOf::<T>::from(10u32);
+
+		let slash_key = (validator.clone(), slash_fraction, page_index);
+		let slashed_nominators =
+			nominators.iter().map(|(n, _)| (n.clone(), slashed_balance)).collect::<Vec<_>>();
+
+		let unapplied_slash = UnappliedSlash::<T> {
+			validator: validator.clone(),
+			own: slashed_balance,
+			others: WeakBoundedVec::force_from(slashed_nominators, None),
+			reporter: Default::default(),
+			payout: Zero::zero(),
+		};
+
+		// Insert an unapplied slash to be processed.
+		UnappliedSlashes::<T>::insert(era, slash_key.clone(), unapplied_slash);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(validator.clone()), era, slash_key.clone());
+
+		// Ensure the slash has been applied and removed.
+		assert!(UnappliedSlashes::<T>::get(era, &slash_key).is_none());
+
 		Ok(())
 	}
 

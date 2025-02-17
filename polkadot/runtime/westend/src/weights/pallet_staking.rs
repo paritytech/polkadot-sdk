@@ -805,4 +805,8 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn apply_slash() -> Weight {
+		// TODO CI-FAIL: run CI bench bot
+		Weight::zero()
+	}
 }

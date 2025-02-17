@@ -84,6 +84,7 @@ pub trait WeightInfo {
 	fn set_min_commission() -> Weight;
 	fn restore_ledger() -> Weight;
 	fn migrate_currency() -> Weight;
+	fn apply_slash() -> Weight;
 }
 
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
@@ -815,6 +816,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	fn apply_slash() -> Weight {
+		// TODO CI-FAIL: run CI bench bot
+		Weight::zero()
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1544,5 +1549,9 @@ impl WeightInfo for () {
 		Weight::from_parts(96_272_000, 4764)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	fn apply_slash() -> Weight {
+		// TODO CI-FAIL: run CI bench bot
+		Weight::zero()
 	}
 }
