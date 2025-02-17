@@ -658,7 +658,7 @@ pub mod pallet {
 
 	/// The max number of members for the society at one time.
 	#[pallet::storage]
-	pub(super) type Parameters<T: Config<I>, I: 'static = ()> =
+	pub type Parameters<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, GroupParamsFor<T, I>, OptionQuery>;
 
 	/// Amount of our account balance that is specifically for the next round's bid(s).
@@ -709,7 +709,7 @@ pub mod pallet {
 
 	/// The current bids, stored ordered by the value of the bid.
 	#[pallet::storage]
-	pub(super) type Bids<T: Config<I>, I: 'static = ()> =
+	pub type Bids<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<Bid<T::AccountId, BalanceOf<T, I>>, T::MaxBids>, ValueQuery>;
 
 	#[pallet::storage]
@@ -727,7 +727,7 @@ pub mod pallet {
 
 	/// Double map from Candidate -> Voter -> (Maybe) Vote.
 	#[pallet::storage]
-	pub(super) type Votes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type Votes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -739,7 +739,7 @@ pub mod pallet {
 
 	/// Clear-cursor for Vote, map from Candidate -> (Maybe) Cursor.
 	#[pallet::storage]
-	pub(super) type VoteClearCursor<T: Config<I>, I: 'static = ()> =
+	pub type VoteClearCursor<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, BoundedVec<u8, KeyLenOf<Votes<T, I>>>>;
 
 	/// At the end of the claim period, this contains the most recently approved members (along with
@@ -751,17 +751,17 @@ pub mod pallet {
 
 	/// The number of challenge rounds there have been. Used to identify stale DefenderVotes.
 	#[pallet::storage]
-	pub(super) type ChallengeRoundCount<T: Config<I>, I: 'static = ()> =
+	pub type ChallengeRoundCount<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, RoundIndex, ValueQuery>;
 
 	/// The defending member currently being challenged, along with a running tally of votes.
 	#[pallet::storage]
-	pub(super) type Defending<T: Config<I>, I: 'static = ()> =
+	pub type Defending<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, (T::AccountId, T::AccountId, Tally)>;
 
 	/// Votes for the defender, keyed by challenge round.
 	#[pallet::storage]
-	pub(super) type DefenderVotes<T: Config<I>, I: 'static = ()> =
+	pub type DefenderVotes<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Twox64Concat, RoundIndex, Twox64Concat, T::AccountId, Vote>;
 
 	#[pallet::hooks]

@@ -497,7 +497,8 @@ impl ClaimPermission {
 	TypeInfo,
 	RuntimeDebugNoBound,
 	CloneNoBound,
-	frame_support::PartialEqNoBound,
+	PartialEqNoBound,
+	EqNoBound,
 )]
 #[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[scale_info(skip_type_params(T))]
@@ -1295,8 +1296,17 @@ impl<T: Config> BondedPool<T> {
 /// A reward pool is not so much a pool anymore, since it does not contain any shares or points.
 /// Rather, simply to fit nicely next to bonded pool and unbonding pools in terms of terminology. In
 /// reality, a reward pool is just a container for a few pool-dependent data related to the rewards.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound)]
-#[cfg_attr(feature = "std", derive(Clone, PartialEq, DefaultNoBound))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+	RuntimeDebugNoBound,
+)]
+#[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct RewardPool<T: Config> {
@@ -1304,19 +1314,19 @@ pub struct RewardPool<T: Config> {
 	///
 	/// This is updated ONLY when the points in the bonded pool change, which means `join`,
 	/// `bond_extra` and `unbond`, all of which is done through `update_recorded`.
-	last_recorded_reward_counter: T::RewardCounter,
+	pub last_recorded_reward_counter: T::RewardCounter,
 	/// The last recorded total payouts of the reward pool.
 	///
 	/// Payouts is essentially income of the pool.
 	///
 	/// Update criteria is same as that of `last_recorded_reward_counter`.
-	last_recorded_total_payouts: BalanceOf<T>,
+	pub last_recorded_total_payouts: BalanceOf<T>,
 	/// Total amount that this pool has paid out so far to the members.
-	total_rewards_claimed: BalanceOf<T>,
+	pub total_rewards_claimed: BalanceOf<T>,
 	/// The amount of commission pending to be claimed.
-	total_commission_pending: BalanceOf<T>,
+	pub total_commission_pending: BalanceOf<T>,
 	/// The amount of commission that has been claimed.
-	total_commission_claimed: BalanceOf<T>,
+	pub total_commission_claimed: BalanceOf<T>,
 }
 
 impl<T: Config> RewardPool<T> {
@@ -1455,15 +1465,24 @@ impl<T: Config> RewardPool<T> {
 }
 
 /// An unbonding pool. This is always mapped with an era.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
-#[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	DefaultNoBound,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct UnbondPool<T: Config> {
 	/// The points in this pool.
-	points: BalanceOf<T>,
+	pub points: BalanceOf<T>,
 	/// The funds in the pool.
-	balance: BalanceOf<T>,
+	pub balance: BalanceOf<T>,
 }
 
 impl<T: Config> UnbondPool<T> {
@@ -1498,17 +1517,26 @@ impl<T: Config> UnbondPool<T> {
 	}
 }
 
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
-#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	DefaultNoBound,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct SubPools<T: Config> {
 	/// A general, era agnostic pool of funds that have fully unbonded. The pools
 	/// of `Self::with_era` will lazily be merged into into this pool if they are
 	/// older then `current_era - TotalUnbondingPools`.
-	no_era: UnbondPool<T>,
+	pub no_era: UnbondPool<T>,
 	/// Map of era in which a pool becomes unbonded in => unbond pools.
-	with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
+	pub with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
 }
 
 impl<T: Config> SubPools<T> {
