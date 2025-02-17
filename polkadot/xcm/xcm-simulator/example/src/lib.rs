@@ -35,22 +35,23 @@ pub const ALICE: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([1u8; 32
 pub const INITIAL_BALANCE: u128 = 1_000_000_000;
 
 /// A reusable log capturing struct for unit tests.
+/// Captures logs written during test execution for assertions.
 pub struct LogCapture {
 	buffer: Arc<Mutex<Vec<u8>>>,
 }
 
 impl LogCapture {
-	/// Creates a new LogCapture instance with an internal buffer.
+	/// Creates a new `LogCapture` instance with an internal buffer.
 	pub fn new() -> Self {
 		LogCapture { buffer: Arc::new(Mutex::new(Vec::new())) }
 	}
 
-	/// Retrieves the captured logs as a String.
+	/// Retrieves the captured logs as a `String`.
 	pub fn get_logs(&self) -> String {
 		String::from_utf8(self.buffer.lock().unwrap().clone()).unwrap()
 	}
 
-	/// Returns a clone of the internal buffer for use in `MakeWriter`
+	/// Returns a clone of the internal buffer for use in `MakeWriter`.
 	pub fn writer(&self) -> Self {
 		LogCapture { buffer: Arc::clone(&self.buffer) }
 	}
@@ -71,11 +72,20 @@ impl Write for LogCapture {
 impl<'a> MakeWriter<'a> for LogCapture {
 	type Writer = Self;
 
+	/// Provides a `MakeWriter` implementation for `tracing_subscriber`.
 	fn make_writer(&'a self) -> Self::Writer {
 		self.writer()
 	}
 }
 
+/// Runs a test block with logging enabled and captures logs for assertions.
+/// Usage:
+/// ```ignore
+/// let log_capture = run_with_logging!({
+///     my_test_function();
+/// });
+/// assert_logs_contain!(log_capture, "Expected log message");
+/// ```
 #[macro_export]
 macro_rules! run_with_logging {
 	($test:block) => {{
@@ -89,6 +99,10 @@ macro_rules! run_with_logging {
 }
 
 /// Macro to assert that captured logs contain a specific substring.
+/// Usage:
+/// ```ignore
+/// assert_logs_contain!(log_capture, "Expected log message");
+/// ```
 #[macro_export]
 macro_rules! assert_logs_contain {
 	($log_capture:expr, $expected:expr) => {
