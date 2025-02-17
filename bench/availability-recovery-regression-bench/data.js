@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739815792507,
+  "lastUpdate": 1739818295175,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -43859,6 +43859,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1879594860333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nikola.djoric@parity.io",
+            "name": "nprt",
+            "username": "nprt"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d61032b977b18cc962cdb23e7a3df7386e503e09",
+          "message": "implement web3_clientVersion (#7580)\n\nImplements the `web3_clientVersion` method. This is a common requirement\nfor external Ethereum libraries when querying a client.\n\nFixes paritytech/contract-issues#26.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-02-17T17:50:46Z",
+          "tree_id": "26d38d57645767a30e5bae619bb71290ee780d15",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d61032b977b18cc962cdb23e7a3df7386e503e09"
+        },
+        "date": 1739818278009,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18997909036666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.081804999000001,
             "unit": "seconds"
           }
         ]
