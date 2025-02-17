@@ -166,7 +166,7 @@ pub mod pallet {
 		/// - an arbitrary value through a custom implementation of the trait
 		///
 		/// There is currently no migration provided to "hot-swap" block number providers and it may
-		/// result in undefined behavior when doing so. Parachains are therefore best of to set this
+		/// result in undefined behavior when doing so. Parachains are therefore best off setting this
 		/// to their local block number provider if they have the pallet already deployed.
 		///
 		/// Suggested values:
