@@ -116,7 +116,7 @@ fn scope_rejects_ancestors_that_skip_blocks() {
 		storage_root: Hash::repeat_byte(69),
 	}];
 
-	let max_depth = 2;
+	let max_depth = 3;
 	let base_constraints = make_constraints(8, vec![8, 9], vec![1, 2, 3].into());
 	let pending_availability = Vec::new();
 
@@ -146,7 +146,7 @@ fn scope_rejects_ancestor_for_0_block() {
 		storage_root: Hash::repeat_byte(69),
 	}];
 
-	let max_depth = 2;
+	let max_depth = 3;
 	let base_constraints = make_constraints(0, vec![], vec![1, 2, 3].into());
 	let pending_availability = Vec::new();
 
@@ -188,7 +188,7 @@ fn scope_only_takes_ancestors_up_to_min() {
 		},
 	];
 
-	let max_depth = 2;
+	let max_depth = 3;
 	let base_constraints = make_constraints(3, vec![2], vec![1, 2, 3].into());
 	let pending_availability = Vec::new();
 
@@ -231,7 +231,7 @@ fn scope_rejects_unordered_ancestors() {
 		},
 	];
 
-	let max_depth = 2;
+	let max_depth = 3;
 	let base_constraints = make_constraints(0, vec![2], vec![1, 2, 3].into());
 	let pending_availability = Vec::new();
 
@@ -497,7 +497,7 @@ fn test_populate_and_check_potential() {
 				relay_parent_z_info.clone(),
 				wrong_constraints.clone(),
 				vec![],
-				4,
+				5,
 				ancestors.clone(),
 			)
 			.unwrap();
@@ -530,12 +530,33 @@ fn test_populate_and_check_potential() {
 
 	// Various depths
 	{
-		// Depth is 0, only allows one candidate, but the others will be kept as potential.
+		// Depth is 0, doesn't allow any candidate, but the others will be kept as potential.
 		let scope = Scope::with_ancestors(
 			relay_parent_z_info.clone(),
 			base_constraints.clone(),
 			vec![],
 			0,
+			ancestors.clone(),
+		)
+		.unwrap();
+		let chain = FragmentChain::init(scope.clone(), CandidateStorage::default());
+		assert!(chain.can_add_candidate_as_potential(&candidate_a_entry).is_ok());
+		assert!(chain.can_add_candidate_as_potential(&candidate_b_entry).is_ok());
+		assert!(chain.can_add_candidate_as_potential(&candidate_c_entry).is_ok());
+
+		let chain = populate_chain_from_previous_storage(&scope, &storage);
+		assert!(chain.best_chain_vec().is_empty());
+		assert_eq!(
+			chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
+			[candidate_a_hash, candidate_b_hash, candidate_c_hash].into_iter().collect()
+		);
+
+		// Depth is 1, only allows one candidate, but the others will be kept as potential.
+		let scope = Scope::with_ancestors(
+			relay_parent_z_info.clone(),
+			base_constraints.clone(),
+			vec![],
+			1,
 			ancestors.clone(),
 		)
 		.unwrap();
@@ -551,12 +572,12 @@ fn test_populate_and_check_potential() {
 			[candidate_b_hash, candidate_c_hash].into_iter().collect()
 		);
 
-		// depth is 1, allows two candidates
+		// depth is 2, allows two candidates
 		let scope = Scope::with_ancestors(
 			relay_parent_z_info.clone(),
 			base_constraints.clone(),
 			vec![],
-			1,
+			2,
 			ancestors.clone(),
 		)
 		.unwrap();
@@ -572,8 +593,8 @@ fn test_populate_and_check_potential() {
 			[candidate_c_hash].into_iter().collect()
 		);
 
-		// depth is larger than 2, allows all three candidates
-		for depth in 2..6 {
+		// depth is at least 3, allows all three candidates
+		for depth in 3..6 {
 			let scope = Scope::with_ancestors(
 				relay_parent_z_info.clone(),
 				base_constraints.clone(),
@@ -605,7 +626,7 @@ fn test_populate_and_check_potential() {
 			relay_parent_z_info.clone(),
 			base_constraints.clone(),
 			vec![],
-			4,
+			5,
 			ancestors_without_x,
 		)
 		.unwrap();
@@ -628,7 +649,7 @@ fn test_populate_and_check_potential() {
 			relay_parent_z_info.clone(),
 			base_constraints.clone(),
 			vec![],
-			4,
+			5,
 			vec![],
 		)
 		.unwrap();
@@ -674,7 +695,7 @@ fn test_populate_and_check_potential() {
 			relay_parent_z_info.clone(),
 			base_constraints.clone(),
 			vec![],
-			4,
+			5,
 			ancestors.clone(),
 		)
 		.unwrap();
@@ -716,7 +737,7 @@ fn test_populate_and_check_potential() {
 		relay_parent_z_info.clone(),
 		base_constraints.clone(),
 		vec![],
-		4,
+		5,
 		ancestors.clone(),
 	)
 	.unwrap();
@@ -758,7 +779,7 @@ fn test_populate_and_check_potential() {
 		relay_parent_z_info.clone(),
 		base_constraints.clone(),
 		vec![],
-		4,
+		5,
 		ancestors.clone(),
 	)
 	.unwrap();
@@ -987,7 +1008,7 @@ fn test_populate_and_check_potential() {
 		relay_parent_z_info.clone(),
 		base_constraints.clone(),
 		vec![],
-		2,
+		3,
 		ancestors.clone(),
 	)
 	.unwrap();
@@ -1302,7 +1323,7 @@ fn test_populate_and_check_potential() {
 				relay_parent: relay_parent_z_info.clone(),
 			},
 		],
-		2,
+		0,
 		ancestors.clone(),
 	)
 	.unwrap();
@@ -1327,7 +1348,7 @@ fn test_populate_and_check_potential() {
 		relay_parent_z_info.clone(),
 		base_constraints.clone(),
 		vec![],
-		2,
+		3,
 		ancestors.clone(),
 	)
 	.unwrap();
@@ -1356,7 +1377,7 @@ fn test_populate_and_check_potential() {
 fn test_find_ancestor_path_and_find_backable_chain_empty_best_chain() {
 	let relay_parent = Hash::repeat_byte(1);
 	let required_parent: HeadData = vec![0xff].into();
-	let max_depth = 10;
+	let max_depth = 11;
 
 	// Empty chain
 	let base_constraints = make_constraints(0, vec![0], required_parent.clone());
@@ -1383,7 +1404,7 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 	let para_id = ParaId::from(5u32);
 	let relay_parent = Hash::repeat_byte(1);
 	let required_parent: HeadData = vec![0xff].into();
-	let max_depth = 5;
+	let max_depth = 6;
 	let relay_parent_number = 0;
 	let relay_parent_storage_root = Hash::zero();
 
@@ -1568,7 +1589,7 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 				candidate_hash: candidates[3],
 				relay_parent: relay_parent_info,
 			}],
-			max_depth,
+			max_depth - 1,
 			vec![],
 		)
 		.unwrap();

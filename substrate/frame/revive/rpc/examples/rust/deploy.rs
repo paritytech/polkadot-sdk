@@ -19,10 +19,8 @@ use pallet_revive::{
 	create1,
 	evm::{Account, BlockTag, ReceiptInfo, U256},
 };
-use pallet_revive_eth_rpc::{
-	example::{wait_for_receipt, TransactionBuilder},
-	EthRpcClient,
-};
+use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -36,43 +34,49 @@ async fn main() -> anyhow::Result<()> {
 	println!("Account:");
 	println!("- address: {:?}", account.address());
 	println!("- substrate: {}", account.substrate_account());
-	let client = HttpClientBuilder::default().build("http://localhost:8545")?;
+	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
 
 	println!("\n\n=== Deploying contract ===\n\n");
 
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let hash = TransactionBuilder::default()
+	let tx = TransactionBuilder::new(&client)
 		.value(5_000_000_000_000u128.into())
 		.input(input)
-		.send(&client)
+		.send()
 		.await?;
 
-	println!("Deploy Tx hash: {hash:?}");
+	println!("Deploy Tx hash: {:?}", tx.hash());
 	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
-		wait_for_receipt(&client, hash).await?;
+		tx.wait_for_receipt().await?;
 
 	let contract_address = contract_address.unwrap();
 	assert_eq!(contract_address, create1(&account.address(), nonce.try_into().unwrap()));
 
 	println!("Receipt:");
-	println!("- Block number: {block_number}");
-	println!("- Gas used: {gas_used}");
+	println!("- Block number:     {block_number}");
+	println!("- Gas estimated:    {}", tx.gas());
+	println!("- Gas used:         {gas_used}");
 	println!("- Contract address: {contract_address:?}");
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
 	println!("- Contract balance: {balance:?}");
 
+	if std::env::var("SKIP_CALL").is_ok() {
+		return Ok(());
+	}
+
 	println!("\n\n=== Calling contract ===\n\n");
-	let hash = TransactionBuilder::default()
+	let tx = TransactionBuilder::new(&client)
 		.value(U256::from(1_000_000u32))
 		.to(contract_address)
-		.send(&client)
+		.send()
 		.await?;
 
-	println!("Contract call tx hash: {hash:?}");
-	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;
+	println!("Contract call tx hash: {:?}", tx.hash());
+	let ReceiptInfo { block_number, gas_used, to, .. } = tx.wait_for_receipt().await?;
 	println!("Receipt:");
-	println!("- Block number: {block_number}");
-	println!("- Gas used: {gas_used}");
-	println!("- To: {to:?}");
+	println!("- Block number:  {block_number}");
+	println!("- Gas used:      {gas_used}");
+	println!("- Gas estimated: {}", tx.gas());
+	println!("- To:            {to:?}");
 	Ok(())
 }
