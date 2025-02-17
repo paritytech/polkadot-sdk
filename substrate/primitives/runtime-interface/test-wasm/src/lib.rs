@@ -21,7 +21,15 @@
 
 extern crate alloc;
 
-use sp_runtime_interface::runtime_interface;
+use sp_runtime_interface::{
+	pass_by::{
+		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
+		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
+		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy,
+		PassPointerAndWrite, ReturnAs,
+	},
+	runtime_interface,
+};
 
 #[cfg(not(feature = "std"))]
 use core::mem;
@@ -48,7 +56,7 @@ const TEST_ARRAY: [u8; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 #[runtime_interface]
 pub trait TestApi {
 	/// Returns the input data as result.
-	fn return_input(data: Vec<u8>) -> Vec<u8> {
+	fn return_input(data: PassFatPointerAndRead<Vec<u8>>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		data
 	}
 
@@ -59,74 +67,74 @@ pub trait TestApi {
 	/// We return a `Vec<u32>` because this will use the code path that uses SCALE
 	/// to pass the data between native/wasm. (`Vec<u8>` is passed without encoding the
 	/// data)
-	fn return_16kb() -> Vec<u32> {
+	fn return_16kb() -> AllocateAndReturnByCodec<Vec<u32>> {
 		vec![0; 4 * 1024]
 	}
 
-	fn return_option_vec() -> Option<Vec<u8>> {
+	fn return_option_vec() -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		let mut vec = Vec::new();
 		vec.resize(16 * 1024, 0xAA);
 		Some(vec)
 	}
 
-	fn return_option_bytes() -> Option<bytes::Bytes> {
+	fn return_option_bytes() -> AllocateAndReturnByCodec<Option<bytes::Bytes>> {
 		let mut vec = Vec::new();
 		vec.resize(16 * 1024, 0xAA);
 		Some(vec.into())
 	}
 
 	/// Set the storage at key with value.
-	fn set_storage(&mut self, key: &[u8], data: &[u8]) {
+	fn set_storage(
+		&mut self,
+		key: PassFatPointerAndRead<&[u8]>,
+		data: PassFatPointerAndRead<&[u8]>,
+	) {
 		self.place_storage(key.to_vec(), Some(data.to_vec()));
 	}
 
 	/// Copy `hello` into the given mutable reference
-	fn return_value_into_mutable_reference(&self, data: &mut [u8]) {
+	fn return_value_into_mutable_reference(&self, data: PassFatPointerAndReadWrite<&mut [u8]>) {
 		let res = "hello";
 		data[..res.as_bytes().len()].copy_from_slice(res.as_bytes());
 	}
 
 	/// Returns the input data wrapped in an `Option` as result.
-	fn return_option_input(data: Vec<u8>) -> Option<Vec<u8>> {
+	fn return_option_input(
+		data: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		Some(data)
 	}
 
 	/// Get an array as input and returns a subset of this array.
-	fn get_and_return_array(data: [u8; 34]) -> [u8; 16] {
+	fn get_and_return_array(
+		data: PassPointerAndReadCopy<[u8; 34], 34>,
+	) -> AllocateAndReturnPointer<[u8; 16], 16> {
 		let mut res = [0u8; 16];
 		res.copy_from_slice(&data[..16]);
 		res
 	}
 
 	/// Take and fill mutable array.
-	fn array_as_mutable_reference(data: &mut [u8; 16]) {
+	fn array_as_mutable_reference(data: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		data.copy_from_slice(&TEST_ARRAY);
 	}
 
 	/// Returns the given public key as result.
-	fn return_input_public_key(key: Public) -> Public {
+	fn return_input_public_key(
+		key: PassPointerAndReadCopy<Public, 32>,
+	) -> AllocateAndReturnPointer<Public, 32> {
 		key
 	}
 
 	/// A function that is called with invalid utf8 data from the runtime.
 	///
 	/// This also checks that we accept `_` (wild card) argument names.
-	fn invalid_utf8_data(_: &str) {}
+	fn invalid_utf8_data(_: PassFatPointerAndRead<&str>) {}
 
 	/// Overwrite the native implementation in wasm. The native implementation always returns
 	/// `false` and the replacement function will return always `true`.
 	fn overwrite_native_function_implementation() -> bool {
 		false
-	}
-
-	/// Gets an `u128` and returns this value
-	fn get_and_return_u128(val: u128) -> u128 {
-		val
-	}
-
-	/// Gets an `i128` and returns this value
-	fn get_and_return_i128(val: i128) -> i128 {
-		val
 	}
 
 	fn test_versioning(&self, data: u32) -> bool {
@@ -149,12 +157,80 @@ pub trait TestApi {
 
 	/// Returns the input values as tuple.
 	fn return_input_as_tuple(
-		a: Vec<u8>,
+		a: PassFatPointerAndRead<Vec<u8>>,
 		b: u32,
-		c: Option<Vec<u32>>,
+		c: PassFatPointerAndDecode<Option<Vec<u32>>>,
 		d: u8,
-	) -> (Vec<u8>, u32, Option<Vec<u32>>, u8) {
+	) -> AllocateAndReturnByCodec<(Vec<u8>, u32, Option<Vec<u32>>, u8)> {
 		(a, b, c, d)
+	}
+
+	// Host functions for testing every marshaling strategy:
+
+	fn pass_pointer_and_read_copy(value: PassPointerAndReadCopy<[u8; 3], 3>) {
+		assert_eq!(value, [1, 2, 3]);
+	}
+
+	fn pass_pointer_and_read(value: PassPointerAndRead<&[u8; 3], 3>) {
+		assert_eq!(value, &[1, 2, 3]);
+	}
+
+	fn pass_fat_pointer_and_read(value: PassFatPointerAndRead<&[u8]>) {
+		assert_eq!(value, [1, 2, 3]);
+	}
+
+	fn pass_fat_pointer_and_read_write(value: PassFatPointerAndReadWrite<&mut [u8]>) {
+		assert_eq!(value, [1, 2, 3]);
+		value.copy_from_slice(&[4, 5, 6]);
+	}
+
+	fn pass_pointer_and_write(value: PassPointerAndWrite<&mut [u8; 3], 3>) {
+		assert_eq!(*value, [0, 0, 0]);
+		*value = [1, 2, 3];
+	}
+
+	fn pass_by_codec(value: PassFatPointerAndDecode<Vec<u16>>) {
+		assert_eq!(value, [1, 2, 3]);
+	}
+
+	fn pass_slice_ref_by_codec(value: PassFatPointerAndDecodeSlice<&[u16]>) {
+		assert_eq!(value, [1, 2, 3]);
+	}
+
+	fn pass_as(value: PassAs<Opaque, u32>) {
+		assert_eq!(value.0, 123);
+	}
+
+	fn return_as() -> ReturnAs<Opaque, u32> {
+		Opaque(123)
+	}
+
+	fn allocate_and_return_pointer() -> AllocateAndReturnPointer<[u8; 3], 3> {
+		[1, 2, 3]
+	}
+
+	fn allocate_and_return_fat_pointer() -> AllocateAndReturnFatPointer<Vec<u8>> {
+		vec![1, 2, 3]
+	}
+
+	fn allocate_and_return_by_codec() -> AllocateAndReturnByCodec<Vec<u16>> {
+		vec![1, 2, 3]
+	}
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct Opaque(u32);
+
+impl From<Opaque> for u32 {
+	fn from(value: Opaque) -> Self {
+		value.0
+	}
+}
+
+impl TryFrom<u32> for Opaque {
+	type Error = ();
+	fn try_from(value: u32) -> Result<Self, Self::Error> {
+		Ok(Opaque(value))
 	}
 }
 
@@ -251,16 +327,6 @@ wasm_export_functions! {
 		assert!(test_api::overwrite_native_function_implementation());
 	}
 
-	fn test_u128_i128_as_parameter_and_return_value() {
-		for val in &[u128::MAX, 1u128, 5000u128, u64::MAX as u128] {
-			assert_eq!(*val, test_api::get_and_return_u128(*val));
-		}
-
-		for val in &[i128::MAX, i128::MIN, 1i128, 5000i128, u64::MAX as i128] {
-			assert_eq!(*val, test_api::get_and_return_i128(*val));
-		}
-	}
-
 	fn test_vec_return_value_memory_is_freed() {
 		let mut len = 0;
 		for _ in 0..1024 {
@@ -322,5 +388,28 @@ wasm_export_functions! {
 
 	fn test_return_option_bytes() {
 		test_api::return_option_bytes();
+	}
+
+	fn test_marshalling_strategies() {
+		test_api::pass_pointer_and_read_copy([1_u8, 2, 3]);
+		test_api::pass_pointer_and_read(&[1_u8, 2, 3]);
+		test_api::pass_fat_pointer_and_read(&[1_u8, 2, 3][..]);
+		{
+			let mut slice = [1_u8, 2, 3];
+			test_api::pass_fat_pointer_and_read_write(&mut slice);
+			assert_eq!(slice, [4_u8, 5, 6]);
+		}
+		{
+			let mut slice = [9_u8, 9, 9];
+			test_api::pass_pointer_and_write(&mut slice);
+			assert_eq!(slice, [1_u8, 2, 3]);
+		}
+		test_api::pass_by_codec(vec![1_u16, 2, 3]);
+		test_api::pass_slice_ref_by_codec(&[1_u16, 2, 3][..]);
+		test_api::pass_as(Opaque(123));
+		assert_eq!(test_api::return_as(), Opaque(123));
+		assert_eq!(test_api::allocate_and_return_pointer(), [1_u8, 2, 3]);
+		assert_eq!(test_api::allocate_and_return_fat_pointer(), vec![1_u8, 2, 3]);
+		assert_eq!(test_api::allocate_and_return_by_codec(), vec![1_u16, 2, 3]);
 	}
 }

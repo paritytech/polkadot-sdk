@@ -210,7 +210,7 @@ impl<K, V> Default for OverlayedMap<K, V> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntry> {
 	fn from(storage: sp_core::storage::StorageMap) -> Self {
 		Self {
