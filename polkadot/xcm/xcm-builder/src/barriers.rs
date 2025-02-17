@@ -310,24 +310,17 @@ impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T
 			origin, instructions, max_weight, _properties,
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
-		// We will read up to 5 instructions. This allows up to 3 `ClearOrigin` instructions. We
-		// allow for more than one since anything beyond the first is a no-op and it's conceivable
-		// that composition of operations might result in more than one being appended.
+		// We will read up to 5 instructions. This allows up to 3 asset transfer instructions, thus covering
+		// all possible transfer types, followed by a potential origin altering instruction, then the expected
+		// `UnpaidExecution` instruction.
 		let end = instructions.len().min(5);
 		instructions[..end]
 			.matcher()
-			// We allow one teleport or reserve asset transfer instruction before
-			// altering the origin and using `UnpaidExecution`.
-			// We reuse `MAX_ASSETS_FOR_BUY_EXECUTION` so we cap the number of assets that
-			// can be transferred this way in case `UnpaidExecution` fails.
-			.skip_next_inst_if(|inst| {
-				matches!(inst, ReceiveTeleportedAsset(assets) | ReserveAssetDeposited(assets) if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION)
-			})?
-			// We then allow multiple instructions that alter the origin.
+			// We skip all types of asset transfer instructions, skip origin altering instructions,
+			// but expect explicit `UnpaidExecution` instruction.
 			.skip_inst_while(|inst| {
-				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
-					matches!(inst, DescendOrigin(child) if child != &Here) ||
-					matches!(inst, SetHints { .. })
+				matches!(inst, ReceiveTeleportedAsset(_) | ReserveAssetDeposited(_) | WithdrawAsset(_) | SetHints { .. }) ||
+					matches!(inst, ClearOrigin | AliasOrigin(..) | DescendOrigin(child) if child != &Here)
 			})?
 			// We finally match on the required `UnpaidExecution` instruction.
 			.match_next_inst(|inst| match inst {
