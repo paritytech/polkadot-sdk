@@ -60,6 +60,12 @@ std = [
 	"test-pallet/std",
 ]
 experimental = ["frame-support/experimental", "frame-system/experimental"]
+runtime-benchmarks = [
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]
 try-runtime = [
 	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
