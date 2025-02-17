@@ -60,6 +60,7 @@ pub mod pallet {
 	{
 		type Balance: Parameter + Default + TypeInfo;
 
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
