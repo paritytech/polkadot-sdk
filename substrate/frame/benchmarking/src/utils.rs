@@ -23,7 +23,9 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{traits::TrailingZeroInput, DispatchError};
+use sp_runtime::{
+	traits::TrailingZeroInput, transaction_validity::TransactionValidityError, DispatchError,
+};
 use sp_storage::TrackedStorageKey;
 
 /// An alphabet of possible parameters to use for benchmarking.
@@ -191,6 +193,12 @@ impl From<DispatchErrorWithPostInfo> for BenchmarkError {
 
 impl From<DispatchError> for BenchmarkError {
 	fn from(e: DispatchError) -> Self {
+		Self::Stop(e.into())
+	}
+}
+
+impl From<TransactionValidityError> for BenchmarkError {
+	fn from(e: TransactionValidityError) -> Self {
 		Self::Stop(e.into())
 	}
 }

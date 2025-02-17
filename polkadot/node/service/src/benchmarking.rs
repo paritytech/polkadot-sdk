@@ -143,6 +143,7 @@ fn westend_sign_call(
 	use westend_runtime as runtime;
 
 	let tx_ext: runtime::TxExtension = (
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -163,6 +164,7 @@ fn westend_sign_call(
 		call.clone(),
 		tx_ext.clone(),
 		(
+			(),
 			(),
 			runtime::VERSION.spec_version,
 			runtime::VERSION.transaction_version,
@@ -200,6 +202,7 @@ fn rococo_sign_call(
 	use sp_core::Pair;
 
 	let tx_ext: runtime::TxExtension = (
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -220,6 +223,7 @@ fn rococo_sign_call(
 		call.clone(),
 		tx_ext.clone(),
 		(
+			(),
 			(),
 			runtime::VERSION.spec_version,
 			runtime::VERSION.transaction_version,
