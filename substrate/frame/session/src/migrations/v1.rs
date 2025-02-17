@@ -60,12 +60,12 @@ impl<T: Config> MigrateDisabledValidators for InitOffenceSeverity<T> {
 			.collect::<Vec<_>>()
 	}
 }
-pub struct VersionUncheckedMigrateV0toV1<T, S: MigrateDisabledValidators>(
+pub struct VersionUncheckedMigrateV0ToV1<T, S: MigrateDisabledValidators>(
 	core::marker::PhantomData<(T, S)>,
 );
 
 impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade
-	for VersionUncheckedMigrateV0toV1<T, S>
+	for VersionUncheckedMigrateV0ToV1<T, S>
 {
 	fn on_runtime_upgrade() -> Weight {
 		let disabled = S::take_disabled();
@@ -98,10 +98,10 @@ impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade
 	}
 }
 
-pub type MigrateV0toV1<T, S> = VersionedMigration<
+pub type MigrateV0ToV1<T, S> = VersionedMigration<
 	0,
 	1,
-	VersionUncheckedMigrateV0toV1<T, S>,
+	VersionUncheckedMigrateV0ToV1<T, S>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
