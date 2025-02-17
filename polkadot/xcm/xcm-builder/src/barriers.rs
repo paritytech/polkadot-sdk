@@ -20,7 +20,7 @@ use crate::{CreateMatcher, MatchXcm};
 use core::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use frame_support::{
 	ensure,
-	traits::{Contains, Get, ProcessMessageError},
+	traits::{Contains, ContainsPair, Get, ProcessMessageError},
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use xcm::prelude::*;
@@ -296,8 +296,8 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 ///
 /// Allows for the message to receive teleports or reserve asset transfers and altering
 /// the origin before indicating `UnpaidExecution`.
-pub struct AllowExplicitUnpaidExecutionFrom<T>(PhantomData<T>);
-impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T> {
+pub struct AllowExplicitUnpaidExecutionFrom<T, Aliasers = ()>(PhantomData<(T, Aliasers)>);
+impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T, Aliasers> {
 	fn should_execute<Call>(
 		origin: &Location,
 		instructions: &mut [Instruction<Call>],
@@ -309,25 +309,64 @@ impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T
 			"AllowExplicitUnpaidExecutionFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
 			origin, instructions, max_weight, _properties,
 		);
-		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
 		// We will read up to 5 instructions. This allows up to 3 asset transfer instructions, thus covering
 		// all possible transfer types, followed by a potential origin altering instruction, then the expected
 		// `UnpaidExecution` instruction.
-		let end = instructions.len().min(5);
-		instructions[..end]
+		let mut actual_origin = origin.clone();
+		let processed = Cell::new(0usize);
+		let instructions_to_process = 5;
+		instructions
 			.matcher()
-			// We skip all types of asset transfer instructions, skip origin altering instructions,
-			// but expect explicit `UnpaidExecution` instruction.
-			.skip_inst_while(|inst| {
-				matches!(inst, ReceiveTeleportedAsset(_) | ReserveAssetDeposited(_) | WithdrawAsset(_) | SetHints { .. }) ||
-					matches!(inst, ClearOrigin | AliasOrigin(..) | DescendOrigin(child) if child != &Here)
-			})?
+			// We skip set hints and all types of asset transfer instructions.
+			.match_next_inst_while(
+				|inst| {
+					processed.get() < instructions_to_process &&
+						matches!(inst, ReceiveTeleportedAsset(_) | ReserveAssetDeposited(_) | WithdrawAsset(_) | SetHints { .. })
+				},
+				|_| {
+					processed.set(processed.get() + 1);
+					Ok(ControlFlow::Continue(()))
+				}
+			)?
+			// Then we go through all origin altering instructions and we
+			// alter the original origin.
+			.match_next_inst_while(
+				|_| processed.get() < instructions_to_process,
+				|inst| {
+					match inst {
+						ClearOrigin => {
+							// We don't support the `ClearOrigin` instruction since we always need to know
+							// the origin to know if it's allowed unpaid execution.
+							return Err(ProcessMessageError::Unsupported);
+						},
+						AliasOrigin(target) => {
+							if Aliasers::contains(&actual_origin, &target) {
+								actual_origin = target.clone();
+							} else {
+								return Err(ProcessMessageError::Unsupported);
+							}
+						},
+						DescendOrigin(child) if child != &Here => {
+							let Ok(_) = actual_origin.append_with(child.clone()) else {
+								return Err(ProcessMessageError::Unsupported);
+							};
+						},
+						_ => return Ok(ControlFlow::Break(())),
+					};
+					processed.set(processed.get() + 1);
+					Ok(ControlFlow::Continue(()))
+				}
+			)?
 			// We finally match on the required `UnpaidExecution` instruction.
 			.match_next_inst(|inst| match inst {
 				UnpaidExecution { weight_limit: Limited(m), .. } if m.all_gte(max_weight) => Ok(()),
 				UnpaidExecution { weight_limit: Unlimited, .. } => Ok(()),
 				_ => Err(ProcessMessageError::Overweight(max_weight)),
 			})?;
+
+		// After processing all the instructions, `actual_origin` was modified and we
+		// check if it's allowed to have unpaid execution.
+		ensure!(T::contains(&actual_origin), ProcessMessageError::Unsupported);
 
 		Ok(())
 	}
