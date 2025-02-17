@@ -1,8 +1,8 @@
 title: Fix issue with InitiateTransfer and UnpaidExecution
 doc:
 - audience: Runtime Dev
-  description: "Fix issue where any user was allowed to set the `remote_fees` field\
-    \ of `InitiateTransfer` to `None` and skip fees.\r\n"
+  description: 
+    Fix issue where setting the `remote_fees` field of `InitiateTransfer` to `None` could lead to unintended bypassing of fees in certain conditions.
 crates:
 - name: staging-xcm-builder
   bump: patch
