@@ -844,13 +844,13 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]
 pub struct Node<T: Config<I>, I: 'static = ()> {
-	pub(crate) id: T::AccountId,
-	pub(crate) prev: Option<T::AccountId>,
-	pub(crate) next: Option<T::AccountId>,
-	pub(crate) bag_upper: T::Score,
-	pub(crate) score: T::Score,
+	pub id: T::AccountId,
+	pub prev: Option<T::AccountId>,
+	pub next: Option<T::AccountId>,
+	pub bag_upper: T::Score,
+	pub score: T::Score,
 	#[codec(skip)]
-	pub(crate) _phantom: PhantomData<I>,
+	pub _phantom: PhantomData<I>,
 }
 
 impl<T: Config<I>, I: 'static> Node<T, I> {
