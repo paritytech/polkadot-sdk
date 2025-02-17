@@ -175,10 +175,7 @@ where
 		Self {
 			maybe_id: None,
 			priority: self.priority,
-			call: VersionedCall {
-                call: self.call.call.clone(),
-                transaction_version: self.call.transaction_version,
-            },
+			call: self.call.clone(),
 			maybe_periodic: None,
 			origin: self.origin.clone(),
 			_phantom: Default::default(),
@@ -207,7 +204,7 @@ use crate::{Scheduled as ScheduledV3, Scheduled as ScheduledV2};
 
 pub type ScheduledV2Of<T> = ScheduledV2<
 	Vec<u8>,
-	<T as Config>::RuntimeCall,
+	VersionedCall<<T as Config>::RuntimeCall>,
 	BlockNumberFor<T>,
 	<T as Config>::PalletsOrigin,
 	<T as frame_system::Config>::AccountId,
@@ -215,7 +212,7 @@ pub type ScheduledV2Of<T> = ScheduledV2<
 
 pub type ScheduledV3Of<T> = ScheduledV3<
 	Vec<u8>,
-	CallOrHashOf<T>,
+	VersionedCall<CallOrHashOf<T>>,
 	BlockNumberFor<T>,
 	<T as Config>::PalletsOrigin,
 	<T as frame_system::Config>::AccountId,
@@ -223,7 +220,7 @@ pub type ScheduledV3Of<T> = ScheduledV3<
 
 pub type ScheduledOf<T> = Scheduled<
 	TaskName,
-	BoundedCallOf<T>,
+	VersionedCall<BoundedCallOf<T>>,
 	BlockNumberFor<T>,
 	<T as Config>::PalletsOrigin,
 	<T as frame_system::Config>::AccountId,
@@ -1269,21 +1266,21 @@ impl<T: Config> Pallet<T> {
 				Some(t) => t,
 			};
 
-			 // Validate the VersionedCall
-			 let current_version = <RuntimeVersion as Get<u32>>::get();
-			 let call = match task.call.validate(current_version) {
-				 Ok(call) => call,
-				 Err(_) => {
-					 // Log an error or handle the version mismatch
-					 log::error!(
-						 "Scheduled call version mismatch: expected {}, got {}",
-						 current_version,
-						 task.call.transaction_version
-					 );
-					 dropped += 1;
-					 continue; // Skip this task
-				 }
-			 };
+			//  // Validate the VersionedCall
+			//  let current_version = <RuntimeVersion as Get<u32>>::get();
+			//  let call = match task.call.validate(current_version) {
+			// 	 Ok(call) => call,
+			// 	 Err(_) => {
+			// 		 // Log an error or handle the version mismatch
+			// 		 log::error!(
+			// 			 "Scheduled call version mismatch: expected {}, got {}",
+			// 			 current_version,
+			// 			 task.call.transaction_version
+			// 		 );
+			// 		 dropped += 1;
+			// 		 continue; // Skip this task
+			// 	 }
+			//  };
 
 			let base_weight = T::WeightInfo::service_task(
 				task.call.lookup_len().map(|x| x as usize),
