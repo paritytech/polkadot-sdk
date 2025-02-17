@@ -2868,6 +2868,7 @@ version = "1.0.0"
 dependencies = [
  "asset-hub-westend-runtime",
  "bridge-hub-westend-runtime",
+ "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "emulated-integration-tests-common",
  "frame-support 28.0.0",
