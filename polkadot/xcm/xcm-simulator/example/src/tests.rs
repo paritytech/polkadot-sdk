@@ -511,3 +511,40 @@ fn query_holding() {
 		);
 	});
 }
+
+#[test]
+fn reserve_transfer_with_error() {
+	use sp_tracing::{tracing, tracing_subscriber};
+
+	// Reset the test network
+	MockNet::reset();
+
+	// Execute XCM Transfer and Capture Logs
+	let log_capture = run_with_logging!({
+		Relay::execute_with(|| {
+			let invalid_dest = Box::new(Parachain(9999).into());
+			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
+				relay_chain::RuntimeOrigin::signed(ALICE),
+				invalid_dest,
+				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
+				Box::new((Here, 123u128).into()),
+				0,
+				Unlimited,
+			);
+
+			// Ensure an error occurred
+			assert!(result.is_err(), "Expected an error due to invalid destination");
+		});
+
+		// Ensure no balance change due to the error
+		ParaA::execute_with(|| {
+			assert_eq!(
+				pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
+				INITIAL_BALANCE
+			);
+		});
+	});
+
+	// Assertions on Captured Logs
+	assert_logs_contain!(log_capture, "XCM validate_send failed");
+}
