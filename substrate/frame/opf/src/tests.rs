@@ -399,6 +399,11 @@ fn vote_overwrite_works() {
 fn voting_action_locked() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
+		let bob_bal0 = <Test as Config>::NativeBalance::reducible_balance(
+			&BOB,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
 
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 
@@ -428,8 +433,18 @@ fn voting_action_locked() {
 				&HoldReason::FundsReserved.into(),
 				&BOB,
 			);
-		assert!(locked_balance0 > Zero::zero());
+		assert_eq!(locked_balance0, 6000);
 
+		let dem_lock = <Test as pallet_democracy::Config>::Currency::reserved_balance(&BOB);
+		assert_eq!(dem_lock, 6000);
+
+		let bob_bal1 = <Test as Config>::NativeBalance::reducible_balance(
+			&BOB,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
+
+		assert_eq!(bob_bal1, bob_bal0.saturating_sub(6000));
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
 		run_to_block(round_info.round_ending_block);
 
