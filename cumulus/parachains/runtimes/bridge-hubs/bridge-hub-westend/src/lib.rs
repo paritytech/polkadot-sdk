@@ -169,6 +169,10 @@ pub type Migrations = (
 		ConstU32<ASSET_HUB_ID>,
 	>,
 	bridge_to_ethereum_config::migrations::MigrationForXcmV5<Runtime>,
+	pallet_session::migrations::v1::MigrateV0ToV1<
+		Runtime,
+		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet, Vec};
+use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet, Perbill, Vec};
 use frame_support::{
 	pallet_prelude::{Get, ValueQuery, Weight},
 	traits::UncheckedOnRuntimeUpgrade,
@@ -41,6 +41,24 @@ pub trait MigrateDisabledValidators {
 	/// Return the list of disabled validators and their offence severity, removing them from the
 	/// underlying storage.
 	fn take_disabled() -> Vec<(u32, OffenceSeverity)>;
+}
+
+pub struct InitOffenceSeverity<T>(core::marker::PhantomData<T>);
+impl<T: Config> MigrateDisabledValidators for InitOffenceSeverity<T> {
+	#[cfg(feature = "try-runtime")]
+	fn peek_disabled() -> Vec<(u32, OffenceSeverity)> {
+		DisabledValidators::<T>::get()
+			.iter()
+			.map(|v| (*v, OffenceSeverity(Perbill::zero())))
+			.collect::<Vec<_>>()
+	}
+
+	fn take_disabled() -> Vec<(u32, OffenceSeverity)> {
+		DisabledValidators::<T>::take()
+			.iter()
+			.map(|v| (*v, OffenceSeverity(Perbill::zero())))
+			.collect::<Vec<_>>()
+	}
 }
 pub struct VersionUncheckedMigrateV0toV1<T, S: MigrateDisabledValidators>(
 	core::marker::PhantomData<(T, S)>,
