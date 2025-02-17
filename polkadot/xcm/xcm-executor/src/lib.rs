@@ -1282,11 +1282,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 									.ok()
 							})
 							.ok_or(XcmError::BadOrigin)?;
-						// We alias the origin if it's not already the root of this chain.
-						if let Some(origin) = self.origin_ref() {
-							if *origin != Location::here() {
-								message.push(AliasOrigin(original_origin));
-							}
+						// We alias the origin if it's not a noop (origin != `Here`).
+						if let Some(original_origin) = self
+							.origin_ref()
+							.filter(|origin| origin.ne(&Location::here()))
+							.cloned()
+						{
+							let reanchored_origin = Self::try_reanchor(original_origin, &destination)?.0;
+							message.push(AliasOrigin(reanchored_origin));
 						}
 					} else {
 						// clear origin for subsequent user-controlled instructions on remote chain
