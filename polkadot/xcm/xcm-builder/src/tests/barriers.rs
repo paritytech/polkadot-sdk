@@ -147,7 +147,7 @@ fn allow_explicit_unpaid_should_work() {
 		TransferAsset { assets: (Parent, 100).into(), beneficiary: Here.into() },
 	]);
 
-	AllowExplicitUnpaidFrom::set(vec![Parent.into(), (Parent, Parachain(2034)).into()]);
+	AllowExplicitUnpaidFrom::set(vec![Parent.into(), (Parent, Parachain(1000)).into()]);
 	type ExplicitUnpaidBarrier<T> = AllowExplicitUnpaidExecutionFrom<T, mock::Aliasers>;
 
 	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
@@ -209,7 +209,7 @@ fn allow_explicit_unpaid_should_work() {
 	// Invalid since location to alias is not allowed.
 	let mut message = Xcm::<()>::builder_unsafe()
 		.receive_teleported_asset((Here, 100u128))
-		.alias_origin(Parachain(2034))
+		.alias_origin(Parachain(1000))
 		.unpaid_execution(Unlimited, None)
 		.build();
 	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
@@ -223,7 +223,7 @@ fn allow_explicit_unpaid_should_work() {
 	// Valid because all parachains are children of the relay chain.
 	let mut message = Xcm::<()>::builder_unsafe()
 		.receive_teleported_asset((Here, 100u128))
-		.alias_origin((Parent, Parachain(2034)))
+		.alias_origin((Parent, Parachain(1000)))
 		.unpaid_execution(Unlimited, None)
 		.build();
 	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
@@ -236,7 +236,7 @@ fn allow_explicit_unpaid_should_work() {
 
 	// Valid.
 	let mut message = Xcm::<()>::builder_unsafe()
-		.alias_origin((Parent, Parachain(2034)))
+		.alias_origin((Parent, Parachain(1000)))
 		.unpaid_execution(Unlimited, None)
 		.build();
 	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
@@ -262,11 +262,11 @@ fn allow_explicit_unpaid_should_work() {
 	);
 	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 
-	// Invalid because of `ClearOrigin`.
+	// Valid.
 	let mut message = Xcm::<()>::builder_unsafe()
 		.receive_teleported_asset((Here, 100u128))
 		.reserve_asset_deposited((Parent, 100u128))
-		.clear_origin()
+		.descend_origin(Parachain(1000))
 		.unpaid_execution(Unlimited, None)
 		.build();
 	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
@@ -275,7 +275,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(40, 40),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+	assert_eq!(result, Ok(()));
 
 	// Invalid because of `ClearOrigin`.
 	let mut message = Xcm::<()>::builder_unsafe()
@@ -293,7 +293,7 @@ fn allow_explicit_unpaid_should_work() {
 	// Invalid because there is no `UnpaidExecution`.
 	let mut message = Xcm::<()>::builder_unsafe()
 		.receive_teleported_asset((Here, 100u128))
-		.alias_origin((Parent, Parachain(2034)))
+		.alias_origin((Parent, Parachain(1000)))
 		.build();
 	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
@@ -338,7 +338,7 @@ fn allow_explicit_unpaid_should_work() {
 		.receive_teleported_asset((Here, 100u128))
 		.reserve_asset_deposited(assets)
 		.withdraw_asset((GeneralIndex(1), 100u128))
-		.alias_origin((Parent, Parachain(2034)))
+		.alias_origin((Parent, Parachain(1000)))
 		.unpaid_execution(Limited(Weight::from_parts(50, 50)), None)
 		.build();
 	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
@@ -385,7 +385,7 @@ fn allow_explicit_unpaid_should_work() {
 		.receive_teleported_asset((Here, 100u128))
 		.reserve_asset_deposited(assets)
 		.withdraw_asset((GeneralIndex(1), 100u128))
-		.alias_origin((Parent, Parachain(2034)))
+		.alias_origin((Parent, Parachain(1000)))
 		.unpaid_execution(Unlimited, None)
 		.build();
 	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
@@ -408,7 +408,7 @@ fn allow_explicit_unpaid_should_work() {
 		.receive_teleported_asset((Here, 100u128))
 		.reserve_asset_deposited(assets)
 		.withdraw_asset((GeneralIndex(1), 100u128))
-		.descend_origin(Parachain(2034))
+		.descend_origin(Parachain(1000))
 		.unpaid_execution(Unlimited, None)
 		.build();
 	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(

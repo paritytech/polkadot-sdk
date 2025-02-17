@@ -313,7 +313,7 @@ impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldEx
 		);
 		// We will read up to 5 instructions before `UnpaidExecution`.
 		// This allows up to 3 asset transfer instructions, thus covering all possible transfer types,
-		// followed by a potential origin altering instruction, and `SetHints`.
+		// followed by a potential origin altering instruction, and a potential `SetHints`.
 		let mut actual_origin = origin.clone();
 		let processed = Cell::new(0usize);
 		let instructions_to_process = 5;
