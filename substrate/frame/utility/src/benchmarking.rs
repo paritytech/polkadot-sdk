@@ -104,6 +104,17 @@ mod benchmark {
 		_(RawOrigin::Root, Box::new(pallets_origin), call);
 	}
 
+	#[benchmark]
+	fn if_else() {
+		// Failing main call.
+		let main_call = Box::new(frame_system::Call::set_code { code: vec![1] }.into());
+		let fallback_call = Box::new(frame_system::Call::remark { remark: vec![1] }.into());
+		let caller = whitelisted_caller();
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), main_call, fallback_call);
+	}
+
 	impl_benchmark_test_suite! {
 		Pallet,
 		tests::new_test_ext(),
