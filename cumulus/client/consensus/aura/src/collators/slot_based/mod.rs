@@ -55,6 +55,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member, NumberFor, One};
 use std::{sync::Arc, time::Duration};
+use std::path::PathBuf;
 
 pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 
@@ -102,26 +103,17 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub spawner: Spawner,
 }
 
+/// Parameters for slot based aura with export_pov option
+pub struct ParamsWithExport<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
+	/// Parameters
+	pub params: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
+	/// When set, the collator will export every produced `POV` to this folder.
+	pub export_pov: Option<PathBuf>,
+}
+
 /// Run aura-based block building and collation task.
 pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
-	Params {
-		create_inherent_data_providers,
-		block_import,
-		para_client,
-		para_backend,
-		relay_client,
-		code_hash_provider,
-		keystore,
-		collator_key,
-		para_id,
-		proposer,
-		collator_service,
-		authoring_duration,
-		reinitialize,
-		slot_drift,
-		block_import_handle,
-		spawner,
-	}: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
+	params_with_export: ParamsWithExport<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>
 ) where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
@@ -148,6 +140,28 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 	Spawner: SpawnNamed,
 {
+	let ParamsWithExport {
+		params: Params {
+			create_inherent_data_providers,
+			block_import,
+			para_client,
+			para_backend,
+			relay_client,
+			code_hash_provider,
+			keystore,
+			collator_key,
+			para_id,
+			proposer,
+			collator_service,
+			authoring_duration,
+			reinitialize,
+			slot_drift,
+			block_import_handle,
+			spawner,
+		},
+		export_pov
+	} = params_with_export;
+
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
 		relay_client: relay_client.clone(),
@@ -159,7 +173,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		block_import_handle,
 	};
 
-	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
+	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params,export_pov);
 
 	let block_builder_params = block_builder_task::BuilderTaskParams {
 		create_inherent_data_providers,
