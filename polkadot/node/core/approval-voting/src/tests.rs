@@ -5641,7 +5641,7 @@ fn test_gathering_assignments_statements() {
 	};
 
 	for i in 0..200i32 {
-		state.mark_begining_of_gathering_assignments(
+		state.mark_beginning_of_gathering_assignments(
 			i as u32,
 			Hash::repeat_byte(i as u8),
 			CandidateHash(Hash::repeat_byte(i as u8)),
@@ -5673,7 +5673,7 @@ fn test_gathering_assignments_statements() {
 		.collect::<Vec<_>>();
 
 	for i in 150..200i32 {
-		state.mark_begining_of_gathering_assignments(
+		state.mark_beginning_of_gathering_assignments(
 			i as u32,
 			Hash::repeat_byte(i as u8),
 			CandidateHash(Hash::repeat_byte(i as u8)),
@@ -5703,7 +5703,7 @@ fn test_gathering_assignments_statements() {
 			.unwrap()
 			.stage_start
 			.is_none());
-		state.mark_begining_of_gathering_assignments(i as u32, block_hash, candidate_hash);
+		state.mark_beginning_of_gathering_assignments(i as u32, block_hash, candidate_hash);
 		let record = state
 			.per_block_assignments_gathering_times
 			.get(&i)
