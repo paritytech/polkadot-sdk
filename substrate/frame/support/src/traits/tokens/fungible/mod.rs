@@ -159,6 +159,7 @@ pub(crate) mod imbalance;
 mod item_of;
 mod regular;
 mod union_of;
+mod vesting;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
@@ -185,6 +186,7 @@ use sp_arithmetic::traits::Zero;
 use sp_core::Get;
 use sp_runtime::{traits::Convert, DispatchError};
 pub use union_of::{NativeFromLeft, NativeOrWithId, UnionOf};
+pub use vesting::{VestedTransfer, VestingSchedule};
 
 #[cfg(feature = "experimental")]
 use crate::traits::MaybeConsideration;
