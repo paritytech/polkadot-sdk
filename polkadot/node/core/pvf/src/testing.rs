@@ -39,22 +39,23 @@ pub fn validate_candidate(
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 	use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
 	use polkadot_node_core_pvf_execute_worker::{execute_pvm, execute_wasm};
-	use sp_maybe_compressed_blob::{blob_type, MaybeCompressedBlobType};
+	use sp_maybe_compressed_blob::{blob_type, decompress_as, MaybeCompressedBlobType};
 
 	let blob_type = blob_type(code)?;
+	assert!(blob_type.is_code());
 
-	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
-		.expect("Decompressing code failed");
+	let code = decompress_as(blob_type, code, 10 * 1024 * 1024).expect("Decompressing code failed");
 
 	let executor_params = ExecutorParams::default();
 
 	let result = match blob_type {
-		MaybeCompressedBlobType::Other => {
+		MaybeCompressedBlobType::Legacy | MaybeCompressedBlobType::Wasm => {
 			let blob = prevalidate(&code)?;
 			let compiled_artifact_blob = prepare(blob, &executor_params)?;
 			unsafe { execute_wasm(&compiled_artifact_blob, &executor_params, params)? }
 		},
 		MaybeCompressedBlobType::Pvm => execute_pvm(&code, &executor_params, params)?,
+		MaybeCompressedBlobType::Pov => unreachable!("PoV blob can never be passed as code"),
 	};
 
 	Ok(result)

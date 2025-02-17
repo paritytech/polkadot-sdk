@@ -27,8 +27,12 @@ use std::{
 // Zstd compression.
 //
 // This differs from the WASM magic bytes, so real WASM blobs will not have this prefix.
-const ZSTD_PREFIX_PVM: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 4];
-const ZSTD_PREFIX_OTHER: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 5];
+const CBLOB_ZSTD_LEGACY: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 5];
+const CBLOB_ZSTD_POV: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 6];
+const CBLOB_ZSTD_WASM_CODE: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 7];
+const CBLOB_ZSTD_PVM_CODE: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 8];
+
+const CBLOB_PREFIX_LEN: usize = 8;
 
 /// A recommendation for the bomb limit for code blobs.
 ///
@@ -37,9 +41,28 @@ const ZSTD_PREFIX_OTHER: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 5];
 /// before performing a runtime upgrade to a blob with larger compressed size.
 pub const CODE_BLOB_BOMB_LIMIT: usize = 50 * 1024 * 1024;
 
+/// A type of compressed blob.
+#[derive(PartialEq, Clone, Copy)]
 pub enum MaybeCompressedBlobType {
+	Pov,
+	Wasm,
 	Pvm,
-	Other,
+	Legacy,
+}
+
+impl MaybeCompressedBlobType {
+	pub fn is_code(&self) -> bool {
+		matches!(
+			self,
+			MaybeCompressedBlobType::Wasm |
+				MaybeCompressedBlobType::Pvm |
+				MaybeCompressedBlobType::Legacy
+		)
+	}
+
+	pub fn is_pov(&self) -> bool {
+		matches!(self, MaybeCompressedBlobType::Pov | MaybeCompressedBlobType::Legacy)
+	}
 }
 
 /// A possible bomb was encountered.
@@ -70,37 +93,56 @@ fn read_from_decoder(
 	}
 }
 
+fn is_compressed(blob: &[u8]) -> bool {
+	blob.starts_with(&CBLOB_ZSTD_LEGACY) ||
+		blob.starts_with(&CBLOB_ZSTD_POV) ||
+		blob.starts_with(&CBLOB_ZSTD_WASM_CODE) ||
+		blob.starts_with(&CBLOB_ZSTD_PVM_CODE)
+}
+
 fn decompress_zstd(blob: &[u8], bomb_limit: usize) -> Result<Vec<u8>, Error> {
 	let decoder = zstd::Decoder::new(blob).map_err(|_| Error::Invalid)?;
 
 	read_from_decoder(decoder, blob.len(), bomb_limit)
 }
 
-/// Decode a blob, if it indicates that it is compressed. Provide a `bomb_limit`, which
-/// is the limit of bytes which should be decompressed from the blob.
-pub fn decompress(blob: &[u8], bomb_limit: usize) -> Result<Cow<[u8]>, Error> {
-	if blob.starts_with(&ZSTD_PREFIX_PVM) || blob.starts_with(&ZSTD_PREFIX_OTHER) {
-		decompress_zstd(&blob[ZSTD_PREFIX_OTHER.len()..], bomb_limit).map(Into::into)
+/// Decode a blob, if it indicates that it is compressed, checking its type. Provide a `bomb_limit`,
+/// which is the limit of bytes which should be decompressed from the blob.
+pub fn decompress_as(
+	ty: MaybeCompressedBlobType,
+	blob: &[u8],
+	bomb_limit: usize,
+) -> Result<Cow<[u8]>, Error> {
+	use MaybeCompressedBlobType::*;
+	let blob_type = blob_type(blob)?;
+	match ty {
+		Pov if blob_type != Pov && blob_type != Legacy => return Err(Error::Invalid),
+		Wasm if blob_type != Wasm && blob_type != Legacy => return Err(Error::Invalid),
+		Pvm if blob_type != Pvm => return Err(Error::Invalid),
+		Legacy if blob_type != Legacy => return Err(Error::Invalid),
+		_ => (),
+	}
+
+	if is_compressed(blob) {
+		decompress_zstd(&blob[CBLOB_PREFIX_LEN..], bomb_limit).map(Into::into)
 	} else {
 		Ok(blob.into())
 	}
 }
 
-/// Encode a blob as compressed. If the blob's size is over the bomb limit,
+/// Encode a blob as compressed blob of a given type. If the blob's size is over the bomb limit,
 /// this will not compress the blob, as the decoder will not be able to be
 /// able to differentiate it from a compression bomb.
-pub fn compress(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
-	compress_as(MaybeCompressedBlobType::Other, blob, bomb_limit)
-}
-
 pub fn compress_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
 	if blob.len() > bomb_limit {
 		return None
 	}
 
 	let mut buf = match ty {
-		MaybeCompressedBlobType::Pvm => ZSTD_PREFIX_PVM,
-		_ => ZSTD_PREFIX_OTHER,
+		MaybeCompressedBlobType::Pov => CBLOB_ZSTD_POV,
+		MaybeCompressedBlobType::Wasm => CBLOB_ZSTD_WASM_CODE,
+		MaybeCompressedBlobType::Pvm => CBLOB_ZSTD_PVM_CODE,
+		MaybeCompressedBlobType::Legacy => CBLOB_ZSTD_LEGACY,
 	}
 	.to_vec();
 
@@ -112,11 +154,16 @@ pub fn compress_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) 
 	Some(buf)
 }
 
+/// Determine the type of a compressed blob.
 pub fn blob_type(blob: &[u8]) -> Result<MaybeCompressedBlobType, Error> {
-	if blob.starts_with(&ZSTD_PREFIX_PVM) {
+	if blob.starts_with(&CBLOB_ZSTD_PVM_CODE) || blob.starts_with(b"PVM\x00") {
 		Ok(MaybeCompressedBlobType::Pvm)
-	} else if blob.starts_with(&ZSTD_PREFIX_OTHER) || blob.starts_with(b"\x00asm") {
-		Ok(MaybeCompressedBlobType::Other)
+	} else if blob.starts_with(&CBLOB_ZSTD_WASM_CODE) || blob.starts_with(b"\x00asm") {
+		Ok(MaybeCompressedBlobType::Wasm)
+	} else if blob.starts_with(&CBLOB_ZSTD_POV) {
+		Ok(MaybeCompressedBlobType::Pov)
+	} else if blob.starts_with(&CBLOB_ZSTD_LEGACY) {
+		Ok(MaybeCompressedBlobType::Legacy)
 	} else {
 		Err(Error::Invalid)
 	}
@@ -131,39 +178,48 @@ mod tests {
 	#[test]
 	fn refuse_to_encode_over_limit() {
 		let mut v = vec![0; BOMB_LIMIT + 1];
-		assert!(compress(&v, BOMB_LIMIT).is_none());
+		assert!(compress_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).is_none());
 
 		let _ = v.pop();
-		assert!(compress(&v, BOMB_LIMIT).is_some());
+		assert!(compress_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).is_some());
 	}
 
 	#[test]
 	fn compress_and_decompress() {
 		let v = vec![0; BOMB_LIMIT];
 
-		let compressed = compress(&v, BOMB_LIMIT).unwrap();
+		let compressed = compress_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).unwrap();
 
-		assert!(compressed.starts_with(&ZSTD_PREFIX_OTHER));
-		assert_eq!(&decompress(&compressed, BOMB_LIMIT).unwrap()[..], &v[..])
+		assert!(compressed.starts_with(&CBLOB_ZSTD_LEGACY));
+		assert_eq!(
+			&decompress_as(MaybeCompressedBlobType::Legacy, &compressed, BOMB_LIMIT).unwrap()[..],
+			&v[..]
+		)
 	}
 
 	#[test]
 	fn decompresses_only_when_magic() {
 		let v = vec![0; BOMB_LIMIT + 1];
 
-		assert_eq!(&decompress(&v, BOMB_LIMIT).unwrap()[..], &v[..]);
+		assert_eq!(
+			&decompress_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).unwrap()[..],
+			&v[..]
+		);
 	}
 
 	#[test]
 	fn possible_bomb_fails() {
 		let encoded_bigger_than_bomb = vec![0; BOMB_LIMIT + 1];
-		let mut buf = ZSTD_PREFIX_OTHER.to_vec();
+		let mut buf = CBLOB_ZSTD_LEGACY.to_vec();
 
 		{
 			let mut v = zstd::Encoder::new(&mut buf, 3).unwrap().auto_finish();
 			v.write_all(&encoded_bigger_than_bomb[..]).unwrap();
 		}
 
-		assert_eq!(decompress(&buf[..], BOMB_LIMIT).err(), Some(Error::PossibleBomb));
+		assert_eq!(
+			decompress_as(MaybeCompressedBlobType::Legacy, &buf[..], BOMB_LIMIT).err(),
+			Some(Error::PossibleBomb)
+		);
 	}
 }

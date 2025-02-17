@@ -1032,7 +1032,7 @@ fn try_compress_blob_as(
 	let start = std::time::Instant::now();
 	let data = fs::read(compact_blob_path).expect("Failed to read WASM binary");
 	let blob_type = match target {
-		RuntimeTarget::Wasm => sp_maybe_compressed_blob::MaybeCompressedBlobType::Other,
+		RuntimeTarget::Wasm => sp_maybe_compressed_blob::MaybeCompressedBlobType::Legacy,
 		RuntimeTarget::Riscv => sp_maybe_compressed_blob::MaybeCompressedBlobType::Pvm,
 	};
 	if let Some(compressed) =

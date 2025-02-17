@@ -352,6 +352,7 @@ mod tests {
 	use polkadot_primitives::HeadData;
 	use sp_consensus::BlockOrigin;
 	use sp_core::{testing::TaskExecutor, Pair};
+	use sp_maybe_compressed_blob::{decompress_as, MaybeCompressedBlobType};
 	use sp_runtime::traits::BlakeTwo256;
 	use sp_state_machine::Backend;
 
@@ -453,7 +454,8 @@ mod tests {
 		let pov = collation.proof_of_validity.into_compressed();
 
 		let decompressed =
-			sp_maybe_compressed_blob::decompress(&pov.block_data.0, 1024 * 1024 * 10).unwrap();
+			decompress_as(MaybeCompressedBlobType::Pov, &pov.block_data.0, 1024 * 1024 * 10)
+				.unwrap();
 
 		let block =
 			ParachainBlockData::<Block>::decode(&mut &decompressed[..]).expect("Is a valid block");
