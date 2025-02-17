@@ -239,6 +239,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
+	type XcmEventEmitter = ();
 	type AssetTransactor = ();
 	type OriginConverter = BridgeHubLocationXcmOriginAsRoot<RuntimeOrigin>;
 	type IsReserve = ();

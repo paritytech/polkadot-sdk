@@ -61,7 +61,7 @@ use xcm_builder::{
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
-		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
+		DropAssets, EventEmitter, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
 		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
 		XcmAssetTransfers,
 	},
@@ -402,6 +402,31 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> EventEmitter for Pallet<T> {
+		fn emit_sent_event(
+		origin: Location,
+		destination: Location,
+		message_id: XcmHash,
+		) {
+			Self::deposit_event(Event::Sent { origin, destination, message: Xcm::default(), message_id });
+		}
+
+		fn emit_sent_failure_event(
+			origin: Location,
+			destination: Location,
+			error: SendError,
+		) {
+            Self::deposit_event(Event::SentFailed { origin, destination, error });
+        }
+
+		fn emit_process_failure_event(
+			origin: Location,
+			error: XcmError,
+		) {
+			Self::deposit_event(Event::ProcessXcmError { origin, error });
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -409,6 +434,10 @@ pub mod pallet {
 		Attempted { outcome: xcm::latest::Outcome },
 		/// A XCM message was sent.
 		Sent { origin: Location, destination: Location, message: Xcm<()>, message_id: XcmHash },
+		/// A XCM message failed to be sent.
+		SentFailed { origin: Location, destination: Location, error: SendError },
+		/// Process XCM message failed.
+		ProcessXcmError { origin: Location, error: XcmError },
 		/// Query response received which does not match a registered query. This may be because a
 		/// matching query was never registered, it may be because it is a duplicate response, or
 		/// because the query timed out.
