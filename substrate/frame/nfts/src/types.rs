@@ -20,7 +20,7 @@
 use super::*;
 use crate::macros::*;
 use alloc::{vec, vec::Vec};
-use codec::EncodeLike;
+use codec::{DecodeWithMemTracking, EncodeLike};
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
 	pallet_prelude::{BoundedVec, MaxEncodedLen},
@@ -332,6 +332,9 @@ impl CollectionSettings {
 }
 
 impl_codec_bitflags!(CollectionSettings, u64, CollectionSetting);
+// We can implement `DecodeWithMemTracking` for `CollectionSettings`
+// since `u64` also implements `DecodeWithMemTracking`.
+impl DecodeWithMemTracking for CollectionSettings {}
 
 /// Mint type. Can the NFT be create by anyone, or only the creator of the collection,
 /// or only by wallets that already hold an NFT from a certain collection?
@@ -514,6 +517,9 @@ impl ItemSettings {
 }
 
 impl_codec_bitflags!(ItemSettings, u64, ItemSetting);
+// We can implement `DecodeWithMemTracking` for `ItemSettings`
+// since `u64` also implements `DecodeWithMemTracking`.
+impl DecodeWithMemTracking for ItemSettings {}
 
 /// Item's configuration.
 #[derive(
