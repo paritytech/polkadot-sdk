@@ -290,7 +290,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 }
 
 /// Allows execution from any origin that is contained in `T` (i.e. `T::Contains(origin)`) if the
-/// message has the instruction `UnpaidExecution` at the start.
+/// message explicitly includes the `UnpaidExecution` instruction.
 ///
 /// Use only for executions from trusted origin groups.
 ///
