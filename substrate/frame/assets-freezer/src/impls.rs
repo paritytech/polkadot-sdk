@@ -22,6 +22,7 @@
 // SOFTWARE.
 
 use super::*;
+use frame::prelude::storage::StorageDoubleMap;
 use pallet_assets::FrozenBalance;
 
 // Implements [`FrozenBalance`] from [`pallet-assets`], so it can understand how much of an
@@ -35,8 +36,21 @@ impl<T: Config<I>, I: 'static> FrozenBalance<T::AssetId, T::AccountId, T::Balanc
 	}
 
 	fn died(asset: T::AssetId, who: &T::AccountId) {
+		defensive_assert!(
+			Freezes::<T, I>::get(asset.clone(), who).is_empty(),
+			"The list of Freezes should be empty before allowing an account to die"
+		);
+		defensive_assert!(
+			FrozenBalances::<T, I>::get(asset.clone(), who).is_none(),
+			"There should not be a frozen balance before allowing to die"
+		);
+
 		FrozenBalances::<T, I>::remove(asset.clone(), who);
 		Freezes::<T, I>::remove(asset, who);
+	}
+
+	fn contains_freezes(asset: T::AssetId) -> bool {
+		Freezes::<T, I>::contains_prefix(asset)
 	}
 }
 
