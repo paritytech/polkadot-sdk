@@ -66,7 +66,7 @@
 //!
 //! ## Pagination
 //!
-//! Most of the external APIs of this pallet are paginated. All pagination follow a patter where if
+//! Most of the external APIs of this pallet are paginated. All pagination follow a pattern where if
 //! `N` pages exist, the first paginated call is `function(N-1)` and the last one is `function(0)`.
 //! For example, with 3 pages, the `elect` of [`ElectionProvider`] is expected to be called as
 //! `elect(2) -> elect(1) -> elect(0)`. In essence, calling a paginated function with index 0 is
