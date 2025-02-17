@@ -180,6 +180,20 @@ mod tests {
 	use xcm::latest::prelude::*;
 
 	#[test]
+	fn match_next_inst_works() {
+		let test_cases: Vec<(Vec<Instruction<()>>, bool)> =
+			vec![(vec![ClearOrigin], true), (vec![Trap(0)], false)];
+
+		for (mut xcm, expected) in test_cases.into_iter() {
+			let result = xcm.matcher().match_next_inst(|inst| match inst {
+				ClearOrigin => Ok(()),
+				_ => Err(ProcessMessageError::Unsupported),
+			});
+			assert_eq!(result.is_ok(), expected);
+		}
+	}
+
+	#[test]
 	fn match_next_inst_while_works() {
 		let mut xcm: Vec<Instruction<()>> = vec![ClearOrigin];
 

@@ -22,9 +22,9 @@ use crate::{
 	EnsureDecodableXcm,
 };
 pub use crate::{
-	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
-	FixedWeightBounds, TakeWeightCredit,
+	AliasChildLocation, AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom,
+	AllowKnownQueryResponses, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
+	FixedRateOfFungible, FixedWeightBounds, TakeWeightCredit,
 };
 pub use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 pub use codec::{Decode, Encode};
@@ -733,6 +733,9 @@ impl Contains<Location> for ParentPrefix {
 	}
 }
 
+/// Pairs (location1, location2) where location1 can alias as location2.
+pub type Aliasers = (AliasForeignAccountId32<SiblingPrefix>, AliasChildLocation);
+
 pub struct TestConfig;
 impl Config for TestConfig {
 	type RuntimeCall = TestCall;
@@ -758,7 +761,7 @@ impl Config for TestConfig {
 	type MessageExporter = TestMessageExporter;
 	type CallDispatcher = TestCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = AliasForeignAccountId32<SiblingPrefix>;
+	type Aliasers = Aliasers;
 	type TransactionalProcessor = ();
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();

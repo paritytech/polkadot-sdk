@@ -29,8 +29,11 @@ use sp_runtime::traits::Dispatchable;
 use xcm::prelude::*;
 
 use crate::{
-	traits::{DropAssets, Properties, ShouldExecute, TransactAsset, WeightBounds, WeightTrader},
-	AssetsInHolding, Config, XcmExecutor,
+	traits::{
+		DropAssets, FeeManager, Properties, ShouldExecute, TransactAsset, WeightBounds,
+		WeightTrader,
+	},
+	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
 
 /// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
@@ -244,6 +247,26 @@ pub fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
 
+/// A mock contract address that doesn't need to pay for fees.
+pub const WAIVED_CONTRACT_ADDRESS: [u8; 20] = [128; 20];
+
+/// Test fee manager that will waive the fee for some origins.
+///
+/// Doesn't do anything with the fee, which effectively burns it.
+pub struct TestFeeManager;
+impl FeeManager for TestFeeManager {
+	fn is_waived(origin: Option<&Location>, _: FeeReason) -> bool {
+		let Some(origin) = origin else { return false };
+		// Match the root origin and a particular smart contract account.
+		matches!(
+			origin.unpack(),
+			(0, []) | (0, [AccountKey20 { network: None, key: WAIVED_CONTRACT_ADDRESS }])
+		)
+	}
+
+	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+}
+
 /// Test XcmConfig that uses all the test implementations in this file.
 pub struct XcmConfig;
 impl Config for XcmConfig {
@@ -265,7 +288,7 @@ impl Config for XcmConfig {
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = ();
+	type FeeManager = TestFeeManager;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = Self::RuntimeCall;
