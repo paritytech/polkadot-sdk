@@ -154,61 +154,108 @@ pub mod switch_block_number_provider {
 mod tests {
 	use super::*;
 	use crate::{
-		migration::switch_block_number_provider::{migrate_block_number, BlockNumberConversion},
+		migration::switch_block_number_provider::{BlockNumberConversion, MigrateBlockNumber},
 		mock::{Test, *},
 	};
 	use sp_runtime::Perquintill;
 
+	pub struct TestConverter;
+
+	impl BlockNumberConversion<SystemBlockNumberFor<Test>, BlockNumberFor<Test>> for TestConverter {
+		fn convert_block_number(block_number: SystemBlockNumberFor<Test>) -> BlockNumberFor<Test> {
+			block_number
+		}
+	}
+
+	fn setup_old_state() {
+		// Setup old receipt structure
+		let receipt1 = v0::OldReceiptRecordOf::<Test> {
+			proportion: Perquintill::from_percent(10),
+			owner: Some((1, 40)),
+			expiry: 5,
+		};
+		v0::Receipts::<Test>::insert(1, receipt1);
+
+		let receipt2 = v0::OldReceiptRecordOf::<Test> {
+			proportion: Perquintill::from_percent(20),
+			owner: Some((2, 40)),
+			expiry: 10,
+		};
+		v0::Receipts::<Test>::insert(2, receipt2);
+
+		// Setup old summary
+		let old_summary = v0::OldSummaryRecordOf::<Test> {
+			proportion_owed: Perquintill::zero(),
+			index: 0,
+			thawed: Perquintill::zero(),
+			last_period: 15,
+			receipts_on_hold: 2,
+		};
+		v0::Summary::<Test>::put(old_summary);
+	}
+
 	#[test]
 	fn migration_works_with_receipts_and_summary() {
 		ExtBuilder::default().build_and_execute(|| {
-			pub struct TestConverter;
+			setup_old_state();
 
-			impl BlockNumberConversion<SystemBlockNumberFor<Test>, BlockNumberFor<Test>> for TestConverter {
-				fn convert_block_number(
-					block_number: SystemBlockNumberFor<Test>,
-				) -> BlockNumberFor<Test> {
-					block_number as u64
-				}
-			}
+			// Capture pre-upgrade state
+			#[cfg(feature = "try-runtime")]
+			let pre_state = MigrateBlockNumber::<Test, TestConverter>::pre_upgrade()
+				.expect("Pre-upgrade should succeed");
 
-			let receipt1 = v0::OldReceiptRecordOf::<Test> {
-				proportion: Perquintill::from_percent(10),
-				owner: Some((1, 40)),
-				expiry: 5,
-			};
-			v0::Receipts::<Test>::insert(1, receipt1.clone());
+			// Execute migration
+			let _weight = MigrateBlockNumber::<Test, TestConverter>::on_runtime_upgrade();
 
-			let receipt2 = v0::OldReceiptRecordOf::<Test> {
-				proportion: Perquintill::from_percent(20),
-				owner: Some((2, 40)),
-				expiry: 10,
-			};
-			v0::Receipts::<Test>::insert(2, receipt2.clone());
+			// Verify post-upgrade state
+			#[cfg(feature = "try-runtime")]
+			MigrateBlockNumber::<Test, TestConverter>::post_upgrade(pre_state)
+				.expect("Post-upgrade checks should pass");
 
-			// Set old summary
-			let old_summary = v0::OldSummaryRecordOf::<Test> {
-				proportion_owed: Perquintill::zero(),
-				index: 0,
-				thawed: Perquintill::zero(),
-				last_period: 15,
-				receipts_on_hold: 2,
-			};
-			v0::Summary::<Test>::put(old_summary.clone());
+			// Additional sanity checks
+			assert_eq!(
+				Receipts::<Test>::get(1).unwrap().expiry,
+				5,
+				"Expiry should have conversion offset applied"
+			);
+			assert_eq!(
+				Summary::<Test>::get().last_period,
+				15,
+				"Summary period should have conversion offset"
+			);
+		});
+	}
 
-			let _weights = migrate_block_number::<Test, TestConverter>();
+	#[test]
+	fn handles_empty_state_correctly() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Test with no existing receipts
+			#[cfg(feature = "try-runtime")]
+			let pre_state = MigrateBlockNumber::<Test, TestConverter>::pre_upgrade()
+				.expect("Pre-upgrade with empty state should work");
 
-			// Check migrated receipts
-			let new_receipt1 = Receipts::<Test>::get(1).unwrap();
-			assert_eq!(new_receipt1.expiry, 5);
+			let _weight = MigrateBlockNumber::<Test, TestConverter>::on_runtime_upgrade();
 
-			let new_receipt2 = Receipts::<Test>::get(2).unwrap();
-			assert_eq!(new_receipt2.expiry, 10);
+			#[cfg(feature = "try-runtime")]
+			MigrateBlockNumber::<Test, TestConverter>::post_upgrade(pre_state)
+				.expect("Post-upgrade with empty state should validate");
+		});
+	}
 
-			// Check migrated summary
-			let new_summary = Summary::<Test>::get();
-			assert_eq!(new_summary.last_period, 15);
-			assert_eq!(new_summary.receipts_on_hold, old_summary.receipts_on_hold);
-		})
+	#[test]
+	fn properly_upgrades_storage_version() {
+		ExtBuilder::default().build_and_execute(|| {
+			setup_old_state();
+
+			StorageVersion::new(0).put::<Pallet<Test>>();
+
+			MigrateBlockNumber::<Test, TestConverter>::on_runtime_upgrade();
+
+			assert_eq!(
+				Pallet::<Test>::on_chain_storage_version(),
+				StorageVersion::new(0),
+				"Storage version should be incremented"
+			);
+		});
 	}
 }
