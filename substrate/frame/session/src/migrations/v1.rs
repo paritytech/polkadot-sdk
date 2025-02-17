@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet};
+use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet, Vec};
 use frame_support::{
 	pallet_prelude::{Get, ValueQuery, Weight},
 	traits::UncheckedOnRuntimeUpgrade,
@@ -58,19 +58,19 @@ impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-		let source_disabled = S::peek_disabled().iter().map(|(v, s)| *v).collect::<Vec<_>>();
+		let source_disabled = S::peek_disabled().iter().map(|(v, _s)| *v).collect::<Vec<_>>();
 		let existing_disabled = DisabledValidators::<T>::get();
 
 		ensure!(source_disabled == existing_disabled, "Disabled validators mismatch");
 		ensure!(
-			NewDisabledValidators::<T>::get().len() == Validators::<T>::get().len(),
+			NewDisabledValidators::<T>::get().len() == crate::Validators::<T>::get().len(),
 			"Disabled validators mismatch"
 		);
 		Ok(Vec::new())
 	}
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		let validators_max_index = Validators::<T>::get().len() as u32 - 1;
+		let validators_max_index = crate::Validators::<T>::get().len() as u32 - 1;
 
 		for (v, _s) in NewDisabledValidators::<T>::get() {
 			ensure!(v <= validators_max_index, "Disabled validator index out of bounds");

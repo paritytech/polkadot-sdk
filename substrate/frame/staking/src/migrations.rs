@@ -146,7 +146,7 @@ pub mod v17 {
 	impl<T: Config> pallet_session::migrations::v1::MigrateDisabledValidators
 		for MigrateDisabledToSession<T>
 	{
-		#[cfg(feature = "runtime-benchmarks")]
+		#[cfg(feature = "try-runtime")]
 		fn peek_disabled() -> Vec<(u32, OffenceSeverity)> {
 			DisabledValidators::<T>::get().into()
 		}
