@@ -666,7 +666,7 @@ impl<T: Config> Pallet<T> {
 		// Inform the session handlers that a session is going to end.
 		T::SessionHandler::on_before_session_ending();
 		T::SessionManager::end_session(session_index);
-		log!(trace, "rotating session {:?}", session_index);
+		log!(trace, "ending_session {:?}", session_index);
 
 		// Get queued session keys and validators.
 		let session_keys = QueuedKeys::<T>::get();
@@ -743,47 +743,6 @@ impl<T: Config> Pallet<T> {
 
 		// Tell everyone about the new session keys.
 		T::SessionHandler::on_new_session::<T::Keys>(changed, &session_keys, &queued_amalgamated);
-	}
-
-	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
-		DisabledValidators::<T>::mutate(|disabled| {
-			let decision = T::DisablingStrategy::decision(&validator, severity, &disabled);
-
-			if let Some(offender_idx) = decision.disable {
-				// Check if the offender is already disabled
-				match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-					// Offender is already disabled, update severity if the new one is higher
-					Ok(index) => {
-						let (_, old_severity) = &mut disabled[index];
-						if severity > *old_severity {
-							*old_severity = severity;
-						}
-					},
-					Err(index) => {
-						// Offender is not disabled, add to `DisabledValidators` and disable it
-						disabled.insert(index, (offender_idx, severity));
-						// let the session handlers know that a validator got disabled
-						T::SessionHandler::on_disabled(offender_idx);
-
-						// Emit event that a validator got disabled
-						Self::deposit_event(Event::ValidatorDisabled {
-							validator: validator.clone(),
-						});
-					},
-				}
-			}
-
-			if let Some(reenable_idx) = decision.reenable {
-				// Remove the validator from `DisabledValidators` and re-enable it.
-				if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index)
-				{
-					disabled.remove(index);
-					// Emit event that a validator got re-enabled
-					let reenabled_stash = Validators::<T>::get()[reenable_idx as usize].clone();
-					Self::deposit_event(Event::ValidatorReenabled { validator: reenabled_stash });
-				}
-			}
-		});
 	}
 
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
@@ -967,6 +926,47 @@ impl<T: Config> Pallet<T> {
 
 	fn clear_key_owner(id: KeyTypeId, key_data: &[u8]) {
 		KeyOwner::<T>::remove((id, key_data));
+	}
+
+	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
+		DisabledValidators::<T>::mutate(|disabled| {
+			let decision = T::DisablingStrategy::decision(&validator, severity, &disabled);
+
+			if let Some(offender_idx) = decision.disable {
+				// Check if the offender is already disabled
+				match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+					// Offender is already disabled, update severity if the new one is higher
+					Ok(index) => {
+						let (_, old_severity) = &mut disabled[index];
+						if severity > *old_severity {
+							*old_severity = severity;
+						}
+					},
+					Err(index) => {
+						// Offender is not disabled, add to `DisabledValidators` and disable it
+						disabled.insert(index, (offender_idx, severity));
+						// let the session handlers know that a validator got disabled
+						T::SessionHandler::on_disabled(offender_idx);
+
+						// Emit event that a validator got disabled
+						Self::deposit_event(Event::ValidatorDisabled {
+							validator: validator.clone(),
+						});
+					},
+				}
+			}
+
+			if let Some(reenable_idx) = decision.reenable {
+				// Remove the validator from `DisabledValidators` and re-enable it.
+				if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index)
+				{
+					disabled.remove(index);
+					// Emit event that a validator got re-enabled
+					let reenabled_stash = Validators::<T>::get()[reenable_idx as usize].clone();
+					Self::deposit_event(Event::ValidatorReenabled { validator: reenabled_stash });
+				}
+			}
+		});
 	}
 }
 
