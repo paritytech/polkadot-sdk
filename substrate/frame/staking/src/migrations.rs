@@ -82,6 +82,7 @@ pub mod v17 {
 	#[frame_support::storage_alias]
 	pub type DisabledValidators<T: Config> =
 		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<100>>, ValueQuery>;
+
 	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
 		fn on_runtime_upgrade() -> Weight {
@@ -140,6 +141,20 @@ pub mod v17 {
 		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+
+	pub struct MigrateDisabledToSession<T>(core::marker::PhantomData<T>);
+	impl<T: Config> pallet_session::migrations::v1::MigrateDisabledValidators
+		for MigrateDisabledToSession<T>
+	{
+		#[cfg(feature = "runtime-benchmarks")]
+		fn peek_disabled() -> Vec<(u32, OffenceSeverity)> {
+			DisabledValidators::<T>::get().into()
+		}
+
+		fn take_disabled() -> Vec<(u32, OffenceSeverity)> {
+			DisabledValidators::<T>::take().into()
+		}
+	}
 }
 
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense

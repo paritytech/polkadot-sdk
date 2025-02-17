@@ -15,23 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::pallet_prelude::{Get, Weight, ValueQuery};
-use frame_support::traits::UncheckedOnRuntimeUpgrade;
-use sp_staking::{offence::OffenceSeverity};
 use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet};
+use frame_support::{
+	pallet_prelude::{Get, ValueQuery, Weight},
+	traits::UncheckedOnRuntimeUpgrade,
+};
+use sp_staking::offence::OffenceSeverity;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+use frame_support::migrations::VersionedMigration;
 
 /// This is the storage getting migrated.
 #[frame_support::storage_alias]
-pub type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
+type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
 
 pub trait MigrateDisabledValidators {
-
 	/// Peek the list of disabled validators and their offence severity.
 	#[cfg(feature = "try-runtime")]
 	fn peek_disabled() -> Vec<(u32, OffenceSeverity)>;
@@ -40,9 +42,13 @@ pub trait MigrateDisabledValidators {
 	/// underlying storage.
 	fn take_disabled() -> Vec<(u32, OffenceSeverity)>;
 }
-pub struct VersionUncheckedMigrateV0toV1<T, S: MigrateDisabledValidators>(core::marker::PhantomData<(T, S)>);
+pub struct VersionUncheckedMigrateV0toV1<T, S: MigrateDisabledValidators>(
+	core::marker::PhantomData<(T, S)>,
+);
 
-impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV0toV1<T, S> {
+impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade
+	for VersionUncheckedMigrateV0toV1<T, S>
+{
 	fn on_runtime_upgrade() -> Weight {
 		let disabled = S::take_disabled();
 		NewDisabledValidators::<T>::put(disabled);
@@ -56,7 +62,10 @@ impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade for Vers
 		let existing_disabled = DisabledValidators::<T>::get();
 
 		ensure!(source_disabled == existing_disabled, "Disabled validators mismatch");
-		ensure!(NewDisabledValidators::<T>::get().len() == Validators::<T>::get().len(), "Disabled validators mismatch");
+		ensure!(
+			NewDisabledValidators::<T>::get().len() == Validators::<T>::get().len(),
+			"Disabled validators mismatch"
+		);
 		Ok(Vec::new())
 	}
 	#[cfg(feature = "try-runtime")]
@@ -71,3 +80,10 @@ impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade for Vers
 	}
 }
 
+pub type MigrateV0toV1<T, S> = VersionedMigration<
+	0,
+	1,
+	VersionUncheckedMigrateV0toV1<T, S>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;

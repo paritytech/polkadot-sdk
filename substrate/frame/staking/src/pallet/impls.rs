@@ -2743,7 +2743,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/* todo: move to session try runtime
+	/* todo(ank4n): move to session try runtime
 	// Sorted by index
 	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
 		ensure!(
