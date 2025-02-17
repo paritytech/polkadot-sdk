@@ -480,6 +480,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
@@ -518,6 +519,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = ForeignAssetsMetadataDepositPerByte;
 	type ApprovalDeposit = ForeignAssetsApprovalDeposit;
 	type StringLimit = ForeignAssetsAssetsStringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
@@ -557,6 +559,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = ConstU128<0>;
 	type ApprovalDeposit = ConstU128<0>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
@@ -1119,7 +1122,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
@@ -1135,7 +1138,7 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch};
+			use frame_benchmarking::BenchmarkBatch;
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;

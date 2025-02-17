@@ -64,7 +64,38 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 /// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
+	use frame_support::Twox64Concat;
 	use sp_staking::offence::OffenceSeverity;
+
+	#[frame_support::storage_alias]
+	pub(crate) type Invulnerables<T: Config> =
+		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type DisabledValidators<T: Config> =
+		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakers<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		ValueQuery,
+	>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakersClipped<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		ValueQuery,
+	>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
@@ -86,7 +117,7 @@ pub mod v16 {
 				.map(|v| (v, max_offence))
 				.collect::<Vec<_>>();
 
-			DisabledValidators::<T>::set(migrated);
+			v16::DisabledValidators::<T>::set(migrated);
 
 			log!(info, "v16 applied successfully.");
 			T::DbWeight::get().reads_writes(1, 1)
