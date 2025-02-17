@@ -15,15 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::pallet_prelude::Weight;
+use frame_support::pallet_prelude::{Get, Weight, ValueQuery};
 use frame_support::traits::UncheckedOnRuntimeUpgrade;
 use sp_staking::{offence::OffenceSeverity};
-use crate::Config;
+use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
+#[cfg(feature = "try-runtime")]
+use frame_support::ensure;
+
+/// This is the storage getting migrated.
+#[frame_support::storage_alias]
+pub type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
+
 pub trait MigrateDisabledValidators {
+
+	/// Peek the list of disabled validators and their offence severity.
+	#[cfg(feature = "try-runtime")]
+	fn peek_disabled() -> Vec<(u32, OffenceSeverity)>;
+
 	/// Return the list of disabled validators and their offence severity, removing them from the
 	/// underlying storage.
 	fn take_disabled() -> Vec<(u32, OffenceSeverity)>;
@@ -32,15 +44,29 @@ pub struct VersionUncheckedMigrateV0toV1<T, S: MigrateDisabledValidators>(core::
 
 impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV0toV1<T, S> {
 	fn on_runtime_upgrade() -> Weight {
-		Weight::zero()
+		let disabled = S::take_disabled();
+		NewDisabledValidators::<T>::put(disabled);
+
+		T::DbWeight::get().reads_writes(1, 1)
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		let source_disabled = S::peek_disabled().iter().map(|(v, s)| *v).collect::<Vec<_>>();
+		let existing_disabled = DisabledValidators::<T>::get();
+
+		ensure!(source_disabled == existing_disabled, "Disabled validators mismatch");
+		ensure!(NewDisabledValidators::<T>::get().len() == Validators::<T>::get().len(), "Disabled validators mismatch");
 		Ok(Vec::new())
 	}
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		let validators_max_index = Validators::<T>::get().len() as u32 - 1;
+
+		for (v, _s) in NewDisabledValidators::<T>::get() {
+			ensure!(v <= validators_max_index, "Disabled validator index out of bounds");
+		}
+
 		Ok(())
 	}
 }
