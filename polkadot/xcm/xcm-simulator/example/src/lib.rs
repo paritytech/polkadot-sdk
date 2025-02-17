@@ -21,13 +21,86 @@ mod relay_chain;
 mod tests;
 
 use sp_runtime::BuildStorage;
-use sp_tracing;
+use sp_tracing::{self, tracing_subscriber};
+use std::{
+	io::Write,
+	sync::{Arc, Mutex},
+};
+use tracing_subscriber::fmt::MakeWriter;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
 pub const ALICE: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([1u8; 32]);
 pub const INITIAL_BALANCE: u128 = 1_000_000_000;
+
+/// A reusable log capturing struct for unit tests.
+pub struct LogCapture {
+	buffer: Arc<Mutex<Vec<u8>>>,
+}
+
+impl LogCapture {
+	/// Creates a new LogCapture instance with an internal buffer.
+	pub fn new() -> Self {
+		LogCapture { buffer: Arc::new(Mutex::new(Vec::new())) }
+	}
+
+	/// Retrieves the captured logs as a String.
+	pub fn get_logs(&self) -> String {
+		String::from_utf8(self.buffer.lock().unwrap().clone()).unwrap()
+	}
+
+	/// Returns a clone of the internal buffer for use in `MakeWriter`
+	pub fn writer(&self) -> Self {
+		LogCapture { buffer: Arc::clone(&self.buffer) }
+	}
+}
+
+impl Write for LogCapture {
+	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+		let mut logs = self.buffer.lock().unwrap();
+		logs.extend_from_slice(buf);
+		Ok(buf.len())
+	}
+
+	fn flush(&mut self) -> std::io::Result<()> {
+		Ok(())
+	}
+}
+
+impl<'a> MakeWriter<'a> for LogCapture {
+	type Writer = Self;
+
+	fn make_writer(&'a self) -> Self::Writer {
+		self.writer()
+	}
+}
+
+#[macro_export]
+macro_rules! run_with_logging {
+	($test:block) => {{
+		let log_capture = LogCapture::new();
+		let subscriber = tracing_subscriber::fmt().with_writer(log_capture.writer()).finish();
+
+		tracing::subscriber::with_default(subscriber, || $test);
+
+		log_capture
+	}};
+}
+
+/// Macro to assert that captured logs contain a specific substring.
+#[macro_export]
+macro_rules! assert_logs_contain {
+	($log_capture:expr, $expected:expr) => {
+		let logs = $log_capture.get_logs();
+		assert!(
+			logs.contains($expected),
+			"Expected '{}' in logs, but logs were:\n{}",
+			$expected,
+			logs
+		);
+	};
+}
 
 decl_test_parachain! {
 	pub struct ParaA {

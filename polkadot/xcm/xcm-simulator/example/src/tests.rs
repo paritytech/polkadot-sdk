@@ -514,45 +514,13 @@ fn query_holding() {
 
 #[test]
 fn reserve_transfer_with_error() {
-	use sp_tracing::{tracing::subscriber, tracing_subscriber};
-	use std::{
-		io::Write,
-		sync::{Arc, Mutex},
-	};
-	use tracing_subscriber::fmt::MakeWriter;
+	use sp_tracing::{tracing, tracing_subscriber};
 
 	// Reset the test network
 	MockNet::reset();
 
-	// Custom Log Capturing Writer
-	struct LogCapture(Arc<Mutex<Vec<u8>>>);
-
-	impl Write for LogCapture {
-		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-			self.0.lock().unwrap().extend_from_slice(buf);
-			Ok(buf.len())
-		}
-
-		fn flush(&mut self) -> std::io::Result<()> {
-			Ok(())
-		}
-	}
-
-	impl<'a> MakeWriter<'a> for LogCapture {
-		type Writer = Self;
-		fn make_writer(&'a self) -> Self::Writer {
-			LogCapture(Arc::clone(&self.0))
-		}
-	}
-
-	// Initialise Log Capture
-	let log_buffer = Arc::new(Mutex::new(Vec::new()));
-	let subscriber = tracing_subscriber::fmt()
-		.with_writer(LogCapture(Arc::clone(&log_buffer)))
-		.finish();
-
 	// Execute XCM Transfer and Capture Logs
-	subscriber::with_default(subscriber, || {
+	let log_capture = run_with_logging!({
 		Relay::execute_with(|| {
 			let invalid_dest = Box::new(Parachain(9999).into());
 			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
@@ -578,9 +546,5 @@ fn reserve_transfer_with_error() {
 	});
 
 	// Assertions on Captured Logs
-	let logs = String::from_utf8(log_buffer.lock().unwrap().clone()).unwrap();
-	assert!(
-		logs.contains("XCM validate_send failed"),
-		"Expected 'XCM validate_send failed' in logs."
-	);
+	assert_logs_contain!(log_capture, "XCM validate_send failed");
 }
