@@ -392,10 +392,10 @@ impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		let universal_source = UniversalLocation::get();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::location_conversion",
-			"GlobalConsensusConvertsFor universal_source: {:?}, location: {:?}",
-			universal_source, location,
+			?universal_source, ?location,
+			"GlobalConsensusConvertsFor",
 		);
 		let (remote_network, remote_location) =
 			ensure_is_remote(universal_source, location.clone()).ok()?;
@@ -435,10 +435,10 @@ impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		let universal_source = UniversalLocation::get();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::location_conversion",
-			"GlobalConsensusParachainConvertsFor universal_source: {:?}, location: {:?}",
-			universal_source, location,
+			?universal_source, ?location,
+			"GlobalConsensusParachainConvertsFor",
 		);
 		let devolved = ensure_is_remote(universal_source, location.clone()).ok()?;
 		let (remote_network, remote_location) = devolved;

@@ -35,9 +35,31 @@ impl<Target: Get<L>, SelfParaId: Get<ParaId>, PalletId: Get<u32>, L: TryFrom<Loc
 			],
 		);
 		if seed1 % 2 == 0 {
-			(with_id.try_into().map_err(|_| "Something went wrong").unwrap(), Target::get())
+			(
+				with_id
+					.try_into()
+					.map_err(|error| {
+						tracing::error!(
+							target: "xcm",
+							?error,
+							"Failed to create asset pairs when seed1 is even",
+						);
+						"Something went wrong"
+					})
+					.unwrap(),
+				Target::get(),
+			)
 		} else {
-			(Target::get(), with_id.try_into().map_err(|_| "Something went wrong").unwrap())
+			(
+				Target::get(),
+				with_id
+					.try_into()
+					.map_err(|error| {
+						tracing::error!(target: "xcm", ?error, "Failed to create asset pairs");
+						"Something went wrong"
+					})
+					.unwrap(),
+			)
 		}
 	}
 }

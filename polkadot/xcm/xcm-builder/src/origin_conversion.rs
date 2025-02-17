@@ -39,10 +39,10 @@ where
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SovereignSignedViaLocation origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SovereignSignedViaLocation",
 		);
 		if let OriginKind::SovereignAccount = kind {
 			let location = LocationConverter::convert_location(&origin).ok_or(origin)?;
@@ -60,7 +60,7 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin> for ParentAsSuperu
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(target: "xcm::origin_conversion", "ParentAsSuperuser origin: {:?}, kind: {:?}", origin, kind);
+		tracing::trace!(target: "xcm::origin_conversion", ?origin, ?kind, "ParentAsSuperuser",);
 		if kind == OriginKind::Superuser && origin.contains_parents_only(1) {
 			Ok(RuntimeOrigin::root())
 		} else {
@@ -80,7 +80,7 @@ impl<ParaId: IsSystem + From<u32>, RuntimeOrigin: OriginTrait> ConvertOrigin<Run
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(target: "xcm::origin_conversion", "ChildSystemParachainAsSuperuser origin: {:?}, kind: {:?}", origin, kind);
+		tracing::trace!(target: "xcm::origin_conversion", ?origin, ?kind, "ChildSystemParachainAsSuperuser",);
 		match (kind, origin.unpack()) {
 			(OriginKind::Superuser, (0, [Junction::Parachain(id)]))
 				if ParaId::from(*id).is_system() =>
@@ -101,10 +101,10 @@ impl<ParaId: IsSystem + From<u32>, RuntimeOrigin: OriginTrait> ConvertOrigin<Run
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SiblingSystemParachainAsSuperuser origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SiblingSystemParachainAsSuperuser",
 		);
 		match (kind, origin.unpack()) {
 			(OriginKind::Superuser, (1, [Junction::Parachain(id)]))
@@ -126,7 +126,7 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(target: "xcm::origin_conversion", "ChildParachainAsNative origin: {:?}, kind: {:?}", origin, kind);
+		tracing::trace!(target: "xcm::origin_conversion", ?origin, ?kind, "ChildParachainAsNative");
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (0, [Junction::Parachain(id)])) =>
 				Ok(RuntimeOrigin::from(ParachainOrigin::from(*id))),
@@ -146,10 +146,10 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SiblingParachainAsNative origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SiblingParachainAsNative",
 		);
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (1, [Junction::Parachain(id)])) =>
@@ -171,7 +171,7 @@ impl<RelayOrigin: Get<RuntimeOrigin>, RuntimeOrigin> ConvertOrigin<RuntimeOrigin
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(target: "xcm::origin_conversion", "RelayChainAsNative origin: {:?}, kind: {:?}", origin, kind);
+		tracing::trace!(target: "xcm::origin_conversion", ?origin, ?kind, "RelayChainAsNative");
 		if kind == OriginKind::Native && origin.contains_parents_only(1) {
 			Ok(RelayOrigin::get())
 		} else {
@@ -191,10 +191,10 @@ where
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SignedAccountId32AsNative origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SignedAccountId32AsNative",
 		);
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (0, [Junction::AccountId32 { id, network }]))
@@ -218,10 +218,10 @@ where
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SignedAccountKey20AsNative origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SignedAccountKey20AsNative",
 		);
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (0, [Junction::AccountKey20 { key, network }]))
