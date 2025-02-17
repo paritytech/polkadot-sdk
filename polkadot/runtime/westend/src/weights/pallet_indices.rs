@@ -116,8 +116,9 @@ impl<T: frame_system::Config> pallet_indices::WeightInfo for WeightInfo<T> {
 	}
 	// TO-DO: Run CI cmd bot to generate real weights.
 	fn reconsider() -> Weight {
-		Weight::from_parts(31_036_000, 3534)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+		Weight::from_parts(28_136_000, 0)
+			.saturating_add(Weight::from_parts(0, 3534))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
