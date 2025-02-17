@@ -34,15 +34,14 @@ extern crate alloc;
 pub use benchmarking::BenchmarkHelper;
 use codec::{Decode, Encode};
 pub use extension::VerifySignature;
-use frame_support::Parameter;
+use frame::prelude::*;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use sp_runtime::traits::{IdentifyAccount, Verify};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);

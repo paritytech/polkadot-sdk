@@ -20,23 +20,12 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 extern crate alloc;
-
 use super::*;
+use frame::benchmarking::prelude::{frame_system::Call as SystemCall, *};
 
 #[allow(unused)]
 use crate::{extension::VerifySignature, Config, Pallet as VerifySignaturePallet};
 use alloc::vec;
-use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_support::{
-	dispatch::{DispatchInfo, GetDispatchInfo},
-	pallet_prelude::TransactionSource,
-};
-use frame_system::{Call as SystemCall, RawOrigin};
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	generic::ExtensionVersion,
-	traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable},
-};
 
 pub trait BenchmarkHelper<Signature, Signer> {
 	fn create_signature(entropy: &[u8], msg: &[u8]) -> (Signature, Signer);
