@@ -80,6 +80,10 @@ pub struct ImportParams {
 	/// Providing `0` will disable the cache.
 	#[arg(long, value_name = "Bytes", default_value_t = 1024 * 1024 * 1024)]
 	pub trie_cache_size: usize,
+
+	/// Force the state cache to be in memory.
+	#[arg(long)]
+	pub force_in_memory_trie_cache: bool,
 }
 
 impl ImportParams {

@@ -663,6 +663,11 @@ impl<H: Hasher> SharedTrieCache<H> {
 		}
 	}
 
+	pub fn new_with_force_in_memory_trie_cache(cache_size: CacheSize) -> Self {
+		// TODO: Implement this
+		Self::new(cache_size)
+	}
+
 	/// Create a new [`LocalTrieCache`](super::LocalTrieCache) instance from this shared cache.
 	pub fn local_cache(&self) -> super::LocalTrieCache<H> {
 		super::LocalTrieCache {
