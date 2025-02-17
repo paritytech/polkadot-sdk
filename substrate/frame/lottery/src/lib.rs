@@ -183,7 +183,7 @@ pub mod pallet {
 		/// A winner has been chosen!
 		Winner { winner: T::AccountId, lottery_balance: BalanceOf<T> },
 		/// A ticket has been bought!
-		TicketBought { who: T::AccountId, call_index: CallIndex },
+		TicketBought { who: T::AccountId, call_index: VersionedCall<<T as Config>::RuntimeCall> },
 	}
 
 	#[pallet::error]
@@ -218,7 +218,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		(u32, BoundedVec<CallIndex, T::MaxCalls>),
+		(u32, BoundedVec<VersionedCall<<T as Config>::RuntimeCall>, T::MaxCalls>),
 		ValueQuery,
 	>;
 
@@ -237,8 +237,7 @@ pub mod pallet {
 	/// by `Config::ValidateCall`.
 	#[pallet::storage]
 	pub(crate) type CallIndices<T: Config> =
-		StorageValue<_, BoundedVec<CallIndex, T::MaxCalls>, ValueQuery>;
-		
+		StorageValue<_, BoundedVec<VersionedCall<<T as Config>::RuntimeCall>, T::MaxCalls>, ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -393,6 +392,17 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(0)]
+		pub fn execute_lottery_call(
+			call: VersionedCall<<T as Config>::RuntimeCall>,
+			origin: OriginFor<T>,
+		) -> DispatchResult {
+			let current_transaction_version = <Runtime as frame_system::Config>::Version::get().transaction_version;
+			let validated_call = call.validate(current_transaction_version)?;
+			validated_call.dispatch(origin.into())
+		}
 	}
 }
 
@@ -428,16 +438,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Convert a call to it's call index by encoding the call and taking the first two bytes.
-	fn call_to_index(call: &<T as Config>::RuntimeCall) -> Result<CallIndex, DispatchError> {
+	fn call_to_index(call: &VersionedCall<T as Config>::RuntimeCall) -> Result<CallIndex, DispatchError> {
 		let encoded_call = call.encode();
 		if encoded_call.len() < 2 {
 			return Err(Error::<T>::EncodingFailed.into())
 		}
+		let inner_call = call.bypass_validation();
 		Ok((encoded_call[0], encoded_call[1]))
 	}
 
 	/// Logic for buying a ticket.
-	fn do_buy_ticket(caller: &T::AccountId, call: &<T as Config>::RuntimeCall) -> DispatchResult {
+	fn do_buy_ticket(caller: &T::AccountId, call: &VersionedCall<<T as Config>::RuntimeCall>) -> DispatchResult {
 		// Check the call is valid lottery
 		let config = Lottery::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 		let block_number = frame_system::Pallet::<T>::block_number();
