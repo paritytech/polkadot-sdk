@@ -201,7 +201,7 @@ dependencies = [
  "foldhash",
  "hashbrown 0.15.2",
  "hex-literal",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "itoa",
  "k256",
  "keccak-asm",
@@ -266,7 +266,7 @@ dependencies = [
  "alloy-sol-macro-input",
  "const-hex",
  "heck 0.5.0",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "proc-macro-error2",
  "proc-macro2 1.0.93",
  "quote 1.0.38",
@@ -847,13 +847,29 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22ad1373757efa0f70ec53939aabc7152e1591cb485208052993070ac8d2429d"
 dependencies = [
- "asn1-rs-derive",
+ "asn1-rs-derive 0.5.0",
  "asn1-rs-impl",
  "displaydoc",
  "nom",
  "num-traits",
  "rusticata-macros",
- "thiserror",
+ "thiserror 1.0.65",
+ "time",
+]
+
+[[package]]
+name = "asn1-rs"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "607495ec7113b178fbba7a6166a27f99e774359ef4823adbefd756b5b81d7970"
+dependencies = [
+ "asn1-rs-derive 0.6.0",
+ "asn1-rs-impl",
+ "displaydoc",
+ "nom",
+ "num-traits",
+ "rusticata-macros",
+ "thiserror 2.0.11",
  "time",
 ]
 
@@ -862,6 +878,18 @@ name = "asn1-rs-derive"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7378575ff571966e99a744addeff0bff98b8ada0dedf1956d59e634db95eaac1"
+dependencies = [
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+ "synstructure 0.13.1",
+]
+
+[[package]]
+name = "asn1-rs-derive"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3109e49b1e4909e9db6515a30c633684d68cdeaa252f215214cb4fa1a5bfee2c"
 dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
@@ -2058,7 +2086,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68534a48cbf63a4b1323c433cf21238c9ec23711e0df13b08c33e5c2082663ce"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3202,7 +3230,7 @@ dependencies = [
  "semver 1.0.18",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -4729,7 +4757,7 @@ dependencies = [
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -5504,7 +5532,7 @@ dependencies = [
  "sp-blockchain",
  "sp-state-machine 0.35.0",
  "sp-version 29.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -5575,7 +5603,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-version 29.0.0",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-util",
  "tracing",
@@ -5776,7 +5804,7 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "schannel",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "windows-sys 0.52.0",
 ]
 
@@ -5993,7 +6021,21 @@ version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5cd0a5c643689626bec213c4d8bd4d96acc8ffdb4ad4bb6bc16abf27d5f4b553"
 dependencies = [
- "asn1-rs",
+ "asn1-rs 0.6.1",
+ "displaydoc",
+ "nom",
+ "num-bigint",
+ "num-traits",
+ "rusticata-macros",
+]
+
+[[package]]
+name = "der-parser"
+version = "10.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07da5016415d5a3c4dd39b11ed26f915f52fc4e0dc197d87908bc916e51bc1a6"
+dependencies = [
+ "asn1-rs 0.7.0",
  "displaydoc",
  "nom",
  "num-bigint",
@@ -6638,7 +6680,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3 0.10.8",
- "thiserror",
+ "thiserror 1.0.65",
  "uint 0.9.5",
 ]
 
@@ -6841,7 +6883,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec6f82451ff7f0568c6181287189126d492b5654e30a788add08027b6363d019"
 dependencies = [
  "fatality-proc-macro",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -6851,7 +6893,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb42427514b063d97ce21d5199f36c0c307d981434a6be32582bc79fe5bd2303"
 dependencies = [
  "expander",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.93",
  "quote 1.0.38",
@@ -6865,7 +6907,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e182f7dbc2ef73d9ef67351c5fbbea084729c48362d3ce9dd44c28e32e277fe5"
 dependencies = [
  "libc",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -7097,7 +7139,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8835f84f38484cc86f110a805655697908257fb9a7af005234060891557198e9"
 dependencies = [
  "nonempty",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -7230,7 +7272,7 @@ dependencies = [
  "substrate-test-runtime",
  "subxt",
  "subxt-signer",
- "thiserror",
+ "thiserror 1.0.65",
  "thousands",
  "westend-runtime",
 ]
@@ -8213,7 +8255,7 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -8330,7 +8372,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.9",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "slab",
  "tokio",
  "tokio-util",
@@ -8349,7 +8391,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http 1.1.0",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "slab",
  "tokio",
  "tokio-util",
@@ -8373,7 +8415,7 @@ dependencies = [
  "pest_derive",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -8531,8 +8573,8 @@ dependencies = [
  "ipnet",
  "once_cell",
  "rand",
- "socket2 0.5.7",
- "thiserror",
+ "socket2 0.5.8",
+ "thiserror 1.0.65",
  "tinyvec",
  "tokio",
  "tracing",
@@ -8555,7 +8597,7 @@ dependencies = [
  "rand",
  "resolv-conf",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -8830,7 +8872,7 @@ dependencies = [
  "http-body 1.0.0",
  "hyper 1.6.0",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio",
  "tower-service",
  "tracing",
@@ -9058,9 +9100,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.7.0"
+version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62f822373a4fe84d4bb149bf54e584a7f4abec90e072ed49cda0edea5b95471f"
+checksum = "8c9c992b02b5b4c94ea26e32fe5bccb7aa7d9f390ab5c1221ff895bc7ea8b652"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
@@ -9136,7 +9178,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b58db92f96b720de98181bbbe63c831e87005ab460c1bf306eb2622b4707997f"
 dependencies = [
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "widestring",
  "windows-sys 0.48.0",
  "winreg",
@@ -9148,7 +9190,7 @@ version = "0.21.3"
 source = "git+https://github.com/chevdor/subwasm?rev=v0.21.3#aa8acb6fdfb34144ac51ab95618a9b37fa251295"
 dependencies = [
  "ipfs-unixfs",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9287,7 +9329,7 @@ dependencies = [
  "combine",
  "jni-sys",
  "log",
- "thiserror",
+ "thiserror 1.0.65",
  "walkdir",
 ]
 
@@ -9329,7 +9371,7 @@ checksum = "ec9ad60d674508f3ca8f380a928cfe7b096bc729c4e2dbfe3852bc45da3ab30b"
 dependencies = [
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9342,7 +9384,7 @@ dependencies = [
  "pest_derive",
  "regex",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9391,7 +9433,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto 0.8.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-rustls 0.26.0",
  "tokio-util",
@@ -9419,7 +9461,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -9444,7 +9486,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tower",
  "tracing",
@@ -9483,7 +9525,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto 0.8.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -9500,7 +9542,7 @@ dependencies = [
  "http 1.1.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9660,7 +9702,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
@@ -9683,7 +9725,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9706,7 +9748,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-util",
  "tracing",
@@ -9771,7 +9813,7 @@ checksum = "1530c5b973eeed4ac216af7e24baf5737645a6272e361f1fb95710678b67d9cc"
 dependencies = [
  "enumflags2",
  "libc",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9890,7 +9932,7 @@ dependencies = [
  "multiaddr 0.18.1",
  "pin-project",
  "rw-stream-sink",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9938,7 +9980,7 @@ dependencies = [
  "rand",
  "rw-stream-sink",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "unsigned-varint 0.8.0",
  "void",
@@ -9979,7 +10021,7 @@ dependencies = [
  "quick-protobuf 0.8.1",
  "quick-protobuf-codec",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "void",
 ]
@@ -9997,7 +10039,7 @@ dependencies = [
  "quick-protobuf 0.8.1",
  "rand",
  "sha2 0.10.8",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "zeroize",
 ]
@@ -10024,7 +10066,7 @@ dependencies = [
  "rand",
  "sha2 0.10.8",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "uint 0.9.5",
  "void",
@@ -10046,7 +10088,7 @@ dependencies = [
  "libp2p-swarm",
  "rand",
  "smallvec",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio",
  "tracing",
  "void",
@@ -10090,7 +10132,7 @@ dependencies = [
  "sha2 0.10.8",
  "snow",
  "static_assertions",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "x25519-dalek",
  "zeroize",
@@ -10132,8 +10174,8 @@ dependencies = [
  "rand",
  "ring 0.17.8",
  "rustls 0.23.18",
- "socket2 0.5.7",
- "thiserror",
+ "socket2 0.5.8",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -10206,7 +10248,7 @@ dependencies = [
  "libc",
  "libp2p-core",
  "libp2p-identity",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio",
  "tracing",
 ]
@@ -10225,8 +10267,8 @@ dependencies = [
  "ring 0.17.8",
  "rustls 0.23.18",
  "rustls-webpki 0.101.4",
- "thiserror",
- "x509-parser",
+ "thiserror 1.0.65",
+ "x509-parser 0.16.0",
  "yasna",
 ]
 
@@ -10261,7 +10303,7 @@ dependencies = [
  "pin-project-lite",
  "rw-stream-sink",
  "soketto 0.8.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "url",
  "webpki-roots 0.25.2",
@@ -10276,7 +10318,7 @@ dependencies = [
  "either",
  "futures",
  "libp2p-core",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "yamux 0.12.1",
  "yamux 0.13.4",
@@ -10452,7 +10494,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.9.0"
-source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/req-resp-improvement#4bc31d03a1af5978059e8a571c4276dae5917718"
+source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/test-nextrel#00d8b5852a89f4cfc223fd95474ae20725a63be6"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10463,9 +10505,9 @@ dependencies = [
  "futures-timer",
  "hex-literal",
  "hickory-resolver",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "libc",
- "mockall 0.13.0",
+ "mockall 0.13.1",
  "multiaddr 0.17.1",
  "multihash 0.17.0",
  "network-interface",
@@ -10482,18 +10524,18 @@ dependencies = [
  "simple-dns",
  "smallvec",
  "snow",
- "socket2 0.5.7",
- "thiserror",
+ "socket2 0.5.8",
+ "thiserror 2.0.11",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite",
  "tokio-util",
  "tracing",
- "uint 0.9.5",
+ "uint 0.10.0",
  "unsigned-varint 0.8.0",
  "url",
  "x25519-dalek",
- "x509-parser",
+ "x509-parser 0.17.0",
  "yamux 0.13.4",
  "yasna",
  "zeroize",
@@ -10890,7 +10932,7 @@ dependencies = [
  "rand_chacha",
  "rand_distr",
  "subtle 2.5.0",
- "thiserror",
+ "thiserror 1.0.65",
  "zeroize",
 ]
 
@@ -10949,14 +10991,14 @@ dependencies = [
 
 [[package]]
 name = "mockall"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4c28b3fb6d753d28c20e826cd46ee611fda1cf3cde03a443a974043247c065a"
+checksum = "39a6bfcc6c8c7eed5ee98b9c3e33adc726054389233e201c95dab2d41a3839d2"
 dependencies = [
  "cfg-if",
  "downcast",
  "fragile",
- "mockall_derive 0.13.0",
+ "mockall_derive 0.13.1",
  "predicates 3.0.3",
  "predicates-tree",
 ]
@@ -10975,9 +11017,9 @@ dependencies = [
 
 [[package]]
 name = "mockall_derive"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "341014e7f530314e9a1fdbc7400b244efea7122662c96bfa248c31da5bfb2020"
+checksum = "25ca3004c2efe9011bd4e461bd8256445052b9615405b4f7ea43fc8ca5c20898"
 dependencies = [
  "cfg-if",
  "proc-macro2 1.0.93",
@@ -11239,7 +11281,7 @@ dependencies = [
  "anyhow",
  "byteorder",
  "paste",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -11253,7 +11295,7 @@ dependencies = [
  "log",
  "netlink-packet-core",
  "netlink-sys",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -11278,7 +11320,7 @@ checksum = "ae72fd9dbd7f55dda80c00d66acc3b2130436fcba9ea89118fc508eaae48dfb0"
 dependencies = [
  "cc",
  "libc",
- "thiserror",
+ "thiserror 1.0.65",
  "winapi",
 ]
 
@@ -11711,7 +11753,16 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c958dd45046245b9c3c2547369bb634eb461670b2e7e0de552905801a648d1d"
 dependencies = [
- "asn1-rs",
+ "asn1-rs 0.6.1",
+]
+
+[[package]]
+name = "oid-registry"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12f40cff3dde1b6087cc5d5f5d4d65712f34016a03ed60e9c08dcc392736b5b7"
+dependencies = [
+ "asn1-rs 0.7.0",
 ]
 
 [[package]]
@@ -11801,7 +11852,7 @@ dependencies = [
  "orchestra-proc-macro",
  "pin-project",
  "prioritized-metered-channel",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -11812,7 +11863,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7b1d40dd8f367db3c65bec8d3dd47d4a604ee8874480738f93191bddab4e0e0"
 dependencies = [
  "expander",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "itertools 0.11.0",
  "petgraph",
  "proc-macro-crate 3.1.0",
@@ -14975,7 +15026,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "subxt",
  "subxt-signer",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -16472,7 +16523,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand",
- "rand_core 0.5.1",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -16983,7 +17034,7 @@ version = "2.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1acb4a4365a13f749a93f1a094a7805e5cfa0955373a9de860d962eaa3a5fe5a"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
  "ucd-trie",
 ]
 
@@ -17028,7 +17079,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
 dependencies = [
  "fixedbitset",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
 ]
 
 [[package]]
@@ -17222,7 +17273,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-keystore 0.34.0",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17254,7 +17305,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing-gum",
 ]
@@ -17305,7 +17356,7 @@ dependencies = [
  "sp-maybe-compressed-blob 11.0.0",
  "sp-runtime 31.0.1",
  "substrate-build-script-utils",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -17334,7 +17385,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio-util",
  "tracing-gum",
 ]
@@ -17372,7 +17423,7 @@ dependencies = [
  "fatality",
  "futures",
  "futures-timer",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -17389,7 +17440,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-keystore 0.34.0",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17405,7 +17456,7 @@ dependencies = [
  "reed-solomon-novelpoly",
  "sp-core 28.0.0",
  "sp-trie 29.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -17463,7 +17514,7 @@ dependencies = [
  "sp-consensus",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17486,7 +17537,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
  "sp-maybe-compressed-blob 11.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17530,7 +17581,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17572,7 +17623,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17601,7 +17652,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17630,7 +17681,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-keystore 0.34.0",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17645,7 +17696,7 @@ dependencies = [
  "polkadot-primitives 7.0.0",
  "polkadot-primitives-test-helpers",
  "sp-keystore 0.34.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
  "wasm-timer",
 ]
@@ -17715,7 +17766,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives 7.0.0",
  "sp-core 28.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17743,7 +17794,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-keystore 0.34.0",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17759,7 +17810,7 @@ dependencies = [
  "polkadot-primitives 7.0.0",
  "sp-blockchain",
  "sp-inherents 26.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17779,7 +17830,7 @@ dependencies = [
  "rstest",
  "sp-core 28.0.0",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17801,7 +17852,7 @@ dependencies = [
  "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-keystore 0.34.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17846,7 +17897,7 @@ dependencies = [
  "tempfile",
  "test-parachain-adder",
  "test-parachain-halt",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing-gum",
 ]
@@ -17870,7 +17921,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -17897,7 +17948,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-tracing 16.0.0",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -18010,7 +18061,7 @@ dependencies = [
  "sc-network-types",
  "sp-runtime 31.0.1",
  "strum 0.26.3",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -18036,7 +18087,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
 
@@ -18094,7 +18145,7 @@ dependencies = [
  "sp-consensus-babe 0.32.0",
  "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -18134,7 +18185,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keystore 0.34.0",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -18348,7 +18399,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
  "sp-std 14.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -19613,7 +19664,7 @@ dependencies = [
  "staging-xcm 7.0.0",
  "substrate-prometheus-endpoint",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants 7.0.0",
@@ -19631,7 +19682,7 @@ dependencies = [
  "fatality",
  "futures",
  "futures-timer",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "parity-scale-codec",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
@@ -19652,7 +19703,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-staking 26.0.0",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -20371,7 +20422,7 @@ dependencies = [
  "smallvec",
  "symbolic-demangle",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -20497,7 +20548,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "nanorand",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -20638,7 +20689,7 @@ dependencies = [
  "lazy_static",
  "memchr",
  "parking_lot 0.12.3",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -20734,7 +20785,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "once_cell",
@@ -20780,7 +20831,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acf0c195eebb4af52c752bec4f52f645da98b6e92077a04110c7f349477ae5ac"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "proc-macro2 1.0.93",
  "quote 1.0.38",
  "syn 2.0.98",
@@ -20817,7 +20868,7 @@ dependencies = [
  "names",
  "prost 0.11.9",
  "reqwest 0.11.27",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "winapi",
 ]
@@ -20831,7 +20882,7 @@ dependencies = [
  "log",
  "pprof",
  "pyroscope",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -20883,7 +20934,7 @@ dependencies = [
  "asynchronous-codec 0.7.0",
  "bytes",
  "quick-protobuf 0.8.1",
- "thiserror",
+ "thiserror 1.0.65",
  "unsigned-varint 0.8.0",
 ]
 
@@ -20922,8 +20973,8 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.0.0",
  "rustls 0.23.18",
- "socket2 0.5.7",
- "thiserror",
+ "socket2 0.5.8",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -20940,7 +20991,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls 0.23.18",
  "slab",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tracing",
 ]
@@ -20953,7 +21004,7 @@ checksum = "8bffec3605b73c6f1754535084a85229fa8a30f86014e6c81aeec4abb68b0285"
 dependencies = [
  "libc",
  "once_cell",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tracing",
  "windows-sys 0.52.0",
 ]
@@ -21161,7 +21212,7 @@ checksum = "b033d837a7cf162d7993aded9304e30a83213c648b6e389db233191f891e5c2b"
 dependencies = [
  "getrandom",
  "redox_syscall 0.2.16",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -21173,7 +21224,7 @@ dependencies = [
  "derive_more 0.99.17",
  "fs-err",
  "static_init",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -21313,7 +21364,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "staging-xcm 7.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -21337,7 +21388,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint",
  "sysinfo",
- "thiserror",
+ "thiserror 1.0.65",
  "time",
  "tokio",
 ]
@@ -21863,7 +21914,7 @@ dependencies = [
  "netlink-packet-route",
  "netlink-proto",
  "nix 0.24.3",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -22270,7 +22321,7 @@ dependencies = [
  "log",
  "sp-core 28.0.0",
  "sp-wasm-interface 20.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22282,7 +22333,7 @@ dependencies = [
  "log",
  "sp-core 33.0.1",
  "sp-wasm-interface 21.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22294,7 +22345,7 @@ dependencies = [
  "log",
  "sp-core 34.0.0",
  "sp-wasm-interface 21.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22325,7 +22376,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22451,7 +22502,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -22480,7 +22531,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22536,7 +22587,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-test-primitives",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22573,7 +22624,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -22615,7 +22666,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -22643,7 +22694,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -22686,7 +22737,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "wasm-timer",
 ]
@@ -22709,7 +22760,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -22771,7 +22822,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -22795,7 +22846,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-runtime 31.0.1",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -22833,7 +22884,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -22858,7 +22909,7 @@ dependencies = [
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22979,7 +23030,7 @@ dependencies = [
  "sc-allocator 23.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 20.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-instrument",
 ]
 
@@ -22993,7 +23044,7 @@ dependencies = [
  "sc-allocator 28.0.0",
  "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-wasm-interface 21.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-instrument",
 ]
 
@@ -23007,7 +23058,7 @@ dependencies = [
  "sc-allocator 29.0.0",
  "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-wasm-interface 21.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-instrument",
 ]
 
@@ -23134,7 +23185,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keystore 0.34.0",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23162,7 +23213,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-mixnet 0.4.0",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23220,7 +23271,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tokio-test",
@@ -23283,7 +23334,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23340,7 +23391,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
 ]
@@ -23410,7 +23461,7 @@ dependencies = [
  "multihash 0.19.1",
  "quickcheck",
  "rand",
- "thiserror",
+ "thiserror 1.0.65",
  "zeroize",
 ]
 
@@ -23522,7 +23573,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-version 29.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23588,7 +23639,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
 ]
@@ -23620,7 +23671,7 @@ dependencies = [
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
  "subxt",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23682,7 +23733,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "tracing-futures",
@@ -23762,7 +23813,7 @@ dependencies = [
  "fs4",
  "log",
  "sp-core 28.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -23781,7 +23832,7 @@ dependencies = [
  "serde_json",
  "sp-blockchain",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23818,7 +23869,7 @@ dependencies = [
  "sc-utils",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-timer",
 ]
 
@@ -23845,7 +23896,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "tracing-log 0.2.0",
  "tracing-subscriber 0.3.18",
@@ -23871,7 +23922,7 @@ dependencies = [
  "criterion",
  "futures",
  "futures-timer",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "itertools 0.11.0",
  "linked-hash-map",
  "log",
@@ -23894,7 +23945,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -23906,7 +23957,7 @@ version = "28.0.0"
 dependencies = [
  "async-trait",
  "futures",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "log",
  "parity-scale-codec",
  "serde",
@@ -23914,7 +23965,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -24057,7 +24108,7 @@ dependencies = [
  "quote 1.0.38",
  "scale-info",
  "syn 2.0.98",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -24429,7 +24480,7 @@ version = "1.0.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d726bfaff4b320266d395898905d0eba0345aae23b54aee3a737e260fd46db03"
 dependencies = [
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "itoa",
  "memchr",
  "ryu",
@@ -24463,7 +24514,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "itoa",
  "ryu",
  "serde",
@@ -24619,9 +24670,9 @@ dependencies = [
 
 [[package]]
 name = "simple-dns"
-version = "0.7.1"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c80e565e7dcc4f1ef247e2f395550d4cf7d777746d5988e7e4e3156b71077fc"
+checksum = "dee851d0e5e7af3721faea1843e8015e820a234f81fda3dea9247e15bac9a86a"
 dependencies = [
  "bitflags 2.6.0",
 ]
@@ -25588,9 +25639,9 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.5.7"
+version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce305eb0b4296696835b71df73eb912e0f1ffd2556a501fcede6e0c50349191c"
+checksum = "c970269d99b64e60ec3bd6ad27270092a5394c4e309314b18ae3fe575695fbe8"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
@@ -25729,7 +25780,7 @@ dependencies = [
  "sp-test-primitives",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -25752,7 +25803,7 @@ dependencies = [
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 35.0.0",
  "sp-version 35.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -25775,7 +25826,7 @@ dependencies = [
  "sp-state-machine 0.43.0",
  "sp-trie 37.0.0",
  "sp-version 37.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -26029,7 +26080,7 @@ dependencies = [
  "sp-database",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -26045,7 +26096,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-test-primitives",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -26294,7 +26345,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "ss58-registry",
  "substrate-bip39 0.4.7",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -26341,7 +26392,7 @@ dependencies = [
  "sp-storage 21.0.0",
  "ss58-registry",
  "substrate-bip39 0.6.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -26388,7 +26439,7 @@ dependencies = [
  "sp-storage 21.0.0",
  "ss58-registry",
  "substrate-bip39 0.6.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -26435,7 +26486,7 @@ dependencies = [
  "sp-storage 21.0.0",
  "ss58-registry",
  "substrate-bip39 0.6.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -26482,7 +26533,7 @@ dependencies = [
  "sp-storage 22.0.0",
  "ss58-registry",
  "substrate-bip39 0.6.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -26754,7 +26805,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -26768,7 +26819,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.2",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -26949,7 +27000,7 @@ dependencies = [
 name = "sp-maybe-compressed-blob"
 version = "11.0.0"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
 
@@ -26959,7 +27010,7 @@ version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c768c11afbe698a090386876911da4236af199cd38a5866748df4d8628aeff"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
 
@@ -27019,7 +27070,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-debug-derive 14.0.0",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -27037,7 +27088,7 @@ dependencies = [
  "sp-core 34.0.0",
  "sp-debug-derive 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-runtime 39.0.2",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -27504,7 +27555,7 @@ dependencies = [
  "sp-panic-handler 13.0.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db",
 ]
@@ -27525,7 +27576,7 @@ dependencies = [
  "sp-externalities 0.28.0",
  "sp-panic-handler 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 34.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db",
 ]
@@ -27546,7 +27597,7 @@ dependencies = [
  "sp-externalities 0.28.0",
  "sp-panic-handler 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 35.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db",
 ]
@@ -27567,7 +27618,7 @@ dependencies = [
  "sp-externalities 0.29.0",
  "sp-panic-handler 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 37.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db",
 ]
@@ -27591,7 +27642,7 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "x25519-dalek",
 ]
 
@@ -27616,7 +27667,7 @@ dependencies = [
  "sp-externalities 0.29.0",
  "sp-runtime 39.0.2",
  "sp-runtime-interface 28.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "x25519-dalek",
 ]
 
@@ -27705,7 +27756,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -27718,7 +27769,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-inherents 34.0.0",
  "sp-runtime 39.0.2",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -27819,7 +27870,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-runtime 31.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-bench",
  "trie-db",
@@ -27845,7 +27896,7 @@ dependencies = [
  "schnellru",
  "sp-core 32.0.0",
  "sp-externalities 0.28.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db",
  "trie-root",
@@ -27869,7 +27920,7 @@ dependencies = [
  "schnellru",
  "sp-core 33.0.1",
  "sp-externalities 0.28.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db",
  "trie-root",
@@ -27893,7 +27944,7 @@ dependencies = [
  "schnellru",
  "sp-core 34.0.0",
  "sp-externalities 0.29.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db",
  "trie-root",
@@ -27912,7 +27963,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "sp-version-proc-macro 13.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -27930,7 +27981,7 @@ dependencies = [
  "sp-runtime 37.0.0",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-version-proc-macro 14.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -27948,7 +27999,7 @@ dependencies = [
  "sp-runtime 39.0.2",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-version-proc-macro 14.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -28121,7 +28172,7 @@ dependencies = [
  "hashbrown 0.14.5",
  "hashlink 0.9.1",
  "hex",
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "log",
  "memchr",
  "once_cell",
@@ -28132,7 +28183,7 @@ dependencies = [
  "sha2 0.10.8",
  "smallvec",
  "sqlformat",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -28215,7 +28266,7 @@ dependencies = [
  "smallvec",
  "sqlx-core",
  "stringprep",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "whoami",
 ]
@@ -28253,7 +28304,7 @@ dependencies = [
  "smallvec",
  "sqlx-core",
  "stringprep",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "whoami",
 ]
@@ -28392,7 +28443,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-statement-store 10.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -28801,7 +28852,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-testbed",
 ]
 
@@ -28855,7 +28906,7 @@ dependencies = [
  "hyper-util",
  "log",
  "prometheus",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -28899,7 +28950,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "structopt",
  "strum 0.26.3",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -28929,7 +28980,7 @@ dependencies = [
  "sp-io 35.0.0",
  "sp-runtime 36.0.0",
  "sp-wasm-interface 21.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -29056,7 +29107,7 @@ dependencies = [
  "sp-blockchain",
  "sp-runtime 31.0.1",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -29150,7 +29201,7 @@ dependencies = [
  "serde_json",
  "sp-version 35.0.0",
  "substrate-differ",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "uuid",
  "wasm-loader",
@@ -29186,7 +29237,7 @@ dependencies = [
  "subxt-lightclient",
  "subxt-macro",
  "subxt-metadata",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-util",
  "tracing",
@@ -29209,7 +29260,7 @@ dependencies = [
  "scale-typegen",
  "subxt-metadata",
  "syn 2.0.98",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -29252,7 +29303,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smoldot-light 0.16.2",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -29325,7 +29376,7 @@ checksum = "3082b17a86e3c3fe45d858d94d68f6b5247caace193dad6201688f24db8ba9bb"
 dependencies = [
  "hex",
  "parity-scale-codec",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -29802,7 +29853,16 @@ version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d11abd9594d9b38965ef50805c5e469ca9cc6f197f883f717e0269a3057b3d5"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.65",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d452f284b73e6d76dd36758a0c8684b1d5be31f92b89d07fd5822175732206fc"
+dependencies = [
+ "thiserror-impl 2.0.11",
 ]
 
 [[package]]
@@ -29830,6 +29890,17 @@ name = "thiserror-impl"
 version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae71770322cbd277e69d762a16c444af02aa0575ac0d174f0b9562d3b37f8602"
+dependencies = [
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26afc1baea8a989337eeb52b6e72a039780ce45c3edfcc9c5b9d112feeb173c2"
 dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
@@ -29972,7 +30043,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio-macros",
  "windows-sys 0.52.0",
 ]
@@ -30131,7 +30202,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "toml_datetime",
  "winnow 0.5.15",
 ]
@@ -30142,7 +30213,7 @@ version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d34d383cd00a163b4a5b85053df514d45bc330f6de7737edfe0a93311d1eaa03"
 dependencies = [
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "toml_datetime",
  "winnow 0.5.15",
 ]
@@ -30153,7 +30224,7 @@ version = "0.22.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ae48d6208a266e853d946088ed816055e556cc6028c5e8e2b84d9fa5dd7c7f5"
 dependencies = [
- "indexmap 2.7.0",
+ "indexmap 2.7.1",
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -30456,7 +30527,7 @@ dependencies = [
  "rand",
  "rustls 0.21.7",
  "sha1",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "utf-8",
 ]
@@ -30478,7 +30549,7 @@ dependencies = [
  "rustls-native-certs 0.7.0",
  "rustls-pki-types",
  "sha1",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "utf-8",
 ]
@@ -30799,7 +30870,7 @@ dependencies = [
  "rand_core 0.6.4",
  "sha2 0.10.8",
  "sha3 0.10.8",
- "thiserror",
+ "thiserror 1.0.65",
  "zeroize",
 ]
 
@@ -30949,7 +31020,7 @@ dependencies = [
  "serde_json",
  "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subrpcer",
- "thiserror",
+ "thiserror 1.0.65",
  "tungstenite 0.21.0",
  "ureq",
  "url",
@@ -30966,7 +31037,7 @@ dependencies = [
  "strum 0.24.1",
  "strum_macros 0.24.3",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-opt-cxx-sys",
  "wasm-opt-sys",
 ]
@@ -31014,7 +31085,7 @@ dependencies = [
  "sp-version 35.0.0",
  "sp-wasm-interface 21.0.1",
  "substrate-runtime-proposal-hash",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-loader",
 ]
 
@@ -31196,7 +31267,7 @@ dependencies = [
  "log",
  "object 0.30.4",
  "target-lexicon",
- "thiserror",
+ "thiserror 1.0.65",
  "wasmparser",
  "wasmtime-cranelift-shared",
  "wasmtime-environ",
@@ -31231,7 +31302,7 @@ dependencies = [
  "object 0.30.4",
  "serde",
  "target-lexicon",
- "thiserror",
+ "thiserror 1.0.65",
  "wasmparser",
  "wasmtime-types",
 ]
@@ -31314,7 +31385,7 @@ checksum = "a4f6fffd2a1011887d57f07654dd112791e872e3ff4a2e626aee8059ee17f06f"
 dependencies = [
  "cranelift-entity",
  "serde",
- "thiserror",
+ "thiserror 1.0.65",
  "wasmparser",
 ]
 
@@ -31949,9 +32020,9 @@ dependencies = [
 
 [[package]]
 name = "x25519-dalek"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb66477291e7e8d2b0ff1bcb900bf29489a9692816d79874bea351e7a8b6de96"
+checksum = "c7e468321c81fb07fa7f4c636c3972b9100f0346e5b6a9f2bd0603a52f7ed277"
 dependencies = [
  "curve25519-dalek 4.1.3",
  "rand_core 0.6.4",
@@ -31965,14 +32036,31 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fcbc162f30700d6f3f82a24bf7cc62ffe7caea42c0b2cba8bf7f3ae50cf51f69"
 dependencies = [
- "asn1-rs",
+ "asn1-rs 0.6.1",
  "data-encoding",
- "der-parser",
+ "der-parser 9.0.0",
  "lazy_static",
  "nom",
- "oid-registry",
+ "oid-registry 0.7.0",
  "rusticata-macros",
- "thiserror",
+ "thiserror 1.0.65",
+ "time",
+]
+
+[[package]]
+name = "x509-parser"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4569f339c0c402346d4a75a9e39cf8dad310e287eef1ff56d4c68e5067f53460"
+dependencies = [
+ "asn1-rs 0.7.0",
+ "data-encoding",
+ "der-parser 10.0.0",
+ "lazy_static",
+ "nom",
+ "oid-registry 0.8.1",
+ "rusticata-macros",
+ "thiserror 2.0.11",
  "time",
 ]
 
@@ -32345,7 +32433,7 @@ dependencies = [
  "reqwest 0.12.9",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-tungstenite",
  "tracing-gum",
@@ -32365,7 +32453,7 @@ dependencies = [
  "reqwest 0.11.27",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "toml 0.8.19",
  "tracing",
@@ -32396,7 +32484,7 @@ dependencies = [
  "sp-core 35.0.0",
  "subxt",
  "subxt-signer",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "uuid",
@@ -32414,7 +32502,7 @@ checksum = "8a52a796a1521cf6420cc6384eac9ef25a146d453b568969774af643f3ecdc97"
 dependencies = [
  "pest",
  "pest_derive",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -32438,7 +32526,7 @@ dependencies = [
  "serde_yaml",
  "sha2 0.10.8",
  "tar",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-util",
  "tracing",
@@ -32479,7 +32567,7 @@ dependencies = [
  "rand",
  "regex",
  "reqwest 0.11.27",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "uuid",
