@@ -1,0 +1,25 @@
+title: Adds multi-block election types and refactors current single logic to support it
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds election types and structs required to run a multi-block election. In addition,
+      it modifies EPM, staking pallet and all dependent pallets and logic to use the multi-block types.
+
+crates:
+ - name: frame-election-provider-support
+   bump: major
+ - name: pallet-election-provider-multi-phase
+   bump: major
+ - name: pallet-staking
+   bump: major
+ - name: pallet-fast-unstake
+   bump: minor
+ - name: pallet-delegated-staking
+   bump: minor
+ - name: sp-npos-elections
+   bump: major
+ - name: sp-staking
+   bump: major
+ - name: pallet-bags-list-remote-tests
+   bump: minor
