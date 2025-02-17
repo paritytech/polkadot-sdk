@@ -1474,7 +1474,7 @@ impl_runtime_apis! {
 			}
 
 			impl BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
-				fn bench_reward_kind() -> Self::RewardKind {
+				fn bench_reward() -> Self::Reward {
 					bp_relayers::RewardsAccountParams::new(
 						bp_messages::LegacyLaneId::default(),
 						*b"test",
@@ -1483,7 +1483,7 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_rewards_account(
-					reward_kind: Self::RewardKind,
+					reward_kind: Self::Reward,
 					reward: Balance,
 				) -> Option<AccountId> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
@@ -1504,7 +1504,7 @@ impl_runtime_apis! {
 			}
 
 			impl BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance> for Runtime {
-				fn bench_reward_kind() -> Self::RewardKind {
+				fn bench_reward() -> Self::Reward {
 					bp_relayers::RewardsAccountParams::new(
 						bp_messages::HashedLaneId::default(),
 						*b"test",
@@ -1513,7 +1513,7 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_rewards_account(
-					reward_kind: Self::RewardKind,
+					reward_kind: Self::Reward,
 					reward: Balance,
 				) -> Option<AccountId> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<

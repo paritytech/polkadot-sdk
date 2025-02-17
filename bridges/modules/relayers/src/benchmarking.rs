@@ -35,11 +35,11 @@ pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 
 /// Trait that must be implemented by runtime.
 pub trait Config<I: 'static = ()>: crate::Config<I> {
-	/// `T::RewardKind` to use in benchmarks.
-	fn bench_reward_kind() -> Self::RewardKind;
+	/// `T::Reward` to use in benchmarks.
+	fn bench_reward() -> Self::Reward;
 	/// Prepare environment for paying given reward for serving given lane.
 	fn prepare_rewards_account(
-		reward_kind: Self::RewardKind,
+		reward_kind: Self::Reward,
 		reward: Self::RewardBalance,
 	) -> Option<AlternativeBeneficiaryOf<Self, I>>;
 	/// Give enough balance to given account.
@@ -55,7 +55,7 @@ fn assert_last_event<T: Config<I>, I: 'static>(
 benchmarks_instance_pallet! {
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
-		let reward_kind = T::bench_reward_kind();
+		let reward_kind = T::bench_reward();
 		let relayer: T::AccountId = whitelisted_caller();
 		let reward_balance = T::RewardBalance::from(REWARD_AMOUNT);
 
@@ -76,7 +76,7 @@ benchmarks_instance_pallet! {
 
 	// Benchmark `claim_rewards_to` call.
 	claim_rewards_to {
-		let reward_kind = T::bench_reward_kind();
+		let reward_kind = T::bench_reward();
 		let relayer: T::AccountId = whitelisted_caller();
 		let reward_balance = T::RewardBalance::from(REWARD_AMOUNT);
 
@@ -154,7 +154,7 @@ benchmarks_instance_pallet! {
 	// the weight of message delivery call if `BridgeRelayersTransactionExtension` signed extension
 	// is deployed at runtime level.
 	register_relayer_reward {
-		let reward_kind = T::bench_reward_kind();
+		let reward_kind = T::bench_reward();
 		let relayer: T::AccountId = whitelisted_caller();
 
 	}: {

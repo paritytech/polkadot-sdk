@@ -90,7 +90,7 @@ impl<LaneId: Decode + Encode> TypeId for RewardsAccountParams<LaneId> {
 }
 
 /// Reward payment procedure.
-pub trait PaymentProcedure<Relayer, RewardKind, RewardBalance> {
+pub trait PaymentProcedure<Relayer, Reward, RewardBalance> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
 
@@ -101,19 +101,19 @@ pub trait PaymentProcedure<Relayer, RewardKind, RewardBalance> {
 	/// provided params.
 	fn pay_reward(
 		relayer: &Relayer,
-		reward_kind: RewardKind,
-		reward: RewardBalance,
+		reward: Reward,
+		reward_balance: RewardBalance,
 		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error>;
 }
 
-impl<Relayer, RewardKind, RewardBalance> PaymentProcedure<Relayer, RewardKind, RewardBalance> for () {
+impl<Relayer, Reward, RewardBalance> PaymentProcedure<Relayer, Reward, RewardBalance> for () {
 	type Error = &'static str;
 	type AlternativeBeneficiary = ();
 
 	fn pay_reward(
 		_: &Relayer,
-		_: RewardKind,
+		_: Reward,
 		_: RewardBalance,
 		_: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
@@ -167,33 +167,33 @@ where
 
 /// Can be used to access the runtime storage key within the `RelayerRewards` map of the relayers
 /// pallet.
-pub struct RelayerRewardsKeyProvider<AccountId, RewardKind, RewardBalance>(
-	PhantomData<(AccountId, RewardKind, RewardBalance)>,
+pub struct RelayerRewardsKeyProvider<AccountId, Reward, RewardBalance>(
+	PhantomData<(AccountId, Reward, RewardBalance)>,
 );
 
-impl<AccountId, RewardKind, RewardBalance> StorageDoubleMapKeyProvider
-	for RelayerRewardsKeyProvider<AccountId, RewardKind, RewardBalance>
+impl<AccountId, Reward, RewardBalance> StorageDoubleMapKeyProvider
+	for RelayerRewardsKeyProvider<AccountId, Reward, RewardBalance>
 where
 	AccountId: 'static + Codec + EncodeLike + Send + Sync,
+	Reward: Codec + EncodeLike + Send + Sync,
 	RewardBalance: 'static + Codec + EncodeLike + Send + Sync,
-	RewardKind: Codec + EncodeLike + Send + Sync,
 {
 	const MAP_NAME: &'static str = "RelayerRewards";
 
 	type Hasher1 = Blake2_128Concat;
 	type Key1 = AccountId;
 	type Hasher2 = Identity;
-	type Key2 = RewardKind;
+	type Key2 = Reward;
 	type Value = RewardBalance;
 }
 
 /// A trait defining a reward ledger, which tracks rewards that can be later claimed.
 ///
-/// This ledger allows registering rewards for a relayer, categorized by a specific `RewardKind`.
+/// This ledger allows registering rewards for a relayer, categorized by a specific `Reward`.
 /// The registered rewards can be claimed later through an appropriate payment procedure.
-pub trait RewardLedger<Relayer, RewardKind, RewardBalance> {
+pub trait RewardLedger<Relayer, Reward, RewardBalance> {
 	/// Registers a reward for a given relayer.
-	fn register_reward(relayer: &Relayer, reward_kind: RewardKind, reward: RewardBalance);
+	fn register_reward(relayer: &Relayer, reward: Reward, reward_balance: RewardBalance);
 }
 
 #[cfg(test)]

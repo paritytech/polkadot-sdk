@@ -2,7 +2,7 @@ title: Make `pallet-bridge-rewards` generic over `RewardKind`
 doc:
 - audience: Runtime Dev
   description: |-
-    The PR enhances the pallet-bridge-rewards by making it generic over the RewardKind type (previously hardcoded as RewardsAccountParams). This modification allows the pallet to support multiple reward types (e.g., P/K bridge, Snowbridge), increasing its flexibility and applicability across various bridge scenarios.
+    The PR enhances the pallet-bridge-rewards by making it generic over the `Reward` type (previously hardcoded as `RewardsAccountParams`). This modification allows the pallet to support multiple reward types (e.g., P/K bridge, Snowbridge), increasing its flexibility and applicability across various bridge scenarios.
 
     Other pallets can register rewards using bp_relayers::RewardLedger, which is implemented by the rewards pallet. The runtime can then be configured with different mechanisms for paying/claiming rewards via bp_relayers::PaymentProcedure (e.g., see the pub struct BridgeRewardPayer; implementation for BridgeHubWestend).
 crates:

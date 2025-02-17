@@ -61,7 +61,7 @@ pub mod pallet {
 	/// `RelayerRewardsKeyProvider` for given configuration.
 	type RelayerRewardsKeyProviderOf<T, I> = RelayerRewardsKeyProvider<
 		<T as frame_system::Config>::AccountId,
-		<T as Config<I>>::RewardKind,
+		<T as Config<I>>::Reward,
 		<T as Config<I>>::RewardBalance,
 	>;
 
@@ -69,7 +69,7 @@ pub mod pallet {
 	pub type AlternativeBeneficiaryOf<T, I> =
 		<<T as Config<I>>::PaymentProcedure as PaymentProcedure<
 			<T as frame_system::Config>::AccountId,
-			<T as Config<I>>::RewardKind,
+			<T as Config<I>>::Reward,
 			<T as Config<I>>::RewardBalance,
 		>>::AlternativeBeneficiary;
 
@@ -79,18 +79,18 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// Type of relayer reward.
+		/// Type of relayer reward balance.
 		type RewardBalance: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
 		/// Reward discriminator type. The pallet can collect different types of rewards for a
-		/// single account, so `RewardKind` is used as the second key in the `RelayerRewards` double
+		/// single account, so `Reward` is used as the second key in the `RelayerRewards` double
 		/// map.
 		///
-		/// For example, rewards for different bridges can be stored, where `RewardKind` is
+		/// For example, rewards for different bridges can be stored, where `Reward` is
 		/// implemented as an enum representing each bridge.
-		type RewardKind: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
+		type Reward: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
 
 		/// Pay rewards scheme.
-		type PaymentProcedure: PaymentProcedure<Self::AccountId, Self::RewardKind, Self::RewardBalance>;
+		type PaymentProcedure: PaymentProcedure<Self::AccountId, Self::Reward, Self::RewardBalance>;
 
 		/// Stake and slash scheme.
 		type StakeAndSlash: StakeAndSlash<Self::AccountId, BlockNumberFor<Self>, Self::Balance>;
@@ -110,7 +110,7 @@ pub mod pallet {
 		/// Claim accumulated rewards.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim_rewards())]
-		pub fn claim_rewards(origin: OriginFor<T>, reward_kind: T::RewardKind) -> DispatchResult {
+		pub fn claim_rewards(origin: OriginFor<T>, reward_kind: T::Reward) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 
 			Self::do_claim_rewards(relayer, reward_kind, None)
@@ -224,7 +224,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_rewards_to())]
 		pub fn claim_rewards_to(
 			origin: OriginFor<T>,
-			reward_kind: T::RewardKind,
+			reward_kind: T::Reward,
 			alternative_beneficiary: AlternativeBeneficiaryOf<T, I>,
 		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
@@ -236,7 +236,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		fn do_claim_rewards(
 			relayer: T::AccountId,
-			reward_kind: T::RewardKind,
+			reward_kind: T::Reward,
 			alternative_beneficiary: Option<AlternativeBeneficiaryOf<T, I>>,
 		) -> DispatchResult {
 			RelayerRewards::<T, I>::try_mutate_exists(
@@ -368,7 +368,7 @@ pub mod pallet {
 
 		/// Register reward for given relayer.
 		pub(crate) fn register_relayer_reward(
-			reward_kind: T::RewardKind,
+			reward_kind: T::Reward,
 			relayer: &T::AccountId,
 			reward_balance: T::RewardBalance,
 		) {
@@ -445,7 +445,7 @@ pub mod pallet {
 			/// Relayer account that can claim reward.
 			relayer: T::AccountId,
 			/// Relayer can claim this kind of reward.
-			reward_kind: T::RewardKind,
+			reward_kind: T::Reward,
 			/// Reward amount.
 			reward_balance: T::RewardBalance,
 		},
@@ -454,7 +454,7 @@ pub mod pallet {
 			/// Relayer account that has been rewarded.
 			relayer: T::AccountId,
 			/// Relayer has received reward of this kind.
-			reward_kind: T::RewardKind,
+			reward_kind: T::Reward,
 			/// Reward amount.
 			reward_balance: T::RewardBalance,
 			/// Alternative beneficiary.
@@ -533,14 +533,14 @@ pub mod pallet {
 }
 
 /// Implementation of `RewardLedger` for the pallet.
-impl<T: Config<I>, I: 'static, RewardKind, RewardBalance> RewardLedger<T::AccountId, RewardKind, RewardBalance>
+impl<T: Config<I>, I: 'static, Reward, RewardBalance> RewardLedger<T::AccountId, Reward, RewardBalance>
 	for Pallet<T, I>
 where
-	RewardKind: Into<T::RewardKind>,
+	Reward: Into<T::Reward>,
 	RewardBalance: Into<T::RewardBalance>,
 {
-	fn register_reward(relayer: &T::AccountId, reward_kind: RewardKind, reward: RewardBalance) {
-		Self::register_relayer_reward(reward_kind.into(), relayer, reward.into());
+	fn register_reward(relayer: &T::AccountId, reward: Reward, reward_balance: RewardBalance) {
+		Self::register_relayer_reward(reward.into(), relayer, reward_balance.into());
 	}
 }
 

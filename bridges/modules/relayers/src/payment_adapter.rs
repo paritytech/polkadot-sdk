@@ -45,7 +45,7 @@ where
 	MI: 'static,
 	RI: 'static,
 	DeliveryReward: Get<T::RewardBalance>,
-	<T as Config<RI>>::RewardKind: From<RewardsAccountParams<LaneIdOf<T, MI>>>,
+	<T as Config<RI>>::Reward: From<RewardsAccountParams<LaneIdOf<T, MI>>>,
 {
 	type Error = &'static str;
 
@@ -85,7 +85,7 @@ fn register_relayers_rewards<
 	lane_id: RewardsAccountParams<LaneIdOf<T, MI>>,
 	delivery_fee: T::RewardBalance,
 ) where
-	<T as Config<RI>>::RewardKind: From<RewardsAccountParams<LaneIdOf<T, MI>>>,
+	<T as Config<RI>>::Reward: From<RewardsAccountParams<LaneIdOf<T, MI>>>,
 {
 	// reward every relayer except `confirmation_relayer`
 	let mut confirmation_relayer_reward = T::RewardBalance::zero();

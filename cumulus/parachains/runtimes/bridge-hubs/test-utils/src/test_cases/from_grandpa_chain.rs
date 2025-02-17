@@ -50,7 +50,7 @@ pub trait WithRemoteGrandpaChainHelper {
 			Self::MPI,
 			InboundPayload = XcmAsPlainPayload,
 			OutboundPayload = XcmAsPlainPayload,
-		> + pallet_bridge_relayers::Config<Self::RPI, RewardKind = Self::RelayerRewardKind>;
+		> + pallet_bridge_relayers::Config<Self::RPI, Reward= Self::RelayerReward>;
 	/// All pallets of this chain, excluding system pallet.
 	type AllPalletsWithoutSystem: OnInitialize<BlockNumberFor<Self::Runtime>>
 		+ OnFinalize<BlockNumberFor<Self::Runtime>>;
@@ -62,7 +62,7 @@ pub trait WithRemoteGrandpaChainHelper {
 	/// instance.
 	type RPI: 'static;
 	/// Relayer reward type.
-	type RelayerRewardKind: From<RewardsAccountParams<LaneIdOf<Self::Runtime, Self::MPI>>>;
+	type RelayerReward: From<RewardsAccountParams<LaneIdOf<Self::Runtime, Self::MPI>>>;
 }
 
 /// Adapter struct that implements [`WithRemoteGrandpaChainHelper`].
@@ -83,7 +83,7 @@ where
 		> + pallet_bridge_relayers::Config<RPI>,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
-	<Runtime as pallet_bridge_relayers::Config<RPI>>::RewardKind:
+	<Runtime as pallet_bridge_relayers::Config<RPI>>::Reward:
 		From<RewardsAccountParams<LaneIdOf<Runtime, MPI>>>,
 	GPI: 'static,
 	MPI: 'static,
@@ -94,7 +94,7 @@ where
 	type GPI = GPI;
 	type MPI = MPI;
 	type RPI = RPI;
-	type RelayerRewardKind = Runtime::RewardKind;
+	type RelayerReward = Runtime::Reward;
 }
 
 /// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,

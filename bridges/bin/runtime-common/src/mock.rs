@@ -214,7 +214,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type RewardBalance = RewardBalance;
-	type RewardKind = RewardsAccountParams<pallet_bridge_messages::LaneIdOf<TestRuntime, ()>>;
+	type Reward = RewardsAccountParams<pallet_bridge_messages::LaneIdOf<TestRuntime, ()>>;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
 	type Balance = ThisChainBalance;

@@ -139,15 +139,15 @@ pub trait ChainWithBalances: Chain {
 pub trait ChainWithRewards: Chain {
 	/// Name of the bridge relayers pallet (used in `construct_runtime` macro call).
 	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str>;
-	/// Type of relayer reward.
-	type Reward: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
+	/// Type of relayer reward balance.
+	type RewardBalance: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
 	/// Reward discriminator type.
-	type RewardKind: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
+	type Reward: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
 
 	/// Return runtime storage key for getting `reward_kind` of given account.
 	fn account_reward_storage_key(
 		account_id: &Self::AccountId,
-		reward_kind: impl Into<Self::RewardKind>,
+		reward: impl Into<Self::Reward>,
 	) -> StorageKey;
 }
 

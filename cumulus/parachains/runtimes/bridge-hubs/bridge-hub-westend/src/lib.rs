@@ -1240,7 +1240,7 @@ impl_runtime_apis! {
 					let bridged_chain_id =<Self as pallet_bridge_messages::Config<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>::BridgedChain::ID;
 					pallet_bridge_relayers::Pallet::<Runtime, bridge_common_config::BridgeRelayersInstance>::relayer_reward(
 						relayer,
-						bridge_common_config::BridgeRewardKind::RococoWestend(
+						bridge_common_config::BridgeReward::RococoWestend(
 							bp_relayers::RewardsAccountParams::new(
 								bench_lane_id,
 								bridged_chain_id,
@@ -1321,7 +1321,7 @@ impl_runtime_apis! {
 			}
 
 			impl BridgeRelayersConfig<bridge_common_config::BridgeRelayersInstance> for Runtime {
-				fn bench_reward_kind() -> Self::RewardKind {
+				fn bench_reward() -> Self::Reward {
 					bp_relayers::RewardsAccountParams::new(
 						bp_messages::LegacyLaneId::default(),
 						*b"test",
@@ -1330,11 +1330,11 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_rewards_account(
-					reward_kind: Self::RewardKind,
+					reward_kind: Self::Reward,
 					reward: Balance,
 				) -> Option<pallet_bridge_relayers::AlternativeBeneficiaryOf<Runtime, bridge_common_config::BridgeRelayersInstance>> {
-					let bridge_common_config::BridgeRewardKind::RococoWestend(reward_kind) = reward_kind else {
-						panic!("Unexpected reward_kind: {:?} - not compatible with `bench_reward_kind`!", reward_kind);
+					let bridge_common_config::BridgeReward::RococoWestend(reward_kind) = reward_kind else {
+						panic!("Unexpected reward_kind: {:?} - not compatible with `bench_reward`!", reward_kind);
 					};
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,

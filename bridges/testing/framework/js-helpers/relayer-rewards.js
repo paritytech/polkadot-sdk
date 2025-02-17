@@ -4,13 +4,13 @@ async function run(nodeName, networkInfo, args) {
 
     // TODO: could be replaced with https://github.com/polkadot-js/api/issues/4930 (depends on metadata v15) later
     const relayerAccountAddress = args.relayerAccountAddress;
-    const reward_kind = args.rewardKind;
+    const reward = args.reward;
     const expectedRelayerReward = BigInt(args.expectedRelayerReward);
-    console.log("Waiting rewards for relayerAccountAddress: " + relayerAccountAddress + " expecting minimal rewards at least: " + expectedRelayerReward + " for " + JSON.stringify(reward_kind));
+    console.log("Waiting rewards for relayerAccountAddress: " + relayerAccountAddress + " expecting minimal rewards at least: " + expectedRelayerReward + " for " + JSON.stringify(reward));
     while (true) {
-        const relayerReward = await api.query.bridgeRelayers.relayerRewards(relayerAccountAddress, reward_kind);
-        if (relayerReward.isSome) {
-            const relayerRewardBalance = relayerReward.unwrap().toBigInt();
+        const relayerRewardBalance = await api.query.bridgeRelayers.relayerRewards(relayerAccountAddress, reward);
+        if (relayerRewardBalance.isSome) {
+            const relayerRewardBalance = relayerRewardBalance.unwrap().toBigInt();
             if (relayerRewardBalance > expectedRelayerReward) {
                 return relayerRewardBalance;
             }

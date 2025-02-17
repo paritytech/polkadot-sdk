@@ -20,7 +20,7 @@ use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
 use bridge_common_config::{
-	BridgeRelayersInstance, BridgeRewardKind, RequiredStakeForStakeAndSlash,
+	BridgeRelayersInstance, BridgeReward, RequiredStakeForStakeAndSlash,
 };
 use bridge_hub_test_utils::{
 	test_cases::{from_parachain, run_test},
@@ -579,26 +579,26 @@ pub fn bridge_rewards_works() {
 			use bp_relayers::RewardLedger;
 			BridgeRelayers::register_reward(
 				&account1,
-				BridgeRewardKind::from(reward1_for),
+				BridgeReward::from(reward1_for),
 				reward1,
 			);
-			BridgeRelayers::register_reward(&account2, BridgeRewardKind::Snowbridge, reward2);
+			BridgeRelayers::register_reward(&account2, BridgeReward::Snowbridge, reward2);
 
 			// check stored rewards
 			assert_eq!(
-				BridgeRelayers::relayer_reward(&account1, BridgeRewardKind::from(reward1_for)),
+				BridgeRelayers::relayer_reward(&account1, BridgeReward::from(reward1_for)),
 				Some(reward1)
 			);
 			assert_eq!(
-				BridgeRelayers::relayer_reward(&account1, BridgeRewardKind::Snowbridge),
+				BridgeRelayers::relayer_reward(&account1, BridgeReward::Snowbridge),
 				None,
 			);
 			assert_eq!(
-				BridgeRelayers::relayer_reward(&account2, BridgeRewardKind::Snowbridge),
+				BridgeRelayers::relayer_reward(&account2, BridgeReward::Snowbridge),
 				Some(reward2),
 			);
 			assert_eq!(
-				BridgeRelayers::relayer_reward(&account2, BridgeRewardKind::from(reward1_for)),
+				BridgeRelayers::relayer_reward(&account2, BridgeReward::from(reward1_for)),
 				None,
 			);
 
@@ -609,7 +609,7 @@ pub fn bridge_rewards_works() {
 			));
 			assert_eq!(Balances::total_balance(&account1), ExistentialDeposit::get() + reward1);
 			assert_eq!(
-				BridgeRelayers::relayer_reward(&account1, BridgeRewardKind::from(reward1_for)),
+				BridgeRelayers::relayer_reward(&account1, BridgeReward::from(reward1_for)),
 				None,
 			);
 
@@ -626,7 +626,7 @@ pub fn bridge_rewards_works() {
 			assert_err!(
 				BridgeRelayers::claim_rewards(
 					RuntimeOrigin::signed(account2.clone()),
-					BridgeRewardKind::Snowbridge
+					BridgeReward::Snowbridge
 				),
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
 			);

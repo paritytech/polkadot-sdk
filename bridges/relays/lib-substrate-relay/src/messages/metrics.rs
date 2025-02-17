@@ -90,8 +90,8 @@ pub async fn add_relay_rewards_metrics<C: ChainWithRewards, BC: ChainWithMessage
 	lanes: &[LaneId],
 ) -> anyhow::Result<()>
 where
-	C::Reward: Into<u128> + std::fmt::Debug,
-	C::RewardKind: From<RewardsAccountParams<LaneId>>,
+	C::RewardBalance: Into<u128> + std::fmt::Debug,
+	C::Reward: From<RewardsAccountParams<LaneId>>,
 	LaneId: Clone + Copy + Decode + EncodeLike + Send + Sync + Labeled,
 {
 	if relay_accounts.is_empty() {

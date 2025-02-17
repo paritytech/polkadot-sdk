@@ -37,14 +37,14 @@ parameter_types! {
 
 /// Showcasing that we can handle multiple different rewards with the same pallet.
 #[derive(Clone, Copy, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
-pub enum BridgeRewardKind {
+pub enum BridgeReward {
 	/// Rewards for the R/W bridge—distinguished by the `RewardsAccountParams` key.
 	RococoWestend(RewardsAccountParams<LegacyLaneId>),
 	/// Rewards for Snowbridge.
 	Snowbridge,
 }
 
-impl From<RewardsAccountParams<LegacyLaneId>> for BridgeRewardKind {
+impl From<RewardsAccountParams<LegacyLaneId>> for BridgeReward {
 	fn from(value: RewardsAccountParams<LegacyLaneId>) -> Self {
 		Self::RococoWestend(value)
 	}
@@ -52,18 +52,18 @@ impl From<RewardsAccountParams<LegacyLaneId>> for BridgeRewardKind {
 
 /// Implementation of `bp_relayers::PaymentProcedure` as a pay/claim rewards scheme.
 pub struct BridgeRewardPayer;
-impl bp_relayers::PaymentProcedure<AccountId, BridgeRewardKind, u128> for BridgeRewardPayer {
+impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewardPayer {
 	type Error = sp_runtime::DispatchError;
 	type AlternativeBeneficiary = VersionedLocation;
 
 	fn pay_reward(
 		relayer: &AccountId,
-		reward_kind: BridgeRewardKind,
+		reward_kind: BridgeReward,
 		reward: u128,
 		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		match reward_kind {
-			BridgeRewardKind::RococoWestend(lane_params) => {
+			BridgeReward::RococoWestend(lane_params) => {
 				frame_support::ensure!(
 					alternative_beneficiary.is_none(),
 					Self::Error::Other("`alternative_beneficiary` is not supported for `RococoWestend` rewards!")
@@ -77,7 +77,7 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeRewardKind, u128> for Bridge
 					relayer, lane_params, reward, None,
 				)
 			},
-			BridgeRewardKind::Snowbridge =>
+			BridgeReward::Snowbridge =>
 				Err(sp_runtime::DispatchError::Other("Not implemented yet, check also `fn prepare_rewards_account` to return `alternative_beneficiary`!")),
 		}
 	}
@@ -89,7 +89,7 @@ impl pallet_bridge_relayers::Config<BridgeRelayersInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 
 	type RewardBalance = u128;
-	type RewardKind = BridgeRewardKind;
+	type Reward = BridgeReward;
 	type PaymentProcedure = BridgeRewardPayer;
 
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<

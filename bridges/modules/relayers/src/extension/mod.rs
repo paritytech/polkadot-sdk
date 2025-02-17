@@ -112,7 +112,7 @@ pub enum RelayerAccountAction<AccountId, RewardBalance, LaneId> {
 /// message delivery and confirmation transactions, optionally batched with required
 /// finality proofs.
 ///
-/// (Works only with `pallet-bridge-messages` and `RewardsAccountParams` as the `RewardKind`)
+/// (Works only with `pallet-bridge-messages` and `RewardsAccountParams` as the `Reward`)
 #[derive(
 	DefaultNoBound,
 	CloneNoBound,
@@ -136,7 +136,7 @@ where
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
 	<R as TransactionPaymentConfig>::OnChargeTransaction: OnChargeTransaction<R>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind:
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward:
 		From<RewardsAccountParams<C::LaneId>>,
 	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardBalance: From<
 		<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
@@ -289,7 +289,7 @@ where
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
 	<R as TransactionPaymentConfig>::OnChargeTransaction: OnChargeTransaction<R>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind:
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward:
 		From<RewardsAccountParams<C::LaneId>>,
 	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardBalance: From<
 		<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,

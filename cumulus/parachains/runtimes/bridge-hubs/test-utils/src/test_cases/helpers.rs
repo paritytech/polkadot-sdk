@@ -167,7 +167,7 @@ where
 /// Verifies that relayer is rewarded at this chain.
 pub struct VerifyRelayerRewarded<Runtime: pallet_bridge_relayers::Config<RPI>, RPI: 'static> {
 	relayer: Runtime::AccountId,
-	reward_params: Runtime::RewardKind,
+	reward_params: Runtime::Reward,
 }
 
 impl<Runtime, RPI> VerifyRelayerRewarded<Runtime, RPI>
@@ -177,8 +177,8 @@ where
 {
 	/// Expect given delivered nonce to be the latest after transaction.
 	pub fn expect_relayer_reward(
-		relayer: Runtime::AccountId,
-		reward_params: impl Into<Runtime::RewardKind>,
+        relayer: Runtime::AccountId,
+        reward_params: impl Into<Runtime::Reward>,
 	) -> Box<dyn VerifyTransactionOutcome> {
 		Box::new(Self { relayer, reward_params: reward_params.into() })
 	}

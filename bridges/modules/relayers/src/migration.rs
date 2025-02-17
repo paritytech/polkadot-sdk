@@ -321,7 +321,7 @@ pub mod v1 {
 
 /// The pallet in version 1 only supported rewards collected under the key of
 /// `RewardsAccountParams`. This migration essentially converts existing `RewardsAccountParams` keys
-/// to the generic type `T::RewardKind`.
+/// to the generic type `T::Reward`.
 pub mod v2 {
 	use super::*;
 	#[cfg(feature = "try-runtime")]
@@ -341,7 +341,7 @@ pub mod v2 {
 	impl<T: Config<I>, I: 'static, LaneId: LaneIdType + Send + Sync> UncheckedOnRuntimeUpgrade
 		for UncheckedMigrationV1ToV2<T, I, LaneId>
 	where
-		<T as Config<I>>::RewardKind: From<RewardsAccountParams<LaneId>>,
+		<T as Config<I>>::Reward: From<RewardsAccountParams<LaneId>>,
 	{
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = T::DbWeight::get().reads(1);
@@ -357,7 +357,7 @@ pub mod v2 {
 			// re-register rewards with new format.
 			for (key1, key2, reward) in rewards_to_migrate {
 				// convert old key to the new
-				let new_key2: T::RewardKind = key2.into();
+				let new_key2: T::Reward = key2.into();
 
 				// re-register reward (drained above)
 				Pallet::<T, I>::register_relayer_reward(new_key2, &key1, reward);
@@ -380,7 +380,7 @@ pub mod v2 {
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
 			for (key1, key2, reward) in v1::RelayerRewards::<T, I, LaneId>::iter() {
-				let new_key2: T::RewardKind = key2.into();
+				let new_key2: T::Reward = key2.into();
 				log::info!(target: LOG_TARGET, "Reward to migrate: {key1:?}::{key2:?}->{new_key2:?} - {reward:?}");
 				rewards = rewards
 					.try_mutate(|inner| {
