@@ -49,6 +49,9 @@ use std::{
 	time::Duration,
 };
 
+#[cfg(test)]
+mod conformance;
+
 /// Builds two nodes that have each other as bootstrap nodes.
 /// This is to be used only for testing, and a panic will happen if something goes wrong.
 fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
