@@ -502,3 +502,98 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 		Ok(())
 	}
 }
+
+environmental::environmental!(recursion_count: u8);
+
+/// Denies execution if the XCM contains restricted **local** instructions, first checking at the
+/// top-level and then **recursively**.
+///
+/// This barrier only applies to **locally executed** XCM instructions (`SetAppendix`,
+/// `SetErrorHandler`, and `ExecuteWithOrigin`). Remote parts of the XCM are expected to be
+/// validated by receiving chain's barrier.
+///
+/// Note: Ensures that restricted instructions do not execute on the local chain, enforcing stricter
+/// execution policies, while allowing remote chains to enforce their own rules.
+pub struct DenyLocalInstructions<Inner>(PhantomData<Inner>);
+
+impl<Inner: DenyExecution> DenyLocalInstructions<Inner> {
+	// Recursively applies the deny filter to a nested XCM.
+	///
+	/// This function ensures that restricted instructions are blocked at any depth within the XCM.
+	/// It maintains a **recursion counter** to prevent stack overflows due to a deep nesting.
+	fn deny_recursively<RuntimeCall>(
+		origin: &Location,
+		xcm: &mut Xcm<RuntimeCall>,
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<Result<ControlFlow<()>, ProcessMessageError>, ProcessMessageError> {
+		// Initialise the recursion count the first time we enter recursive execution.
+		let _ = recursion_count::using_once(&mut 1, || {
+			recursion_count::with(|count| {
+				if *count > xcm_executor::RECURSION_LIMIT {
+					log::error!(
+						target: "xcm::barriers",
+						"Recursion limit exceeded, origin: {:?}, xcm: {:?}, max_weight: {:?}, properties: {:?}, count: {count}",
+						origin, xcm, max_weight, properties
+					);
+
+					return Err(ProcessMessageError::StackLimitReached);
+				}
+				*count = count.saturating_add(1);
+				Ok(())
+			})
+			// Fallback safety in case of an unexpected failure.
+			.unwrap_or(Ok(()))?;
+
+			// Ensure that we always decrement the counter after processing.
+			sp_core::defer! {
+				recursion_count::with(|count| {
+					*count = count.saturating_sub(1);
+				});
+			}
+
+			// Recursively check the nested XCM instructions.
+			Self::deny_execution(origin, xcm.inner_mut(), max_weight, properties)
+		})?;
+
+		Ok(Ok(ControlFlow::Continue(())))
+	}
+}
+
+impl<Inner: DenyExecution> DenyExecution for DenyLocalInstructions<Inner> {
+	/// Denies execution of restricted local nested XCM instructions.
+	///
+	/// This checks for `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instruction
+	/// applying the deny filter **recursively** to any nested XCMs found.
+	fn deny_execution<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		// First, check if the top-level message should be denied.
+		Inner::deny_execution(origin, instructions, max_weight, properties).inspect_err(|e| {
+			log::warn!(
+				target: "xcm::barriers",
+				"DenyLocalInstructions::Inner denied execution, origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}, error: {:?}",
+				origin, instructions, max_weight, properties, e
+			);
+		})?;
+
+		// If the top-level check passes, check nested instructions recursively.
+		instructions.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				SetAppendix(nested_xcm) |
+				SetErrorHandler(nested_xcm) |
+				ExecuteWithOrigin { xcm: nested_xcm, .. } => Self::deny_recursively::<RuntimeCall>(
+					origin, nested_xcm, max_weight, properties,
+				)?,
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
+
+		// Permit everything else
+		Ok(())
+	}
+}
