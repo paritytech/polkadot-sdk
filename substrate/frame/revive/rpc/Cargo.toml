@@ -75,3 +75,6 @@ pretty_assertions = { workspace = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
+
+[build-dependencies]
+git2 = { version = "0.20.0", default-features = false }
