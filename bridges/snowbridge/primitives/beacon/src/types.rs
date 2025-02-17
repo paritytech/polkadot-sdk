@@ -36,6 +36,7 @@ pub struct ForkVersions {
 	pub bellatrix: Fork,
 	pub capella: Fork,
 	pub deneb: Fork,
+	pub electra: Fork,
 }
 
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
