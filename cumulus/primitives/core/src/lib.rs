@@ -402,4 +402,11 @@ sp_api::decl_runtime_apis! {
 		/// Retrieve core selector and claim queue offset for the next block.
 		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
 	}
+
+	/// Runtime api used to access general info about a parachain runtime.
+	pub trait GetParachainInfo {
+
+		/// Retrieve the parachain id used for runtime.
+		fn id() -> ParaId;
+	}
 }
