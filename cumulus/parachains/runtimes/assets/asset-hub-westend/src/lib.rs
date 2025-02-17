@@ -61,7 +61,6 @@ use frame_system::{
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
-use pallet_xcm::EnsureXcm;
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -96,12 +95,14 @@ use assets_common::{
 	foreign_creators::ForeignCreators,
 	matching::{FromNetwork, FromSiblingParachain},
 };
+use pallet_xcm::EnsureXcm;
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 };
+use xcm_builder::{NetworkExportTable, SovereignPaidRemoteExporter};
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::PalletInfoAccess;
@@ -109,7 +110,7 @@ use frame_support::traits::PalletInfoAccess;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	NetworkId, NonFungible, Parent, ParentThen, Response,
 };
 
 use xcm_runtime_apis::{
@@ -1035,26 +1036,40 @@ impl pallet_nfts::Config for Runtime {
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
 /// consensus with dynamic fees and back-pressure.
-pub type ToRococoXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance1;
-impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime {
+pub type ToRococoXcmRouterInstance = pallet_xcm_bridge_router::Instance1;
+impl pallet_xcm_bridge_router::Config<ToRococoXcmRouterInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_xcm_bridge_router::WeightInfo<Runtime>;
 
-	type UniversalLocation = xcm_config::UniversalLocation;
-	type SiblingBridgeHubLocation = xcm_config::bridging::SiblingBridgeHub;
-	type BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
-	type Bridges = xcm_config::bridging::NetworkExportTable;
 	type DestinationVersion = PolkadotXcm;
 
-	type BridgeHubOrigin = frame_support::traits::EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		EnsureXcm<Equals<Self::SiblingBridgeHubLocation>>,
+	// Let's use `SovereignPaidRemoteExporter`, which sends `ExportMessage` over HRMP to the sibling
+	// BridgeHub.
+	type MessageExporter = SovereignPaidRemoteExporter<
+		// `ExporterFor` wrapper handling dynamic fees for congestion.
+		pallet_xcm_bridge_router::impls::ViaRemoteBridgeHubExporter<
+			Runtime,
+			ToRococoXcmRouterInstance,
+			NetworkExportTable<xcm_config::bridging::to_rococo::BridgeTable>,
+			xcm_config::bridging::to_rococo::RococoNetwork,
+			xcm_config::bridging::SiblingBridgeHub,
+		>,
+		XcmpQueue,
+		xcm_config::UniversalLocation,
 	>;
-	type ToBridgeHubSender = XcmpQueue;
-	type LocalXcmChannelManager =
-		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
+	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on
+	// the BH.
+	type BridgeIdResolver = pallet_xcm_bridge_router::impls::EnsureIsRemoteBridgeIdResolver<
+		xcm_config::UniversalLocation,
+	>;
+	// For congestion - allow only calls from BH.
+	type UpdateBridgeStatusOrigin =
+		AsEnsureOriginWithArg<EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>>;
+
+	// For adding message size fees
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
+	// For adding message size fees
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
 
@@ -1151,7 +1166,7 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm = 31,
 		CumulusXcm: cumulus_pallet_xcm = 32,
 		// Bridge utilities.
-		ToRococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance1> = 34,
+		ToRococoXcmRouter: pallet_xcm_bridge_router::<Instance1> = 34,
 		MessageQueue: pallet_message_queue = 35,
 
 		// Handy utilities.
@@ -1469,7 +1484,7 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
-		[pallet_xcm_bridge_hub_router, ToRococo]
+		[pallet_xcm_bridge_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
@@ -1853,7 +1868,7 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
-			use pallet_xcm_bridge_hub_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
+			use pallet_xcm_bridge_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
@@ -2008,37 +2023,17 @@ impl_runtime_apis! {
 				}
 			}
 
-			use pallet_xcm_bridge_hub_router::benchmarking::{
+			use pallet_xcm_bridge_router::benchmarking::{
 				Pallet as XcmBridgeHubRouterBench,
 				Config as XcmBridgeHubRouterConfig,
 			};
 
 			impl XcmBridgeHubRouterConfig<ToRococoXcmRouterInstance> for Runtime {
-				fn make_congested() {
-					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::<Runtime>(
-						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
-					);
-				}
 				fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
-					);
-					let bridged_asset_hub = xcm_config::bridging::to_rococo::AssetHubRococo::get();
-					let _ = PolkadotXcm::force_xcm_version(
-						RuntimeOrigin::root(),
-						alloc::boxed::Box::new(bridged_asset_hub.clone()),
-						XCM_VERSION,
-					).map_err(|e| {
-						log::error!(
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
-							RuntimeOrigin::root(),
-							bridged_asset_hub,
-							XCM_VERSION,
-							e
-						);
-						BenchmarkError::Stop("XcmVersion was not stored!")
-					})?;
-					Ok(bridged_asset_hub)
+					Ok(xcm_config::bridging::to_rococo::AssetHubRococo::get())
+				}
+				fn update_bridge_status_origin() -> Option<RuntimeOrigin> {
+					Some(pallet_xcm::Origin::Xcm(xcm_config::bridging::SiblingBridgeHub::get()).into())
 				}
 			}
 

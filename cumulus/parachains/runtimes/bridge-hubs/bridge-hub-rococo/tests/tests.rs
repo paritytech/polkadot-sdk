@@ -315,7 +315,7 @@ mod bridge_hub_westend_tests {
 				PolkadotXcm::force_xcm_version(RuntimeOrigin::root(), Box::new(BridgeHubWestendLocation::get()), XCM_VERSION).expect("version saved!");
 
 				// we need to create lane between sibling parachain and remote destination
-				bridge_hub_test_utils::ensure_opened_bridge::<
+				bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 					Runtime,
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
@@ -325,10 +325,10 @@ mod bridge_hub_westend_tests {
 					BridgedUniversalLocation::get(),
 					false,
 					|locations, _fee| {
-						bridge_hub_test_utils::open_bridge_with_storage::<
+						bridge_hub_test_utils::open_xcm_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance
-						>(locations, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]), None)
 					}
 				).1
 			},
@@ -380,7 +380,7 @@ mod bridge_hub_westend_tests {
 			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between sibling parachain and remote destination
-				bridge_hub_test_utils::ensure_opened_bridge::<
+				bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 					Runtime,
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
@@ -390,10 +390,10 @@ mod bridge_hub_westend_tests {
 					BridgedUniversalLocation::get(),
 					false,
 					|locations, _fee| {
-						bridge_hub_test_utils::open_bridge_with_storage::<
+						bridge_hub_test_utils::open_xcm_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance,
-						>(locations, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]), None)
 					},
 				)
 				.1
@@ -415,7 +415,7 @@ mod bridge_hub_westend_tests {
 			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between sibling parachain and remote destination
-				bridge_hub_test_utils::ensure_opened_bridge::<
+				bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 					Runtime,
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
@@ -425,10 +425,10 @@ mod bridge_hub_westend_tests {
 					BridgedUniversalLocation::get(),
 					false,
 					|locations, _fee| {
-						bridge_hub_test_utils::open_bridge_with_storage::<
+						bridge_hub_test_utils::open_xcm_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance,
-						>(locations, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]), None)
 					},
 				)
 				.1
@@ -585,7 +585,7 @@ mod bridge_hub_bulletin_tests {
 				PolkadotXcm::force_xcm_version(RuntimeOrigin::root(), Box::new(RococoBulletinGlobalConsensusNetworkLocation::get()), XCM_VERSION).expect("version saved!");
 
 				// we need to create lane between RococoPeople and RococoBulletin
-				bridge_hub_test_utils::ensure_opened_bridge::<
+				bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 					Runtime,
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
@@ -595,10 +595,10 @@ mod bridge_hub_bulletin_tests {
 					BridgedBulletinLocation::get(),
 					false,
 					|locations, _fee| {
-						bridge_hub_test_utils::open_bridge_with_storage::<
+						bridge_hub_test_utils::open_xcm_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance
-						>(locations, LegacyLaneId([0, 0, 0, 0]))
+						>(locations, LegacyLaneId([0, 0, 0, 0]), None)
 					}
 				).1
 			},
@@ -649,7 +649,7 @@ mod bridge_hub_bulletin_tests {
 			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between RococoPeople and RococoBulletin
-				bridge_hub_test_utils::ensure_opened_bridge::<
+				bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 					Runtime,
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
@@ -659,10 +659,10 @@ mod bridge_hub_bulletin_tests {
 					BridgedBulletinLocation::get(),
 					false,
 					|locations, _fee| {
-						bridge_hub_test_utils::open_bridge_with_storage::<
+						bridge_hub_test_utils::open_xcm_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, LegacyLaneId([0, 0, 0, 0]))
+						>(locations, LegacyLaneId([0, 0, 0, 0]), None)
 					},
 				)
 				.1
@@ -683,7 +683,7 @@ mod bridge_hub_bulletin_tests {
 			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between RococoPeople and RococoBulletin
-				bridge_hub_test_utils::ensure_opened_bridge::<
+				bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 					Runtime,
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
@@ -693,10 +693,10 @@ mod bridge_hub_bulletin_tests {
 					BridgedBulletinLocation::get(),
 					false,
 					|locations, _fee| {
-						bridge_hub_test_utils::open_bridge_with_storage::<
+						bridge_hub_test_utils::open_xcm_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, LegacyLaneId([0, 0, 0, 0]))
+						>(locations, LegacyLaneId([0, 0, 0, 0]), None)
 					},
 				)
 				.1
