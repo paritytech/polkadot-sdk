@@ -28,7 +28,7 @@
 
 use std::{
 	cmp::Ordering,
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	sync::{
 		atomic::{self, AtomicU64},
 		Arc,
@@ -56,8 +56,9 @@ use crate::{
 };
 
 use super::{
-	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
-	view_store::ViewStoreSubmitOutcome,
+	metrics::MetricsLink as PrometheusMetrics,
+	multi_view_listener::MultiViewListener,
+	view_store::{ViewStore, ViewStoreSubmitOutcome},
 };
 
 /// The minimum interval between single transaction revalidations. Given in blocks.
@@ -276,7 +277,7 @@ where
 	) -> Self {
 		Self {
 			api,
-			listener: Arc::from(MultiViewListener::new_with_worker().0),
+			listener: Arc::from(MultiViewListener::new_with_worker(Default::default()).0),
 			transactions: Default::default(),
 			metrics: Default::default(),
 			max_transactions_count,
@@ -467,13 +468,13 @@ where
 		self.transactions.clone_map()
 	}
 
-	/// Removes a transaction with given hash from the memory pool.
-	pub(super) fn remove_transaction(
-		&self,
-		tx_hash: &ExtrinsicHash<ChainApi>,
-	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
-		debug!(target: LOG_TARGET, ?tx_hash, "mempool::remove_transaction");
-		self.transactions.write().remove(tx_hash)
+	/// Removes transactions with given hashes from the memory pool.
+	pub(super) fn remove_transactions(&self, tx_hashes: &[ExtrinsicHash<ChainApi>]) {
+		log_xt_trace!(target: LOG_TARGET, tx_hashes, "mempool::remove_transaction");
+		let mut transactions = self.transactions.write();
+		for tx_hash in tx_hashes {
+			transactions.remove(tx_hash);
+		}
 	}
 
 	/// Revalidates a batch of transactions against the provided finalized block.
@@ -483,7 +484,7 @@ where
 		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
-			"mempool::revalidate"
+			"mempool::revalidate_inner"
 		);
 		let start = Instant::now();
 
@@ -531,7 +532,7 @@ where
 						target: LOG_TARGET,
 						?tx_hash,
 						?validation_result,
-						"Purging: invalid"
+						"mempool::revalidate_inner invalid"
 					);
 					Some(tx_hash)
 				},
@@ -545,7 +546,7 @@ where
 			count,
 			invalid_hashes = invalid_hashes.len(),
 			?duration,
-			"mempool::revalidate"
+			"mempool::revalidate_inner"
 		);
 
 		invalid_hashes
@@ -570,23 +571,50 @@ where
 
 	/// Revalidates transactions in the memory pool against a given finalized block and removes
 	/// invalid ones.
-	pub(super) async fn revalidate(&self, finalized_block: HashAndNumber<Block>) {
+	pub(super) async fn revalidate(
+		&self,
+		view_store: Arc<ViewStore<ChainApi, Block>>,
+		finalized_block: HashAndNumber<Block>,
+	) {
+		let revalidated_invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;
+
+		let mut invalid_hashes_subtrees =
+			revalidated_invalid_hashes.clone().into_iter().collect::<HashSet<_>>();
+		for tx in &revalidated_invalid_hashes {
+			invalid_hashes_subtrees.extend(
+				view_store
+					.remove_transaction_subtree(*tx, |_, _| {})
+					.into_iter()
+					.map(|tx| tx.hash),
+			);
+		}
+
+		{
+			let mut transactions = self.transactions.write();
+			invalid_hashes_subtrees.iter().for_each(|tx_hash| {
+				transactions.remove(&tx_hash);
+			});
+		};
+
+		self.metrics.report(|metrics| {
+			metrics
+				.mempool_revalidation_invalid_txs
+				.inc_by(invalid_hashes_subtrees.len() as _)
+		});
+
+		let revalidated_invalid_hashes_len = revalidated_invalid_hashes.len();
+		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
+
+		self.listener
+			.transactions_invalidated(&invalid_hashes_subtrees.into_iter().collect::<Vec<_>>());
+
 		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
-			"purge_transactions"
+			revalidated_invalid_hashes_len,
+			invalid_hashes_subtrees_len,
+			"mempool::revalidate"
 		);
-		let invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;
-
-		self.metrics.report(|metrics| {
-			metrics.mempool_revalidation_invalid_txs.inc_by(invalid_hashes.len() as _)
-		});
-
-		let mut transactions = self.transactions.write();
-		invalid_hashes.iter().for_each(|i| {
-			transactions.remove(i);
-		});
-		self.listener.transactions_invalidated(&invalid_hashes);
 	}
 
 	/// Updates the priority of transaction stored in mempool using provided view_store submission
@@ -598,6 +626,16 @@ where
 				.get_mut(&outcome.hash())
 				.map(|p| *p.priority.write() = Some(priority))
 		});
+	}
+
+	/// Counts the number of transactions in the provided iterator of hashes
+	/// that are not known to the pool.
+	pub(super) fn count_unknown_transactions<'a>(
+		&self,
+		hashes: impl Iterator<Item = &'a ExtrinsicHash<ChainApi>>,
+	) -> usize {
+		let transactions = self.transactions.read();
+		hashes.filter(|tx_hash| !transactions.contains_key(tx_hash)).count()
 	}
 }
 
