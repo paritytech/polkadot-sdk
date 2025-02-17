@@ -45,10 +45,12 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
+use sp_runtime::traits::StaticLookup;
 pub use types::*;
 
 extern crate alloc;
 
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::broker";
 
@@ -977,6 +979,24 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_force_reserve(workload, core)?;
 			Ok(Pays::No.into())
+		}
+
+		/// Transfer a Bulk Coretime Region to a new owner.
+		///
+		/// - `origin`: Admin origin(AKA OpenGov).
+		/// - `region_id`: The Region whose ownership should change.
+		/// - `new_owner`: The new owner for the Region.
+		#[pallet::call_index(25)]
+		#[pallet::weight(T::WeightInfo::force_transfer())]
+		pub fn force_transfer(
+			origin: OriginFor<T>,
+			region_id: RegionId,
+			new_owner: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			let new_owner = T::Lookup::lookup(new_owner)?;
+			Self::do_transfer(region_id, None, new_owner)?;
+			Ok(())
 		}
 
 		#[pallet::call_index(99)]
