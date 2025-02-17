@@ -104,45 +104,28 @@ use syn::{parse_macro_input, Error, Expr, Ident, ItemFn, Meta, MetaNameValue};
 /// ```
 #[proc_macro_attribute]
 pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
-    let item_fn = parse_macro_input!(item as ItemFn);
+    let item_fn = syn::parse_macro_input!(item as ItemFn);
 
     if arg.is_empty() {
         return Error::new(
             Span::call_site(),
-            "missing argument: name of the node. Example: #[prefix_logs_with(\"node_name\")]",
+            "missing argument: name of the node. Example: sc_cli::prefix_logs_with(<expr>)",
         )
             .to_compile_error()
             .into();
     }
 
-    let name = parse_macro_input!(arg as Expr);
+    let name = syn::parse_macro_input!(arg as Expr);
 
-    // Default to `sc_tracing`
-    let mut custom_crate: Option<Ident> = None;
-
-    for attr in &item_fn.attrs {
-        if attr.path().is_ident("sc_tracing") {
-            if let Ok(Meta::List(meta_list)) = attr.meta.clone().try_into() {
-                for nested in meta_list.tokens.clone().into_iter() {
-                    if let Ok(Meta::NameValue(MetaNameValue { path, value, .. })) =
-                        syn::parse2(nested.into())
-                    {
-                        if path.is_ident("crate") {
-                            if let syn::Expr::Lit(syn::ExprLit {
-                                                      lit: syn::Lit::Str(lit),
-                                                      ..
-                                                  }) = value
-                            {
-                                custom_crate = Some(Ident::new(&lit.value(), Span::call_site()));
-                            }
-                        }
-                    }
-                }
-            }
+    // Check if `polkadot-sdk` is available
+    let crate_name = match crate_name("sc-tracing") {
+        Ok(FoundCrate::Itself) => Ident::new("sc_tracing", Span::call_site()),
+        Ok(FoundCrate::Name(crate_name)) if crate_name.starts_with("polkadot_sdk") => {
+            Ident::new("polkadot_sdk::sc_tracing", Span::call_site())
         }
-    }
-
-    let crate_name = custom_crate.unwrap_or_else(|| Ident::new("sc_tracing", Span::call_site()));
+        Ok(FoundCrate::Name(crate_name)) => Ident::new(&crate_name, Span::call_site()),
+        Err(e) => return Error::new(Span::call_site(), e).to_compile_error().into(),
+    };
 
     let ItemFn { attrs, vis, sig, block } = item_fn;
 
