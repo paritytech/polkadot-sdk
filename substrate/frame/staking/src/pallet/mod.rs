@@ -750,23 +750,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
-	/// Indices of validators that have offended in the active era. The offenders are disabled for a
-	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
-	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
-	/// implicitly means that the implementor also controls the max number of disabled validators.
-	///
-	/// The vec is always kept sorted based on the u32 index so that we can find whether a given
-	/// validator has previously offended using binary search.
-	///
-	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
-	/// represents how severe is the offence that got the validator disabled.
-	/// todo(ank4n): Migrate kill.
-	/*
-	#[pallet::storage]
-	pub type DisabledValidators<T: Config> =
-		StorageValue<_, BoundedVec<(u32, OffenceSeverity), T::MaxDisabledValidators>, ValueQuery>;
-
-	*/
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).

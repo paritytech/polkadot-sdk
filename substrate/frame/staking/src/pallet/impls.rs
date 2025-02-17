@@ -518,8 +518,6 @@ impl<T: Config> Pallet<T> {
 				Self::start_era(start_session);
 			}
 		}
-
-		// todo(ank4n): add a config to disable a validator for minimum number of sessions.
 	}
 
 	/// End a session potentially ending an era.
