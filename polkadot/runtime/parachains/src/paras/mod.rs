@@ -117,7 +117,10 @@ use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
 use core::{cmp, mem};
-use frame_support::{pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound};
+use frame_support::{
+	dispatch::PostDispatchInfo, pallet_prelude::*, traits::EstimateNextSessionRotation,
+	DefaultNoBound
+};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	ConsensusLog, HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
@@ -551,6 +554,8 @@ pub trait WeightInfo {
 	fn include_pvf_check_statement_finalize_onboarding_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_onboarding_reject() -> Weight;
 	fn include_pvf_check_statement() -> Weight;
+	fn authorize_force_set_current_code_hash() -> Weight;
+	fn apply_authorized_force_set_current_code(c: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -595,6 +600,12 @@ impl WeightInfo for TestWeightInfo {
 	fn include_pvf_check_statement() -> Weight {
 		// This special value is to distinguish from the finalizing variants above in tests.
 		Weight::MAX - Weight::from_parts(1, 1)
+	}
+	fn authorize_force_set_current_code_hash() -> Weight {
+		Weight::MAX
+	}
+	fn apply_authorized_force_set_current_code(_c: u32) -> Weight {
+		Weight::MAX
 	}
 }
 
@@ -649,6 +660,11 @@ pub mod pallet {
 	pub enum Event {
 		/// Current code has been updated for a Para. `para_id`
 		CurrentCodeUpdated(ParaId),
+		/// New code hash has been authorized for a Para.
+		CodeAuthorized {
+			code_hash: ValidationCodeHash,
+			para_id: ParaId,
+		},
 		/// Current head has been updated for a Para. `para_id`
 		CurrentHeadUpdated(ParaId),
 		/// A code upgrade has been scheduled for a Para. `para_id`
@@ -791,6 +807,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type FutureCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
+	/// The code hash of a para which is authorized.
+	#[pallet::storage]
+	pub(super) type AuthorizedCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
+
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
 	///
@@ -895,10 +915,7 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let new_code_hash = new_code.hash();
-			Self::increase_code_ref(&new_code_hash, &new_code);
-			Self::set_current_code(para, new_code_hash, frame_system::Pallet::<T>::block_number());
-			Self::deposit_event(Event::CurrentCodeUpdated(para));
+			Self::do_force_set_current_code_update(para, new_code);
 			Ok(())
 		}
 
@@ -1148,6 +1165,80 @@ pub mod pallet {
 			ensure_root(origin)?;
 			MostRecentContext::<T>::insert(&para, context);
 			Ok(())
+		}
+
+		/// Sets the storage for the authorized current code hash of the parachain.
+		///
+		/// This can be useful when we want to trigger `Paras::force_set_current_code(para, code)`
+		/// from a different chain than the one where the `Paras` pallet is deployed.
+		///
+		/// The main reason is to avoid transferring the entire `new_code` wasm blob between chains.
+		/// Instead, we authorize `new_code_hash` with `root`, which can later be applied by
+		/// `Paras::apply_authorized_force_set_current_code(para, new_code)` by anyone.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::authorize_force_set_current_code_hash())]
+		pub fn authorize_force_set_current_code_hash(
+			origin: OriginFor<T>,
+			para: ParaId,
+			new_code_hash: ValidationCodeHash,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			// if one is already authorized, means it has not been applied yet, so we just replace it.
+			if let Some(already_authorized) = AuthorizedCodeHash::<T>::take(para) {
+				log::warn!(
+					target: LOG_TARGET,
+					"Already authorized code hash: {:?} found for para {:?}, just removing it!",
+					already_authorized, para
+				);
+			}
+
+			// TODO: FAIL-CI - more validations?
+			// do we need to check against `FutureCodeHash`, `CodeHashRef`,
+			// `PastCodeHash`,... code hashes?
+
+			// insert authorized code hash.
+			AuthorizedCodeHash::<T>::insert(&para, new_code_hash);
+			Self::deposit_event(Event::CodeAuthorized {
+				para_id: para,
+				code_hash: new_code_hash,
+			});
+
+			Ok(())
+		}
+
+		/// Applies the already authorized current code for the parachain,
+		/// triggering the same functionality as `force_set_current_code`.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::apply_authorized_force_set_current_code(new_code.0.len() as u32))]
+		pub fn apply_authorized_force_set_current_code(
+			_origin: OriginFor<T>,
+			para: ParaId,
+			new_code: ValidationCode,
+		) -> DispatchResultWithPostInfo {
+			// no need to ensure, anybody can do this
+
+			// check `new_code` is authorized
+			let Some(authorized_code_hash) = AuthorizedCodeHash::<T>::take(&para) else {
+				log::error!(target: LOG_TARGET, "No authorized code hash found for para {:?}!", para);
+				return Err(Error::<T>::CannotUpgradeCode.into())
+			};
+			let new_code_hash = new_code.hash();
+			ensure!(new_code_hash == authorized_code_hash, Error::<T>::CannotUpgradeCode);
+
+			// TODO: FAIL-CI - more validations?
+
+			// set current code
+			Self::do_force_set_current_code_update(para, new_code);
+
+			// if ok, then allows "for free"
+			let post = PostDispatchInfo {
+				// consume the rest of the block to prevent further transactions
+				actual_weight: Some(T::BlockWeights::get().max_block),
+				// no fee for valid upgrade
+				pays_fee: Pays::No,
+			};
+			Ok(post)
 		}
 	}
 
@@ -2157,6 +2248,17 @@ impl<T: Config> Pallet<T> {
 		};
 
 		weight + T::DbWeight::get().writes(1)
+	}
+
+	/// Force set the current code for the given parachain.
+	fn do_force_set_current_code_update(
+		para: ParaId,
+		new_code: ValidationCode,
+	) {
+		let new_code_hash = new_code.hash();
+		Self::increase_code_ref(&new_code_hash, &new_code);
+		Self::set_current_code(para, new_code_hash, frame_system::Pallet::<T>::block_number());
+		Self::deposit_event(Event::CurrentCodeUpdated(para));
 	}
 
 	/// Returns the list of PVFs (aka validation code) that require casting a vote by a validator in

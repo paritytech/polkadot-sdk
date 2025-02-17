@@ -2013,3 +2013,103 @@ fn parachains_cache_preserves_order() {
 		assert_eq!(Parachains::<Test>::get(), vec![a, c]);
 	});
 }
+
+#[test]
+fn authorize_and_apply_set_current_code_works() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let code_1 = ValidationCode(vec![1]);
+		let code_2 = ValidationCode(vec![2]);
+		let code_3 = ValidationCode(vec![3]);
+		let code_1_hash = code_1.hash();
+		let code_2_hash = code_2.hash();
+		let code_3_hash = code_3.hash();
+		let root = RuntimeOrigin::root();
+		let non_root = RuntimeOrigin::signed(1);
+
+		// check before
+		assert!(AuthorizedCodeHash::<Test>::get(para_a).is_none());
+		assert!(CurrentCodeHash::<Test>::get(para_a).is_none());
+		check_code_is_not_stored(&code_1);
+		check_code_is_not_stored(&code_2);
+		check_code_is_not_stored(&code_3);
+
+		// cannot apply non-authorized code
+		assert_err!(
+			Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_1.clone()),
+			Error::<Test>::CannotUpgradeCode,
+		);
+
+		// non-root user cannot authorize
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(non_root.clone(), para_a, code_1_hash),
+			DispatchError::BadOrigin,
+		);
+		// root can authorize
+		assert_ok!(Paras::authorize_force_set_current_code_hash(root.clone(), para_a, code_1_hash));
+
+		// check authorized code hash stored
+		assert_eq!(AuthorizedCodeHash::<Test>::get(para_a), Some(code_1_hash));
+		assert!(CurrentCodeHash::<Test>::get(para_a).is_none());
+		check_code_is_not_stored(&code_1);
+		check_code_is_not_stored(&code_2);
+		check_code_is_not_stored(&code_3);
+
+		// non-root cannot apply unauthorized code
+		assert_err!(
+			Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_2.clone()),
+			Error::<Test>::CannotUpgradeCode,
+		);
+		assert_eq!(AuthorizedCodeHash::<Test>::get(para_a), Some(code_1_hash));
+		assert!(CurrentCodeHash::<Test>::get(para_a).is_none());
+		check_code_is_not_stored(&code_1);
+		check_code_is_not_stored(&code_2);
+		check_code_is_not_stored(&code_3);
+
+		// non-root can apply authorized code
+		assert_ok!(Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_1.clone()));
+
+		// check authorized code was applied
+		assert!(AuthorizedCodeHash::<Test>::get(para_a).is_none());
+		assert_eq!(CurrentCodeHash::<Test>::get(para_a), Some(code_1_hash));
+		check_code_is_stored(&code_1);
+		check_code_is_not_stored(&code_2);
+		check_code_is_not_stored(&code_3);
+
+		// authorize multiple without apply:
+		// authorize code_2_hash
+		assert_ok!(Paras::authorize_force_set_current_code_hash(root.clone(), para_a, code_2_hash));
+		assert_eq!(AuthorizedCodeHash::<Test>::get(para_a), Some(code_2_hash));
+		assert_eq!(CurrentCodeHash::<Test>::get(para_a), Some(code_1_hash));
+		check_code_is_stored(&code_1);
+		check_code_is_not_stored(&code_2);
+		check_code_is_not_stored(&code_3);
+		// authorize code_3_hash
+		assert_ok!(Paras::authorize_force_set_current_code_hash(root, para_a, code_3_hash));
+		assert_eq!(AuthorizedCodeHash::<Test>::get(para_a), Some(code_3_hash));
+		assert_eq!(CurrentCodeHash::<Test>::get(para_a), Some(code_1_hash));
+		check_code_is_stored(&code_1);
+		check_code_is_not_stored(&code_2);
+		check_code_is_not_stored(&code_3);
+
+		// cannot apply older ones
+		assert_err!(
+			Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_1.clone()),
+			Error::<Test>::CannotUpgradeCode,
+		);
+		assert_err!(
+			Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_2.clone()),
+			Error::<Test>::CannotUpgradeCode,
+		);
+
+		// apply just authorized
+		assert_ok!(Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_3.clone()));
+		assert!(AuthorizedCodeHash::<Test>::get(para_a).is_none());
+		assert_eq!(CurrentCodeHash::<Test>::get(para_a), Some(code_3_hash));
+		check_code_is_stored(&code_1);
+		check_code_is_not_stored(&code_2);
+		check_code_is_stored(&code_3);
+	})
+}
+	})
+}
