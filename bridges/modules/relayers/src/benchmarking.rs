@@ -40,7 +40,7 @@ pub trait Config<I: 'static = ()>: crate::Config<I> {
 	/// Prepare environment for paying given reward for serving given lane.
 	fn prepare_rewards_account(
 		reward_kind: Self::RewardKind,
-		reward: Self::Reward,
+		reward: Self::RewardBalance,
 	) -> Option<AlternativeBeneficiaryOf<Self, I>>;
 	/// Give enough balance to given account.
 	fn deposit_account(account: Self::AccountId, balance: Self::Balance);
@@ -57,10 +57,10 @@ benchmarks_instance_pallet! {
 	claim_rewards {
 		let reward_kind = T::bench_reward_kind();
 		let relayer: T::AccountId = whitelisted_caller();
-		let reward = T::Reward::from(REWARD_AMOUNT);
+		let reward_balance = T::RewardBalance::from(REWARD_AMOUNT);
 
-		let _ = T::prepare_rewards_account(reward_kind, reward);
-		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward);
+		let _ = T::prepare_rewards_account(reward_kind, reward_balance);
+		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward_balance);
 	}: _(RawOrigin::Signed(relayer.clone()), reward_kind)
 	verify {
 		// we can't check anything here, because `PaymentProcedure` is responsible for
@@ -69,7 +69,7 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::RewardPaid {
 			relayer,
 			reward_kind,
-			reward,
+			reward_balance,
 			alternative_beneficiary: None,
 		}.into());
 	}
@@ -78,12 +78,12 @@ benchmarks_instance_pallet! {
 	claim_rewards_to {
 		let reward_kind = T::bench_reward_kind();
 		let relayer: T::AccountId = whitelisted_caller();
-		let reward = T::Reward::from(REWARD_AMOUNT);
+		let reward_balance = T::RewardBalance::from(REWARD_AMOUNT);
 
-		let Some(alternative_beneficiary) = T::prepare_rewards_account(reward_kind, reward) else {
+		let Some(alternative_beneficiary) = T::prepare_rewards_account(reward_kind, reward_balance) else {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		};
-		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward);
+		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward_balance);
 	}: _(RawOrigin::Signed(relayer.clone()), reward_kind, alternative_beneficiary.clone())
 	verify {
 		// we can't check anything here, because `PaymentProcedure` is responsible for
@@ -92,7 +92,7 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::RewardPaid {
 			relayer,
 			reward_kind,
-			reward,
+			reward_balance,
 			alternative_beneficiary: Some(alternative_beneficiary),
 		}.into());
 	}

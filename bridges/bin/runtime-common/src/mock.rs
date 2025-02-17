@@ -71,7 +71,7 @@ pub type BridgedChainHeader =
 
 /// Rewards payment procedure.
 pub type TestPaymentProcedure =
-	PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, Reward>;
+	PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, RewardBalance>;
 /// Stake that we are using in tests.
 pub type TestStake = ConstU64<5_000>;
 /// Stake and slash mechanism to use in tests.
@@ -91,7 +91,7 @@ pub fn test_lane_id() -> TestLaneIdType {
 	TestLaneIdType::try_new(1, 2).unwrap()
 }
 /// Reward measurement type.
-pub type Reward = u32;
+pub type RewardBalance = u32;
 
 /// Bridged chain id used in tests.
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
@@ -213,7 +213,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
-	type Reward = Reward;
+	type RewardBalance = RewardBalance;
 	type RewardKind = RewardsAccountParams<pallet_bridge_messages::LaneIdOf<TestRuntime, ()>>;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;

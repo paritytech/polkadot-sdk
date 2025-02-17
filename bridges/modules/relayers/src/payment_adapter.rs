@@ -44,7 +44,7 @@ where
 	T: Config<RI> + pallet_bridge_messages::Config<MI>,
 	MI: 'static,
 	RI: 'static,
-	DeliveryReward: Get<T::Reward>,
+	DeliveryReward: Get<T::RewardBalance>,
 	<T as Config<RI>>::RewardKind: From<RewardsAccountParams<LaneIdOf<T, MI>>>,
 {
 	type Error = &'static str;
@@ -83,16 +83,16 @@ fn register_relayers_rewards<
 	confirmation_relayer: &T::AccountId,
 	relayers_rewards: RelayersRewards<T::AccountId>,
 	lane_id: RewardsAccountParams<LaneIdOf<T, MI>>,
-	delivery_fee: T::Reward,
+	delivery_fee: T::RewardBalance,
 ) where
 	<T as Config<RI>>::RewardKind: From<RewardsAccountParams<LaneIdOf<T, MI>>>,
 {
 	// reward every relayer except `confirmation_relayer`
-	let mut confirmation_relayer_reward = T::Reward::zero();
+	let mut confirmation_relayer_reward = T::RewardBalance::zero();
 	for (relayer, messages) in relayers_rewards {
 		// sane runtime configurations guarantee that the number of messages will be below
 		// `u32::MAX`
-		let relayer_reward = T::Reward::saturated_from(messages).saturating_mul(delivery_fee);
+		let relayer_reward = T::RewardBalance::saturated_from(messages).saturating_mul(delivery_fee);
 
 		if relayer != *confirmation_relayer {
 			Pallet::<T, RI>::register_relayer_reward(lane_id.into(), &relayer, relayer_reward);
@@ -179,7 +179,7 @@ mod tests {
 	fn pay_reward_from_account_actually_pays_reward() {
 		type Balances = pallet_balances::Pallet<TestRuntime>;
 		type PayLaneRewardFromAccount =
-			PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, Reward>;
+			PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, RewardBalance>;
 
 		run_test(|| {
 			let in_lane_0 = RewardsAccountParams::new(

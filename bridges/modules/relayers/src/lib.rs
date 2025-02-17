@@ -62,7 +62,7 @@ pub mod pallet {
 	type RelayerRewardsKeyProviderOf<T, I> = RelayerRewardsKeyProvider<
 		<T as frame_system::Config>::AccountId,
 		<T as Config<I>>::RewardKind,
-		<T as Config<I>>::Reward,
+		<T as Config<I>>::RewardBalance,
 	>;
 
 	/// Shortcut to alternative beneficiary type for `Config::PaymentProcedure`.
@@ -70,7 +70,7 @@ pub mod pallet {
 		<<T as Config<I>>::PaymentProcedure as PaymentProcedure<
 			<T as frame_system::Config>::AccountId,
 			<T as Config<I>>::RewardKind,
-			<T as Config<I>>::Reward,
+			<T as Config<I>>::RewardBalance,
 		>>::AlternativeBeneficiary;
 
 	#[pallet::config]
@@ -80,7 +80,7 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type of relayer reward.
-		type Reward: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
+		type RewardBalance: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
 		/// Reward discriminator type. The pallet can collect different types of rewards for a
 		/// single account, so `RewardKind` is used as the second key in the `RelayerRewards` double
 		/// map.
@@ -90,7 +90,7 @@ pub mod pallet {
 		type RewardKind: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
 
 		/// Pay rewards scheme.
-		type PaymentProcedure: PaymentProcedure<Self::AccountId, Self::RewardKind, Self::Reward>;
+		type PaymentProcedure: PaymentProcedure<Self::AccountId, Self::RewardKind, Self::RewardBalance>;
 
 		/// Stake and slash scheme.
 		type StakeAndSlash: StakeAndSlash<Self::AccountId, BlockNumberFor<Self>, Self::Balance>;
@@ -243,11 +243,11 @@ pub mod pallet {
 				&relayer,
 				reward_kind,
 				|maybe_reward| -> DispatchResult {
-					let reward = maybe_reward.take().ok_or(Error::<T, I>::NoRewardForRelayer)?;
+					let reward_balance = maybe_reward.take().ok_or(Error::<T, I>::NoRewardForRelayer)?;
 					T::PaymentProcedure::pay_reward(
 						&relayer,
 						reward_kind,
-						reward,
+						reward_balance,
 						alternative_beneficiary.clone(),
 					)
 					.map_err(|e| {
@@ -255,7 +255,7 @@ pub mod pallet {
 							target: LOG_TARGET,
 							"Failed to pay ({:?} / {:?}) rewards to {:?}(alternative beneficiary: {:?}), error: {:?}",
 							reward_kind,
-							reward,
+							reward_balance,
 							relayer,
 							alternative_beneficiary,
 							e,
@@ -266,7 +266,7 @@ pub mod pallet {
 					Self::deposit_event(Event::<T, I>::RewardPaid {
 						relayer: relayer.clone(),
 						reward_kind,
-						reward,
+						reward_balance,
 						alternative_beneficiary,
 					});
 					Ok(())
@@ -370,17 +370,17 @@ pub mod pallet {
 		pub(crate) fn register_relayer_reward(
 			reward_kind: T::RewardKind,
 			relayer: &T::AccountId,
-			reward: T::Reward,
+			reward_balance: T::RewardBalance,
 		) {
-			if reward.is_zero() {
+			if reward_balance.is_zero() {
 				return
 			}
 
 			RelayerRewards::<T, I>::mutate(
 				relayer,
 				reward_kind,
-				|old_reward: &mut Option<T::Reward>| {
-					let new_reward = old_reward.unwrap_or_else(Zero::zero).saturating_add(reward);
+				|old_reward: &mut Option<T::RewardBalance>| {
+					let new_reward = old_reward.unwrap_or_else(Zero::zero).saturating_add(reward_balance);
 					*old_reward = Some(new_reward);
 
 					log::trace!(
@@ -394,7 +394,7 @@ pub mod pallet {
 					Self::deposit_event(Event::<T, I>::RewardRegistered {
 						relayer: relayer.clone(),
 						reward_kind,
-						reward,
+						reward_balance,
 					});
 				},
 			);
@@ -447,7 +447,7 @@ pub mod pallet {
 			/// Relayer can claim this kind of reward.
 			reward_kind: T::RewardKind,
 			/// Reward amount.
-			reward: T::Reward,
+			reward_balance: T::RewardBalance,
 		},
 		/// Reward has been paid to the relayer.
 		RewardPaid {
@@ -456,7 +456,7 @@ pub mod pallet {
 			/// Relayer has received reward of this kind.
 			reward_kind: T::RewardKind,
 			/// Reward amount.
-			reward: T::Reward,
+			reward_balance: T::RewardBalance,
 			/// Alternative beneficiary.
 			alternative_beneficiary: Option<AlternativeBeneficiaryOf<T, I>>,
 		},
@@ -533,13 +533,13 @@ pub mod pallet {
 }
 
 /// Implementation of `RewardLedger` for the pallet.
-impl<T: Config<I>, I: 'static, RewardKind, Reward> RewardLedger<T::AccountId, RewardKind, Reward>
+impl<T: Config<I>, I: 'static, RewardKind, RewardBalance> RewardLedger<T::AccountId, RewardKind, RewardBalance>
 	for Pallet<T, I>
 where
 	RewardKind: Into<T::RewardKind>,
-	Reward: Into<T::Reward>,
+	RewardBalance: Into<T::RewardBalance>,
 {
-	fn register_reward(relayer: &T::AccountId, reward_kind: RewardKind, reward: Reward) {
+	fn register_reward(relayer: &T::AccountId, reward_kind: RewardKind, reward: RewardBalance) {
 		Self::register_relayer_reward(reward_kind.into(), relayer, reward.into());
 	}
 }
@@ -577,7 +577,7 @@ mod tests {
 					event: TestEvent::BridgeRelayers(Event::RewardRegistered {
 						relayer: REGULAR_RELAYER,
 						reward_kind: test_reward_account_param(),
-						reward: 100
+						reward_balance: 100
 					}),
 					topics: vec![],
 				}),
@@ -656,7 +656,7 @@ mod tests {
 					event: TestEvent::BridgeRelayers(Event::RewardPaid {
 						relayer: REGULAR_RELAYER,
 						reward_kind: test_reward_account_param(),
-						reward: 100,
+						reward_balance: 100,
 						alternative_beneficiary: None,
 					}),
 					topics: vec![],
@@ -693,7 +693,7 @@ mod tests {
 					event: TestEvent::BridgeRelayers(Event::RewardPaid {
 						relayer: REGULAR_RELAYER,
 						reward_kind: test_reward_account_param(),
-						reward: 100,
+						reward_balance: 100,
 						alternative_beneficiary: Some(REGULAR_RELAYER2),
 					}),
 					topics: vec![],

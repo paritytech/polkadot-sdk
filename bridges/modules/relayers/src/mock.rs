@@ -82,7 +82,7 @@ pub fn test_lane_id() -> TestLaneIdType {
 	TestLaneIdType::try_new(1, 2).unwrap()
 }
 /// Reward measurement type.
-pub type Reward = u64;
+pub type RewardBalance = u64;
 
 /// Underlying chain of `ThisChain`.
 pub struct ThisUnderlyingChain;
@@ -282,7 +282,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
-	type Reward = Reward;
+	type RewardBalance = RewardBalance;
 	type RewardKind = RewardsAccountParams<pallet_bridge_messages::LaneIdOf<TestRuntime, ()>>;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
@@ -302,13 +302,13 @@ impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
 
 	fn prepare_rewards_account(
 		account_params: RewardsAccountParams<TestLaneIdType>,
-		reward: Self::Reward,
+		reward: Self::RewardBalance,
 	) -> Option<ThisChainAccountId> {
 		let rewards_account = PayRewardFromAccount::<
 			Balances,
 			ThisChainAccountId,
 			TestLaneIdType,
-			Reward,
+			RewardBalance,
 		>::rewards_account(account_params);
 		Self::deposit_account(rewards_account, reward.into());
 
@@ -339,13 +339,13 @@ pub struct TestPaymentProcedure;
 
 impl TestPaymentProcedure {
 	pub fn rewards_account(params: RewardsAccountParams<TestLaneIdType>) -> ThisChainAccountId {
-		PayRewardFromAccount::<(), ThisChainAccountId, TestLaneIdType, Reward>::rewards_account(
+		PayRewardFromAccount::<(), ThisChainAccountId, TestLaneIdType, RewardBalance>::rewards_account(
 			params,
 		)
 	}
 }
 
-impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, Reward>
+impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, RewardBalance>
 	for TestPaymentProcedure
 {
 	type Error = ();
@@ -354,7 +354,7 @@ impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, 
 	fn pay_reward(
 		relayer: &ThisChainAccountId,
 		_reward_kind: RewardsAccountParams<TestLaneIdType>,
-		_reward: Reward,
+		_reward: RewardBalance,
 		_alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		match *relayer {

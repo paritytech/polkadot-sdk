@@ -68,13 +68,13 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 pub type RelayersForLegacyLaneIdsMessagesInstance = ();
 impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Reward = Balance;
+	type RewardBalance = Balance;
 	type RewardKind = RewardsAccountParams<bp_messages::LegacyLaneId>;
 	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
 		pallet_balances::Pallet<Runtime>,
 		AccountId,
 		bp_messages::LegacyLaneId,
-		Self::Reward,
+		Self::RewardBalance,
 	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
@@ -92,13 +92,13 @@ impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> fo
 pub type RelayersForPermissionlessLanesInstance = pallet_bridge_relayers::Instance2;
 impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Reward = Balance;
+	type RewardBalance = Balance;
 	type RewardKind = RewardsAccountParams<bp_messages::HashedLaneId>;
 	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
 		pallet_balances::Pallet<Runtime>,
 		AccountId,
 		bp_messages::HashedLaneId,
-		Self::Reward,
+		Self::RewardBalance,
 	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,

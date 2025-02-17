@@ -90,7 +90,7 @@ impl<LaneId: Decode + Encode> TypeId for RewardsAccountParams<LaneId> {
 }
 
 /// Reward payment procedure.
-pub trait PaymentProcedure<Relayer, RewardKind, Reward> {
+pub trait PaymentProcedure<Relayer, RewardKind, RewardBalance> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
 
@@ -102,19 +102,19 @@ pub trait PaymentProcedure<Relayer, RewardKind, Reward> {
 	fn pay_reward(
 		relayer: &Relayer,
 		reward_kind: RewardKind,
-		reward: Reward,
+		reward: RewardBalance,
 		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error>;
 }
 
-impl<Relayer, RewardKind, Reward> PaymentProcedure<Relayer, RewardKind, Reward> for () {
+impl<Relayer, RewardKind, RewardBalance> PaymentProcedure<Relayer, RewardKind, RewardBalance> for () {
 	type Error = &'static str;
 	type AlternativeBeneficiary = ();
 
 	fn pay_reward(
 		_: &Relayer,
 		_: RewardKind,
-		_: Reward,
+		_: RewardBalance,
 		_: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		Ok(())
@@ -123,11 +123,11 @@ impl<Relayer, RewardKind, Reward> PaymentProcedure<Relayer, RewardKind, Reward> 
 
 /// Reward payment procedure that executes a `balances::transfer` call from the account
 /// derived from the given `RewardsAccountParams` to the relayer or an alternative beneficiary.
-pub struct PayRewardFromAccount<T, Relayer, LaneId, Reward>(
-	PhantomData<(T, Relayer, LaneId, Reward)>,
+pub struct PayRewardFromAccount<T, Relayer, LaneId, RewardBalance>(
+	PhantomData<(T, Relayer, LaneId, RewardBalance)>,
 );
 
-impl<T, Relayer, LaneId, Reward> PayRewardFromAccount<T, Relayer, LaneId, Reward>
+impl<T, Relayer, LaneId, RewardBalance> PayRewardFromAccount<T, Relayer, LaneId, RewardBalance>
 where
 	Relayer: Decode + Encode,
 	LaneId: Decode + Encode,
@@ -138,11 +138,11 @@ where
 	}
 }
 
-impl<T, Relayer, LaneId, Reward> PaymentProcedure<Relayer, RewardsAccountParams<LaneId>, Reward>
-	for PayRewardFromAccount<T, Relayer, LaneId, Reward>
+impl<T, Relayer, LaneId, RewardBalance> PaymentProcedure<Relayer, RewardsAccountParams<LaneId>, RewardBalance>
+	for PayRewardFromAccount<T, Relayer, LaneId, RewardBalance>
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,
-	T::Balance: From<Reward>,
+	T::Balance: From<RewardBalance>,
 	Relayer: Clone + Debug + Decode + Encode + Eq + TypeInfo,
 	LaneId: Decode + Encode,
 {
@@ -152,7 +152,7 @@ where
 	fn pay_reward(
 		relayer: &Relayer,
 		reward_kind: RewardsAccountParams<LaneId>,
-		reward: Reward,
+		reward: RewardBalance,
 		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		T::transfer(
@@ -167,15 +167,15 @@ where
 
 /// Can be used to access the runtime storage key within the `RelayerRewards` map of the relayers
 /// pallet.
-pub struct RelayerRewardsKeyProvider<AccountId, RewardKind, Reward>(
-	PhantomData<(AccountId, RewardKind, Reward)>,
+pub struct RelayerRewardsKeyProvider<AccountId, RewardKind, RewardBalance>(
+	PhantomData<(AccountId, RewardKind, RewardBalance)>,
 );
 
-impl<AccountId, RewardKind, Reward> StorageDoubleMapKeyProvider
-	for RelayerRewardsKeyProvider<AccountId, RewardKind, Reward>
+impl<AccountId, RewardKind, RewardBalance> StorageDoubleMapKeyProvider
+	for RelayerRewardsKeyProvider<AccountId, RewardKind, RewardBalance>
 where
 	AccountId: 'static + Codec + EncodeLike + Send + Sync,
-	Reward: 'static + Codec + EncodeLike + Send + Sync,
+	RewardBalance: 'static + Codec + EncodeLike + Send + Sync,
 	RewardKind: Codec + EncodeLike + Send + Sync,
 {
 	const MAP_NAME: &'static str = "RelayerRewards";
@@ -184,16 +184,16 @@ where
 	type Key1 = AccountId;
 	type Hasher2 = Identity;
 	type Key2 = RewardKind;
-	type Value = Reward;
+	type Value = RewardBalance;
 }
 
 /// A trait defining a reward ledger, which tracks rewards that can be later claimed.
 ///
 /// This ledger allows registering rewards for a relayer, categorized by a specific `RewardKind`.
 /// The registered rewards can be claimed later through an appropriate payment procedure.
-pub trait RewardLedger<Relayer, RewardKind, Reward> {
+pub trait RewardLedger<Relayer, RewardKind, RewardBalance> {
 	/// Registers a reward for a given relayer.
-	fn register_reward(relayer: &Relayer, reward_kind: RewardKind, reward: Reward);
+	fn register_reward(relayer: &Relayer, reward_kind: RewardKind, reward: RewardBalance);
 }
 
 #[cfg(test)]

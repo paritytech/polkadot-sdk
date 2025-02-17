@@ -63,15 +63,15 @@ pub mod v0 {
 		const TYPE_ID: [u8; 4] = *b"brap";
 	}
 
-	pub(crate) struct RelayerRewardsKeyProvider<AccountId, Reward, LaneId>(
-		PhantomData<(AccountId, Reward, LaneId)>,
+	pub(crate) struct RelayerRewardsKeyProvider<AccountId, RewardBalance, LaneId>(
+		PhantomData<(AccountId, RewardBalance, LaneId)>,
 	);
 
-	impl<AccountId, Reward, LaneId> StorageDoubleMapKeyProvider
-		for RelayerRewardsKeyProvider<AccountId, Reward, LaneId>
+	impl<AccountId, RewardBalance, LaneId> StorageDoubleMapKeyProvider
+		for RelayerRewardsKeyProvider<AccountId, RewardBalance, LaneId>
 	where
 		AccountId: 'static + Codec + EncodeLike + Send + Sync,
-		Reward: 'static + Codec + EncodeLike + Send + Sync,
+		RewardBalance: 'static + Codec + EncodeLike + Send + Sync,
 		LaneId: Codec + EncodeLike + Send + Sync,
 	{
 		const MAP_NAME: &'static str = "RelayerRewards";
@@ -80,12 +80,12 @@ pub mod v0 {
 		type Key1 = AccountId;
 		type Hasher2 = Identity;
 		type Key2 = RewardsAccountParams<LaneId>;
-		type Value = Reward;
+		type Value = RewardBalance;
 	}
 
 	pub(crate) type RelayerRewardsKeyProviderOf<T, I, LaneId> = RelayerRewardsKeyProvider<
 		<T as frame_system::Config>::AccountId,
-		<T as Config<I>>::Reward,
+		<T as Config<I>>::RewardBalance,
 		LaneId,
 	>;
 
@@ -130,15 +130,15 @@ pub mod v1 {
 	};
 	use sp_arithmetic::traits::Zero;
 
-	pub(crate) struct RelayerRewardsKeyProvider<AccountId, Reward, LaneId>(
-		PhantomData<(AccountId, Reward, LaneId)>,
+	pub(crate) struct RelayerRewardsKeyProvider<AccountId, RewardBalance, LaneId>(
+		PhantomData<(AccountId, RewardBalance, LaneId)>,
 	);
 
-	impl<AccountId, Reward, LaneId> StorageDoubleMapKeyProvider
-		for RelayerRewardsKeyProvider<AccountId, Reward, LaneId>
+	impl<AccountId, RewardBalance, LaneId> StorageDoubleMapKeyProvider
+		for RelayerRewardsKeyProvider<AccountId, RewardBalance, LaneId>
 	where
 		AccountId: 'static + Codec + EncodeLike + Send + Sync,
-		Reward: 'static + Codec + EncodeLike + Send + Sync,
+		RewardBalance: 'static + Codec + EncodeLike + Send + Sync,
 		LaneId: Codec + EncodeLike + Send + Sync,
 	{
 		const MAP_NAME: &'static str = "RelayerRewards";
@@ -147,12 +147,12 @@ pub mod v1 {
 		type Key1 = AccountId;
 		type Hasher2 = Identity;
 		type Key2 = v1::RewardsAccountParams<LaneId>;
-		type Value = Reward;
+		type Value = RewardBalance;
 	}
 
 	pub(crate) type RelayerRewardsKeyProviderOf<T, I, LaneId> = RelayerRewardsKeyProvider<
 		<T as frame_system::Config>::AccountId,
-		<T as Config<I>>::Reward,
+		<T as Config<I>>::RewardBalance,
 		LaneId,
 	>;
 
@@ -175,19 +175,19 @@ pub mod v1 {
 	>(
 		rewards_account_params: v1::RewardsAccountParams<LaneId>,
 		relayer: &T::AccountId,
-		reward: T::Reward,
+		reward_balance: T::RewardBalance,
 	) {
 		use sp_runtime::Saturating;
 
-		if reward.is_zero() {
+		if reward_balance.is_zero() {
 			return
 		}
 
 		v1::RelayerRewards::<T, I, LaneId>::mutate(
 			relayer,
 			rewards_account_params,
-			|old_reward: &mut Option<T::Reward>| {
-				let new_reward = old_reward.unwrap_or_else(Zero::zero).saturating_add(reward);
+			|old_reward: &mut Option<T::RewardBalance>| {
+				let new_reward = old_reward.unwrap_or_else(Zero::zero).saturating_add(reward_balance);
 				*old_reward = Some(new_reward);
 
 				log::trace!(
@@ -247,7 +247,7 @@ pub mod v1 {
 			// collect actual rewards
 			let mut rewards: BoundedBTreeMap<
 				(T::AccountId, LaneId),
-				T::Reward,
+				T::RewardBalance,
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
 			for (key1, key2, reward) in v0::RelayerRewards::<T, I, LaneId>::iter() {
@@ -274,14 +274,14 @@ pub mod v1 {
 
 			let rewards_before: BoundedBTreeMap<
 				(T::AccountId, LaneId),
-				T::Reward,
+				T::RewardBalance,
 				ConstU32<{ u32::MAX }>,
 			> = Decode::decode(&mut &state[..]).unwrap();
 
 			// collect migrated rewards
 			let mut rewards_after: BoundedBTreeMap<
 				(T::AccountId, LaneId),
-				T::Reward,
+				T::RewardBalance,
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
 			for (key1, key2, reward) in v1::RelayerRewards::<T, I, LaneId>::iter() {
@@ -376,7 +376,7 @@ pub mod v2 {
 			// collect actual rewards
 			let mut rewards: BoundedBTreeMap<
 				(T::AccountId, Vec<u8>),
-				T::Reward,
+				T::RewardBalance,
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
 			for (key1, key2, reward) in v1::RelayerRewards::<T, I, LaneId>::iter() {
@@ -404,14 +404,14 @@ pub mod v2 {
 
 			let rewards_before: BoundedBTreeMap<
 				(T::AccountId, Vec<u8>),
-				T::Reward,
+				T::RewardBalance,
 				ConstU32<{ u32::MAX }>,
 			> = Decode::decode(&mut &state[..]).unwrap();
 
 			// collect migrated rewards
 			let mut rewards_after: BoundedBTreeMap<
 				(T::AccountId, Vec<u8>),
-				T::Reward,
+				T::RewardBalance,
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
 			for (key1, key2, reward) in v2::RelayerRewards::<T, I>::iter() {

@@ -97,11 +97,11 @@ impl<AccountId, RemoteGrandpaChainBlockNumber: Debug, LaneId: Clone + Copy + Deb
 
 /// The actions on relayer account that need to be performed because of his actions.
 #[derive(RuntimeDebug, PartialEq)]
-pub enum RelayerAccountAction<AccountId, Reward, LaneId> {
+pub enum RelayerAccountAction<AccountId, RewardBalance, LaneId> {
 	/// Do nothing with relayer account.
 	None,
 	/// Reward the relayer.
-	Reward(AccountId, RewardsAccountParams<LaneId>, Reward),
+	Reward(AccountId, RewardsAccountParams<LaneId>, RewardBalance),
 	/// Slash the relayer.
 	Slash(AccountId, RewardsAccountParams<LaneId>),
 }
@@ -138,7 +138,7 @@ where
 	<R as TransactionPaymentConfig>::OnChargeTransaction: OnChargeTransaction<R>,
 	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind:
 		From<RewardsAccountParams<C::LaneId>>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward: From<
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardBalance: From<
 		<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
 	>,
 	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
@@ -181,7 +181,7 @@ where
 		post_info: &PostDispatchInfo,
 		len: usize,
 		result: &DispatchResult,
-	) -> RelayerAccountAction<R::AccountId, R::Reward, C::LaneId> {
+	) -> RelayerAccountAction<R::AccountId, R::RewardBalance, C::LaneId> {
 		// We don't refund anything for transactions that we don't support.
 		let (relayer, call_info) = match pre {
 			Some(pre) => (pre.relayer, pre.call_info),
@@ -291,7 +291,7 @@ where
 	<R as TransactionPaymentConfig>::OnChargeTransaction: OnChargeTransaction<R>,
 	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardKind:
 		From<RewardsAccountParams<C::LaneId>>,
-	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward: From<
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardBalance: From<
 		<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
 	>,
 	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
@@ -1218,7 +1218,7 @@ mod tests {
 		assert_eq!(post_dispatch_result, Ok(Weight::zero()));
 	}
 
-	fn expected_delivery_reward() -> Reward {
+	fn expected_delivery_reward() -> RewardBalance {
 		let mut post_dispatch_info = post_dispatch_info();
 		let extra_weight = <TestRuntime as RelayersConfig>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call();
 		post_dispatch_info.actual_weight =
@@ -1231,7 +1231,7 @@ mod tests {
 		)
 	}
 
-	fn expected_confirmation_reward() -> Reward {
+	fn expected_confirmation_reward() -> RewardBalance {
 		pallet_transaction_payment::Pallet::<TestRuntime>::compute_actual_fee(
 			1024,
 			&dispatch_info(),
@@ -1984,7 +1984,7 @@ mod tests {
 			TestLaneIdType,
 		>,
 		dispatch_result: DispatchResult,
-	) -> RelayerAccountAction<ThisChainAccountId, Reward, TestLaneIdType> {
+	) -> RelayerAccountAction<ThisChainAccountId, RewardBalance, TestLaneIdType> {
 		TestExtension::analyze_call_result(
 			Some(pre_dispatch_data),
 			&dispatch_info(),

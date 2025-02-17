@@ -88,7 +88,7 @@ pub type BridgeRelayersInstance = ();
 impl pallet_bridge_relayers::Config<BridgeRelayersInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 
-	type Reward = u128;
+	type RewardBalance = u128;
 	type RewardKind = BridgeRewardKind;
 	type PaymentProcedure = BridgeRewardPayer;
 
