@@ -36,9 +36,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
+        id: required
         run: |
           forklift cargo build --locked --quiet --release -p asset-hub-westend-runtime --features runtime-benchmarks
           forklift cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   runtime-matrix:
     runs-on: ubuntu-latest
@@ -80,6 +87,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: script
+        id: required
         run: |
           RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
           RUNTIME_BLOB_PATH=./target/release/wbuild/$PACKAGE_NAME/$RUNTIME_BLOB_NAME
@@ -90,6 +98,13 @@ jobs:
           cmd="./target/release/frame-omni-bencher v1 benchmark pallet --runtime $RUNTIME_BLOB_PATH --all --steps 2 --repeat 1 $FLAGS"
           echo "Running command: $cmd"
           eval "$cmd"
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
   confirm-frame-omni-benchers-passed:
     runs-on: ubuntu-latest
     name: All benchmarks passed

@@ -127,8 +127,8 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get, OneSessionHandler,
-		ValidatorRegistration, ValidatorSet,
+		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
+		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
 	weights::Weight,
 	Parameter,
@@ -639,13 +639,12 @@ impl<T: Config> Pallet<T> {
 	/// punishment after a fork.
 	pub fn rotate_session() {
 		let session_index = CurrentIndex::<T>::get();
-		log::trace!(target: "runtime::session", "rotating session {:?}", session_index);
-
 		let changed = QueuedChanged::<T>::get();
 
 		// Inform the session handlers that a session is going to end.
 		T::SessionHandler::on_before_session_ending();
 		T::SessionManager::end_session(session_index);
+		log::trace!(target: "runtime::session", "ending_session {:?}", session_index);
 
 		// Get queued session keys and validators.
 		let session_keys = QueuedKeys::<T>::get();
@@ -661,11 +660,17 @@ impl<T: Config> Pallet<T> {
 		// Increment session index.
 		let session_index = session_index + 1;
 		CurrentIndex::<T>::put(session_index);
-
 		T::SessionManager::start_session(session_index);
+		log::trace!(target: "runtime::session", "starting_session {:?}", session_index);
 
 		// Get next validator set.
 		let maybe_next_validators = T::SessionManager::new_session(session_index + 1);
+		log::trace!(
+			target: "runtime::session",
+			"planning_session {:?} with {:?} validators",
+			session_index + 1,
+			maybe_next_validators.as_ref().map(|v| v.len())
+		);
 		let (next_validators, next_identities_changed) =
 			if let Some(validators) = maybe_next_validators {
 				// NOTE: as per the documentation on `OnSessionEnding`, we consider
@@ -732,6 +737,23 @@ impl<T: Config> Pallet<T> {
 			}
 
 			false
+		})
+	}
+
+	/// Re-enable the validator of index `i`, returns `false` if the validator was already enabled.
+	pub fn enable_index(i: u32) -> bool {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
+			return false
+		}
+
+		// If the validator is not disabled, return false.
+		DisabledValidators::<T>::mutate(|disabled| {
+			if let Ok(index) = disabled.binary_search(&i) {
+				disabled.remove(index);
+				true
+			} else {
+				false
+			}
 		})
 	}
 

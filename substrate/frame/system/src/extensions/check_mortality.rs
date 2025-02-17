@@ -17,6 +17,7 @@
 
 use crate::{pallet_prelude::BlockNumberFor, BlockHash, Config, Pallet};
 use codec::{Decode, Encode};
+use frame_support::pallet_prelude::TransactionSource;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
@@ -91,6 +92,7 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		let current_u64 = <Pallet<T>>::block_number().saturated_into::<u64>();
 		let valid_till = self.0.death(current_u64);
@@ -115,7 +117,9 @@ mod tests {
 		weights::Weight,
 	};
 	use sp_core::H256;
-	use sp_runtime::traits::DispatchTransaction;
+	use sp_runtime::{
+		traits::DispatchTransaction, transaction_validity::TransactionSource::External,
+	};
 
 	#[test]
 	fn signed_ext_check_era_should_work() {
@@ -151,7 +155,10 @@ mod tests {
 			<BlockHash<Test>>::insert(16, H256::repeat_byte(1));
 
 			assert_eq!(
-				ext.validate_only(Some(1).into(), CALL, &normal, len).unwrap().0.longevity,
+				ext.validate_only(Some(1).into(), CALL, &normal, len, External, 0)
+					.unwrap()
+					.0
+					.longevity,
 				15
 			);
 		})

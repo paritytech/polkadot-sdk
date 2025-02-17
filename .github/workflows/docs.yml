@@ -25,8 +25,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: forklift cargo test --doc --workspace
+        id: required
         env:
           RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   build-rustdoc:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
@@ -38,6 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: forklift cargo doc --all-features --workspace --no-deps
+        id: required
         env:
           SKIP_WASM_BUILD: 1
           RUSTDOCFLAGS: "-Dwarnings --default-theme=ayu --html-in-header ./docs/sdk/assets/header.html --extend-css ./docs/sdk/assets/theme.css --html-after-content ./docs/sdk/assets/after-content.html"
@@ -60,6 +68,12 @@ jobs:
           path: ./crate-docs/
           retention-days: 1
           if-no-files-found: error
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   build-implementers-guide:
     runs-on: ubuntu-latest

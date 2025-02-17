@@ -24,7 +24,7 @@ use frame_support::{
 		BalanceStatus::{Free, Reserved},
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Hooks, InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
+		InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
 		ReservableCurrency, WithdrawReasons,
 	},
 	StorageNoopGuard,
@@ -265,6 +265,7 @@ fn lock_should_work_reserve() {
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
@@ -273,6 +274,7 @@ fn lock_should_work_reserve() {
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 		});
@@ -296,6 +298,7 @@ fn lock_should_work_tx_fee() {
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
@@ -304,6 +307,7 @@ fn lock_should_work_tx_fee() {
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 		});
@@ -717,7 +721,7 @@ fn burn_must_work() {
 fn cannot_set_genesis_value_below_ed() {
 	EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 11);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let _ = crate::GenesisConfig::<Test> { balances: vec![(1, 10)] }
+	let _ = crate::GenesisConfig::<Test> { balances: vec![(1, 10)], ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 }
@@ -726,9 +730,12 @@ fn cannot_set_genesis_value_below_ed() {
 #[should_panic = "duplicate balances in genesis."]
 fn cannot_set_genesis_value_twice() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let _ = crate::GenesisConfig::<Test> { balances: vec![(1, 10), (2, 20), (1, 15)] }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	let _ = crate::GenesisConfig::<Test> {
+		balances: vec![(1, 10), (2, 20), (1, 15)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 }
 
 #[test]
@@ -1129,7 +1136,9 @@ fn operations_on_dead_account_should_not_change_state() {
 
 #[test]
 #[should_panic = "The existential deposit must be greater than zero!"]
+#[cfg(not(feature = "insecure_zero_ed"))]
 fn zero_ed_is_prohibited() {
+	use frame_support::traits::Hooks;
 	// These functions all use `mutate_account` which may introduce a storage change when
 	// the account never existed to begin with, and shouldn't exist in the end.
 	ExtBuilder::default().existential_deposit(0).build_and_execute_with(|| {

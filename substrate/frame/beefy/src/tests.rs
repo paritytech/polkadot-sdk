@@ -39,6 +39,8 @@ use crate::{self as beefy, mock::*, Call, Config, Error, WeightInfoExt};
 
 fn init_block(block: u64) {
 	System::set_block_number(block);
+	// Staking has to also be initialized, and be the first, to have the new validator set ready.
+	Staking::on_initialize(block);
 	Session::on_initialize(block);
 }
 
@@ -313,7 +315,7 @@ fn report_equivocation_current_set_works(mut f: impl ReportEquivocationFn) {
 	let authorities = test_authorities();
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
-		assert_eq!(Staking::current_era(), Some(0));
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 
 		start_era(1);
@@ -799,7 +801,7 @@ fn report_fork_voting(
 	let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 	let equivocation_proof = generate_fork_voting_proof(
 		(block_num, payload, set_id, &equivocation_keyring),
-		MockAncestryProof { is_non_canonical: true },
+		MockAncestryProof { is_optimal: true, is_non_canonical: true },
 		System::finalize(),
 	);
 
@@ -836,6 +838,54 @@ fn report_fork_voting_invalid_key_owner_proof() {
 }
 
 #[test]
+fn report_fork_voting_non_optimal_equivocation_proof() {
+	let authorities = test_authorities();
+
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
+
+	let mut era = 1;
+	let (block_num, set_id, equivocation_keyring, key_owner_proof) = ext.execute_with(|| {
+		start_era(era);
+		let block_num = System::block_number();
+
+		let validator_set = Beefy::validator_set().unwrap();
+		let authorities = validator_set.validators();
+		let set_id = validator_set.id();
+
+		let equivocation_authority_index = 0;
+		let equivocation_key = &authorities[equivocation_authority_index];
+		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+
+		// generate a key ownership proof at set id in era 1
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
+
+		era += 1;
+		start_era(era);
+		(block_num, set_id, equivocation_keyring, key_owner_proof)
+	});
+	ext.persist_offchain_overlay();
+
+	ext.execute_with(|| {
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+
+		// Simulate non optimal equivocation proof.
+		let equivocation_proof = generate_fork_voting_proof(
+			(block_num + 1, payload.clone(), set_id, &equivocation_keyring),
+			MockAncestryProof { is_optimal: false, is_non_canonical: true },
+			System::finalize(),
+		);
+		assert_err!(
+			Beefy::report_fork_voting_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(equivocation_proof),
+				key_owner_proof.clone(),
+			),
+			Error::<Test>::InvalidForkVotingProof,
+		);
+	});
+}
+
+#[test]
 fn report_fork_voting_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
@@ -869,7 +919,7 @@ fn report_fork_voting_invalid_equivocation_proof() {
 		// vote signed with a key that isn't part of the authority set
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num, payload.clone(), set_id, &BeefyKeyring::Dave),
-			MockAncestryProof { is_non_canonical: true },
+			MockAncestryProof { is_optimal: true, is_non_canonical: true },
 			System::finalize(),
 		);
 		assert_err!(
@@ -884,7 +934,7 @@ fn report_fork_voting_invalid_equivocation_proof() {
 		// Simulate InvalidForkVotingProof error.
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num + 1, payload.clone(), set_id, &equivocation_keyring),
-			MockAncestryProof { is_non_canonical: false },
+			MockAncestryProof { is_optimal: true, is_non_canonical: false },
 			System::finalize(),
 		);
 		assert_err!(
@@ -906,7 +956,7 @@ fn report_fork_voting_invalid_context() {
 
 	let mut era = 1;
 	let block_num = ext.execute_with(|| {
-		assert_eq!(Staking::current_era(), Some(0));
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 		start_era(era);
 
@@ -945,7 +995,7 @@ fn report_fork_voting_invalid_context() {
 		// different payload than finalized
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num, payload, set_id, &equivocation_keyring),
-			MockAncestryProof { is_non_canonical: true },
+			MockAncestryProof { is_optimal: true, is_non_canonical: true },
 			System::finalize(),
 		);
 

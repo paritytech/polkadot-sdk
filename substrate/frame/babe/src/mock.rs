@@ -31,7 +31,7 @@ use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
 	crypto::{Pair, VrfSecret},
-	U256,
+	ConstBool, U256,
 };
 use sp_io;
 use sp_runtime::{
@@ -39,7 +39,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	testing::{Digest, DigestItem, Header, TestXt},
 	traits::{Header as _, OpaqueKeys},
-	BuildStorage, Perbill,
+	BoundedVec, BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -151,12 +151,15 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<DummyValidatorId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type Sort = ConstBool<true>;
 	type Bounds = ElectionsBounds;
 }
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -239,7 +242,7 @@ pub fn start_session(session_index: SessionIndex) {
 /// Progress to the first block at the given era
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), Some(era_index));
+	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
 }
 
 pub fn make_primary_pre_digest(
@@ -313,7 +316,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
 
-	pallet_balances::GenesisConfig::<Test> { balances }
+	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
@@ -342,7 +345,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 		validator_count: 8,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
-		invulnerables: vec![],
+		invulnerables: BoundedVec::new(),
 		..Default::default()
 	};
 

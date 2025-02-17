@@ -141,6 +141,10 @@ pub use cumulus_pallet_session_benchmarking;
 #[cfg(feature = "cumulus-pallet-solo-to-para")]
 pub use cumulus_pallet_solo_to_para;
 
+/// pallet and transaction extensions for accurate proof size reclaim.
+#[cfg(feature = "cumulus-pallet-weight-reclaim")]
+pub use cumulus_pallet_weight_reclaim;
+
 /// Pallet for stuff specific to parachains' usage of XCM.
 #[cfg(feature = "cumulus-pallet-xcm")]
 pub use cumulus_pallet_xcm;
@@ -308,6 +312,10 @@ pub use pallet_asset_conversion_tx_payment;
 #[cfg(feature = "pallet-asset-rate")]
 pub use pallet_asset_rate;
 
+/// FRAME asset rewards pallet.
+#[cfg(feature = "pallet-asset-rewards")]
+pub use pallet_asset_rewards;
+
 /// pallet to manage transaction payments in assets.
 #[cfg(feature = "pallet-asset-tx-payment")]
 pub use pallet_asset_tx_payment;
@@ -319,6 +327,10 @@ pub use pallet_assets;
 /// Provides freezing features to `pallet-assets`.
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
+
+/// Provides holding features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-holder")]
+pub use pallet_assets_holder;
 
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
@@ -434,6 +446,10 @@ pub use pallet_democracy;
 /// FRAME example pallet.
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
+
+/// PALLET multi phase+block election providers.
+#[cfg(feature = "pallet-election-provider-multi-block")]
+pub use pallet_election_provider_multi_block;
 
 /// PALLET two phase election providers.
 #[cfg(feature = "pallet-election-provider-multi-phase")]
@@ -583,10 +599,6 @@ pub use pallet_revive;
 /// An Ethereum JSON-RPC server for pallet-revive.
 #[cfg(feature = "pallet-revive-eth-rpc")]
 pub use pallet_revive_eth_rpc;
-
-/// Fixtures for testing and benchmarking.
-#[cfg(feature = "pallet-revive-fixtures")]
-pub use pallet_revive_fixtures;
 
 /// A mock network for testing pallet-revive.
 #[cfg(feature = "pallet-revive-mock-network")]
@@ -1122,6 +1134,10 @@ pub use sc_rpc_server;
 /// Substrate RPC interface v2.
 #[cfg(feature = "sc-rpc-spec-v2")]
 pub use sc_rpc_spec_v2;
+
+/// Substrate client utilities for frame runtime functions calls.
+#[cfg(feature = "sc-runtime-utilities")]
+pub use sc_runtime_utilities;
 
 /// Substrate service. Starts a thread that spins up the network, client, and extrinsic pool.
 /// Manages communication between them.

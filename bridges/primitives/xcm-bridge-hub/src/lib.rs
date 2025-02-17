@@ -87,6 +87,11 @@ impl BridgeId {
 				.into(),
 		)
 	}
+
+	/// Access the inner representation.
+	pub fn inner(&self) -> H256 {
+		self.0
+	}
 }
 
 impl core::fmt::Debug for BridgeId {

@@ -128,6 +128,9 @@ pub type FullClient = sc_service::TFullClient<
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
+/// The number of hours to keep finalized data in the availability store for live networks.
+const KEEP_FINALIZED_FOR_LIVE_NETWORKS: u32 = 25;
+
 /// Provides the header and block number for a hash.
 ///
 /// Decouples `sc_client_api::Backend` and `sp_blockchain::HeaderBackend`.
@@ -628,6 +631,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub prepare_workers_soft_max_num: Option<usize>,
 	/// An optional absolute number of pvf workers that can be spawned in the pvf prepare pool.
 	pub prepare_workers_hard_max_num: Option<usize>,
+	/// How long finalized data should be kept in the availability store (in hours)
+	pub keep_finalized_for: Option<u32>,
 	pub overseer_gen: OverseerGenerator,
 	pub overseer_message_channel_capacity_override: Option<usize>,
 	#[allow(dead_code)]
@@ -691,11 +696,6 @@ impl IsParachainNode {
 	}
 }
 
-pub const AVAILABILITY_CONFIG: AvailabilityConfig = AvailabilityConfig {
-	col_data: parachains_db::REAL_COLUMNS.col_availability_data,
-	col_meta: parachains_db::REAL_COLUMNS.col_availability_meta,
-};
-
 /// Create a new full node of arbitrary runtime and executor.
 ///
 /// This is an advanced feature and not recommended for general use. Generally, `build_full` is
@@ -727,6 +727,7 @@ pub fn new_full<
 		execute_workers_max_num,
 		prepare_workers_soft_max_num,
 		prepare_workers_hard_max_num,
+		keep_finalized_for,
 		enable_approval_voting_parallel,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
@@ -758,13 +759,6 @@ pub fn new_full<
 
 		Some(backoff)
 	};
-
-	// Running approval voting in parallel is enabled by default on all networks except Polkadot
-	// unless explicitly enabled by the commandline option.
-	// This is meant to be temporary until we have enough confidence in the new system to enable it
-	// by default on all networks.
-	let enable_approval_voting_parallel =
-		!config.chain_spec.is_polkadot() || enable_approval_voting_parallel;
 
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
@@ -944,14 +938,9 @@ pub fn new_full<
 				secure_validator_mode,
 				prep_worker_path,
 				exec_worker_path,
-				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or_else(
-					|| match config.chain_spec.identify_chain() {
-						// The intention is to use this logic for gradual increasing from 2 to 4
-						// of this configuration chain by chain until it reaches production chain.
-						Chain::Polkadot | Chain::Kusama => 2,
-						Chain::Rococo | Chain::Westend | Chain::Unknown => 4,
-					},
-				),
+				// Default execution workers is 4 because we have 8 cores on the reference hardware,
+				// and this accounts for 50% of that cpu capacity.
+				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or(4),
 				pvf_prepare_workers_soft_max_num: prepare_workers_soft_max_num.unwrap_or(1),
 				pvf_prepare_workers_hard_max_num: prepare_workers_hard_max_num.unwrap_or(2),
 			})
@@ -984,11 +973,21 @@ pub fn new_full<
 		let fetch_chunks_threshold =
 			if config.chain_spec.is_polkadot() { None } else { Some(FETCH_CHUNKS_THRESHOLD) };
 
+		let availability_config = AvailabilityConfig {
+			col_data: parachains_db::REAL_COLUMNS.col_availability_data,
+			col_meta: parachains_db::REAL_COLUMNS.col_availability_meta,
+			keep_finalized_for: if matches!(config.chain_spec.identify_chain(), Chain::Rococo) {
+				keep_finalized_for.unwrap_or(1)
+			} else {
+				KEEP_FINALIZED_FOR_LIVE_NETWORKS
+			},
+		};
+
 		Some(ExtendedOverseerGenArgs {
 			keystore,
 			parachains_db,
 			candidate_validation_config,
-			availability_config: AVAILABILITY_CONFIG,
+			availability_config,
 			pov_req_receiver,
 			chunk_req_v1_receiver,
 			chunk_req_v2_receiver,

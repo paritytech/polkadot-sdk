@@ -16,9 +16,6 @@
 // limitations under the License.
 
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
-use std::vec;
-
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen, Weight,
@@ -29,14 +26,15 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::HeaderFor;
 use pallet_session::historical as pallet_session_historical;
-use sp_core::{crypto::KeyTypeId, ConstU128};
+use scale_info::TypeInfo;
+use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128};
 use sp_runtime::{
 	app_crypto::ecdsa::Public,
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
 	testing::TestXt,
 	traits::{Header as HeaderT, OpaqueKeys},
-	BuildStorage, Perbill,
+	BoundedVec, BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
@@ -99,6 +97,7 @@ pub struct MockAncestryProofContext {
 
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct MockAncestryProof {
+	pub is_optimal: bool,
 	pub is_non_canonical: bool,
 }
 
@@ -128,6 +127,10 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 		unimplemented!()
 	}
 
+	fn is_proof_optimal(proof: &Self::Proof) -> bool {
+		proof.is_optimal
+	}
+
 	fn extract_validation_context(_header: Header) -> Option<Self::ValidationContext> {
 		AncestryProofContext::get()
 	}
@@ -142,6 +145,10 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 }
 
 impl<Header: HeaderT> AncestryHelperWeightInfo<Header> for MockAncestryHelper {
+	fn is_proof_optimal(_proof: &<Self as AncestryHelper<HeaderFor<Test>>>::Proof) -> Weight {
+		unimplemented!()
+	}
+
 	fn extract_validation_context() -> Weight {
 		unimplemented!()
 	}
@@ -228,13 +235,16 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<u64, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type Sort = ConstBool<true>;
 	type Bounds = ElectionsBoundsOnChain;
 }
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;
@@ -267,12 +277,13 @@ impl ExtBuilder {
 	}
 
 	pub fn build(self) -> sp_io::TestExternalities {
+		sp_tracing::try_init_simple();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let balances: Vec<_> =
 			(0..self.authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
 
-		pallet_balances::GenesisConfig::<Test> { balances }
+		pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
@@ -303,7 +314,7 @@ impl ExtBuilder {
 			validator_count: 2,
 			force_era: pallet_staking::Forcing::ForceNew,
 			minimum_validator_count: 0,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			..Default::default()
 		};
 
@@ -366,5 +377,5 @@ pub fn start_session(session_index: SessionIndex) {
 
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), Some(era_index));
+	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
 }

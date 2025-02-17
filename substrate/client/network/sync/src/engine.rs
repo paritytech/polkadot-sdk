@@ -100,6 +100,8 @@ mod rep {
 	pub const REFUSED: Rep = Rep::new(-(1 << 10), "Request refused");
 	/// Reputation change when a peer doesn't respond in time to our messages.
 	pub const TIMEOUT: Rep = Rep::new(-(1 << 10), "Request timeout");
+	/// Reputation change when a peer connection failed with IO error.
+	pub const IO: Rep = Rep::new(-(1 << 10), "IO error during request");
 }
 
 struct Metrics {
@@ -545,7 +547,14 @@ where
 					self.process_service_command(command),
 				notification_event = self.notification_service.next_event() => match notification_event {
 					Some(event) => self.process_notification_event(event),
-					None => return,
+					None => {
+						error!(
+							target: LOG_TARGET,
+							"Terminating `SyncingEngine` because `NotificationService` has terminated.",
+						);
+
+						return;
+					}
 				},
 				response_event = self.pending_responses.select_next_some() =>
 					self.process_response_event(response_event),
@@ -647,7 +656,13 @@ where
 			ToServiceCommand::SetSyncForkRequest(peers, hash, number) => {
 				self.strategy.set_sync_fork_request(peers, &hash, number);
 			},
-			ToServiceCommand::EventStream(tx) => self.event_streams.push(tx),
+			ToServiceCommand::EventStream(tx) => {
+				// Let a new subscriber know about already connected peers.
+				for peer_id in self.peers.keys() {
+					let _ = tx.unbounded_send(SyncEvent::PeerConnected(*peer_id));
+				}
+				self.event_streams.push(tx);
+			},
 			ToServiceCommand::RequestJustification(hash, number) =>
 				self.strategy.request_justification(&hash, number),
 			ToServiceCommand::ClearJustificationRequests =>
@@ -1012,8 +1027,13 @@ where
 						debug_assert!(
 							false,
 							"Can not receive `RequestFailure::Obsolete` after dropping the \
-								response receiver.",
+							response receiver.",
 						);
+					},
+					RequestFailure::Network(OutboundFailure::Io(_)) => {
+						self.network_service.report_peer(peer_id, rep::IO);
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
 				}
 			},

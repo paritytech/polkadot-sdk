@@ -114,7 +114,7 @@ function send_governance_transact() {
 
     local dest=$(jq --null-input \
                     --arg para_id "$para_id" \
-                    '{ "V3": { "parents": 0, "interior": { "X1": { "Parachain": $para_id } } } }')
+                    '{ "V4": { "parents": 0, "interior": { "X1": [{ "Parachain": $para_id }] } } }')
 
     local message=$(jq --null-input \
                        --argjson hex_encoded_data $hex_encoded_data \
@@ -122,7 +122,7 @@ function send_governance_transact() {
                        --arg require_weight_at_most_proof_size "$require_weight_at_most_proof_size" \
                        '
                        {
-                          "V3": [
+                          "V4": [
                                   {
                                     "UnpaidExecution": {
                                         "weight_limit": "Unlimited"

@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 version = "7.0.0"
 description = "Benchmarks for the XCM pallet"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -14,20 +16,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+frame-benchmarking = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-sp-runtime = { workspace = true }
+log = { workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-io = { workspace = true }
-xcm-executor = { workspace = true }
-frame-benchmarking = { workspace = true }
+sp-runtime = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
-log = { workspace = true, default-features = true }
+xcm-executor = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 # temp
@@ -62,4 +64,5 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

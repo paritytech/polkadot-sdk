@@ -22,16 +22,16 @@
 use crate::{
 	builder::FullClientTransactionPool,
 	graph::{base_pool::Transaction, ExtrinsicFor, ExtrinsicHash},
-	ChainApi, FullChainApi,
+	ChainApi, FullChainApi, ReadyIteratorFor,
 };
 use async_trait::async_trait;
 use sc_transaction_pool_api::{
 	ChainEvent, ImportNotificationStream, LocalTransactionFor, LocalTransactionPool,
-	MaintainedTransactionPool, PoolFuture, PoolStatus, ReadyTransactions, TransactionFor,
-	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
+	MaintainedTransactionPool, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool,
+	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_runtime::traits::Block as BlockT;
-use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
+use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 /// The wrapper for actual object providing implementation of TransactionPool.
 ///
@@ -49,6 +49,7 @@ where
 		+ 'static,
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>;
 
+#[async_trait]
 impl<Block, Client> TransactionPool for TransactionPoolWrapper<Block, Client>
 where
 	Block: BlockT,
@@ -68,52 +69,50 @@ where
 	>;
 	type Error = <FullChainApi<Client, Block> as ChainApi>::Error;
 
-	fn submit_at(
+	async fn submit_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
-	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
-		self.0.submit_at(at, source, xts)
+	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
+		self.0.submit_at(at, source, xts).await
 	}
 
-	fn submit_one(
+	async fn submit_one(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<TxHash<Self>, Self::Error> {
-		self.0.submit_one(at, source, xt)
+	) -> Result<TxHash<Self>, Self::Error> {
+		self.0.submit_one(at, source, xt).await
 	}
 
-	fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		self.0.submit_and_watch(at, source, xt)
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
+		self.0.submit_and_watch(at, source, xt).await
 	}
 
-	fn ready_at(
+	async fn ready_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send,
-		>,
-	> {
-		self.0.ready_at(at)
+	) -> ReadyIteratorFor<FullChainApi<Client, Block>> {
+		self.0.ready_at(at).await
 	}
 
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
 		self.0.ready()
 	}
 
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		self.0.remove_invalid(hashes)
+	fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		self.0.report_invalid(at, invalid_tx_errors)
 	}
 
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {
@@ -140,19 +139,12 @@ where
 		self.0.ready_transaction(hash)
 	}
 
-	fn ready_at_with_timeout(
+	async fn ready_at_with_timeout(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		timeout: std::time::Duration,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send
-				+ '_,
-		>,
-	> {
-		self.0.ready_at_with_timeout(at, timeout)
+	) -> ReadyIteratorFor<FullChainApi<Client, Block>> {
+		self.0.ready_at_with_timeout(at, timeout).await
 	}
 }
 

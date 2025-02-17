@@ -38,7 +38,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
-	pallet_prelude::Weight,
+	pallet_prelude::{TransactionSource, Weight},
 	traits::{
 		tokens::{
 			fungibles::{Balanced, Credit, Inspect},
@@ -202,7 +202,7 @@ where
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok((fee, InitialPayment::Nothing))
-		} else if let Some(asset_id) = self.asset_id {
+		} else if let Some(asset_id) = self.asset_id.clone() {
 			T::OnChargeAssetTransaction::withdraw_fee(
 				who,
 				call,
@@ -233,7 +233,7 @@ where
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok(())
-		} else if let Some(asset_id) = self.asset_id {
+		} else if let Some(asset_id) = self.asset_id.clone() {
 			T::OnChargeAssetTransaction::can_withdraw_fee(
 				who,
 				call,
@@ -324,6 +324,7 @@ where
 		len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> Result<
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
@@ -357,7 +358,7 @@ where
 					tip,
 					who,
 					initial_payment,
-					asset_id: self.asset_id,
+					asset_id: self.asset_id.clone(),
 					weight: self.weight(call),
 				})
 			},

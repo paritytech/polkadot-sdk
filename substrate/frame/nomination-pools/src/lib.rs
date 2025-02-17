@@ -18,7 +18,7 @@
 //! # Nomination Pools for Staking Delegation
 //!
 //! A pallet that allows members to delegate their stake to nominating pools. A nomination pool acts
-//! as nominator and nominates validators on the members behalf.
+//! as nominator and nominates validators on the members' behalf.
 //!
 //! # Index
 //!
@@ -178,7 +178,7 @@
 //!
 //! ### Pool Members
 //!
-//! * In general, whenever a pool member changes their total point, the chain will automatically
+//! * In general, whenever a pool member changes their total points, the chain will automatically
 //!   claim all their pending rewards for them. This is not optional, and MUST happen for the reward
 //!   calculation to remain correct (see the documentation of `bond` as an example). So, make sure
 //!   you are warning your users about it. They might be surprised if they see that they bonded an
@@ -368,7 +368,6 @@ use frame_support::{
 	},
 	DefaultNoBound, PalletError,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_core::U256;
 use sp_runtime::{
@@ -406,6 +405,7 @@ pub mod migration;
 pub mod weights;
 
 pub use pallet::*;
+use sp_runtime::traits::BlockNumberProvider;
 pub use weights::WeightInfo;
 
 /// The balance type used by the currency system.
@@ -415,6 +415,9 @@ pub type BalanceOf<T> =
 pub type PoolId = u32;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 
@@ -494,7 +497,8 @@ impl ClaimPermission {
 	TypeInfo,
 	RuntimeDebugNoBound,
 	CloneNoBound,
-	frame_support::PartialEqNoBound,
+	PartialEqNoBound,
+	EqNoBound,
 )]
 #[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[scale_info(skip_type_params(T))]
@@ -779,7 +783,7 @@ impl<T: Config> Commission<T> {
 					} else {
 						// throttling if blocks passed is less than `min_delay`.
 						let blocks_surpassed =
-							<frame_system::Pallet<T>>::block_number().saturating_sub(f);
+							T::BlockNumberProvider::current_block_number().saturating_sub(f);
 						blocks_surpassed < t.min_delay
 					}
 				},
@@ -892,7 +896,7 @@ impl<T: Config> Commission<T> {
 
 	/// Updates a commission's `throttle_from` field to the current block.
 	fn register_update(&mut self) {
-		self.throttle_from = Some(<frame_system::Pallet<T>>::block_number());
+		self.throttle_from = Some(T::BlockNumberProvider::current_block_number());
 	}
 
 	/// Checks whether a change rate is less restrictive than the current change rate, if any.
@@ -1292,8 +1296,17 @@ impl<T: Config> BondedPool<T> {
 /// A reward pool is not so much a pool anymore, since it does not contain any shares or points.
 /// Rather, simply to fit nicely next to bonded pool and unbonding pools in terms of terminology. In
 /// reality, a reward pool is just a container for a few pool-dependent data related to the rewards.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound)]
-#[cfg_attr(feature = "std", derive(Clone, PartialEq, DefaultNoBound))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+	RuntimeDebugNoBound,
+)]
+#[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct RewardPool<T: Config> {
@@ -1301,19 +1314,19 @@ pub struct RewardPool<T: Config> {
 	///
 	/// This is updated ONLY when the points in the bonded pool change, which means `join`,
 	/// `bond_extra` and `unbond`, all of which is done through `update_recorded`.
-	last_recorded_reward_counter: T::RewardCounter,
+	pub last_recorded_reward_counter: T::RewardCounter,
 	/// The last recorded total payouts of the reward pool.
 	///
 	/// Payouts is essentially income of the pool.
 	///
 	/// Update criteria is same as that of `last_recorded_reward_counter`.
-	last_recorded_total_payouts: BalanceOf<T>,
+	pub last_recorded_total_payouts: BalanceOf<T>,
 	/// Total amount that this pool has paid out so far to the members.
-	total_rewards_claimed: BalanceOf<T>,
+	pub total_rewards_claimed: BalanceOf<T>,
 	/// The amount of commission pending to be claimed.
-	total_commission_pending: BalanceOf<T>,
+	pub total_commission_pending: BalanceOf<T>,
 	/// The amount of commission that has been claimed.
-	total_commission_claimed: BalanceOf<T>,
+	pub total_commission_claimed: BalanceOf<T>,
 }
 
 impl<T: Config> RewardPool<T> {
@@ -1452,15 +1465,24 @@ impl<T: Config> RewardPool<T> {
 }
 
 /// An unbonding pool. This is always mapped with an era.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
-#[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	DefaultNoBound,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct UnbondPool<T: Config> {
 	/// The points in this pool.
-	points: BalanceOf<T>,
+	pub points: BalanceOf<T>,
 	/// The funds in the pool.
-	balance: BalanceOf<T>,
+	pub balance: BalanceOf<T>,
 }
 
 impl<T: Config> UnbondPool<T> {
@@ -1495,17 +1517,26 @@ impl<T: Config> UnbondPool<T> {
 	}
 }
 
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
-#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	DefaultNoBound,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct SubPools<T: Config> {
 	/// A general, era agnostic pool of funds that have fully unbonded. The pools
 	/// of `Self::with_era` will lazily be merged into into this pool if they are
 	/// older then `current_era - TotalUnbondingPools`.
-	no_era: UnbondPool<T>,
+	pub no_era: UnbondPool<T>,
 	/// Map of era in which a pool becomes unbonded in => unbond pools.
-	with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
+	pub with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
 }
 
 impl<T: Config> SubPools<T> {
@@ -1565,7 +1596,9 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 pub mod pallet {
 	use super::*;
 	use frame_support::traits::StorageVersion;
-	use frame_system::{ensure_signed, pallet_prelude::*};
+	use frame_system::pallet_prelude::{
+		ensure_root, ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+	};
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
@@ -1650,6 +1683,9 @@ pub mod pallet {
 
 		/// The origin that can manage pool configurations.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	/// The sum of funds across all pools.
@@ -1865,6 +1901,24 @@ pub mod pallet {
 		MinBalanceDeficitAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
 		/// Claimed excess frozen ED of af the reward pool.
 		MinBalanceExcessAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
+		/// A pool member's claim permission has been updated.
+		MemberClaimPermissionUpdated { member: T::AccountId, permission: ClaimPermission },
+		/// A pool's metadata was updated.
+		MetadataUpdated { pool_id: PoolId, caller: T::AccountId },
+		/// A pool's nominating account (or the pool's root account) has nominated a validator set
+		/// on behalf of the pool.
+		PoolNominationMade { pool_id: PoolId, caller: T::AccountId },
+		/// The pool is chilled i.e. no longer nominating.
+		PoolNominatorChilled { pool_id: PoolId, caller: T::AccountId },
+		/// Global parameters regulating nomination pools have been updated.
+		GlobalParamsUpdated {
+			min_join_bond: BalanceOf<T>,
+			min_create_bond: BalanceOf<T>,
+			max_pools: Option<u32>,
+			max_members: Option<u32>,
+			max_members_per_pool: Option<u32>,
+			global_max_commission: Option<Perbill>,
+		},
 	}
 
 	#[pallet::error]
@@ -1944,6 +1998,8 @@ pub mod pallet {
 		NothingToAdjust,
 		/// No slash pending that can be applied to the member.
 		NothingToSlash,
+		/// The slash amount is too low to be applied.
+		SlashTooLow,
 		/// The pool or member delegation has already migrated to delegate stake.
 		AlreadyMigrated,
 		/// The pool or member delegation has not migrated yet to delegate stake.
@@ -2300,7 +2356,7 @@ pub mod pallet {
 
 			let slash_weight =
 				// apply slash if any before withdraw.
-				match Self::do_apply_slash(&member_account, None) {
+				match Self::do_apply_slash(&member_account, None, false) {
 					Ok(_) => T::WeightInfo::apply_slash(),
 					Err(e) => {
 						let no_pending_slash: DispatchResult = Err(Error::<T>::NothingToSlash.into());
@@ -2507,13 +2563,13 @@ pub mod pallet {
 		/// The dispatch origin of this call must be signed by the pool nominator or the pool
 		/// root role.
 		///
-		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
-		/// account.
+		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
+		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
 		///
 		/// # Note
 		///
-		/// In addition to a `root` or `nominator` role of `origin`, pool's depositor needs to have
-		/// at least `depositor_min_bond` in the pool to start nominating.
+		/// In addition to a `root` or `nominator` role of `origin`, the pool's depositor needs to
+		/// have at least `depositor_min_bond` in the pool to start nominating.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() as u32))]
 		pub fn nominate(
@@ -2536,7 +2592,9 @@ pub mod pallet {
 				Error::<T>::MinimumBondNotMet
 			);
 
-			T::StakeAdapter::nominate(Pool::from(bonded_pool.bonded_account()), validators)
+			T::StakeAdapter::nominate(Pool::from(bonded_pool.bonded_account()), validators).map(
+				|_| Self::deposit_event(Event::<T>::PoolNominationMade { pool_id, caller: who }),
+			)
 		}
 
 		/// Set a new state for the pool.
@@ -2601,6 +2659,8 @@ pub mod pallet {
 
 			Metadata::<T>::mutate(pool_id, |pool_meta| *pool_meta = metadata);
 
+			Self::deposit_event(Event::<T>::MetadataUpdated { pool_id, caller: who });
+
 			Ok(())
 		}
 
@@ -2644,6 +2704,16 @@ pub mod pallet {
 			config_op_exp!(MaxPoolMembers::<T>, max_members);
 			config_op_exp!(MaxPoolMembersPerPool::<T>, max_members_per_pool);
 			config_op_exp!(GlobalMaxCommission::<T>, global_max_commission);
+
+			Self::deposit_event(Event::<T>::GlobalParamsUpdated {
+				min_join_bond: MinJoinBond::<T>::get(),
+				min_create_bond: MinCreateBond::<T>::get(),
+				max_pools: MaxPools::<T>::get(),
+				max_members: MaxPoolMembers::<T>::get(),
+				max_members_per_pool: MaxPoolMembersPerPool::<T>::get(),
+				global_max_commission: GlobalMaxCommission::<T>::get(),
+			});
+
 			Ok(())
 		}
 
@@ -2708,17 +2778,18 @@ pub mod pallet {
 		/// The dispatch origin of this call can be signed by the pool nominator or the pool
 		/// root role, same as [`Pallet::nominate`].
 		///
+		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
+		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
+		///
 		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
 		/// account).
 		///
 		/// # Conditions for a permissionless dispatch:
-		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise  pool members
+		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise pool members
 		///   are unable to unbond.
 		///
 		/// # Conditions for permissioned dispatch:
-		/// * The caller has a nominator or root role of the pool.
-		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
-		/// account.
+		/// * The caller is the pool's nominator or root.
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
@@ -2737,7 +2808,9 @@ pub mod pallet {
 				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
 			}
 
-			T::StakeAdapter::chill(Pool::from(bonded_pool.bonded_account()))
+			T::StakeAdapter::chill(Pool::from(bonded_pool.bonded_account())).map(|_| {
+				Self::deposit_event(Event::<T>::PoolNominatorChilled { pool_id, caller: who })
+			})
 		}
 
 		/// `origin` bonds funds from `extra` for some pool member `member` into their respective
@@ -2792,8 +2865,13 @@ pub mod pallet {
 				Error::<T>::NotMigrated
 			);
 
-			ClaimPermissions::<T>::mutate(who, |source| {
+			ClaimPermissions::<T>::mutate(who.clone(), |source| {
 				*source = permission;
+			});
+
+			Self::deposit_event(Event::<T>::MemberClaimPermissionUpdated {
+				member: who,
+				permission,
 			});
 
 			Ok(())
@@ -2911,9 +2989,20 @@ pub mod pallet {
 
 		/// Claim pending commission.
 		///
-		/// The dispatch origin of this call must be signed by the `root` role of the pool. Pending
-		/// commission is paid out and added to total claimed commission`. Total pending commission
-		/// is reset to zero. the current.
+		/// The `root` role of the pool is _always_ allowed to claim the pool's commission.
+		///
+		/// If the pool has set `CommissionClaimPermission::Permissionless`, then any account can
+		/// trigger the process of claiming the pool's commission.
+		///
+		/// If the pool has set its `CommissionClaimPermission` to `Account(acc)`, then only
+		/// accounts
+		/// * `acc`, and
+		/// * the pool's root account
+		///
+		/// may call this extrinsic on behalf of the pool.
+		///
+		/// Pending commissions are paid out and added to the total claimed commission.
+		/// The total pending commission is reset to zero.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::claim_commission())]
 		pub fn claim_commission(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
@@ -2974,8 +3063,10 @@ pub mod pallet {
 		/// Fails unless [`crate::pallet::Config::StakeAdapter`] is of strategy type:
 		/// [`adapter::StakeStrategyType::Delegate`].
 		///
-		/// This call can be dispatched permissionlessly (i.e. by any account). If the member has
-		/// slash to be applied, caller may be rewarded with the part of the slash.
+		/// The pending slash amount of the member must be equal or more than `ExistentialDeposit`.
+		/// This call can be dispatched permissionlessly (i.e. by any account). If the execution
+		/// is successful, fee is refunded and caller may be rewarded with a part of the slash
+		/// based on the [`crate::pallet::Config::StakeAdapter`] configuration.
 		#[pallet::call_index(23)]
 		#[pallet::weight(T::WeightInfo::apply_slash())]
 		pub fn apply_slash(
@@ -2989,7 +3080,7 @@ pub mod pallet {
 
 			let who = ensure_signed(origin)?;
 			let member_account = T::Lookup::lookup(member_account)?;
-			Self::do_apply_slash(&member_account, Some(who))?;
+			Self::do_apply_slash(&member_account, Some(who), true)?;
 
 			// If successful, refund the fees.
 			Ok(Pays::No.into())
@@ -3088,9 +3179,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state(u8::MAX)
 		}
 
@@ -3574,14 +3665,20 @@ impl<T: Config> Pallet<T> {
 	fn do_apply_slash(
 		member_account: &T::AccountId,
 		reporter: Option<T::AccountId>,
+		enforce_min_slash: bool,
 	) -> DispatchResult {
 		let member = PoolMembers::<T>::get(member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
 		let pending_slash =
 			Self::member_pending_slash(Member::from(member_account.clone()), member.clone())?;
 
-		// if nothing to slash, return error.
+		// ensure there is something to slash.
 		ensure!(!pending_slash.is_zero(), Error::<T>::NothingToSlash);
+
+		if enforce_min_slash {
+			// ensure slashed amount is at least the minimum balance.
+			ensure!(pending_slash >= T::Currency::minimum_balance(), Error::<T>::SlashTooLow);
+		}
 
 		T::StakeAdapter::member_slash(
 			Member::from(member_account.clone()),
@@ -3946,6 +4043,9 @@ impl<T: Config> Pallet<T> {
 	/// Returns the unapplied slash of a member.
 	///
 	/// Pending slash is only applicable with [`adapter::DelegateStake`] strategy.
+	///
+	/// If pending slash of the member exceeds `ExistentialDeposit`, it can be reported on
+	/// chain via [`Call::apply_slash`].
 	pub fn api_member_pending_slash(who: T::AccountId) -> BalanceOf<T> {
 		PoolMembers::<T>::get(who.clone())
 			.map(|pool_member| {

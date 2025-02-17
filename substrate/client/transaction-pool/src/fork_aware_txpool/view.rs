@@ -25,24 +25,26 @@
 
 use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
-	common::log_xt::log_xt_trace,
+	common::tracing_log_xt::log_xt_trace,
 	graph::{
-		self, watcher::Watcher, ExtrinsicFor, ExtrinsicHash, IsValidator, ValidatedTransaction,
-		ValidatedTransactionFor,
+		self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash, IsValidator,
+		TransactionFor, ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
+use indexmap::IndexMap;
 use parking_lot::Mutex;
-use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus, TransactionSource};
+use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
 	SaturatedConversion,
 };
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
+use tracing::{debug, trace};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
-	revalidated: HashMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
+	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
 	invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
 }
 
@@ -154,46 +156,55 @@ where
 		}
 	}
 
+	/// Imports single unvalidated extrinsic into the view.
+	pub(super) async fn submit_one(
+		&self,
+		source: TimedTransactionSource,
+		xt: ExtrinsicFor<ChainApi>,
+	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
+		self.submit_many(std::iter::once((source, xt)))
+			.await
+			.pop()
+			.expect("There is exactly one result, qed.")
+	}
+
 	/// Imports many unvalidated extrinsics into the view.
 	pub(super) async fn submit_many(
 		&self,
-		source: TransactionSource,
-		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>>,
-	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
-		if log::log_enabled!(target: LOG_TARGET, log::Level::Trace) {
+		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)>,
+	) -> Vec<Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error>> {
+		if tracing::enabled!(target: LOG_TARGET, tracing::Level::TRACE) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
-			log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
-			self.pool.submit_at(&self.at, source, xts).await
+			log_xt_trace!(
+				target: LOG_TARGET,
+				xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0),
+				"view::submit_many at:{}",
+				self.at.hash);
+			self.pool.submit_at(&self.at, xts).await
 		} else {
-			self.pool.submit_at(&self.at, source, xts).await
+			self.pool.submit_at(&self.at, xts).await
 		}
-	}
-
-	/// Import a single extrinsic and starts to watch its progress in the view.
-	pub(super) async fn submit_and_watch(
-		&self,
-		source: TransactionSource,
-		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>>, ChainApi::Error> {
-		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
-		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
 
 	/// Synchronously imports single unvalidated extrinsics into the view.
 	pub(super) fn submit_local(
 		&self,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
-		let (hash, length) = self.pool.validated_pool().api().hash_and_length(&xt);
-		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_local at:{}", hash, self.at.hash);
-
+	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
+		let (tx_hash, length) = self.pool.validated_pool().api().hash_and_length(&xt);
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			view_at_hash = ?self.at.hash,
+			"view::submit_local"
+		);
 		let validity = self
 			.pool
 			.validated_pool()
 			.api()
 			.validate_transaction_blocking(
 				self.at.hash,
-				TransactionSource::Local,
+				sc_transaction_pool_api::TransactionSource::Local,
 				Arc::from(xt.clone()),
 			)?
 			.map_err(|e| {
@@ -213,8 +224,8 @@ where
 
 		let validated = ValidatedTransaction::valid_at(
 			block_number.saturated_into::<u64>(),
-			hash,
-			TransactionSource::Local,
+			tx_hash,
+			TimedTransactionSource::new_local(true),
 			Arc::from(xt),
 			length,
 			validity,
@@ -226,18 +237,6 @@ where
 	/// Status of the pool associated with the view.
 	pub(super) fn status(&self) -> PoolStatus {
 		self.pool.validated_pool().status()
-	}
-
-	/// Creates a watcher for given transaction.
-	///
-	/// Intended to be called for the transaction that already exists in the pool
-	pub(super) fn create_watcher(
-		&self,
-		tx_hash: ExtrinsicHash<ChainApi>,
-	) -> Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>> {
-		//todo(minor): some assert could be added here - to make sure that transaction actually
-		// exists in the view.
-		self.pool.validated_pool().create_watcher(tx_hash)
 	}
 
 	/// Revalidates some part of transaction from the internal pool.
@@ -259,7 +258,11 @@ where
 			revalidation_result_tx,
 		} = finish_revalidation_worker_channels;
 
-		log::trace!(target:LOG_TARGET, "view::revalidate: at {} starting", self.at.hash);
+		trace!(
+			target: LOG_TARGET,
+			at_hash = ?self.at.hash,
+			"view::revalidate: at starting"
+		);
 		let start = Instant::now();
 		let validated_pool = self.pool.validated_pool();
 		let api = validated_pool.api();
@@ -272,7 +275,7 @@ where
 		//todo: revalidate future, remove if invalid [#5496]
 
 		let mut invalid_hashes = Vec::new();
-		let mut revalidated = HashMap::new();
+		let mut revalidated = IndexMap::new();
 
 		let mut validation_results = vec![];
 		let mut batch_iter = batch.into_iter();
@@ -280,12 +283,16 @@ where
 			let mut should_break = false;
 			tokio::select! {
 				_ = finish_revalidation_request_rx.recv() => {
-					log::trace!(target: LOG_TARGET, "view::revalidate: finish revalidation request received at {}.", self.at.hash);
+					trace!(
+						target: LOG_TARGET,
+						at_hash = ?self.at.hash,
+						"view::revalidate: finish revalidation request received"
+					);
 					break
 				}
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
-						let validation_result = (api.validate_transaction(self.at.hash, tx.source, tx.data.clone()).await, tx.hash, tx);
+						let validation_result = (api.validate_transaction(self.at.hash, tx.source.clone().into(), tx.data.clone()).await, tx.hash, tx);
 						validation_results.push(validation_result);
 					} else {
 						self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());
@@ -303,16 +310,20 @@ where
 		self.metrics.report(|metrics| {
 			metrics.view_revalidation_duration.observe(revalidation_duration.as_secs_f64());
 		});
-		log::debug!(
-			target:LOG_TARGET,
-			"view::revalidate: at {:?} count: {}/{} took {:?}",
-			self.at.hash,
-			validation_results.len(),
+		debug!(
+			target: LOG_TARGET,
+			at_hash = ?self.at.hash,
+			count = validation_results.len(),
 			batch_len,
-			revalidation_duration
+			duration = ?revalidation_duration,
+			"view::revalidate"
 		);
-		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidateresult: {:?}");
-
+		log_xt_trace!(
+			data:tuple,
+			target:LOG_TARGET,
+			validation_results.iter().map(|x| (x.1, &x.0)),
+			"view::revalidate result: {:?}"
+		);
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
@@ -324,40 +335,49 @@ where
 						ValidatedTransaction::valid_at(
 							self.at.number.saturated_into::<u64>(),
 							tx_hash,
-							tx.source,
+							tx.source.clone(),
 							tx.data.clone(),
 							api.hash_and_length(&tx.data).1,
 							validity,
 						),
 					);
 				},
-				Ok(Err(TransactionValidityError::Unknown(e))) => {
-					log::trace!(
+				Ok(Err(TransactionValidityError::Unknown(error))) => {
+					trace!(
 						target: LOG_TARGET,
-						"[{:?}]: Removing. Cannot determine transaction validity: {:?}",
-						tx_hash,
-						e
+						?tx_hash,
+						?error,
+						"Removing. Cannot determine transaction validity"
 					);
 					invalid_hashes.push(tx_hash);
 				},
-				Err(validation_err) => {
-					log::trace!(
+				Err(error) => {
+					trace!(
 						target: LOG_TARGET,
-						"[{:?}]: Removing due to error during revalidation: {}",
-						tx_hash,
-						validation_err
+						?tx_hash,
+						%error,
+						"Removing due to error during revalidation"
 					);
 					invalid_hashes.push(tx_hash);
 				},
 			}
 		}
 
-		log::trace!(target:LOG_TARGET, "view::revalidate: sending revalidation result at {}", self.at.hash);
-		if let Err(e) = revalidation_result_tx
+		trace!(
+			target: LOG_TARGET,
+			at_hash = ?self.at.hash,
+			"view::revalidate: sending revalidation result"
+		);
+		if let Err(error) = revalidation_result_tx
 			.send(RevalidationResult { invalid_hashes, revalidated })
 			.await
 		{
-			log::trace!(target:LOG_TARGET, "view::revalidate: sending revalidation_result at {} failed {:?}", self.at.hash, e);
+			trace!(
+				target: LOG_TARGET,
+				at_hash = ?self.at.hash,
+				?error,
+				"view::revalidate: sending revalidation_result failed"
+			);
 		}
 	}
 
@@ -375,7 +395,11 @@ where
 			super::revalidation_worker::RevalidationQueue<ChainApi, ChainApi::Block>,
 		>,
 	) {
-		log::trace!(target:LOG_TARGET,"view::start_background_revalidation: at {}", view.at.hash);
+		trace!(
+			target: LOG_TARGET,
+			at_hash = ?view.at.hash,
+			"view::start_background_revalidation"
+		);
 		let (finish_revalidation_request_tx, finish_revalidation_request_rx) =
 			tokio::sync::mpsc::channel(1);
 		let (revalidation_result_tx, revalidation_result_rx) = tokio::sync::mpsc::channel(1);
@@ -405,10 +429,14 @@ where
 	///
 	/// Refer to [*View revalidation*](../index.html#view-revalidation) for more details.
 	pub(super) async fn finish_revalidation(&self) {
-		log::trace!(target:LOG_TARGET,"view::finish_revalidation: at {}", self.at.hash);
+		trace!(
+			target: LOG_TARGET,
+			at_hash = ?self.at.hash,
+			"view::finish_revalidation"
+		);
 		let Some(revalidation_worker_channels) = self.revalidation_worker_channels.lock().take()
 		else {
-			log::trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
+			trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
 			return
 		};
 
@@ -418,8 +446,13 @@ where
 		} = revalidation_worker_channels;
 
 		if let Some(finish_revalidation_request_tx) = finish_revalidation_request_tx {
-			if let Err(e) = finish_revalidation_request_tx.send(()).await {
-				log::trace!(target:LOG_TARGET, "view::finish_revalidation: sending cancellation request at {} failed {:?}", self.at.hash, e);
+			if let Err(error) = finish_revalidation_request_tx.send(()).await {
+				trace!(
+					target: LOG_TARGET,
+					at_hash = ?self.at.hash,
+					%error,
+					"view::finish_revalidation: sending cancellation request failed"
+				);
 			}
 		}
 
@@ -445,14 +478,34 @@ where
 				);
 			});
 
-			log::debug!(
-				target:LOG_TARGET,
-				"view::finish_revalidation: applying revalidation result invalid: {} revalidated: {} at {:?} took {:?}",
-				revalidation_result.invalid_hashes.len(),
-				revalidated_len,
-				self.at.hash,
-				start.elapsed()
+			debug!(
+				target: LOG_TARGET,
+				invalid = revalidation_result.invalid_hashes.len(),
+				revalidated = revalidated_len,
+				at_hash = ?self.at.hash,
+				duration = ?start.elapsed(),
+				"view::finish_revalidation: applying revalidation result"
 			);
 		}
+	}
+
+	/// Returns true if the transaction with given hash is already imported into the view.
+	pub(super) fn is_imported(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> bool {
+		const IGNORE_BANNED: bool = false;
+		self.pool.validated_pool().check_is_known(tx_hash, IGNORE_BANNED).is_err()
+	}
+
+	/// Removes the whole transaction subtree from the inner pool.
+	///
+	/// Refer to [`crate::graph::ValidatedPool::remove_subtree`] for more details.
+	pub fn remove_subtree<F>(
+		&self,
+		hashes: &[ExtrinsicHash<ChainApi>],
+		listener_action: F,
+	) -> Vec<TransactionFor<ChainApi>>
+	where
+		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>),
+	{
+		self.pool.validated_pool().remove_subtree(hashes, listener_action)
 	}
 }

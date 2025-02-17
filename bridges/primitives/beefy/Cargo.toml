@@ -23,10 +23,10 @@ bp-runtime = { workspace = true }
 # Substrate Dependencies
 
 binary-merkle-tree = { workspace = true }
-sp-consensus-beefy = { workspace = true }
 frame-support = { workspace = true }
 pallet-beefy-mmr = { workspace = true }
 pallet-mmr = { workspace = true }
+sp-consensus-beefy = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 

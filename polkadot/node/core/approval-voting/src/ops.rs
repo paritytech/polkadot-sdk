@@ -90,7 +90,7 @@ pub fn canonicalize(
 ) -> SubsystemResult<()> {
 	let range = match overlay_db.load_stored_blocks()? {
 		None => return Ok(()),
-		Some(range) if range.0 >= canon_number => return Ok(()),
+		Some(range) if range.0 > canon_number => return Ok(()),
 		Some(range) => range,
 	};
 

@@ -1,11 +1,27 @@
-import { compile } from '@parity/revive'
+import { compile, SolcOutput } from '@parity/revive'
+import { format } from 'prettier'
+import { parseArgs } from 'node:util'
 import solc from 'solc'
-import { readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { readdirSync, readFileSync, writeFileSync } from 'fs'
+import { basename, join } from 'path'
 
 type CompileInput = Parameters<typeof compile>[0]
-type CompileOutput = Awaited<ReturnType<typeof compile>>
-type Abi = CompileOutput['contracts'][string][string]['abi']
+
+const {
+	values: { filter, solcOnly },
+} = parseArgs({
+	args: process.argv.slice(2),
+	options: {
+		filter: {
+			type: 'string',
+			short: 'f',
+		},
+		solcOnly: {
+			type: 'boolean',
+			short: 's',
+		},
+	},
+})
 
 function evmCompile(sources: CompileInput) {
 	const input = {
@@ -25,32 +41,59 @@ function evmCompile(sources: CompileInput) {
 
 console.log('Compiling contracts...')
 
-let pvmContracts: Map<string, { abi: Abi; bytecode: string }> = new Map()
-let evmContracts: Map<string, { abi: Abi; bytecode: string }> = new Map()
-const input = [
-	{ file: 'Event.sol', contract: 'EventExample', keypath: 'event' },
-	{ file: 'Revert.sol', contract: 'RevertExample', keypath: 'revert' },
-]
+const rootDir = join(__dirname, '..')
+const contractsDir = join(rootDir, 'contracts')
+const abiDir = join(rootDir, 'abi')
+const pvmDir = join(rootDir, 'pvm')
+const evmDir = join(rootDir, 'evm')
 
-for (const { keypath, contract, file } of input) {
+const input = readdirSync(contractsDir)
+	.filter((f) => f.endsWith('.sol'))
+	.filter((f) => !filter || f.includes(filter))
+
+for (const file of input) {
+	console.log(`🔨 Compiling ${file}...`)
+	const name = basename(file, '.sol')
 	const input = {
-		[file]: { content: readFileSync(join('contracts', file), 'utf8') },
+		[name]: { content: readFileSync(join(contractsDir, file), 'utf8') },
 	}
 
-	{
-		console.log(`Compile with solc ${file}`)
-		const out = JSON.parse(evmCompile(input))
-		const entry = out.contracts[file][contract]
-		evmContracts.set(keypath, { abi: entry.abi, bytecode: entry.evm.bytecode.object })
+	if (!solcOnly) {
+		console.log('Compiling with revive...')
+		const reviveOut = await compile(input, { bin: 'resolc' })
+
+		for (const contracts of Object.values(reviveOut.contracts)) {
+			for (const [name, contract] of Object.entries(contracts)) {
+				console.log(`📜 Add PVM contract ${name}`)
+				writeFileSync(
+					join(pvmDir, `${name}.polkavm`),
+					Buffer.from(contract.evm.bytecode.object, 'hex')
+				)
+			}
+		}
 	}
 
-	{
-		console.log(`Compile with revive ${file}`)
-		const out = await compile(input)
-		const entry = out.contracts[file][contract]
-		pvmContracts.set(keypath, { abi: entry.abi, bytecode: entry.evm.bytecode.object })
+	console.log(`Compile with solc ${file}`)
+	const evmOut = JSON.parse(evmCompile(input)) as SolcOutput
+
+	for (const contracts of Object.values(evmOut.contracts)) {
+		for (const [name, contract] of Object.entries(contracts)) {
+			console.log(`📜 Add EVM contract ${name}`)
+			writeFileSync(
+				join(evmDir, `${name}.bin`),
+				Buffer.from(contract.evm.bytecode.object, 'hex')
+			)
+
+			const abi = contract.abi
+			const abiName = `${name}Abi`
+			writeFileSync(join(abiDir, `${name}.json`), JSON.stringify(abi, null, 2))
+
+			writeFileSync(
+				join(abiDir, `${name}.ts`),
+				await format(`export const ${abiName} = ${JSON.stringify(abi, null, 2)} as const`, {
+					parser: 'typescript',
+				})
+			)
+		}
 	}
 }
-
-writeFileSync('pvm-contracts.json', JSON.stringify(Object.fromEntries(pvmContracts), null, 2))
-writeFileSync('evm-contracts.json', JSON.stringify(Object.fromEntries(evmContracts), null, 2))

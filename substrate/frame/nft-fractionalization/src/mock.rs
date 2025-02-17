@@ -77,6 +77,7 @@ impl pallet_assets::Config for Test {
 	type MetadataDepositPerByte = ConstU64<1>;
 	type ApprovalDeposit = ConstU64<1>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = ();
@@ -115,6 +116,7 @@ impl pallet_nfts::Config for Test {
 	type OffchainSignature = Signature;
 	type OffchainPublic = AccountPublic;
 	type WeightInfo = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 	pallet_nfts::runtime_benchmarks_enabled! {
 		type Helper = ();
 	}

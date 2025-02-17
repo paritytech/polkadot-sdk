@@ -5,6 +5,8 @@ name = "cumulus-pallet-xcm"
 version = "0.7.0"
 license = "Apache-2.0"
 description = "Pallet for stuff specific to parachains' usage of XCM"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -13,10 +15,10 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 xcm = { workspace = true }
 

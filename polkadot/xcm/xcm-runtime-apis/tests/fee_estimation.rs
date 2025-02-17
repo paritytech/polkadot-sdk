@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
+// SPDX-License-Identifier: Apache-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Polkadot is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Tests for using both the XCM fee payment API and the dry-run API.
 
@@ -352,4 +352,27 @@ fn dry_run_xcm() {
 			]
 		);
 	});
+}
+
+#[test]
+fn calling_payment_api_with_a_lower_version_works() {
+	let transfer_amount = 100u128;
+	let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
+		.withdraw_asset((Here, transfer_amount))
+		.buy_execution((Here, transfer_amount), Unlimited)
+		.deposit_asset(AllCounted(1), [1u8; 32])
+		.build();
+	let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.clone().into());
+	let lower_version_xcm_to_weigh = versioned_xcm_to_weigh.into_version(XCM_VERSION - 1).unwrap();
+	let client = TestClient;
+	let runtime_api = client.runtime_api();
+	let xcm_weight =
+		runtime_api.query_xcm_weight(H256::zero(), lower_version_xcm_to_weigh).unwrap();
+	assert!(xcm_weight.is_ok());
+	let native_token = VersionedAssetId::from(AssetId(Here.into()));
+	let lower_version_native_token = native_token.into_version(XCM_VERSION - 1).unwrap();
+	let execution_fees = runtime_api
+		.query_weight_to_asset_fee(H256::zero(), xcm_weight.unwrap(), lower_version_native_token)
+		.unwrap();
+	assert!(execution_fees.is_ok());
 }
