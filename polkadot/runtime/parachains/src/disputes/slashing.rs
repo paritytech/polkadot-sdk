@@ -17,25 +17,32 @@
 //! Dispute slashing pallet.
 //!
 //! Once a dispute is concluded, we want to slash validators who were on the
-//! wrong side of the dispute. The slashing amount depends on whether the
-//! candidate was valid (none at the moment) or invalid (big). In addition to
-//! that, we might want to kick out the validators from the active set.
-//! Currently, we limit slashing to the backing group for invalid disputes.
-//!
+//! wrong side of the dispute.
+//! 
+//! A dispute should always result in a slashing offence. There are 3 possible
+//! slash types:
+//! - `BackedInvalid`: A major offence when a validator backed an
+//! invalid block. Main source of economic security.
+//! - `ForInvalid`: A medium offence when a validator approved (NOT backed) an
+//! invalid block. Protects from lazy validators.
+//! - `AgainstValid`: A minor offence when a validator disputed a valid block.
+//! Protects from spam attacks.
+//! 
+//! Past session slashing:
+//! 
 //! The `offences` pallet from Substrate provides us with a way to do both.
 //! Currently, the interface expects us to provide staking information including
 //! nominator exposure in order to submit an offence.
 //!
 //! Normally, we'd able to fetch this information from the runtime as soon as
-//! the dispute is concluded. This is also what `im-online` pallet does.
-//! However, since a dispute can conclude several sessions after the candidate
-//! was backed (see `dispute_period` in `HostConfiguration`), we can't rely on
-//! this information being available in the context of the current block. The
-//! `babe` and `grandpa` equivocation handlers also have to deal with this
-//! problem.
+//! the dispute is concluded. However, since a dispute can conclude several
+//! sessions after the candidate was backed (see `dispute_period` in
+//! `HostConfiguration`), we can't rely on this information being available
+//! in the context of the current block. The `babe` and `grandpa` equivocation
+//! handlers also have to deal with this problem.
 //!
-//! Our implementation looks like a hybrid of `im-online` and `grandpa`
-//! equivocation handlers. Meaning, we submit an `offence` for the concluded
+//! Our implementation looks like a hybrid of `im-online` and `grandpa
+//! equivocation` handlers. Meaning, we submit an `offence` for the concluded
 //! disputes about the current session candidate directly from the runtime. If,
 //! however, the dispute is about a past session, we record unapplied slashes on
 //! chain, without `FullIdentification` of the offenders. Later on, a block
@@ -76,7 +83,8 @@ const LOG_TARGET: &str = "runtime::parachains::slashing";
 
 // These are constants, but we want to make them configurable
 // via `HostConfiguration` in the future.
-const SLASH_FOR_INVALID: Perbill = Perbill::from_percent(100);
+const SLASH_FOR_INVALID_BACKED: Perbill = Perbill::from_percent(100);
+const SLASH_FOR_INVALID_APPROVED: Perbill = Perbill::from_percent(2);
 const SLASH_AGAINST_VALID: Perbill = Perbill::zero();
 const DEFENSIVE_PROOF: &'static str = "disputes module should bail on old session";
 
@@ -94,7 +102,7 @@ impl<const M: u32> BenchmarkingConfiguration for BenchConfig<M> {
 	const MAX_VALIDATORS: u32 = M;
 }
 
-/// An offence that is filed when a series of validators lost a dispute.
+/// An offence that is filed when a series of validators who lost a dispute.
 #[derive(TypeInfo)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
 pub struct SlashingOffence<KeyOwnerIdentification> {
@@ -108,7 +116,7 @@ pub struct SlashingOffence<KeyOwnerIdentification> {
 	/// What fraction of the total exposure that should be slashed for
 	/// this offence.
 	pub slash_fraction: Perbill,
-	/// Whether the candidate was valid or invalid.
+	/// The type of slashing offence.
 	pub kind: SlashingOffenceKind,
 }
 
@@ -151,7 +159,8 @@ impl<KeyOwnerIdentification> SlashingOffence<KeyOwnerIdentification> {
 	) -> Self {
 		let time_slot = DisputesTimeSlot::new(session_index, candidate_hash);
 		let slash_fraction = match kind {
-			SlashingOffenceKind::ForInvalid => SLASH_FOR_INVALID,
+			SlashingOffenceKind::ForInvalidBacked => SLASH_FOR_INVALID_BACKED,
+			SlashingOffenceKind::ForInvalidApproved => SLASH_FOR_INVALID_APPROVED,
 			SlashingOffenceKind::AgainstValid => SLASH_AGAINST_VALID,
 		};
 		Self { time_slot, validator_set_count, offenders, slash_fraction, kind }
@@ -208,31 +217,19 @@ where
 		candidate_hash: CandidateHash,
 		kind: SlashingOffenceKind,
 		losers: impl IntoIterator<Item = ValidatorIndex>,
-		backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		// sanity check for the current implementation
-		if kind == SlashingOffenceKind::AgainstValid {
-			debug_assert!(false, "should only slash ForInvalid disputes");
-			return
-		}
 		let losers: BTreeSet<_> = losers.into_iter().collect();
 		if losers.is_empty() {
 			return
 		}
-		let backers: BTreeSet<_> = backers.into_iter().collect();
-		let to_punish: Vec<ValidatorIndex> = losers.intersection(&backers).cloned().collect();
-		if to_punish.is_empty() {
-			return
-		}
-
 		let session_info = crate::session_info::Sessions::<T>::get(session_index);
 		let session_info = match session_info.defensive_proof(DEFENSIVE_PROOF) {
 			Some(info) => info,
 			None => return,
 		};
 
-		let maybe = Self::maybe_identify_validators(session_index, to_punish.iter().cloned());
-		if let Some(offenders) = maybe {
+		let maybe_offenders = Self::maybe_identify_validators(session_index, losers.iter().cloned());
+		if let Some(offenders) = maybe_offenders {
 			let validator_set_count = session_info.discovery_keys.len() as ValidatorSetCount;
 			let offence = SlashingOffence::new(
 				session_index,
@@ -247,7 +244,7 @@ where
 			return
 		}
 
-		let keys = to_punish
+		let keys = losers
 			.into_iter()
 			.filter_map(|i| session_info.validators.get(i).cloned().map(|id| (i, id)))
 			.collect();
@@ -274,18 +271,18 @@ where
 		losers: impl IntoIterator<Item = ValidatorIndex>,
 		backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		let kind = SlashingOffenceKind::ForInvalid;
-		Self::do_punish(session_index, candidate_hash, kind, losers, backers);
+		Self::do_punish(session_index, candidate_hash, SlashingOffenceKind::ForInvalidBacked, backers);
+		Self::do_punish(session_index, candidate_hash, SlashingOffenceKind::ForInvalidApproved, losers);
 	}
 
 	fn punish_against_valid(
-		_session_index: SessionIndex,
-		_candidate_hash: CandidateHash,
-		_losers: impl IntoIterator<Item = ValidatorIndex>,
+		session_index: SessionIndex,
+		candidate_hash: CandidateHash,
+		losers: impl IntoIterator<Item = ValidatorIndex>,
 		_backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		// do nothing for now
-		// NOTE: changing that requires modifying `do_punish` implementation
+		let kind = SlashingOffenceKind::AgainstValid;
+		Self::do_punish(session_index, candidate_hash, kind, losers);
 	}
 
 	fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
@@ -586,7 +583,8 @@ impl<T: Config> Pallet<T> {
 			let longevity = <T::HandleReports as HandleReports<T>>::ReportLongevity::get();
 
 			let tag_prefix = match dispute_proof.kind {
-				SlashingOffenceKind::ForInvalid => "DisputeForInvalid",
+				SlashingOffenceKind::ForInvalidBacked => "DisputeForInvalidBacked",
+				SlashingOffenceKind::ForInvalidApproved => "DisputeForInvalidApproved",
 				SlashingOffenceKind::AgainstValid => "DisputeAgainstValid",
 			};
 
