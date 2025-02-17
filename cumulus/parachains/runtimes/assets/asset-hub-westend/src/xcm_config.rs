@@ -650,7 +650,7 @@ pub mod bridging {
 		use assets_common::matching::FromNetwork;
 		use sp_std::collections::btree_set::BTreeSet;
 		use testnet_parachains_constants::westend::snowbridge::{
-			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
 		};
 
 		parameter_types! {
@@ -660,11 +660,18 @@ pub mod bridging {
 			/// Polkadot uses 10 decimals, Kusama,Rococo,Westend 12 decimals.
 			pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
 			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
-			pub SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
+			pub SiblingBridgeHubWithEthereumInboundQueueV1Instance: Location = Location::new(
 				1,
 				[
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(INBOUND_QUEUE_PALLET_INDEX)
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V1)
+				]
+			);
+			pub SiblingBridgeHubWithEthereumInboundQueueV2Instance: Location = Location::new(
+				1,
+				[
+					Parachain(SiblingBridgeHubParaId::get()),
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)
 				]
 			);
 
@@ -685,7 +692,8 @@ pub mod bridging {
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
-					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get().into())),
+					(SiblingBridgeHubWithEthereumInboundQueueV1Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
+					(SiblingBridgeHubWithEthereumInboundQueueV2Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
 				]
 			);
 

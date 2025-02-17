@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
+hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { workspace = true }
@@ -40,6 +41,7 @@ bridge-hub-westend-runtime = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
+penpal-emulated-chain = { workspace = true }
 rococo-westend-system-emulated-network = { workspace = true }
 testnet-parachains-constants = { features = ["rococo", "westend"], workspace = true, default-features = true }
 

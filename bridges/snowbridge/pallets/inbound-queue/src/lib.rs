@@ -61,7 +61,7 @@ use snowbridge_core::{
 	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
 	StaticLookup,
 };
-use snowbridge_router_primitives::inbound::{
+use snowbridge_router_primitives::inbound::v1::{
 	ConvertMessage, ConvertMessageError, VersionedMessage,
 };
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
