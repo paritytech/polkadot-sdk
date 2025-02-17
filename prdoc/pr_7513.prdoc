@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "PVF: use landlock V4 for extra networking sandbox"
+
+doc:
+  - audience: Node Operator
+    description: |
+      Adds an additional security feature based on Landlock networking
+      restrictions. In Secure Validator Mode (the default security mode for
+      validators), this feature should be optional if the seccomp feature is
+      available. Likewise the seccomp feature becomes optional if the new
+      feature is available.
+
+crates:
+- name: polkadot-node-core-pvf
+  bump: major
+- name: polkadot-node-core-pvf-common
+  bump: major
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: patch
