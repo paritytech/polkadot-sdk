@@ -129,6 +129,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
+        id: required
         run: |
           forklift cargo build --release -p westend-runtime
           forklift cargo build --release -p asset-hub-westend-runtime
@@ -141,10 +142,17 @@ jobs:
           export PATH="$BUN_INSTALL/bin:$PATH"
           echo "Installing dependencies"
           bun add polkadot-api
+          bun add @polkadot-api/descriptors
           bun add @polkadot-labs/hdkd
           echo "Running tests"
           cd cumulus/parachains/integration-tests/chopsticks/tests/v5-tests
           bun test ./index.ts
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   cargo-check-benches:
     needs: [preflight]
