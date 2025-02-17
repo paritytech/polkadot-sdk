@@ -41,7 +41,7 @@ mod benchmarks {
 			T::MaxHistoricalRevenue,
 		> = BoundedVec::try_from((1..=mhr).map(|v| minimum_balance * v.into()).collect::<Vec<_>>())
 			.unwrap();
-		on_demand::Revenue::<T>::put(rev);
+		on_demand::Pallet::<T>::set_revenue(rev);
 
 		crate::paras::Heads::<T>::insert(ParaId::from(T::BrokerId::get()), vec![1, 2, 3]);
 
