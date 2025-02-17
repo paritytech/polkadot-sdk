@@ -234,7 +234,12 @@ mod benchmarks {
 			false
 		};
 
-		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
+		T::Paymaster::ensure_successful(
+			&Treasury::<T, _>::treasury_account_id(),
+			&beneficiary,
+			asset_kind,
+			amount,
+		);
 		let caller: T::AccountId = account("caller", 0, SEED);
 
 		#[block]
@@ -269,7 +274,12 @@ mod benchmarks {
 			create_spend_arguments::<T, _>(SEED);
 
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
-		T::Paymaster::ensure_successful(&beneficiary, asset_kind.clone(), amount);
+		T::Paymaster::ensure_successful(
+			&Treasury::<T, _>::treasury_account_id(),
+			&beneficiary,
+			asset_kind.clone(),
+			amount,
+		);
 		let caller: T::AccountId = account("caller", 0, SEED);
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {

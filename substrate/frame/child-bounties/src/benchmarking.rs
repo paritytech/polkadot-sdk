@@ -25,11 +25,33 @@ use frame_support::ensure;
 use frame_system::RawOrigin;
 use pallet_bounties::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;
+use sp_core::crypto::FromEntropy;
 use sp_runtime::traits::BlockNumberProvider;
 
 use crate::*;
 
 const SEED: u32 = 0;
+
+/// Trait describing factory functions for dispatchables' parameters.
+pub trait ArgumentsFactory<AssetKind> {
+	/// Factory function for an asset kind.
+	fn create_asset_kind(seed: u32) -> AssetKind;
+	/// Factory function for an beneficiary.
+	fn create_beneficiary<T: Config>(seed: u32) -> BeneficiaryLookupOf<T>;
+}
+
+impl<AssetKind> ArgumentsFactory<AssetKind> for ()
+where
+	AssetKind: FromEntropy,
+{
+	fn create_asset_kind(seed: u32) -> AssetKind {
+		AssetKind::from_entropy(&mut seed.encode().as_slice()).unwrap()
+	}
+
+	fn create_beneficiary<T: Config>(seed: u32) -> BeneficiaryLookupOf<T> {
+		AssetKind::from_entropy(&mut seed.encode().as_slice()).unwrap()
+	}
+}
 
 #[derive(Clone)]
 struct BenchmarkChildBounty<T: Config> {
@@ -44,13 +66,13 @@ struct BenchmarkChildBounty<T: Config> {
 	/// The child-bounty curator account.
 	child_curator: T::AccountId,
 	/// The (total) amount that should be paid if the bounty is rewarded.
-	value: BalanceOf<T>,
+	value: BountyBalanceOf<T>,
 	/// The curator fee. included in value.
-	fee: BalanceOf<T>,
+	fee: BountyBalanceOf<T>,
 	/// The (total) amount that should be paid if the child-bounty is rewarded.
-	child_bounty_value: BalanceOf<T>,
+	child_bounty_value: BountyBalanceOf<T>,
 	/// The child-bounty curator fee. included in value.
-	child_bounty_fee: BalanceOf<T>,
+	child_bounty_fee: BountyBalanceOf<T>,
 	/// Bounty description.
 	reason: Vec<u8>,
 }
@@ -62,18 +84,22 @@ fn set_block_number<T: Config>(n: BlockNumberFor<T>) {
 fn setup_bounty<T: Config>(
 	user: u32,
 	description: u32,
-) -> (T::AccountId, T::AccountId, BalanceOf<T>, BalanceOf<T>, Vec<u8>) {
+) -> (T::AccountId, T::AccountId, BountyBalanceOf<T>, BountyBalanceOf<T>, Vec<u8>) {
 	let caller = account("caller", user, SEED);
-	let value: BalanceOf<T> = T::BountyValueMinimum::get().saturating_mul(100u32.into());
+	// let value: BountyBalanceOf<T> = T::BountyValueMinimum::get().saturating_mul(100u32.into());
+	// TODO: correct recalculation with balance converter
+	// let value: BountyBalanceOf<T> = T::BountyValueMinimum::get().saturating_mul(100u32.into());
+	let value: BountyBalanceOf<T> = 100_00u32.into();
 	let fee = value / 2u32.into();
 	let deposit = T::BountyDepositBase::get() +
 		T::DataDepositPerByte::get() * T::MaximumReasonLength::get().into();
-	let _ = T::Currency::make_free_balance_be(&caller, deposit + T::Currency::minimum_balance());
+	// TODO: setup balances
+	// let _ = T::Currency::make_free_balance_be(&caller, deposit + T::Currency::minimum_balance());
 	let curator = account("curator", user, SEED);
-	let _ = T::Currency::make_free_balance_be(
-		&curator,
-		fee / 2u32.into() + T::Currency::minimum_balance(),
-	);
+	// let _ = T::Currency::make_free_balance_be(
+	// 	&curator,
+	// 	fee / 2u32.into() + T::Currency::minimum_balance(),
+	// );
 	let reason = vec![0; description as usize];
 	(caller, curator, fee, value, reason)
 }
@@ -81,10 +107,11 @@ fn setup_bounty<T: Config>(
 fn setup_child_bounty<T: Config>(user: u32, description: u32) -> BenchmarkChildBounty<T> {
 	let (caller, curator, fee, value, reason) = setup_bounty::<T>(user, description);
 	let child_curator = account("child-curator", user, SEED);
-	let _ = T::Currency::make_free_balance_be(
-		&child_curator,
-		fee / 2u32.into() + T::Currency::minimum_balance(),
-	);
+	// TODO: setup asset balance
+	// let _ = T::Currency::make_free_balance_be(
+	// 	&child_curator,
+	// 	fee / 2u32.into() + T::Currency::minimum_balance(),
+	// );
 	let child_bounty_value = (value - fee) / 4u32.into();
 	let child_bounty_fee = child_bounty_value / 2u32.into();
 
@@ -110,6 +137,7 @@ fn activate_bounty<T: Config>(
 	let curator_lookup = T::Lookup::unlookup(child_bounty_setup.curator.clone());
 	Bounties::<T>::propose_bounty(
 		RawOrigin::Signed(child_bounty_setup.caller.clone()).into(),
+		Box::new(<T as Config>::BenchmarkHelper::create_asset_kind(SEED)),
 		child_bounty_setup.value,
 		child_bounty_setup.reason.clone(),
 	)?;
@@ -130,6 +158,7 @@ fn activate_bounty<T: Config>(
 	Bounties::<T>::accept_curator(
 		RawOrigin::Signed(child_bounty_setup.curator.clone()).into(),
 		child_bounty_setup.bounty_id,
+		<T as Config>::BenchmarkHelper::create_beneficiary::<T>(SEED),
 	)?;
 
 	Ok(child_bounty_setup)
@@ -163,6 +192,7 @@ fn activate_child_bounty<T: Config>(
 		RawOrigin::Signed(bounty_setup.child_curator.clone()).into(),
 		bounty_setup.bounty_id,
 		bounty_setup.child_bounty_id,
+		<T as Config>::BenchmarkHelper::create_beneficiary::<T>(SEED),
 	)?;
 
 	Ok(bounty_setup)
@@ -171,7 +201,8 @@ fn activate_child_bounty<T: Config>(
 fn setup_pot_account<T: Config>() {
 	let pot_account = Bounties::<T>::account_id();
 	let value = T::Currency::minimum_balance().saturating_mul(1_000_000_000u32.into());
-	let _ = T::Currency::make_free_balance_be(&pot_account, value);
+	// TODO: replace with native asset
+	// let _ = T::Currency::make_free_balance_be(&pot_account, value);
 }
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
@@ -286,8 +317,8 @@ mod benchmarks {
 	fn award_child_bounty() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
-		let beneficiary_account = account::<T::AccountId>("beneficiary", 0, SEED);
-		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
+		let beneficiary_account = account::<T::Beneficiary>("beneficiary", 0, SEED);
+		let beneficiary = T::BeneficiaryLookup::unlookup(beneficiary_account.clone());
 
 		#[extrinsic_call]
 		_(
@@ -314,7 +345,7 @@ mod benchmarks {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		let beneficiary_account = account("beneficiary", 0, SEED);
-		let beneficiary = T::Lookup::unlookup(beneficiary_account);
+		let beneficiary = T::BeneficiaryLookup::unlookup(beneficiary_account);
 
 		Pallet::<T>::award_child_bounty(
 			RawOrigin::Signed(bounty_setup.child_curator.clone()).into(),
