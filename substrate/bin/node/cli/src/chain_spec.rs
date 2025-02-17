@@ -347,6 +347,29 @@ pub fn testnet_genesis(
 ) -> serde_json::Value {
 	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
+	const MAX_COLLECTIVE_SIZE: usize = 50;
+
+	let dev_stakers = if cfg!(feature = "staking-playground") {
+		let random_validators =
+			std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
+		let random_nominators = std::option_env!("NOMINATORS")
+			.map(|s| s.parse::<u32>().unwrap())
+			.unwrap_or(3000);
+		Some((random_validators, random_nominators))
+	} else {
+		None
+	};
+
+	let validator_count = if cfg!(feature = "staking-playground") {
+		std::option_env!("VALIDATOR_COUNT")
+			.map(|v| v.parse::<u32>().unwrap())
+			.unwrap_or(100)
+	} else {
+		initial_authorities.len() as u32
+	};
+
+	let minimum_validator_count =
+		if cfg!(feature = "staking-playground") { 10 } else { initial_authorities.len() as u32 };
 
 	serde_json::json!({
 		"balances": {
@@ -372,16 +395,17 @@ pub fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 		"staking": {
-			"validatorCount": initial_authorities.len() as u32,
-			"minimumValidatorCount": initial_authorities.len() as u32,
+			"validatorCount": validator_count,
+			"minimumValidatorCount": minimum_validator_count,
 			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			"slashRewardFraction": Perbill::from_percent(10),
 			"stakers": stakers.clone(),
+			"devStakers": dev_stakers
 		},
 		"elections": {
 			"members": endowed_accounts
 				.iter()
-				.take((num_endowed_accounts + 1) / 2)
+				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
 				.cloned()
 				.map(|member| (member, STASH))
 				.collect::<Vec<_>>(),
@@ -389,7 +413,7 @@ pub fn testnet_genesis(
 		"technicalCommittee": {
 			"members": endowed_accounts
 				.iter()
-				.take((num_endowed_accounts + 1) / 2)
+				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
 				.cloned()
 				.collect::<Vec<_>>(),
 		},

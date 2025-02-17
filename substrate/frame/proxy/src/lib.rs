@@ -37,7 +37,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec};
 use frame::{
 	prelude::*,
-	traits::{Currency, ReservableCurrency},
+	traits::{Currency, InstanceFilter, ReservableCurrency},
 };
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -590,6 +590,22 @@ pub mod pallet {
 		),
 		ValueQuery,
 	>;
+
+	#[pallet::view_functions_experimental]
+	impl<T: Config> Pallet<T> {
+		/// Check if a `RuntimeCall` is allowed for a given `ProxyType`.
+		pub fn check_permissions(
+			call: <T as Config>::RuntimeCall,
+			proxy_type: T::ProxyType,
+		) -> bool {
+			proxy_type.filter(&call)
+		}
+
+		/// Check if one `ProxyType` is a subset of another `ProxyType`.
+		pub fn is_superset(to_check: T::ProxyType, against: T::ProxyType) -> bool {
+			to_check.is_superset(&against)
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {

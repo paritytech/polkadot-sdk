@@ -340,13 +340,15 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 				},
 				Err(index) => {
 					// Offender is not disabled, add to `DisabledValidators` and disable it
-					disabled.insert(index, (offender_idx, new_severity));
-					// Propagate disablement to session level
-					T::SessionInterface::disable_validator(offender_idx);
-					// Emit event that a validator got disabled
-					<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
-						stash: params.stash.clone(),
-					});
+					if disabled.try_insert(index, (offender_idx, new_severity)).defensive().is_ok()
+					{
+						// Propagate disablement to session level
+						T::SessionInterface::disable_validator(offender_idx);
+						// Emit event that a validator got disabled
+						<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
+							stash: params.stash.clone(),
+						});
+					}
 				},
 			}
 		}
