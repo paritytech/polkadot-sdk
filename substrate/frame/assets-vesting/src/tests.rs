@@ -257,8 +257,7 @@ mod vest {
 										   // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 			assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &1), Some(45));
 			assert_ok!(AssetsVesting::vest(Some(1).into(), ASSET_ID));
-			// TODO: this value should be changed to 55 once #4530 is merged
-			assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 2, 45));
+			assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 2, 55));
 		});
 	}
 
@@ -282,8 +281,7 @@ mod vest {
 				// Account 1 has only 256 units unlocking at block 1 (plus 1280 already fee).
 				assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &1), Some(2304));
 				assert_ok!(AssetsVesting::vest(Some(1).into(), ASSET_ID));
-				// TODO: this value should be changed to 1536 once #4530 is merged
-				assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 2, 1280));
+				assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 2, 1536));
 			});
 	}
 
@@ -313,8 +311,7 @@ mod vest_other {
 										   // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 			assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &1), Some(45));
 			assert_ok!(AssetsVesting::vest_other(Some(2).into(), ASSET_ID, 1));
-			// TODO: this value should be changed to 55 once #4530 is merged
-			assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 2, 45));
+			assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 2, 55));
 		});
 	}
 
@@ -338,8 +335,7 @@ mod vest_other {
 				// Account 1 has only 256 units unlocking at block 1 (plus 1280 already free).
 				assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &1), Some(2304));
 				assert_ok!(AssetsVesting::vest_other(Some(2).into(), ASSET_ID, 1));
-				// TODO: this value should be changed to 1536 once #4530 is merged
-				assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 2, 1280));
+				assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 2, 1536));
 			});
 	}
 
@@ -377,15 +373,13 @@ mod transfer_with_vested_balance {
 			assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &1), Some(45));
 			assert_ok!(AssetsVesting::vest(Some(1).into(), ASSET_ID));
 			// Account 1 can send extra units gained
-			// TODO: this value should be changed to 155 once #4530 is merged
-			assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 3, 145));
+			assert_ok!(Assets::transfer(Some(1).into(), ASSET_ID, 3, 155));
 
 			// Account 2 has no units vested at block 1, but gained 100
 			assert_eq!(AssetsVesting::vesting_balance(ASSET_ID, &2), Some(200));
 			assert_ok!(AssetsVesting::vest(Some(2).into(), ASSET_ID));
 			// Account 2 can send extra units gained
-			// TODO: this value should be changed to 100 once #4530 is merged
-			assert_ok!(Assets::transfer(Some(2).into(), ASSET_ID, 3, 90));
+			assert_ok!(Assets::transfer(Some(2).into(), ASSET_ID, 3, 100));
 		});
 	}
 
@@ -418,8 +412,7 @@ mod transfer_with_vested_balance {
 				);
 
 				// Account 12 can still send liquid funds
-				// TODO: this value should be changed to MINIMUM_BALANCE * 5 once #4530 is merged
-				assert_ok!(Assets::transfer(Some(12).into(), ASSET_ID, 3, MINIMUM_BALANCE * 4));
+				assert_ok!(Assets::transfer(Some(12).into(), ASSET_ID, 3, MINIMUM_BALANCE * 5));
 			});
 	}
 }
@@ -867,8 +860,7 @@ mod merge_schedules {
 				let sched1_vested_now = sched1.per_block() * (cur_block - sched1.starting_block());
 				assert_eq!(
 					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
-					// TODO: this `- MINIMUM_BALANCE` should be removed once #4530 is merged.
-					sched0_vested_now + sched1_vested_now - MINIMUM_BALANCE
+					sched0_vested_now + sched1_vested_now
 				);
 
 				// The locked amount is the sum of what both schedules have locked at the current
@@ -923,7 +915,6 @@ mod merge_schedules {
 				assert_eq!(VestingStorage::<Test>::get(ASSET_ID, &3), None);
 				// and some usable balance.
 				let usable_balance = Assets::reducible_balance(ASSET_ID, &3, Preserve, Polite);
-				// TODO: this value should be changed to 30 * MINIMUM_BALANCE once #4530 is merged
 				assert_eq!(usable_balance, 29 * MINIMUM_BALANCE);
 
 				let cur_block = 1;
@@ -942,7 +933,7 @@ mod merge_schedules {
 				// and the usable balance has not changed.
 				assert_eq!(
 					usable_balance,
-					Assets::reducible_balance(ASSET_ID, &3, Preserve, Polite)
+					Assets::reducible_balance(ASSET_ID, &3, Preserve, Polite) - MINIMUM_BALANCE,
 				);
 
 				assert_ok!(AssetsVesting::merge_schedules(Some(3).into(), ASSET_ID, 0, 2));
@@ -968,8 +959,8 @@ mod merge_schedules {
 				);
 				// The usable balance hasn't changed since none of the schedules have started.
 				assert_eq!(
-					Assets::reducible_balance(ASSET_ID, &3, Preserve, Polite),
-					usable_balance
+					usable_balance,
+					Assets::reducible_balance(ASSET_ID, &3, Preserve, Polite) - MINIMUM_BALANCE,
 				);
 			});
 	}
@@ -1010,9 +1001,7 @@ mod merge_schedules {
 				reducible_balance += sched0_vested_now;
 				assert_eq!(
 					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
-					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
-					// is merged.
-					reducible_balance - MINIMUM_BALANCE
+					reducible_balance
 				);
 
 				// Go forward a block.
@@ -1035,9 +1024,7 @@ mod merge_schedules {
 				reducible_balance += sched0.per_block();
 				assert_eq!(
 					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
-					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
-					// is merged.
-					reducible_balance - MINIMUM_BALANCE
+					reducible_balance,
 				);
 
 				// The resulting schedule will have the later starting block of the two,
@@ -1124,10 +1111,7 @@ mod merge_schedules {
 				// block, including schedules not merged.
 				assert_eq!(
 					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
-					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
-					// is merged.
-					sched0_unlocked_now + sched1_unlocked_now + sched2_unlocked_now -
-						MINIMUM_BALANCE,
+					sched0_unlocked_now + sched1_unlocked_now + sched2_unlocked_now,
 				);
 			});
 	}
@@ -1179,9 +1163,7 @@ mod merge_schedules {
 				// schedules.
 				assert_eq!(
 					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
-					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
-					// is merged.
-					sched0.locked() + sched1.locked() - MINIMUM_BALANCE
+					sched0.locked() + sched1.locked() - MINIMUM_BALANCE,
 				);
 			});
 	}
@@ -1247,9 +1229,7 @@ mod merge_schedules {
 				// The usable balance is updated because merging fully unlocked sched0.
 				assert_eq!(
 					Assets::reducible_balance(ASSET_ID, &2, Preserve, Polite),
-					// TODO: Remove the subtract of `MINIMUM_BALANCE` from this value after #4530
-					// is merged.
-					sched0.locked() - MINIMUM_BALANCE
+					sched0.locked(),
 				);
 			});
 	}
