@@ -28,7 +28,7 @@ use crate::crypto::{
 };
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
-use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use alloc::{vec, vec::Vec};
@@ -657,7 +657,9 @@ pub mod ring_vrf {
 	}
 
 	/// Ring VRF signature.
-	#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	pub struct RingVrfSignature {
 		/// Ring signature.
 		pub signature: [u8; RING_SIGNATURE_SERIALIZED_SIZE],
