@@ -51,6 +51,7 @@ impl<T: frame_system::Config> pallet_xcm_bridge_router::WeightInfo for WeightInf
 	/// Storage: `ToWestendXcmRouter::Bridges` (r:1 w:1)
 	/// Proof: `ToWestendXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
 	fn update_bridge_status() -> Weight {
+		// TODO: FAIL-CI new weights
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
 		//  Estimated: `3530`
