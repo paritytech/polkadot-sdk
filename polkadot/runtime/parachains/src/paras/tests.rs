@@ -2036,7 +2036,11 @@ fn authorize_and_apply_set_current_code_works() {
 
 		// cannot apply non-authorized code
 		assert_err!(
-			Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_1.clone()),
+			Paras::apply_authorized_force_set_current_code(
+				non_root.clone(),
+				para_a,
+				code_1.clone()
+			),
 			Error::<Test>::CannotUpgradeCode,
 		);
 
@@ -2057,7 +2061,11 @@ fn authorize_and_apply_set_current_code_works() {
 
 		// non-root cannot apply unauthorized code
 		assert_err!(
-			Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_2.clone()),
+			Paras::apply_authorized_force_set_current_code(
+				non_root.clone(),
+				para_a,
+				code_2.clone()
+			),
 			Error::<Test>::CannotUpgradeCode,
 		);
 		assert_eq!(AuthorizedCodeHash::<Test>::get(para_a), Some(code_1_hash));
@@ -2067,7 +2075,11 @@ fn authorize_and_apply_set_current_code_works() {
 		check_code_is_not_stored(&code_3);
 
 		// non-root can apply authorized code
-		assert_ok!(Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_1.clone()));
+		assert_ok!(Paras::apply_authorized_force_set_current_code(
+			non_root.clone(),
+			para_a,
+			code_1.clone()
+		));
 
 		// check authorized code was applied
 		assert!(AuthorizedCodeHash::<Test>::get(para_a).is_none());
@@ -2094,16 +2106,28 @@ fn authorize_and_apply_set_current_code_works() {
 
 		// cannot apply older ones
 		assert_err!(
-			Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_1.clone()),
+			Paras::apply_authorized_force_set_current_code(
+				non_root.clone(),
+				para_a,
+				code_1.clone()
+			),
 			Error::<Test>::CannotUpgradeCode,
 		);
 		assert_err!(
-			Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_2.clone()),
+			Paras::apply_authorized_force_set_current_code(
+				non_root.clone(),
+				para_a,
+				code_2.clone()
+			),
 			Error::<Test>::CannotUpgradeCode,
 		);
 
 		// apply just authorized
-		assert_ok!(Paras::apply_authorized_force_set_current_code(non_root.clone(), para_a, code_3.clone()));
+		assert_ok!(Paras::apply_authorized_force_set_current_code(
+			non_root.clone(),
+			para_a,
+			code_3.clone()
+		));
 		assert!(AuthorizedCodeHash::<Test>::get(para_a).is_none());
 		assert_eq!(CurrentCodeHash::<Test>::get(para_a), Some(code_3_hash));
 		check_code_is_stored(&code_1);
