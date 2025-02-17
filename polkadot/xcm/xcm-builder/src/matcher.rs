@@ -89,17 +89,6 @@ pub trait MatchXcm {
 		Self: Sized,
 		F: FnMut(&mut Self::Inst) -> Result<(), Self::Error>;
 
-	/// Like `match_next_inst` but it only tries to match on the instruction if `cond`
-	/// is true.
-	///
-	/// If the condition doesn't match, it will not increase the index, which means
-	/// the next function has to deal with the same instruction.
-	fn match_next_inst_if<C, F>(self, c: C, f: F) -> Result<Self, Self::Error>
-	where
-		Self: Sized,
-		C: Fn(&Self::Inst) -> bool,
-		F: FnMut(&mut Self::Inst) -> Result<(), Self::Error>;
-
 	/// Attempts to continuously iterate through the instructions while applying `f` to each of
 	/// them, until either the last instruction or `cond` returns false.
 	///
@@ -111,16 +100,6 @@ pub trait MatchXcm {
 		Self: Sized,
 		C: Fn(&Self::Inst) -> bool,
 		F: FnMut(&mut Self::Inst) -> Result<ControlFlow<()>, Self::Error>;
-
-	/// Skip the next instruction if `cond` is true. If condition is false, it just doesn't increase
-	/// the index, making the following function handle that instruction.
-	fn skip_next_inst_if<C>(self, cond: C) -> Result<Self, Self::Error>
-	where
-		Self: Sized,
-		C: Fn(&Self::Inst) -> bool,
-	{
-		Self::match_next_inst_if(self, cond, |_| Ok(()))
-	}
 
 	/// Iterate instructions forward until `cond` returns false. When there are no more instructions
 	/// to be read, an error is returned.
@@ -173,24 +152,6 @@ impl<'a, Call> MatchXcm for Matcher<'a, Call> {
 		}
 	}
 
-	fn match_next_inst_if<C, F>(mut self, cond: C, mut f: F) -> Result<Self, Self::Error>
-	where
-		Self: Sized,
-		C: Fn(&Self::Inst) -> bool,
-		F: FnMut(&mut Self::Inst) -> Result<(), Self::Error>,
-	{
-		if self.current_idx >= self.total_inst {
-			return Err(ProcessMessageError::BadFormat)
-		}
-
-		if cond(&self.xcm[self.current_idx]) {
-			f(&mut self.xcm[self.current_idx])?;
-			self.current_idx += 1;
-		}
-
-		Ok(self)
-	}
-
 	fn match_next_inst_while<C, F>(mut self, cond: C, mut f: F) -> Result<Self, Self::Error>
 	where
 		Self: Sized,
@@ -229,111 +190,6 @@ mod tests {
 				_ => Err(ProcessMessageError::Unsupported),
 			});
 			assert_eq!(result.is_ok(), expected);
-		}
-	}
-
-	#[test]
-	fn match_next_inst_if_works() {
-		let test_cases: Vec<(&'static str, Vec<Instruction<()>>, bool)> = vec![
-			(
-				"Accepts an xcm with the optional instruction",
-				vec![ReserveAssetDeposited((Here, 100u128).into()), ClearOrigin],
-				true,
-			),
-			("Accepts an xcm without the optional instruction", vec![ClearOrigin], true),
-			(
-				"Doesn't accept an xcm without the mandatory instruction",
-				vec![ReserveAssetDeposited((Here, 100u128).into())],
-				false,
-			),
-			(
-				"Doesn't accept an xcm whose optional instruction doesn't meet requirements",
-				vec![
-					ReserveAssetDeposited(
-						vec![(Here, 100u128).into(), (Parent, 100u128).into()].into(),
-					),
-					ClearOrigin,
-				],
-				false,
-			),
-			(
-				"Doesn't accept an xcm with a different instruction as optional",
-				vec![WithdrawAsset((Here, 100u128).into()), ClearOrigin],
-				false,
-			),
-		];
-
-		for (description, mut xcm, expected) in test_cases.into_iter() {
-			let result = xcm
-				.matcher()
-				.match_next_inst_if(
-					|inst| matches!(inst, ReserveAssetDeposited(_)),
-					|inst| match inst {
-						ReserveAssetDeposited(ref assets) if assets.len() < 2 => Ok(()),
-						_ => Err(ProcessMessageError::Unsupported),
-					},
-				)
-				.and_then(|matcher| {
-					matcher.match_next_inst(|inst| match inst {
-						ClearOrigin => Ok(()),
-						_ => Err(ProcessMessageError::Unsupported),
-					})
-				});
-			assert_eq!(result.is_ok(), expected, "{}", description);
-		}
-	}
-
-	#[test]
-	fn skip_next_inst_if_works() {
-		let test_cases: Vec<(&'static str, Vec<Instruction<()>>, bool)> = vec![
-			(
-				"Accepts an xcm with the optional instruction",
-				vec![ReserveAssetDeposited((Here, 100u128).into()), ClearOrigin],
-				true,
-			),
-			(
-				"Accepts an xcm with the other optional instruction",
-				vec![ReceiveTeleportedAsset((Here, 100u128).into()), ClearOrigin],
-				true,
-			),
-			(
-				"Accepts an xcm without the optional instruction",
-				vec![ClearOrigin],
-				true,
-			),
-			(
-				"Doesn't accept an xcm without the mandatory instruction",
-				vec![ReserveAssetDeposited((Here, 100u128).into())],
-				false,
-			),
-			(
-				"Doesn't accept an xcm whose optional instruction doesn't meet requirements",
-				vec![ReserveAssetDeposited(vec![(Here, 100u128).into(), (Parent, 100u128).into()].into()), ClearOrigin],
-				false,
-			),
-			(
-				"Doesn't accept an xcm with other optional instruction that doesn't meet requirements",
-				vec![ReceiveTeleportedAsset(vec![(Here, 100u128).into(), (Parent, 100u128).into()].into()), ClearOrigin],
-				false,
-			),
-			(
-				"Doesn't accept an xcm with a different instruction as optional",
-				vec![WithdrawAsset((Here, 100u128).into()), ClearOrigin],
-				false,
-			),
-		];
-
-		for (description, mut xcm, expected) in test_cases.into_iter() {
-			let result = xcm
-				.matcher()
-				.skip_next_inst_if(|inst| {
-					matches!(inst, ReserveAssetDeposited(assets) | ReceiveTeleportedAsset(assets) if assets.len() < 2)
-				})
-				.and_then(|matcher| matcher.match_next_inst(|inst| match inst {
-					ClearOrigin => Ok(()),
-					_ => Err(ProcessMessageError::Unsupported),
-				}));
-			assert_eq!(result.is_ok(), expected, "{}", description);
 		}
 	}
 
