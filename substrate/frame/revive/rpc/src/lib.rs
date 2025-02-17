@@ -354,8 +354,9 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn web3_client_version(&self) -> RpcResult<String> {
-		let branch = env!("GIT_BRANCH_NAME");
-		let commit = env!("GIT_COMMIT_HASH");
-		Ok(format!("eth-rpc/{branch}/{commit}"))
+		let git_revision = env!("GIT_REVISION");
+		let rustc_version = env!("RUSTC_VERSION");
+		let target = env!("TARGET");
+		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
 	}
 }
