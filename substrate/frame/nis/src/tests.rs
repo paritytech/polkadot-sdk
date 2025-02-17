@@ -737,17 +737,19 @@ fn enlargement_to_target_works() {
 		assert_ok!(Nis::place_bid(signed(3), 40, 3));
 		Target::set(Perquintill::from_percent(40));
 
+		assert_eq!(
+			Queues::<Test>::get(3),
+			vec![Bid { amount: 40, who: 3 }, Bid { amount: 40, who: 2 },]
+		);
+		assert_eq!(QueueTotals::<Test>::get(), vec![(1, 40), (2, 80), (2, 80)]);
+
 		System::run_to_block::<AllPalletsWithSystem>(3);
 		assert_eq!(Queues::<Test>::get(1), vec![Bid { amount: 40, who: 1 },]);
 		assert_eq!(
 			Queues::<Test>::get(2),
 			vec![Bid { amount: 40, who: 2 }, Bid { amount: 40, who: 1 },]
 		);
-		assert_eq!(
-			Queues::<Test>::get(3),
-			vec![Bid { amount: 40, who: 3 }, Bid { amount: 40, who: 2 },]
-		);
-		assert_eq!(QueueTotals::<Test>::get(), vec![(1, 40), (2, 80), (2, 80)]);
+		assert_eq!(QueueTotals::<Test>::get(), vec![(1, 40), (2, 80), (0, 0)]);
 
 		System::run_to_block::<AllPalletsWithSystem>(4);
 		// Two new items should have been issued to 2 & 3 for 40 each & duration of 3.
@@ -756,7 +758,7 @@ fn enlargement_to_target_works() {
 			ReceiptRecord {
 				proportion: Perquintill::from_percent(10),
 				owner: Some((2, 40)),
-				expiry: 13
+				expiry: 12
 			}
 		);
 		assert_eq!(
@@ -764,7 +766,7 @@ fn enlargement_to_target_works() {
 			ReceiptRecord {
 				proportion: Perquintill::from_percent(10),
 				owner: Some((3, 40)),
-				expiry: 13
+				expiry: 12
 			}
 		);
 		assert_eq!(
@@ -779,26 +781,13 @@ fn enlargement_to_target_works() {
 		);
 
 		System::run_to_block::<AllPalletsWithSystem>(5);
-		// No change
-		assert_eq!(
-			Summary::<Test>::get(),
-			SummaryRecord {
-				proportion_owed: Perquintill::from_percent(20),
-				index: 2,
-				last_period: 0,
-				thawed: Perquintill::zero(),
-				receipts_on_hold: 80,
-			}
-		);
-
-		System::run_to_block::<AllPalletsWithSystem>(6);
 		// Two new items should have been issued to 1 & 2 for 40 each & duration of 2.
 		assert_eq!(
 			Receipts::<Test>::get(2).unwrap(),
 			ReceiptRecord {
 				proportion: Perquintill::from_percent(10),
 				owner: Some((1, 40)),
-				expiry: 12
+				expiry: 11
 			}
 		);
 		assert_eq!(
@@ -806,9 +795,22 @@ fn enlargement_to_target_works() {
 			ReceiptRecord {
 				proportion: Perquintill::from_percent(10),
 				owner: Some((2, 40)),
-				expiry: 12
+				expiry: 11
 			}
 		);
+		assert_eq!(
+			Summary::<Test>::get(),
+			SummaryRecord {
+				proportion_owed: Perquintill::from_percent(40),
+				index: 4,
+				last_period: 0,
+				thawed: Perquintill::zero(),
+				receipts_on_hold: 160,
+			}
+		);
+
+		System::run_to_block::<AllPalletsWithSystem>(6);
+		// No Change
 		assert_eq!(
 			Summary::<Test>::get(),
 			SummaryRecord {
@@ -843,7 +845,7 @@ fn enlargement_to_target_works() {
 			ReceiptRecord {
 				proportion: Perquintill::from_percent(10),
 				owner: Some((1, 40)),
-				expiry: 13
+				expiry: 12
 			}
 		);
 
