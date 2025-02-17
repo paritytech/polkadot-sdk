@@ -7424,9 +7424,9 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "18.0.0"
+version = "19.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "daaf440c68eb2c3d88e5760fe8c7af3f9fee9181fab6c2f2c4e7cc48dcc40bb8"
+checksum = "835a2e736d544b98dab966b4b9541f15af416288a86c3738fdd67bd9fbc4696e"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -7441,7 +7441,7 @@ dependencies = [
  "array-bytes",
  "const-hex",
  "docify",
- "frame-metadata 18.0.0",
+ "frame-metadata 19.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "log",
@@ -7526,7 +7526,7 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 18.0.0",
+ "frame-metadata 19.0.0",
  "frame-support-procedural 23.0.0",
  "frame-system 28.0.0",
  "impl-trait-for-tuples",
@@ -7704,7 +7704,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
- "frame-metadata 18.0.0",
+ "frame-metadata 19.0.0",
  "frame-support 28.0.0",
  "frame-support-test-pallet",
  "frame-system 28.0.0",
@@ -10771,13 +10771,13 @@ dependencies = [
 
 [[package]]
 name = "merkleized-metadata"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38c592efaf1b3250df14c8f3c2d952233f0302bb81d3586db2f303666c1cd607"
+checksum = "e656ca4a152e892cbbf4b621c242b070136643b797709007d4861881d71ff4c9"
 dependencies = [
  "array-bytes",
  "blake3",
- "frame-metadata 18.0.0",
+ "frame-metadata 19.0.0",
  "parity-scale-codec",
  "scale-decode 0.13.1",
  "scale-info",
@@ -12162,6 +12162,23 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.2",
+]
+
+[[package]]
+name = "pallet-assets-holder"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "log",
+ "pallet-assets 29.1.0",
+ "pallet-balances 28.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -13651,7 +13668,7 @@ name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
  "frame-benchmarking 28.0.0",
- "frame-metadata 18.0.0",
+ "frame-metadata 19.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "log",
@@ -18791,6 +18808,7 @@ dependencies = [
  "pallet-asset-tx-payment 28.0.0",
  "pallet-assets 29.1.0",
  "pallet-assets-freezer 0.1.0",
+ "pallet-assets-holder",
  "pallet-atomic-swap 28.0.0",
  "pallet-aura 27.0.0",
  "pallet-authority-discovery 28.0.0",
@@ -26989,7 +27007,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 18.0.0",
+ "frame-metadata 19.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -29094,7 +29112,7 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 18.0.0",
+ "frame-metadata 19.0.0",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
