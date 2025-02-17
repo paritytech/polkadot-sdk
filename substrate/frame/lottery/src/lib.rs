@@ -438,7 +438,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Convert a call to it's call index by encoding the call and taking the first two bytes.
-	fn call_to_index(call: &VersionedCall<T as Config>::RuntimeCall) -> Result<CallIndex, DispatchError> {
+	fn call_to_index(call: &VersionedCall<<T as Config>::RuntimeCall>) -> Result<CallIndex, DispatchError> {
 		let encoded_call = call.encode();
 		if encoded_call.len() < 2 {
 			return Err(Error::<T>::EncodingFailed.into())
