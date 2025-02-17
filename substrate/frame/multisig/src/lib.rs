@@ -171,7 +171,7 @@ pub mod pallet {
 		///
 		/// Suggested values:
 		/// - Solo- and Relay-chains: `frame_system::Pallet`
-		/// - Coretime-parachains that:
+		/// - On-demand parachains that:
 		///   - already have the pallet deployed: `frame_system::Pallet`
 		///   - are freshly deploying this pallet: `RelaychainDataProvider`
 		/// - PLO-parachains that:
