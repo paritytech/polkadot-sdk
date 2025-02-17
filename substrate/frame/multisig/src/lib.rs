@@ -488,6 +488,14 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(0)]
+		pub fn execute_call(origin: OriginFor<T>, call: VersionedCall<T::Call>) -> DispatchResult {
+			let current_transaction_version = <Runtime as frame_system::Config>::Version::get().transaction_version;
+			call.validate(current_transaction_version)?;
+			call.call.dispatch(origin.into())
+		}
 	}
 }
 

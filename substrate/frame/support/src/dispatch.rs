@@ -687,29 +687,40 @@ impl<T> PaysFee<T> for (u64, Pays) {
 	}
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Clone, PartialEq, Eq, Debug)]
 pub struct VersionedCall<Call> {
-    pub call: Call,
-    pub transaction_version: u32,
+    call: Call,
+    transaction_version: u32,
 }
 
 impl<Call> VersionedCall<Call> {
 	pub fn new(call: Call, transaction_version: u32) -> Self {
 		Self {
-			transaction_version,
 			call,
+			transaction_version,
 		}
 	}
-    pub fn validate(&self, current_transaction_version: u32) -> Result<(), DispatchError> {
+    pub fn validate(&self, current_transaction_version: u32) -> Result<&Call, DispatchError> {
         if self.transaction_version != current_transaction_version {
             Err(DispatchError::Other("Transaction version mismatch"))
         } else {
-            Ok(())
+            Ok(&self.call)
         }
+    }
+	/// Bypass validation and return the inner `call`.
+    /// This should be used with caution and only in cases where validation is explicitly not required.
+    pub fn bypass_validation(self) -> Call {
+        self.call
     }
 }
 
-
+impl<Call: Decode> Decode for VersionedCall<Call> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let call = Call::decode(input)?;
+		let transaction_version = u32::decode(input)?;
+		Ok(VersionedCall { call, transaction_version})
+	}
+}
 
 // END TODO
 

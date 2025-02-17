@@ -142,7 +142,7 @@ pub struct RetryConfig<Period> {
 struct ScheduledV1<Call, BlockNumber> {
 	maybe_id: Option<Vec<u8>>,
 	priority: schedule::Priority,
-	call: Call,
+	call: VersionedCall<Call>,
 	maybe_periodic: Option<schedule::Period<BlockNumber>>,
 }
 
@@ -184,6 +184,23 @@ where
 			_phantom: Default::default(),
 		}
 	}
+}
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Runtime {
+	type BlockWeights = BlockWeights;
+	type RuntimeOrigin = RuntimeOrigin;
+	type Nonce = u64;
+	type RuntimeCall = RuntimeCall;
+	type Block = TestBlock;
+	type RuntimeEvent = RuntimeEvent;
+	type Version = RuntimeVersion;
+	type AccountData = pallet_balances::AccountData<Balance>;
+	type PreInherents = MockedSystemCallbacks;
+	type PostInherents = MockedSystemCallbacks;
+	type PostTransactions = MockedSystemCallbacks;
+	type MultiBlockMigrator = MockedModeGetter;
+	type ExtensionsWeightInfo = MockExtensionsWeights;
 }
 
 use crate::{Scheduled as ScheduledV3, Scheduled as ScheduledV2};
@@ -604,6 +621,14 @@ pub mod pallet {
 			Self::do_cancel_retry(origin.caller(), task)?;
 			Self::deposit_event(Event::RetryCancelled { task, id: Some(id) });
 			Ok(())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(0)]
+		pub fn execute_call(origin: OriginFor<T>, call: VersionedCall<T::Call>) -> DispatchResult {
+			let current_transaction_version = <Runtime as frame_system::Config>::Version::get().transaction_version;
+			call.validate(current_transaction_version)?;
+			call.call.dispatch(origin.into())
 		}
 	}
 }
@@ -1230,7 +1255,7 @@ impl<T: Config> Pallet<T> {
 					 continue; // Skip this task
 				 }
 			 };
-			 
+
 			let base_weight = T::WeightInfo::service_task(
 				task.call.lookup_len().map(|x| x as usize),
 				task.maybe_id.is_some(),

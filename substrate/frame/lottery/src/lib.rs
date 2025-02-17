@@ -238,6 +238,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type CallIndices<T: Config> =
 		StorageValue<_, BoundedVec<CallIndex, T::MaxCalls>, ValueQuery>;
+		
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {

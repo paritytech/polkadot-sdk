@@ -7536,6 +7536,7 @@ dependencies = [
  "sp-timestamp 26.0.0",
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
+ "sp-version 29.0.0",
  "sp-weights 27.0.0",
  "static_assertions",
  "tt-call",
