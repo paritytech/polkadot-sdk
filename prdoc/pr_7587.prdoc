@@ -1,6 +1,6 @@
 title: Poke deposits
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     # Description
 
@@ -15,10 +15,6 @@ doc:
     * The call to the extrinsic would be `free` if an actual adjustment is made to the deposit and `paid` otherwise.
     * Added tests to test all scenarios.
     * Added a benchmark to test the "worst case" (maximum compute) flow of the extrinsic which is when the deposit amount is updated to a new value.
-
-    ## TO-DOs
-
-    * [ ] Run CI cmd bot to benchmark
 crates:
 - name: pallet-indices
   bump: major
