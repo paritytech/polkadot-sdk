@@ -245,7 +245,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Iterate over all nodes in all bags in the list.
 	///
 	/// Full iteration can be expensive; it's recommended to limit the number of items with
-	/// `.take(n)`.
+	/// `.take(n)`, or call `.next()` one by one.
 	pub(crate) fn iter() -> impl Iterator<Item = Node<T, I>> {
 		// We need a touch of special handling here: because we permit `T::BagThresholds` to
 		// omit the final bound, we need to ensure that we explicitly include that threshold in the
@@ -292,6 +292,13 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			.filter_map(Bag::get)
 			.flat_map(|bag| bag.iter());
 
+		crate::log!(
+			debug,
+			"starting to iterate from {:?}, who's bag is {:?}, and there are {:?} leftover bags",
+			&start,
+			start_node_upper,
+			idx
+		);
 		Ok(start_bag.chain(leftover_bags))
 	}
 
@@ -331,7 +338,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		bag.put();
 
 		crate::log!(
-			debug,
+			trace,
 			"inserted {:?} with score {:?} into bag {:?}, new count is {}",
 			id,
 			score,
