@@ -19,7 +19,7 @@
 
 use super::*;
 use crate::Pallet as Referenda;
-use alloc::{vec, vec::Vec};
+use alloc::{borrow::Cow, vec, vec::Vec};
 use assert_matches::assert_matches;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, BenchmarkError,
@@ -110,7 +110,7 @@ fn fill_queue<T: Config<I>, I: 'static>(
 	others
 }
 
-fn info<T: Config<I>, I: 'static>(index: ReferendumIndex) -> &'static TrackInfoOf<T, I> {
+fn info<T: Config<I>, I: 'static>(index: ReferendumIndex) -> Cow<'static, TrackInfoOf<T, I>> {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	T::Tracks::info(status.track).expect("Id value returned from T::Tracks")
 }
