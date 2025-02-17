@@ -137,10 +137,11 @@ jobs:
 
           echo "Installing bun"
           curl -fsSL https://bun.sh/install | bash
+          export BUN_INSTALL="$HOME/.bun"
+          export PATH="$BUN_INSTALL/bin:$PATH"
+          echo "Installing dependencies"
           bun add polkadot-api
           bun add @polkadot-labs/hdkd
-          # cd cumulus/parachains/integration-tests/chopsticks
-          # bunx @acala-network/chopsticks@latest xcm -r configs/westend-override.yaml -p configs/westend-asset-hub-override.yaml
           echo "Running tests"
           cd cumulus/parachains/integration-tests/chopsticks/tests/v5-tests
           bun test ./index.ts
