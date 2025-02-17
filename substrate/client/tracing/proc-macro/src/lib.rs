@@ -117,19 +117,10 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 
     let name = syn::parse_macro_input!(arg as Expr);
 
-    let crate_name = match crate_name("sc-tracing") {
-        Ok(FoundCrate::Itself) => Ident::new("sc_tracing", Span::call_site()),
-
-        // Check if `sc-tracing` is coming from `polkadot-sdk`
-        Ok(FoundCrate::Name(crate_name)) if crate_name == "polkadot-sdk" => {
-            Ident::new("polkadot_sdk::sc_tracing", Span::call_site())
-        }
-
-        // If `sc-tracing` is used elsewhere, use the detected crate name
-        Ok(FoundCrate::Name(crate_name)) => Ident::new(&crate_name, Span::call_site()),
-
-        // If the crate is not found, return a compilation error
-        Err(e) => return Error::new(Span::call_site(), e).to_compile_error().into(),
+    let (sdk_crate, tracing_crate) = match crate_name("polkadot-sdk").or_else(|_| crate_name("sc-tracing")) {
+        Ok(FoundCrate::Itself) => (Ident::new("polkadot_sdk", Span::call_site()), Ident::new("tracing", Span::call_site())),
+        Ok(FoundCrate::Name(crate_name)) => (Ident::new(&crate_name, Span::call_site()), Ident::new("tracing", Span::call_site())),
+        Err(_) => (Ident::new("sc_tracing", Span::call_site()), Ident::new("sc_tracing", Span::call_site())),
     };
 
     let ItemFn { attrs, vis, sig, block } = item_fn;
@@ -137,8 +128,8 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
     (quote! {
         #(#attrs)*
         #vis #sig {
-            let span = #crate_name::tracing::info_span!(
-                #crate_name::logging::PREFIX_LOG_SPAN,
+            let span = #tracing_crate::info_span!(
+                #sdk_crate::logging::PREFIX_LOG_SPAN,
                 name = #name,
             );
             let _enter = span.enter();
