@@ -93,9 +93,9 @@ jobs:
 
           NODE_VERSION="${{ needs.prepare-tooling.outputs.node_version }}"
           NODE_VERSION_PATTERN="\(NODE_VERSION[^=]*= \)\".*\""
-          set_version $NODE_VERSION_PATTERN $NODE_VERSION "polkadot/node/primitives/src/lib.rs"
+          set_version "$NODE_VERSION_PATTERN" $NODE_VERSION "polkadot/node/primitives/src/lib.rs"
           commit_with_message "Bump node version to $NODE_VERSION in polkadot-cli"
-          set_version $NODE_VERSION_PATTERN $NODE_VERSION "cumulus/polkadot-omni-node/lib/src/nodes/mod.rs"
+          set_version "$NODE_VERSION_PATTERN" $NODE_VERSION "cumulus/polkadot-omni-node/lib/src/nodes/mod.rs"
           commit_with_message "Bump node version to $NODE_VERSION in polkadot-omni-node-lib"
 
           SPEC_VERSION=$(get_spec_version $NODE_VERSION)

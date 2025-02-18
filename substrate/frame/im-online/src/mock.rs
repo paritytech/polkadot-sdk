@@ -127,6 +127,7 @@ impl pallet_session::Config for Runtime {
 	type Keys = UintAuthorityId;
 	type RuntimeEvent = RuntimeEvent;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 

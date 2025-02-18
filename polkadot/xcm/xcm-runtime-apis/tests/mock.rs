@@ -97,6 +97,7 @@ impl pallet_assets::Config for TestRuntime {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type Holder = ();
 	type Freezer = ();
 	type AssetDeposit = ConstU128<1>;
 	type AssetAccountDeposit = ConstU128<10>;
