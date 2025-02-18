@@ -20,7 +20,7 @@
 
 pub mod zombienet;
 
-use txtesttool::{execution_log::ExecutionLog, scenario::ChainType};
+use txtesttool::execution_log::ExecutionLog;
 use zombienet::{
 	default_zn_scenario_builder, NetworkSpawner, ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH,
 };
@@ -38,7 +38,6 @@ async fn send_future_and_then_ready_from_many_accounts() {
 	let ws = net.node_rpc_uri("charlie").unwrap();
 	let future_scenario_executor = default_zn_scenario_builder()
 		.with_rpc_uri(ws.clone())
-		.with_chain_type(ChainType::Sub)
 		.with_start_id("0".to_string())
 		.with_last_id(99)
 		.with_nonce_from(Some(100))
@@ -47,7 +46,6 @@ async fn send_future_and_then_ready_from_many_accounts() {
 		.await;
 	let ready_scenario_executor = default_zn_scenario_builder()
 		.with_rpc_uri(ws)
-		.with_chain_type(ChainType::Sub)
 		.with_start_id("0".to_string())
 		.with_last_id(99)
 		.with_nonce_from(Some(0))

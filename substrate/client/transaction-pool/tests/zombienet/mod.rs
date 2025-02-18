@@ -21,7 +21,7 @@
 
 use anyhow::anyhow;
 use tokio::sync::OnceCell;
-use txtesttool::scenario::ScenarioBuilder;
+use txtesttool::scenario::{ChainType, ScenarioBuilder};
 use zombienet_sdk::{
 	subxt::{OnlineClient, SubstrateConfig},
 	LocalFileSystem, Network, NetworkConfig, NetworkConfigExt,
@@ -132,11 +132,17 @@ pub struct ScenarioBuilderSharedParams {
 	watched_txs: bool,
 	does_block_monitoring: bool,
 	send_threshold: usize,
+	chain_type: ChainType::Sub,
 }
 
 impl Default for ScenarioBuilderSharedParams {
 	fn default() -> Self {
-		Self { watched_txs: true, does_block_monitoring: false, send_threshold: 20000 }
+		Self {
+			watched_txs: true,
+			does_block_monitoring: false,
+			send_threshold: 20000,
+			chain_type: ChainType::Sub,
+		}
 	}
 }
 
@@ -148,4 +154,5 @@ pub fn default_zn_scenario_builder() -> ScenarioBuilder {
 		.with_watched_txs(shared_params.watched_txs)
 		.with_send_threshold(shared_params.send_threshold)
 		.with_block_monitoring(shared_params.does_block_monitoring)
+		.with_chain_type(shared_params.chain_type)
 }
