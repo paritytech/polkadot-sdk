@@ -196,6 +196,9 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn withdraw_unbonded() -> Weight {
+		Weight::zero()
+	}
 	/// Storage: CollatorSelection Invulnerables (r:1 w:1)
 	/// Proof: CollatorSelection Invulnerables (max_values: Some(1), max_size: Some(3202), added: 3697, mode: MaxEncodedLen)
 	/// The range of component `b` is `[1, 100]`.
