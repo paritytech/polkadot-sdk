@@ -8,7 +8,7 @@ doc:
     Instead, we authorize `new_code_hash` with `root`, which can later be applied by `Paras::apply_authorized_force_set_current_code(para, new_code)` by anyone.
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
 - name: rococo-runtime
   bump: patch
 - name: westend-runtime
