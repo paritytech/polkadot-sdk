@@ -517,6 +517,12 @@ impl<T: Config> Pallet<T> {
 				frame_support::print("Warning: A session appears to have been skipped.");
 				Self::start_era(start_session);
 			}
+
+			// trigger election in the last session of the era
+			if start_session + 1 == next_active_era_start_session_index {
+				// TODO: trigger election
+				// Self::trigger_election();
+			}
 		}
 
 		// disable all offending validators that have been disabled for the whole era
