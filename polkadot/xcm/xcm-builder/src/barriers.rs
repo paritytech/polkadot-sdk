@@ -510,25 +510,26 @@ environmental::environmental!(recursion_count: u8);
 ///
 /// This barrier only applies to **locally executed** XCM instructions (`SetAppendix`,
 /// `SetErrorHandler`, and `ExecuteWithOrigin`). Remote parts of the XCM are expected to be
-/// validated by receiving chain's barrier.
+/// validated by the receiving chain's barrier.
 ///
 /// Note: Ensures that restricted instructions do not execute on the local chain, enforcing stricter
-/// execution policies, while allowing remote chains to enforce their own rules.
+/// execution policies while allowing remote chains to enforce their own rules.
 pub struct DenyRecursively<Inner>(PhantomData<Inner>);
 
 impl<Inner: DenyExecution> DenyRecursively<Inner> {
-	// Recursively applies the deny filter to a nested XCM.
+	/// Recursively applies the deny filter to a nested XCM.
 	///
-	/// This function ensures that restricted instructions are blocked at any depth within the XCM.
-	/// It maintains a **recursion counter** to prevent stack overflows due to a deep nesting.
+	/// Ensures that restricted instructions are blocked at any depth within the XCM.
+	/// Uses a **recursion counter** to prevent stack overflows from deep nesting.
 	fn deny_recursively<RuntimeCall>(
 		origin: &Location,
 		xcm: &mut Xcm<RuntimeCall>,
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<Result<ControlFlow<()>, ProcessMessageError>, ProcessMessageError> {
-		// Initialise the recursion count the first time we enter recursive execution.
+		// Initialise recursion counter for this execution context.
 		let _ = recursion_count::using_once(&mut 1, || {
+			// Prevent stack overflow by enforcing a recursion depth limit.
 			recursion_count::with(|count| {
 				if *count > xcm_executor::RECURSION_LIMIT {
 					log::error!(
@@ -545,7 +546,7 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 			// Fallback safety in case of an unexpected failure.
 			.unwrap_or(Ok(()))?;
 
-			// Ensure that we always decrement the counter after processing.
+			// Ensure counter is decremented even if early return occurs.
 			sp_core::defer! {
 				recursion_count::with(|count| {
 					*count = count.saturating_sub(1);
