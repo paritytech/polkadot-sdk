@@ -121,11 +121,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	// TO-DO: Run CI cmd bot to generate real weights.
+	/// Storage: `Indices::Accounts` (r:1 w:1)
+	/// Proof: `Indices::Accounts` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
 	fn reconsider() -> Weight {
-		Weight::from_parts(31_036_000, 3534)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+		// Proof Size summary in bytes:
+		//  Measured:  `100`
+		//  Estimated: `3534`
+		// Minimum execution time: 27_536_000 picoseconds.
+		Weight::from_parts(28_517_000, 0)
+			.saturating_add(Weight::from_parts(0, 3534))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -190,10 +196,15 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-
-	// TO-DO: Run CI cmd bot to generate real weights.
+	/// Storage: `Indices::Accounts` (r:1 w:1)
+	/// Proof: `Indices::Accounts` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
 	fn reconsider() -> Weight {
-		Weight::from_parts(31_036_000, 3534)
+		// Proof Size summary in bytes:
+		//  Measured:  `100`
+		//  Estimated: `3534`
+		// Minimum execution time: 27_536_000 picoseconds.
+		Weight::from_parts(28_517_000, 0)
+			.saturating_add(Weight::from_parts(0, 3534))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

@@ -243,9 +243,6 @@ pub mod pallet {
 		/// - `index`: the index whose deposit is to be reconsidered.
 		///
 		/// Emits `DepositReconsidered` if successful.
-		///
-		/// ## Complexity
-		/// - `O(1)`.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::reconsider())]
 		pub fn reconsider(

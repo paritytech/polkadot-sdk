@@ -127,17 +127,17 @@ mod benchmarks {
 		// Verify the initial deposit amount in storage
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
 
-		// Double the deposited amount in storage
+		// Increase the deposited amount in storage by 2
 		Accounts::<T>::try_mutate(account_index, |maybe_value| -> Result<(), BenchmarkError> {
-			let (account, amount, perm) = maybe_value.take().ok_or(BenchmarkError::Skip)?;
-			*maybe_value = Some((account, amount.saturating_mul(2u32.into()), perm));
+			let (account, amount, perm) = maybe_value.take().ok_or(BenchmarkError::Stop("Mutating storage to change deposits failed"))?;
+			*maybe_value = Some((account, amount.saturating_add(2u32.into()), perm));
 			Ok(())
 		})?;
 
-		// Verify the deposit was doubled
+		// Verify the deposit was increased by 2
 		assert_eq!(
 			Accounts::<T>::get(account_index).unwrap().1,
-			original_deposit.saturating_mul(2u32.into())
+			original_deposit.saturating_add(2u32.into())
 		);
 
 		#[extrinsic_call]

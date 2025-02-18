@@ -166,7 +166,7 @@ fn reconsider_should_work_when_deposit_increases() {
 		assert_eq!(Balances::reserved_balance(1), 1);
 
 		// Change deposit to 2
-		IndexDeposit::set(2);
+		IndexDeposit::set(3);
 
 		// Reconsider should work and be free
 		let initial_balance = Balances::free_balance(1);
@@ -174,13 +174,13 @@ fn reconsider_should_work_when_deposit_increases() {
 		assert_ok!(result.as_ref());
 		let post_info = result.unwrap();
 		assert_eq!(post_info.pays_fee, Pays::No);
-		assert_eq!(Balances::reserved_balance(1), 2);
+		assert_eq!(Balances::reserved_balance(1), 3);
 
 		// Balance should only reduce by the deposit difference
-		assert_eq!(Balances::free_balance(1), initial_balance - 1);
+		assert_eq!(Balances::free_balance(1), initial_balance - 2);
 
 		System::assert_has_event(
-			Event::DepositReconsidered { who: 1, index: 0, old_deposit: 1, new_deposit: 2 }.into(),
+			Event::DepositReconsidered { who: 1, index: 0, old_deposit: 1, new_deposit: 3 }.into(),
 		);
 	});
 }
@@ -189,9 +189,9 @@ fn reconsider_should_work_when_deposit_increases() {
 fn reconsider_should_work_when_deposit_decreases() {
 	new_test_ext().execute_with(|| {
 		// Set initial deposit to 2
-		IndexDeposit::set(2);
+		IndexDeposit::set(3);
 		assert_ok!(Indices::claim(Some(1).into(), 0));
-		assert_eq!(Balances::reserved_balance(1), 2);
+		assert_eq!(Balances::reserved_balance(1), 3);
 
 		// Change deposit to 1
 		IndexDeposit::set(1);
@@ -204,10 +204,10 @@ fn reconsider_should_work_when_deposit_decreases() {
 		assert_eq!(Balances::reserved_balance(1), 1);
 
 		// Balance should increase by the unreserved amount
-		assert_eq!(Balances::free_balance(1), initial_balance + 1);
+		assert_eq!(Balances::free_balance(1), initial_balance + 2);
 
 		System::assert_has_event(
-			Event::DepositReconsidered { who: 1, index: 0, old_deposit: 2, new_deposit: 1 }.into(),
+			Event::DepositReconsidered { who: 1, index: 0, old_deposit: 3, new_deposit: 1 }.into(),
 		);
 	});
 }

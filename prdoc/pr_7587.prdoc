@@ -1,24 +1,11 @@
 title: '[AHM] Poke deposits: Indices pallet'
 doc:
 - audience: Runtime Dev
-  description: |-
-    # Description
-
-    * This PR adds a new extrinsic `reconsider` to `pallet-indices`. This extrinsic will be used to re-adjust the deposits made in the pallet.
-    * Part of #5591
-
-    ## Review Notes
-
-    * Added a new extrinsic `reconsider` in `pallet-indices`.
-    * Added a new event `DepositReconsidered` to be emitted upon a successful call of the extrinsic.
-    * Although the immediate use of the extrinsic will be to give back some of the deposit after the AH-migration, the extrinsic is written such that it can work if the deposit decreases or increases (both).
-    * The call to the extrinsic would be `free` if an actual adjustment is made to the deposit and `paid` otherwise.
-    * Added tests to test all scenarios.
-    * Added a benchmark to test the "worst case" (maximum compute) flow of the extrinsic which is when the deposit amount is updated to a new value.
+  description: Add a new extrinsic `reconsider` to `pallet-indices`. This extrinsic will be used to re-adjust the deposits made in the pallet after Asset Hub Migration.
 crates:
 - name: pallet-indices
-  bump: minor
+  bump: major
 - name: rococo-runtime
-  bump: patch
+  bump: major
 - name: westend-runtime
-  bump: patch
+  bump: major
