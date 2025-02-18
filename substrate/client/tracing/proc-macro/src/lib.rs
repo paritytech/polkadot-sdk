@@ -109,42 +109,45 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 	if arg.is_empty() {
 		return Error::new(
 			Span::call_site(),
-			"missing argument: name of the node. Example: sc_cli::prefix_logs_with(<expr>)",
+			"missing argument: name of the node. Example: #[prefix_logs_with(\"MyNode\")]",
 		)
-		.to_compile_error()
-		.into();
+			.to_compile_error()
+			.into();
 	}
 
 	let name = syn::parse_macro_input!(arg as Expr);
 
-	let (sdk_crate, tracing_crate) = match crate_name("polkadot-sdk")
-		.or_else(|_| crate_name("sc-tracing"))
-	{
-		Ok(FoundCrate::Itself) => (
-			Ident::new("polkadot_sdk", Span::call_site()),
-			Ident::new("tracing", Span::call_site()),
-		),
-		Ok(FoundCrate::Name(crate_name)) =>
-			(Ident::new(&crate_name, Span::call_site()), Ident::new("tracing", Span::call_site())),
-		Err(_) => (
-			Ident::new("sc_tracing", Span::call_site()),
-			Ident::new("sc_tracing", Span::call_site()),
-		),
+	// Try resolving `sc-tracing` from `polkadot-sdk` first, otherwise fallback to `sc-tracing`
+	let crate_ident = if let Ok(FoundCrate::Name(sdk_name)) = crate_name("polkadot-sdk") {
+		Ident::new(&format!("{}::sc_tracing", sdk_name), Span::call_site())
+	} else if let Ok(FoundCrate::Itself) = crate_name("sc-tracing") {
+		Ident::new("sc_tracing", Span::call_site())
+	} else if let Ok(FoundCrate::Name(tracing_name)) = crate_name("sc-tracing") {
+		Ident::new(&tracing_name, Span::call_site())
+	} else {
+		return Error::new(
+			Span::call_site(),
+			"Could not find `sc-tracing` or `polkadot-sdk` in dependencies",
+		)
+			.to_compile_error()
+			.into();
 	};
 
 	let ItemFn { attrs, vis, sig, block } = item_fn;
 
 	(quote! {
-		#(#attrs)*
-		#vis #sig {
-			let span = #tracing_crate::info_span!(
-				#sdk_crate::logging::PREFIX_LOG_SPAN,
-				name = #name,
-			);
-			let _enter = span.enter();
+        #(#attrs)*
+        #vis #sig {
+            let span = #crate_ident::tracing::info_span!(
+                #crate_ident::logging::PREFIX_LOG_SPAN,
+                name = #name,
+            );
+            let _guard = span.enter(); // Keep this variable alive throughout the function
 
-			#block
-		}
-	})
-	.into()
+            let result = (|| #block)(); // Execute the function body in a closure
+
+            result
+        }
+    })
+		.into()
 }
