@@ -165,7 +165,7 @@ fn reconsider_should_work_when_deposit_increases() {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_eq!(Balances::reserved_balance(1), 1);
 
-		// Change deposit to 2
+		// Change deposit to 3
 		IndexDeposit::set(3);
 
 		// Reconsider should work and be free
@@ -188,7 +188,7 @@ fn reconsider_should_work_when_deposit_increases() {
 #[test]
 fn reconsider_should_work_when_deposit_decreases() {
 	new_test_ext().execute_with(|| {
-		// Set initial deposit to 2
+		// Set initial deposit to 3
 		IndexDeposit::set(3);
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_eq!(Balances::reserved_balance(1), 3);
@@ -227,5 +227,11 @@ fn reconsider_should_charge_fee_when_deposit_unchanged() {
 
 		// Reserved balance should remain the same
 		assert_eq!(Balances::reserved_balance(1), 1);
+
+		// Verify no DepositReconsidered event was emitted
+		assert!(!System::events().iter().any(|record| matches!(
+			record.event,
+			RuntimeEvent::Indices(Event::DepositReconsidered { .. })
+		)));
 	});
 }
