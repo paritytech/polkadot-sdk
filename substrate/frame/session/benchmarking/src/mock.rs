@@ -104,6 +104,7 @@ impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<Test>;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 pallet_staking_reward_curve::build! {

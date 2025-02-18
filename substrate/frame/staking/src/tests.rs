@@ -34,9 +34,14 @@ use frame_support::{
 	},
 	BoundedVec,
 };
-
 use mock::*;
 use pallet_balances::Error as BalancesError;
+use pallet_session::{
+	disabling::{
+		DisablingStrategy, UpToLimitDisablingStrategy, UpToLimitWithReEnablingDisablingStrategy,
+	},
+	Event as SessionEvent,
+};
 use sp_runtime::{
 	assert_eq_error_rate, bounded_vec,
 	traits::{BadOrigin, Dispatchable},
@@ -3360,12 +3365,16 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 						fraction: Perbill::from_percent(10),
 						offence_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
 					Event::Slashed { staker: 11, amount: 100 },
 					Event::Slashed { staker: 101, amount: 12 },
 				]
 			);
+
+			assert!(matches!(
+				session_events().as_slice(),
+				&[.., SessionEvent::ValidatorDisabled { validator: 11 }]
+			));
 
 			// post-slash balance
 			let nominator_slash_amount_11 = 125 / 10;
@@ -3426,18 +3435,25 @@ fn non_slashable_offence_disables_validator() {
 						fraction: Perbill::from_percent(0),
 						offence_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::OffenceReported {
 						validator: 21,
 						fraction: Perbill::from_percent(25),
 						offence_era: 1
 					},
-					Event::ValidatorDisabled { stash: 21 },
 					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
 					Event::Slashed { staker: 21, amount: 250 },
 					Event::Slashed { staker: 101, amount: 94 }
 				]
 			);
+
+			assert!(matches!(
+				session_events().as_slice(),
+				&[
+					..,
+					SessionEvent::ValidatorDisabled { validator: 11 },
+					SessionEvent::ValidatorDisabled { validator: 21 },
+				]
+			));
 
 			// the offence for validator 11 wasn't slashable but it is disabled
 			assert!(is_disabled(11));
@@ -3493,7 +3509,6 @@ fn slashing_independent_of_disabling_validator() {
 						fraction: Perbill::from_percent(0),
 						offence_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::OffenceReported {
 						validator: 11,
 						fraction: Perbill::from_percent(50),
@@ -3510,6 +3525,16 @@ fn slashing_independent_of_disabling_validator() {
 					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
 					Event::Slashed { staker: 21, amount: 250 },
 					Event::Slashed { staker: 101, amount: 94 }
+				]
+			);
+
+			assert_eq!(
+				session_events(),
+				vec![
+					SessionEvent::NewSession { session_index: 1 },
+					SessionEvent::NewSession { session_index: 2 },
+					SessionEvent::NewSession { session_index: 3 },
+					SessionEvent::ValidatorDisabled { validator: 11 }
 				]
 			);
 		});
@@ -8028,39 +8053,20 @@ mod ledger_recovery {
 }
 
 mod byzantine_threshold_disabling_strategy {
-	use crate::{
-		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy,
-	};
+	use crate::tests::{DisablingStrategy, Test, UpToLimitDisablingStrategy};
 	use sp_runtime::Perbill;
-	use sp_staking::{offence::OffenceSeverity, EraIndex};
+	use sp_staking::offence::OffenceSeverity;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
 	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
 	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
 	const MIN_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
-	const SLASH_ERA: EraIndex = 1;
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
 	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
 
-	#[test]
-	fn dont_disable_for_ancient_offence() {
-		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![];
-			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
-			ActiveEra::<Test>::put(ActiveEraInfo { index: 2, start: None });
-
-			let disabling_decision =
-				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
-					&OFFENDER_ID,
-					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
-					&initially_disabled,
-				);
-
-			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
-		});
-	}
+	// todo(ank4n): Ensure there is a test that for older eras, the disabling strategy does not
+	// disable the validator.
 
 	#[test]
 	fn dont_disable_beyond_byzantine_threshold() {
@@ -8072,7 +8078,6 @@ mod byzantine_threshold_disabling_strategy {
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8090,7 +8095,6 @@ mod byzantine_threshold_disabling_strategy {
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8100,40 +8104,17 @@ mod byzantine_threshold_disabling_strategy {
 }
 
 mod disabling_strategy_with_reenabling {
-	use crate::{
-		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy,
-		UpToLimitWithReEnablingDisablingStrategy,
-	};
+	use crate::tests::{DisablingStrategy, Test, UpToLimitWithReEnablingDisablingStrategy};
 	use sp_runtime::Perbill;
-	use sp_staking::{offence::OffenceSeverity, EraIndex};
+	use sp_staking::offence::OffenceSeverity;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
 	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
 	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
 	const LOW_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
-	const SLASH_ERA: EraIndex = 1;
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
 	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
-
-	#[test]
-	fn dont_disable_for_ancient_offence() {
-		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![];
-			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
-			ActiveEra::<Test>::put(ActiveEraInfo { index: 2, start: None });
-
-			let disabling_decision =
-				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
-					&OFFENDER_ID,
-					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
-					&initially_disabled,
-				);
-
-			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
-		});
-	}
 
 	#[test]
 	fn disable_when_below_byzantine_threshold() {
@@ -8145,7 +8126,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8165,7 +8145,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8186,7 +8165,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					LOW_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8204,7 +8182,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8225,7 +8202,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8247,7 +8223,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8268,7 +8243,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					LOW_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8287,7 +8261,6 @@ mod disabling_strategy_with_reenabling {
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					MAX_OFFENDER_SEVERITY,
-					SLASH_ERA,
 					&initially_disabled,
 				);
 
@@ -8340,7 +8313,6 @@ fn reenable_lower_offenders_mock() {
 						fraction: Perbill::from_percent(10),
 						offence_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
 					Event::Slashed { staker: 11, amount: 100 },
 					Event::Slashed { staker: 101, amount: 12 },
@@ -8349,7 +8321,6 @@ fn reenable_lower_offenders_mock() {
 						fraction: Perbill::from_percent(20),
 						offence_era: 1
 					},
-					Event::ValidatorDisabled { stash: 21 },
 					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
 					Event::Slashed { staker: 21, amount: 200 },
 					Event::Slashed { staker: 101, amount: 75 },
@@ -8358,12 +8329,21 @@ fn reenable_lower_offenders_mock() {
 						fraction: Perbill::from_percent(50),
 						offence_era: 1
 					},
-					Event::ValidatorDisabled { stash: 31 },
-					Event::ValidatorReenabled { stash: 11 },
 					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 31, page: 0 },
 					Event::Slashed { staker: 31, amount: 250 },
 				]
 			);
+
+			assert!(matches!(
+				session_events().as_slice(),
+				&[
+					..,
+					SessionEvent::ValidatorDisabled { validator: 11 },
+					SessionEvent::ValidatorDisabled { validator: 21 },
+					SessionEvent::ValidatorDisabled { validator: 31 },
+					SessionEvent::ValidatorReenabled { validator: 11 },
+				]
+			));
 		});
 }
 
@@ -8404,13 +8384,11 @@ fn do_not_reenable_higher_offenders_mock() {
 						fraction: Perbill::from_percent(50),
 						offence_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::OffenceReported {
 						validator: 21,
 						fraction: Perbill::from_percent(50),
 						offence_era: 1
 					},
-					Event::ValidatorDisabled { stash: 21 },
 					Event::OffenceReported {
 						validator: 31,
 						fraction: Perbill::from_percent(10),
@@ -8426,6 +8404,15 @@ fn do_not_reenable_higher_offenders_mock() {
 					Event::Slashed { staker: 101, amount: 62 },
 				]
 			);
+
+			assert!(matches!(
+				session_events().as_slice(),
+				&[
+					..,
+					SessionEvent::ValidatorDisabled { validator: 11 },
+					SessionEvent::ValidatorDisabled { validator: 21 },
+				]
+			));
 		});
 }
 
