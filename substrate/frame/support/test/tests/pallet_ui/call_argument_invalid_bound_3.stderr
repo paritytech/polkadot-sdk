@@ -1,16 +1,15 @@
-error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
-               It is deprecated to use hard-coded constant as call weight.
-               Please instead benchmark all calls or put the pallet into `dev` mode.
+warning: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
+                 It is deprecated to use hard-coded constant as call weight.
+                 Please instead benchmark all calls or put the pallet into `dev` mode.
 
-               For more info see:
-                   <https://github.com/paritytech/substrate/pull/13798>
+                 For more info see:
+                     <https://github.com/paritytech/substrate/pull/13798>
   --> tests/pallet_ui/call_argument_invalid_bound_3.rs:38:20
    |
 38 |         #[pallet::weight(0)]
    |                          ^
    |
-   = note: `-D deprecated` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(deprecated)]`
+   = note: `#[warn(deprecated)]` on by default
 
 error[E0277]: `Bar` doesn't implement `std::fmt::Debug`
   --> tests/pallet_ui/call_argument_invalid_bound_3.rs:40:36
@@ -28,11 +27,10 @@ help: consider annotating `Bar` with `#[derive(Debug)]`
 35 |     struct Bar;
    |
 
-error: unused variable: `origin`
+warning: unused variable: `origin`
   --> tests/pallet_ui/call_argument_invalid_bound_3.rs:40:14
    |
 40 |         pub fn foo(origin: OriginFor<T>, _bar: Bar) -> DispatchResultWithPostInfo {
    |                    ^^^^^^ help: if this is intentional, prefix it with an underscore: `_origin`
    |
-   = note: `-D unused-variables` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(unused_variables)]`
+   = note: `#[warn(unused_variables)]` on by default
