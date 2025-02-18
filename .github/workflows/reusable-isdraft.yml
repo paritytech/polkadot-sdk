@@ -9,7 +9,7 @@ on:
 jobs:
   isdraft:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'CI-Draft')
+    if: github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'A5-run-CI')
     steps:
       - name: echo test
         shell: bash
