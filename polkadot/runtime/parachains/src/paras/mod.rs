@@ -1182,19 +1182,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			// if one is already authorized, means it has not been applied yet, so we just replace
-			// it.
-			if let Some(already_authorized) = AuthorizedCodeHash::<T>::take(para) {
-				log::warn!(
-					target: LOG_TARGET,
-					"Already authorized code hash: {:?} found for para {:?}, just removing it!",
-					already_authorized, para
-				);
-			}
 
-			// TODO: FAIL-CI - more validations?
-			// do we need to check against `FutureCodeHash`, `CodeHashRef`,
-			// `PastCodeHash`,... code hashes?
 
 			// insert authorized code hash.
 			AuthorizedCodeHash::<T>::insert(&para, new_code_hash);
