@@ -505,8 +505,8 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 
 environmental::environmental!(recursion_count: u8);
 
-/// Denies execution if the XCM contains restricted **local** instructions, first checking at the
-/// top-level and then **recursively**.
+/// Denies execution if the XCM contains instructions not meant to run on this chain,
+/// first checking at the top-level and then **recursively**.
 ///
 /// This barrier only applies to **locally executed** XCM instructions (`SetAppendix`,
 /// `SetErrorHandler`, and `ExecuteWithOrigin`). Remote parts of the XCM are expected to be
