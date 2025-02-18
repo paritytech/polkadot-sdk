@@ -533,18 +533,18 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 			recursion_count::with(|count| {
 				if *count > xcm_executor::RECURSION_LIMIT {
 					log::error!(
-						target: "xcm::barriers",
-						"Recursion limit exceeded, origin: {:?}, xcm: {:?}, max_weight: {:?}, properties: {:?}, count: {count}",
-						origin, xcm, max_weight, properties
-					);
+                    	target: "xcm::barriers",
+                    	"Recursion limit exceeded (count: {count}), origin: {:?}, xcm: {:?}, max_weight: {:?}, properties: {:?}",
+                    	origin, xcm, max_weight, properties
+                	);
 
 					return Err(ProcessMessageError::StackLimitReached);
 				}
 				*count = count.saturating_add(1);
 				Ok(())
-			}).unwrap_or(Ok(()))?; // Fallback safety in case of an unexpected failure.
+			}).unwrap_or(Ok(()))?; // Fallback safety in case `recursion_count::with()` unexpectedly returns `None`.
 
-			// Ensure counter is decremented even if early return occurs.
+			// Ensure the counter is decremented even if an early return occurs.
 			sp_core::defer! {
 				recursion_count::with(|count| {
 					*count = count.saturating_sub(1);
