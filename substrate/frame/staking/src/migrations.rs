@@ -18,12 +18,12 @@
 //! [CHANGELOG.md](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/staking/CHANGELOG.md).
 
 use super::*;
-use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::ValueQuery,
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+	Twox64Concat,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -36,10 +36,6 @@ use sp_runtime::TryRuntimeError;
 /// Obsolete from v13. Keeping around to make encoding/decoding of old migration code easier.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 enum ObsoleteReleases {
-	V1_0_0Ancient,
-	V2_0_0,
-	V3_0_0,
-	V4_0_0,
 	V5_0_0,  // blockable validators.
 	V6_0_0,  // removal of all storage associated with offchain phragmen.
 	V7_0_0,  // keep track of number of nominators / validators in map
@@ -60,11 +56,143 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+/// Migrates `UnappliedSlashes` to a new storage structure to support paged slashing.
+/// This ensures that slashing can be processed in batches, preventing large storage operations in a
+/// single block.
+pub mod v17 {
+	use super::*;
+
+	#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+	struct OldUnappliedSlash<T: Config> {
+		validator: T::AccountId,
+		/// The validator's own slash.
+		own: BalanceOf<T>,
+		/// All other slashed stakers and amounts.
+		others: Vec<(T::AccountId, BalanceOf<T>)>,
+		/// Reporters of the offence; bounty payout recipients.
+		reporters: Vec<T::AccountId>,
+		/// The amount of payout.
+		payout: BalanceOf<T>,
+	}
+
+	#[frame_support::storage_alias]
+	pub type OldUnappliedSlashes<T: Config> =
+		StorageMap<Pallet<T>, Twox64Concat, EraIndex, Vec<OldUnappliedSlash<T>>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub type DisabledValidators<T: Config> =
+		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<100>>, ValueQuery>;
+
+	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight: Weight = Weight::zero();
+
+			OldUnappliedSlashes::<T>::drain().for_each(|(era, slashes)| {
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+				for slash in slashes {
+					let validator = slash.validator.clone();
+					let new_slash = UnappliedSlash {
+						validator: validator.clone(),
+						own: slash.own,
+						others: WeakBoundedVec::force_from(slash.others, None),
+						payout: slash.payout,
+						reporter: slash.reporters.first().cloned(),
+					};
+
+					// creating a slash key which is improbable to conflict with a new offence.
+					let slash_key = (validator, Perbill::from_percent(99), 9999);
+					UnappliedSlashes::<T>::insert(era, slash_key, new_slash);
+					weight.saturating_accrue(T::DbWeight::get().writes(1));
+				}
+			});
+
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let mut expected_slashes: u32 = 0;
+			OldUnappliedSlashes::<T>::iter().for_each(|(_, slashes)| {
+				expected_slashes += slashes.len() as u32;
+			});
+
+			Ok(expected_slashes.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let expected_slash_count =
+				u32::decode(&mut state.as_slice()).expect("Failed to decode state");
+
+			let actual_slash_count = UnappliedSlashes::<T>::iter().count() as u32;
+
+			ensure!(expected_slash_count == actual_slash_count, "Slash count mismatch");
+
+			Ok(())
+		}
+	}
+
+	pub type MigrateV16ToV17<T> = VersionedMigration<
+		16,
+		17,
+		VersionUncheckedMigrateV16ToV17<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
+	pub struct MigrateDisabledToSession<T>(core::marker::PhantomData<T>);
+	impl<T: Config> pallet_session::migrations::v1::MigrateDisabledValidators
+		for MigrateDisabledToSession<T>
+	{
+		#[cfg(feature = "try-runtime")]
+		fn peek_disabled() -> Vec<(u32, OffenceSeverity)> {
+			DisabledValidators::<T>::get().into()
+		}
+
+		fn take_disabled() -> Vec<(u32, OffenceSeverity)> {
+			DisabledValidators::<T>::take().into()
+		}
+	}
+}
+
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
 /// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
+	use frame_support::Twox64Concat;
 	use sp_staking::offence::OffenceSeverity;
+
+	#[frame_support::storage_alias]
+	pub(crate) type Invulnerables<T: Config> =
+		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type DisabledValidators<T: Config> =
+		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakers<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		ValueQuery,
+	>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakersClipped<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		ValueQuery,
+	>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
@@ -86,7 +214,7 @@ pub mod v16 {
 				.map(|v| (v, max_offence))
 				.collect::<Vec<_>>();
 
-			DisabledValidators::<T>::set(migrated);
+			v16::DisabledValidators::<T>::set(migrated);
 
 			log!(info, "v16 applied successfully.");
 			T::DbWeight::get().reads_writes(1, 1)
@@ -97,7 +225,7 @@ pub mod v16 {
 			// Decode state to get old_disabled_validators in a format of Vec<u32>
 			let old_disabled_validators =
 				Vec::<u32>::decode(&mut state.as_slice()).expect("Failed to decode state");
-			let new_disabled_validators = DisabledValidators::<T>::get();
+			let new_disabled_validators = v17::DisabledValidators::<T>::get();
 
 			// Compare lengths
 			frame_support::ensure!(
@@ -115,7 +243,7 @@ pub mod v16 {
 
 			// Verify severity
 			let max_severity = OffenceSeverity(Perbill::from_percent(100));
-			let new_disabled_validators = DisabledValidators::<T>::get();
+			let new_disabled_validators = v17::DisabledValidators::<T>::get();
 			for (_, severity) in new_disabled_validators {
 				frame_support::ensure!(severity == max_severity, "Severity mismatch");
 			}
@@ -138,7 +266,7 @@ pub mod v15 {
 	use super::*;
 
 	// The disabling strategy used by staking pallet
-	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;
+	type DefaultDisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy;
 
 	#[storage_alias]
 	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
@@ -413,259 +541,5 @@ pub mod v11 {
 
 			Ok(())
 		}
-	}
-}
-
-pub mod v10 {
-	use super::*;
-	use frame_support::storage_alias;
-
-	#[storage_alias]
-	type EarliestUnappliedSlash<T: Config> = StorageValue<Pallet<T>, EraIndex>;
-
-	/// Apply any pending slashes that where queued.
-	///
-	/// That means we might slash someone a bit too early, but we will definitely
-	/// won't forget to slash them. The cap of 512 is somewhat randomly taken to
-	/// prevent us from iterating over an arbitrary large number of keys `on_runtime_upgrade`.
-	pub struct MigrateToV10<T>(core::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			if StorageVersion::<T>::get() == ObsoleteReleases::V9_0_0 {
-				let pending_slashes = UnappliedSlashes::<T>::iter().take(512);
-				for (era, slashes) in pending_slashes {
-					for slash in slashes {
-						// in the old slashing scheme, the slash era was the key at which we read
-						// from `UnappliedSlashes`.
-						log!(warn, "prematurely applying a slash ({:?}) for era {:?}", slash, era);
-						slashing::apply_slash::<T>(slash, era);
-					}
-				}
-
-				EarliestUnappliedSlash::<T>::kill();
-				StorageVersion::<T>::put(ObsoleteReleases::V10_0_0);
-
-				log!(info, "MigrateToV10 executed successfully");
-				T::DbWeight::get().reads_writes(1, 2)
-			} else {
-				log!(warn, "MigrateToV10 should be removed.");
-				T::DbWeight::get().reads(1)
-			}
-		}
-	}
-}
-
-pub mod v9 {
-	use super::*;
-	#[cfg(feature = "try-runtime")]
-	use alloc::vec::Vec;
-	#[cfg(feature = "try-runtime")]
-	use codec::{Decode, Encode};
-
-	/// Migration implementation that injects all validators into sorted list.
-	///
-	/// This is only useful for chains that started their `VoterList` just based on nominators.
-	pub struct InjectValidatorsIntoVoterList<T>(core::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for InjectValidatorsIntoVoterList<T> {
-		fn on_runtime_upgrade() -> Weight {
-			if StorageVersion::<T>::get() == ObsoleteReleases::V8_0_0 {
-				let prev_count = T::VoterList::count();
-				let weight_of_cached = Pallet::<T>::weight_of_fn();
-				for (v, _) in Validators::<T>::iter() {
-					let weight = weight_of_cached(&v);
-					let _ = T::VoterList::on_insert(v.clone(), weight).map_err(|err| {
-						log!(warn, "failed to insert {:?} into VoterList: {:?}", v, err)
-					});
-				}
-
-				log!(
-					info,
-					"injected a total of {} new voters, prev count: {} next count: {}, updating to version 9",
-					Validators::<T>::count(),
-					prev_count,
-					T::VoterList::count(),
-				);
-
-				StorageVersion::<T>::put(ObsoleteReleases::V9_0_0);
-				T::BlockWeights::get().max_block
-			} else {
-				log!(
-					warn,
-					"InjectValidatorsIntoVoterList being executed on the wrong storage \
-				version, expected ObsoleteReleases::V8_0_0"
-				);
-				T::DbWeight::get().reads(1)
-			}
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			frame_support::ensure!(
-				StorageVersion::<T>::get() == ObsoleteReleases::V8_0_0,
-				"must upgrade linearly"
-			);
-
-			let prev_count = T::VoterList::count();
-			Ok(prev_count.encode())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(prev_count: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let prev_count: u32 = Decode::decode(&mut prev_count.as_slice()).expect(
-				"the state parameter should be something that was generated by pre_upgrade",
-			);
-			let post_count = T::VoterList::count();
-			let validators = Validators::<T>::count();
-			ensure!(
-				post_count == prev_count + validators,
-				"`VoterList` count after the migration must equal to the sum of \
-				previous count and the current number of validators"
-			);
-
-			frame_support::ensure!(
-				StorageVersion::<T>::get() == ObsoleteReleases::V9_0_0,
-				"must upgrade"
-			);
-			Ok(())
-		}
-	}
-}
-
-pub mod v8 {
-	use super::*;
-	use crate::{Config, Nominators, Pallet, Weight};
-	use frame_election_provider_support::SortedListProvider;
-	use frame_support::traits::Get;
-
-	#[cfg(feature = "try-runtime")]
-	pub fn pre_migrate<T: Config>() -> Result<(), &'static str> {
-		frame_support::ensure!(
-			StorageVersion::<T>::get() == ObsoleteReleases::V7_0_0,
-			"must upgrade linearly"
-		);
-
-		crate::log!(info, "👜 staking bags-list migration passes PRE migrate checks ✅",);
-		Ok(())
-	}
-
-	/// Migration to sorted `VoterList`.
-	pub fn migrate<T: Config>() -> Weight {
-		if StorageVersion::<T>::get() == ObsoleteReleases::V7_0_0 {
-			crate::log!(info, "migrating staking to ObsoleteReleases::V8_0_0");
-
-			let migrated = T::VoterList::unsafe_regenerate(
-				Nominators::<T>::iter().map(|(id, _)| id),
-				Pallet::<T>::weight_of_fn(),
-			);
-
-			StorageVersion::<T>::put(ObsoleteReleases::V8_0_0);
-			crate::log!(
-				info,
-				"👜 completed staking migration to ObsoleteReleases::V8_0_0 with {} voters migrated",
-				migrated,
-			);
-
-			T::BlockWeights::get().max_block
-		} else {
-			T::DbWeight::get().reads(1)
-		}
-	}
-
-	#[cfg(feature = "try-runtime")]
-	pub fn post_migrate<T: Config>() -> Result<(), &'static str> {
-		T::VoterList::try_state().map_err(|_| "VoterList is not in a sane state.")?;
-		crate::log!(info, "👜 staking bags-list migration passes POST migrate checks ✅",);
-		Ok(())
-	}
-}
-
-pub mod v7 {
-	use super::*;
-	use frame_support::storage_alias;
-
-	#[storage_alias]
-	type CounterForValidators<T: Config> = StorageValue<Pallet<T>, u32>;
-	#[storage_alias]
-	type CounterForNominators<T: Config> = StorageValue<Pallet<T>, u32>;
-
-	pub fn pre_migrate<T: Config>() -> Result<(), &'static str> {
-		assert!(
-			CounterForValidators::<T>::get().unwrap().is_zero(),
-			"CounterForValidators already set."
-		);
-		assert!(
-			CounterForNominators::<T>::get().unwrap().is_zero(),
-			"CounterForNominators already set."
-		);
-		assert!(Validators::<T>::count().is_zero(), "Validators already set.");
-		assert!(Nominators::<T>::count().is_zero(), "Nominators already set.");
-		assert!(StorageVersion::<T>::get() == ObsoleteReleases::V6_0_0);
-		Ok(())
-	}
-
-	pub fn migrate<T: Config>() -> Weight {
-		log!(info, "Migrating staking to ObsoleteReleases::V7_0_0");
-		let validator_count = Validators::<T>::iter().count() as u32;
-		let nominator_count = Nominators::<T>::iter().count() as u32;
-
-		CounterForValidators::<T>::put(validator_count);
-		CounterForNominators::<T>::put(nominator_count);
-
-		StorageVersion::<T>::put(ObsoleteReleases::V7_0_0);
-		log!(info, "Completed staking migration to ObsoleteReleases::V7_0_0");
-
-		T::DbWeight::get().reads_writes(validator_count.saturating_add(nominator_count).into(), 2)
-	}
-}
-
-pub mod v6 {
-	use super::*;
-	use frame_support::{storage_alias, traits::Get, weights::Weight};
-
-	// NOTE: value type doesn't matter, we just set it to () here.
-	#[storage_alias]
-	type SnapshotValidators<T: Config> = StorageValue<Pallet<T>, ()>;
-	#[storage_alias]
-	type SnapshotNominators<T: Config> = StorageValue<Pallet<T>, ()>;
-	#[storage_alias]
-	type QueuedElected<T: Config> = StorageValue<Pallet<T>, ()>;
-	#[storage_alias]
-	type QueuedScore<T: Config> = StorageValue<Pallet<T>, ()>;
-	#[storage_alias]
-	type EraElectionStatus<T: Config> = StorageValue<Pallet<T>, ()>;
-	#[storage_alias]
-	type IsCurrentSessionFinal<T: Config> = StorageValue<Pallet<T>, ()>;
-
-	/// check to execute prior to migration.
-	pub fn pre_migrate<T: Config>() -> Result<(), &'static str> {
-		// these may or may not exist.
-		log!(info, "SnapshotValidators.exits()? {:?}", SnapshotValidators::<T>::exists());
-		log!(info, "SnapshotNominators.exits()? {:?}", SnapshotNominators::<T>::exists());
-		log!(info, "QueuedElected.exits()? {:?}", QueuedElected::<T>::exists());
-		log!(info, "QueuedScore.exits()? {:?}", QueuedScore::<T>::exists());
-		// these must exist.
-		assert!(
-			IsCurrentSessionFinal::<T>::exists(),
-			"IsCurrentSessionFinal storage item not found!"
-		);
-		assert!(EraElectionStatus::<T>::exists(), "EraElectionStatus storage item not found!");
-		Ok(())
-	}
-
-	/// Migrate storage to v6.
-	pub fn migrate<T: Config>() -> Weight {
-		log!(info, "Migrating staking to ObsoleteReleases::V6_0_0");
-
-		SnapshotValidators::<T>::kill();
-		SnapshotNominators::<T>::kill();
-		QueuedElected::<T>::kill();
-		QueuedScore::<T>::kill();
-		EraElectionStatus::<T>::kill();
-		IsCurrentSessionFinal::<T>::kill();
-
-		StorageVersion::<T>::put(ObsoleteReleases::V6_0_0);
-
-		log!(info, "Done.");
-		T::DbWeight::get().writes(6 + 1)
 	}
 }
