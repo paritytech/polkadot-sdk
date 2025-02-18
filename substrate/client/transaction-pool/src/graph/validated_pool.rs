@@ -829,7 +829,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 				event_dispatcher_action(&mut *event_dispatcher, removed_tx_hash);
 				tx.clone()
 			})
-		.collect::<Vec<_>>()
+			.collect::<Vec<_>>()
 	}
 }
 

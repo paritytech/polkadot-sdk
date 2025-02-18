@@ -169,13 +169,11 @@ impl<C: graph::ChainApi> graph::EventHandler<C> for ViewPoolObserver<C> {
 	}
 
 	fn limits_enforced(&self, tx: ExtrinsicHash<C>) {
-		let status = TransactionStatus::Dropped;
-		self.send_to_dropped_stream_sink(tx, status);
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Dropped);
 	}
 
 	fn usurped(&self, tx: ExtrinsicHash<C>, by: ExtrinsicHash<C>) {
-		let status = TransactionStatus::Usurped(by);
-		self.send_to_dropped_stream_sink(tx, status);
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Usurped(by));
 	}
 
 	fn invalid(&self, tx: ExtrinsicHash<C>) {
@@ -183,14 +181,12 @@ impl<C: graph::ChainApi> graph::EventHandler<C> for ViewPoolObserver<C> {
 	}
 
 	fn pruned(&self, tx: ExtrinsicHash<C>, block_hash: BlockHash<C>, tx_index: usize) {
-		let status = TransactionStatus::InBlock((block_hash, tx_index));
-		self.send_to_aggregated_stream_sink(tx, status);
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::InBlock((block_hash, tx_index)));
 	}
 
 	fn finality_timeout(&self, tx: ExtrinsicHash<C>, hash: BlockHash<C>) {
-		let status = TransactionStatus::FinalityTimeout(hash);
 		//todo: do we need this? [related issue: #5482]
-		self.send_to_aggregated_stream_sink(tx, status);
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::FinalityTimeout(hash));
 	}
 }
 
