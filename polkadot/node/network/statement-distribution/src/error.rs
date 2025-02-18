@@ -73,7 +73,7 @@ pub enum Error {
 	FetchSessionInfo(RuntimeApiError),
 
 	#[error("Fetching disabled validators failed {0:?}")]
-	FetchDisabledValidators(runtime::Error),
+	FetchDisabledValidators(RuntimeApiError),
 
 	#[error("Fetching validator groups failed {0:?}")]
 	FetchValidatorGroups(RuntimeApiError),
