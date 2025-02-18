@@ -50,9 +50,10 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	asset, log, BalanceOf, Config, EraInfo, Error, NegativeImbalanceOf, NominatorSlashInEra,
-	OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence,
-	SlashRewardFraction, SpanSlash, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
+	asset, log, BalanceOf, Config, EraInfo, Error,
+	NegativeImbalanceOf, NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure,
+	Pallet, Perbill, ProcessingOffence, SlashRewardFraction, SpanSlash,
+	UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
