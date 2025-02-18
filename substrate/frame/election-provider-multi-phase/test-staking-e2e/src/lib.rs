@@ -170,7 +170,7 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 		}
 
 		// Ensure no more than disabling limit of validators (default 1/3) is disabled
-		let disabling_limit = pallet_staking::UpToLimitWithReEnablingDisablingStrategy::<
+		let disabling_limit = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy::<
 			SLASHING_DISABLING_FACTOR,
 		>::disable_limit(active_set_size_before_slash);
 		assert!(disabled.len() == disabling_limit);
