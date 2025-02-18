@@ -541,6 +541,7 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 					return Err(ProcessMessageError::StackLimitReached);
 				}
 				*count = count.saturating_add(1);
+
 				Ok(())
 			}).unwrap_or(Ok(()))?; // Fallback safety in case `recursion_count::with()` unexpectedly returns `None`.
 
