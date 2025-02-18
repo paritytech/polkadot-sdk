@@ -21,7 +21,7 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 
 #[cfg(feature = "std")]
 use sp_api::ProvideRuntimeApi;
@@ -39,7 +39,17 @@ pub use runtime_api::*;
 pub type ValidatorCount = u32;
 
 /// Proof of membership of a specific key in a given session.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	Default,
+	RuntimeDebug,
+	scale_info::TypeInfo,
+)]
 pub struct MembershipProof {
 	/// The session index on which the specific key is a member.
 	pub session: SessionIndex,
