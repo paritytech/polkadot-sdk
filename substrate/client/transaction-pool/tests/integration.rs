@@ -20,12 +20,10 @@
 
 pub mod zombienet;
 
-use txtesttool::{
-	execution_log::ExecutionLog,
-	scenario::{ChainType, ScenarioBuilder},
+use txtesttool::{execution_log::ExecutionLog, scenario::ChainType};
+use zombienet::{
+	default_zn_scenario_builder, NetworkSpawner, ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH,
 };
-use zombienet::{NetworkSpawner, ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH};
-use zombienet_sdk::subxt::SubstrateConfig;
 
 // Test which sends future and ready txs from many accounts
 // to an unlimited pool.
@@ -34,48 +32,26 @@ async fn send_future_and_then_ready_from_many_accounts() {
 	let net = NetworkSpawner::from_toml_with_env_logger(ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH)
 		.await
 		.unwrap();
-	let charlie = net.get_node("charlie").unwrap();
-	let client = charlie.wait_client::<SubstrateConfig>().await.unwrap();
-	let mut stream = client.blocks().subscribe_best().await.unwrap();
-	loop {
-		let Some(block) = stream.next().await else {
-			continue;
-		};
 
-		if block.is_ok() {
-			tracing::info!("found best block: {:#?}", block.unwrap().hash());
-			break;
-		}
-	}
-
-	// Shared params.
-	let send_threshold = 20_000;
-	let ws = "ws://127.0.0.1:9933";
-	let block_monitor = false;
-	let watched_txs = true;
-
-	let future_scenario_executor = ScenarioBuilder::new()
-		.with_rpc_uri(ws.to_string())
+	// Wait for the parachain collator to start block production.
+	let _ = net.wait_collator_client("charlie").await.unwrap();
+	let ws = net.node_rpc_uri("charlie").unwrap();
+	let future_scenario_executor = default_zn_scenario_builder()
+		.with_rpc_uri(ws.clone())
 		.with_chain_type(ChainType::Sub)
-		.with_block_monitoring(block_monitor)
 		.with_start_id("0".to_string())
 		.with_last_id(99)
 		.with_nonce_from(Some(100))
 		.with_txs_count(100)
-		.with_watched_txs(watched_txs)
-		.with_send_threshold(send_threshold)
 		.build()
 		.await;
-	let ready_scenario_executor = ScenarioBuilder::new()
-		.with_rpc_uri(ws.to_string())
+	let ready_scenario_executor = default_zn_scenario_builder()
+		.with_rpc_uri(ws)
 		.with_chain_type(ChainType::Sub)
-		.with_block_monitoring(block_monitor)
 		.with_start_id("0".to_string())
 		.with_last_id(99)
 		.with_nonce_from(Some(0))
 		.with_txs_count(100)
-		.with_watched_txs(watched_txs)
-		.with_send_threshold(send_threshold)
 		.build()
 		.await;
 
