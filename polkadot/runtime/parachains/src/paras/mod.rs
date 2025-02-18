@@ -1184,8 +1184,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-
-
 			// insert authorized code hash.
 			AuthorizedCodeHash::<T>::insert(&para, new_code_hash);
 			Self::deposit_event(Event::CodeAuthorized { para_id: para, code_hash: new_code_hash });
