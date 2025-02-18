@@ -29,7 +29,6 @@ use sp_runtime::{
 	},
 };
 use std::{
-	collections::HashMap,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -265,7 +264,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	/// Resubmit some transaction that were validated elsewhere.
 	pub fn resubmit(
 		&self,
-		revalidated_transactions: HashMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>>,
+		revalidated_transactions: IndexMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>>,
 	) {
 		let now = Instant::now();
 		self.validated_pool.resubmit(revalidated_transactions);

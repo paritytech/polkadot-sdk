@@ -76,9 +76,19 @@ mod impl_frozen_balance {
 	}
 
 	#[test]
+	#[should_panic = "The list of Freezes should be empty before allowing an account to die"]
+	fn died_fails_if_freezes_exist() {
+		new_test_ext(|| {
+			test_set_freeze(DummyFreezeReason::Governance, 1);
+			AssetsFreezer::died(ASSET_ID, &WHO);
+		});
+	}
+
+	#[test]
 	fn died_works() {
 		new_test_ext(|| {
 			test_set_freeze(DummyFreezeReason::Governance, 1);
+			test_thaw(DummyFreezeReason::Governance);
 			AssetsFreezer::died(ASSET_ID, &WHO);
 			assert!(FrozenBalances::<Test>::get(ASSET_ID, WHO).is_none());
 			assert!(Freezes::<Test>::get(ASSET_ID, WHO).is_empty());
@@ -168,7 +178,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				89
+				90
 			);
 			System::assert_last_event(
 				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
@@ -186,7 +196,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				91
+				92
 			);
 			System::assert_last_event(
 				Event::<Test>::Thawed { asset_id: ASSET_ID, who: WHO, amount: 2 }.into(),
@@ -219,7 +229,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				89
+				90
 			);
 			assert_ok!(AssetsFreezer::extend_freeze(
 				ASSET_ID,
@@ -237,7 +247,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				88
+				89
 			);
 		});
 	}
@@ -261,7 +271,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				89
+				90
 			);
 			assert_ok!(AssetsFreezer::thaw(ASSET_ID, &DummyFreezeReason::Governance, &WHO));
 			System::assert_has_event(
@@ -293,10 +303,10 @@ mod with_pallet_assets {
 				20
 			));
 			assert_noop!(
-				Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 80),
+				Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 81),
 				pallet_assets::Error::<Test>::BalanceLow,
 			);
-			assert_ok!(Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 79));
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 80));
 		});
 	}
 }

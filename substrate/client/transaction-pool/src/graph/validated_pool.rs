@@ -23,6 +23,7 @@ use std::{
 
 use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
+use indexmap::IndexMap;
 use parking_lot::{Mutex, RwLock};
 use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions, TransactionPriority};
 use sp_blockchain::HashAndNumber;
@@ -441,7 +442,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	/// Transactions that are missing from the pool are not submitted.
 	pub fn resubmit(
 		&self,
-		mut updated_transactions: HashMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>>,
+		mut updated_transactions: IndexMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>>,
 	) {
 		#[derive(Debug, Clone, Copy, PartialEq)]
 		enum Status {
@@ -476,7 +477,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 				let removed = pool.remove_subtree(&[hash]);
 				for removed_tx in removed {
 					let removed_hash = removed_tx.hash;
-					let updated_transaction = updated_transactions.remove(&removed_hash);
+					let updated_transaction = updated_transactions.shift_remove(&removed_hash);
 					let tx_to_resubmit = if let Some(updated_tx) = updated_transaction {
 						updated_tx
 					} else {
@@ -493,7 +494,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 					txs_to_resubmit.push((removed_hash, tx_to_resubmit));
 				}
 				// make sure to remove the hash even if it's not present in the pool anymore.
-				updated_transactions.remove(&hash);
+				updated_transactions.shift_remove(&hash);
 			}
 
 			// if we're rejecting future transactions, then insertion order matters here:
@@ -722,20 +723,22 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	/// to prevent them from entering the pool right away.
 	/// Note this is not the case for the dependent transactions - those may
 	/// still be valid so we want to be able to re-import them.
+	///
+	/// For every removed transaction an Invalid event is triggered.
+	///
+	/// Returns the list of actually removed transactions, which may include transactions dependent
+	/// on provided set.
 	pub fn remove_invalid(&self, hashes: &[ExtrinsicHash<B>]) -> Vec<TransactionFor<B>> {
 		// early exit in case there is no invalid transactions.
 		if hashes.is_empty() {
 			return vec![]
 		}
 
-		log::trace!(target: LOG_TARGET, "Removing invalid transactions: {:?}", hashes.len());
+		let invalid = self.remove_subtree(hashes, |listener, removed_tx_hash| {
+			listener.invalid(&removed_tx_hash);
+		});
 
-		// temporarily ban invalid transactions
-		self.rotator.ban(&Instant::now(), hashes.iter().cloned());
-
-		let invalid = self.pool.write().remove_subtree(hashes);
-
-		log::trace!(target: LOG_TARGET, "Removed invalid transactions: {:?}", invalid.len());
+		log::trace!(target: LOG_TARGET, "Removed invalid transactions: {:?}/{:?}", hashes.len(), invalid.len());
 		log_xt_trace!(target: LOG_TARGET, invalid.iter().map(|t| t.hash), "Removed invalid transaction");
 
 		let mut event_dispatcher = self.event_dispatcher.write();
@@ -797,6 +800,9 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	/// This function traverses the dependency graph of transactions and removes the specified
 	/// transaction along with all its descendant transactions from the pool.
 	///
+	/// The root transaction will be banned from re-entrering the pool. Descendant transactions may
+	/// be re-submitted to the pool if required.
+	///
 	/// A `event_disaptcher_action` callback function is invoked for every transaction that is
 	/// removed, providing a reference to the pool's event dispatcher and the hash of the removed
 	/// transaction. This allows to trigger the required events.
@@ -805,23 +811,25 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	/// transaction specified by `tx_hash`.
 	pub fn remove_subtree<F>(
 		&self,
-		tx_hash: ExtrinsicHash<B>,
+		hashes: &[ExtrinsicHash<B>],
 		event_dispatcher_action: F,
-	) -> Vec<ExtrinsicHash<B>>
+	) -> Vec<TransactionFor<B>>
 	where
 		F: Fn(&mut EventDispatcher<B, L>, ExtrinsicHash<B>),
 	{
-		self.pool
-			.write()
-			.remove_subtree(&[tx_hash])
+		// temporarily ban removed transactions
+		self.rotator.ban(&Instant::now(), hashes.iter().cloned());
+		let removed = self.pool.write().remove_subtree(hashes);
+
+		removed
 			.into_iter()
 			.map(|tx| {
 				let removed_tx_hash = tx.hash;
 				let mut event_dispatcher = self.event_dispatcher.write();
 				event_dispatcher_action(&mut *event_dispatcher, removed_tx_hash);
-				removed_tx_hash
+				tx.clone()
 			})
-			.collect::<Vec<_>>()
+		.collect::<Vec<_>>()
 	}
 }
 

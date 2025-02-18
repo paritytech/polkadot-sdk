@@ -28,10 +28,12 @@ use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
 		self, base_pool::TimedTransactionSource, BlockHash, ExtrinsicFor, ExtrinsicHash,
-		IsValidator, ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
+		IsValidator, TransactionFor, ValidatedPoolSubmitOutcome, ValidatedTransaction,
+		ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
+use indexmap::IndexMap;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus, TransactionStatus};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -40,11 +42,11 @@ use sp_runtime::{
 	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
 	SaturatedConversion,
 };
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 use tracing::{debug, trace};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
-	revalidated: HashMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
+	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
 	invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
 }
 
@@ -126,7 +128,8 @@ type DroppedMonitoringStream<H, BH> = TracingUnboundedReceiver<TransactionStatus
 /// validated pool associated with the `View` and forwards them through specified channels
 /// into the View's streams.
 pub(super) struct ViewPoolObserver<ChainApi: graph::ChainApi> {
-	/// The sink used to notify dropped by enforcing limits or by being usurped transactions.
+	/// The sink used to notify dropped by enforcing limits or by being usurped, or invalid
+	/// transactions.
 	///
 	/// Note: Ready and future statuses are alse communicated through this channel, enabling the
 	/// stream consumer to track views that reference the transaction.
@@ -148,7 +151,6 @@ impl<C: graph::ChainApi> graph::EventHandler<C> for ViewPoolObserver<C> {
 	// note: skipped, notified by ForkAwareTxPool directly to multi view listener.
 	fn broadcasted(&self, _: ExtrinsicHash<C>, _: Vec<String>) {}
 	fn dropped(&self, _: ExtrinsicHash<C>) {}
-	fn invalid(&self, _: ExtrinsicHash<C>) {}
 	fn finalized(&self, _: ExtrinsicHash<C>, _: BlockHash<C>, _: usize) {}
 	fn retracted(&self, _: ExtrinsicHash<C>, _: BlockHash<C>) {
 		// note: [#5479], we do not send to aggregated stream.
@@ -174,6 +176,10 @@ impl<C: graph::ChainApi> graph::EventHandler<C> for ViewPoolObserver<C> {
 	fn usurped(&self, tx: ExtrinsicHash<C>, by: ExtrinsicHash<C>) {
 		let status = TransactionStatus::Usurped(by);
 		self.send_to_dropped_stream_sink(tx, status);
+	}
+
+	fn invalid(&self, tx: ExtrinsicHash<C>) {
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Invalid);
 	}
 
 	fn pruned(&self, tx: ExtrinsicHash<C>, block_hash: BlockHash<C>, tx_index: usize) {
@@ -427,7 +433,7 @@ where
 		//todo: revalidate future, remove if invalid [#5496]
 
 		let mut invalid_hashes = Vec::new();
-		let mut revalidated = HashMap::new();
+		let mut revalidated = IndexMap::new();
 
 		let mut validation_results = vec![];
 		let mut batch_iter = batch.into_iter();
@@ -470,7 +476,12 @@ where
 			duration = ?revalidation_duration,
 			"view::revalidate"
 		);
-		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "view::revalidate result: {:?}");
+		log_xt_trace!(
+			data:tuple,
+			target:LOG_TARGET,
+			validation_results.iter().map(|x| (x.1, &x.0)),
+			"view::revalidate result: {:?}"
+		);
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
@@ -647,15 +658,15 @@ where
 	/// Refer to [`crate::graph::ValidatedPool::remove_subtree`] for more details.
 	pub fn remove_subtree<F>(
 		&self,
-		tx_hash: ExtrinsicHash<ChainApi>,
+		hashes: &[ExtrinsicHash<ChainApi>],
 		listener_action: F,
-	) -> Vec<ExtrinsicHash<ChainApi>>
+	) -> Vec<TransactionFor<ChainApi>>
 	where
 		F: Fn(
 			&mut crate::graph::EventDispatcher<ChainApi, ViewPoolObserver<ChainApi>>,
 			ExtrinsicHash<ChainApi>,
 		),
 	{
-		self.pool.validated_pool().remove_subtree(tx_hash, listener_action)
+		self.pool.validated_pool().remove_subtree(hashes, listener_action)
 	}
 }
