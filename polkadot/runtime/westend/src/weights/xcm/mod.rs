@@ -91,7 +91,7 @@ impl WeighAssets for Assets {
 }
 
 pub struct WestendXcmWeight<RuntimeCall>(core::marker::PhantomData<RuntimeCall>);
-impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
+impl<RuntimeCall: 'static> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmBalancesWeight::<Runtime>::withdraw_asset())
 	}

@@ -42,7 +42,7 @@ fn transfer_and_transact_in_same_xcm(
 	let usdt_to_ah_then_onward: Asset = (usdt.id.clone(), usdt_to_ah_then_onward_amount).into();
 
 	// xcm to be executed at dest
-	let xcm_on_dest = Xcm(vec![
+	let xcm_on_dest = Xcm::new(vec![
 		Transact { origin_kind: OriginKind::Xcm, call, fallback_max_weight: None },
 		ExpectTransactStatus(MaybeErrorCode::Success),
 		// since this is the last hop, we don't need to further use any assets previously
@@ -52,7 +52,7 @@ fn transfer_and_transact_in_same_xcm(
 		DepositAsset { assets: Wild(All), beneficiary },
 	]);
 	let destination = destination.reanchored(&asset_hub_location, &context).unwrap();
-	let xcm_on_ah = Xcm(vec![InitiateTransfer {
+	let xcm_on_ah = Xcm::new(vec![InitiateTransfer {
 		destination,
 		remote_fees: Some(AssetTransferFilter::ReserveDeposit(Wild(All))),
 		preserve_origin: true,

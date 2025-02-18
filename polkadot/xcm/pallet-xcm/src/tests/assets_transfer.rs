@@ -64,7 +64,7 @@ fn limited_teleport_assets_works() {
 			sent_xcm(),
 			vec![(
 				dest,
-				Xcm(vec![
+				Xcm::new(vec![
 					ReceiveTeleportedAsset((Here, SEND_AMOUNT).into()),
 					ClearOrigin,
 					buy_limited_execution((Here, SEND_AMOUNT), expected_weight_limit),
@@ -168,7 +168,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 			sent_xcm(),
 			vec![(
 				dest_para,
-				Xcm(vec![
+				Xcm::new(vec![
 					ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 					ClearOrigin,
 					buy_execution((Parent, SEND_AMOUNT)),
@@ -307,7 +307,7 @@ fn local_asset_reserve_and_local_fee_reserve_call<Call>(
 			sent_xcm(),
 			vec![(
 				dest,
-				Xcm(vec![
+				Xcm::new(vec![
 					ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 					ClearOrigin,
 					buy_limited_execution((Parent, SEND_AMOUNT), expected_weight_limit),
@@ -480,7 +480,7 @@ fn destination_asset_reserve_and_local_fee_reserve_call<Call>(
 				dest,
 				// `fees` are being sent through local-reserve transfer because fee reserve is
 				// local chain; `assets` are burned on source and withdrawn from SA here
-				Xcm(vec![
+				Xcm::new(vec![
 					ReserveAssetDeposited((Parent, FEE_AMOUNT).into()),
 					buy_limited_execution(expected_fee, Unlimited),
 					WithdrawAsset(expected_asset.into()),
@@ -761,7 +761,7 @@ fn local_asset_reserve_and_destination_fee_reserve_call<Call>(
 			sent_xcm(),
 			vec![(
 				dest,
-				Xcm(vec![
+				Xcm::new(vec![
 					// fees are being sent through destination-reserve transfer because fee reserve
 					// is destination chain
 					WithdrawAsset(expected_fee.clone().into()),
@@ -919,7 +919,7 @@ fn destination_asset_reserve_and_destination_fee_reserve_call<Call>(
 			sent_xcm(),
 			vec![(
 				Parachain(FOREIGN_ASSET_RESERVE_PARA_ID).into(),
-				Xcm(vec![
+				Xcm::new(vec![
 					WithdrawAsset(expected_assets.clone()),
 					ClearOrigin,
 					buy_limited_execution(expected_assets.get(0).unwrap().clone(), Unlimited),
@@ -1439,7 +1439,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 			vec![(
 				// first message sent to reserve chain
 				usdc_chain,
-				Xcm(vec![
+				Xcm::new(vec![
 					WithdrawAsset(expected_assets_on_reserve),
 					ClearOrigin,
 					BuyExecution { fees: expected_fee_on_reserve, weight_limit: Unlimited },
@@ -1448,7 +1448,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 						// final destination is `dest` as seen by `reserve`
 						dest: expected_dest_on_reserve,
 						// message sent onward to `dest`
-						xcm: Xcm(vec![
+						xcm: Xcm::new(vec![
 							buy_limited_execution(expected_fee_on_dest, Unlimited),
 							DepositAsset { assets: AllCounted(1).into(), beneficiary }
 						])
@@ -1595,7 +1595,7 @@ fn local_asset_reserve_and_teleported_fee_call<Call>(
 			sent_xcm(),
 			vec![(
 				dest,
-				Xcm(vec![
+				Xcm::new(vec![
 					// fees are teleported to destination chain
 					ReceiveTeleportedAsset(expected_fee.clone().into()),
 					buy_limited_execution(expected_fee, Unlimited),
@@ -1776,7 +1776,7 @@ fn destination_asset_reserve_and_teleported_fee_call<Call>(
 			sent_xcm(),
 			vec![(
 				dest,
-				Xcm(vec![
+				Xcm::new(vec![
 					// fees are teleported to destination chain
 					ReceiveTeleportedAsset(expected_fee.clone().into()),
 					buy_limited_execution(expected_fee, Unlimited),
@@ -2193,7 +2193,7 @@ fn teleport_asset_using_local_fee_reserve_call<Call>(
 				dest,
 				// `fees` are being sent through local-reserve transfer because fee reserve is
 				// local chain; `assets` are burned on source and withdrawn from SA here
-				Xcm(vec![
+				Xcm::new(vec![
 					ReserveAssetDeposited(expected_fee.clone().into()),
 					buy_limited_execution(expected_fee, Unlimited),
 					ReceiveTeleportedAsset(expected_asset.into()),
@@ -2381,7 +2381,7 @@ fn teleported_asset_using_destination_reserve_fee_call<Call>(
 			sent_xcm(),
 			vec![(
 				dest,
-				Xcm(vec![
+				Xcm::new(vec![
 					// fees are withdrawn from origin's local SA
 					WithdrawAsset(expected_fee.clone().into()),
 					buy_limited_execution(expected_fee, Unlimited),
@@ -2558,7 +2558,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			vec![(
 				reserve_location,
 				// `assets` are burned on source and withdrawn from SA in remote reserve chain
-				Xcm(vec![
+				Xcm::new(vec![
 					WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
 					ClearOrigin,
 					buy_execution((Location::here(), SEND_AMOUNT / 2)),
@@ -2567,7 +2567,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 						// final destination is `dest` as seen by `reserve`
 						dest: dest_reanchored,
 						// message sent onward to `dest`
-						xcm: Xcm(vec![
+						xcm: Xcm::new(vec![
 							buy_execution((foreign_id_location_reanchored, SEND_AMOUNT / 2)),
 							DepositAsset { assets: AllCounted(1).into(), beneficiary }
 						])

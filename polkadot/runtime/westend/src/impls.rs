@@ -147,7 +147,7 @@ where
 		let remote_weight_limit = MigratorWeights::<Runtime>::poke_deposit().saturating_mul(2);
 
 		// Actual program to execute on People Chain.
-		let program: Xcm<()> = Xcm(vec![
+		let program: Xcm<()> = Xcm::new(vec![
 			// Unpaid as this is constructed by the system, once per user. The user shouldn't have
 			// their balance reduced by teleport fees for the favor of migrating.
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },

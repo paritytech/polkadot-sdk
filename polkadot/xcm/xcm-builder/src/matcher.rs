@@ -116,13 +116,13 @@ pub trait MatchXcm {
 ///
 /// Implements `MatchXcm` to allow an iterator-like API to match against each `Instruction`
 /// contained within the slice, which facilitates the building of XCM barriers.
-pub struct Matcher<'a, Call> {
+pub struct Matcher<'a, Call: 'static> {
 	pub(crate) xcm: &'a mut [Instruction<Call>],
 	pub(crate) current_idx: usize,
 	pub(crate) total_inst: usize,
 }
 
-impl<'a, Call> MatchXcm for Matcher<'a, Call> {
+impl<'a, Call: 'static> MatchXcm for Matcher<'a, Call> {
 	type Error = ProcessMessageError;
 	type Inst = Instruction<Call>;
 	type Loc = Location;

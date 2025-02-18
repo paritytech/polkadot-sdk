@@ -26,9 +26,9 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 	let weight_limit = WeightLimit::Unlimited;
 	let check_origin = None;
 
-	let remote_xcm = Xcm(vec![ClearOrigin]);
+	let remote_xcm = Xcm::new(vec![ClearOrigin]);
 
-	let xcm = VersionedXcm::from(Xcm(vec![
+	let xcm = VersionedXcm::from(Xcm::new(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
 			network: ByGenesis(WESTEND_GENESIS_HASH),

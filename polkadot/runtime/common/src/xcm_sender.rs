@@ -301,14 +301,14 @@ mod tests {
 		// message_length = 1
 		let result: u128 = TestFeeTracker::get_fee_factor(id).saturating_mul_int(b + m);
 		assert_eq!(
-			TestExponentialPrice::price_for_delivery(id, &Xcm(vec![])),
+			TestExponentialPrice::price_for_delivery(id, &Xcm::new(vec![])),
 			(FeeAssetId::get(), result).into()
 		);
 
 		// message size = 2
 		let result: u128 = TestFeeTracker::get_fee_factor(id).saturating_mul_int(b + (2 * m));
 		assert_eq!(
-			TestExponentialPrice::price_for_delivery(id, &Xcm(vec![ClearOrigin])),
+			TestExponentialPrice::price_for_delivery(id, &Xcm::new(vec![ClearOrigin])),
 			(FeeAssetId::get(), result).into()
 		);
 
@@ -317,7 +317,7 @@ mod tests {
 		assert_eq!(
 			TestExponentialPrice::price_for_delivery(
 				id,
-				&Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))])
+				&Xcm::new(vec![SetAppendix(Xcm::new(vec![ClearOrigin]))])
 			),
 			(FeeAssetId::get(), result).into()
 		);
@@ -334,9 +334,9 @@ mod tests {
 		>;
 
 		// Message that is not too deeply nested:
-		let mut good = Xcm(vec![ClearOrigin]);
+		let mut good = Xcm::new(vec![ClearOrigin]);
 		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
-			good = Xcm(vec![SetAppendix(good)]);
+			good = Xcm::new(vec![SetAppendix(good)]);
 		}
 
 		new_test_ext().execute_with(|| {
@@ -353,7 +353,7 @@ mod tests {
 			));
 
 			// Nesting the message one more time should reject it:
-			let bad = Xcm(vec![SetAppendix(good)]);
+			let bad = Xcm::new(vec![SetAppendix(good)]);
 			assert_eq!(
 				Err(ExceedsMaxMessageSize),
 				<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))

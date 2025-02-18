@@ -81,7 +81,7 @@ fn create_agent() {
 
 	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
 	// Construct XCM to create an agent for para 1001
-	let remote_xcm = VersionedXcm::from(Xcm(vec![
+	let remote_xcm = VersionedXcm::from(Xcm::new(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
@@ -139,7 +139,7 @@ fn create_channel() {
 
 	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
 	// Construct XCM to create an agent for para 1001
-	let create_agent_xcm = VersionedXcm::from(Xcm(vec![
+	let create_agent_xcm = VersionedXcm::from(Xcm::new(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
@@ -152,7 +152,7 @@ fn create_channel() {
 	let create_channel_call =
 		SnowbridgeControl::Control(ControlCall::CreateChannel { mode: OperatingMode::Normal });
 	// Construct XCM to create a channel for para 1001
-	let create_channel_xcm = VersionedXcm::from(Xcm(vec![
+	let create_channel_xcm = VersionedXcm::from(Xcm::new(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {

@@ -309,7 +309,7 @@ pub fn generate_xcm_builder_bridge_message_sample(
 			expected_message_size, location_encoded_size, xcm_size, xcm_data_size,
 		);
 
-		let xcm = xcm::VersionedXcm::<()>::from(Xcm(vec![Instruction::<()>::ExpectPallet {
+		let xcm = xcm::VersionedXcm::<()>::from(Xcm::new(vec![Instruction::<()>::ExpectPallet {
 			index: 0,
 			name: vec![42; xcm_data_size],
 			module_name: vec![],

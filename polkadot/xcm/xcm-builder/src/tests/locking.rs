@@ -27,7 +27,7 @@ fn lock_roundtrip_should_work() {
 	set_send_price((Parent, 10u128));
 
 	// They want to lock 100 of the native parent tokens to be unlocked only by Parachain #1.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Parent, 100u128).into()),
 		SetAppendix(
 			vec![DepositAsset { assets: AllCounted(2).into(), beneficiary: (3u64,).into() }].into(),
@@ -62,7 +62,7 @@ fn lock_roundtrip_should_work() {
 
 	// Now we'll unlock it.
 	let message =
-		Xcm(vec![UnlockAsset { asset: (Parent, 100u128).into(), target: (3u64,).into() }]);
+		Xcm::new(vec![UnlockAsset { asset: (Parent, 100u128).into(), target: (3u64,).into() }]);
 	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1)),
@@ -84,7 +84,7 @@ fn auto_fee_paying_should_work() {
 	set_send_price((Parent, 10u128));
 
 	// They want to lock 100 of the native parent tokens to be unlocked only by Parachain #1.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		SetFeesMode { jit_withdraw: true },
 		LockAsset { asset: (Parent, 100u128).into(), unlocker: (Parent, Parachain(1)).into() },
 	]);
@@ -107,7 +107,7 @@ fn lock_should_fail_correctly() {
 
 	// #3 wants to lock 100 of the native parent tokens to be unlocked only by parachain ../#1,
 	// but they don't have any.
-	let message = Xcm(vec![LockAsset {
+	let message = Xcm::new(vec![LockAsset {
 		asset: (Parent, 100u128).into(),
 		unlocker: (Parent, Parachain(1)).into(),
 	}]);
@@ -133,7 +133,7 @@ fn lock_should_fail_correctly() {
 
 	// #3 wants to lock 100 of the native parent tokens to be unlocked only by parachain ../#1,
 	// but there's nothing to pay the fees for sending the notification message.
-	let message = Xcm(vec![LockAsset {
+	let message = Xcm::new(vec![LockAsset {
 		asset: (Parent, 100u128).into(),
 		unlocker: (Parent, Parachain(1)).into(),
 	}]);
@@ -166,7 +166,7 @@ fn remote_unlock_roundtrip_should_work() {
 	// Previously, we must have sent a LockAsset instruction to Parachain #1.
 	// This caused Parachain #1 to send us the NoteUnlockable instruction.
 	let message =
-		Xcm(vec![NoteUnlockable { asset: (Parent, 100u128).into(), owner: (3u64,).into() }]);
+		Xcm::new(vec![NoteUnlockable { asset: (Parent, 100u128).into(), owner: (3u64,).into() }]);
 	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1)),
@@ -186,7 +186,7 @@ fn remote_unlock_roundtrip_should_work() {
 	);
 
 	// Let's request those funds be unlocked.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Parent, 100u128).into()),
 		SetAppendix(
 			vec![DepositAsset { assets: AllCounted(2).into(), beneficiary: (3u64,).into() }].into(),
@@ -230,7 +230,7 @@ fn remote_unlock_should_fail_correctly() {
 	// We want to unlock 100 of the native parent tokens which were locked for us on parachain.
 	// This won't work as we don't have any record of them being locked for us.
 	// No message will be sent and no lock records changed.
-	let message = Xcm(vec![RequestUnlock {
+	let message = Xcm::new(vec![RequestUnlock {
 		asset: (Parent, 100u128).into(),
 		locker: (Parent, Parachain(1)).into(),
 	}]);
@@ -251,7 +251,7 @@ fn remote_unlock_should_fail_correctly() {
 
 	// We have been told by Parachain #1 that Account #3 has locked funds which we can unlock.
 	let message =
-		Xcm(vec![NoteUnlockable { asset: (Parent, 100u128).into(), owner: (3u64,).into() }]);
+		Xcm::new(vec![NoteUnlockable { asset: (Parent, 100u128).into(), owner: (3u64,).into() }]);
 	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1)),
@@ -266,7 +266,7 @@ fn remote_unlock_should_fail_correctly() {
 	// We want to unlock 100 of the native parent tokens which were locked for us on parachain.
 	// This won't work now as we don't have the funds to send the onward message.
 	// No message will be sent and no lock records changed.
-	let message = Xcm(vec![RequestUnlock {
+	let message = Xcm::new(vec![RequestUnlock {
 		asset: (Parent, 100u128).into(),
 		locker: (Parent, Parachain(1)).into(),
 	}]);

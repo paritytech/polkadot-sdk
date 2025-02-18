@@ -21,7 +21,7 @@ fn exchange_asset_should_work() {
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 	add_asset(Parent, (Parent, 1000u128));
 	set_exchange_assets(vec![(Here, 100u128).into()]);
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Parent, 100u128).into()),
 		SetAppendix(
 			vec![DepositAsset { assets: AllCounted(2).into(), beneficiary: Parent.into() }].into(),
@@ -50,7 +50,7 @@ fn exchange_asset_without_maximal_should_work() {
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 	add_asset(Parent, (Parent, 1000u128));
 	set_exchange_assets(vec![(Here, 100u128).into()]);
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Parent, 100u128).into()),
 		SetAppendix(
 			vec![DepositAsset { assets: AllCounted(2).into(), beneficiary: Parent.into() }].into(),
@@ -79,7 +79,7 @@ fn exchange_asset_should_fail_when_no_deal_possible() {
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 	add_asset(Parent, (Parent, 1000u128));
 	set_exchange_assets(vec![(Here, 100u128).into()]);
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Parent, 150u128).into()),
 		SetAppendix(
 			vec![DepositAsset { assets: AllCounted(2).into(), beneficiary: Parent.into() }].into(),
@@ -113,7 +113,7 @@ fn paying_reserve_deposit_should_work() {
 	WeightPrice::set((Parent.into(), 1_000_000_000_000, 1024 * 1024));
 
 	let fees = (Parent, 60u128).into();
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		ReserveAssetDeposited((Parent, 100u128).into()),
 		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(30, 30)) },
 		DepositAsset { assets: AllCounted(1).into(), beneficiary: Here.into() },
@@ -138,7 +138,7 @@ fn transfer_should_work() {
 	// Child parachain #1 owns 1000 tokens held by us in reserve.
 	add_asset(Parachain(1), (Here, 1000));
 	// They want to transfer 100 of them to their sibling parachain #2
-	let message = Xcm(vec![TransferAsset {
+	let message = Xcm::new(vec![TransferAsset {
 		assets: (Here, 100u128).into(),
 		beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
 	}]);
@@ -169,7 +169,7 @@ fn reserve_transfer_should_work() {
 
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
-	let message = Xcm(vec![TransferReserveAsset {
+	let message = Xcm::new(vec![TransferReserveAsset {
 		assets: (Here, 100u128).into(),
 		dest: Parachain(2).into(),
 		xcm: Xcm::<()>(vec![DepositAsset {
@@ -204,7 +204,7 @@ fn burn_should_work() {
 	// Child parachain #1 owns 1000 tokens held by us in reserve.
 	add_asset(Parachain(1), (Here, 1000));
 	// They want to burn 100 of them
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Here, 1000u128).into()),
 		BurnAsset((Here, 100u128).into()),
 		DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Parachain(1).into() },
@@ -222,7 +222,7 @@ fn burn_should_work() {
 	assert_eq!(sent_xcm(), vec![]);
 
 	// Now they want to burn 1000 of them, which will actually only burn 900.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Here, 900u128).into()),
 		BurnAsset((Here, 1000u128).into()),
 		DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Parachain(1).into() },
@@ -248,7 +248,7 @@ fn basic_asset_trap_should_work() {
 	// Child parachain #1 owns 1000 tokens held by us in reserve.
 	add_asset(Parachain(1), (Here, 1000));
 	// They want to transfer 100 of them to their sibling parachain #2 but have a problem
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Here, 100u128).into()),
 		DepositAsset {
 			assets: Wild(AllCounted(0)), // <<< 0 is an error.
@@ -268,7 +268,7 @@ fn basic_asset_trap_should_work() {
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![]);
 
 	// Incorrect ticket doesn't work.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		ClaimAsset { assets: (Here, 100u128).into(), ticket: GeneralIndex(1).into() },
 		DepositAsset {
 			assets: Wild(AllCounted(1)),
@@ -293,7 +293,7 @@ fn basic_asset_trap_should_work() {
 	assert_eq!(old_trapped_assets, TrappedAssets::get());
 
 	// Incorrect origin doesn't work.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		ClaimAsset { assets: (Here, 100u128).into(), ticket: GeneralIndex(0).into() },
 		DepositAsset {
 			assets: Wild(AllCounted(1)),
@@ -318,7 +318,7 @@ fn basic_asset_trap_should_work() {
 	assert_eq!(old_trapped_assets, TrappedAssets::get());
 
 	// Incorrect assets doesn't work.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		ClaimAsset { assets: (Here, 101u128).into(), ticket: GeneralIndex(0).into() },
 		DepositAsset {
 			assets: Wild(AllCounted(1)),
@@ -342,7 +342,7 @@ fn basic_asset_trap_should_work() {
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![]);
 	assert_eq!(old_trapped_assets, TrappedAssets::get());
 
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		ClaimAsset { assets: (Here, 100u128).into(), ticket: GeneralIndex(0).into() },
 		DepositAsset {
 			assets: Wild(AllCounted(1)),
@@ -365,7 +365,7 @@ fn basic_asset_trap_should_work() {
 	);
 
 	// Same again doesn't work :-)
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		ClaimAsset { assets: (Here, 100u128).into(), ticket: GeneralIndex(0).into() },
 		DepositAsset {
 			assets: Wild(AllCounted(1)),
@@ -402,7 +402,7 @@ fn max_assets_limit_should_work() {
 	add_asset(Parachain(1), (Junctions::from([GeneralIndex(8)]), 1000u128));
 
 	// Attempt to withdraw 8 (=2x4)different assets. This will succeed.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
@@ -423,7 +423,7 @@ fn max_assets_limit_should_work() {
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(85, 85) });
 
 	// Attempt to withdraw 9 different assets will fail.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
@@ -452,7 +452,7 @@ fn max_assets_limit_should_work() {
 
 	// Attempt to withdraw 4 different assets and then the same 4 and then a different 4 will
 	// succeed.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
@@ -477,7 +477,7 @@ fn max_assets_limit_should_work() {
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(125, 125) });
 
 	// Attempt to withdraw 4 different assets and then a different 4 and then the same 4 will fail.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(1)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
@@ -508,7 +508,7 @@ fn max_assets_limit_should_work() {
 	);
 
 	// Attempt to withdraw 4 different assets and then a different 4 and then the same 4 will fail.
-	let message = Xcm(vec![
+	let message = Xcm::new(vec![
 		WithdrawAsset(Assets::from(vec![
 			(Junctions::from([GeneralIndex(0)]), 100u128).into(),
 			(Junctions::from([GeneralIndex(1)]), 100u128).into(),

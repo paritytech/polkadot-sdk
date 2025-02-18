@@ -102,7 +102,7 @@ fn works_for_delivery_fees() {
 
 	let querier: Location =
 		(Parachain(1000), AccountId32 { id: SENDER.into(), network: None }).into();
-	let sent_message = Xcm(vec![QueryResponse {
+	let sent_message = Xcm::new(vec![QueryResponse {
 		query_id: 0,
 		response: Response::ExecutionResult(None),
 		max_weight: Weight::zero(),

@@ -44,7 +44,7 @@ fn dmp() {
 		assert_ok!(RelayChainPalletXcm::send_xcm(
 			Here,
 			Parachain(1),
-			Xcm(vec![Transact {
+			Xcm::new(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
 				call: remark.encode().into(),
 				fallback_max_weight: None,
@@ -72,7 +72,7 @@ fn ump() {
 		assert_ok!(ParachainPalletXcm::send_xcm(
 			Here,
 			Parent,
-			Xcm(vec![Transact {
+			Xcm::new(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
 				call: remark.encode().into(),
 				fallback_max_weight: None,
@@ -100,7 +100,7 @@ fn xcmp() {
 		assert_ok!(ParachainPalletXcm::send_xcm(
 			Here,
 			(Parent, Parachain(2)),
-			Xcm(vec![Transact {
+			Xcm::new(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
 				call: remark.encode().into(),
 				fallback_max_weight: None,
@@ -154,7 +154,7 @@ fn remote_locking_and_unlocking() {
 	let locked_amount = 100;
 
 	ParaB::execute_with(|| {
-		let message = Xcm(vec![LockAsset {
+		let message = Xcm::new(vec![LockAsset {
 			asset: (Here, locked_amount).into(),
 			unlocker: Parachain(1).into(),
 		}]);
@@ -172,7 +172,7 @@ fn remote_locking_and_unlocking() {
 	ParaA::execute_with(|| {
 		assert_eq!(
 			ReceivedDmp::<parachain::Runtime>::get(),
-			vec![Xcm(vec![NoteUnlockable {
+			vec![Xcm::new(vec![NoteUnlockable {
 				owner: (Parent, Parachain(2)).into(),
 				asset: (Parent, locked_amount).into()
 			}])]
@@ -181,7 +181,7 @@ fn remote_locking_and_unlocking() {
 
 	ParaB::execute_with(|| {
 		// Request unlocking part of the funds on the relay chain
-		let message = Xcm(vec![RequestUnlock {
+		let message = Xcm::new(vec![RequestUnlock {
 			asset: (Parent, locked_amount - 50).into(),
 			locker: Parent.into(),
 		}]);
@@ -215,7 +215,7 @@ fn withdraw_and_deposit_nft() {
 	});
 
 	ParaA::execute_with(|| {
-		let message = Xcm(vec![TransferAsset {
+		let message = Xcm::new(vec![TransferAsset {
 			assets: (GeneralIndex(1), 42u32).into(),
 			beneficiary: Parachain(2).into(),
 		}]);
@@ -263,12 +263,12 @@ fn teleport_nft() {
 
 		// IRL Alice would probably just execute this locally on the Relay-chain, but we can't
 		// easily do that here since we only send between chains.
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((GeneralIndex(1), 69u32).into()),
 			InitiateTeleport {
 				assets: AllCounted(1).into(),
 				dest: Parachain(1).into(),
-				xcm: Xcm(vec![DepositAsset {
+				xcm: Xcm::new(vec![DepositAsset {
 					assets: AllCounted(1).into(),
 					beneficiary: (AccountId32 { id: ALICE.into(), network: None },).into(),
 				}]),
@@ -328,12 +328,12 @@ fn reserve_asset_transfer_nft() {
 		);
 		assert_eq!(parachain::Balances::reserved_balance(&ALICE), 0);
 
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((GeneralIndex(2), 69u32).into()),
 			DepositReserveAsset {
 				assets: AllCounted(1).into(),
 				dest: Parachain(1).into(),
-				xcm: Xcm(vec![DepositAsset {
+				xcm: Xcm::new(vec![DepositAsset {
 					assets: AllCounted(1).into(),
 					beneficiary: (AccountId32 { id: ALICE.into(), network: None },).into(),
 				}]),
@@ -381,7 +381,7 @@ fn reserve_asset_class_create_and_reserve_transfer() {
 		));
 		assert_eq!(relay_chain::Uniques::owner(2, 69), Some(child_account_account_id(1, ALICE)));
 
-		let message = Xcm(vec![Transact {
+		let message = Xcm::new(vec![Transact {
 			origin_kind: OriginKind::Xcm,
 			call: parachain::RuntimeCall::from(
 				pallet_uniques::Call::<parachain::Runtime>::create {
@@ -398,12 +398,12 @@ fn reserve_asset_class_create_and_reserve_transfer() {
 	});
 	ParaA::execute_with(|| {
 		// Then transfer
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((GeneralIndex(2), 69u32).into()),
 			DepositReserveAsset {
 				assets: AllCounted(1).into(),
 				dest: Parachain(1).into(),
-				xcm: Xcm(vec![DepositAsset {
+				xcm: Xcm::new(vec![DepositAsset {
 					assets: AllCounted(1).into(),
 					beneficiary: (AccountId32 { id: ALICE.into(), network: None },).into(),
 				}]),
@@ -432,7 +432,7 @@ fn withdraw_and_deposit() {
 	let send_amount = 10;
 
 	ParaA::execute_with(|| {
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((Here, send_amount).into()),
 			buy_execution((Here, send_amount)),
 			DepositAsset { assets: AllCounted(1).into(), beneficiary: Parachain(2).into() },
@@ -467,7 +467,7 @@ fn query_holding() {
 
 	// Send a message which fully succeeds on the relay chain
 	ParaA::execute_with(|| {
-		let message = Xcm(vec![
+		let message = Xcm::new(vec![
 			WithdrawAsset((Here, send_amount).into()),
 			buy_execution((Here, send_amount)),
 			DepositAsset { assets: AllCounted(1).into(), beneficiary: Parachain(2).into() },
@@ -502,7 +502,7 @@ fn query_holding() {
 	ParaA::execute_with(|| {
 		assert_eq!(
 			ReceivedDmp::<parachain::Runtime>::get(),
-			vec![Xcm(vec![QueryResponse {
+			vec![Xcm::new(vec![QueryResponse {
 				query_id: query_id_set,
 				response: Response::Assets(Assets::new()),
 				max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),

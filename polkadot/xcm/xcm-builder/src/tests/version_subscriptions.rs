@@ -22,7 +22,7 @@ fn simple_version_subscriptions_should_work() {
 
 	let origin = Parachain(1000);
 	let message = Xcm::<TestCall>(vec![
-		SetAppendix(Xcm(vec![])),
+		SetAppendix(Xcm::new(vec![])),
 		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
 	]);
 	let mut hash = fake_message_hash(&message);
@@ -105,7 +105,7 @@ fn version_subscription_instruction_should_work() {
 	);
 
 	let message = Xcm::<TestCall>(vec![
-		SetAppendix(Xcm(vec![])),
+		SetAppendix(Xcm::new(vec![])),
 		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
 	]);
 	let mut hash = fake_message_hash(&message);
@@ -129,7 +129,7 @@ fn simple_version_unsubscriptions_should_work() {
 	AllowSubsFrom::set(vec![Parent.into()]);
 
 	let origin = Parachain(1000);
-	let message = Xcm::<TestCall>(vec![SetAppendix(Xcm(vec![])), UnsubscribeVersion]);
+	let message = Xcm::<TestCall>(vec![SetAppendix(Xcm::new(vec![])), UnsubscribeVersion]);
 	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(20, 20);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
@@ -191,7 +191,7 @@ fn version_unsubscription_instruction_should_work() {
 	);
 
 	// Fine to do it when origin is untouched.
-	let message = Xcm::<TestCall>(vec![SetAppendix(Xcm(vec![])), UnsubscribeVersion]);
+	let message = Xcm::<TestCall>(vec![SetAppendix(Xcm::new(vec![])), UnsubscribeVersion]);
 	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		origin,

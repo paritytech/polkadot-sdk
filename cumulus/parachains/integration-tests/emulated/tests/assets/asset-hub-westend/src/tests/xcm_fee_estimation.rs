@@ -141,7 +141,7 @@ fn multi_hop_works() {
 
 	// We get them from the PenpalA closure.
 	let mut delivery_fees_amount = 0;
-	let mut remote_message = VersionedXcm::from(Xcm(Vec::new()));
+	let mut remote_message = VersionedXcm::from(Xcm::new(vec::new()));
 	<PenpalA as TestExt>::execute_with(|| {
 		type Runtime = <PenpalA as Chain>::Runtime;
 		type OriginCaller = <PenpalA as Chain>::OriginCaller;

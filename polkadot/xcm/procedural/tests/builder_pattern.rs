@@ -31,7 +31,7 @@ fn builder_pattern_works() {
 		.build();
 	assert_eq!(
 		message,
-		Xcm(vec![
+		Xcm::new(vec![
 			ReceiveTeleportedAsset(asset.clone().into()),
 			BuyExecution { fees: asset.clone(), weight_limit: Unlimited },
 			DepositAsset { assets: asset.into(), beneficiary },
@@ -59,7 +59,7 @@ fn default_builder_requires_buy_execution() {
 		.build(); // This works
 	assert_eq!(
 		message,
-		Xcm(vec![
+		Xcm::new(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			WithdrawAsset(asset.clone().into()),
 			DepositAsset { assets: asset.clone().into(), beneficiary: beneficiary.clone() },
@@ -74,7 +74,7 @@ fn default_builder_requires_buy_execution() {
 		.build();
 	assert_eq!(
 		message,
-		Xcm(vec![
+		Xcm::new(vec![
 			WithdrawAsset(asset.clone().into()),
 			DepositAsset { assets: asset.clone().into(), beneficiary },
 		])
@@ -93,7 +93,7 @@ fn default_builder_allows_clear_origin_before_buy_execution() {
 		.build();
 	assert_eq!(
 		message,
-		Xcm(vec![
+		Xcm::new(vec![
 			ReceiveTeleportedAsset(asset.clone().into()),
 			ClearOrigin,
 			BuyExecution { fees: asset.clone(), weight_limit: Unlimited },
@@ -111,7 +111,7 @@ fn bounded_vecs_use_vecs_and_truncate_them() {
 		.build();
 	assert_eq!(
 		xcm,
-		Xcm(vec![SetHints {
+		Xcm::new(vec![SetHints {
 			hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![AssetClaimer {
 				location: Location::parent()
 			},]),
@@ -127,7 +127,7 @@ fn bounded_vecs_use_vecs_and_truncate_them() {
 		.build();
 	assert_eq!(
 		xcm,
-		Xcm(vec![SetHints {
+		Xcm::new(vec![SetHints {
 			hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![AssetClaimer {
 				location: Location::parent()
 			},]),
@@ -143,7 +143,7 @@ fn bounded_vecs_use_vecs_and_truncate_them() {
 		.build();
 	assert_eq!(
 		xcm,
-		Xcm(vec![
+		Xcm::new(vec![
 			WithdrawAsset(Asset { id: AssetId(Location::here()), fun: Fungible(100) }.into()),
 			SetHints {
 				hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![AssetClaimer {

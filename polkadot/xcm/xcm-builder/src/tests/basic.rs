@@ -34,7 +34,7 @@ fn basic_setup_works() {
 
 #[test]
 fn weigher_should_work() {
-	let mut message = Xcm(vec![
+	let mut message = Xcm::new(vec![
 		ReserveAssetDeposited((Parent, 100u128).into()),
 		BuyExecution {
 			fees: (Parent, 1u128).into(),
@@ -54,9 +54,9 @@ fn code_registers_should_work() {
 	AllowUnpaidFrom::set(vec![Here.into()]);
 	// We own 1000 of our tokens.
 	add_asset(Here, (Here, 21u128));
-	let mut message = Xcm(vec![
+	let mut message = Xcm::new(vec![
 		// Set our error handler - this will fire only on the second message, when there's an error
-		SetErrorHandler(Xcm(vec![
+		SetErrorHandler(Xcm::new(vec![
 			TransferAsset {
 				assets: (Here, 2u128).into(),
 				beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
@@ -65,7 +65,7 @@ fn code_registers_should_work() {
 			ClearError,
 		])),
 		// Set the appendix - this will always fire.
-		SetAppendix(Xcm(vec![TransferAsset {
+		SetAppendix(Xcm::new(vec![TransferAsset {
 			assets: (Here, 4u128).into(),
 			beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
 		}])),
