@@ -117,20 +117,13 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 
 	let name = syn::parse_macro_input!(arg as Expr);
 
-	// Try resolving `sc-tracing` from `polkadot-sdk` first, otherwise fallback to `sc-tracing`
-	let crate_ident = if let Ok(FoundCrate::Name(sdk_name)) = crate_name("polkadot-sdk") {
-		Ident::new(&format!("{}::sc_tracing", sdk_name), Span::call_site())
-	} else if let Ok(FoundCrate::Itself) = crate_name("sc-tracing") {
-		Ident::new("sc_tracing", Span::call_site())
-	} else if let Ok(FoundCrate::Name(tracing_name)) = crate_name("sc-tracing") {
-		Ident::new(&tracing_name, Span::call_site())
-	} else {
-		return Error::new(
-			Span::call_site(),
-			"Could not find `sc-tracing` or `polkadot-sdk` in dependencies",
-		)
-			.to_compile_error()
-			.into();
+	let crate_name = match crate_name("polkadot-sdk") {
+		Ok(FoundCrate::Name(sdk_name)) => Ident::new(sdk_name.as_str(), Span::call_site()),
+		_ => match crate_name("sc-tracing") {
+			Ok(FoundCrate::Itself) => Ident::new("sc_tracing", Span::call_site()),
+			Ok(FoundCrate::Name(tracing_name)) => Ident::new(tracing_name.as_str(), Span::call_site()),
+			Err(e) => return Error::new(Span::call_site(), e).to_compile_error().into(),
+		},
 	};
 
 	let ItemFn { attrs, vis, sig, block } = item_fn;
@@ -138,15 +131,13 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 	(quote! {
         #(#attrs)*
         #vis #sig {
-            let span = #crate_ident::tracing::info_span!(
-                #crate_ident::logging::PREFIX_LOG_SPAN,
+            let span = #crate_name::tracing::info_span!(
+                #crate_name::logging::PREFIX_LOG_SPAN,
                 name = #name,
             );
-            let _guard = span.enter(); // Keep this variable alive throughout the function
+            let _enter = span.enter();
 
-            let result = (|| #block)(); // Execute the function body in a closure
-
-            result
+            #block
         }
     })
 		.into()
