@@ -438,12 +438,13 @@ fn allow_explicit_unpaid_fails_with_alias_origin_if_no_aliasers() {
 		.descend_origin(Parachain(1000))
 		.unpaid_execution(Unlimited, None)
 		.build();
-	let result = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
-		&Parent.into(),
-		good_message.inner_mut(),
-		Weight::from_parts(100, 100),
-		&mut props(Weight::zero()),
-	);
+	let result =
+		AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+			&Parent.into(),
+			good_message.inner_mut(),
+			Weight::from_parts(100, 100),
+			&mut props(Weight::zero()),
+		);
 	assert_eq!(result, Ok(()));
 
 	let assets: Vec<Asset> = vec![
@@ -462,12 +463,13 @@ fn allow_explicit_unpaid_fails_with_alias_origin_if_no_aliasers() {
 		.build();
 	// Barrier has `Aliasers` set as `Nothing` by default, rejecting message if it
 	// has an `AliasOrigin` instruction.
-	let result = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
-		&Parent.into(),
-		bad_message.inner_mut(),
-		Weight::from_parts(100, 100),
-		&mut props(Weight::zero()),
-	);
+	let result =
+		AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+			&Parent.into(),
+			bad_message.inner_mut(),
+			Weight::from_parts(100, 100),
+			&mut props(Weight::zero()),
+		);
 	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 }
 
