@@ -147,9 +147,10 @@ fn allow_explicit_unpaid_should_work() {
 		TransferAsset { assets: (Parent, 100).into(), beneficiary: Here.into() },
 	]);
 
-	AllowExplicitUnpaidFrom::set(vec![Parent.into()]);
+	AllowExplicitUnpaidFrom::set(vec![Parent.into(), (Parent, Parachain(1000)).into()]);
+	type ExplicitUnpaidBarrier<T> = AllowExplicitUnpaidExecutionFrom<T, mock::Aliasers>;
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parachain(1).into(),
 		good_message.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -157,7 +158,7 @@ fn allow_explicit_unpaid_should_work() {
 	);
 	assert_eq!(r, Err(ProcessMessageError::Unsupported));
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		bad_message1.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -165,7 +166,7 @@ fn allow_explicit_unpaid_should_work() {
 	);
 	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		bad_message2.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -173,7 +174,7 @@ fn allow_explicit_unpaid_should_work() {
 	);
 	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		good_message.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -189,7 +190,7 @@ fn allow_explicit_unpaid_should_work() {
 		TransferAsset { assets: (Parent, 100).into(), beneficiary: Here.into() },
 	]);
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		message_with_different_weight_parts.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -197,13 +198,372 @@ fn allow_explicit_unpaid_should_work() {
 	);
 	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		message_with_different_weight_parts.inner_mut(),
 		Weight::from_parts(10, 10),
 		&mut props(Weight::zero()),
 	);
 	assert_eq!(r, Ok(()));
+
+	// Invalid since location to alias is not allowed.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.alias_origin(Parachain(1000))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+
+	// Valid because all parachains are children of the relay chain.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Valid.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Invalid because `ClearOrigin` clears origin and `UnpaidExecution`
+	// can't know if there are enough permissions.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.clear_origin()
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+
+	// Valid.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited((Parent, 100u128))
+		.descend_origin(Parachain(1000))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(40, 40),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Invalid because of `ClearOrigin`.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.clear_origin()
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+
+	// Invalid because there is no `UnpaidExecution`.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::BadFormat));
+
+	// Invalid because even though alias is valid, it can't use `UnpaidExecution`.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, AccountId32 { id: [128u8; 32], network: None }))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(60, 60),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+
+	// Invalid because `UnpaidExecution` specifies less weight than needed.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Limited(Weight::from_parts(50, 50)), None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(60, 60),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Overweight(Weight::from_parts(60, 60))));
+
+	// Invalid because of too many instructions before `UnpaidExecution`.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, AccountId32 { id: [128u8; 32], network: None }))
+		.unpaid_execution(Limited(Weight::from_parts(50, 50)), None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(70, 70),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Overweight(Weight::from_parts(70, 70))));
+
+	// Valid.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(60, 60),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Valid.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.descend_origin(Parachain(1000))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(60, 60),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+}
+
+#[test]
+fn allow_explicit_unpaid_fails_with_alias_origin_if_no_aliasers() {
+	AllowExplicitUnpaidFrom::set(vec![(Parent, Parachain(1000)).into()]);
+
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut good_message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.descend_origin(Parachain(1000))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result =
+		AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+			&Parent.into(),
+			good_message.inner_mut(),
+			Weight::from_parts(100, 100),
+			&mut props(Weight::zero()),
+		);
+	assert_eq!(result, Ok(()));
+
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut bad_message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	// Barrier has `Aliasers` set as `Nothing` by default, rejecting message if it
+	// has an `AliasOrigin` instruction.
+	let result =
+		AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+			&Parent.into(),
+			bad_message.inner_mut(),
+			Weight::from_parts(100, 100),
+			&mut props(Weight::zero()),
+		);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+}
+
+#[test]
+fn allow_explicit_unpaid_with_computed_origin() {
+	AllowExplicitUnpaidFrom::set(vec![
+		(Parent, Parachain(1000)).into(),
+		(Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into(),
+	]);
+	type ExplicitUnpaidBarrier<T> = AllowExplicitUnpaidExecutionFrom<T, mock::Aliasers>;
+
+	// Message that passes without `WithComputedOrigin` should also pass with it.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = WithComputedOrigin::<
+		ExplicitUnpaidBarrier<IsInVec<AllowExplicitUnpaidFrom>>,
+		ExecutorUniversalLocation,
+		ConstU32<2>,
+	>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(100, 100),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Can manipulate origin before the inner barrier.
+	// For example, to act as another network.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.universal_origin(Polkadot)
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = WithComputedOrigin::<
+		ExplicitUnpaidBarrier<IsInVec<AllowExplicitUnpaidFrom>>,
+		ExecutorUniversalLocation,
+		ConstU32<2>,
+	>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(100, 100),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Any invalid conversions from the new origin fail.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.universal_origin(Polkadot)
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = WithComputedOrigin::<
+		ExplicitUnpaidBarrier<IsInVec<AllowExplicitUnpaidFrom>>,
+		ExecutorUniversalLocation,
+		ConstU32<2>,
+	>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(100, 100),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 }
 
 #[test]
