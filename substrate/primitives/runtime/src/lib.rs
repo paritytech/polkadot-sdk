@@ -584,6 +584,8 @@ pub enum DispatchError {
 	/// The number of transactional layers has been reached, or we are not in a transactional
 	/// layer.
 	Transactional(TransactionalError),
+	/// The transaction version does not match the current runtime version.
+	TransactionVersionMismatch,
 	/// Resources exhausted, e.g. attempt to read/write data which is too large to manipulate.
 	Exhausted,
 	/// The state is corrupt; this is generally not going to fix itself.
@@ -725,6 +727,7 @@ impl From<DispatchError> for &'static str {
 			Token(e) => e.into(),
 			Arithmetic(e) => e.into(),
 			Transactional(e) => e.into(),
+			TransactionVersionMismatch => "Transaction version mismatch",
 			Exhausted => "Resources exhausted",
 			Corruption => "State corrupt",
 			Unavailable => "Resource unavailable",
@@ -773,6 +776,7 @@ impl traits::Printable for DispatchError {
 				"Transactional error: ".print();
 				<&'static str>::from(*e).print();
 			},
+			TransactionVersionMismatch => "Transaction version mismatch".print(),
 			Exhausted => "Resources exhausted".print(),
 			Corruption => "State corrupt".print(),
 			Unavailable => "Resource unavailable".print(),

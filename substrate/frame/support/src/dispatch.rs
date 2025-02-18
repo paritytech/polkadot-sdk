@@ -687,7 +687,7 @@ impl<T> PaysFee<T> for (u64, Pays) {
 	}
 }
 
-#[derive(Encode, Clone, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo)]
 pub struct VersionedCall<Call> {
     call: Call,
     transaction_version: u32,
@@ -702,7 +702,7 @@ impl<Call> VersionedCall<Call> {
 	}
     pub fn validate(&self, current_transaction_version: u32) -> Result<&Call, DispatchError> {
         if self.transaction_version != current_transaction_version {
-            Err(DispatchError::Other("Transaction version mismatch"))
+            Err(DispatchError::TransactionVersionMismatch)
         } else {
             Ok(&self.call)
         }
@@ -712,14 +712,6 @@ impl<Call> VersionedCall<Call> {
     pub fn bypass_validation(self) -> Call {
         self.call
     }
-}
-
-impl<Call: Decode> Decode for VersionedCall<Call> {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let call = Call::decode(input)?;
-		let transaction_version = u32::decode(input)?;
-		Ok(VersionedCall { call, transaction_version})
-	}
 }
 
 // END TODO
