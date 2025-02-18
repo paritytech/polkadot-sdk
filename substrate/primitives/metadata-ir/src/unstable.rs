@@ -59,6 +59,8 @@ impl From<RuntimeApiMetadataIR> for RuntimeApiMetadata {
 			methods: ir.methods.into_iter().map(Into::into).collect(),
 			docs: ir.docs,
 			deprecation_info: ir.deprecation_info.into(),
+			// TODO: add with new version of v16 metadata
+			// version: ir.version,
 		}
 	}
 }
