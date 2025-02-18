@@ -116,7 +116,6 @@ mod tests {
 	const CHAIN_SPEC_BUILDER: &'static str = "chain-spec-builder";
 	const OMNI_NODE: &'static str = "polkadot-omni-node";
 
-
 	fn cargo() -> Command {
 		Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()))
 	}
@@ -310,15 +309,19 @@ mod tests {
 	#[test]
 	fn omni_node_dev_mode_works() {
 		//Omni Node in dev mode works with parachain's template `dev_chain_spec`
-		let dev_chain_spec = std::env::current_dir().unwrap().parent()
-		.unwrap().parent()
-		.unwrap().join("templates")
-		.join("parachain")
-		.join("dev_chain_spec.json");		
-		
+		let dev_chain_spec = std::env::current_dir()
+			.unwrap()
+			.parent()
+			.unwrap()
+			.parent()
+			.unwrap()
+			.join("templates")
+			.join("parachain")
+			.join("dev_chain_spec.json");
+
 		maybe_build_omni_node();
 		let omni_node = find_release_binary(OMNI_NODE).unwrap();
-		
+
 		let output = Command::new(omni_node)
 			.arg("--dev")
 			.args(["--chain", dev_chain_spec.to_str().unwrap()])
@@ -330,6 +333,5 @@ mod tests {
 		assert!(String::from_utf8(output.stderr)
 			.unwrap()
 			.contains(format!("Imported #{}", 7).to_string().as_str()));
-
 	}
 }
