@@ -1043,7 +1043,7 @@ fn dispatch_as_fallible_works() {
 	})
 }
 
-#[test]	
+#[test]
 fn if_else_failing_fallback_call() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(1), 10);
