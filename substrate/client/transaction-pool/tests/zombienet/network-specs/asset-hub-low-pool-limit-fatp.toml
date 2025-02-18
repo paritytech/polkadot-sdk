@@ -40,7 +40,6 @@ default_args = [
 	"-ltxpool=debug",
 ]
 [parachains.genesis.runtimeGenesis.patch.balances]
-# TODO: fix zombienet/cli to accept such arrays
 devAccounts = [
 	100,
 	1000000000000000000,

@@ -20,6 +20,7 @@
 //! across integration tests for transaction pool.
 
 use anyhow::anyhow;
+use tokio::sync::OnceCell;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig, NetworkConfigExt};
 
 pub const ASSET_HUB_LOW_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
@@ -37,13 +38,28 @@ pub enum Error {
 	NetworkInit(anyhow::Error),
 }
 
-type Result<T> = std::result::Result<T, Error>;
+static LOGGER: OnceCell<()> = OnceCell::const_new();
+async fn init_logger() {
+	LOGGER
+		.get_or_init(|| async {
+			let _ = env_logger::try_init_from_env(
+				env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+			);
+		})
+		.await;
+}
+
+/// Result of work related to network spawning.
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Provides logic to spawn a network based on a Zombienet toml file.
 pub struct NetworkSpawner;
 
 impl NetworkSpawner {
-	pub async fn from_toml(toml_path: &'static str) -> Result<Network<LocalFileSystem>> {
+	pub async fn from_toml_with_env_logger(
+		toml_path: &'static str,
+	) -> Result<Network<LocalFileSystem>> {
+		init_logger().await;
 		let net_config = NetworkConfig::load_from_toml(toml_path).map_err(Error::NetworkInit)?;
 		net_config
 			.spawn_native()

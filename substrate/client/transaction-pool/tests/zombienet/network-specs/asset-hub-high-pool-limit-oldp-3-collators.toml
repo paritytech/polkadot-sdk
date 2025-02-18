@@ -35,7 +35,7 @@ default_args = [
 	"-lsync=trace",
 	"-ltxpool=debug",
 ]
-[parachain.genesis.runtimeGenesis.patch.balances]
+[parachains.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
 	100,
 	1000000000000000000,
