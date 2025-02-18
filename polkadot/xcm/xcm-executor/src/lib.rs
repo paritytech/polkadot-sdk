@@ -427,13 +427,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
-		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
+		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg.clone())?;
 		self.take_fee(fee, reason)?;
 		match Config::XcmSender::deliver(ticket) {
 			Ok(message_id) => {
 				Config::XcmEventEmitter::emit_sent_event(
 					self.original_origin.clone(),
 					dest,
+					msg,
 					message_id.clone(),
 				);
 				Ok(message_id)
@@ -444,6 +445,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					self.original_origin.clone(),
 					dest,
 					e.clone(),
+					self.context.message_id,
 				);
 				Err(e.into())
 			},
@@ -832,7 +834,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					});
 					if let Err(e) = inst_res {
 						tracing::trace!(target: "xcm::execute", "!!! ERROR: {:?}", e);
-						Config::XcmEventEmitter::emit_process_failure_event(self.original_origin.clone(), e.clone());
+						Config::XcmEventEmitter::emit_process_failure_event(self.original_origin.clone(), e.clone(), self.context.message_id);
 						*r = Err(ExecutorError {
 							index: i as u32,
 							xcm_error: e,

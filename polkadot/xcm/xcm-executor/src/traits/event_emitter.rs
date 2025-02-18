@@ -21,6 +21,7 @@ pub trait EventEmitter {
     fn emit_sent_event(
         origin: Location,
         destination: Location,
+        message: Xcm<()>,
         message_id: XcmHash,
     );
 
@@ -28,10 +29,12 @@ pub trait EventEmitter {
         origin: Location,
         destination: Location,
         error: SendError,
+        message_id: XcmHash,
     );
     fn emit_process_failure_event(
         origin: Location,
-        error: XcmError
+        error: XcmError,
+        message_id: XcmHash,
     );
 }
 
@@ -39,6 +42,7 @@ impl EventEmitter for () {
     fn emit_sent_event(
         _origin: Location,
         _destination: Location,
+        _message: Xcm<()>,
         _message_id: XcmHash,
     ) {}
 
@@ -46,10 +50,12 @@ impl EventEmitter for () {
         _origin: Location,
         _destination: Location,
         _error: SendError,
+        _message_id: XcmHash,
     ) {}
 
     fn emit_process_failure_event(
         _origin: Location,
-        _error: XcmError
+        _error: XcmError,
+        _message_id: XcmHash
     ) {}
 }
