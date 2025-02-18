@@ -736,3 +736,58 @@ mod sorted_list_provider {
 		})
 	}
 }
+
+pub mod lock {
+	use super::*;
+
+	#[test]
+	fn lock_prevents_list_update() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// when
+			BagsList::lock(3);
+
+			// then can insert new nodes
+			assert_ok!(BagsList::on_insert(6, 1_000));
+			// can remove existing non-locked nodes
+			assert_ok!(BagsList::on_remove(&6));
+			// can update existing non-locked nodes
+			assert_ok!(BagsList::on_update(&4, 15));
+			// cannot touch the locked node
+			assert_noop!(BagsList::on_update(&3, 2_000), ListError::Locked);
+			assert_noop!(BagsList::on_increase(&3, 2_000), ListError::Locked);
+			assert_noop!(BagsList::on_decrease(&3, 2_000), ListError::Locked);
+			assert_noop!(BagsList::on_remove(&3), ListError::Locked);
+
+			// when
+			BagsList::unlock();
+
+			// then
+			assert_ok!(BagsList::on_remove(&3));
+		})
+	}
+
+	#[test]
+	fn lock_prevents_calls() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// when
+			BagsList::lock(3);
+
+			// then
+			assert_noop!(BagsList::rebag(RuntimeOrigin::signed(0), 3), Error::<Runtime>::Locked);
+			assert_noop!(
+				BagsList::put_in_front_of(RuntimeOrigin::signed(3), 4),
+				Error::<Runtime>::Locked
+			);
+			assert_noop!(
+				BagsList::put_in_front_of_other(RuntimeOrigin::signed(0), 3u64, 4),
+				Error::<Runtime>::Locked
+			);
+		})
+	}
+}

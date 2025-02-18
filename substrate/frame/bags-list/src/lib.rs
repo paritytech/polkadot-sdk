@@ -263,6 +263,25 @@ pub mod pallet {
 	pub type ListBags<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::Score, list::Bag<T, I>>;
 
+	/// A specific node that is declared as `locked`.
+	///
+	/// When set, this nodes's position within the entire list is fixed and cannot change. This is
+	/// useful for iteration over the entire list across multiple blocks, and being sure that the
+	/// overall order of the list is not tampered with.
+	///
+	/// We lock only one node because: If this node is locked, then:
+	///
+	/// - New nodes can be inserted before or after this. They may or may not be included in the
+	///   iteration.
+	/// - New nodes may be removed before or after this. The may or may not be included in the
+	///   iteration.
+	/// - A node can reposition itself (within our outside its bag) either before of after the
+	///   locked node.
+	///
+	/// All of the above are fine, and don't affect the overall order of the list.
+	#[pallet::storage]
+	pub type Lock<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
@@ -276,6 +295,8 @@ pub mod pallet {
 	pub enum Error<T, I = ()> {
 		/// A error in the list interface implementation.
 		List(ListError),
+		/// Could not update a node, because the pallet is locked.
+		Locked,
 	}
 
 	impl<T, I> From<ListError> for Error<T, I> {
@@ -301,6 +322,7 @@ pub mod pallet {
 		pub fn rebag(origin: OriginFor<T>, dislocated: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
 			let dislocated = T::Lookup::lookup(dislocated)?;
+			Self::ensure_unlocked(&dislocated).map_err(|_| Error::<T, I>::Locked)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
 			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
 				.map_err::<Error<T, I>, _>(Into::into)?;
@@ -325,6 +347,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let heavier = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
+			Self::ensure_unlocked(&heavier).map_err(|_| Error::<T, I>::Locked)?;
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
@@ -343,6 +366,7 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
+			Self::ensure_unlocked(&heavier).map_err(|_| Error::<T, I>::Locked)?;
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
@@ -391,6 +415,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(maybe_movement)
 	}
 
+	fn ensure_unlocked(who: &T::AccountId) -> Result<(), ListError> {
+		match Lock::<T, I>::get() {
+			None => Ok(()),
+			Some(locked) =>
+				if locked == *who {
+					Err(ListError::Locked)
+				} else {
+					Ok(())
+				},
+		}
+	}
+
 	/// Equivalent to `ListBags::get`, but public. Useful for tests in outside of this crate.
 	#[cfg(feature = "std")]
 	pub fn list_bags_get(score: T::Score) -> Option<list::Bag<T, I>> {
@@ -417,23 +453,34 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		ListNodes::<T, I>::count()
 	}
 
+	fn lock(id: T::AccountId) {
+		Lock::<T, I>::put(id)
+	}
+
+	fn unlock() {
+		Lock::<T, I>::kill()
+	}
+
 	fn contains(id: &T::AccountId) -> bool {
 		List::<T, I>::contains(id)
 	}
 
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
+		Pallet::<T, I>::ensure_unlocked(&id)?;
 		List::<T, I>::insert(id, score)
+	}
+
+	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
+		Pallet::<T, I>::ensure_unlocked(&id)?;
+		Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
 	}
 
 	fn get_score(id: &T::AccountId) -> Result<T::Score, ListError> {
 		List::<T, I>::get_score(id)
 	}
 
-	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
-	}
-
 	fn on_remove(id: &T::AccountId) -> Result<(), ListError> {
+		Pallet::<T, I>::ensure_unlocked(&id)?;
 		List::<T, I>::remove(id)
 	}
 

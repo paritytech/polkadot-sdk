@@ -61,6 +61,8 @@ pub enum ListError {
 	NotInSameBag,
 	/// Given node id was not found.
 	NodeNotFound,
+	/// The List is locked, therefore updates cannot happen now.
+	Locked,
 }
 
 #[cfg(test)]

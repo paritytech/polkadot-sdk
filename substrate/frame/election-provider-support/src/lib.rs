@@ -576,6 +576,20 @@ pub trait SortedListProvider<AccountId> {
 	/// An iterator over the list, which can have `take` called on it.
 	fn iter() -> Box<dyn Iterator<Item = AccountId>>;
 
+	/// Lock the list. This will cause further calls to:
+	///
+	/// - `on_insert`
+	/// - `on_update`
+	/// - `on_decrease`
+	/// - `on_increase`
+	/// - `on_remove`
+	///
+	/// to fail with `ListError::Lock`
+	fn lock(id: AccountId);
+
+	/// Unlock the list. This will nullify the effects of [`Self::lock`].
+	fn unlock();
+
 	/// Returns an iterator over the list, starting right after from the given voter.
 	///
 	/// May return an error if `start` is invalid.

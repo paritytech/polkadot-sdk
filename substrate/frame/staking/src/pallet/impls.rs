@@ -189,7 +189,8 @@ impl<T: Config> Pallet<T> {
 		ledger.update()?;
 		// update this staker in the sorted list, if they exist in it.
 		if T::VoterList::contains(stash) {
-			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash)).defensive();
+			// This might fail if the voter list is locked.
+			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash));
 		}
 
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: extra });
@@ -1483,6 +1484,12 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			bounds,
 			voters.len(),
 		);
+
+		match status {
+			SnapshotStatus::Ongoing(ref to_lock) => T::VoterList::lock(to_lock.clone()),
+			_ => T::VoterList::unlock(),
+		}
+
 		VoterSnapshotStatus::<T>::put(status);
 
 		debug_assert!(!bounds.slice_exhausted(&voters));
@@ -2046,6 +2053,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 			Err(())
 		}
 	}
+	fn lock(_: T::AccountId) {}
+	fn unlock() {}
 	fn count() -> u32 {
 		Validators::<T>::count()
 	}
@@ -2122,6 +2131,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 			Err(())
 		}
 	}
+	fn lock(_: T::AccountId) {}
+	fn unlock() {}
 	fn count() -> u32 {
 		Nominators::<T>::count().saturating_add(Validators::<T>::count())
 	}
