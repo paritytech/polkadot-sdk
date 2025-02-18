@@ -14,10 +14,7 @@ concurrency:
 
 jobs:
   isdraft:
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
-    steps:
-      - run: echo "PR is not draft, starting CI"
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
