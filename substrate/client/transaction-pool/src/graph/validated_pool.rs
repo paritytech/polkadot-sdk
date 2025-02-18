@@ -741,11 +741,6 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		log::trace!(target: LOG_TARGET, "Removed invalid transactions: {:?}/{:?}", hashes.len(), invalid.len());
 		log_xt_trace!(target: LOG_TARGET, invalid.iter().map(|t| t.hash), "Removed invalid transaction");
 
-		let mut event_dispatcher = self.event_dispatcher.write();
-		for tx in &invalid {
-			event_dispatcher.invalid(&tx.hash);
-		}
-
 		invalid
 	}
 
