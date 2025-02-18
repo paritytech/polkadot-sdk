@@ -31,7 +31,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen},
 	traits::AccountIdConversion,
-	TypeId,
+	Either, TypeId,
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
 
@@ -103,7 +103,7 @@ pub trait PaymentProcedure<Relayer, Reward, RewardBalance> {
 		relayer: &Relayer,
 		reward: Reward,
 		reward_balance: RewardBalance,
-		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
+		beneficiary: Either<Relayer, Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error>;
 }
 
@@ -115,7 +115,7 @@ impl<Relayer, Reward, RewardBalance> PaymentProcedure<Relayer, Reward, RewardBal
 		_: &Relayer,
 		_: Reward,
 		_: RewardBalance,
-		_: Option<Self::AlternativeBeneficiary>,
+		_: Either<Relayer, Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		Ok(())
 	}
@@ -151,14 +151,20 @@ where
 	type AlternativeBeneficiary = Relayer;
 
 	fn pay_reward(
-		relayer: &Relayer,
+		_: &Relayer,
 		reward_kind: RewardsAccountParams<LaneId>,
 		reward: RewardBalance,
-		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
+		beneficiary: Either<Relayer, Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
+
+		let beneficiary = match beneficiary {
+			Either::Right(relayer) => relayer,
+			Either::Left(alternative) => alternative,
+		};
+
 		T::transfer(
 			&Self::rewards_account(reward_kind),
-			alternative_beneficiary.as_ref().unwrap_or(relayer),
+			&beneficiary,
 			reward.into(),
 			Preservation::Expendable,
 		)

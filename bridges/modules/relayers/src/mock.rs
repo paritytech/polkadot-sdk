@@ -38,7 +38,7 @@ use pallet_transaction_payment::Multiplier;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, ConstU32, ConstU64, ConstU8},
-	BuildStorage, FixedPointNumber, Perquintill, StateVersion,
+	BuildStorage, Either, FixedPointNumber, Perquintill, StateVersion,
 };
 
 /// Account identifier at `ThisChain`.
@@ -355,7 +355,7 @@ impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, 
 		relayer: &ThisChainAccountId,
 		_reward_kind: RewardsAccountParams<TestLaneIdType>,
 		_reward: RewardBalance,
-		_alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
+		_beneficiary: Either<ThisChainAccountId, Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		match *relayer {
 			FAILING_RELAYER => Err(()),

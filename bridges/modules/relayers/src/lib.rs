@@ -30,7 +30,7 @@ use frame_support::{fail, traits::tokens::Balance};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_runtime::{
 	traits::{CheckedSub, IdentifyAccount},
-	Saturating,
+	Either, Saturating,
 };
 
 pub use pallet::*;
@@ -113,7 +113,7 @@ pub mod pallet {
 		pub fn claim_rewards(origin: OriginFor<T>, reward_kind: T::Reward) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 
-			Self::do_claim_rewards(relayer, reward_kind, None)
+			Self::do_claim_rewards(relayer.clone(), reward_kind, Either::Left(relayer))
 		}
 
 		/// Register relayer or update its registration.
@@ -229,7 +229,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 
-			Self::do_claim_rewards(relayer, reward_kind, Some(alternative_beneficiary))
+			Self::do_claim_rewards(relayer, reward_kind, Either::Right(alternative_beneficiary))
 		}
 	}
 
@@ -237,7 +237,7 @@ pub mod pallet {
 		fn do_claim_rewards(
 			relayer: T::AccountId,
 			reward_kind: T::Reward,
-			alternative_beneficiary: Option<AlternativeBeneficiaryOf<T, I>>,
+			beneficiary: Either<T::AccountId, AlternativeBeneficiaryOf<T, I>>,
 		) -> DispatchResult {
 			RelayerRewards::<T, I>::try_mutate_exists(
 				&relayer,
@@ -249,25 +249,31 @@ pub mod pallet {
 						&relayer,
 						reward_kind,
 						reward_balance,
-						alternative_beneficiary.clone(),
+						beneficiary.clone(),
 					)
 					.map_err(|e| {
 						log::error!(
 							target: LOG_TARGET,
-							"Failed to pay ({:?} / {:?}) rewards to {:?}(alternative beneficiary: {:?}), error: {:?}",
+							"Failed to pay ({:?} / {:?}) rewards to {:?}(beneficiary: {:?}), error: {:?}",
 							reward_kind,
 							reward_balance,
 							relayer,
-							alternative_beneficiary,
+							beneficiary,
 							e,
 						);
 						Error::<T, I>::FailedToPayReward
 					})?;
 
+					let (beneficiary, alternative_beneficiary) = match beneficiary {
+						Either::Left(l) => (Some(l), None),
+						Either::Right(r) => (None, Some(r)),
+					};
+
 					Self::deposit_event(Event::<T, I>::RewardPaid {
 						relayer: relayer.clone(),
 						reward_kind,
 						reward_balance,
+						beneficiary,
 						alternative_beneficiary,
 					});
 					Ok(())
@@ -459,6 +465,8 @@ pub mod pallet {
 			reward_kind: T::Reward,
 			/// Reward amount.
 			reward_balance: T::RewardBalance,
+			/// Beneficiary.
+			beneficiary: Option<T::AccountId>,
 			/// Alternative beneficiary.
 			alternative_beneficiary: Option<AlternativeBeneficiaryOf<T, I>>,
 		},
@@ -659,6 +667,7 @@ mod tests {
 						relayer: REGULAR_RELAYER,
 						reward_kind: test_reward_account_param(),
 						reward_balance: 100,
+						beneficiary: Some(REGULAR_RELAYER),
 						alternative_beneficiary: None,
 					}),
 					topics: vec![],
@@ -696,6 +705,7 @@ mod tests {
 						relayer: REGULAR_RELAYER,
 						reward_kind: test_reward_account_param(),
 						reward_balance: 100,
+						beneficiary: None,
 						alternative_beneficiary: Some(REGULAR_RELAYER2),
 					}),
 					topics: vec![],

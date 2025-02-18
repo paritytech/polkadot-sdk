@@ -67,9 +67,10 @@ benchmarks_instance_pallet! {
 		// payment logic, so we assume that if call has succeeded, the procedure has
 		// also completed successfully
 		assert_last_event::<T, I>(Event::RewardPaid {
-			relayer,
+			relayer: relayer.clone(),
 			reward_kind,
 			reward_balance,
+			beneficiary: Some(relayer),
 			alternative_beneficiary: None,
 		}.into());
 	}
@@ -93,6 +94,7 @@ benchmarks_instance_pallet! {
 			relayer,
 			reward_kind,
 			reward_balance,
+			beneficiary: None,
 			alternative_beneficiary: Some(alternative_beneficiary),
 		}.into());
 	}

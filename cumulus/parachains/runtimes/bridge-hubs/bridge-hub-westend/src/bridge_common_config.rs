@@ -25,7 +25,7 @@ use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, Runtime
 use bp_messages::LegacyLaneId;
 use bp_relayers::RewardsAccountParams;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::parameter_types;
+use frame_support::{parameter_types, sp_runtime::Either};
 use scale_info::TypeInfo;
 use xcm::VersionedLocation;
 
@@ -60,22 +60,23 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewa
 		relayer: &AccountId,
 		reward_kind: BridgeReward,
 		reward: u128,
-		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
+		beneficiary: Either<AccountId, Self::AlternativeBeneficiary>,
 	) -> Result<(), Self::Error> {
 		match reward_kind {
 			BridgeReward::RococoWestend(lane_params) => {
-				frame_support::ensure!(
-					alternative_beneficiary.is_none(),
-					Self::Error::Other("`alternative_beneficiary` is not supported for `RococoWestend` rewards!")
-				);
-				bp_relayers::PayRewardFromAccount::<
-					Balances,
-					AccountId,
-					LegacyLaneId,
-					u128,
-				>::pay_reward(
-					relayer, lane_params, reward, None,
-				)
+				match beneficiary {
+					Either::Left(r) => {
+						bp_relayers::PayRewardFromAccount::<
+							Balances,
+							AccountId,
+							LegacyLaneId,
+							u128,
+						>::pay_reward(
+							&relayer, lane_params, reward, Either::Left(r),
+						)
+					},
+					Either::Right(_) => Err(Self::Error::Other("`Alternative beneficiary is not supported for `RococoWestend` rewards!")),
+				}
 			},
 			BridgeReward::Snowbridge =>
 				Err(sp_runtime::DispatchError::Other("Not implemented yet, check also `fn prepare_rewards_account` to return `alternative_beneficiary`!")),
