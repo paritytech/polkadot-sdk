@@ -20,6 +20,7 @@
 
 pub mod zombienet;
 
+use tracing::Instrument;
 use txtesttool::execution_log::ExecutionLog;
 use zombienet::{
 	default_zn_scenario_builder, NetworkSpawner, ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH,
@@ -29,9 +30,11 @@ use zombienet::{
 // to an unlimited pool.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_future_and_then_ready_from_many_accounts() {
-	let net = NetworkSpawner::from_toml_with_env_logger(ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH)
-		.await
-		.unwrap();
+	let net = NetworkSpawner::from_toml_with_env_logger(
+		zombienet::asset_hub_based_network_spec_paths::HIGH_POOL_LIMIT_FATP,
+	)
+	.await
+	.unwrap();
 
 	// Wait for the parachain collator to start block production.
 	let _ = net.wait_collator_client("charlie").await.unwrap();
@@ -54,8 +57,12 @@ async fn send_future_and_then_ready_from_many_accounts() {
 		.await;
 
 	let (future_logs, ready_logs) = futures::future::join(
-		future_scenario_executor.execute(),
-		ready_scenario_executor.execute(),
+		future_scenario_executor
+			.execute()
+			.instrument(span!(LogLevel::TRACE, "future-txs-executor")),
+		ready_scenario_executor
+			.execute()
+			.instrument(span!(LogLevel::TRACE, "ready-txs-executor")),
 	)
 	.await;
 

@@ -27,14 +27,17 @@ use zombienet_sdk::{
 	LocalFileSystem, Network, NetworkConfig, NetworkConfigExt,
 };
 
-pub const ASSET_HUB_LOW_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
-	"tests/zombienet/network-specs/asset-hub-low-pool-limit-fatp.toml";
-pub const ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
-	"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp.toml";
-pub const ASSET_HUB_HIGH_POOL_LIMIT_OLDP_3_COLLATORS_SPEC_PATH: &'static str =
-	"tests/zombienet/network-specs/asset-hub-high-pool-limit-oldp-3-collators.toml";
-pub const ASSET_HUB_HIGH_POOL_LIMIT_OLDP_4_COLLATORS_SPEC_PATH: &'static str =
-	"tests/zombienet/network-specs/asset-hub-high-pool-limit-oldp-4-collators.toml";
+/// Gathers network TOML specifications file paths.
+pub mod asset_hub_based_network_spec_paths {
+	pub const LOW_POOL_LIMIT_FATP: &'static str =
+		"tests/zombienet/network-specs/asset-hub-low-pool-limit-fatp.toml";
+	pub const HIGH_POOL_LIMIT_FATP: &'static str =
+		"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp.toml";
+	pub const HIGH_POOL_LIMIT_SSTP_3_COLLATORS: &'static str =
+		"tests/zombienet/network-specs/asset-hub-high-pool-limit-oldp-3-collators.toml";
+	pub const HIGH_POOL_LIMIT_SSTP_4_COLLATORS: &'static str =
+		"tests/zombienet/network-specs/asset-hub-high-pool-limit-oldp-4-collators.toml";
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
