@@ -798,13 +798,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return Err(XcmError::ExceedsStackLimit)
+								return None
 							}
 							*count = count.saturating_add(1);
-							Ok(())
+							Some(())
 						})
-						// This should always return `Some`, but let's play it safe.
-						.unwrap_or(Ok(()))?;
+						.flatten()
+						.ok_or(XcmError::ExceedsStackLimit)?;
 
 						// Ensure that we always decrement the counter whenever we finish processing
 						// the instruction.
