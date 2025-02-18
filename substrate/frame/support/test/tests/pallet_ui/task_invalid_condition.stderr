@@ -1,10 +1,11 @@
-warning: unused import: `frame_system::pallet_prelude::OriginFor`
+error: unused import: `frame_system::pallet_prelude::OriginFor`
   --> tests/pallet_ui/task_invalid_condition.rs:21:6
    |
 21 |     use frame_system::pallet_prelude::OriginFor;
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = note: `#[warn(unused_imports)]` on by default
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
 
 error[E0308]: mismatched types
   --> tests/pallet_ui/task_invalid_condition.rs:18:1
