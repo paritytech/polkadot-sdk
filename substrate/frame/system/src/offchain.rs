@@ -489,8 +489,14 @@ pub trait CreateSignedTransaction<LocalCall>:
 }
 
 /// Interface for creating an inherent.
+///
+/// It can also be used to create an unsigned transaction as they are both the same extrinsic
+/// variant: `Bare`. Unsigned transaction are deprecated in favor of general transaction.
 pub trait CreateInherent<LocalCall>: CreateTransactionBase<LocalCall> {
 	/// Create an inherent.
+	///
+	/// It can also be used to create an unsigned transaction as they are both the same extrinsic
+	/// variant: `Bare`. Unsigned transaction are deprecated in favor of general transaction.
 	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic;
 }
 
