@@ -957,59 +957,66 @@ fn compare_deny_filters() {
 fn assert_deny_instructions_recursively<Barrier: ShouldExecute>() {
 	// closure for (xcm, origin) testing with `Barrier` which denies `ClearOrigin`
 	// instruction
-	let assert_barrier = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
-		assert_eq!(
-			Barrier::should_execute(
-				&origin,
-				&mut xcm,
-				Weight::from_parts(10, 10),
-				&mut props(Weight::zero()),
-			),
-			expected_result
-		);
+	let test_barrier = |mut xcm: Vec<Instruction<()>>, origin| {
+		Barrier::should_execute(
+			&origin,
+			&mut xcm,
+			Weight::from_parts(10, 10),
+			&mut props(Weight::zero()),
+		)
 	};
 
 	// ok
-	assert_barrier(vec![ClearTransactStatus], Location::parent(), Ok(()));
+	assert_eq!(test_barrier(vec![ClearTransactStatus], Location::parent()), Ok(()));
 	// invalid top-level contains `ClearOrigin`
-	assert_barrier(vec![ClearOrigin], Location::parent(), Err(ProcessMessageError::Unsupported));
+	assert_eq!(
+		test_barrier(vec![ClearOrigin], Location::parent()),
+		Err(ProcessMessageError::Unsupported)
+	);
 	// ok - SetAppendix with XCM without ClearOrigin
-	assert_barrier(vec![SetAppendix(Xcm(vec![ClearTransactStatus]))], Location::parent(), Ok(()));
+	assert_eq!(
+		test_barrier(vec![SetAppendix(Xcm(vec![ClearTransactStatus]))], Location::parent()),
+		Ok(())
+	);
 	// ok - DepositReserveAsset with XCM contains ClearOrigin
-	assert_barrier(
-		vec![DepositReserveAsset {
-			assets: Wild(All),
-			dest: Here.into(),
-			xcm: Xcm(vec![ClearOrigin]),
-		}],
-		Location::parent(),
+	assert_eq!(
+		test_barrier(
+			vec![DepositReserveAsset {
+				assets: Wild(All),
+				dest: Here.into(),
+				xcm: Xcm(vec![ClearOrigin]),
+			}],
+			Location::parent()
+		),
 		Ok(()),
 	);
 
 	// invalid - empty XCM
-	assert_barrier(vec![], Location::parent(), Err(ProcessMessageError::BadFormat));
+	assert_eq!(test_barrier(vec![], Location::parent()), Err(ProcessMessageError::BadFormat));
 	// invalid - SetAppendix with empty XCM
-	assert_barrier(
-		vec![SetAppendix(Xcm(vec![]))],
-		Location::parent(),
+	assert_eq!(
+		test_barrier(vec![SetAppendix(Xcm(vec![]))], Location::parent()),
 		Err(ProcessMessageError::BadFormat),
 	);
 	// invalid SetAppendix contains `ClearOrigin`
-	assert_barrier(
-		vec![SetAppendix(Xcm(vec![ClearOrigin]))],
-		Location::parent(),
+	assert_eq!(
+		test_barrier(vec![SetAppendix(Xcm(vec![ClearOrigin]))], Location::parent()),
 		Err(ProcessMessageError::Unsupported),
 	);
 	// invalid nested SetAppendix contains `ClearOrigin`
-	assert_barrier(
-		vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
-			Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+	assert_eq!(
+		test_barrier(
+			vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
 				SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
-					SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))])),
-				]))]))])),
-			]))]))]))]),
-		)]))]))]))],
-		Location::parent(),
+					SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+						SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+							ClearOrigin
+						]))])),]))
+					]))])),]))
+				]))]))]),)
+			]))]))]))],
+			Location::parent()
+		),
 		Err(ProcessMessageError::StackLimitReached),
 	);
 }
