@@ -1,6 +1,4 @@
 [relaychain]
-# single-state
-# fork-aware
 default_image = "parity/polkadot:latest"
 default_command = "polkadot"
 chain = "rococo-local"
@@ -40,6 +38,7 @@ devAccounts = [
 	100,
 	1000000000000000000,
 	"//Sender//{}",
+
 ]
 
 # run charlie as parachain collator
@@ -57,4 +56,3 @@ rpc_port = 9934
 name = "eve"
 validator = true
 rpc_port = 9935
-

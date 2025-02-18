@@ -20,16 +20,14 @@
 
 pub mod zombienet;
 
-use tracing::Instrument;
+use tracing::{info_span, Instrument};
 use txtesttool::execution_log::ExecutionLog;
-use zombienet::{
-	default_zn_scenario_builder, NetworkSpawner, ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH,
-};
+use zombienet::{default_zn_scenario_builder, NetworkSpawner};
 
 // Test which sends future and ready txs from many accounts
 // to an unlimited pool.
 #[tokio::test(flavor = "multi_thread")]
-async fn send_future_and_then_ready_from_many_accounts() {
+async fn send_future_and_ready_from_many_accounts_to_collator() {
 	let net = NetworkSpawner::from_toml_with_env_logger(
 		zombienet::asset_hub_based_network_spec_paths::HIGH_POOL_LIMIT_FATP,
 	)
@@ -37,7 +35,9 @@ async fn send_future_and_then_ready_from_many_accounts() {
 	.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	let _ = net.wait_collator_client("charlie").await.unwrap();
+	net.wait_for_block_production("charlie").await.unwrap();
+
+	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("charlie").unwrap();
 	let future_scenario_executor = default_zn_scenario_builder()
 		.with_rpc_uri(ws.clone())
@@ -56,13 +56,10 @@ async fn send_future_and_then_ready_from_many_accounts() {
 		.build()
 		.await;
 
+	// Execute transactions and fetch the execution logs.
 	let (future_logs, ready_logs) = futures::future::join(
-		future_scenario_executor
-			.execute()
-			.instrument(span!(LogLevel::TRACE, "future-txs-executor")),
-		ready_scenario_executor
-			.execute()
-			.instrument(span!(LogLevel::TRACE, "ready-txs-executor")),
+		future_scenario_executor.execute().instrument(info_span!("future-txs-executor")),
+		ready_scenario_executor.execute().instrument(info_span!("ready-txs-executor")),
 	)
 	.await;
 
@@ -70,6 +67,7 @@ async fn send_future_and_then_ready_from_many_accounts() {
 		future_logs.values().filter_map(|default_log| default_log.finalized()).count();
 	let finalized_ready =
 		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
+
 	assert_eq!(finalized_future, 10_000);
 	assert_eq!(finalized_ready, 10_000);
 }

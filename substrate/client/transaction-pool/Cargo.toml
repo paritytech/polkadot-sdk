@@ -48,7 +48,6 @@ array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
 cumulus-client-cli = { workspace = true, default-features = true }
-env_logger = { workspace = true }
 log = { workspace = true }
 polkadot-cli = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
@@ -58,6 +57,7 @@ substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing-subscriber = { workspace = true }
 # TODO: publish txtesttool and use it from crates.io
 txtesttool = { git = "https://github.com/iulianbarbu/tx-test-tool.git", branch = "provide-a-ttxt-api" }
 zombienet-configuration = { workspace = true }

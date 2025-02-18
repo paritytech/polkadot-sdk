@@ -20,11 +20,10 @@
 //! across integration tests for transaction pool.
 
 use anyhow::anyhow;
-use tokio::sync::OnceCell;
+use tracing_subscriber::EnvFilter;
 use txtesttool::scenario::{ChainType, ScenarioBuilder};
 use zombienet_sdk::{
-	subxt::{OnlineClient, SubstrateConfig},
-	LocalFileSystem, Network, NetworkConfig, NetworkConfigExt,
+	subxt::SubstrateConfig, LocalFileSystem, Network, NetworkConfig, NetworkConfigExt,
 };
 
 /// Gathers network TOML specifications file paths.
@@ -34,9 +33,9 @@ pub mod asset_hub_based_network_spec_paths {
 	pub const HIGH_POOL_LIMIT_FATP: &'static str =
 		"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp.toml";
 	pub const HIGH_POOL_LIMIT_SSTP_3_COLLATORS: &'static str =
-		"tests/zombienet/network-specs/asset-hub-high-pool-limit-oldp-3-collators.toml";
+		"tests/zombienet/network-specs/asset-hub-high-pool-limit-sstp-3-collators.toml";
 	pub const HIGH_POOL_LIMIT_SSTP_4_COLLATORS: &'static str =
-		"tests/zombienet/network-specs/asset-hub-high-pool-limit-oldp-4-collators.toml";
+		"tests/zombienet/network-specs/asset-hub-high-pool-limit-sstp-4-collators.toml";
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -51,17 +50,6 @@ pub enum Error {
 	FailedToGetBlocksStream,
 }
 
-static LOGGER: OnceCell<()> = OnceCell::const_new();
-async fn init_logger() {
-	LOGGER
-		.get_or_init(|| async {
-			let _ = env_logger::try_init_from_env(
-				env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-			);
-		})
-		.await;
-}
-
 /// Result of work related to network spawning.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -73,7 +61,14 @@ pub struct NetworkSpawner {
 impl NetworkSpawner {
 	/// Initialize the network spawner based on a Zombienet toml file
 	pub async fn from_toml_with_env_logger(toml_path: &'static str) -> Result<NetworkSpawner> {
-		init_logger().await;
+		// Initialize the subscriber with a default log level of INFO if RUST_LOG is not set
+		let env_filter =
+			EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+		// Set up the subscriber with the formatter and the environment filter
+		tracing_subscriber::fmt()
+			.with_env_filter(env_filter) // Use the env filter
+			.init();
+
 		let net_config = NetworkConfig::load_from_toml(toml_path).map_err(Error::NetworkInit)?;
 		Ok(NetworkSpawner {
 			network: net_config
@@ -88,11 +83,8 @@ impl NetworkSpawner {
 		&self.network
 	}
 
-	/// Returns a node client and waits for blocks productio to kick-off.
-	pub async fn wait_collator_client(
-		&self,
-		node_name: &str,
-	) -> Result<OnlineClient<SubstrateConfig>> {
+	/// Returns a node client and waits for blocks production to kick-off.
+	pub async fn wait_for_block_production(&self, node_name: &str) -> Result<()> {
 		let node = self
 			.network
 			.get_node(node_name)
@@ -111,14 +103,15 @@ impl NetworkSpawner {
 				continue;
 			};
 
-			if let Ok(_) =
-				block.and_then(|block| Ok(tracing::info!("found best block: {:#?}", block.hash())))
-			{
+			if let Some(block) = block.ok().filter(|block| block.number() == 1) {
+				tracing::info!("[{node_name}] found first best block: {:#?}", block.hash());
 				break;
 			}
+
+			tracing::info!("[{node_name}] waiting for first best block");
 		}
 
-		Ok(client)
+		Ok(())
 	}
 
 	/// Get a certain node rpc uri.
@@ -135,7 +128,7 @@ pub struct ScenarioBuilderSharedParams {
 	watched_txs: bool,
 	does_block_monitoring: bool,
 	send_threshold: usize,
-	chain_type: ChainType::Sub,
+	chain_type: ChainType,
 }
 
 impl Default for ScenarioBuilderSharedParams {
