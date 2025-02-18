@@ -28,8 +28,11 @@ on:
 permissions: {}
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   sync:
     runs-on: ubuntu-latest
+    needs: isdraft
     steps:
       - name: Do nothing
         run: echo "let's go"
