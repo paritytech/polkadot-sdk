@@ -3,12 +3,14 @@ title: 'XCM: Deny barrier checks for nested XCMs with specific instructions to b
 doc:
 - audience: Runtime User
   description: |-
-    This PR addresses partially #7148 (Problem 2) and ensures the proper checking
-    of nested local instructions. It introduces a new barrier - `DenyRecursively`
-    - to provide more refined control over instruction denial. The main change
-    is the replacement of `DenyThenTry<Deny, Allow>` with
-    `DenyThenTry<DenyRecursively<Deny>, Allow>` which handles both top-level
-    and nested local instructions by applying allow condition after denial.
+    This PR improves the validation of nested XCM instructions by introducing a
+    new barrier, `DenyRecursively`, which provides more precise control over
+    instruction denial. Previously, `DenyThenTry<Deny, Allow>`` was used, which
+    primarily applied denial rules at the top level. This has now been replaced
+    with `DenyThenTry<DenyRecursively<Deny>, Allow>`, ensuring that both
+    top-level and nested local instructions are properly checked. This change
+    enhances the security and predictability of XCM execution by enforcing
+    consistent denial policies across all levels of message execution.
 crates:
 - name: staging-xcm-builder
   bump: minor
