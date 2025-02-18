@@ -22,6 +22,7 @@
     "multiplier": "1000000000000000000"
   },
   "staking": {
+    "devStakers": null,
     "validatorCount": 0,
     "minimumValidatorCount": 0,
     "invulnerables": [],

@@ -39,13 +39,16 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
 	PoolStatus, TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor,
-	TxHash,
+	TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{AtLeast32Bit, Block as BlockT, Header as HeaderT, NumberFor, Zero},
+	traits::{
+		AtLeast32Bit, Block as BlockT, Header as HeaderT, NumberFor, SaturatedConversion, Zero,
+	},
+	transaction_validity::TransactionValidityError,
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -323,8 +326,13 @@ where
 		.map(|mut outcome| outcome.expect_watcher().into_stream().boxed())
 	}
 
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		let removed = self.pool.validated_pool().remove_invalid(hashes);
+	fn report_invalid(
+		&self,
+		_at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		let hashes = invalid_tx_errors.keys().map(|h| *h).collect::<Vec<_>>();
+		let removed = self.pool.validated_pool().remove_invalid(&hashes);
 		self.metrics
 			.report(|metrics| metrics.validations_invalid.inc_by(removed.len() as u64));
 		removed
@@ -459,10 +467,6 @@ where
 		at: Block::Hash,
 		xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
-		use sp_runtime::{
-			traits::SaturatedConversion, transaction_validity::TransactionValidityError,
-		};
-
 		let validity = self
 			.api
 			.validate_transaction_blocking(at, TransactionSource::Local, Arc::from(xt.clone()))?
