@@ -227,6 +227,22 @@ pub mod vrf {
 		}
 	}
 
+	/// `VrfPreOutput` resolves to:
+	/// ```
+	/// pub struct Affine<P: SWCurveConfig> {
+	///     #[doc(hidden)]
+	///     pub x: P::BaseField,
+	///     #[doc(hidden)]
+	///     pub y: P::BaseField,
+	///     #[doc(hidden)]
+	///     pub infinity: bool,
+	/// }
+	/// ```
+	/// where each `P::BaseField` contains a `pub struct BigInt<const N: usize>(pub [u64; N]);`
+	/// Since none of these structures is allocated on the heap, we don't need any special
+	/// memory tracking logic. We can simply implement `DecodeWithMemTracking`.
+	impl DecodeWithMemTracking for VrfPreOutput {}
+
 	impl EncodeLike for VrfPreOutput {}
 
 	impl MaxEncodedLen for VrfPreOutput {
