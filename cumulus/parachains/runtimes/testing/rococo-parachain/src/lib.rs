@@ -596,6 +596,7 @@ impl pallet_assets::Config for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;

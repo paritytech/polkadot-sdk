@@ -162,6 +162,10 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	pallet_balances::migration::MigrateToTrackInactive<Runtime, xcm_config::CheckingAccount>,
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	pallet_session::migrations::v1::MigrateV0ToV1<
+		Runtime,
+		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -480,6 +484,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
@@ -518,6 +523,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = ForeignAssetsMetadataDepositPerByte;
 	type ApprovalDeposit = ForeignAssetsApprovalDeposit;
 	type StringLimit = ForeignAssetsAssetsStringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
@@ -557,6 +563,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = ConstU128<0>;
 	type ApprovalDeposit = ConstU128<0>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
@@ -727,6 +734,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
