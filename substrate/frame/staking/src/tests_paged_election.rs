@@ -791,6 +791,8 @@ mod paged_snapshot {
 				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
 					.unwrap()
 					.is_empty());
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
 				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
 					.unwrap()
 					.is_empty());

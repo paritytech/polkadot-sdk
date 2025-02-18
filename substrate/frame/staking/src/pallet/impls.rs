@@ -1039,15 +1039,13 @@ impl<T: Config> Pallet<T> {
 
 	/// Get all the voters associated with `page` that are eligible for the npos election.
 	///
-	/// `maybe_max_len` can impose a cap on the number of voters returned per page.
+	/// `bounds` can impose a cap on the number of voters returned per page.
 	///
 	/// Sets `MinimumActiveStake` to the minimum active nominator stake in the returned set of
 	/// nominators.
 	///
 	/// Note: in the context of the multi-page snapshot, we expect the *order* of `VoterList` and
 	/// `TargetList` not to change while the pages are being processed.
-	///
-	/// This function is self-weighing as [`DispatchClass::Mandatory`].
 	pub(crate) fn get_npos_voters(
 		bounds: DataProviderBounds,
 		status: &SnapshotStatus<T::AccountId>,
@@ -1154,10 +1152,6 @@ impl<T: Config> Pallet<T> {
 
 		// all_voters should have not re-allocated.
 		debug_assert!(all_voters.capacity() == page_len_prediction as usize);
-
-		// TODO remove this and further instances of this, it will now be recorded in the EPM-MB
-		// pallet.
-		Self::register_weight(T::WeightInfo::get_npos_voters(validators_taken, nominators_taken));
 
 		let min_active_stake: T::CurrencyBalance =
 			if all_voters.is_empty() { Zero::zero() } else { min_active_stake.into() };
@@ -1463,17 +1457,19 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 				let maybe_last = voters.last().map(|(x, _, _)| x).cloned();
 
 				if let Some(ref last) = maybe_last {
-					if maybe_last == T::VoterList::iter().last() {
-						// all voters in the voter list have been consumed.
-						status = SnapshotStatus::Consumed;
-					} else {
+					let has_next =
+						T::VoterList::iter_from(last).ok().and_then(|mut i| i.next()).is_some();
+					if has_next {
 						status = SnapshotStatus::Ongoing(last.clone());
+					} else {
+						status = SnapshotStatus::Consumed;
 					}
 				}
 			},
 			// do nothing.
 			(_, SnapshotStatus::Consumed) => (),
 		}
+
 		log!(
 			info,
 			"[page {}, status {:?} (stake?: {:?}), bounds {:?}] generated {} npos voters",
