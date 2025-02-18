@@ -321,10 +321,6 @@ impl Litep2pNetworkBackend {
 			yamux_config.set_window_update_mode(litep2p::yamux::WindowUpdateMode::OnRead);
 			yamux_config.set_max_buffer_size(yamux_maximum_buffer_size);
 
-			if let Some(yamux_window_size) = config.network_config.yamux_window_size {
-				yamux_config.set_receive_window(yamux_window_size);
-			}
-
 			yamux_config
 		};
 
