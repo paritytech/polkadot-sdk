@@ -28,7 +28,7 @@ use crate::crypto::{
 };
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
-use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use alloc::{vec, vec::Vec};
@@ -226,6 +226,22 @@ pub mod vrf {
 			Ok(VrfPreOutput(preout))
 		}
 	}
+
+	// `VrfPreOutput` resolves to:
+	// ```
+	// pub struct Affine<P: SWCurveConfig> {
+	//     #[doc(hidden)]
+	//     pub x: P::BaseField,
+	//     #[doc(hidden)]
+	//     pub y: P::BaseField,
+	//     #[doc(hidden)]
+	//     pub infinity: bool,
+	// }
+	// ```
+	// where each `P::BaseField` contains a `pub struct BigInt<const N: usize>(pub [u64; N]);`
+	// Since none of these structures is allocated on the heap, we don't need any special
+	// memory tracking logic. We can simply implement `DecodeWithMemTracking`.
+	impl DecodeWithMemTracking for VrfPreOutput {}
 
 	impl EncodeLike for VrfPreOutput {}
 
@@ -657,7 +673,9 @@ pub mod ring_vrf {
 	}
 
 	/// Ring VRF signature.
-	#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	pub struct RingVrfSignature {
 		/// Ring signature.
 		pub signature: [u8; RING_SIGNATURE_SERIALIZED_SIZE],
