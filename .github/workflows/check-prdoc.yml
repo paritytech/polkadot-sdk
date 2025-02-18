@@ -48,8 +48,7 @@ jobs:
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
       - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
-        if: github.event.pull_request.number != ''
-        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+        if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
           echo "Validating PR#${GITHUB_PR}"
           python3 --version
