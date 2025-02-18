@@ -7,6 +7,6 @@ doc:
     This closes #7352 .
 crates:
 - name: sp-api-proc-macro
-  bump: minor
+  bump: patch
 - name: sp-metadata-ir
-  bump: minor
+  bump: major
