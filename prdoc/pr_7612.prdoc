@@ -1,0 +1,9 @@
+title: 'HashAndNumber: Ord, Eq, PartialOrd, PartialEq implemented'
+doc:
+- audience: Node Dev
+  description: This PR adds implementation of `Ord, Eq, PartialOrd, PartialEq`  traits
+    for [`HashAndNumber` ](https://github.com/paritytech/polkadot-sdk/blob/6e645915639ee0bf682de06a0306a4baf712c1d2/substrate/primitives/blockchain/src/header_metadata.rs#L149-L154)
+    struct.
+crates:
+- name: sp-blockchain
+  bump: minor
