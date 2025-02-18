@@ -20,7 +20,7 @@ use crate::{CreateMatcher, MatchXcm};
 use core::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use frame_support::{
 	ensure,
-	traits::{Contains, ContainsPair, Get, ProcessMessageError},
+	traits::{Contains, ContainsPair, Get, Nothing, ProcessMessageError},
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use xcm::prelude::*;
@@ -296,7 +296,15 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 ///
 /// Allows for the message to receive teleports or reserve asset transfers and altering
 /// the origin before indicating `UnpaidExecution`.
-pub struct AllowExplicitUnpaidExecutionFrom<T, Aliasers = ()>(PhantomData<(T, Aliasers)>);
+///
+/// Origin altering instructions are executed so the barrier can more accurately reject messages
+/// whose effective origin at the time of calling `UnpaidExecution` is not allowed.
+/// This means `T` will be checked against the actual origin _after_ being modified by prior instructions.
+///
+/// In order to execute the `AliasOrigin` instruction, the `Aliasers` type should be set to the same
+/// `Aliasers` item in the XCM configuration. If it isn't, then all messages with an `AliasOrigin` instruction
+/// will be rejected.
+pub struct AllowExplicitUnpaidExecutionFrom<T, Aliasers = Nothing>(PhantomData<(T, Aliasers)>);
 impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldExecute
 	for AllowExplicitUnpaidExecutionFrom<T, Aliasers>
 {
