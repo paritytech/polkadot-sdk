@@ -18,7 +18,6 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 </div>
 
 ## ⚡ Quickstart
-
 If you want to get an example node running quickly you can execute the following getting started script:
 
 ```
