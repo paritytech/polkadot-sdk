@@ -393,16 +393,16 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(4)]
-		#[pallet::weight(0)]
-		pub fn execute_lottery_call(
-			call: VersionedCall<<T as Config>::RuntimeCall>,
-			origin: OriginFor<T>,
-		) -> DispatchResult {
-			let current_transaction_version = <Runtime as frame_system::Config>::Version::get().transaction_version;
-			let validated_call = call.validate(current_transaction_version)?;
-			validated_call.dispatch(origin.into())
-		}
+		// #[pallet::call_index(4)]
+		// #[pallet::weight(0)]
+		// pub fn execute_lottery_call(
+		// 	call: VersionedCall<<T as Config>::RuntimeCall>,
+		// 	origin: OriginFor<T>,
+		// ) -> DispatchResult {
+		// 	let current_transaction_version = <Runtime as frame_system::Config>::Version::get().transaction_version;
+		// 	let validated_call = call.validate(current_transaction_version)?;
+		// 	validated_call.dispatch(origin.into())
+		// }
 	}
 }
 
@@ -426,15 +426,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Converts a vector of calls into a vector of call indices.
-	fn calls_to_indices(
+	fn calls_to_versioned_calls(
 		calls: &[<T as Config>::RuntimeCall],
-	) -> Result<BoundedVec<CallIndex, T::MaxCalls>, DispatchError> {
-		let mut indices = BoundedVec::<CallIndex, T::MaxCalls>::with_bounded_capacity(calls.len());
-		for c in calls.iter() {
-			let index = Self::call_to_index(c)?;
-			indices.try_push(index).map_err(|_| Error::<T>::TooManyCalls)?;
+	) -> Result<BoundedVec<VersionedCall<<T as Config>::RuntimeCall>, T::MaxCalls>, DispatchError> {
+		let current_transaction_version = <Runtime as frame_system::Config>::Version::get().transaction_version;
+		let mut versioned_calls = BoundedVec::<VersionedCall<T as Config>::RuntimeCall>m T::MaxCalls>::with_bounded_capacity(calls.len());
+		for call in calls.iter() {
+			let versioned_call = VersionedCall::new(call.clone(), current_transaction_version);
+			versioned_calls.try_push(versioned_call).map_err(|_| Error::<T>::TooManyCalls)?;
 		}
-		Ok(indices)
+		Ok(versioned_calls)
 	}
 
 	/// Convert a call to it's call index by encoding the call and taking the first two bytes.

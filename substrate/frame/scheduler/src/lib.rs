@@ -152,7 +152,7 @@ pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	pub maybe_id: Option<Name>,
 	/// This task's priority.
 	pub priority: schedule::Priority,
-	/// The call to be dispatched.
+	/// The call to be dispatched, wrapped in `VersionedCall`.
 	pub call: VersionedCall<Call>,
 	/// If the call is periodic, then this points to the information concerning that.
 	pub maybe_periodic: Option<schedule::Period<BlockNumber>>,
