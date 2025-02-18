@@ -1204,7 +1204,6 @@ pub mod pallet {
 
 			// check `new_code` is authorized
 			let Some(authorized_code_hash) = AuthorizedCodeHash::<T>::take(&para) else {
-				log::error!(target: LOG_TARGET, "No authorized code hash found for para {:?}!", para);
 				return Err(Error::<T>::CannotUpgradeCode.into())
 			};
 			let new_code_hash = new_code.hash();
