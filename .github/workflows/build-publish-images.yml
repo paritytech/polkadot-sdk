@@ -300,7 +300,7 @@ jobs:
   #
   #
   prepare-polkadot-zombienet-artifacts:
-    needs: [preflight, build-linux-stable, build-linux-stable-cumulus]
+    needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -330,7 +330,7 @@ jobs:
   #
   #
   prepare-cumulus-zombienet-artifacts:
-    needs: [preflight, build-linux-stable, build-linux-stable-cumulus]
+    needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
