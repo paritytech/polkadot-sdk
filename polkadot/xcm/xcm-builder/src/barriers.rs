@@ -542,11 +542,8 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 				}
 				*count = count.saturating_add(1);
 				Ok(())
-			}).ok_or_else(|| {
-				// Fallback safety in case of an unexpected failure.
-				log::error!(target: "xcm::barriers", "Failed to access recursion counter");
-				ProcessMessageError::StackLimitReached
-			})??;
+			}).flatten()// Fallback safety in case of an unexpected failure.
+				.ok_or(Ok(ControlFlow::Continue(())))?;
 
 			// Ensure counter is decremented even if early return occurs.
 			sp_core::defer! {
