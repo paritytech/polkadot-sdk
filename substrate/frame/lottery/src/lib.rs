@@ -59,7 +59,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{DispatchResult, GetDispatchInfo},
+	dispatch::{DispatchResult, GetDispatchInfo, VersionedCall},
 	ensure,
 	pallet_prelude::MaxEncodedLen,
 	storage::bounded_vec::BoundedVec,
@@ -430,7 +430,7 @@ impl<T: Config> Pallet<T> {
 		calls: &[<T as Config>::RuntimeCall],
 	) -> Result<BoundedVec<VersionedCall<<T as Config>::RuntimeCall>, T::MaxCalls>, DispatchError> {
 		let current_transaction_version = <Runtime as frame_system::Config>::Version::get().transaction_version;
-		let mut versioned_calls = BoundedVec::<VersionedCall<T as Config>::RuntimeCall>m T::MaxCalls>::with_bounded_capacity(calls.len());
+		let mut versioned_calls = BoundedVec::<VersionedCall<<T as Config>::RuntimeCall>, T::MaxCalls>::with_bounded_capacity(calls.len());
 		for call in calls.iter() {
 			let versioned_call = VersionedCall::new(call.clone(), current_transaction_version);
 			versioned_calls.try_push(versioned_call).map_err(|_| Error::<T>::TooManyCalls)?;

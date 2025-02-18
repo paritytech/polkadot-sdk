@@ -687,7 +687,7 @@ impl<T> PaysFee<T> for (u64, Pays) {
 	}
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo)]
 pub struct VersionedCall<Call> {
     call: Call,
     transaction_version: u32,
