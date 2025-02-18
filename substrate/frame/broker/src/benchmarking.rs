@@ -901,6 +901,8 @@ mod benches {
 			);
 		});
 
+		OverridePrice::<T>::kill();
+
 		Ok(())
 	}
 
