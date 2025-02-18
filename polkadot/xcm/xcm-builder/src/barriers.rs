@@ -526,7 +526,7 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 		xcm: &mut Xcm<RuntimeCall>,
 		max_weight: Weight,
 		properties: &mut Properties,
-	) -> Result<Result<ControlFlow<()>, ProcessMessageError>, ProcessMessageError> {
+	) -> Result<ControlFlow<()>, ProcessMessageError> {
 		// Initialise recursion counter for this execution context.
 		let _ = recursion_count::using_once(&mut 1, || {
 			// Prevent stack overflow by enforcing a recursion depth limit.
@@ -542,9 +542,11 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 				}
 				*count = count.saturating_add(1);
 				Ok(())
-			})
-			// Fallback safety in case of an unexpected failure.
-			.unwrap_or(Ok(()))?;
+			}).ok_or_else(|| {
+				// Fallback safety in case of an unexpected failure.
+				log::error!(target: "xcm::barriers", "Failed to access recursion counter");
+				ProcessMessageError::StackLimitReached
+			})??;
 
 			// Ensure counter is decremented even if early return occurs.
 			sp_core::defer! {
@@ -557,7 +559,7 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 			Self::deny_execution(origin, xcm.inner_mut(), max_weight, properties)
 		})?;
 
-		Ok(Ok(ControlFlow::Continue(())))
+		Ok(ControlFlow::Continue(()))
 	}
 }
 
@@ -589,7 +591,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyRecursively<Inner> {
 				SetErrorHandler(nested_xcm) |
 				ExecuteWithOrigin { xcm: nested_xcm, .. } => Self::deny_recursively::<RuntimeCall>(
 					origin, nested_xcm, max_weight, properties,
-				)?,
+				),
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		)?;
