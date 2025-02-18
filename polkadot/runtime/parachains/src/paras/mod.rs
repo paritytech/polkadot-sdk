@@ -709,6 +709,8 @@ pub mod pallet {
 		CannotUpgradeCode,
 		/// Invalid validation code size.
 		InvalidCode,
+		/// The given code is not authorized.
+		NotAuthorizedCode,
 	}
 
 	/// All currently active PVF pre-checking votes.
@@ -1202,12 +1204,14 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			// no need to ensure, anybody can do this
 
-			// check `new_code` is authorized
-			let Some(authorized_code_hash) = AuthorizedCodeHash::<T>::take(&para) else {
-				return Err(Error::<T>::CannotUpgradeCode.into())
-			};
-			let new_code_hash = new_code.hash();
-			ensure!(new_code_hash == authorized_code_hash, Error::<T>::CannotUpgradeCode);
+			// Ensure `new_code` is authorized
+			if let Some(authorized_code_hash) = AuthorizedCodeHash::<T>::take(&para) {
+				if new_code.hash() != authorized_code_hash {
+					return Err(Error::<T>::NotAuthorizedCode.into());
+				}
+			} else {
+				return Err(Error::<T>::NotAuthorizedCode.into());
+			}
 
 			// TODO: FAIL-CI - more validations?
 
