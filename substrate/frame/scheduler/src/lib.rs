@@ -146,20 +146,20 @@ struct ScheduledV1<Call, BlockNumber> {
 }
 
 /// Information regarding an item to be executed in the future.
-#[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
-#[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// The unique identity for this task, if there is one.
-	maybe_id: Option<Name>,
+	pub maybe_id: Option<Name>,
 	/// This task's priority.
-	priority: schedule::Priority,
+	pub priority: schedule::Priority,
 	/// The call to be dispatched.
-	call: Call,
+	pub call: Call,
 	/// If the call is periodic, then this points to the information concerning that.
-	maybe_periodic: Option<schedule::Period<BlockNumber>>,
+	pub maybe_periodic: Option<schedule::Period<BlockNumber>>,
 	/// The origin with which to dispatch the call.
-	origin: PalletsOrigin,
-	_phantom: PhantomData<AccountId>,
+	pub origin: PalletsOrigin,
+	#[doc(hidden)]
+	pub _phantom: PhantomData<AccountId>,
 }
 
 impl<Name, Call, BlockNumber, PalletsOrigin, AccountId>
@@ -351,7 +351,7 @@ pub mod pallet {
 	/// For v3 -> v4 the previously unbounded identities are Blake2-256 hashed to form the v4
 	/// identities.
 	#[pallet::storage]
-	pub(crate) type Lookup<T: Config> =
+	pub type Lookup<T: Config> =
 		StorageMap<_, Twox64Concat, TaskName, TaskAddress<BlockNumberFor<T>>>;
 
 	/// Events type.

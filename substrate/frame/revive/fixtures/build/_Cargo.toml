@@ -15,7 +15,7 @@ edition = "2021"
 uapi = { package = 'pallet-revive-uapi', path = "", features = ["unstable-hostfn"], default-features = false }
 common = { package = 'pallet-revive-fixtures-common', path = "" }
 hex-literal = { version = "0.4.1", default-features = false }
-polkavm-derive = { version = "0.19.0" }
+polkavm-derive = { version = "0.21.0" }
 
 [profile.release]
 opt-level = 3
