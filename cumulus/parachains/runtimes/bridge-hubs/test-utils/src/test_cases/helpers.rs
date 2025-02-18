@@ -177,8 +177,8 @@ where
 {
 	/// Expect given delivered nonce to be the latest after transaction.
 	pub fn expect_relayer_reward(
-        relayer: Runtime::AccountId,
-        reward_params: impl Into<Runtime::Reward>,
+		relayer: Runtime::AccountId,
+		reward_params: impl Into<Runtime::Reward>,
 	) -> Box<dyn VerifyTransactionOutcome> {
 		Box::new(Self { relayer, reward_params: reward_params.into() })
 	}

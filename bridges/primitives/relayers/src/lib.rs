@@ -138,7 +138,8 @@ where
 	}
 }
 
-impl<T, Relayer, LaneId, RewardBalance> PaymentProcedure<Relayer, RewardsAccountParams<LaneId>, RewardBalance>
+impl<T, Relayer, LaneId, RewardBalance>
+	PaymentProcedure<Relayer, RewardsAccountParams<LaneId>, RewardBalance>
 	for PayRewardFromAccount<T, Relayer, LaneId, RewardBalance>
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,

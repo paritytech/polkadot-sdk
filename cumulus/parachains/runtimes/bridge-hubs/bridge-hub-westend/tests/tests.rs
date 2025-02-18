@@ -19,9 +19,7 @@
 use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
-use bridge_common_config::{
-	BridgeRelayersInstance, BridgeReward, RequiredStakeForStakeAndSlash,
-};
+use bridge_common_config::{BridgeRelayersInstance, BridgeReward, RequiredStakeForStakeAndSlash};
 use bridge_hub_test_utils::{
 	test_cases::{from_parachain, run_test},
 	SlotDurations,
@@ -577,11 +575,7 @@ pub fn bridge_rewards_works() {
 
 			// register rewards
 			use bp_relayers::RewardLedger;
-			BridgeRelayers::register_reward(
-				&account1,
-				BridgeReward::from(reward1_for),
-				reward1,
-			);
+			BridgeRelayers::register_reward(&account1, BridgeReward::from(reward1_for), reward1);
 			BridgeRelayers::register_reward(&account2, BridgeReward::Snowbridge, reward2);
 
 			// check stored rewards
@@ -589,10 +583,7 @@ pub fn bridge_rewards_works() {
 				BridgeRelayers::relayer_reward(&account1, BridgeReward::from(reward1_for)),
 				Some(reward1)
 			);
-			assert_eq!(
-				BridgeRelayers::relayer_reward(&account1, BridgeReward::Snowbridge),
-				None,
-			);
+			assert_eq!(BridgeRelayers::relayer_reward(&account1, BridgeReward::Snowbridge), None,);
 			assert_eq!(
 				BridgeRelayers::relayer_reward(&account2, BridgeReward::Snowbridge),
 				Some(reward2),

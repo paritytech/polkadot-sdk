@@ -50,7 +50,7 @@ pub trait WithRemoteGrandpaChainHelper {
 			Self::MPI,
 			InboundPayload = XcmAsPlainPayload,
 			OutboundPayload = XcmAsPlainPayload,
-		> + pallet_bridge_relayers::Config<Self::RPI, Reward= Self::RelayerReward>;
+		> + pallet_bridge_relayers::Config<Self::RPI, Reward = Self::RelayerReward>;
 	/// All pallets of this chain, excluding system pallet.
 	type AllPalletsWithoutSystem: OnInitialize<BlockNumberFor<Self::Runtime>>
 		+ OnFinalize<BlockNumberFor<Self::Runtime>>;

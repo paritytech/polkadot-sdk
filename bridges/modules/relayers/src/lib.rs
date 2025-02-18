@@ -243,7 +243,8 @@ pub mod pallet {
 				&relayer,
 				reward_kind,
 				|maybe_reward| -> DispatchResult {
-					let reward_balance = maybe_reward.take().ok_or(Error::<T, I>::NoRewardForRelayer)?;
+					let reward_balance =
+						maybe_reward.take().ok_or(Error::<T, I>::NoRewardForRelayer)?;
 					T::PaymentProcedure::pay_reward(
 						&relayer,
 						reward_kind,
@@ -380,7 +381,8 @@ pub mod pallet {
 				relayer,
 				reward_kind,
 				|old_reward: &mut Option<T::RewardBalance>| {
-					let new_reward = old_reward.unwrap_or_else(Zero::zero).saturating_add(reward_balance);
+					let new_reward =
+						old_reward.unwrap_or_else(Zero::zero).saturating_add(reward_balance);
 					*old_reward = Some(new_reward);
 
 					log::trace!(
@@ -533,8 +535,8 @@ pub mod pallet {
 }
 
 /// Implementation of `RewardLedger` for the pallet.
-impl<T: Config<I>, I: 'static, Reward, RewardBalance> RewardLedger<T::AccountId, Reward, RewardBalance>
-	for Pallet<T, I>
+impl<T: Config<I>, I: 'static, Reward, RewardBalance>
+	RewardLedger<T::AccountId, Reward, RewardBalance> for Pallet<T, I>
 where
 	Reward: Into<T::Reward>,
 	RewardBalance: Into<T::RewardBalance>,

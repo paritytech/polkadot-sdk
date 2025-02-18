@@ -187,7 +187,8 @@ pub mod v1 {
 			relayer,
 			rewards_account_params,
 			|old_reward: &mut Option<T::RewardBalance>| {
-				let new_reward = old_reward.unwrap_or_else(Zero::zero).saturating_add(reward_balance);
+				let new_reward =
+					old_reward.unwrap_or_else(Zero::zero).saturating_add(reward_balance);
 				*old_reward = Some(new_reward);
 
 				log::trace!(

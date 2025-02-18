@@ -92,7 +92,8 @@ fn register_relayers_rewards<
 	for (relayer, messages) in relayers_rewards {
 		// sane runtime configurations guarantee that the number of messages will be below
 		// `u32::MAX`
-		let relayer_reward = T::RewardBalance::saturated_from(messages).saturating_mul(delivery_fee);
+		let relayer_reward =
+			T::RewardBalance::saturated_from(messages).saturating_mul(delivery_fee);
 
 		if relayer != *confirmation_relayer {
 			Pallet::<T, RI>::register_relayer_reward(lane_id.into(), &relayer, relayer_reward);
