@@ -74,3 +74,9 @@ experimental = [
 	"pallet-example-tasks/experimental",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+# Test temp feature to allow this chain to be used for swift testing of staking elections. should
+# only be run by --dev chain. It will create a large staking election process as per the constants
+# in `chain_spec.rs`, but `Alice` will be the only authority that is communicated to the node and
+# ergo block production works fine with --dev and is independent of staking election. See ` pub
+# struct AliceAsOnlyValidator`.
+staking-playground = []

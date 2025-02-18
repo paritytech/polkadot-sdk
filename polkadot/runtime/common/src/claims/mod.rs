@@ -130,7 +130,7 @@ impl Default for StatementKind {
 #[derive(
 	Clone, Copy, PartialEq, Eq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen,
 )]
-pub struct EthereumAddress([u8; 20]);
+pub struct EthereumAddress(pub [u8; 20]);
 
 impl Serialize for EthereumAddress {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -239,11 +239,11 @@ pub mod pallet {
 
 	/// The statement kind that must be signed, if any.
 	#[pallet::storage]
-	pub(super) type Signing<T> = StorageMap<_, Identity, EthereumAddress, StatementKind>;
+	pub type Signing<T> = StorageMap<_, Identity, EthereumAddress, StatementKind>;
 
 	/// Pre-claimed Ethereum accounts, by the Account ID that they are claimed to.
 	#[pallet::storage]
-	pub(super) type Preclaims<T: Config> = StorageMap<_, Identity, T::AccountId, EthereumAddress>;
+	pub type Preclaims<T: Config> = StorageMap<_, Identity, T::AccountId, EthereumAddress>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
