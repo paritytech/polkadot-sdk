@@ -542,8 +542,7 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 				}
 				*count = count.saturating_add(1);
 				Ok(())
-			}).flatten()// Fallback safety in case of an unexpected failure.
-				.ok_or(Ok(ControlFlow::Continue(())))?;
+			}).unwrap_or(Ok(()))?; // Fallback safety in case of an unexpected failure.
 
 			// Ensure counter is decremented even if early return occurs.
 			sp_core::defer! {
