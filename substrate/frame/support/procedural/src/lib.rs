@@ -301,9 +301,13 @@ pub fn require_transactional(attr: TokenStream, input: TokenStream) -> TokenStre
 		.unwrap_or_else(|e| e.to_compile_error().into())
 }
 
-#[proc_macro_derive(Stored)]
-pub fn derive_stored(input: TokenStream) -> TokenStream {
-	stored::derive_stored(input)
+///
+/// ---
+///
+/// Documentation for this macro can be found at `frame_support::stored`.
+#[proc_macro_attribute]
+pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
+	stored::stored(attr, input)
 }
 
 /// Derive [`Clone`] but do not bound any generic.
