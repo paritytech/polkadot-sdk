@@ -1055,9 +1055,125 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message.extend(xcm.0.into_iter());
 					self.send(dest.clone(), Xcm(message), FeeReason::InitiateTeleport)?;
 
+<<<<<<< HEAD
 					for asset in assets.assets_iter() {
 						Config::AssetTransactor::check_out(&dest, &asset, &self.context);
 					}
+=======
+					// We need to transfer the fees and buy execution on remote chain _BEFORE_
+					// transferring the other assets. This is required to satisfy the
+					// `MAX_ASSETS_FOR_BUY_EXECUTION` limit in the `AllowTopLevelPaidExecutionFrom`
+					// barrier.
+					let remote_fees_paid = if let Some(remote_fees) = remote_fees {
+						let reanchored_fees = match remote_fees {
+							AssetTransferFilter::Teleport(fees_filter) => {
+								let teleport_fees = self
+									.holding
+									.try_take(fees_filter)
+									.map_err(|_| XcmError::NotHoldingFees)?;
+								Self::do_teleport_assets(
+									teleport_fees,
+									&destination,
+									&mut message,
+									&self.context,
+								)?
+							},
+							AssetTransferFilter::ReserveDeposit(fees_filter) => {
+								let reserve_deposit_fees = self
+									.holding
+									.try_take(fees_filter)
+									.map_err(|_| XcmError::NotHoldingFees)?;
+								Self::do_reserve_deposit_assets(
+									reserve_deposit_fees,
+									&destination,
+									&mut message,
+									Some(&self.context),
+								)?
+							},
+							AssetTransferFilter::ReserveWithdraw(fees_filter) => {
+								let reserve_withdraw_fees = self
+									.holding
+									.try_take(fees_filter)
+									.map_err(|_| XcmError::NotHoldingFees)?;
+								Self::do_reserve_withdraw_assets(
+									reserve_withdraw_fees,
+									&mut self.holding,
+									&destination,
+									&mut message,
+								)?
+							},
+						};
+						ensure!(reanchored_fees.len() == 1, XcmError::TooManyAssets);
+						let fees =
+							reanchored_fees.into_inner().pop().ok_or(XcmError::NotHoldingFees)?;
+						// move these assets to the fees register for covering execution and paying
+						// any subsequent fees
+						message.push(PayFees { asset: fees });
+						true
+					} else {
+						false
+					};
+
+					// add any extra asset transfers
+					for asset_filter in assets {
+						match asset_filter {
+							AssetTransferFilter::Teleport(assets) => Self::do_teleport_assets(
+								self.holding.saturating_take(assets),
+								&destination,
+								&mut message,
+								&self.context,
+							)?,
+							AssetTransferFilter::ReserveDeposit(assets) =>
+								Self::do_reserve_deposit_assets(
+									self.holding.saturating_take(assets),
+									&destination,
+									&mut message,
+									Some(&self.context),
+								)?,
+							AssetTransferFilter::ReserveWithdraw(assets) =>
+								Self::do_reserve_withdraw_assets(
+									self.holding.saturating_take(assets),
+									&mut self.holding,
+									&destination,
+									&mut message,
+								)?,
+						};
+					}
+
+					if preserve_origin {
+						// We alias the origin if it's not a noop (origin != `Here`).
+						if let Some(original_origin) = self
+							.origin_ref()
+							.filter(|origin| *origin != &Location::here())
+							.cloned()
+						{
+							// preserve current origin for subsequent user-controlled instructions on
+							// remote chain
+							let reanchored_origin = Self::try_reanchor(original_origin, &destination)?.0;
+							message.push(AliasOrigin(reanchored_origin));
+						}
+					} else {
+						// clear origin for subsequent user-controlled instructions on remote chain
+						message.push(ClearOrigin);
+					}
+
+					// If not intending to pay for fees then we append the `UnpaidExecution`
+					// _AFTER_ origin altering instructions.
+					// When origin is not preserved, it's probably going to fail on the receiver.
+					if !remote_fees_paid {
+						// We push the UnpaidExecution instruction to notify we do not intend to pay
+						// for fees.
+						// The receiving chain must decide based on the origin of the message if they
+						// accept this.
+						message
+							.push(UnpaidExecution { weight_limit: Unlimited, check_origin: None });
+					}
+
+					// append custom instructions
+					message.extend(remote_xcm.0.into_iter());
+					// send the onward XCM
+					self.send(destination, Xcm(message), FeeReason::InitiateTransfer)?;
+>>>>>>> c4b41457 (Fix issue with InitiateTransfer and UnpaidExecution (#7423))
 					Ok(())
 				})();
 				if result.is_err() {
