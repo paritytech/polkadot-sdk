@@ -1,0 +1,12 @@
+title: Add Runtime Api version to metadata
+doc:
+- audience: Runtime Dev
+  description: |-
+    The runtime API implemented version is not explicitly shown in metadata, so here we add it to improve developer experience.
+
+    This closes #7352 .
+crates:
+- name: sp-api-proc-macro
+  bump: minor
+- name: sp-metadata-ir
+  bump: minor
