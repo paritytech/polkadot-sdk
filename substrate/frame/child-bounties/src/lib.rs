@@ -64,7 +64,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
 use frame_support::traits::{
-	tokens::{ConversionFromAssetBalance, Pay},
+	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
 	Currency,
 	ExistenceRequirement::AllowDeath,
 	Get, OnUnbalanced, ReservableCurrency,
@@ -81,7 +81,7 @@ use sp_runtime::{
 type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>;
 type DepositBalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
 type BountyBalanceOf<T, I = ()> = pallet_treasury::AssetBalanceOf<T, I>;
-type BountiesError<T, I> = pallet_bounties::Error<T, I>;
+type BountiesError<T, I = ()> = pallet_bounties::Error<T, I>;
 type BountyIndex = pallet_bounties::BountyIndex;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BlockNumberFor<T, I = ()> =

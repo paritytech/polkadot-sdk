@@ -19,175 +19,18 @@
 
 #![cfg(test)]
 
-use super::*;
+use super::mock::*;
 use crate as pallet_child_bounties;
-
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{
-		tokens::{pay::PayWithBalance, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, OnInitialize,
-	},
-	weights::Weight,
-	PalletId,
+use crate::tests::mock::ChildBounties;
+use crate::{
+	Event as ChildBountiesEvent, Error, ChildBounty, BountiesError, ChildBountyStatus
 };
 
+use frame_support::{assert_noop, assert_ok, traits::{Currency, Hooks}};
 use sp_runtime::{
-	traits::{BadOrigin, IdentityLookup},
-	BuildStorage, Perbill, Permill, TokenError,
+	traits::BadOrigin,
+	TokenError,
 };
-
-use super::Event as ChildBountiesEvent;
-
-type Block = frame_system::mocking::MockBlock<Test>;
-type BountiesError = pallet_bounties::Error<Test>;
-
-// This function directly jumps to a block number, and calls `on_initialize`.
-fn go_to_block(n: u64) {
-	<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
-	<Treasury as OnInitialize<u64>>::on_initialize(n);
-}
-
-frame_support::construct_runtime!(
-	pub enum Test
-	{
-		System: frame_system,
-		Balances: pallet_balances,
-		Bounties: pallet_bounties,
-		Treasury: pallet_treasury,
-		ChildBounties: pallet_child_bounties,
-	}
-);
-
-parameter_types! {
-	pub const MaximumBlockWeight: Weight = Weight::from_parts(1024, 0);
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
-}
-
-type Balance = u64;
-// must be at least 20 bytes long because of child-bounty account derivation.
-type AccountId = sp_core::U256;
-
-fn account_id(id: u8) -> AccountId {
-	sp_core::U256::from(id)
-}
-
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl frame_system::Config for Test {
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
-	type AccountData = pallet_balances::AccountData<u64>;
-}
-
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-impl pallet_balances::Config for Test {
-	type AccountStore = System;
-}
-parameter_types! {
-	pub const Burn: Permill = Permill::from_percent(50);
-	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
-	pub TreasuryAccount: AccountId = Treasury::account_id();
-	pub const SpendLimit: Balance = u64::MAX;
-}
-
-impl pallet_treasury::Config for Test {
-	type PalletId = TreasuryPalletId;
-	type Currency = pallet_balances::Pallet<Test>;
-	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
-	type RuntimeEvent = RuntimeEvent;
-	type SpendPeriod = ConstU64<2>;
-	type Burn = Burn;
-	type BurnDestination = ();
-	type WeightInfo = ();
-	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
-	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit>;
-	type AssetKind = ();
-	type Beneficiary = Self::AccountId;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = PayWithBalance<Balances, Self::Beneficiary>;
-	type BalanceConverter = UnityAssetBalanceConversion;
-	type PayoutPeriod = ConstU64<10>;
-	type BlockNumberProvider = System;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-parameter_types! {
-	// This will be 50% of the bounty fee.
-	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
-	pub const CuratorDepositMax: Balance = 1_000;
-	pub const CuratorDepositMin: Balance = 3;
-
-}
-impl pallet_bounties::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type BountyDepositBase = ConstU64<80>;
-	type BountyDepositPayoutDelay = ConstU64<3>;
-	type BountyUpdatePeriod = ConstU64<10>;
-	type CuratorDepositMultiplier = CuratorDepositMultiplier;
-	type CuratorDepositMax = CuratorDepositMax;
-	type CuratorDepositMin = CuratorDepositMin;
-	type BountyValueMinimum = ConstU64<5>;
-	type DataDepositPerByte = ConstU64<1>;
-	type MaximumReasonLength = ConstU32<300>;
-	type WeightInfo = ();
-	type ChildBountyManager = ChildBounties;
-	type OnSlash = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-impl pallet_child_bounties::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type MaxActiveChildBountyCount = ConstU32<2>;
-	type ChildBountyValueMinimum = ConstU64<1>;
-	type WeightInfo = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		// Total issuance will be 200 with treasury account initialized at ED.
-		balances: vec![(account_id(0), 100), (account_id(1), 98), (account_id(2), 1)],
-		..Default::default()
-	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-	pallet_treasury::GenesisConfig::<Test>::default()
-		.assimilate_storage(&mut t)
-		.unwrap();
-	t.into()
-}
-
-fn last_event() -> ChildBountiesEvent<Test> {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::ChildBounties(inner) = e { Some(inner) } else { None })
-		.last()
-		.unwrap()
-}
-
-#[test]
-#[allow(deprecated)]
-fn genesis_config_works() {
-	new_test_ext().execute_with(|| {
-		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
-	});
-}
-
-#[test]
-fn minting_works() {
-	new_test_ext().execute_with(|| {
-		// Check that accumulate works when we have Some value in Dummy already.
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-	});
-}
 
 #[test]
 fn add_child_bounty() {
@@ -208,7 +51,7 @@ fn add_child_bounty() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -243,7 +86,7 @@ fn add_child_bounty() {
 				10,
 				b"12345-p1".to_vec()
 			),
-			BountiesError::RequireCurator,
+			BountiesError::<Test>::RequireCurator,
 		);
 
 		// Update the parent curator balance.
@@ -293,10 +136,11 @@ fn add_child_bounty() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee: 0,
 				curator_deposit: 0,
-				status: ChildBountyStatus::Added,
+				status: ChildBountyStatus::Funded,
 			}
 		);
 
@@ -327,7 +171,7 @@ fn child_bounty_assign_curator() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -350,7 +194,7 @@ fn child_bounty_assign_curator() {
 
 		// Check the balance of parent curator.
 		// Curator deposit is reserved for parent curator on parent bounty.
-		let expected_deposit = Bounties::calculate_curator_deposit(&fee, ()).unwrap();
+		let expected_deposit = Bounties::calculate_curator_deposit(&fee, 1).unwrap();
 		assert_eq!(Balances::free_balance(account_id(4)), 101 - expected_deposit);
 		assert_eq!(Balances::reserved_balance(account_id(4)), expected_deposit);
 
@@ -386,6 +230,7 @@ fn child_bounty_assign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: 0,
@@ -404,7 +249,7 @@ fn child_bounty_assign_curator() {
 				0,
 				account_id(10)
 			),
-			BountiesError::RequireCurator,
+			BountiesError::<Test>::RequireCurator,
 		);
 
 		assert_ok!(ChildBounties::accept_curator(
@@ -420,10 +265,11 @@ fn child_bounty_assign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(8) },
+				status: ChildBountyStatus::Active { curator: account_id(8), curator_stash:account_id(0), update_due: 30 },
 			}
 		);
 
@@ -460,7 +306,7 @@ fn award_claim_child_bounty() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -511,7 +357,7 @@ fn award_claim_child_bounty() {
 				0,
 				account_id(7)
 			),
-			BountiesError::RequireCurator,
+			BountiesError::<Test>::RequireCurator,
 		);
 
 		assert_ok!(ChildBounties::award_child_bounty(
@@ -526,13 +372,15 @@ fn award_claim_child_bounty() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: expected_deposit,
 				status: ChildBountyStatus::PendingPayout {
 					curator: account_id(8),
 					beneficiary: account_id(7),
-					unlock_at: 5
+					unlock_at: 5,
+					curator_stash: account_id(5)
 				},
 			}
 		);
@@ -541,7 +389,7 @@ fn award_claim_child_bounty() {
 		// Test for Premature condition.
 		assert_noop!(
 			ChildBounties::claim_child_bounty(RuntimeOrigin::signed(account_id(7)), 0, 0),
-			BountiesError::Premature
+			BountiesError::<Test>::Premature
 		);
 
 		go_to_block(9);
@@ -580,7 +428,7 @@ fn close_child_bounty_added() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -651,7 +499,7 @@ fn close_child_bounty_active() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -728,7 +576,7 @@ fn close_child_bounty_pending() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -782,7 +630,7 @@ fn close_child_bounty_pending() {
 		// Close child-bounty in pending_payout state.
 		assert_noop!(
 			ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(4)), 0, 0),
-			BountiesError::PendingPayout
+			BountiesError::<Test>::PendingPayout
 		);
 
 		// Check the child-bounty count.
@@ -813,7 +661,7 @@ fn child_bounty_added_unassign_curator() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -843,7 +691,7 @@ fn child_bounty_added_unassign_curator() {
 		// Unassign curator in added state.
 		assert_noop!(
 			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(4)), 0, 0),
-			BountiesError::UnexpectedStatus
+			BountiesError::<Test>::UnexpectedStatus
 		);
 	});
 }
@@ -863,7 +711,7 @@ fn child_bounty_curator_proposed_unassign_curator() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -903,6 +751,7 @@ fn child_bounty_curator_proposed_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee: 2,
 				curator_deposit: 0,
@@ -924,10 +773,11 @@ fn child_bounty_curator_proposed_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee: 2,
 				curator_deposit: 0,
-				status: ChildBountyStatus::Added,
+				status: ChildBountyStatus::Funded,
 			}
 		);
 	});
@@ -957,7 +807,7 @@ fn child_bounty_active_unassign_curator() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -1005,10 +855,11 @@ fn child_bounty_active_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(8) },
+				status: ChildBountyStatus::Active { curator: account_id(8), curator_stash: account_id(0), update_due: 30 },
 			}
 		);
 
@@ -1022,10 +873,11 @@ fn child_bounty_active_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: 0,
-				status: ChildBountyStatus::Added,
+				status: ChildBountyStatus::Funded,
 			}
 		);
 
@@ -1054,10 +906,11 @@ fn child_bounty_active_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(7) },
+				status: ChildBountyStatus::Active { curator: account_id(7), curator_stash: account_id(0), update_due: 30 },
 			}
 		);
 
@@ -1071,10 +924,11 @@ fn child_bounty_active_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee: 2,
 				curator_deposit: 0,
-				status: ChildBountyStatus::Added,
+				status: ChildBountyStatus::Funded,
 			}
 		);
 
@@ -1101,10 +955,11 @@ fn child_bounty_active_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(6) },
+				status: ChildBountyStatus::Active { curator: account_id(6), curator_stash: account_id(0), update_due: 30 },
 			}
 		);
 
@@ -1118,10 +973,11 @@ fn child_bounty_active_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee: 2,
 				curator_deposit: 0,
-				status: ChildBountyStatus::Added,
+				status:  ChildBountyStatus::Funded,
 			}
 		);
 
@@ -1150,10 +1006,11 @@ fn child_bounty_active_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(6) },
+				status: ChildBountyStatus::Active { curator: account_id(6), curator_stash: account_id(0), update_due: 30 },
 			}
 		);
 
@@ -1163,7 +1020,7 @@ fn child_bounty_active_unassign_curator() {
 		// Bounty update period is not yet complete.
 		assert_noop!(
 			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(3)), 0, 0),
-			BountiesError::Premature
+			BountiesError::<Test>::Premature
 		);
 
 		go_to_block(20);
@@ -1176,10 +1033,11 @@ fn child_bounty_active_unassign_curator() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee: 2,
 				curator_deposit: 0,
-				status: ChildBountyStatus::Added,
+				status:  ChildBountyStatus::Funded,
 			}
 		);
 
@@ -1209,7 +1067,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -1256,10 +1114,11 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(8) },
+				status: ChildBountyStatus::Active { curator: account_id(8), curator_stash: account_id(0), update_due: 30 },
 			}
 		);
 
@@ -1285,10 +1144,11 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: 0,
-				status: ChildBountyStatus::Added,
+				status: ChildBountyStatus::Funded,
 			}
 		);
 
@@ -1329,10 +1189,11 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: expected_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(7) },
+				status: ChildBountyStatus::Active { curator: account_id(7), curator_stash: account_id(0), update_due: 30 },
 			}
 		);
 
@@ -1340,7 +1201,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 
 		assert_noop!(
 			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(3)), 0, 0),
-			BountiesError::Premature
+			BountiesError::<Test>::Premature
 		);
 
 		// Unassign parent bounty curator again.
@@ -1356,10 +1217,11 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee: 2,
 				curator_deposit: 0,
-				status: ChildBountyStatus::Added,
+				status: ChildBountyStatus::Funded,
 			}
 		);
 
@@ -1384,7 +1246,7 @@ fn close_parent_with_child_bounty() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -1426,7 +1288,7 @@ fn close_parent_with_child_bounty() {
 		// Child bounty active, can't close parent.
 		assert_noop!(
 			Bounties::close_bounty(RuntimeOrigin::root(), 0),
-			BountiesError::HasActiveChildBounty
+			BountiesError::<Test>::HasActiveChildBounty
 		);
 
 		// Close child-bounty.
@@ -1462,7 +1324,7 @@ fn children_curator_fee_calculation_test() {
 
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(account_id(0)),
-			Box::new(()),
+			Box::new(1),
 			50,
 			b"12345".to_vec()
 		));
@@ -1521,13 +1383,15 @@ fn children_curator_fee_calculation_test() {
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
+				asset_kind: 1,
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
 				status: ChildBountyStatus::PendingPayout {
 					curator: account_id(8),
 					beneficiary: account_id(7),
-					unlock_at: 7
+					unlock_at: 7,
+					curator_stash: account_id(0),
 				},
 			}
 		);
@@ -1580,7 +1444,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 		Balances::make_free_balance_be(&parent_curator, parent_fee * 100);
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(parent_curator),
-			Box::new(()),
+			Box::new(1),
 			parent_value,
 			b"12345".to_vec()
 		));
