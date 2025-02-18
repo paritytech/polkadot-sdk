@@ -16,18 +16,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Integration tests for fork-aware transaction pool.
+//! The zombienet spawner for integration tests for a transaction pool. Holds shared logic used
+//! across integration tests for transaction pool.
 
 use anyhow::anyhow;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig, NetworkConfigExt};
 
-const ASSET_HUB_LOW_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
+pub const ASSET_HUB_LOW_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
 	"tests/zombienet/network-specs/asset-hub-low-pool-limit-fatp.toml";
-const ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
+pub const ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH: &'static str =
 	"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp.toml";
-const ASSET_HUB_HIGH_POOL_LIMIT_OLDP_3_COLLATORS_SPEC_PATH: &'static str =
+pub const ASSET_HUB_HIGH_POOL_LIMIT_OLDP_3_COLLATORS_SPEC_PATH: &'static str =
 	"tests/zombienet/network-specs/asset-hub-high-pool-limit-oldp-3-collators.toml";
-const ASSET_HUB_HIGH_POOL_LIMIT_OLDP_4_COLLATORS_SPEC_PATH: &'static str =
+pub const ASSET_HUB_HIGH_POOL_LIMIT_OLDP_4_COLLATORS_SPEC_PATH: &'static str =
 	"tests/zombienet/network-specs/asset-hub-high-pool-limit-oldp-4-collators.toml";
 
 #[derive(thiserror::Error, Debug)]
@@ -38,45 +39,12 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+/// Provides logic to spawn a network based on a Zombienet toml file.
 pub struct NetworkSpawner;
 
 impl NetworkSpawner {
-	pub async fn init_from_asset_hub_fatp_low_pool_limit_spec() -> Result<Network<LocalFileSystem>>
-	{
-		let net_config = NetworkConfig::load_from_toml(ASSET_HUB_LOW_POOL_LIMIT_FATP_SPEC_PATH)
-			.map_err(Error::NetworkInit)?;
-		net_config
-			.spawn_native()
-			.await
-			.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))
-	}
-
-	pub async fn init_from_asset_hub_fatp_high_pool_limit_spec() -> Result<Network<LocalFileSystem>>
-	{
-		let net_config = NetworkConfig::load_from_toml(ASSET_HUB_HIGH_POOL_LIMIT_FATP_SPEC_PATH)
-			.map_err(Error::NetworkInit)?;
-		net_config
-			.spawn_native()
-			.await
-			.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))
-	}
-
-	pub async fn init_from_asset_hub_fatp_high_pool_limit_3_collators_spec(
-	) -> Result<Network<LocalFileSystem>> {
-		let net_config =
-			NetworkConfig::load_from_toml(ASSET_HUB_HIGH_POOL_LIMIT_OLDP_3_COLLATORS_SPEC_PATH)
-				.map_err(Error::NetworkInit)?;
-		net_config
-			.spawn_native()
-			.await
-			.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))
-	}
-
-	pub async fn init_from_asset_hub_fatp_high_pool_limit_4_collators_spec(
-	) -> Result<Network<LocalFileSystem>> {
-		let net_config =
-			NetworkConfig::load_from_toml(ASSET_HUB_HIGH_POOL_LIMIT_OLDP_4_COLLATORS_SPEC_PATH)
-				.map_err(Error::NetworkInit)?;
+	pub async fn from_toml(toml_path: &'static str) -> Result<Network<LocalFileSystem>> {
+		let net_config = NetworkConfig::load_from_toml(toml_path).map_err(Error::NetworkInit)?;
 		net_config
 			.spawn_native()
 			.await

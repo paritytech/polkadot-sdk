@@ -24,7 +24,7 @@ use futures::future::join;
 use txtesttool::{
 	execution_log::ExecutionLog,
 	runner::RunnerFactory,
-	scenario::{ScenarioPlanner, SendingScenario},
+	scenario::{ScenarioExecutor, ScenarioPlanner, SendingScenario},
 	transaction::TransactionRecipe,
 };
 use zombienet::NetworkSpawner;
@@ -34,16 +34,15 @@ use zombienet_sdk::subxt::OnlineClient;
 // to an unlimited pool.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_future_and_then_ready_from_many_accounts() {
-	let _ = env_logger::try_init_from_env(
-		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-	);
-	let net = NetworkSpawner::init_from_asset_hub_fatp_high_pool_limit_spec().await.unwrap();
-	let collator = net.get_node("charlie").unwrap();
+	let net = NetworkSpawner::from_toml(ASSET_HUB_HIGH_POOL_LIMIT_OLDP_4_COLLATORS_SPEC_PATH)
+		.await
+		.unwrap();
+	let charlie = net.get_node("charlie").unwrap();
 
 	// Wait for one of the collators to come online.
-	let client: OnlineClient<zombienet_sdk::subxt::config::SubstrateConfig> =
-		collator.wait_client_with_timeout(120u64).await.unwrap();
-	let mut stream = client.blocks().subscribe_best().await.unwrap();
+	let charlie_client: OnlineClient<zombienet_sdk::subxt::config::SubstrateConfig> =
+		charlie.wait_client_with_timeout(120u64).await.unwrap();
+	let mut stream = charlie_client.blocks().subscribe_best().await.unwrap();
 	loop {
 		let Some(block) = stream.next().await else {
 			continue;
@@ -61,7 +60,7 @@ async fn send_future_and_then_ready_from_many_accounts() {
 	let recipe_future = TransactionRecipe::transfer();
 	let recipe_ready = recipe_future.clone();
 	let block_monitor = false;
-	let unwatched = false;
+	let watched_txs = true;
 
 	// Scenarios and sinks.
 	let scenario_future =
@@ -69,17 +68,33 @@ async fn send_future_and_then_ready_from_many_accounts() {
 	let scenario_ready =
 		SendingScenario::FromManyAccounts { start_id: 0, last_id: 99, from: Some(0), count: 100 };
 
-	let future_scenario_planner =
-		ScenarioPlanner::new(ws, scenario_future, recipe_future, block_monitor).await;
-	let ready_scenario_planner =
-		ScenarioPlanner::new(ws, scenario_ready, recipe_ready, block_monitor).await;
+	let future_scenario_executor = ScenarioExecutor::new()
+		.with_rpc_uri(ws)
+		.with_txs_recipe(recipe_future)
+		.with_block_monitoring(block_monitor)
+		.with_start_id("0".to_string())
+		.with_last_id(99)
+		.with_nonce_from(Some(100))
+		.with_txs_count(100)
+		.with_watched_txs(watched_txs)
+		.with_send_threshold(send_threshold)
+		.build();
+	let ready_scenario_executor = ScenarioExecutor::new()
+		.with_rpc_uri(ws)
+		.with_txs_recipe(recipe_ready)
+		.with_block_monitoring(block_monitor)
+		.with_start_id("0".to_string())
+		.with_last_id(99)
+		.with_nonce_from(Some(0))
+		.with_txs_count(100)
+		.with_watched_txs(watched_txs)
+		.with_send_threshold(send_threshold)
+		.build();
+	let (_, future_logs) =
+		future_scenario_executor.execute::<DefaultTxTask<SubstrateTransaction>>().await;
+	let (_, ready_logs) =
+		ready_scenario_executor.execute::<DefaultTxTask<SubstrateTransaction>>().await;
 
-	let ((future_stop_runner_tx, mut runner_future), future_queue_task) =
-		RunnerFactory::substrate_runner(future_scenario_planner, send_threshold, unwatched).await;
-	let ((ready_stop_runner_tx, mut runner_ready), ready_queue_task) =
-		RunnerFactory::substrate_runner(ready_scenario_planner, send_threshold, unwatched).await;
-
-	let (future_logs, ready_logs) = join(runner_future.run(), runner_ready.run()).await;
 	let finalized_future =
 		future_logs.values().filter_map(|default_log| default_log.finalized()).count();
 	let finalized_ready =
