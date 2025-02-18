@@ -234,25 +234,29 @@ pub mod pallet {
 		}
 
 		/// Reconsider the deposit reserved for an index.
-		/// 
+		///
 		/// The dispatch origin for this call must be _Signed_ and the signing account must have a
 		/// non-frozen account `index`.
-		/// 
+		///
 		/// The transaction fees is waived if the deposit is changed after reconsideration.
-		/// 
+		///
 		/// - `index`: the index whose deposit is to be reconsidered.
-		/// 
+		///
 		/// Emits `DepositReconsidered` if successful.
-		/// 
+		///
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::reconsider())]
-		pub fn reconsider(origin: OriginFor<T>, index: T::AccountIndex) -> DispatchResultWithPostInfo {
+		pub fn reconsider(
+			origin: OriginFor<T>,
+			index: T::AccountIndex,
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResultWithPostInfo {
-				let (account, old_amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
+				let (account, old_amount, perm) =
+					maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
 
@@ -294,7 +298,12 @@ pub mod pallet {
 		/// A account index has been frozen to its current account ID.
 		IndexFrozen { index: T::AccountIndex, who: T::AccountId },
 		/// A deposit to reserve an index has been reconsidered.
-		DepositReconsidered { who: T::AccountId, index: T::AccountIndex, old_deposit: BalanceOf<T>, new_deposit: BalanceOf<T> },
+		DepositReconsidered {
+			who: T::AccountId,
+			index: T::AccountIndex,
+			old_deposit: BalanceOf<T>,
+			new_deposit: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]

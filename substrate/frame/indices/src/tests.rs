@@ -123,10 +123,7 @@ fn force_transfer_index_on_free_should_work() {
 #[test]
 fn reconsider_should_fail_for_unassigned_index() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(
-			Indices::reconsider(Some(1).into(), 0),
-			Error::<Test>::NotAssigned
-		);
+		assert_noop!(Indices::reconsider(Some(1).into(), 0), Error::<Test>::NotAssigned);
 	});
 }
 
@@ -134,10 +131,7 @@ fn reconsider_should_fail_for_unassigned_index() {
 fn reconsider_should_fail_for_wrong_owner() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
-		assert_noop!(
-			Indices::reconsider(Some(2).into(), 0),
-			Error::<Test>::NotOwner
-		);
+		assert_noop!(Indices::reconsider(Some(2).into(), 0), Error::<Test>::NotOwner);
 	});
 }
 
@@ -146,10 +140,7 @@ fn reconsider_should_fail_for_permanent_index() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_ok!(Indices::freeze(Some(1).into(), 0));
-		assert_noop!(
-			Indices::reconsider(Some(1).into(), 0),
-			Error::<Test>::Permanent
-		);
+		assert_noop!(Indices::reconsider(Some(1).into(), 0), Error::<Test>::Permanent);
 	});
 }
 
@@ -188,12 +179,9 @@ fn reconsider_should_work_when_deposit_increases() {
 		// Balance should only reduce by the deposit difference
 		assert_eq!(Balances::free_balance(1), initial_balance - 1);
 
-		System::assert_has_event(Event::DepositReconsidered { 
-			who: 1, 
-			index: 0, 
-			old_deposit: 1, 
-			new_deposit: 2 
-		}.into());
+		System::assert_has_event(
+			Event::DepositReconsidered { who: 1, index: 0, old_deposit: 1, new_deposit: 2 }.into(),
+		);
 	});
 }
 
@@ -218,12 +206,9 @@ fn reconsider_should_work_when_deposit_decreases() {
 		// Balance should increase by the unreserved amount
 		assert_eq!(Balances::free_balance(1), initial_balance + 1);
 
-		System::assert_has_event(Event::DepositReconsidered {
-			who: 1,
-			index: 0,
-			old_deposit: 2,
-			new_deposit: 1
-		}.into());
+		System::assert_has_event(
+			Event::DepositReconsidered { who: 1, index: 0, old_deposit: 2, new_deposit: 1 }.into(),
+		);
 	});
 }
 
