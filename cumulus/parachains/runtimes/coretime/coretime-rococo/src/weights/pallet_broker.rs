@@ -199,6 +199,9 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn force_transfer() -> Weight {
+		Weight::from_parts(1, 1)
+	}
 	/// Storage: `Broker::Regions` (r:1 w:2)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn partition() -> Weight {
