@@ -50,10 +50,9 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	asset, log, BalanceOf, Config, DisabledValidators, DisablingStrategy, EraInfo, Error,
-	NegativeImbalanceOf, NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure,
-	Pallet, Perbill, ProcessingOffence, SessionInterface, SlashRewardFraction, SpanSlash,
-	UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
+	asset, log, BalanceOf, Config, EraInfo, Error, NegativeImbalanceOf, NominatorSlashInEra,
+	OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence,
+	SlashRewardFraction, SpanSlash, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -66,7 +65,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug, WeakBoundedVec, Weight,
 };
-use sp_staking::{offence::OffenceSeverity, EraIndex, StakingInterface};
+use sp_staking::{EraIndex, StakingInterface};
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -491,62 +490,6 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 		// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
 		spans.end_span(params.now);
 	}
-}
-
-/// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
-/// validators provided by [`decision`].
-pub(crate) fn add_offending_validator<T: Config>(
-	stash: &T::AccountId,
-	slash: Perbill,
-	offence_era: EraIndex,
-) {
-	DisabledValidators::<T>::mutate(|disabled| {
-		let new_severity = OffenceSeverity(slash);
-		let decision = T::DisablingStrategy::decision(stash, new_severity, offence_era, &disabled);
-
-		if let Some(offender_idx) = decision.disable {
-			// Check if the offender is already disabled
-			match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-				// Offender is already disabled, update severity if the new one is higher
-				Ok(index) => {
-					let (_, old_severity) = &mut disabled[index];
-					if new_severity > *old_severity {
-						*old_severity = new_severity;
-					}
-				},
-				Err(index) => {
-					// Offender is not disabled, add to `DisabledValidators` and disable it
-					if disabled.try_insert(index, (offender_idx, new_severity)).defensive().is_ok()
-					{
-						// Propagate disablement to session level
-						T::SessionInterface::disable_validator(offender_idx);
-						// Emit event that a validator got disabled
-						<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
-							stash: stash.clone(),
-						});
-					}
-				},
-			}
-		}
-
-		if let Some(reenable_idx) = decision.reenable {
-			// Remove the validator from `DisabledValidators` and re-enable it.
-			if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
-				disabled.remove(index);
-				// Propagate re-enablement to session level
-				T::SessionInterface::enable_validator(reenable_idx);
-				// Emit event that a validator got re-enabled
-				let reenabled_stash =
-					T::SessionInterface::validators()[reenable_idx as usize].clone();
-				<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorReenabled {
-					stash: reenabled_stash,
-				});
-			}
-		}
-	});
-
-	// `DisabledValidators` should be kept sorted
-	debug_assert!(DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] < pair[1]));
 }
 
 /// Compute the slash for a validator. Returns the amount slashed and the reward payout.
