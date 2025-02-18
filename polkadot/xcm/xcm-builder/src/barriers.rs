@@ -514,9 +514,9 @@ environmental::environmental!(recursion_count: u8);
 ///
 /// Note: Ensures that restricted instructions do not execute on the local chain, enforcing stricter
 /// execution policies, while allowing remote chains to enforce their own rules.
-pub struct DenyLocalInstructions<Inner>(PhantomData<Inner>);
+pub struct DenyRecursively<Inner>(PhantomData<Inner>);
 
-impl<Inner: DenyExecution> DenyLocalInstructions<Inner> {
+impl<Inner: DenyExecution> DenyRecursively<Inner> {
 	// Recursively applies the deny filter to a nested XCM.
 	///
 	/// This function ensures that restricted instructions are blocked at any depth within the XCM.
@@ -560,7 +560,7 @@ impl<Inner: DenyExecution> DenyLocalInstructions<Inner> {
 	}
 }
 
-impl<Inner: DenyExecution> DenyExecution for DenyLocalInstructions<Inner> {
+impl<Inner: DenyExecution> DenyExecution for DenyRecursively<Inner> {
 	/// Denies execution of restricted local nested XCM instructions.
 	///
 	/// This checks for `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instruction
@@ -575,7 +575,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyLocalInstructions<Inner> {
 		Inner::deny_execution(origin, instructions, max_weight, properties).inspect_err(|e| {
 			log::warn!(
 				target: "xcm::barriers",
-				"DenyLocalInstructions::Inner denied execution, origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}, error: {:?}",
+				"DenyRecursively::Inner denied execution, origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}, error: {:?}",
 				origin, instructions, max_weight, properties, e
 			);
 		})?;

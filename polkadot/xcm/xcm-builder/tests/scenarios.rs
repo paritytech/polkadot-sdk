@@ -377,7 +377,7 @@ fn recursive_xcm_execution_fail() {
 		type IsReserve = ();
 		type IsTeleporter = TrustedTeleporters;
 		type UniversalLocation = UniversalLocation;
-		type Barrier = DenyThenTry<DenyLocalInstructions<DenyClearOrigin>, AllowAll>;
+		type Barrier = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll>;
 		type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 		type Trader = FixedRateOfFungible<KsmPerSecondPerByte, ()>;
 		type ResponseHandler = XcmPallet;

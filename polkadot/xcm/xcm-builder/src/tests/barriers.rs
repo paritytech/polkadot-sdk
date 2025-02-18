@@ -827,8 +827,8 @@ impl<Barrier: DenyExecution> ShouldExecute for Executable<Barrier> {
 }
 
 #[test]
-fn deny_local_instructions_then_try_works() {
-	type Barrier = DenyThenTry<DenyLocalInstructions<DenyReserveTransferToRelayChain>, AllowAll>;
+fn deny_recursively_then_try_works() {
+	type Barrier = DenyThenTry<DenyRecursively<DenyReserveTransferToRelayChain>, AllowAll>;
 	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
 		dest: Location::parent(),
@@ -896,13 +896,13 @@ fn deny_local_instructions_then_try_works() {
 	assert!(result.is_ok());
 
 	// Should deny recursively before allow
-	type BarrierDenyClearOrigin = DenyThenTry<DenyLocalInstructions<DenyClearOrigin>, AllowAll>;
+	type BarrierDenyClearOrigin = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll>;
 	assert_deny_instructions_recursively::<BarrierDenyClearOrigin>();
 }
 
 #[test]
-fn deny_local_instructions_works() {
-	type Barrier = Executable<DenyLocalInstructions<DenyClearOrigin>>;
+fn deny_recursively_works() {
+	type Barrier = Executable<DenyRecursively<DenyClearOrigin>>;
 	assert_deny_instructions_recursively::<Barrier>();
 }
 
@@ -941,14 +941,14 @@ fn compare_deny_filters() {
 	// `DenyThenTry`: Top-level=Deny, Nested=Allow, TryAllow=Yes
 	assert_barrier::<DenyThenTry<Denies, AllowAll>>(Err(ProcessMessageError::Unsupported), Ok(()));
 
-	// `DenyThenTry<DenyLocalInstructions<Deny>>`: Top-level=Deny, Nested=Deny, TryAllow=Yes
-	assert_barrier::<DenyThenTry<DenyLocalInstructions<Denies>, AllowAll>>(
+	// `DenyThenTry<DenyRecursively<Deny>>`: Top-level=Deny, Nested=Deny, TryAllow=Yes
+	assert_barrier::<DenyThenTry<DenyRecursively<Denies>, AllowAll>>(
 		Err(ProcessMessageError::Unsupported),
 		Err(ProcessMessageError::Unsupported),
 	);
 
-	// `DenyLocalInstructions`: Top-level=Deny, Nested=Deny, TryAllow=No
-	assert_barrier::<Executable<DenyLocalInstructions<Denies>>>(
+	// `DenyRecursively`: Top-level=Deny, Nested=Deny, TryAllow=No
+	assert_barrier::<Executable<DenyRecursively<Denies>>>(
 		Err(ProcessMessageError::Unsupported),
 		Err(ProcessMessageError::Unsupported),
 	);

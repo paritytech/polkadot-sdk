@@ -48,8 +48,8 @@ use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, DenyLocalInstructions, DenyReserveTransferToRelayChain,
-	DenyThenTry, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor,
+	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor,
 	FungibleAdapter, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
 	IsConcrete, LocalMint, MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking,
 	NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
@@ -281,7 +281,7 @@ impl Contains<Location> for AmbassadorEntities {
 
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
-		DenyLocalInstructions<DenyReserveTransferToRelayChain>,
+		DenyRecursively<DenyReserveTransferToRelayChain>,
 		(
 			TakeWeightCredit,
 			// Expected responses are OK.

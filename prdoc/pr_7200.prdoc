@@ -4,10 +4,10 @@ doc:
 - audience: Runtime User
   description: |-
     This PR addresses partially #7148 (Problem 2) and ensures the proper checking
-    of nested local instructions. It introduces a new barrier -
-    `DenyLocalInstructions` - to provide more refined control over instruction
-    denial. The main change is the replacement of `DenyThenTry<Deny, Allow>` with
-    `DenyThenTry<DenyLocalInstructions<Deny>, Allow>` which handles both top-level
+    of nested local instructions. It introduces a new barrier - `DenyRecursively`
+    - to provide more refined control over instruction denial. The main change
+    is the replacement of `DenyThenTry<Deny, Allow>` with
+    `DenyThenTry<DenyRecursively<Deny>, Allow>` which handles both top-level
     and nested local instructions by applying allow condition after denial.
 crates:
 - name: staging-xcm-builder
