@@ -19,3 +19,6 @@ subxt = { workspace = true, features = ["substrate-compat"] }
 subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 zombienet-sdk = { workspace = true }
+
+[features]
+zombie-ci = []

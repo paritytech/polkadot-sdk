@@ -22,7 +22,8 @@ tokio-util = { workspace = true, features = ["time"] }
 zombienet-sdk = { workspace = true }
 
 [features]
-zombie-metadata = []
+zombie-metadata = ["zombie-ci"]
+zombie-ci = []
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
