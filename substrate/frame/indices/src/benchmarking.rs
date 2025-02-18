@@ -129,7 +129,9 @@ mod benchmarks {
 
 		// Increase the deposited amount in storage by 2
 		Accounts::<T>::try_mutate(account_index, |maybe_value| -> Result<(), BenchmarkError> {
-			let (account, amount, perm) = maybe_value.take().ok_or(BenchmarkError::Stop("Mutating storage to change deposits failed"))?;
+			let (account, amount, perm) = maybe_value
+				.take()
+				.ok_or(BenchmarkError::Stop("Mutating storage to change deposits failed"))?;
 			*maybe_value = Some((account, amount.saturating_add(2u32.into()), perm));
 			Ok(())
 		})?;
