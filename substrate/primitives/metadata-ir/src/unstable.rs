@@ -60,7 +60,7 @@ impl From<RuntimeApiMetadataIR> for RuntimeApiMetadata {
 			docs: ir.docs,
 			deprecation_info: ir.deprecation_info.into(),
 			// TODO: add with new version of v16 metadata
-			// version: ir.version,
+			// version: ir.version.into(),
 		}
 	}
 }
