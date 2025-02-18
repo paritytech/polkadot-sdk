@@ -12,3 +12,5 @@ crates:
     bump: major
   - name: polkadot-statement-distribution
     bump: patch
+  - name: polkadot-node-core-dispute-coordinator
+    bump: none
