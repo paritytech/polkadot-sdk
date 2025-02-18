@@ -917,7 +917,7 @@ pub(crate) mod multi_block_impls {
 	);
 
 	parameter_types! {
-		pub const Pages: u32 = 32;
+		pub const Pages: u32 = 64;
 		// nominators snapshot size
 		pub VoterSnapshotPerBlock: u32 = 22500 / Pages::get();
 		// validator snapshot size

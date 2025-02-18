@@ -77,13 +77,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:0 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
 	fn register_not_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `3043`
 		//  Estimated: `6508`
-		// Minimum execution time: 61_253_000 picoseconds.
-		Weight::from_parts(61_554_000, 6508)
+		// Minimum execution time: 59_691_000 picoseconds.
+		Weight::from_parts(60_532_000, 6508)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -96,34 +96,34 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:2)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
+	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:64 w:64)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `Measured`)
 	fn register_eject() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `7643`
-		//  Estimated: `87833`
-		// Minimum execution time: 150_438_000 picoseconds.
-		Weight::from_parts(153_513_000, 87833)
-			.saturating_add(T::DbWeight::get().reads(38_u64))
-			.saturating_add(T::DbWeight::get().writes(37_u64))
+		//  Measured:  `8691`
+		//  Estimated: `168081`
+		// Minimum execution time: 181_556_000 picoseconds.
+		Weight::from_parts(182_247_000, 168081)
+			.saturating_add(T::DbWeight::get().reads(70_u64))
+			.saturating_add(T::DbWeight::get().writes(69_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
 	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: `MultiBlock::Round` (r:1 w:0)
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `Measured`)
 	fn submit_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3459`
-		//  Estimated: `6924`
-		// Minimum execution time: 159_131_000 picoseconds.
-		Weight::from_parts(173_423_000, 6924)
+		//  Measured:  `3492`
+		//  Estimated: `6957`
+		// Minimum execution time: 945_345_000 picoseconds.
+		Weight::from_parts(1_505_947_000, 6957)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -132,17 +132,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiBlock::Round` (r:1 w:0)
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `Measured`)
 	fn unset_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4287`
-		//  Estimated: `7752`
-		// Minimum execution time: 137_008_000 picoseconds.
-		Weight::from_parts(142_015_000, 7752)
+		//  Measured:  `3832`
+		//  Estimated: `7297`
+		// Minimum execution time: 123_338_000 picoseconds.
+		Weight::from_parts(127_173_000, 7297)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -152,20 +152,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `Measured`)
+	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:64 w:64)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `Measured`)
 	fn bail() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4508`
-		//  Estimated: `84698`
-		// Minimum execution time: 117_789_000 picoseconds.
-		Weight::from_parts(117_970_000, 84698)
-			.saturating_add(T::DbWeight::get().reads(37_u64))
-			.saturating_add(T::DbWeight::get().writes(35_u64))
+		//  Measured:  `5557`
+		//  Estimated: `164947`
+		// Minimum execution time: 147_695_000 picoseconds.
+		Weight::from_parts(151_360_000, 164947)
+			.saturating_add(T::DbWeight::get().reads(69_u64))
+			.saturating_add(T::DbWeight::get().writes(67_u64))
 	}
 }
 
@@ -180,13 +180,13 @@ impl WeightInfo for () {
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:0 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
 	fn register_not_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `3043`
 		//  Estimated: `6508`
-		// Minimum execution time: 61_253_000 picoseconds.
-		Weight::from_parts(61_554_000, 6508)
+		// Minimum execution time: 59_691_000 picoseconds.
+		Weight::from_parts(60_532_000, 6508)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -199,34 +199,34 @@ impl WeightInfo for () {
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:2)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
+	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:64 w:64)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `Measured`)
 	fn register_eject() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `7643`
-		//  Estimated: `87833`
-		// Minimum execution time: 150_438_000 picoseconds.
-		Weight::from_parts(153_513_000, 87833)
-			.saturating_add(RocksDbWeight::get().reads(38_u64))
-			.saturating_add(RocksDbWeight::get().writes(37_u64))
+		//  Measured:  `8691`
+		//  Estimated: `168081`
+		// Minimum execution time: 181_556_000 picoseconds.
+		Weight::from_parts(182_247_000, 168081)
+			.saturating_add(RocksDbWeight::get().reads(70_u64))
+			.saturating_add(RocksDbWeight::get().writes(69_u64))
 	}
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
 	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: `MultiBlock::Round` (r:1 w:0)
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `Measured`)
 	fn submit_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3459`
-		//  Estimated: `6924`
-		// Minimum execution time: 159_131_000 picoseconds.
-		Weight::from_parts(173_423_000, 6924)
+		//  Measured:  `3492`
+		//  Estimated: `6957`
+		// Minimum execution time: 945_345_000 picoseconds.
+		Weight::from_parts(1_505_947_000, 6957)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -235,17 +235,17 @@ impl WeightInfo for () {
 	/// Storage: `MultiBlock::Round` (r:1 w:0)
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `Measured`)
 	fn unset_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4287`
-		//  Estimated: `7752`
-		// Minimum execution time: 137_008_000 picoseconds.
-		Weight::from_parts(142_015_000, 7752)
+		//  Measured:  `3832`
+		//  Estimated: `7297`
+		// Minimum execution time: 123_338_000 picoseconds.
+		Weight::from_parts(127_173_000, 7297)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -255,19 +255,19 @@ impl WeightInfo for () {
 	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
 	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(34527), added: 37002, mode: `Measured`)
+	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:64 w:64)
+	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(17279), added: 19754, mode: `Measured`)
 	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(214), added: 2689, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(427), added: 2902, mode: `Measured`)
 	fn bail() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4508`
-		//  Estimated: `84698`
-		// Minimum execution time: 117_789_000 picoseconds.
-		Weight::from_parts(117_970_000, 84698)
-			.saturating_add(RocksDbWeight::get().reads(37_u64))
-			.saturating_add(RocksDbWeight::get().writes(35_u64))
+		//  Measured:  `5557`
+		//  Estimated: `164947`
+		// Minimum execution time: 147_695_000 picoseconds.
+		Weight::from_parts(151_360_000, 164947)
+			.saturating_add(RocksDbWeight::get().reads(69_u64))
+			.saturating_add(RocksDbWeight::get().writes(67_u64))
 	}
 }

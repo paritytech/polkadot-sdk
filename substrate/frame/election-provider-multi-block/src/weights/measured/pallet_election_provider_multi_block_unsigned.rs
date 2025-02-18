@@ -79,8 +79,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `364`
 		//  Estimated: `1849`
-		// Minimum execution time: 77_949_000 picoseconds.
-		Weight::from_parts(80_492_000, 1849)
+		// Minimum execution time: 51_839_000 picoseconds.
+		Weight::from_parts(52_049_000, 1849)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 	}
 	/// Storage: `MultiBlockVerifier::QueuedSolutionScore` (r:1 w:1)
@@ -90,7 +90,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiBlock::PagedTargetSnapshot` (r:1 w:0)
 	/// Proof: `MultiBlock::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32014), added: 34489, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388773), added: 391248, mode: `Measured`)
+	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(194117), added: 196592, mode: `Measured`)
 	/// Storage: `MultiBlock::DesiredTargets` (r:1 w:0)
 	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:0)
@@ -99,10 +99,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `MultiBlockVerifier::QueuedSolutionY` (`max_values`: None, `max_size`: Some(6194014), added: 6196489, mode: `Measured`)
 	fn submit_unsigned() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `157641`
-		//  Estimated: `161106`
-		// Minimum execution time: 3_162_443_000 picoseconds.
-		Weight::from_parts(3_292_440_000, 161106)
+		//  Measured:  `61621`
+		//  Estimated: `65086`
+		// Minimum execution time: 1_936_469_000 picoseconds.
+		Weight::from_parts(2_505_223_000, 65086)
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -124,8 +124,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `364`
 		//  Estimated: `1849`
-		// Minimum execution time: 77_949_000 picoseconds.
-		Weight::from_parts(80_492_000, 1849)
+		// Minimum execution time: 51_839_000 picoseconds.
+		Weight::from_parts(52_049_000, 1849)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 	}
 	/// Storage: `MultiBlockVerifier::QueuedSolutionScore` (r:1 w:1)
@@ -135,7 +135,7 @@ impl WeightInfo for () {
 	/// Storage: `MultiBlock::PagedTargetSnapshot` (r:1 w:0)
 	/// Proof: `MultiBlock::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32014), added: 34489, mode: `Measured`)
 	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388773), added: 391248, mode: `Measured`)
+	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(194117), added: 196592, mode: `Measured`)
 	/// Storage: `MultiBlock::DesiredTargets` (r:1 w:0)
 	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
 	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:0)
@@ -144,10 +144,10 @@ impl WeightInfo for () {
 	/// Proof: `MultiBlockVerifier::QueuedSolutionY` (`max_values`: None, `max_size`: Some(6194014), added: 6196489, mode: `Measured`)
 	fn submit_unsigned() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `157641`
-		//  Estimated: `161106`
-		// Minimum execution time: 3_162_443_000 picoseconds.
-		Weight::from_parts(3_292_440_000, 161106)
+		//  Measured:  `61621`
+		//  Estimated: `65086`
+		// Minimum execution time: 1_936_469_000 picoseconds.
+		Weight::from_parts(2_505_223_000, 65086)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
