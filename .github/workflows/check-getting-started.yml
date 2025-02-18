@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yaml
+    uses: ./.github/workflows/reusable-isdraft.yml
   check-getting-started:
     needs: isdraft
     strategy:

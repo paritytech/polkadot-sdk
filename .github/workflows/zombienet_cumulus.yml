@@ -20,7 +20,7 @@ env:
 # only run if we have changes in [subtrate, cumulus, polkadot] directories or this workflow.
 jobs:
   isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yaml
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml

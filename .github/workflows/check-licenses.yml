@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yaml
+    uses: ./.github/workflows/reusable-isdraft.yml
   check-licenses:
     runs-on: ubuntu-latest
     needs: isdraft

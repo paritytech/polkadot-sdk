@@ -17,7 +17,7 @@ env:
 
 jobs:
   isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yaml
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
