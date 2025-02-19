@@ -41,7 +41,7 @@ pub trait Config<I: 'static = ()>: crate::Config<I> {
 	fn prepare_rewards_account(
 		reward_kind: Self::Reward,
 		reward: Self::RewardBalance,
-	) -> Option<AlternativeBeneficiaryOf<Self, I>>;
+	) -> Option<BeneficiaryOf<Self, I>>;
 	/// Give enough balance to given account.
 	fn deposit_account(account: Self::AccountId, balance: Self::Balance);
 }
@@ -70,8 +70,7 @@ benchmarks_instance_pallet! {
 			relayer: relayer.clone(),
 			reward_kind,
 			reward_balance,
-			beneficiary: Some(relayer),
-			alternative_beneficiary: None,
+			beneficiary: relayer,
 		}.into());
 	}
 
@@ -94,8 +93,7 @@ benchmarks_instance_pallet! {
 			relayer,
 			reward_kind,
 			reward_balance,
-			beneficiary: None,
-			alternative_beneficiary: Some(alternative_beneficiary),
+			beneficiary: alternative_beneficiary,
 		}.into());
 	}
 

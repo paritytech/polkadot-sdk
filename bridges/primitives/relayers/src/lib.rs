@@ -31,7 +31,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen},
 	traits::AccountIdConversion,
-	Either, TypeId,
+	TypeId,
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
 
@@ -94,8 +94,8 @@ pub trait PaymentProcedure<Relayer, Reward, RewardBalance> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
 
-	/// Type parameter used to identify the alternative beneficiaries eligible to receive rewards.
-	type AlternativeBeneficiary: Clone + Debug + Decode + Encode + Eq + TypeInfo;
+	/// Type parameter used to identify the beneficiaries eligible to receive rewards.
+	type Beneficiary: Clone + Debug + Decode + Encode + Eq + TypeInfo;
 
 	/// Pay reward to the relayer (or alternative beneficiary if provided) from the account with
 	/// provided params.
@@ -103,19 +103,19 @@ pub trait PaymentProcedure<Relayer, Reward, RewardBalance> {
 		relayer: &Relayer,
 		reward: Reward,
 		reward_balance: RewardBalance,
-		beneficiary: Either<Relayer, Self::AlternativeBeneficiary>,
+		beneficiary: impl Into<Self::Beneficiary>,
 	) -> Result<(), Self::Error>;
 }
 
 impl<Relayer, Reward, RewardBalance> PaymentProcedure<Relayer, Reward, RewardBalance> for () {
 	type Error = &'static str;
-	type AlternativeBeneficiary = ();
+	type Beneficiary = ();
 
 	fn pay_reward(
 		_: &Relayer,
 		_: Reward,
 		_: RewardBalance,
-		_: Either<Relayer, Self::AlternativeBeneficiary>,
+		_: impl Into<Self::Beneficiary>,
 	) -> Result<(), Self::Error> {
 		Ok(())
 	}
@@ -148,23 +148,17 @@ where
 	LaneId: Decode + Encode,
 {
 	type Error = sp_runtime::DispatchError;
-	type AlternativeBeneficiary = Relayer;
+	type Beneficiary = Relayer;
 
 	fn pay_reward(
 		_: &Relayer,
 		reward_kind: RewardsAccountParams<LaneId>,
 		reward: RewardBalance,
-		beneficiary: Either<Relayer, Self::AlternativeBeneficiary>,
+		beneficiary: impl Into<Self::Beneficiary>,
 	) -> Result<(), Self::Error> {
-
-		let beneficiary = match beneficiary {
-			Either::Right(relayer) => relayer,
-			Either::Left(alternative) => alternative,
-		};
-
 		T::transfer(
 			&Self::rewards_account(reward_kind),
-			&beneficiary,
+			&beneficiary.into(),
 			reward.into(),
 			Preservation::Expendable,
 		)

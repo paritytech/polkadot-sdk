@@ -50,32 +50,41 @@ impl From<RewardsAccountParams<LegacyLaneId>> for BridgeReward {
 	}
 }
 
+/// An enum representing the different types of supported beneficiaries.
+#[derive(Clone, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+pub enum BridgeRewardBeneficiaries {
+	/// A local chain account.
+	LocalAccount(AccountId),
+	/// A beneficiary specified by a VersionedLocation.
+	Location(VersionedLocation),
+}
+
 /// Implementation of `bp_relayers::PaymentProcedure` as a pay/claim rewards scheme.
 pub struct BridgeRewardPayer;
 impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewardPayer {
 	type Error = sp_runtime::DispatchError;
-	type AlternativeBeneficiary = VersionedLocation;
+	type Beneficiary = BridgeRewardBeneficiaries;
 
 	fn pay_reward(
 		relayer: &AccountId,
 		reward_kind: BridgeReward,
 		reward: u128,
-		beneficiary: Either<AccountId, Self::AlternativeBeneficiary>,
+		beneficiary: &Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		match reward_kind {
 			BridgeReward::RococoWestend(lane_params) => {
 				match beneficiary {
-					Either::Left(r) => {
+					BridgeRewardBeneficiaries::LocalAccount(account) => {
 						bp_relayers::PayRewardFromAccount::<
 							Balances,
 							AccountId,
 							LegacyLaneId,
 							u128,
 						>::pay_reward(
-							&relayer, lane_params, reward, Either::Left(r),
+							&relayer, lane_params, reward, account,
 						)
 					},
-					Either::Right(_) => Err(Self::Error::Other("`Alternative beneficiary is not supported for `RococoWestend` rewards!")),
+					BridgeRewardBeneficiaries::Location(_) => Err(Self::Error::Other("`Location` beneficiary is not supported for `RococoWestend` rewards!")),
 				}
 			},
 			BridgeReward::Snowbridge =>
