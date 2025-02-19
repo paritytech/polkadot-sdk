@@ -35,6 +35,7 @@ pub mod pallet_collator_selection;
 pub mod pallet_conviction_voting;
 pub mod pallet_fast_unstake;
 pub mod pallet_message_queue;
+pub mod pallet_migrations;
 pub mod pallet_multisig;
 pub mod pallet_nft_fractionalization;
 pub mod pallet_nfts;

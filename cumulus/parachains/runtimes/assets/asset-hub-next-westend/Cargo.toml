@@ -43,6 +43,7 @@ pallet-conviction-voting = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-election-provider-multi-block = { workspace = true }
 pallet-fast-unstake = { workspace = true }
+pallet-migrations = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nft-fractionalization = { workspace = true }
 pallet-nfts = { workspace = true }
@@ -116,8 +117,8 @@ parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 # Bridges
-bp-asset-hub-next-westend = { workspace = true }
 bp-asset-hub-rococo = { workspace = true }
+bp-asset-hub-next-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
@@ -160,6 +161,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
@@ -220,6 +222,7 @@ try-runtime = [
 	"pallet-election-provider-multi-block/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
@@ -247,8 +250,8 @@ try-runtime = [
 ]
 std = [
 	"assets-common/std",
-	"bp-asset-hub-next-westend/std",
 	"bp-asset-hub-rococo/std",
+	"bp-asset-hub-next-westend/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
 	"codec/std",
@@ -288,6 +291,7 @@ std = [
 	"pallet-election-provider-multi-block/std",
 	"pallet-fast-unstake/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-multisig/std",
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",
