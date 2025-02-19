@@ -514,13 +514,13 @@ fn query_holding() {
 
 #[test]
 fn reserve_transfer_with_error() {
-	use sp_tracing::{tracing, tracing_subscriber};
+	use sp_tracing::{assert_logs_contain, capturing_logs, tracing, tracing_subscriber};
 
 	// Reset the test network
 	MockNet::reset();
 
 	// Execute XCM Transfer and Capture Logs
-	let log_capture = run_with_logging!({
+	let log_capture = capturing_logs!({
 		Relay::execute_with(|| {
 			let invalid_dest = Box::new(Parachain(9999).into());
 			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(

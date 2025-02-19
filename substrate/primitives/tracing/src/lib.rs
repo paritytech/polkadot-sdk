@@ -255,3 +255,6 @@ macro_rules! enter_span {
 		$crate::enter_span!($crate::span!($lvl, $name))
 	};
 }
+
+#[cfg(feature = "std")]
+pub mod log_capture_test;
