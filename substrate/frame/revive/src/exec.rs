@@ -1411,7 +1411,7 @@ where
 
 		let try_call = || {
 			if is_precompile(dest_addr) {
-				log::debug!(target: crate::LOG_TARGET, "Unsupported Precompile address {dest_addr:?}");
+				log::debug!(target: crate::LOG_TARGET, "Unsupported precompile address {dest_addr:?}");
 				return Err(Error::<T>::UnsupportedPrecompileAddress.into());
 			}
 
