@@ -67,7 +67,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
 			Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
-			testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
+			ROC * 1_000_000,
 			1000.into(),
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => coretime_rococo_genesis(
