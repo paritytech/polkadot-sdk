@@ -1,0 +1,12 @@
+title: add genesis presets for contracts rococo
+doc:
+- audience: Runtime Dev
+  description: |-
+    Extracted from #7473.
+
+    Part of: https://github.com/paritytech/polkadot-sdk/issues/5704.
+
+    The contracts-rococo-runtime is not used in the parachain bin. Hence, I did not do anything there. I used the default para-id 1000 for the presets, as there is actually no usage of the contracts-runtime except for tests in the benchmarks. Is this runtime even still used?
+crates:
+- name: contracts-rococo-runtime
+  bump: minor
