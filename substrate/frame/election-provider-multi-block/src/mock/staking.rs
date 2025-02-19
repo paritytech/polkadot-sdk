@@ -135,6 +135,12 @@ impl ElectionDataProvider for MockStaking {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
+	fn fetch_page(page: PageIndex) {
+		use frame_election_provider_support::ElectionProvider;
+		super::MultiBlock::elect(page).unwrap();
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
 	fn add_voter(
 		voter: AccountId,
 		weight: VoteWeight,

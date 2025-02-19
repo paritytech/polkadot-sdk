@@ -392,6 +392,9 @@ pub trait ElectionDataProvider {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn set_next_election(_to: u32) {}
 
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn fetch_page(_page: PageIndex) {}
+
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
 	/// else a noop.
 	///

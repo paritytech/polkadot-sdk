@@ -15,10 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, CurrentPhase, Pallet, Phase, Snapshot};
+use crate::{
+	verifier::{self, Verifier},
+	Config, CurrentPhase, Pallet, Phase, Snapshot,
+};
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::ElectionDataProvider;
 use frame_support::pallet_prelude::*;
+
 const SNAPSHOT_NOT_BIG_ENOUGH: &'static str = "Snapshot page is not full, you should run this \
 benchmark with enough genesis stakers in staking (DataProvider) to fill a page of voters/targets \
 as per VoterSnapshotPerBlock and TargetSnapshotPerBlock. Generate at least \
@@ -83,7 +87,10 @@ mod benchmarks {
 
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
 		// we have collected the target snapshot only
-		assert_eq!(Snapshot::<T>::targets_decode_len().unwrap() as u32, T::TargetSnapshotPerBlock::get());
+		assert_eq!(
+			Snapshot::<T>::targets_decode_len().unwrap() as u32,
+			T::TargetSnapshotPerBlock::get()
+		);
 		// and no voters yet.
 		assert_eq!(Snapshot::<T>::voters_decode_len(T::Pages::get() - 1), None);
 
@@ -153,6 +160,73 @@ mod benchmarks {
 		}
 
 		assert!(matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_)));
+		Ok(())
+	}
+
+	#[benchmark]
+	fn export_non_terminal() -> Result<(), BenchmarkError> {
+		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+
+		// submit a full solution.
+		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
+
+		// fully verify it in the signed validation phase.
+		assert!(T::Verifier::queued_score().is_none());
+		crate::Pallet::<T>::roll_until_matches(|| {
+			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
+		});
+
+		// full solution is queued.
+		assert!(T::Verifier::queued_score().is_some());
+		assert_eq!(verifier::QueuedSolution::<T>::valid_iter().count() as u32, T::Pages::get());
+
+		#[block]
+		{
+			// tell the data provider to do its election process for one page, while we are fully
+			// ready.
+			T::DataProvider::fetch_page(T::Pages::get() - 1)
+		}
+
+		// we should be in the export phase now.
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(T::Pages::get() - 1));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn export_terminal() -> Result<(), BenchmarkError> {
+		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+
+		// submit a full solution.
+		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
+
+		// fully verify it in the signed validation phase.
+		assert!(T::Verifier::queued_score().is_none());
+		crate::Pallet::<T>::roll_until_matches(|| {
+			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
+		});
+
+		// full solution is queued.
+		assert!(T::Verifier::queued_score().is_some());
+		assert_eq!(verifier::QueuedSolution::<T>::valid_iter().count() as u32, T::Pages::get());
+
+		// fetch all pages, except for the last one.
+		for i in 1..T::Pages::get() {
+			T::DataProvider::fetch_page(T::Pages::get() - i)
+		}
+
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(1));
+
+		#[block]
+		{
+			// tell the data provider to do its election process for one page, while we are fully
+			// ready.
+			T::DataProvider::fetch_page(0)
+		}
+
+		// we should be in the off phase now.
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
+
 		Ok(())
 	}
 
