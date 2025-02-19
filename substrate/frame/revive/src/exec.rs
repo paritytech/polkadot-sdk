@@ -1376,7 +1376,6 @@ where
 /// Determine if the given address is a precompile.
 /// For now, we consider that all addresses between 0x1 and 0xff are reserved for precompiles.
 fn is_precompile(address: &H160) -> bool {
-	log::debug!(target: crate::LOG_TARGET, "Checking if address is precompile: {:?}", address);
 	let bytes = address.as_bytes();
 	bytes.starts_with(&[0u8; 19]) && (1..=255).contains(&bytes[19])
 }
