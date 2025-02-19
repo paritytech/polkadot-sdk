@@ -131,13 +131,11 @@ function init_ro_wnd() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path init-bridge rococo-to-bridge-hub-westend \
-	--source-host localhost \
-	--source-port 9942 \
-	--source-version-mode Auto \
-	--target-host localhost \
-	--target-port 8945 \
-	--target-version-mode Auto \
-	--target-signer //Bob
+        --source-uri ws://localhost:9942 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8945  \
+        --target-version-mode Auto \
+        --target-signer //Bob
 }
 
 function init_wnd_ro() {
@@ -145,37 +143,11 @@ function init_wnd_ro() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path init-bridge westend-to-bridge-hub-rococo \
-        --source-host localhost \
-        --source-port 9945 \
+        --source-uri ws://localhost:9945  \
         --source-version-mode Auto \
-        --target-host localhost \
-        --target-port 8943 \
+        --target-uri ws://localhost:8943 \
         --target-version-mode Auto \
         --target-signer //Bob
-}
-
-function run_relay() {
-    local relayer_path=$(ensure_relayer)
-
-    RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-headers-and-messages bridge-hub-rococo-bridge-hub-westend \
-        --rococo-host localhost \
-        --rococo-port 9942 \
-        --rococo-version-mode Auto \
-        --bridge-hub-rococo-host localhost \
-        --bridge-hub-rococo-port 8943 \
-        --bridge-hub-rococo-version-mode Auto \
-        --bridge-hub-rococo-signer //Charlie \
-        --bridge-hub-rococo-transactions-mortality 4 \
-        --westend-host localhost \
-        --westend-port 9945 \
-        --westend-version-mode Auto \
-        --bridge-hub-westend-host localhost \
-        --bridge-hub-westend-port 8945 \
-        --bridge-hub-westend-version-mode Auto \
-        --bridge-hub-westend-signer //Charlie \
-        --bridge-hub-westend-transactions-mortality 4 \
-        --lane "${LANE_ID}"
 }
 
 function run_finality_relay() {

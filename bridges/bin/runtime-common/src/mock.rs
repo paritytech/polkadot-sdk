@@ -24,7 +24,7 @@ use bp_messages::{
 	ChainWithMessages, HashedLaneId, LaneIdType, MessageNonce,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
-use bp_relayers::PayRewardFromAccount;
+use bp_relayers::{PayRewardFromAccount, RewardsAccountParams};
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, Parachain};
 use codec::Encode;
 use frame_support::{
@@ -70,7 +70,8 @@ pub type BridgedChainHeader =
 	sp_runtime::generic::Header<BridgedChainBlockNumber, BridgedChainHasher>;
 
 /// Rewards payment procedure.
-pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType>;
+pub type TestPaymentProcedure =
+	PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType, RewardBalance>;
 /// Stake that we are using in tests.
 pub type TestStake = ConstU64<5_000>;
 /// Stake and slash mechanism to use in tests.
@@ -89,6 +90,8 @@ pub type TestLaneIdType = HashedLaneId;
 pub fn test_lane_id() -> TestLaneIdType {
 	TestLaneIdType::try_new(1, 2).unwrap()
 }
+/// Reward measurement type.
+pub type RewardBalance = u32;
 
 /// Bridged chain id used in tests.
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
@@ -197,7 +200,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 		TestRuntime,
 		(),
 		(),
-		ConstU64<100_000>,
+		ConstU32<100_000>,
 	>;
 	type OnMessagesDelivered = ();
 
@@ -210,11 +213,12 @@ impl pallet_bridge_messages::Config for TestRuntime {
 
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
-	type Reward = ThisChainBalance;
+	type RewardBalance = RewardBalance;
+	type Reward = RewardsAccountParams<pallet_bridge_messages::LaneIdOf<TestRuntime, ()>>;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
+	type Balance = ThisChainBalance;
 	type WeightInfo = ();
-	type LaneId = TestLaneIdType;
 }
 
 /// Dummy message dispatcher.

@@ -20,7 +20,8 @@
 use crate::{
 	DeprecationInfoIR, DeprecationStatusIR, OuterEnumsIR, PalletAssociatedTypeMetadataIR,
 	PalletCallMetadataIR, PalletConstantMetadataIR, PalletErrorMetadataIR, PalletEventMetadataIR,
-	PalletStorageMetadataIR, StorageEntryMetadataIR,
+	PalletStorageMetadataIR, PalletViewFunctionMethodMetadataIR,
+	PalletViewFunctionMethodParamMetadataIR, StorageEntryMetadataIR,
 };
 
 use super::types::{
@@ -31,9 +32,10 @@ use super::types::{
 use frame_metadata::v16::{
 	CustomMetadata, DeprecationInfo, DeprecationStatus, ExtrinsicMetadata, OuterEnums,
 	PalletAssociatedTypeMetadata, PalletCallMetadata, PalletConstantMetadata, PalletErrorMetadata,
-	PalletEventMetadata, PalletMetadata, PalletStorageMetadata, RuntimeApiMetadata,
-	RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata, RuntimeMetadataV16,
-	StorageEntryMetadata, TransactionExtensionMetadata,
+	PalletEventMetadata, PalletMetadata, PalletStorageMetadata, PalletViewFunctionMetadata,
+	PalletViewFunctionParamMetadata, RuntimeApiMetadata, RuntimeApiMethodMetadata,
+	RuntimeApiMethodParamMetadata, RuntimeMetadataV16, StorageEntryMetadata,
+	TransactionExtensionMetadata,
 };
 
 impl From<MetadataIR> for RuntimeMetadataV16 {
@@ -85,6 +87,7 @@ impl From<PalletMetadataIR> for PalletMetadata {
 			name: ir.name,
 			storage: ir.storage.map(Into::into),
 			calls: ir.calls.map(Into::into),
+			view_functions: ir.view_functions.into_iter().map(Into::into).collect(),
 			event: ir.event.map(Into::into),
 			constants: ir.constants.into_iter().map(Into::into).collect(),
 			error: ir.error.map(Into::into),
@@ -139,6 +142,25 @@ impl From<PalletEventMetadataIR> for PalletEventMetadata {
 impl From<PalletCallMetadataIR> for PalletCallMetadata {
 	fn from(ir: PalletCallMetadataIR) -> Self {
 		PalletCallMetadata { ty: ir.ty, deprecation_info: ir.deprecation_info.into() }
+	}
+}
+
+impl From<PalletViewFunctionMethodMetadataIR> for PalletViewFunctionMetadata {
+	fn from(ir: PalletViewFunctionMethodMetadataIR) -> Self {
+		PalletViewFunctionMetadata {
+			name: ir.name,
+			id: ir.id,
+			inputs: ir.inputs.into_iter().map(Into::into).collect(),
+			output: ir.output,
+			docs: ir.docs.into_iter().map(Into::into).collect(),
+			deprecation_info: ir.deprecation_info.into(),
+		}
+	}
+}
+
+impl From<PalletViewFunctionMethodParamMetadataIR> for PalletViewFunctionParamMetadata {
+	fn from(ir: PalletViewFunctionMethodParamMetadataIR) -> Self {
+		PalletViewFunctionParamMetadata { name: ir.name, ty: ir.ty }
 	}
 }
 

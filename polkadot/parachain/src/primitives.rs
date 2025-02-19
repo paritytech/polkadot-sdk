@@ -20,7 +20,7 @@
 use alloc::vec::Vec;
 
 use bounded_collections::{BoundedVec, ConstU32};
-use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::{bytes, RuntimeDebug, TypeId};
@@ -41,6 +41,7 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 	Ord,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	derive_more::From,
 	TypeInfo,
@@ -66,6 +67,7 @@ impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
 	Clone,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	derive_more::From,
 	TypeInfo,
@@ -88,7 +90,19 @@ impl ValidationCode {
 /// This type is produced by [`ValidationCode::hash`].
 ///
 /// This type makes it easy to enforce that a hash is a validation code hash on the type level.
-#[derive(Clone, Copy, Encode, Decode, Hash, Eq, PartialEq, PartialOrd, Ord, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Hash,
+	Eq,
+	PartialEq,
+	PartialOrd,
+	Ord,
+	TypeInfo,
+)]
 pub struct ValidationCodeHash(Hash);
 
 impl core::fmt::Display for ValidationCodeHash {
@@ -140,6 +154,7 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 	CompactAs,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,
@@ -298,7 +313,18 @@ impl IsSystem for Sibling {
 /// Only one channel is allowed between two participants in one direction, i.e. there cannot be 2
 /// different channels identified by `(A, B)`. A channel with the same para id in sender and
 /// recipient is invalid. That is, however, not enforced.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	Clone,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct HrmpChannelId {
 	/// The para that acts as the sender in this channel.
