@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,81 +26,60 @@ frame_support::parameter_types! {
 }
 
 pub struct DualMockWeightInfo;
-impl multi_block::weights::WeightInfo for DualMockWeightInfo {
+impl multi_block::WeightInfo for DualMockWeightInfo {
 	fn on_initialize_nothing() -> Weight {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_nothing()
+			<() as multi_block::WeightInfo>::on_initialize_nothing()
 		}
 	}
-	fn on_initialize_open_signed() -> Weight {
+
+	fn on_initialize_into_snapshot_msp() -> Weight {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_open_signed()
+			<() as multi_block::WeightInfo>::on_initialize_into_snapshot_msp()
 		}
 	}
-	fn on_initialize_open_unsigned_with_snapshot() -> Weight {
+
+	fn on_initialize_into_snapshot_rest() -> Weight {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_open_unsigned_with_snapshot()
+			<() as multi_block::WeightInfo>::on_initialize_into_snapshot_rest()
 		}
 	}
-	fn on_initialize_open_unsigned_without_snapshot() -> Weight {
+
+	fn on_initialize_into_signed() -> Weight {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::on_initialize_open_unsigned_without_snapshot()
+			<() as multi_block::WeightInfo>::on_initialize_into_signed()
 		}
 	}
-	fn finalize_signed_phase_accept_solution() -> Weight {
+
+	fn on_initialize_into_signed_validation() -> Weight {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::finalize_signed_phase_accept_solution()
+			<() as multi_block::WeightInfo>::on_initialize_into_signed_validation()
 		}
 	}
-	fn finalize_signed_phase_reject_solution() -> Weight {
+
+	fn on_initialize_into_unsigned() -> Weight {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::finalize_signed_phase_reject_solution()
+			<() as multi_block::WeightInfo>::on_initialize_into_unsigned()
 		}
 	}
-	fn submit(c: u32) -> Weight {
+
+	fn manage() -> Weight {
 		if MockWeightInfo::get() {
 			Zero::zero()
 		} else {
-			<() as multi_block::weights::WeightInfo>::submit(c)
-		}
-	}
-	fn elect_queued(v: u32, t: u32, a: u32, d: u32) -> Weight {
-		if MockWeightInfo::get() {
-			Zero::zero()
-		} else {
-			<() as multi_block::weights::WeightInfo>::elect_queued(v, t, a, d)
-		}
-	}
-	fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight {
-		if MockWeightInfo::get() {
-			// 10 base
-			// 5 per edge.
-			let ref_time = 10 + 5 * a;
-			Weight::from_parts(ref_time as u64, Default::default())
-		} else {
-			<() as multi_block::weights::WeightInfo>::submit_unsigned(v, t, a, d)
-		}
-	}
-	fn feasibility_check(v: u32, t: u32, a: u32, d: u32) -> Weight {
-		if MockWeightInfo::get() {
-			// 10 base
-			// 5 per edge.
-			let ref_time = 10 + 5 * a;
-			Weight::from_parts(ref_time as u64, Default::default())
-		} else {
-			<() as multi_block::weights::WeightInfo>::feasibility_check(v, t, a, d)
+			<() as multi_block::WeightInfo>::manage()
 		}
 	}
 }

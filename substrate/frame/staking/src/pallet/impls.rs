@@ -47,7 +47,7 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing, IdentityOf,
+	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing,
 	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf,
 	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
 	SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
@@ -243,13 +243,8 @@ impl<T: Config> Pallet<T> {
 		validator_stash: T::AccountId,
 		era: EraIndex,
 	) -> DispatchResultWithPostInfo {
-		let controller = Self::bonded(&validator_stash).ok_or_else(|| {
-			Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-		})?;
-
-		let ledger = Self::ledger(StakingAccount::Controller(controller))?;
-		let page = EraInfo::<T>::get_next_claimable_page(era, &validator_stash, &ledger)
-			.ok_or_else(|| {
+		let page =
+			EraInfo::<T>::get_next_claimable_page(era, &validator_stash).ok_or_else(|| {
 				Error::<T>::AlreadyClaimed
 					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 			})?;
@@ -305,12 +300,12 @@ impl<T: Config> Pallet<T> {
 
 		let stash = ledger.stash.clone();
 
-		if EraInfo::<T>::is_rewards_claimed_with_legacy_fallback(era, &ledger, &stash, page) {
+		if EraInfo::<T>::is_rewards_claimed(era, &stash, page) {
 			return Err(Error::<T>::AlreadyClaimed
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
-		} else {
-			EraInfo::<T>::set_rewards_as_claimed(era, &stash, page);
 		}
+
+		EraInfo::<T>::set_rewards_as_claimed(era, &stash, page);
 
 		let exposure = EraInfo::<T>::get_paged_exposure(era, &stash, page).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
@@ -361,7 +356,7 @@ impl<T: Config> Pallet<T> {
 			era_index: era,
 			validator_stash: stash.clone(),
 			page,
-			next: EraInfo::<T>::get_next_claimable_page(era, &stash, &ledger),
+			next: EraInfo::<T>::get_next_claimable_page(era, &stash),
 		});
 
 		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
@@ -620,6 +615,21 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Helper function provided to other pallets that want to rely on pallet-stkaing for
+	/// testing/benchmarking, and wish to populate `ElectableStashes`, such that a next call (post
+	/// genesis) to `try_plan_new_era` works.
+	///
+	/// This uses `GenesisElectionProvider` which should always be set to something reasonable and
+	/// instant.
+	pub fn populate_staking_election_testing_benchmarking_only() -> Result<(), &'static str> {
+		let supports = <T::GenesisElectionProvider>::elect(Zero::zero()).map_err(|e| {
+			log!(warn, "genesis election provider failed due to {:?}", e);
+			"election failed"
+		})?;
+		Self::do_elect_paged_inner(supports).map_err(|_| "do_elect_paged_inner")?;
+		Ok(())
+	}
+
 	/// Potentially plan a new era.
 	///
 	/// The election results are either fetched directly from an election provider if it is the
@@ -669,7 +679,9 @@ impl<T: Config> Pallet<T> {
 
 		log!(
 			info,
-			"electable validators count for era {:?}: {:?}",
+			"(is_genesis?: {:?}) electable validators count for session starting {:?}, era {:?}: {:?}",
+			is_genesis,
+			start_session_index,
 			CurrentEra::<T>::get().unwrap_or_default() + 1,
 			validators.len()
 		);
@@ -952,11 +964,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn clear_era_information(era_index: EraIndex) {
 		// FIXME: We can possibly set a reasonable limit since we do this only once per era and
 		// clean up state across multiple blocks.
-		let mut cursor = <ErasStakers<T>>::clear_prefix(era_index, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasStakersClipped<T>>::clear_prefix(era_index, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasValidatorPrefs<T>>::clear_prefix(era_index, u32::MAX, None);
+		let mut cursor = <ErasValidatorPrefs<T>>::clear_prefix(era_index, u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
 		cursor = <ClaimedRewards<T>>::clear_prefix(era_index, u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
@@ -1150,6 +1158,8 @@ impl<T: Config> Pallet<T> {
 		// all_voters should have not re-allocated.
 		debug_assert!(all_voters.capacity() == page_len_prediction as usize);
 
+		// TODO remove this and further instances of this, it will now be recorded in the EPM-MB
+		// pallet.
 		Self::register_weight(T::WeightInfo::get_npos_voters(validators_taken, nominators_taken));
 
 		let min_active_stake: T::CurrencyBalance =
@@ -1312,9 +1322,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns full exposure of a validator for a given era.
 	///
-	/// History note: This used to be a getter for old storage item `ErasStakers` deprecated in v14.
-	/// Since this function is used in the codebase at various places, we kept it as a custom getter
-	/// that takes care of getting the full exposure of the validator in a backward compatible way.
+	/// History note: This used to be a getter for old storage item `ErasStakers` deprecated in v14
+	/// and deleted in v17. Since this function is used in the codebase at various places, we kept
+	/// it as a custom getter that takes care of getting the full exposure of the validator in a
+	/// backward compatible way.
 	pub fn eras_stakers(
 		era: EraIndex,
 		account: &T::AccountId,
@@ -1422,6 +1433,13 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+// TODO: this is a very bad design. A hack for now so we can do benchmarks. Once
+// `next_election_prediction` is reworked based on rc-client, get rid of it. For now, just know that
+// the only fn that can set this is only accessible in runtime benchmarks.
+frame_support::parameter_types! {
+	pub storage BenchmarkNextElection: Option<u32> = None;
+}
+
 impl<T: Config> ElectionDataProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
@@ -1461,9 +1479,14 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 		log!(
 			info,
-			"[page {}, status {:?}, bounds {:?}] generated {} npos voters",
+			"[page {}, status {:?} (stake?: {:?}), bounds {:?}] generated {} npos voters",
 			page,
 			VoterSnapshotStatus::<T>::get(),
+			if let SnapshotStatus::Ongoing(x) = VoterSnapshotStatus::<T>::get() {
+				Self::weight_of(&x)
+			} else {
+				Zero::zero()
+			},
 			bounds,
 			voters.len(),
 		);
@@ -1509,6 +1532,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	}
 
 	fn next_election_prediction(now: BlockNumberFor<T>) -> BlockNumberFor<T> {
+		if let Some(override_value) = BenchmarkNextElection::get() {
+			return override_value.into()
+		}
+
 		let current_era = CurrentEra::<T>::get().unwrap_or(0);
 		let current_session = CurrentPlannedSession::<T>::get();
 		let current_era_start_session_index =
@@ -1553,6 +1580,14 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		now.saturating_add(
 			until_this_session_end.saturating_add(sessions_left.saturating_mul(session_length)),
 		)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_next_election(to: u32) {
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			BenchmarkNextElection::key().to_vec().into(),
+		);
+		BenchmarkNextElection::set(&Some(to));
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2215,13 +2250,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {
-		// look in the non paged exposures
-		// FIXME: Can be cleaned up once non paged exposures are cleared (https://github.com/paritytech/polkadot-sdk/issues/433)
-		ErasStakers::<T>::iter_prefix(era).any(|(validator, exposures)| {
-			validator == *who || exposures.others.iter().any(|i| i.who == *who)
-		})
-			||
-		// look in the paged exposures
 		ErasStakersPaged::<T>::iter_prefix((era,)).any(|((validator, _), exposure_page)| {
 			validator == *who || exposure_page.others.iter().any(|i| i.who == *who)
 		})
@@ -2349,7 +2377,6 @@ impl<T: Config> Pallet<T> {
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
 		Self::check_nominators()?;
-		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
 		Self::ensure_disabled_validators_sorted()
@@ -2539,27 +2566,6 @@ impl<T: Config> Pallet<T> {
 			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(())
-	}
-
-	/// Invariants:
-	/// * For each era exposed validator, check if the exposure total is sane (exposure.total  =
-	/// exposure.own + exposure.own).
-	fn check_exposures() -> Result<(), TryRuntimeError> {
-		let era = ActiveEra::<T>::get().unwrap().index;
-		ErasStakers::<T>::iter_prefix_values(era)
-			.map(|expo| {
-				ensure!(
-					expo.total ==
-						expo.own +
-							expo.others
-								.iter()
-								.map(|e| e.value)
-								.fold(Zero::zero(), |acc, x| acc + x),
-					"wrong total exposure.",
-				);
-				Ok(())
-			})
-			.collect::<Result<(), TryRuntimeError>>()
 	}
 
 	/// Invariants:

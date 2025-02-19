@@ -241,23 +241,18 @@ pub trait RuntimeApiSubsystemClient {
 	/***** Added in v3 **** */
 
 	/// Returns all onchain disputes.
-	/// This is a staging method! Do not use on production runtimes!
 	async fn disputes(
 		&self,
 		at: Hash,
 	) -> Result<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>, ApiError>;
 
 	/// Returns a list of validators that lost a past session dispute and need to be slashed.
-	///
-	/// WARNING: This is a staging method! Do not use on production runtimes!
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
 	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
 
 	/// Returns a merkle proof of a validator session key in a past session.
-	///
-	/// WARNING: This is a staging method! Do not use on production runtimes!
 	async fn key_ownership_proof(
 		&self,
 		at: Hash,
@@ -266,8 +261,6 @@ pub trait RuntimeApiSubsystemClient {
 
 	/// Submits an unsigned extrinsic to slash validators who lost a dispute about
 	/// a candidate of a past session.
-	///
-	/// WARNING: This is a staging method! Do not use on production runtimes!
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
@@ -356,6 +349,10 @@ pub trait RuntimeApiSubsystemClient {
 		at: Hash,
 		para_id: Id,
 	) -> Result<Option<Constraints>, ApiError>;
+
+	// === v12 ===
+	/// Fetch the scheduling lookahead value
+	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -641,6 +638,10 @@ where
 	) -> Result<Option<Constraints>, ApiError> {
 		self.client.runtime_api().backing_constraints(at, para_id)
 	}
+
+	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError> {
+		self.client.runtime_api().scheduling_lookahead(at)
+	}
 }
 
 impl<Client, Block> HeaderBackend<Block> for DefaultSubsystemClient<Client>
@@ -666,8 +667,7 @@ where
 	fn number(
 		&self,
 		hash: Block::Hash,
-	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>>
-	{
+	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
 		self.client.number(hash)
 	}
 

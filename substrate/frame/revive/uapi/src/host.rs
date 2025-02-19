@@ -397,6 +397,13 @@ pub trait HostFn: private::Sealed {
 	/// Returns the amount of ref_time left.
 	fn ref_time_left() -> u64;
 
+	/// Stores the current block author of into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the block author.
+	fn block_author(output: &mut [u8; 20]);
+
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
 	/// # Parameters
@@ -614,18 +621,6 @@ pub trait HostFn: private::Sealed {
 	#[unstable_hostfn]
 	fn is_contract(address: &[u8; 20]) -> bool;
 
-	/// Lock a new delegate dependency to the contract.
-	///
-	/// Traps if the maximum number of delegate_dependencies is reached or if
-	/// the delegate dependency already exists.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
-	///   otherwise.
-	#[unstable_hostfn]
-	fn lock_delegate_dependency(code_hash: &[u8; 32]);
-
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	///
 	/// # Parameters
@@ -715,17 +710,6 @@ pub trait HostFn: private::Sealed {
 	/// - The deletion queue is full.
 	#[unstable_hostfn]
 	fn terminate(beneficiary: &[u8; 20]) -> !;
-
-	/// Removes the delegate dependency from the contract.
-	///
-	/// Traps if the delegate dependency does not exist.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
-	///   otherwise.
-	#[unstable_hostfn]
-	fn unlock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Stores the amount of weight left into the supplied buffer.
 	/// The data is encoded as Weight.

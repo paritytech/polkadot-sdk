@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +35,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet::*;
 use sp_npos_elections::{evaluate_support, ElectionScore, EvaluateSupport};
-use sp_runtime::{Perbill, RuntimeDebug};
+use sp_runtime::Perbill;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::BoundedSupports<
@@ -44,9 +44,12 @@ pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::Bounded
 	<V as Verifier>::MaxBackersPerWinner,
 >;
 
+pub(crate) type VerifierWeightsOf<T> = <T as Config>::WeightInfo;
+
 /// The status of this pallet.
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, RuntimeDebug)]
-#[cfg_attr(any(test, debug_assertions), derive(PartialEq, Eq))]
+#[derive(
+	Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, Debug, PartialEq, Eq,
+)]
 pub enum Status {
 	/// A verification is ongoing, and the next page that will be verified is indicated with the
 	/// inner value.
@@ -111,7 +114,8 @@ pub(crate) mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
-			+ TryInto<Event<Self>>;
+			+ TryInto<Event<Self>>
+			+ Clone;
 
 		/// The minimum amount of improvement to the solution score that defines a solution as
 		/// "better".
@@ -121,7 +125,6 @@ pub(crate) mod pallet {
 		/// Maximum number of backers, per winner, among all pages of an election.
 		///
 		/// This can only be checked at the very final step of verification.
-		// TODO: integrity check for the relation of these bounds.
 		type MaxBackersPerWinnerFinal: Get<u32>;
 
 		/// Maximum number of backers, per winner, per page.
@@ -139,7 +142,7 @@ pub(crate) mod pallet {
 		>;
 
 		/// The weight information of this pallet.
-		type WeightInfo;
+		type WeightInfo: super::WeightInfo;
 	}
 
 	#[pallet::event]
@@ -159,37 +162,42 @@ pub(crate) mod pallet {
 		Queued(ElectionScore, Option<ElectionScore>),
 	}
 
+	// TODO this has to be entirely re-done to take into account that for lazy deletions. We store
+	// the queued solutions per round and account id. if a solution is invalid, we just mark it as
+	// garbage and delete it later.
+	// we keep a pointer to (round, who) which stores the current best solution.
+
 	/// A wrapper interface for the storage items related to the queued solution.
 	///
 	/// It wraps the following:
 	///
-	/// - [`QueuedSolutionX`].
-	/// - [`QueuedSolutionY`].
-	/// - [`QueuedValidVariant`].
-	/// - [`QueuedSolutionScore`].
-	/// - [`QueuedSolutionBackings`].
+	/// - `QueuedSolutionX`
+	/// - `QueuedSolutionY`
+	/// - `QueuedValidVariant`
+	/// - `QueuedSolutionScore`
+	/// - `QueuedSolutionBackings`
 	///
-	/// As the name suggests, [`QueuedValidVariant`] points to the correct variant between
-	/// [`QueuedSolutionX`] and [`QueuedSolutionY`]. In the context of this pallet, by VALID and
+	/// As the name suggests, `QueuedValidVariant` points to the correct variant between
+	/// `QueuedSolutionX` and `QueuedSolutionY`. In the context of this pallet, by VALID and
 	/// INVALID variant we mean either of these two storage items, based on the value of
-	/// [`QueuedValidVariant`].
+	/// `QueuedValidVariant`.
 	///
 	/// ### Invariants
 	///
 	/// The following conditions must be met at all times for this group of storage items to be
 	/// sane.
 	///
-	/// - [`QueuedSolutionScore`] must always be correct. In other words, it should correctly be the
-	///   score of [`QueuedValidVariant`].
-	/// - [`QueuedSolutionScore`] must always be [`Config::SolutionImprovementThreshold`] better
-	///   than [`MinimumScore`].
-	/// - The number of existing keys in [`QueuedSolutionBackings`] must always match that of the
+	/// - `QueuedSolutionScore` must always be correct. In other words, it should correctly be the
+	///   score of `QueuedValidVariant`.
+	/// - `QueuedSolutionScore` must always be [`Config::SolutionImprovementThreshold`] better than
+	///   `MinimumScore`.
+	/// - The number of existing keys in `QueuedSolutionBackings` must always match that of the
 	///   INVALID variant.
 	///
 	/// Moreover, the following conditions must be met when this pallet is in [`Status::Nothing`],
 	/// meaning that no ongoing asynchronous verification is ongoing.
 	///
-	/// - No keys should exist in the INVALID variant variant.
+	/// - No keys should exist in the INVALID variant.
 	/// 	- This implies that no data should exist in `QueuedSolutionBackings`.
 	///
 	/// > Note that some keys *might* exist in the queued variant, but since partial solutions
@@ -247,8 +255,6 @@ pub(crate) mod pallet {
 		/// storage item group.
 		pub(crate) fn clear_invalid_and_backings_unchecked() {
 			// clear is safe as we delete at most `Pages` entries, and `Pages` is bounded.
-			// TODO: safe wrapper around this that clears exactly pages keys, and ensures none is
-			// left.
 			match Self::invalid() {
 				ValidSolution::X => clear_paged_map!(QueuedSolutionX::<T>),
 				ValidSolution::Y => clear_paged_map!(QueuedSolutionY::<T>),
@@ -345,7 +351,7 @@ pub(crate) mod pallet {
 
 			let mut total_supports: BTreeMap<T::AccountId, PartialBackings> = Default::default();
 			for (who, PartialBackings { backers, total }) in
-				QueuedSolutionBackings::<T>::iter().map(|(_, pb)| pb).flatten()
+				QueuedSolutionBackings::<T>::iter().flat_map(|(_, pb)| pb)
 			{
 				let entry = total_supports.entry(who).or_default();
 				entry.total = entry.total.saturating_add(total);
@@ -357,7 +363,7 @@ pub(crate) mod pallet {
 			}
 
 			let winner_count = total_supports.len() as u32;
-			let score = evaluate_support(total_supports.into_iter().map(|(_who, pb)| pb));
+			let score = evaluate_support(total_supports.into_values());
 
 			Ok((score, winner_count))
 		}
@@ -386,7 +392,8 @@ pub(crate) mod pallet {
 		}
 	}
 
-	#[cfg(any(test, debug_assertions))]
+	#[allow(unused)]
+	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime", debug_assertions))]
 	impl<T: Config> QueuedSolution<T> {
 		pub(crate) fn valid_iter(
 		) -> impl Iterator<Item = (PageIndex, SupportsOfVerifier<Pallet<T>>)> {
@@ -425,7 +432,7 @@ pub(crate) mod pallet {
 		}
 
 		/// Ensure this storage item group is in correct state.
-		pub(crate) fn sanity_check() -> Result<(), &'static str> {
+		pub(crate) fn sanity_check() -> Result<(), sp_runtime::DispatchError> {
 			// score is correct and better than min-score.
 			ensure!(
 				Pallet::<T>::minimum_score()
@@ -437,13 +444,13 @@ pub(crate) mod pallet {
 
 			if let Some(queued_score) = Self::queued_score() {
 				let mut backing_map: BTreeMap<T::AccountId, PartialBackings> = BTreeMap::new();
-				Self::valid_iter().map(|(_, supports)| supports).flatten().for_each(
-					|(who, support)| {
+				Self::valid_iter()
+					.flat_map(|(_, supports)| supports)
+					.for_each(|(who, support)| {
 						let entry = backing_map.entry(who).or_default();
 						entry.total = entry.total.saturating_add(support.total);
-					},
-				);
-				let real_score = evaluate_support(backing_map.into_iter().map(|(_who, pb)| pb));
+					});
+				let real_score = evaluate_support(backing_map.into_values());
 				ensure!(real_score == queued_score, "queued solution has wrong score");
 			}
 
@@ -536,6 +543,11 @@ pub(crate) mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			Self::do_on_initialize()
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(_now)
+		}
 	}
 }
 
@@ -545,7 +557,7 @@ impl<T: Config> Pallet<T> {
 			let maybe_page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
 
-			if maybe_page_solution.is_none() {
+			if maybe_page_solution.as_ref().is_none() {
 				// the data provider has zilch, revert to a clean state, waiting for a new `start`.
 				sublog!(
 					error,
@@ -582,6 +594,7 @@ impl<T: Config> Pallet<T> {
 					if current_page > crate::Pallet::<T>::lsp() {
 						// not last page, just tick forward.
 						StatusStorage::<T>::put(Status::Ongoing(current_page.saturating_sub(1)));
+						VerifierWeightsOf::<T>::on_initialize_valid_non_terminal()
 					} else {
 						// last page, finalize everything. Solution data provider must always have a
 						// score for us at this point. Not much point in reporting a result, we just
@@ -606,6 +619,7 @@ impl<T: Config> Pallet<T> {
 								QueuedSolution::<T>::clear_invalid_and_backings();
 							},
 						}
+						VerifierWeightsOf::<T>::on_initialize_valid_terminal()
 					}
 				},
 				Err(err) => {
@@ -613,13 +627,15 @@ impl<T: Config> Pallet<T> {
 					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
 					StatusStorage::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
-					T::SolutionDataProvider::report_result(VerificationResult::Rejected)
+					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+					// TODO: use lower weight if non-terminal.
+					VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
 				},
 			}
+		} else {
+			// TODO: weight for when nothing happens
+			Default::default()
 		}
-
-		// TODO: weight
-		Default::default()
 	}
 
 	fn do_verify_synchronous(
@@ -737,8 +753,8 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	#[cfg(debug_assertions)]
-	pub(crate) fn sanity_check() -> Result<(), &'static str> {
+	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 		QueuedSolution::<T>::sanity_check()
 	}
 }
@@ -872,13 +888,6 @@ impl<T: Config> Verifier for Pallet<T> {
 				Err(fe)
 			},
 		}
-	}
-
-	fn feasibility_check_page(
-		partial_solution: Self::Solution,
-		page: PageIndex,
-	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
-		Self::feasibility_check_page_inner(partial_solution, page)
 	}
 
 	fn force_set_single_page_valid(

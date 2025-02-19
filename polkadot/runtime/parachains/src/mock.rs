@@ -368,6 +368,9 @@ impl pallet_message_queue::WeightInfo for TestMessageQueueWeight {
 	fn service_page_item() -> Weight {
 		Weight::zero()
 	}
+	fn set_service_head() -> Weight {
+		Weight::zero()
+	}
 	fn bump_service_head() -> Weight {
 		Weight::zero()
 	}
@@ -434,7 +437,6 @@ impl Get<InteriorLocation> for BrokerPot {
 impl coretime::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Test>;
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;

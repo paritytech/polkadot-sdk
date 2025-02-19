@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,9 +15,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The unsigned phase, and its miner.
+//! ## The unsigned phase, and its miner.
 //!
-//! TODO: the following is the idea of how to implement multi-page unsigned, which we don't have.
+//! This pallet deals with unsigned submissions. These are backup, single page submissions from
+//! validators.
+//!
+//! This pallet has two miners:
+//!
+//! * [`unsigned::miner::BaseMiner`], which is the basis of how the mining works. It can be used by
+//!   a separate crate by providing an implementation of [`unsigned::miner::MinerConfig`]. And, it
+//!   is used in:
+//! * `Miner::OffchainWorkerMiner`, which is a specialized miner for the single page mining by
+//!   validators in the `offchain_worker` hook.
+//!
+//! ## Future Idea: Multi-Page unsigned submission
+//!
+//! the following is the idea of how to implement multi-page unsigned, which we don't have.
 //!
 //! ## Multi-block unsigned submission
 //!
@@ -56,9 +69,10 @@
 //! A future improvement should keep track of submitters, and report a slash if it occurs. Or, if
 //! the signed process is bullet-proof, we can be okay with the status quo.
 
+/// Export weights
+pub use crate::weights::measured::pallet_election_provider_multi_block_unsigned::*;
 /// Exports of this pallet
 pub use pallet::*;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -67,6 +81,7 @@ pub mod miner;
 
 #[frame_support::pallet]
 mod pallet {
+	use super::WeightInfo;
 	use crate::{
 		types::*,
 		unsigned::miner::{self},
@@ -85,15 +100,7 @@ mod pallet {
 		InvalidTransaction::Custom(index)
 	}
 
-	pub trait WeightInfo {
-		fn submit_unsigned(v: u32, t: u32, a: u32, d: u32) -> Weight;
-	}
-
-	impl WeightInfo for () {
-		fn submit_unsigned(_v: u32, _t: u32, _a: u32, _d: u32) -> Weight {
-			Default::default()
-		}
-	}
+	pub(crate) type UnsignedWeightsOf<T> = <T as Config>::WeightInfo;
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -112,6 +119,7 @@ mod pallet {
 		/// The priority of the unsigned transaction submitted in the unsigned-phase
 		type MinerTxPriority: Get<TransactionPriority>;
 
+		/// Runtime weight information of this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
@@ -128,7 +136,7 @@ mod pallet {
 		///
 		/// This is different from signed page submission mainly in that the solution page is
 		/// verified on the fly.
-		#[pallet::weight((0, DispatchClass::Operational))]
+		#[pallet::weight((UnsignedWeightsOf::<T>::submit_unsigned(), DispatchClass::Operational))]
 		#[pallet::call_index(0)]
 		pub fn submit_unsigned(
 			origin: OriginFor<T>,
@@ -147,11 +155,14 @@ mod pallet {
 				.solution_pages
 				.into_inner()
 				.pop()
-				.expect("length of `solution_pages` is always `T::Pages`, `T::Pages` is always greater than 1, can be popped; qed.");
+				.expect("length of `solution_pages` is always `1`, can be popped; qed.");
 			let claimed_score = paged_solution.score;
+			// `verify_synchronous` will internall queue and save the solution, we don't need to do
+			// it.
 			let _supports = <T::Verifier as Verifier>::verify_synchronous(
 				only_page,
 				claimed_score,
+				// must be valid against the msp
 				crate::Pallet::<T>::msp(),
 			)
 			.expect(error_message);
@@ -222,8 +233,15 @@ mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			// TODO: weight of a single page verification should be well below what we desire to
-			// have.
+			assert!(
+				UnsignedWeightsOf::<T>::submit_unsigned().all_lte(T::BlockWeights::get().max_block),
+				"weight of `submit_unsigned` is too high"
+			)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(now)
 		}
 
 		fn offchain_worker(now: BlockNumberFor<T>) {
@@ -326,9 +344,10 @@ mod pallet {
 			Ok(())
 		}
 
-		#[cfg(test)]
-		pub(crate) fn sanity_check() -> Result<(), &'static str> {
-			// TODO
+		#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+		pub(crate) fn do_try_state(
+			_now: BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
 			Ok(())
 		}
 	}

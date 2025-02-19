@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,10 +20,10 @@
 //! ### *Feasibility* Check
 //!
 //! Before explaining the pallet itself, it should be explained what a *verification* even means.
-//! Verification of a solution page ([`crate::Config::Solution`]) includes the process of checking
-//! all of its edges against a snapshot to be correct. For instance, all voters that are presented
-//! in a solution page must have actually voted for the winner that they are backing, based on the
-//! snapshot kept in the parent pallet.
+//! Verification of a solution page ([`crate::unsigned::miner::MinerConfig::Solution`]) includes the
+//! process of checking all of its edges against a snapshot to be correct. For instance, all voters
+//! that are presented in a solution page must have actually voted for the winner that they are
+//! backing, based on the snapshot kept in the parent pallet.
 //!
 //! After checking all of the edges, a handful of other checks are performed:
 //!
@@ -32,14 +32,14 @@
 //!   3. and more than the minimum score that can be specified via [`Verifier::set_minimum_score`].
 //! 4. Check that all of the bounds of the solution are respected, namely
 //!    [`Verifier::MaxBackersPerWinner`], [`Verifier::MaxWinnersPerPage`] and
-//!    [`Config::MaxBackersPerWinnerFinal`].
+//!    [`Verifier::MaxBackersPerWinnerFinal`].
 //!
 //! Note that the common factor of all of these checks is that they can ONLY be checked after all
 //! pages are already verified. So, In the case of a multi-page verification, these checks are
 //! performed at the last page.
 //!
 //! The errors that can arise while performing the feasibility check are encapsulated in
-//! [`FeasibilityError`].
+//! [`verifier::FeasibilityError`].
 //!
 //! ## Modes of Verification
 //!
@@ -53,21 +53,13 @@
 //!
 //! Both of this, plus some helper functions, is exposed via the [`Verifier`] trait.
 //!
-//! ### Synchronous verification
-//!
-//! ### Asynchronous verification
-//!
 //! ## Queued Solution
 //!
-//! once a solution has been verified, it is called a *queued solution*. It is sitting in a single
-//! spot queue, waiting for either of:
+//! once a solution has been verified, it is called a *queued solution*. It is sitting in a queue,
+//! waiting for either of:
 //!
 //! 1. being challenged and potentially replaced by better solution, if any.
 //! 2. being exported as the final outcome of the election.
-//!
-//! ## Future Plans:
-//!
-//! - TODO: allow less winners, and backport it.
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -81,8 +73,9 @@ use impls::SupportsOfVerifier;
 pub use impls::{feasibility_check_page_inner_with_snapshot, pallet::*, Status};
 use sp_core::Get;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*};
+
+pub use crate::weights::measured::pallet_election_provider_multi_block_verifier::*;
 
 /// Errors that can happen in the feasibility check.
 #[derive(Debug, Eq, PartialEq, codec::Encode, codec::Decode, scale_info::TypeInfo, Clone)]
@@ -112,7 +105,6 @@ pub enum FeasibilityError {
 	/// `MaxBackersPerWinnerFinal`
 	FailedToBoundSupport,
 	/// Internal error from the election crate.
-	#[codec(skip)]
 	NposElection(sp_npos_elections::Error),
 	/// The solution is incomplete, it has too few pages.
 	///
@@ -184,19 +176,10 @@ pub trait Verifier {
 		page: PageIndex,
 	) -> Result<SupportsOfVerifier<Self>, FeasibilityError>;
 
-	/// Just perform a single-page feasibility-check, based on the standards of this pallet, without
-	/// writing anything to anywhere.
-	///
-	/// No score check is part of this.
-	fn feasibility_check_page(
-		partial_solution: Self::Solution,
-		page: PageIndex,
-	) -> Result<SupportsOfVerifier<Self>, FeasibilityError>;
-
 	/// Force set a single page solution as the valid one.
 	///
-	/// Will erase any previous solution. Should only be used in case of emergency fallbacks and
-	/// similar.
+	/// Will erase any previous solution. Should only be used in case of emergency fallbacks,
+	/// trusted governance solutions and so on.
 	fn force_set_single_page_valid(
 		partial_supports: SupportsOfVerifier<Self>,
 		page: PageIndex,
@@ -205,7 +188,7 @@ pub trait Verifier {
 }
 
 /// Simple enum to encapsulate the result of the verification of a candidate solution.
-#[derive(Clone, Copy, RuntimeDebug)]
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum VerificationResult {
 	/// Solution is valid and is queued.
@@ -233,7 +216,7 @@ pub trait SolutionDataProvider {
 	fn get_score() -> Option<ElectionScore>;
 
 	/// Hook to report back the results of the verification of the current candidate solution that
-	/// is being exposed via [`get_page`] and [`get_score`].
+	/// is being exposed via [`Self::get_page`] and [`Self::get_score`].
 	///
 	/// Every time that this is called, the verifier [`AsynchronousVerifier`] goes back to the
 	/// [`Status::Nothing`] state, and it is the responsibility of [`Self`] to call `start` again,
@@ -257,7 +240,7 @@ pub trait AsynchronousVerifier: Verifier {
 	///
 	/// From the coming block onwards, the verifier will start and fetch the relevant information
 	/// and solution pages from [`SolutionDataProvider`]. It is expected that the
-	/// [`SolutionDataProvider`] is ready before calling [`start`].
+	/// [`SolutionDataProvider`] is ready before calling [`Self::start`].
 	///
 	/// Pages of the solution are fetched sequentially and in order from [`SolutionDataProvider`],
 	/// from `msp` to `lsp`.

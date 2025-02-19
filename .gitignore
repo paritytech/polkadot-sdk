@@ -41,4 +41,4 @@ substrate.code-workspace
 target/
 *.scale
 justfile
-chain_spec.json
+rustc-ice-*
