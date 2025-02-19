@@ -2104,11 +2104,9 @@ pub mod env {
 			RuntimeCosts::CallXcmExecute,
 			|runtime| {
 				let origin = crate::RawOrigin::Signed(runtime.ext.account_id().clone()).into();
-				let weight_used = <<E::T as Config>::Xcm>::execute(
-					origin,
-					Box::new(message),
-					weight.saturating_sub(execute_weight),
-				)?;
+				log::debug!(target: LOG_TARGET, "revive::xcm_execute() -> pallet_xcm::execute(origin: {:?})", origin);
+				let weight_used =
+					<<E::T as Config>::Xcm>::execute(origin, Box::new(message), weight)?;
 
 				Ok(Some(weight_used.saturating_add(execute_weight)).into())
 			},

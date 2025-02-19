@@ -512,6 +512,7 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type RuntimeOrigin: Into<Result<RawOrigin<Self::AccountId>, Self::RuntimeOrigin>>
 			+ From<RawOrigin<Self::AccountId>>
+			+ Debug
 			+ Clone
 			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>;
 

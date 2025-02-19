@@ -37,7 +37,7 @@ impl ChargedAmount {
 }
 
 /// Meter for syncing the gas between the executor and the gas meter.
-#[derive(DefaultNoBound)]
+#[derive(DefaultNoBound, frame_support::DebugNoBound)]
 struct EngineMeter<T: Config> {
 	fuel: u64,
 	_phantom: PhantomData<T>,
@@ -139,7 +139,7 @@ pub struct ErasedToken {
 	pub token: Box<dyn Any>,
 }
 
-#[derive(DefaultNoBound)]
+#[derive(DefaultNoBound, frame_support::DebugNoBound)]
 pub struct GasMeter<T: Config> {
 	gas_limit: Weight,
 	/// Amount of gas left from initial gas limit. Can reach zero.
@@ -214,6 +214,7 @@ impl<T: Config> GasMeter<T> {
 		let amount = token.weight();
 		// It is OK to not charge anything on failure because we always charge _before_ we perform
 		// any action
+		log::debug!(target: "runtime::revive", "pallet_revive: gas_left: {}, charge(gas amount: {})", self.gas_left, amount);
 		self.gas_left = self.gas_left.checked_sub(&amount).ok_or_else(|| Error::<T>::OutOfGas)?;
 		Ok(ChargedAmount(amount))
 	}
@@ -239,10 +240,13 @@ impl<T: Config> GasMeter<T> {
 		&mut self,
 		engine_fuel: polkavm::Gas,
 	) -> Result<RefTimeLeft, DispatchError> {
+		log::debug!(target: "runtime::revive", "sync_from_executor(): set_fuel(engine_fuel: {})", engine_fuel);
 		let weight_consumed = self
 			.engine_meter
 			.set_fuel(engine_fuel.try_into().map_err(|_| Error::<T>::OutOfGas)?);
-		self.gas_left
+		log::debug!(target: "runtime::revive", "sync_from_executor(): gas_left: {}", self.gas_left);
+		log::debug!(target: "runtime::revive", "sync_from_executor(): weight_consumed: {}", weight_consumed);
+			self.gas_left
 			.checked_reduce(weight_consumed)
 			.ok_or_else(|| Error::<T>::OutOfGas)?;
 		Ok(RefTimeLeft(self.gas_left.ref_time()))
@@ -281,6 +285,7 @@ impl<T: Config> GasMeter<T> {
 
 	/// The amount of gas in terms of engine gas.
 	pub fn engine_fuel_left(&self) -> Result<polkavm::Gas, DispatchError> {
+		log::debug!(target: "runtime::revive", "engine_fuel_left: engine_meter.fuel: {}", self.engine_meter.fuel);
 		self.engine_meter.fuel.try_into().map_err(|_| <Error<T>>::OutOfGas.into())
 	}
 

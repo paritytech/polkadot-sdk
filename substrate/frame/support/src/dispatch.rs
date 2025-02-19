@@ -72,6 +72,7 @@ pub trait CheckIfFeeless {
 }
 
 /// Origin for the System pallet.
+<<<<<<< HEAD
 #[derive(
 	PartialEq,
 	Eq,
@@ -83,6 +84,9 @@ pub trait CheckIfFeeless {
 	TypeInfo,
 	MaxEncodedLen,
 )]
+=======
+#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+>>>>>>> 9b072bdd9b (Add more logs)
 pub enum RawOrigin<AccountId> {
 	/// The system itself ordained this dispatch to happen: this is the highest privilege level.
 	Root,
@@ -250,7 +254,7 @@ impl<'a> OneOrMany<DispatchClass> for &'a [DispatchClass] {
 }
 
 /// A bundle of static information collected from the `#[pallet::weight]` attributes.
-#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct DispatchInfo {
 	/// Weight of this transaction's call.
 	pub call_weight: Weight,

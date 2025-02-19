@@ -364,6 +364,7 @@ where
 {
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
+		log::debug!(target: "runtime::revive", "pallet_revive: wasm::from_storage({})", code_info.code_len);
 		gas_meter.charge(CodeLoadToken(code_info.code_len))?;
 		let code = <PristineCode<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })

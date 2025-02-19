@@ -63,7 +63,7 @@ use frame_support::{
 		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::{Weight, WeightMeter},
-	BoundedVec, RuntimeDebugNoBound,
+	BoundedVec,
 };
 use frame_system::{
 	ensure_signed,
@@ -726,6 +726,11 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+<<<<<<< HEAD
+=======
+			log::info!(target: LOG_TARGET, "Call: {:?} {:?} {:?}", dest, value, data);
+			log::debug!(target: LOG_TARGET, "pallet_revive: call(origin: {:?}, gas_limit: {:?})", origin, gas_limit);
+>>>>>>> 9b072bdd9b (Add more logs)
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1004,6 +1009,7 @@ where
 
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
+			log::debug!(target: LOG_TARGET, "revive::bare_call(origin: {:?})", origin);
 			let mut storage_meter = match storage_deposit_limit {
 				DepositLimit::Balance(limit) => StorageMeter::new(&origin, limit, value)?,
 				DepositLimit::Unchecked => StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
@@ -1388,21 +1394,22 @@ where
 
 	/// Run the supplied function `f` if no other instance of this pallet is on the stack.
 	fn run_guarded<R, F: FnOnce() -> Result<R, ExecError>>(f: F) -> Result<R, ExecError> {
-		executing_contract::using_once(&mut false, || {
-			executing_contract::with(|f| {
-				// Fail if already entered contract execution
-				if *f {
-					return Err(())
-				}
-				// We are entering contract execution
-				*f = true;
-				Ok(())
-			})
-				.expect("Returns `Ok` if called within `using_once`. It is syntactically obvious that this is the case; qed")
-				.map_err(|_| <Error<T>>::ReenteredPallet.into())
-				.map(|_| f())
-				.and_then(|r| r)
-		})
+		f()
+		// executing_contract::using_once(&mut false, || {
+		// 	executing_contract::with(|f| {
+		// 		// Fail if already entered contract execution
+		// 		if *f {
+		// 			return Err(())
+		// 		}
+		// 		// We are entering contract execution
+		// 		*f = true;
+		// 		Ok(())
+		// 	})
+		// 		.expect("Returns `Ok` if called within `using_once`. It is syntactically obvious that this is the case; qed")
+		// 		.map_err(|_| <Error<T>>::ReenteredPallet.into())
+		// 		.map(|_| f())
+		// 		.and_then(|r| r)
+		// })
 	}
 
 	/// Convert a native balance to EVM balance.

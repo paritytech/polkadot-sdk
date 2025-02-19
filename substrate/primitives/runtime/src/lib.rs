@@ -643,9 +643,13 @@ pub enum DispatchError {
 
 /// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
 /// the `Dispatchable` that is only known post dispatch.
+<<<<<<< HEAD
 #[derive(
 	Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo,
 )]
+=======
+#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo)]
+>>>>>>> 9b072bdd9b (Add more logs)
 pub struct DispatchErrorWithPostInfo<Info>
 where
 	Info: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,

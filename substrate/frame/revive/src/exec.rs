@@ -20,7 +20,7 @@ use crate::{
 	gas::GasMeter,
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
-	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
+	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
@@ -143,7 +143,7 @@ impl<T: Into<DispatchError>> From<T> for ExecError {
 }
 
 /// The type of origins supported by the contracts pallet.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
+#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, frame_support::DebugNoBound)]
 pub enum Origin<T: Config> {
 	Root,
 	Signed(T::AccountId),
