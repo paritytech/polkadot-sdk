@@ -120,7 +120,6 @@ impl pallet_assets::Config for Runtime {
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
-	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();

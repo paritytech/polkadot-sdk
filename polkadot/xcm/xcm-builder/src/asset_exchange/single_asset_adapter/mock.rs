@@ -82,7 +82,6 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
-	type Holder = ();
 	type CallbackHandle = ();
 }
 
@@ -98,7 +97,6 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
-	type Holder = ();
 	type CallbackHandle = ();
 }
 

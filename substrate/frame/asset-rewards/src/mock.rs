@@ -90,7 +90,6 @@ impl pallet_assets::Config<Instance1> for MockRuntime {
 	type ApprovalDeposit = ConstU128<1>;
 	type StringLimit = ConstU32<50>;
 	type Freezer = AssetsFreezer;
-	type Holder = ();
 	type Extra = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
