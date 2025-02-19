@@ -25,6 +25,7 @@ use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
 
 const CORETIME_ROCOCO_ED: Balance = ExistentialDeposit::get();
+pub const CORETIME_PARA_ID: ParaId = ParaId::new(1005);
 
 fn coretime_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
@@ -69,7 +70,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
 			ROC * 1_000_000,
-			1000.into(),
+			CORETIME_PARA_ID,
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => coretime_rococo_genesis(
 			// initial collators.
@@ -81,7 +82,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				Sr25519Keyring::BobStash.to_account_id(),
 			],
 			ROC * 1_000_000,
-			1000.into(),
+			CORETIME_PARA_ID,
 		),
 		_ => return None,
 	};

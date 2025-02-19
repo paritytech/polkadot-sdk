@@ -27,6 +27,7 @@ use testnet_parachains_constants::westend::{
 };
 
 const CORETIME_WESTEND_ED: Balance = ExistentialDeposit::get();
+pub const CORETIME_PARA_ID: ParaId = ParaId::new(1005);
 
 fn coretime_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
@@ -70,7 +71,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			WND * 1_000_000,
-			1000.into(),
+			CORETIME_PARA_ID,
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => coretime_westend_genesis(
 			// initial collators.
@@ -82,7 +83,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				Sr25519Keyring::BobStash.to_account_id(),
 			],
 			WND * 1_000_000,
-			1000.into(),
+			CORETIME_PARA_ID,
 		),
 		_ => return None,
 	};
