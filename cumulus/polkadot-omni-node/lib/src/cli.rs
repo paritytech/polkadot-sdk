@@ -89,8 +89,8 @@ pub enum Subcommand {
 	/// Revert the chain to a previous state.
 	Revert(sc_cli::RevertCmd),
 
+	#[command(alias = "chain-spec-builder")]
 	ChainSpecBuilder(ChainSpecBuilderCmd),
-
 
 	/// Remove the whole chain.
 	PurgeChain(cumulus_client_cli::PurgeChainCmd),
