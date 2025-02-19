@@ -23,7 +23,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::westend::{
-	currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION,
+	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
 
 const PEOPLE_WESTEND_ED: Balance = ExistentialDeposit::get();
@@ -70,7 +70,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
 			Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
-			ROC * 1_000_000,
+			WND * 1_000_000,
 			PEOPLE_PARA_ID,
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => people_westend_genesis(
@@ -82,7 +82,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				Sr25519Keyring::AliceStash.to_account_id(),
 				Sr25519Keyring::BobStash.to_account_id(),
 			],
-			ROC * 1_000_000,
+			WND * 1_000_000,
 			PEOPLE_PARA_ID,
 		),
 		_ => return None,
