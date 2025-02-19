@@ -59,8 +59,8 @@ pub enum BridgeRewardBeneficiaries {
 	Location(VersionedLocation),
 }
 
-impl From<AccountId> for BridgeRewardBeneficiaries {
-	fn from(value: AccountId) -> Self {
+impl From<sp_runtime::AccountId32> for BridgeRewardBeneficiaries {
+	fn from(value: sp_runtime::AccountId32) -> Self {
 		BridgeRewardBeneficiaries::LocalAccount(value)
 	}
 }
