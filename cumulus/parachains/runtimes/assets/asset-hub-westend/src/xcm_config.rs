@@ -100,7 +100,6 @@ pub type LocationToAccountId = (
 );
 
 pub type GlobalLocationToAccount<UniversalLocation, AccountId> = (
-    HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
     GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
 	EthereumLocationsConverterFor<AccountId>,
     ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
