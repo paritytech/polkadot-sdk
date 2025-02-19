@@ -119,6 +119,7 @@ std = [
 	"pallet-multisig/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
+	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -152,7 +153,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"pallet-sudo/std"
 ]
 
 runtime-benchmarks = [
@@ -172,6 +172,7 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -185,7 +186,6 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks"
 ]
 
 try-runtime = [
@@ -207,6 +207,7 @@ try-runtime = [
 	"pallet-multisig/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
@@ -214,7 +215,6 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-sudo/try-runtime"
 ]
 
 fast-runtime = [
