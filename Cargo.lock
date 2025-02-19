@@ -4228,6 +4228,8 @@ dependencies = [
 name = "cumulus-client-bootnodes"
 version = "0.1.0"
 dependencies = [
+ "array-bytes",
+ "async-channel 1.9.0",
  "cumulus-client-network",
  "cumulus-primitives-core 0.7.0",
  "cumulus-relay-chain-interface",

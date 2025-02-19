@@ -23,7 +23,9 @@ use crate::common::{
 	},
 	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
-use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
+use cumulus_client_bootnodes::{
+	bootnode_request_response_config, start_bootnode_tasks, StartBootnodeTasksParams,
+};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
@@ -401,10 +403,15 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				sync_service,
 			})?;
 
+			// TODO: initialize request-response protocol properly.
+			let (bootnode_request_response_config, request_receiver) =
+				bootnode_request_response_config::<_, Self::Block, Net>([], None);
+
 			start_bootnode_tasks(StartBootnodeTasksParams {
 				para_id,
 				task_manager: &mut task_manager,
 				relay_chain_interface: relay_chain_interface.clone(),
+				request_receiver,
 			});
 
 			if validator {

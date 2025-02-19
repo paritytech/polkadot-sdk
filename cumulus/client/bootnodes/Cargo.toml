@@ -12,6 +12,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+array-bytes = { workspace = true, default-features = true }
+async-channel = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }

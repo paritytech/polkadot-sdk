@@ -24,7 +24,9 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::StreamExt;
 use log::{debug, warn};
-use sc_network::{service::traits::NetworkService, KademliaKey};
+use sc_network::{
+	request_responses::IncomingRequest, service::traits::NetworkService, KademliaKey,
+};
 use sp_consensus_babe::{digests::CompatibleDigestItem, Epoch, Randomness};
 use sp_runtime::traits::Header as _;
 use std::sync::Arc;
@@ -40,6 +42,8 @@ pub struct BootnodeAdvertisementParams {
 	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
 	/// Relay chain node network service.
 	pub network_service: Arc<dyn NetworkService>,
+	/// Bootnode request-response protocol request receiver.
+	pub request_receiver: async_channel::Receiver<IncomingRequest>,
 }
 
 /// Parachain bootnode advertisement service.
@@ -49,6 +53,7 @@ pub struct BootnodeAdvertisement {
 	network_service: Arc<dyn NetworkService>,
 	current_epoch_key: Option<KademliaKey>,
 	next_epoch_key: Option<KademliaKey>,
+	request_receiver: async_channel::Receiver<IncomingRequest>,
 }
 
 impl BootnodeAdvertisement {
@@ -57,6 +62,7 @@ impl BootnodeAdvertisement {
 			para_id,
 			relay_chain_interface,
 			network_service,
+			request_receiver,
 		}: BootnodeAdvertisementParams,
 	) -> Self {
 		Self {
@@ -65,6 +71,7 @@ impl BootnodeAdvertisement {
 			network_service,
 			current_epoch_key: None,
 			next_epoch_key: None,
+			request_receiver,
 		}
 	}
 

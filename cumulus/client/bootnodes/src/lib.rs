@@ -17,5 +17,8 @@
 //! Parachain bootnodes advertisement and discovery service.
 
 mod advertisement;
+mod config;
 mod task;
+
+pub use config::bootnode_request_response_config;
 pub use task::{start_bootnode_tasks, StartBootnodeTasksParams};

@@ -20,6 +20,7 @@ use crate::advertisement::{BootnodeAdvertisement, BootnodeAdvertisementParams};
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use log::error;
+use sc_network::request_responses::IncomingRequest;
 use sc_service::TaskManager;
 use std::sync::Arc;
 
@@ -31,11 +32,13 @@ pub struct StartBootnodeTasksParams<'a> {
 	pub para_id: ParaId,
 	pub task_manager: &'a mut TaskManager,
 	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
+	pub request_receiver: async_channel::Receiver<IncomingRequest>,
 }
 
 async fn bootnode_advertisement(
 	para_id: ParaId,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
+	request_receiver: async_channel::Receiver<IncomingRequest>,
 ) {
 	let network_service = match relay_chain_interface.network_service() {
 		Ok(network_service) => network_service,
@@ -52,6 +55,7 @@ async fn bootnode_advertisement(
 		para_id,
 		relay_chain_interface,
 		network_service,
+		request_receiver,
 	});
 
 	if let Err(e) = bootnode_advertisement.run().await {
@@ -60,11 +64,16 @@ async fn bootnode_advertisement(
 }
 
 pub fn start_bootnode_tasks(
-	StartBootnodeTasksParams { para_id, task_manager, relay_chain_interface }: StartBootnodeTasksParams,
+	StartBootnodeTasksParams {
+		para_id,
+		task_manager,
+		relay_chain_interface,
+		request_receiver,
+	}: StartBootnodeTasksParams,
 ) {
 	task_manager.spawn_essential_handle().spawn_blocking(
 		"cumulus-bootnode-advertisement",
 		None,
-		bootnode_advertisement(para_id, relay_chain_interface),
+		bootnode_advertisement(para_id, relay_chain_interface, request_receiver),
 	);
 }
