@@ -235,6 +235,7 @@ pub fn node_config(
 		announce_block: true,
 		data_path: root,
 		base_path,
+		force_in_memory_trie_cache: false,
 	}
 }
 
