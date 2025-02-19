@@ -330,6 +330,11 @@ jobs:
       NEXTEST_RETRIES: 0
 
     steps:
+      - name: k8s_auth
+        run: |
+          . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+          k8s_auth
+
       - name: Checkout
         uses: actions/checkout@v4
 
