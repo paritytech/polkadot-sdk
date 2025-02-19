@@ -18,6 +18,7 @@ use crate::*;
 
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
+use sp_tracing::tracing::Subscriber;
 use xcm::latest::QueryResponseInfo;
 use xcm_simulator::{mock_message_queue::ReceivedDmp, TestExt};
 
@@ -514,13 +515,13 @@ fn query_holding() {
 
 #[test]
 fn reserve_transfer_with_error() {
-	use sp_tracing::{assert_logs_contain, capturing_logs, tracing, tracing_subscriber};
+	use sp_tracing::log_capture;
 
 	// Reset the test network
 	MockNet::reset();
 
 	// Execute XCM Transfer and Capture Logs
-	let log_capture = capturing_logs!({
+	log_capture::capture(|| {
 		Relay::execute_with(|| {
 			let invalid_dest = Box::new(Parachain(9999).into());
 			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
@@ -546,5 +547,5 @@ fn reserve_transfer_with_error() {
 	});
 
 	// Assertions on Captured Logs
-	assert_logs_contain!(log_capture, "XCM validate_send failed");
+	assert!(log_capture::logs_contain("XCM validate_send failed"));
 }

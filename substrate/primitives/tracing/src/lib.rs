@@ -257,4 +257,21 @@ macro_rules! enter_span {
 }
 
 #[cfg(feature = "std")]
-pub mod log_capture_test;
+pub use tracing_test;
+
+#[cfg(feature = "std")]
+pub mod log_capture {
+	use tracing::subscriber;
+	use tracing_test::internal::{global_buf, MockWriter};
+
+	pub fn capture<F: FnOnce()>(f: F) {
+		let log_capture = MockWriter::new(&global_buf());
+		let subscriber = tracing_subscriber::fmt().with_writer(log_capture).finish();
+		subscriber::with_default(subscriber, f);
+	}
+
+	pub fn logs_contain(value: &str) -> bool {
+		let logs = String::from_utf8(global_buf().lock().unwrap().clone()).unwrap();
+		logs.contains(value)
+	}
+}
