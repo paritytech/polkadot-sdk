@@ -18,26 +18,27 @@
 
 //! Pool periodic revalidation.
 
-use std::{
-	collections::{BTreeMap, HashMap, HashSet},
-	pin::Pin,
-	sync::Arc,
-};
-
-use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction};
+use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, ValidatedTransaction};
+use futures::prelude::*;
+use indexmap::IndexMap;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::{
 	generic::BlockId, traits::SaturatedConversion, transaction_validity::TransactionValidityError,
 };
-
-use futures::prelude::*;
-use std::time::Duration;
+use std::{
+	collections::{BTreeMap, HashMap, HashSet},
+	pin::Pin,
+	sync::Arc,
+	time::Duration,
+};
 
 const BACKGROUND_REVALIDATION_INTERVAL: Duration = Duration::from_millis(200);
 
 const MIN_BACKGROUND_REVALIDATION_BATCH_SIZE: usize = 20;
 
 const LOG_TARGET: &str = "txpool::revalidation";
+
+type Pool<Api> = crate::graph::Pool<Api, ()>;
 
 /// Payload from queue to worker.
 struct WorkerPayload<Api: ChainApi> {
@@ -84,7 +85,7 @@ async fn batch_revalidate<Api: ChainApi>(
 	};
 
 	let mut invalid_hashes = Vec::new();
-	let mut revalidated = HashMap::new();
+	let mut revalidated = IndexMap::new();
 
 	let validation_results = futures::future::join_all(batch.into_iter().filter_map(|ext_hash| {
 		pool.validated_pool().ready_by_hash(&ext_hash).map(|ext| {
@@ -384,7 +385,11 @@ mod tests {
 	#[test]
 	fn revalidation_queue_works() {
 		let api = Arc::new(TestApi::default());
-		let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+		let pool = Arc::new(Pool::new_with_staticly_sized_rotator(
+			Default::default(),
+			true.into(),
+			api.clone(),
+		));
 		let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
 
 		let uxt = uxt(Transfer {
@@ -401,7 +406,8 @@ mod tests {
 			TimedTransactionSource::new_external(false),
 			uxt.clone().into(),
 		))
-		.expect("Should be valid");
+		.expect("Should be valid")
+		.hash();
 
 		block_on(queue.revalidate_later(han_of_block0.hash, vec![uxt_hash]));
 
@@ -414,7 +420,11 @@ mod tests {
 	#[test]
 	fn revalidation_queue_skips_revalidation_for_unknown_block_hash() {
 		let api = Arc::new(TestApi::default());
-		let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+		let pool = Arc::new(Pool::new_with_staticly_sized_rotator(
+			Default::default(),
+			true.into(),
+			api.clone(),
+		));
 		let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
 
 		let uxt0 = uxt(Transfer {
@@ -440,7 +450,7 @@ mod tests {
 				vec![(source.clone(), uxt0.into()), (source, uxt1.into())],
 			))
 			.into_iter()
-			.map(|r| r.expect("Should be valid"))
+			.map(|r| r.expect("Should be valid").hash())
 			.collect::<Vec<_>>();
 
 		assert_eq!(api.validation_requests().len(), 2);

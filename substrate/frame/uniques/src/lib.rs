@@ -45,7 +45,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
 };
@@ -182,7 +182,7 @@ pub mod pallet {
 	#[pallet::storage]
 	/// The items held by any given account; set out this way so that items owned by a single
 	/// account can be enumerated.
-	pub(super) type Account<T: Config<I>, I: 'static = ()> = StorageNMap<
+	pub type Account<T: Config<I>, I: 'static = ()> = StorageNMap<
 		_,
 		(
 			NMapKey<Blake2_128Concat, T::AccountId>, // owner
@@ -197,7 +197,7 @@ pub mod pallet {
 	#[pallet::storage_prefix = "ClassAccount"]
 	/// The collections owned by any given account; set out this way so that collections owned by
 	/// a single account can be enumerated.
-	pub(super) type CollectionAccount<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type CollectionAccount<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AccountId,
@@ -246,7 +246,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Attributes of a collection.
-	pub(super) type Attribute<T: Config<I>, I: 'static = ()> = StorageNMap<
+	pub type Attribute<T: Config<I>, I: 'static = ()> = StorageNMap<
 		_,
 		(
 			NMapKey<Blake2_128Concat, T::CollectionId>,
@@ -271,7 +271,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Keeps track of the number of items a collection might have.
-	pub(super) type CollectionMaxSupply<T: Config<I>, I: 'static = ()> =
+	pub type CollectionMaxSupply<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::CollectionId, u32, OptionQuery>;
 
 	#[pallet::event]

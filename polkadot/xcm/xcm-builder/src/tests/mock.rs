@@ -22,15 +22,16 @@ use crate::{
 	EnsureDecodableXcm,
 };
 pub use crate::{
-	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
-	FixedWeightBounds, TakeWeightCredit,
+	AliasChildLocation, AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom,
+	AllowKnownQueryResponses, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
+	FixedRateOfFungible, FixedWeightBounds, TakeWeightCredit,
 };
 pub use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 pub use codec::{Decode, Encode};
 pub use core::{
 	cell::{Cell, RefCell},
 	fmt::Debug,
+	ops::ControlFlow,
 };
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
@@ -40,11 +41,11 @@ pub use frame_support::{
 	traits::{Contains, Get, IsInVec},
 };
 pub use xcm::latest::{prelude::*, QueryId, Weight};
-use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
 pub use xcm_executor::{
 	traits::{
-		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, Enact, ExportXcm, FeeManager,
-		FeeReason, LockError, OnResponse, TransactAsset,
+		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
+		FeeManager, FeeReason, LockError, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, TransactAsset,
 	},
 	AssetsInHolding, Config,
 };
@@ -732,6 +733,9 @@ impl Contains<Location> for ParentPrefix {
 	}
 }
 
+/// Pairs (location1, location2) where location1 can alias as location2.
+pub type Aliasers = (AliasForeignAccountId32<SiblingPrefix>, AliasChildLocation);
+
 pub struct TestConfig;
 impl Config for TestConfig {
 	type RuntimeCall = TestCall;
@@ -757,7 +761,7 @@ impl Config for TestConfig {
 	type MessageExporter = TestMessageExporter;
 	type CallDispatcher = TestCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = AliasForeignAccountId32<SiblingPrefix>;
+	type Aliasers = Aliasers;
 	type TransactionalProcessor = ();
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();

@@ -20,8 +20,10 @@
 
 use crate::*;
 
-use bp_relayers::RewardsAccountOwner;
-use frame_benchmarking::{benchmarks_instance_pallet, whitelisted_caller};
+use frame_benchmarking::{
+	benchmarks_instance_pallet, whitelisted_caller, BenchmarkError, BenchmarkResult,
+};
+use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use sp_runtime::traits::One;
 
@@ -33,35 +35,70 @@ pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 
 /// Trait that must be implemented by runtime.
 pub trait Config<I: 'static = ()>: crate::Config<I> {
-	/// Lane id to use in benchmarks.
-	fn bench_lane_id() -> Self::LaneId {
-		Self::LaneId::default()
-	}
+	/// `T::Reward` to use in benchmarks.
+	fn bench_reward() -> Self::Reward;
 	/// Prepare environment for paying given reward for serving given lane.
 	fn prepare_rewards_account(
-		account_params: RewardsAccountParams<Self::LaneId>,
-		reward: Self::Reward,
-	);
+		reward_kind: Self::Reward,
+		reward: Self::RewardBalance,
+	) -> Option<BeneficiaryOf<Self, I>>;
 	/// Give enough balance to given account.
-	fn deposit_account(account: Self::AccountId, balance: Self::Reward);
+	fn deposit_account(account: Self::AccountId, balance: Self::Balance);
+}
+
+fn assert_last_event<T: Config<I>, I: 'static>(
+	generic_event: <T as pallet::Config<I>>::RuntimeEvent,
+) {
+	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
 benchmarks_instance_pallet! {
+	where_clause { where
+		BeneficiaryOf<T, I>: From<<T as frame_system::Config>::AccountId>,
+	}
+
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
-		let lane = T::bench_lane_id();
-		let account_params =
-			RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
+		let reward_kind = T::bench_reward();
 		let relayer: T::AccountId = whitelisted_caller();
-		let reward = T::Reward::from(REWARD_AMOUNT);
+		let reward_balance = T::RewardBalance::from(REWARD_AMOUNT);
 
-		T::prepare_rewards_account(account_params, reward);
-		RelayerRewards::<T, I>::insert(&relayer, account_params, reward);
-	}: _(RawOrigin::Signed(relayer), account_params)
+		let _ = T::prepare_rewards_account(reward_kind, reward_balance);
+		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward_balance);
+	}: _(RawOrigin::Signed(relayer.clone()), reward_kind)
 	verify {
 		// we can't check anything here, because `PaymentProcedure` is responsible for
 		// payment logic, so we assume that if call has succeeded, the procedure has
 		// also completed successfully
+		assert_last_event::<T, I>(Event::RewardPaid {
+			relayer: relayer.clone(),
+			reward_kind,
+			reward_balance,
+			beneficiary: relayer.into(),
+		}.into());
+	}
+
+	// Benchmark `claim_rewards_to` call.
+	claim_rewards_to {
+		let reward_kind = T::bench_reward();
+		let relayer: T::AccountId = whitelisted_caller();
+		let reward_balance = T::RewardBalance::from(REWARD_AMOUNT);
+
+		let Some(alternative_beneficiary) = T::prepare_rewards_account(reward_kind, reward_balance) else {
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
+		};
+		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward_balance);
+	}: _(RawOrigin::Signed(relayer.clone()), reward_kind, alternative_beneficiary.clone())
+	verify {
+		// we can't check anything here, because `PaymentProcedure` is responsible for
+		// payment logic, so we assume that if call has succeeded, the procedure has
+		// also completed successfully
+		assert_last_event::<T, I>(Event::RewardPaid {
+			relayer,
+			reward_kind,
+			reward_balance,
+			beneficiary: alternative_beneficiary,
+		}.into());
 	}
 
 	// Benchmark `register` call.
@@ -95,7 +132,7 @@ benchmarks_instance_pallet! {
 	}
 
 	// Benchmark `slash_and_deregister` method of the pallet. We are adding this weight to
-	// the weight of message delivery call if `RefundBridgedParachainMessages` signed extension
+	// the weight of message delivery call if `BridgeRelayersTransactionExtension` signed extension
 	// is deployed at runtime level.
 	slash_and_deregister {
 		// prepare and register relayer account
@@ -105,32 +142,30 @@ benchmarks_instance_pallet! {
 			.saturating_add(One::one())
 			.saturating_add(One::one());
 		T::deposit_account(relayer.clone(), crate::Pallet::<T, I>::required_stake());
-		crate::Pallet::<T, I>::register(RawOrigin::Signed(relayer.clone()).into(), valid_till).unwrap();
+		assert_ok!(crate::Pallet::<T, I>::register(RawOrigin::Signed(relayer.clone()).into(), valid_till));
 
 		// create slash destination account
-		let lane = T::bench_lane_id();
-		let slash_destination = RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
-		T::prepare_rewards_account(slash_destination, Zero::zero());
+		let slash_destination: T::AccountId = whitelisted_caller();
+		T::deposit_account(slash_destination.clone(), Zero::zero());
 	}: {
-		crate::Pallet::<T, I>::slash_and_deregister(&relayer, slash_destination.into())
+		crate::Pallet::<T, I>::slash_and_deregister(&relayer, bp_relayers::ExplicitOrAccountParams::Explicit::<_, ()>(slash_destination))
 	}
 	verify {
 		assert!(!crate::Pallet::<T, I>::is_registration_active(&relayer));
 	}
 
 	// Benchmark `register_relayer_reward` method of the pallet. We are adding this weight to
-	// the weight of message delivery call if `RefundBridgedParachainMessages` signed extension
+	// the weight of message delivery call if `BridgeRelayersTransactionExtension` signed extension
 	// is deployed at runtime level.
 	register_relayer_reward {
-		let lane = T::bench_lane_id();
+		let reward_kind = T::bench_reward();
 		let relayer: T::AccountId = whitelisted_caller();
-		let account_params =
-			RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
+
 	}: {
-		crate::Pallet::<T, I>::register_relayer_reward(account_params, &relayer, One::one());
+		crate::Pallet::<T, I>::register_relayer_reward(reward_kind, &relayer, One::one());
 	}
 	verify {
-		assert_eq!(RelayerRewards::<T, I>::get(relayer, &account_params), Some(One::one()));
+		assert_eq!(RelayerRewards::<T, I>::get(relayer, &reward_kind), Some(One::one()));
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)

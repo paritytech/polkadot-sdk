@@ -106,6 +106,7 @@ pub mod pallet {
 		CloneNoBound,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		scale_info::TypeInfo,
 		PartialEqNoBound,
 		EqNoBound,
@@ -127,7 +128,16 @@ pub mod pallet {
 	/// A migration task stored in state.
 	///
 	/// It tracks the last top and child keys read.
-	#[derive(Clone, Encode, Decode, scale_info::TypeInfo, PartialEq, Eq, MaxEncodedLen)]
+	#[derive(
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		scale_info::TypeInfo,
+		PartialEq,
+		Eq,
+		MaxEncodedLen,
+	)]
 	#[scale_info(skip_type_params(T))]
 	pub struct MigrationTask<T: Config> {
 		/// The current top trie migration progress.
@@ -404,6 +414,7 @@ pub mod pallet {
 		Copy,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		scale_info::TypeInfo,
 		Default,
 		Debug,
@@ -419,7 +430,17 @@ pub mod pallet {
 	}
 
 	/// How a migration was computed.
-	#[derive(Clone, Copy, Encode, Decode, scale_info::TypeInfo, Debug, PartialEq, Eq)]
+	#[derive(
+		Clone,
+		Copy,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		scale_info::TypeInfo,
+		Debug,
+		PartialEq,
+		Eq,
+	)]
 	pub enum MigrationCompute {
 		/// A signed origin triggered the migration.
 		Signed,
@@ -1297,9 +1318,12 @@ mod mock {
 			frame_system::GenesisConfig::<Test>::default()
 				.assimilate_storage(&mut custom_storage)
 				.unwrap();
-			pallet_balances::GenesisConfig::<Test> { balances: vec![(1, 1000)] }
-				.assimilate_storage(&mut custom_storage)
-				.unwrap();
+			pallet_balances::GenesisConfig::<Test> {
+				balances: vec![(1, 1000)],
+				..Default::default()
+			}
+			.assimilate_storage(&mut custom_storage)
+			.unwrap();
 		}
 
 		sp_tracing::try_init_simple();
@@ -1309,16 +1333,17 @@ mod mock {
 	pub(crate) fn run_to_block(n: u32) -> (H256, Weight) {
 		let mut root = Default::default();
 		let mut weight_sum = Weight::zero();
+
 		log::trace!(target: LOG_TARGET, "running from {:?} to {:?}", System::block_number(), n);
-		while System::block_number() < n {
-			System::set_block_number(System::block_number() + 1);
-			System::on_initialize(System::block_number());
 
-			weight_sum += StateTrieMigration::on_initialize(System::block_number());
+		System::run_to_block_with::<AllPalletsWithSystem>(
+			n,
+			frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+				weight_sum += StateTrieMigration::on_initialize(bn);
+				root = *System::finalize().state_root();
+			}),
+		);
 
-			root = *System::finalize().state_root();
-			System::on_finalize(System::block_number());
-		}
 		(root, weight_sum)
 	}
 }
