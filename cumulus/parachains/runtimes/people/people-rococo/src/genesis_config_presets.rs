@@ -25,7 +25,7 @@ use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
 
 const PEOPLE_ROCOCO_ED: Balance = ExistentialDeposit::get();
-const PEOPLE_PARA_ID: ParaId = ParaId::from(1004);
+const PEOPLE_PARA_ID: ParaId = ParaId::new(1004);
 
 fn people_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,

@@ -27,7 +27,7 @@ use testnet_parachains_constants::westend::{
 };
 
 const PEOPLE_WESTEND_ED: Balance = ExistentialDeposit::get();
-const PEOPLE_PARA_ID: ParaId = ParaId::from(1004);
+const PEOPLE_PARA_ID: ParaId = ParaId::new(1004);
 
 fn people_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
