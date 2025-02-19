@@ -474,18 +474,25 @@ impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone
 		);
         let (remote_network, remote_location) = ensure_is_remote(universal_source, location).ok()?;
 
-        let consensus_bytes = (b"external_consensus_", remote_network).using_encoded(blake2_256);
-
-        let sublocation_bytes = match remote_location.as_slice() {
-            [Parachain(para_id), tail @ ..] => {
-                let tail_bytes = tail.iter().map(|j| j.encode()).collect::<Vec<_>>();
-                (b"parachain_", para_id, tail_bytes).using_encoded(blake2_256)
-            },
-            _ => return None,
-        };
-
-        let final_bytes = (consensus_bytes, sublocation_bytes).using_encoded(blake2_256);
-        Some(AccountId::from(final_bytes))
+        // replaces and extends `EthereumLocationsConverterFor` and `GlobalConsensusParachainConvertsFor`
+        let acc_id: AccountId = if let Ethereum { chain_id } = &remote_network {
+            match remote_location.as_slice() {
+               // equivalent to `EthereumLocationsConverterFor`
+               [] => (b"ethereum-chain", chain_id).using_encoded(blake2_256).into(),
+               // equivalent to `EthereumLocationsConverterFor`
+               [AccountKey20 { network: _, key }] => (b"ethereum-chain", chain_id, *key).using_encoded(blake2_256).into(),
+               // extends `EthereumLocationsConverterFor`
+               tail =>(b"ethereum-chain", chain_id, tail).using_encoded(blake2_256).into(),
+            }
+        } else {
+            match remote_location.as_slice() {
+                // equivalent to `GlobalConsensusParachainConvertsFor`
+			    [Parachain(para_id)] => (b"glblcnsnss/prchn_", remote_network, para_id).using_encoded(blake2_256).into(),
+    			// converts everything else based on hash of encoded location tail
+	    		tail => (b"glblcnsnss", remote_network, tail).using_encoded(blake2_256).into(),
+	    	}
+		};
+		Some(acc_id)
     }
 }
 
