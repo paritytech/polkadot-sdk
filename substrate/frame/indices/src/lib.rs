@@ -269,7 +269,14 @@ pub mod pallet {
 				} else if new_amount < old_amount {
 					// Need to unreserve some
 					let excess = old_amount.saturating_sub(new_amount);
-					T::Currency::unreserve(&who, excess);
+					let unreserved = T::Currency::unreserve(&who, excess);
+					// Defensive logging if we can't unreserve the full amount.
+					if !unreserved.is_zero() {
+						defensive!(
+							"Failed to unreserve for index {:?}",
+							format!("{:?} (requested: {:?}, actual: {:?})", index, excess, unreserved)
+						);
+					}
 				}
 
 				*maybe_value = Some((account, new_amount, perm));
