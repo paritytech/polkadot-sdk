@@ -90,6 +90,7 @@ use sp_consensus::block_validation::{
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
+use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
 	str::FromStr,
 	sync::Arc,
@@ -266,13 +267,26 @@ where
 		// Populate the trie cache to keep it in memory
 		if config.force_in_memory_trie_cache {
 			let storage_root = client.usage_info().chain.best_hash;
-			let keys: Vec<_> = client.storage_keys(storage_root, None, None)?.collect();
 
-			for key in keys.as_slice() {
-				let _ = client
-					.storage(storage_root, &key)
-					.expect("Checked above to exist")
-					.ok_or("Value unexpectedly empty");
+			for key in client.storage_keys(storage_root, None, None)? {
+				match child_info(key.0.clone()) {
+					Some(info) => {
+						for child_key in
+							client.child_storage_keys(storage_root, info.clone(), None, None)?
+						{
+							let _ = client
+								.child_storage(storage_root, &info, &child_key)
+								.expect("Checked above to exist")
+								.ok_or("Value unexpectedly empty")?;
+						}
+					},
+					None => {
+						let _ = client
+							.storage(storage_root, &key)
+							.expect("Checked above to exist")
+							.ok_or("Value unexpectedly empty");
+					},
+				}
 			}
 		}
 
@@ -280,6 +294,13 @@ where
 	};
 
 	Ok((client, backend, keystore_container, task_manager))
+}
+
+fn child_info(key: Vec<u8>) -> Option<ChildInfo> {
+	let prefixed_key = PrefixedStorageKey::new(key);
+	ChildType::from_prefixed_key(&prefixed_key).and_then(|(child_type, storage_key)| {
+		(child_type == ChildType::ParentKeyId).then(|| ChildInfo::new_default(storage_key))
+	})
 }
 
 /// Creates a [`NativeElseWasmExecutor`](sc_executor::NativeElseWasmExecutor) according to
