@@ -263,14 +263,17 @@ where
 			},
 		)?;
 
-		let storage_root = client.usage_info().chain.best_hash;
-		let keys: Vec<_> = client.storage_keys(storage_root, None, None)?.collect();
+		// Populate the trie cache to keep it in memory
+		if config.force_in_memory_trie_cache {
+			let storage_root = client.usage_info().chain.best_hash;
+			let keys: Vec<_> = client.storage_keys(storage_root, None, None)?.collect();
 
-		for key in keys.as_slice() {
-			let _ = client
-				.storage(storage_root, &key)
-				.expect("Checked above to exist")
-				.ok_or("Value unexpectedly empty");
+			for key in keys.as_slice() {
+				let _ = client
+					.storage(storage_root, &key)
+					.expect("Checked above to exist")
+					.ok_or("Value unexpectedly empty");
+			}
 		}
 
 		client
