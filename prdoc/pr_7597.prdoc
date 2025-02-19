@@ -1,7 +1,13 @@
-title: 'WIP: Introduce CreateBare, deprecated CreateInherent'
+title: 'Introduce CreateBare, deprecated CreateInherent'
 doc:
 - audience: Runtime Dev
-  description: null
+  description: |
+    Introduce the trait `CreateBare` and remove the trait `CreateInherent`.
+    Both unsigned transaction and inherent use the extrinsic type `Bare`.
+    Before this PR `CreateInherent` trait was use to generate unsigned transaction, now unsigned transaction can be generated using a proper trait `CreateBare`.
+
+    To update your code, replace every instance of `CreateInherent` by `CreateBare` and every call to `create_inherent` to `create_bare`.
+
 crates:
 - name: frame-system
   bump: major
