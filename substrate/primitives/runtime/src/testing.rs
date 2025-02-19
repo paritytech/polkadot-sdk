@@ -18,7 +18,7 @@
 //! Testing utilities.
 
 use crate::{
-	codec::{Codec, Decode, Encode, MaxEncodedLen},
+	codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen},
 	generic::{self, UncheckedExtrinsic},
 	scale_info::TypeInfo,
 	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
@@ -42,6 +42,7 @@ use std::{cell::RefCell, fmt::Debug};
 	Clone,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	Hash,
 	Serialize,
@@ -165,7 +166,19 @@ impl traits::Verify for UintAuthorityId {
 }
 
 /// A dummy signature type, to match `UintAuthorityId`.
-#[derive(Eq, PartialEq, Clone, Debug, Hash, Serialize, Deserialize, Encode, Decode, TypeInfo)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Debug,
+	Hash,
+	Serialize,
+	Deserialize,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+)]
 pub struct TestSignature(pub u64, pub Vec<u8>);
 
 impl traits::Verify for TestSignature {
