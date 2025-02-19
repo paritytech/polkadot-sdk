@@ -508,7 +508,17 @@ pub mod pallet {
 	}
 
 	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		RuntimeDebug,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum Origin {
 		/// It comes from somewhere in the XCM space wanting to transact.
 		Xcm(Location),
