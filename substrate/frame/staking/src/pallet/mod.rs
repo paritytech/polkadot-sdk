@@ -1261,6 +1261,7 @@ pub mod pallet {
 			Validators::<T>::get(account_id)
 		}
 
+
 		/// Get the nomination preferences of a given nominator.
 		pub fn nominators<EncodeLikeAccountId>(
 			account_id: EncodeLikeAccountId,

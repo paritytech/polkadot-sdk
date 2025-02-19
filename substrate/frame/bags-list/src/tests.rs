@@ -138,6 +138,40 @@ mod pallet {
 		});
 	}
 
+	#[test]
+	fn rebag_when_missing() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// when
+			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().remove(&3));
+
+			// then
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 3));
+
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 4])]);
+		});
+	}
+
+	#[test]
+	fn rebag_when_added() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// when 5 is added, but somehow it is not present in the bags list.
+			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().insert(5, 10));
+
+			// then
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 5));
+
+			// 5 is added
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1, 5]), (1_000, vec![2, 3, 4])]);
+		});
+
+	}
+
 	// Rebagging the tail of a bag results in the old bag having a new tail and an overall correct
 	// state.
 	#[test]
@@ -210,8 +244,9 @@ mod pallet {
 	fn wrong_rebag_errs() {
 		ExtBuilder::default().build_and_execute(|| {
 			let node_3 = list::Node::<Runtime>::get(&3).unwrap();
+
+			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().insert(500, 500));
 			// when account 3 is _not_ misplaced with score 500
-			NextVoteWeight::set(500);
 			assert!(!node_3.is_misplaced(500));
 
 			// then calling rebag on account 3 with score 500 is a noop
@@ -747,15 +782,8 @@ pub mod lock {
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
 
 			// when
-			BagsList::lock(3);
+			BagsList::lock();
 
-			// then can insert new nodes
-			assert_ok!(BagsList::on_insert(6, 1_000));
-			// can remove existing non-locked nodes
-			assert_ok!(BagsList::on_remove(&6));
-			// can update existing non-locked nodes
-			assert_ok!(BagsList::on_update(&4, 15));
-			// cannot touch the locked node
 			assert_noop!(BagsList::on_update(&3, 2_000), ListError::Locked);
 			assert_noop!(BagsList::on_increase(&3, 2_000), ListError::Locked);
 			assert_noop!(BagsList::on_decrease(&3, 2_000), ListError::Locked);
@@ -776,7 +804,7 @@ pub mod lock {
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
 
 			// when
-			BagsList::lock(3);
+			BagsList::lock();
 
 			// then
 			assert_noop!(BagsList::rebag(RuntimeOrigin::signed(0), 3), Error::<Runtime>::Locked);

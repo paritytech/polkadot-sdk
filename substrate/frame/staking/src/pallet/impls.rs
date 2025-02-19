@@ -1486,7 +1486,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		);
 
 		match status {
-			SnapshotStatus::Ongoing(ref to_lock) => T::VoterList::lock(to_lock.clone()),
+			SnapshotStatus::Ongoing(_) => T::VoterList::lock(),
 			_ => T::VoterList::unlock(),
 		}
 
@@ -2003,8 +2003,11 @@ where
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
 
-	fn score(who: &T::AccountId) -> Self::Score {
-		Self::weight_of(who)
+	fn score(who: &T::AccountId) -> Option<Self::Score> {
+		Self::ledger(Stash(who.clone())).map(|l| l.active).map(|a| {
+			let issuance = asset::total_issuance::<T>();
+			T::CurrencyToVote::to_vote(a, issuance)
+		}).ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2053,7 +2056,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 			Err(())
 		}
 	}
-	fn lock(_: T::AccountId) {}
+	fn lock() {}
 	fn unlock() {}
 	fn count() -> u32 {
 		Validators::<T>::count()
@@ -2078,7 +2081,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	}
 	fn unsafe_regenerate(
 		_: impl IntoIterator<Item = T::AccountId>,
-		_: Box<dyn Fn(&T::AccountId) -> Self::Score>,
+		_: Box<dyn Fn(&T::AccountId) -> Option<Self::Score>>,
 	) -> u32 {
 		// nothing to do upon regenerate.
 		0
@@ -2131,7 +2134,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 			Err(())
 		}
 	}
-	fn lock(_: T::AccountId) {}
+	fn lock() {}
 	fn unlock() {}
 	fn count() -> u32 {
 		Nominators::<T>::count().saturating_add(Validators::<T>::count())
@@ -2156,7 +2159,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	}
 	fn unsafe_regenerate(
 		_: impl IntoIterator<Item = T::AccountId>,
-		_: Box<dyn Fn(&T::AccountId) -> Self::Score>,
+		_: Box<dyn Fn(&T::AccountId) -> Option<Self::Score>>,
 	) -> u32 {
 		// nothing to do upon regenerate.
 		0

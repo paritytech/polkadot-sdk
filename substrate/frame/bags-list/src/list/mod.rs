@@ -122,7 +122,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns the number of ids migrated.
 	pub fn unsafe_regenerate(
 		all: impl IntoIterator<Item = T::AccountId>,
-		score_of: Box<dyn Fn(&T::AccountId) -> T::Score>,
+		score_of: Box<dyn Fn(&T::AccountId) -> Option<T::Score>>,
 	) -> u32 {
 		// NOTE: This call is unsafe for the same reason as SortedListProvider::unsafe_regenerate.
 		// I.e. because it can lead to many storage accesses.
@@ -310,13 +310,16 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns the final count of number of ids inserted.
 	fn insert_many(
 		ids: impl IntoIterator<Item = T::AccountId>,
-		score_of: impl Fn(&T::AccountId) -> T::Score,
+		score_of: impl Fn(&T::AccountId) -> Option<T::Score>,
 	) -> u32 {
 		let mut count = 0;
 		ids.into_iter().for_each(|v| {
-			let score = score_of(&v);
-			if Self::insert(v, score).is_ok() {
-				count += 1;
+			if let Some(score) = score_of(&v) {
+				if Self::insert(v, score).is_ok() {
+					count += 1;
+				}
+			} else {
+				// nada
 			}
 		});
 

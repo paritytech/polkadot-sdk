@@ -263,24 +263,9 @@ pub mod pallet {
 	pub type ListBags<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::Score, list::Bag<T, I>>;
 
-	/// A specific node that is declared as `locked`.
-	///
-	/// When set, this nodes's position within the entire list is fixed and cannot change. This is
-	/// useful for iteration over the entire list across multiple blocks, and being sure that the
-	/// overall order of the list is not tampered with.
-	///
-	/// We lock only one node because: If this node is locked, then:
-	///
-	/// - New nodes can be inserted before or after this. They may or may not be included in the
-	///   iteration.
-	/// - New nodes may be removed before or after this. The may or may not be included in the
-	///   iteration.
-	/// - A node can reposition itself (within our outside its bag) either before of after the
-	///   locked node.
-	///
-	/// All of the above are fine, and don't affect the overall order of the list.
+	/// Lock all updates to this pallet.
 	#[pallet::storage]
-	pub type Lock<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
+	pub type Lock<T: Config<I>, I: 'static = ()> = StorageValue<_, (), OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
@@ -322,10 +307,29 @@ pub mod pallet {
 		pub fn rebag(origin: OriginFor<T>, dislocated: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
 			let dislocated = T::Lookup::lookup(dislocated)?;
-			Self::ensure_unlocked(&dislocated).map_err(|_| Error::<T, I>::Locked)?;
-			let current_score = T::ScoreProvider::score(&dislocated);
-			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
-				.map_err::<Error<T, I>, _>(Into::into)?;
+			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
+
+			let existed = ListNodes::<T, I>::contains_key(&dislocated);
+			match (existed, T::ScoreProvider::score(&dislocated)) {
+				(true, Some(current_score)) => {
+					// existed and score is updated, rebag to a new bag.
+					let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
+						.map_err::<Error<T, I>, _>(Into::into)?;
+				},
+				(false, Some(current_score)) => {
+					// did not exists, and has a score now, put in the new bag.
+					Self::on_insert(dislocated.clone(), current_score)
+						.map_err::<Error<T, I>, _>(Into::into)?;
+				},
+				(true, None) => {
+					// existed, but has no new score now, remove.
+					Self::on_remove(&dislocated).map_err::<Error<T, I>, _>(Into::into)?;
+				},
+				(false, None) => {
+					// did not exists, and has no score now, do nothing.
+					return Err(Error::<T, I>::List(ListError::NodeNotFound).into());
+				},
+			}
 			Ok(())
 		}
 
@@ -347,7 +351,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let heavier = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
-			Self::ensure_unlocked(&heavier).map_err(|_| Error::<T, I>::Locked)?;
+			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
@@ -366,7 +370,7 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
-			Self::ensure_unlocked(&heavier).map_err(|_| Error::<T, I>::Locked)?;
+			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
@@ -415,15 +419,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(maybe_movement)
 	}
 
-	fn ensure_unlocked(who: &T::AccountId) -> Result<(), ListError> {
+	fn ensure_unlocked() -> Result<(), ListError> {
 		match Lock::<T, I>::get() {
 			None => Ok(()),
-			Some(locked) =>
-				if locked == *who {
-					Err(ListError::Locked)
-				} else {
-					Ok(())
-				},
+			Some(()) => Err(ListError::Locked),
 		}
 	}
 
@@ -453,8 +452,8 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		ListNodes::<T, I>::count()
 	}
 
-	fn lock(id: T::AccountId) {
-		Lock::<T, I>::put(id)
+	fn lock() {
+		Lock::<T, I>::put(())
 	}
 
 	fn unlock() {
@@ -466,12 +465,12 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::ensure_unlocked(&id)?;
+		Pallet::<T, I>::ensure_unlocked()?;
 		List::<T, I>::insert(id, score)
 	}
 
 	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::ensure_unlocked(&id)?;
+		Pallet::<T, I>::ensure_unlocked()?;
 		Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
 	}
 
@@ -480,13 +479,13 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_remove(id: &T::AccountId) -> Result<(), ListError> {
-		Pallet::<T, I>::ensure_unlocked(&id)?;
+		Pallet::<T, I>::ensure_unlocked()?;
 		List::<T, I>::remove(id)
 	}
 
 	fn unsafe_regenerate(
 		all: impl IntoIterator<Item = T::AccountId>,
-		score_of: Box<dyn Fn(&T::AccountId) -> T::Score>,
+		score_of: Box<dyn Fn(&T::AccountId) -> Option<T::Score>>,
 	) -> u32 {
 		// NOTE: This call is unsafe for the same reason as SortedListProvider::unsafe_regenerate.
 		// I.e. because it can lead to many storage accesses.
@@ -533,8 +532,8 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 impl<T: Config<I>, I: 'static> ScoreProvider<T::AccountId> for Pallet<T, I> {
 	type Score = <Pallet<T, I> as SortedListProvider<T::AccountId>>::Score;
 
-	fn score(id: &T::AccountId) -> T::Score {
-		Node::<T, I>::get(id).map(|node| node.score()).unwrap_or_default()
+	fn score(id: &T::AccountId) -> Option<T::Score> {
+		Node::<T, I>::get(id).map(|node| node.score())
 	}
 
 	frame_election_provider_support::runtime_benchmarks_or_std_enabled! {

@@ -576,16 +576,15 @@ pub trait SortedListProvider<AccountId> {
 	/// An iterator over the list, which can have `take` called on it.
 	fn iter() -> Box<dyn Iterator<Item = AccountId>>;
 
-	/// Lock the list. This will cause further calls to:
+	/// Lock the list.
 	///
-	/// - `on_insert`
-	/// - `on_update`
-	/// - `on_decrease`
-	/// - `on_increase`
-	/// - `on_remove`
-	///
-	/// to fail with `ListError::Lock`
-	fn lock(id: AccountId);
+	/// This will prevent subsequent calls to
+	/// - [`Self::on_insert`]
+	/// - [`Self::on_update`]
+	/// - [`Self::on_decrease`]
+	/// - [`Self::on_increase`]
+	/// - [`Self::on_remove`]
+	fn lock();
 
 	/// Unlock the list. This will nullify the effects of [`Self::lock`].
 	fn unlock();
@@ -651,7 +650,7 @@ pub trait SortedListProvider<AccountId> {
 	/// new list, which can lead to too many storage accesses, exhausting the block weight.
 	fn unsafe_regenerate(
 		all: impl IntoIterator<Item = AccountId>,
-		score_of: Box<dyn Fn(&AccountId) -> Self::Score>,
+		score_of: Box<dyn Fn(&AccountId) -> Option<Self::Score>>,
 	) -> u32;
 
 	/// Remove all items from the list.
@@ -678,8 +677,10 @@ pub trait SortedListProvider<AccountId> {
 pub trait ScoreProvider<AccountId> {
 	type Score;
 
-	/// Get the current `Score` of `who`.
-	fn score(who: &AccountId) -> Self::Score;
+	/// Get the current `Score` of `who`, `None` if `who` is not present.
+	///
+	/// `None` can be interpreted as a signal that the voter should be removed from the list.
+	fn score(who: &AccountId) -> Option<Self::Score>;
 
 	/// For tests, benchmarks and fuzzing, set the `score`.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "fuzz", feature = "std"))]
