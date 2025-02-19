@@ -82,20 +82,13 @@ pub mod pallet {
 	/// The balance type of this pallet.
 	pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-	// `Exposure<T::AccountId, BalanceOf<T>>` will be removed. This type alias exists only to
-	// suppress clippy warnings.
-	type ElectedValidatorSet<T> = Vec<(
-		<T as frame_system::Config>::AccountId,
-		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-	)>;
-
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
-	// TODO: should contain some initial state, otherwise starting from genesis won't work
 	#[pallet::storage]
-	pub type ValidatorSet<T: Config> = StorageValue<_, Option<ElectedValidatorSet<T>>, ValueQuery>;
+	pub type ValidatorSet<T: Config> =
+		StorageValue<_, Option<Vec<<T as frame_system::Config>::AccountId>>, ValueQuery>;
 
 	/// Keeps track of the session points for each block author in the current session.
 	#[pallet::storage]
@@ -137,7 +130,7 @@ pub mod pallet {
 		// #[pallet::weight(T::WeightInfo::new_validators())] // TODO
 		pub fn new_validator_set(
 			origin: OriginFor<T>,
-			new_validator_set: ElectedValidatorSet<T>,
+			new_validator_set: Vec<T::AccountId>,
 		) -> DispatchResult {
 			// Ignore requests not coming from the AssetHub or root.
 			Self::ensure_root_or_para(origin, <T as Config>::AssetHubId::get().into())?;
@@ -149,18 +142,20 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
-		for Pallet<T>
-	{
-		fn new_session(_: sp_staking::SessionIndex) -> Option<ElectedValidatorSet<T>> {
+	impl<T: Config> historical::SessionManager<T::AccountId, ()> for Pallet<T> {
+		fn new_session(
+			_: sp_staking::SessionIndex,
+		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ())>> {
 			// If there is a new validator set - return it. Otherwise return `None`.
 			ValidatorSet::<T>::take()
+				.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 		}
 
 		fn new_session_genesis(
 			_: SessionIndex,
-		) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
+		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ())>> {
 			ValidatorSet::<T>::take()
+				.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 		}
 
 		fn start_session(start_index: SessionIndex) {
