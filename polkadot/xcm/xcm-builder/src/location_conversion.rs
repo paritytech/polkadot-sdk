@@ -460,6 +460,9 @@ impl<UniversalLocation, AccountId>
 	}
 }
 
+/// Converts locations from external global consensus systems (e.g., Ethereum, other parachains) into `AccountId`.
+/// This includes handling child locations (e.g., `AccountId(Alice)`) and extending the functionality of
+/// `GlobalConsensusParachainConvertsFor` and `EthereumLocationsConverterFor`.
 pub struct ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>(PhantomData<(UniversalLocation, AccountId)>);
 
 impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone>
@@ -472,7 +475,9 @@ impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone
 			"ExternalConsensusLocationsConverterFor universal_source: {:?}, location: {:?}",
 			universal_source, location,
 		);
-        let (remote_network, remote_location) = ensure_is_remote(universal_source, location).ok()?;
+
+		let owned_location = location.clone();
+        let (remote_network, remote_location) = ensure_is_remote(universal_source, owned_location).ok()?;
 
         // replaces and extends `EthereumLocationsConverterFor` and `GlobalConsensusParachainConvertsFor`
         let acc_id: AccountId = if let Ethereum { chain_id } = &remote_network {
