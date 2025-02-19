@@ -324,7 +324,7 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
-const EXPECTED_RELAY_PARENT_AGE: u64 = 0;
+const EXPECTED_RELAY_PARENT_AGE: u64 = 3;
 
 type ConsensusHook = cumulus_pallet_aura_ext::OlderParentFixedVelocityConsensusHook<
 	Runtime,

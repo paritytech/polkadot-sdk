@@ -40,11 +40,10 @@ use crate::{
 	LOG_TARGET,
 };
 use cumulus_pallet_aura_ext::RelayParentAgeApi;
-use cumulus_primitives_core::relay_chain::BlockId;
+use cumulus_primitives_core::relay_chain::{BlockId, Hash, Header};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
-use schnellru::ByLength;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
@@ -52,7 +51,7 @@ use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, One};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use std::{sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
@@ -192,27 +191,13 @@ where
 				.slot_offset(best_hash)
 				.expect("Should be able to fetch offset.");
 
-			let mut relay_parent_header = relay_client
-				.header(BlockId::Hash(relay_parent))
-				.await
-				.expect("Can find header")
-				.expect("Header hash was known");
-			for i in 0..relay_parent_offset {
-				tracing::info!(
-					relay_parent_offset,
-					i,
-					current_hash = %relay_parent_header.hash(),
-					current_number = relay_parent_header.number(),
-					"Searching older parent."
-				);
-				if let Some(header) = relay_client
-					.header(BlockId::Hash(*relay_parent_header.parent_hash()))
-					.await
-					.expect("Can find header")
-				{
-					relay_parent_header = header;
-				}
-			}
+			tracing::info!(?relay_parent_offset, "Offset");
+
+			let Ok(relay_parent_header) =
+				find_offset_rp(&relay_client, relay_parent, relay_parent_offset).await
+			else {
+				continue
+			};
 			let relay_parent = relay_parent_header.hash();
 
 			let Some((included_block, parent)) =
@@ -413,4 +398,37 @@ where
 			}
 		}
 	}
+}
+
+async fn find_offset_rp<RelayClient>(
+	relay_client: &RelayClient,
+	relay_parent: Hash,
+	relay_parent_offset: u64,
+) -> Result<Header, ()>
+where
+	RelayClient: RelayChainInterface + Clone + 'static,
+{
+	let Ok(Some(mut relay_parent_header)) = relay_client.header(BlockId::Hash(relay_parent)).await
+	else {
+		return Err(())
+	};
+
+	for i in 0..relay_parent_offset {
+		tracing::info!(
+			relay_parent_offset,
+			i,
+			current_hash = %relay_parent_header.hash(),
+			current_number = relay_parent_header.number(),
+			"Searching for older parent."
+		);
+
+		let Ok(Some(header)) =
+			relay_client.header(BlockId::Hash(*relay_parent_header.parent_hash())).await
+		else {
+			return Ok(relay_parent_header)
+		};
+
+		relay_parent_header = header;
+	}
+	Ok(relay_parent_header)
 }

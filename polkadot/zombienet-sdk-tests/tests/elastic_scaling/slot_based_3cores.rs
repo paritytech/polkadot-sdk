@@ -40,7 +40,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 							"scheduler_params": {
 								// Num cores is 4, because 2 extra will be added automatically when registering the paras.
 								"num_cores": 4,
-								"max_validators_per_core": 2
+								"max_validators_per_core": 2,
+								"lookahead": 5
 							}
 						}
 					}
@@ -72,7 +73,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 			p.with_id(2200)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("elastic-scaling")
+				.with_chain("elastic-scaling-multi-block-slot")
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),
