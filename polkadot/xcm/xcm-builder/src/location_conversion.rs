@@ -467,7 +467,7 @@ impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone
 {
     fn convert_location(location: &Location) -> Option<AccountId> {
         let universal_source = UniversalLocation::get();
-        let (remote_network, remote_location) = ensure_is_remote(universal_source, location.clone()).ok()?;
+        let (remote_network, remote_location) = ensure_is_remote(universal_source, location).ok()?;
 
         let consensus_bytes = (b"external_consensus_", remote_network).using_encoded(blake2_256);
 
