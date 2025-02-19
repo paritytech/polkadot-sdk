@@ -21011,9 +21011,15 @@ dependencies = [
 name = "staging-xcm-builder"
 version = "17.0.4"
 dependencies = [
+<<<<<<< HEAD
  "assert_matches",
  "frame-support",
  "frame-system",
+=======
+ "environmental",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+>>>>>>> bd7cf119 (XCM: Deny barrier checks for nested XCMs with specific instructions to be executed on the local chain (#7200))
  "impl-trait-for-tuples",
  "log",
  "pallet-asset-conversion",
