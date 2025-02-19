@@ -6,7 +6,7 @@ crates:
 - name: frame-system
   bump: major
 - name: polkadot-runtime-common
-  bump: major
+  bump: patch
 - name: polkadot-runtime-parachains
   bump: major
 - name: rococo-runtime
@@ -28,4 +28,4 @@ crates:
 - name: pallet-mixnet
   bump: major
 - name: pallet-offences-benchmarking
-  bump: major
+  bump: patch
