@@ -20,7 +20,7 @@
 //!
 //! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use frame_support::traits::{
 	fungible::imbalance,
@@ -40,7 +40,9 @@ use sp_runtime::{
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
-#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq)]
+#[derive(
+	Decode, DecodeWithMemTracking, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq,
+)]
 pub enum NativeOrWithId<AssetId>
 where
 	AssetId: Ord,

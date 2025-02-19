@@ -157,7 +157,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
 	defensive, defensive_assert,
@@ -174,7 +174,17 @@ use frame_system::{
 use sp_runtime::Saturating;
 
 /// Points to the next migration to execute.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(
+	Debug,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum MigrationCursor<Cursor, BlockNumber> {
 	/// Points to the currently active migration and its inner cursor.
 	Active(ActiveCursor<Cursor, BlockNumber>),
@@ -202,7 +212,17 @@ impl<Cursor, BlockNumber> From<ActiveCursor<Cursor, BlockNumber>>
 }
 
 /// Points to the currently active migration and its inner cursor.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(
+	Debug,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct ActiveCursor<Cursor, BlockNumber> {
 	/// The index of the migration in the MBM tuple.
 	pub index: u32,
@@ -224,7 +244,9 @@ impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
 }
 
 /// How to clear the records of historic migrations.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo)]
+#[derive(
+	Debug, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, scale_info::TypeInfo,
+)]
 pub enum HistoricCleanupSelector<Id> {
 	/// Clear exactly these entries.
 	///
