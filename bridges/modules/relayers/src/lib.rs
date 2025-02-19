@@ -66,12 +66,11 @@ pub mod pallet {
 	>;
 
 	/// Shortcut to alternative beneficiary type for `Config::PaymentProcedure`.
-	pub type BeneficiaryOf<T, I> =
-		<<T as Config<I>>::PaymentProcedure as PaymentProcedure<
-			<T as frame_system::Config>::AccountId,
-			<T as Config<I>>::Reward,
-			<T as Config<I>>::RewardBalance,
-		>>::Beneficiary;
+	pub type BeneficiaryOf<T, I> = <<T as Config<I>>::PaymentProcedure as PaymentProcedure<
+		<T as frame_system::Config>::AccountId,
+		<T as Config<I>>::Reward,
+		<T as Config<I>>::RewardBalance,
+	>>::Beneficiary;
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
