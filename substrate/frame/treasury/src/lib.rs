@@ -324,7 +324,7 @@ pub mod pallet {
 
 	/// The count of spends that have been made.
 	#[pallet::storage]
-	pub(crate) type SpendCount<T, I = ()> = StorageValue<_, SpendIndex, ValueQuery>;
+	pub type SpendCount<T, I = ()> = StorageValue<_, SpendIndex, ValueQuery>;
 
 	/// Spends that have been approved and being processed.
 	// Hasher: Twox safe since `SpendIndex` is an internal count based index.
@@ -345,7 +345,7 @@ pub mod pallet {
 
 	/// The blocknumber for the last triggered spend period.
 	#[pallet::storage]
-	pub(crate) type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T, I>, OptionQuery>;
+	pub type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T, I>, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

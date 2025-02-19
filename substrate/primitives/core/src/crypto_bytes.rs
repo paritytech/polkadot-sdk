@@ -22,7 +22,7 @@ use crate::{
 	hash::{H256, H512},
 };
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
 
@@ -47,7 +47,7 @@ pub use signature_bytes::*;
 /// The tag `T` is held in a `PhantomData<fn() ->T>`, a trick allowing
 /// `CryptoBytes` to be `Send` and `Sync` regardless of `T` properties
 /// ([ref](https://doc.rust-lang.org/nomicon/phantom-data.html#table-of-phantomdata-patterns)).
-#[derive(Encode, Decode, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen)]
 #[repr(transparent)]
 pub struct CryptoBytes<const N: usize, T = ()>(pub [u8; N], PhantomData<fn() -> T>);
 

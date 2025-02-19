@@ -57,17 +57,8 @@ pub use bp_runtime::{
 /// Substrate-over-websocket connection params.
 #[derive(Debug, Clone)]
 pub struct ConnectionParams {
-	/// Websocket endpoint URL. Overrides all other URL components (`host`, `port`, `path` and
-	/// `secure`).
-	pub uri: Option<String>,
-	/// Websocket server host name.
-	pub host: String,
-	/// Websocket server TCP port.
-	pub port: u16,
-	/// Websocket endpoint path at server.
-	pub path: Option<String>,
-	/// Use secure websocket connection.
-	pub secure: bool,
+	/// Websocket endpoint URL.
+	pub uri: String,
 	/// Defined chain runtime version
 	pub chain_runtime_version: ChainRuntimeVersion,
 }
@@ -75,11 +66,7 @@ pub struct ConnectionParams {
 impl Default for ConnectionParams {
 	fn default() -> Self {
 		ConnectionParams {
-			uri: None,
-			host: "localhost".into(),
-			port: 9944,
-			path: None,
-			secure: false,
+			uri: "ws://localhost:9944".into(),
 			chain_runtime_version: ChainRuntimeVersion::Auto,
 		}
 	}

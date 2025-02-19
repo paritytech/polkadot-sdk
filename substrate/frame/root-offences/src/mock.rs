@@ -28,7 +28,7 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, OneSessionHandler},
 	BoundedVec,
 };
-use pallet_staking::StakerStatus;
+use pallet_staking::{BalanceOf, StakerStatus};
 use sp_core::ConstBool;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
@@ -148,8 +148,8 @@ impl pallet_staking::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -167,6 +167,7 @@ impl pallet_session::Config for Test {
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<Test>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
@@ -295,6 +296,11 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 			Timestamp::set_timestamp(bn * BLOCK_TIME + INIT_TIMESTAMP);
 		}),
 	);
+}
+
+/// Progress by n block.
+pub(crate) fn advance_blocks(n: u64) {
+	run_to_block(System::block_number() + n);
 }
 
 pub(crate) fn active_era() -> EraIndex {

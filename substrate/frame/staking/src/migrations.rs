@@ -23,6 +23,7 @@ use frame_support::{
 	pallet_prelude::ValueQuery,
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+	Twox64Concat,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -55,53 +56,80 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
-/// Migrates to multi-page election support.
-///
-/// See: <https://github.com/paritytech/polkadot-sdk/pull/6034>
-///
-/// Important note: this migration should be released with the election provider configured by this
-/// pallet supporting up to 1 page. Thus,
-/// * `VoterSnapshotStatus` does not need migration, as it will always be `Status::Waiting` when
-/// the number of election pages is 1.
-/// * `ElectableStashes` must be populated iif there are collected exposures for a future era (i.e.
-/// exposures have been collected but `fn try_plan_new_era` was not called).
+/// Migrates `UnappliedSlashes` to a new storage structure to support paged slashing.
+/// This ensures that slashing can be processed in batches, preventing large storage operations in a
+/// single block.
 pub mod v17 {
 	use super::*;
 
-	pub struct VersionedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
-	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionedMigrateV16ToV17<T> {
+	#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+	struct OldUnappliedSlash<T: Config> {
+		validator: T::AccountId,
+		/// The validator's own slash.
+		own: BalanceOf<T>,
+		/// All other slashed stakers and amounts.
+		others: Vec<(T::AccountId, BalanceOf<T>)>,
+		/// Reporters of the offence; bounty payout recipients.
+		reporters: Vec<T::AccountId>,
+		/// The amount of payout.
+		payout: BalanceOf<T>,
+	}
+
+	#[frame_support::storage_alias]
+	pub type OldUnappliedSlashes<T: Config> =
+		StorageMap<Pallet<T>, Twox64Concat, EraIndex, Vec<OldUnappliedSlash<T>>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub type DisabledValidators<T: Config> =
+		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<100>>, ValueQuery>;
+
+	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
 		fn on_runtime_upgrade() -> Weight {
-			// Populates the `ElectableStashes` with the exposures of the next planning era if it
-			// is initialized (i.e. if the there are exposures collected for the next planning
-			// era).
+			let mut weight: Weight = Weight::zero();
 
-			// note: we expect the migration to be released with a single page config.
-			debug_assert!(Pallet::<T>::election_pages() == 1);
+			OldUnappliedSlashes::<T>::drain().for_each(|(era, slashes)| {
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
 
-			let next_era = CurrentEra::<T>::get().defensive_unwrap_or_default().saturating_add(1);
-			let prepared_exposures = ErasStakersOverview::<T>::iter_prefix(next_era)
-				.map(|(v, _)| v)
-				.collect::<Vec<_>>();
-			let migrated_stashes = prepared_exposures.len() as u32;
+				for slash in slashes {
+					let validator = slash.validator.clone();
+					let new_slash = UnappliedSlash {
+						validator: validator.clone(),
+						own: slash.own,
+						others: WeakBoundedVec::force_from(slash.others, None),
+						payout: slash.payout,
+						reporter: slash.reporters.first().cloned(),
+					};
 
-			let result = Pallet::<T>::add_electables(prepared_exposures.into_iter());
-			debug_assert!(result.is_ok());
+					// creating a slash key which is improbable to conflict with a new offence.
+					let slash_key = (validator, Perbill::from_percent(99), 9999);
+					UnappliedSlashes::<T>::insert(era, slash_key, new_slash);
+					weight.saturating_accrue(T::DbWeight::get().writes(1));
+				}
+			});
 
-			log!(info, "v17 applied successfully, migrated {:?}.", migrated_stashes);
-			T::DbWeight::get().reads_writes(
-				// 1x read per history depth and current era read.
-				(T::HistoryDepth::get() + 1u32).into(),
-				// 1x write per exposure migrated.
-				migrated_stashes.into(),
-			)
+			weight
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			frame_support::ensure!(
-				Pallet::<T>::on_chain_storage_version() >= 17,
-				"v17 not applied"
-			);
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let mut expected_slashes: u32 = 0;
+			OldUnappliedSlashes::<T>::iter().for_each(|(_, slashes)| {
+				expected_slashes += slashes.len() as u32;
+			});
+
+			Ok(expected_slashes.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let expected_slash_count =
+				u32::decode(&mut state.as_slice()).expect("Failed to decode state");
+
+			let actual_slash_count = UnappliedSlashes::<T>::iter().count() as u32;
+
+			ensure!(expected_slash_count == actual_slash_count, "Slash count mismatch");
+
 			Ok(())
 		}
 	}
@@ -109,10 +137,24 @@ pub mod v17 {
 	pub type MigrateV16ToV17<T> = VersionedMigration<
 		16,
 		17,
-		VersionedMigrateV16ToV17<T>,
+		VersionUncheckedMigrateV16ToV17<T>,
 		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+
+	pub struct MigrateDisabledToSession<T>(core::marker::PhantomData<T>);
+	impl<T: Config> pallet_session::migrations::v1::MigrateDisabledValidators
+		for MigrateDisabledToSession<T>
+	{
+		#[cfg(feature = "try-runtime")]
+		fn peek_disabled() -> Vec<(u32, OffenceSeverity)> {
+			DisabledValidators::<T>::get().into()
+		}
+
+		fn take_disabled() -> Vec<(u32, OffenceSeverity)> {
+			DisabledValidators::<T>::take().into()
+		}
+	}
 }
 
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
@@ -183,7 +225,7 @@ pub mod v16 {
 			// Decode state to get old_disabled_validators in a format of Vec<u32>
 			let old_disabled_validators =
 				Vec::<u32>::decode(&mut state.as_slice()).expect("Failed to decode state");
-			let new_disabled_validators = DisabledValidators::<T>::get();
+			let new_disabled_validators = v17::DisabledValidators::<T>::get();
 
 			// Compare lengths
 			frame_support::ensure!(
@@ -201,7 +243,7 @@ pub mod v16 {
 
 			// Verify severity
 			let max_severity = OffenceSeverity(Perbill::from_percent(100));
-			let new_disabled_validators = DisabledValidators::<T>::get();
+			let new_disabled_validators = v17::DisabledValidators::<T>::get();
 			for (_, severity) in new_disabled_validators {
 				frame_support::ensure!(severity == max_severity, "Severity mismatch");
 			}
@@ -224,7 +266,7 @@ pub mod v15 {
 	use super::*;
 
 	// The disabling strategy used by staking pallet
-	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;
+	type DefaultDisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy;
 
 	#[storage_alias]
 	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
