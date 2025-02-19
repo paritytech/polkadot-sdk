@@ -1,46 +1,44 @@
+<div align="center">
+
+![SDK Logo](../docs/images/Polkadot_Logo_Horizontal_Pink_White.png#gh-dark-mode-only)
+![SDK Logo](../docs/images/Polkadot_Logo_Horizontal_Pink_Black.png#gh-light-mode-only)
+
 # `polkadot-sdk`
 
-`polkadot-sdk` is an umbrella crate re-exporting all other published crates, except for the example and fuzzing, plus some of the runtime crates like Rococo. Consider it the entry to the whole Polkadot and Substrate ecosystem.
+<!-- markdownlint-disable-next-line MD013 -->
+[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)
 
-`polkadot-sdk` aims to make the SDK more approachable - the entire development environment made available with one dependency. More importantly, it guarantees the right combination of crate versions, thus third-party tools for selecting compatible crate versions are no longer needed.
+</div>
 
-## Usage
+`polkadot-sdk` is an umbrella crate for the [Polkadot SDK](https://github.com/paritytech/polkadot-sdk), in the sense that it is an "umbrella" that encompasses other components. More specifically, it re-exports all other published crates in the SDK, except for the example and fuzzing, plus some of the runtime crates.
+
+`polkadot-sdk` aims to be an entry to the Polkadot and Substrate ecosystem and make the SDK more approachable—the entire development environment made available with one dependency. More importantly, it guarantees the right combination of crate versions so that third-party tools for selecting compatible crate versions are no longer necessary.
+
+## 💻 Usage
 
 The re-exported crates are grouped under the following feature sets.
 
-- `std`: for enabling `std` support of the enabled features
-- `experimental`: for experimental features
-- `node`: for node implementation
-- `runtime`: for runtime implementation
-- `runtime-benchmarks`: for benchmarking runtimes
-- `runtime-full`: for more comprehensive runtime implementation?
-- `serde`: for `serde` en/decoding support
-- `tuples-96`: required by runtimes with more than 64 pallets
-- `try-runtime`: for cli support?
-- `with-tracing`: for tracing support
+- `node`
+- `runtime`
+- `std`
+- `experimental`
+- `runtime-benchmarks`
+- `runtime-full`
+- `serde`
+- `tuples-96`
+- `try-runtime`
+- `with-tracing`
 
-Choose which ones to enable based on the needs. For example, when building a runtime with more than 64 pallets, benchmarking needs and optional tracing, the `Cargo.toml` may contain
+Choose which ones to enable based on the needs. For example, when building a runtime, the `Cargo.toml` may contain the following. To build a runtime that can run on a wide variety of environments, you may want to opt out of `std` with `default-features = false`.
 
 ```toml
 [dependencies]
-polkadot-sdk = { version = "0.12.0", features = ["runtime", "tuples-96"] }
-
-[features]
-runtime-benchmarks = ["polkadot-sdk/runtime-benchmarks"]
-with-tracing = ["polkadot-sdk/with-tracing"]
+polkadot-sdk = { version = "0.12.0", features = ["runtime"], default-features = false }
 ```
 
-```shell
-# build enabling runtime-benchmarks and with-tracing
-$ cargo build --features "runtime-benchmarks,with-tracing"
-```
+In addition to the features above, each re-exported crate is individually feature-gated. For situations where only a small subset of crates is needed, you may consider specifying the exact set of crates you need to reduce build time.
 
-## Pro Tips
-
-* fine-grained control over dependencies
-* any suggestions?
-
-In addition to the features above, each re-exported crate is feature-gated individually so that one can control exactly which crates to include. In the contrived example below, only the `frame-support` and `frame-system` crates are needed.
+In the contrived example below, only the `frame-support` and `frame-system` crates are needed from `polkadot-sdk`.
 
 ```toml
 [dependencies]
@@ -90,6 +88,16 @@ pub mod pallet {
 }
 ```
 
-## Versioning
+To learn more about building with the Polkadot SDK, you may start with these [guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html).
 
-We do a stable release for the SDK quarterly with a version scheme reflecting the release cadence. At the time of writing, the latest version is `stable2412` (released on December 2024). To avoid confusion, we plan to align with the established scheme for the umbrella crate. For example, the next stable version of `polkadot-sdk` will be `2503.0.0`.
+## 💡 Pro Tips
+
+(Any suggestions?)
+
+In Substrate, a runtime can be seen as a tuple of various pallets. Since the number of pallets varies and there is no way to anticipate it, we have to generate impl-trait for tuples of different sizes upfront, from 0-tuple to 64-tuple to be specific (64 is chosen to balance usability and compile time).
+
+Seldomly, if the runtime grows larger than 64 pallets, the trait implementations will no longer apply, then the feature `tuples-96` (or even `tuples-128`) is required (at the cost of increased compile time).
+
+## 🚀 Versioning
+
+We do a stable release for the SDK every three months with a version schema reflecting the release cadence. At the time of writing, the latest version is `stable2412` (released in 2024 December). To avoid confusion, we will align the versioning of `polkadot-sdk` with the established schema. For instance, the next stable version will be `2503.0.0`.
