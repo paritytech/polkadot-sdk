@@ -255,3 +255,7 @@ macro_rules! enter_span {
 		$crate::enter_span!($crate::span!($lvl, $name))
 	};
 }
+
+#[cfg(feature = "std")]
+pub use tracing_test;
+
