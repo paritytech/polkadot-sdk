@@ -16,6 +16,7 @@ KNOWN_BAD_GIT_DEPS = {
 	# Fix in <https://github.com/paritytech/polkadot-sdk/issues/2922>
 	'bandersnatch_vrfs': ['sp-core'],
 	'subwasmlib': ['polkadot-zombienet-sdk-tests'],
+    'tx-test-tool': ['sc-transaction-pool']
 }
 
 root = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
@@ -34,7 +35,6 @@ def check_dep(dep, used_by):
 # Check the workspace dependencies that can be inherited:
 for dep in workspace.dependencies:
 	check_dep(dep, "workspace")
-
 	if workspace.crates.find_by_name(dep.name):
 		if dep.location != DependencyLocation.PATH:
 			errors.append(f'🚫 Workspace must use path to link local dependency {dep.name}')
@@ -42,7 +42,9 @@ for dep in workspace.dependencies:
 # And the dependencies of each crate:
 for crate in workspace.crates:
 	for dep in crate.dependencies:
-		check_dep(dep, crate.name)
+		# Allow git dependencies in `[dev-dependencies]` sections.
+		if dep.kind != "dev":
+			check_dep(dep, crate.name)
 
 if errors:
 	print('❌ Found errors:')
