@@ -514,7 +514,9 @@ fn query_holding() {
 
 #[test]
 fn reserve_transfer_with_error() {
-	use sp_tracing::{assert_logs_contain, capturing_logs, tracing, tracing_subscriber};
+	use sp_tracing::{
+		assert_logs_contain, capturing_logs, tracing, tracing_subscriber,
+	};
 
 	// Reset the test network
 	MockNet::reset();
