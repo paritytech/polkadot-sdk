@@ -29,7 +29,7 @@ use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
 use frame_support::{traits::tokens::Preservation, Blake2_128Concat, Identity};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen},
+	codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen},
 	traits::AccountIdConversion,
 	TypeId,
 };
@@ -42,7 +42,18 @@ mod registration;
 ///
 /// Each of the 2 final points connected by a bridge owns a sovereign account at each end of the
 /// bridge. So here, at this end of the bridge there can be 2 sovereign accounts that pay rewards.
-#[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Copy,
+	Clone,
+	Debug,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum RewardsAccountOwner {
 	/// The sovereign account of the final chain on this end of the bridge.
 	ThisChain,
@@ -59,7 +70,18 @@ pub enum RewardsAccountOwner {
 /// destinations of a bridge lane must have a sovereign account at each end of the bridge and each
 /// of the sovereign accounts will pay rewards for different operations. So we need multiple
 /// parameters to identify the account that pays a reward to the relayer.
-#[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Copy,
+	Clone,
+	Debug,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct RewardsAccountParams<LaneId> {
 	// **IMPORTANT NOTE**: the order of fields here matters - we are using
 	// `into_account_truncating` and lane id is already `32` byte, so if other fields are encoded
