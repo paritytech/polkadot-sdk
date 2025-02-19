@@ -77,7 +77,7 @@ pub trait WeightInfo {
 	fn free() -> Weight;
 	fn force_transfer() -> Weight;
 	fn freeze() -> Weight;
-	fn reconsider() -> Weight;
+	fn poke_deposit() -> Weight;
 }
 
 /// Weights for `pallet_indices` using the Substrate node and recommended hardware.
@@ -144,7 +144,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Indices::Accounts` (r:1 w:1)
 	/// Proof: `Indices::Accounts` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
-	fn reconsider() -> Weight {
+	fn poke_deposit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `75`
 		//  Estimated: `3534`
@@ -218,7 +218,7 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Indices::Accounts` (r:1 w:1)
 	/// Proof: `Indices::Accounts` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
-	fn reconsider() -> Weight {
+	fn poke_deposit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `75`
 		//  Estimated: `3534`

@@ -114,7 +114,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn reconsider() -> Result<(), BenchmarkError> {
+	fn poke_deposit() -> Result<(), BenchmarkError> {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();

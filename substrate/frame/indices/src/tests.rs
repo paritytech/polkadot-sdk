@@ -121,31 +121,31 @@ fn force_transfer_index_on_free_should_work() {
 }
 
 #[test]
-fn reconsider_should_fail_for_unassigned_index() {
+fn poke_deposit_should_fail_for_unassigned_index() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(Indices::reconsider(Some(1).into(), 0), Error::<Test>::NotAssigned);
+		assert_noop!(Indices::poke_deposit(Some(1).into(), 0), Error::<Test>::NotAssigned);
 	});
 }
 
 #[test]
-fn reconsider_should_fail_for_wrong_owner() {
+fn poke_deposit_should_fail_for_wrong_owner() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
-		assert_noop!(Indices::reconsider(Some(2).into(), 0), Error::<Test>::NotOwner);
+		assert_noop!(Indices::poke_deposit(Some(2).into(), 0), Error::<Test>::NotOwner);
 	});
 }
 
 #[test]
-fn reconsider_should_fail_for_permanent_index() {
+fn poke_deposit_should_fail_for_permanent_index() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_ok!(Indices::freeze(Some(1).into(), 0));
-		assert_noop!(Indices::reconsider(Some(1).into(), 0), Error::<Test>::Permanent);
+		assert_noop!(Indices::poke_deposit(Some(1).into(), 0), Error::<Test>::Permanent);
 	});
 }
 
 #[test]
-fn reconsider_should_fail_for_insufficient_balance() {
+fn poke_deposit_should_fail_for_insufficient_balance() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 
@@ -153,14 +153,14 @@ fn reconsider_should_fail_for_insufficient_balance() {
 		IndexDeposit::set(1000);
 
 		assert_noop!(
-			Indices::reconsider(Some(1).into(), 0),
+			Indices::poke_deposit(Some(1).into(), 0),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
 	});
 }
 
 #[test]
-fn reconsider_should_work_when_deposit_increases() {
+fn poke_deposit_should_work_when_deposit_increases() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_eq!(Balances::reserved_balance(1), 1);
@@ -168,9 +168,9 @@ fn reconsider_should_work_when_deposit_increases() {
 		// Change deposit to 3
 		IndexDeposit::set(3);
 
-		// Reconsider should work and be free
+		// poke_deposit should work and be free
 		let initial_balance = Balances::free_balance(1);
-		let result = Indices::reconsider(Some(1).into(), 0);
+		let result = Indices::poke_deposit(Some(1).into(), 0);
 		assert_ok!(result.as_ref());
 		let post_info = result.unwrap();
 		assert_eq!(post_info.pays_fee, Pays::No);
@@ -180,13 +180,13 @@ fn reconsider_should_work_when_deposit_increases() {
 		assert_eq!(Balances::free_balance(1), initial_balance - 2);
 
 		System::assert_has_event(
-			Event::DepositReconsidered { who: 1, index: 0, old_deposit: 1, new_deposit: 3 }.into(),
+			Event::DepositPoked { who: 1, index: 0, old_deposit: 1, new_deposit: 3 }.into(),
 		);
 	});
 }
 
 #[test]
-fn reconsider_should_work_when_deposit_decreases() {
+fn poke_deposit_should_work_when_deposit_decreases() {
 	new_test_ext().execute_with(|| {
 		// Set initial deposit to 3
 		IndexDeposit::set(3);
@@ -197,7 +197,7 @@ fn reconsider_should_work_when_deposit_decreases() {
 		IndexDeposit::set(1);
 
 		let initial_balance = Balances::free_balance(1);
-		let result = Indices::reconsider(Some(1).into(), 0);
+		let result = Indices::poke_deposit(Some(1).into(), 0);
 		assert_ok!(result.as_ref());
 		let post_info = result.unwrap();
 		assert_eq!(post_info.pays_fee, Pays::No);
@@ -207,19 +207,19 @@ fn reconsider_should_work_when_deposit_decreases() {
 		assert_eq!(Balances::free_balance(1), initial_balance + 2);
 
 		System::assert_has_event(
-			Event::DepositReconsidered { who: 1, index: 0, old_deposit: 3, new_deposit: 1 }.into(),
+			Event::DepositPoked { who: 1, index: 0, old_deposit: 3, new_deposit: 1 }.into(),
 		);
 	});
 }
 
 #[test]
-fn reconsider_should_charge_fee_when_deposit_unchanged() {
+fn poke_deposit_should_charge_fee_when_deposit_unchanged() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_eq!(Balances::reserved_balance(1), 1);
 
-		// Reconsider with same deposit amount
-		let result = Indices::reconsider(Some(1).into(), 0);
+		// poke_deposit with same deposit amount
+		let result = Indices::poke_deposit(Some(1).into(), 0);
 		assert_ok!(result.as_ref());
 		// Verify fee payment
 		let post_info = result.unwrap();
@@ -228,10 +228,10 @@ fn reconsider_should_charge_fee_when_deposit_unchanged() {
 		// Reserved balance should remain the same
 		assert_eq!(Balances::reserved_balance(1), 1);
 
-		// Verify no DepositReconsidered event was emitted
+		// Verify no DepositPoked event was emitted
 		assert!(!System::events().iter().any(|record| matches!(
 			record.event,
-			RuntimeEvent::Indices(Event::DepositReconsidered { .. })
+			RuntimeEvent::Indices(Event::DepositPoked { .. })
 		)));
 	});
 }

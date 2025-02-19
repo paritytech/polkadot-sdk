@@ -117,7 +117,7 @@ impl<T: frame_system::Config> pallet_indices::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Indices::Accounts` (r:1 w:1)
 	/// Proof: `Indices::Accounts` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
-	fn reconsider() -> Weight {
+	fn poke_deposit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `100`
 		//  Estimated: `3534`

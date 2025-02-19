@@ -233,19 +233,19 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Reconsider the deposit reserved for an index.
+		/// Poke the deposit reserved for an index.
 		///
 		/// The dispatch origin for this call must be _Signed_ and the signing account must have a
 		/// non-frozen account `index`.
 		///
-		/// The transaction fees is waived if the deposit is changed after reconsideration.
+		/// The transaction fees is waived if the deposit is changed after poking/reconsideration.
 		///
-		/// - `index`: the index whose deposit is to be reconsidered.
+		/// - `index`: the index whose deposit is to be poked/reconsidered.
 		///
-		/// Emits `DepositReconsidered` if successful.
+		/// Emits `DepositPoked` if successful.
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::reconsider())]
-		pub fn reconsider(
+		#[pallet::weight(T::WeightInfo::poke_deposit())]
+		pub fn poke_deposit(
 			origin: OriginFor<T>,
 			index: T::AccountIndex,
 		) -> DispatchResultWithPostInfo {
@@ -281,7 +281,7 @@ pub mod pallet {
 
 				*maybe_value = Some((account, new_amount, perm));
 
-				Self::deposit_event(Event::DepositReconsidered {
+				Self::deposit_event(Event::DepositPoked {
 					who,
 					index,
 					old_deposit: old_amount,
@@ -301,8 +301,8 @@ pub mod pallet {
 		IndexFreed { index: T::AccountIndex },
 		/// A account index has been frozen to its current account ID.
 		IndexFrozen { index: T::AccountIndex, who: T::AccountId },
-		/// A deposit to reserve an index has been reconsidered.
-		DepositReconsidered {
+		/// A deposit to reserve an index has been poked/reconsidered.
+		DepositPoked {
 			who: T::AccountId,
 			index: T::AccountIndex,
 			old_deposit: BalanceOf<T>,
