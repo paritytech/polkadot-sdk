@@ -1290,6 +1290,29 @@ where
 	}
 }
 
+#[derive(Clone)]
+pub struct SharedBlockWeights<Block: BlockT> {
+    weights: Arc<Mutex<std::collections::HashMap<Block::Hash, BabeBlockWeight>>>,
+}
+
+impl<Block: BlockT> SharedBlockWeights<Block> {
+    fn new() -> Self {
+        SharedBlockWeights {
+            weights: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        }
+    }
+
+    fn update_weight(&self, hash: Block::Hash, weight: BabeBlockWeight) {
+        let mut weights = self.weights.lock();
+        weights.insert(hash, weight);
+    }
+
+    fn get_weight(&self, hash: &Block::Hash) -> Option<BabeBlockWeight> {
+        let weights = self.weights.lock();
+        weights.get(hash).cloned()
+    }
+}
+
 /// A block-import handler for BABE.
 ///
 /// This scans each imported block for epoch change signals. The signals are
@@ -1302,6 +1325,7 @@ pub struct BabeBlockImport<Block: BlockT, Client, I> {
 	inner: I,
 	client: Arc<Client>,
 	epoch_changes: SharedEpochChanges<Block, Epoch>,
+	shared_weights: SharedBlockWeights<Block>,
 	config: BabeConfiguration,
 }
 
@@ -1311,6 +1335,7 @@ impl<Block: BlockT, I: Clone, Client> Clone for BabeBlockImport<Block, Client, I
 			inner: self.inner.clone(),
 			client: self.client.clone(),
 			epoch_changes: self.epoch_changes.clone(),
+			shared_weights: SharedBlockWeights::new(),
 			config: self.config.clone(),
 		}
 	}
@@ -1321,9 +1346,10 @@ impl<Block: BlockT, Client, I> BabeBlockImport<Block, Client, I> {
 		client: Arc<Client>,
 		epoch_changes: SharedEpochChanges<Block, Epoch>,
 		block_import: I,
+		shared_weights: SharedBlockWeights<Block>,
 		config: BabeConfiguration,
 	) -> Self {
-		BabeBlockImport { client, inner: block_import, epoch_changes, config }
+		BabeBlockImport { client, inner: block_import, epoch_changes, shared_weights, config, }
 	}
 }
 
@@ -1633,7 +1659,8 @@ where
 			aux_schema::write_block_weight(hash, total_weight, |values| {
 				block
 					.auxiliary
-					.extend(values.iter().map(|(k, v)| (k.to_vec(), Some(v.to_vec()))))
+					.extend(values.iter().map(|(k, v)| (k.to_vec(), Some(v.to_vec()))));
+				self.shared_weights.update_weight(hash, total_weight);
 			});
 
 			// The fork choice rule is that we pick the heaviest chain (i.e.
@@ -1647,8 +1674,7 @@ where
 					// so we don't need to cover again here.
 					parent_weight
 				} else {
-					aux_schema::load_block_weight(&*self.client, last_best)
-						.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
+					self.shared_weights.get_weight(&last_best)
 						.ok_or_else(|| {
 							ConsensusError::ChainLookup(
 								"No block weight for parent header.".to_string(),
@@ -1656,41 +1682,13 @@ where
 						})?
 				};
 			
-				// Determine if the current block is primary or secondary
-				let is_primary = pre_digest.is_primary();
-			
-				// Determine if the last best block is primary or secondary
-				let last_best_is_primary = {
-					let last_best_header = self.client.header(last_best)
-						.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
-						.ok_or_else(|| {
-							ConsensusError::ChainLookup(
-								"No header for last best block.".to_string(),
-							)
-						})?;
-					let last_best_pre_digest = find_pre_digest::<Block>(&last_best_header).expect(
-						"valid babe headers must contain a predigest; header has been already verified; qed",
-					);
-					last_best_pre_digest.is_primary()
-				};
-			
-				Some(ForkChoiceStrategy::Custom(
-					if is_primary && !last_best_is_primary {
-						// Always prefer primary blocks over secondary blocks
-						true
-					} else if !is_primary && last_best_is_primary {
-						// Never prefer secondary blocks over primary blocks
-						false
-					} else if total_weight > last_best_weight {
-						// If both are primary or both are secondary, prefer the heavier chain
-						true
-					} else if total_weight == last_best_weight {
-						// If weights are equal, prefer the longer chain
-						number > last_best_number
-					} else {
-						false
-					}
-				))
+				Some(ForkChoiceStrategy::Custom(if total_weight > last_best_weight {
+					true
+				} else if total_weight == last_best_weight {
+					number > last_best_number
+				} else {
+					false
+				}))
 			};
 
 			// Release the mutex, but it stays locked
@@ -1763,6 +1761,7 @@ pub fn block_import<Client, Block: BlockT, I>(
 	config: BabeConfiguration,
 	wrapped_block_import: I,
 	client: Arc<Client>,
+	shared_weights: SharedBlockWeights<Block>
 ) -> ClientResult<(BabeBlockImport<Block, Client, I>, BabeLink<Block>)>
 where
 	Client: AuxStore
@@ -1789,7 +1788,7 @@ where
 	};
 	client.register_finality_action(Box::new(on_finality));
 
-	let import = BabeBlockImport::new(client, epoch_changes, wrapped_block_import, config);
+	let import = BabeBlockImport::new(client, epoch_changes, wrapped_block_import, shared_weights, config);
 
 	Ok((import, link))
 }
