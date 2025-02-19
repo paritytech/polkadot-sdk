@@ -56,7 +56,7 @@ pub enum BridgeRewardBeneficiaries {
 	/// A local chain account.
 	LocalAccount(AccountId),
 	/// A beneficiary specified by a VersionedLocation.
-	Location(VersionedLocation),
+	AssetHubLocation(VersionedLocation),
 }
 
 impl From<sp_runtime::AccountId32> for BridgeRewardBeneficiaries {
@@ -90,7 +90,7 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewa
 							&relayer, lane_params, reward, account,
 						)
 					},
-					BridgeRewardBeneficiaries::Location(_) => Err(Self::Error::Other("`Location` beneficiary is not supported for `RococoWestend` rewards!")),
+					BridgeRewardBeneficiaries::AssetHubLocation(_) => Err(Self::Error::Other("`AssetHubLocation` beneficiary is not supported for `RococoWestend` rewards!")),
 				}
 			},
 			BridgeReward::Snowbridge =>
