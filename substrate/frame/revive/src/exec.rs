@@ -18,7 +18,8 @@
 use crate::{
 	address::{self, AddressMapper},
 	gas::GasMeter,
-	limits,
+	limits, precompiles,
+	precompiles::Precompile,
 	primitives::{ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
@@ -1009,6 +1010,55 @@ where
 		}
 	}
 
+	fn run_precompile(
+		&mut self,
+		precompile_address: H160,
+		value_transferred: U256,
+		input_data: &[u8],
+		read_only: bool,
+	) -> Result<(), ExecError> {
+		if_tracing(|tracer| {
+			let caller = self.caller();
+			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
+			let frame = top_frame_mut!(self);
+			tracer.enter_child_span(
+				maybe_caller_address.unwrap_or_default(),
+				precompile_address,
+				false,
+				read_only,
+				value_transferred,
+				&input_data,
+				frame.nested_gas.gas_left(),
+			);
+		});
+
+		// TODO burn value_transferred if any
+
+		let output = if dest_addr == &precompiles::ECRECOVER {
+			self.gas_meter_mut().charge(crate::RuntimeCosts::EcdsaRecovery);
+			precompiles::ECRecover::execute(&input_data)
+		} else {
+			log::debug!(target: crate::LOG_TARGET, "Unsupported precompile address {dest_addr:?}");
+			todo!()
+		}
+		.map_err(|e| {
+			if_tracing(|tracer| {
+				tracer.exit_child_span_with_error(
+					e.error,
+					top_frame_mut!(self).nested_gas.gas_consumed(),
+				);
+			});
+			ExecError { error: e.error, origin: ErrorOrigin::Callee }
+		})?;
+
+		if_tracing(|tracer| {
+			tracer.exit_child_span(&output, top_frame_mut!(self).nested_gas.gas_consumed());
+		});
+
+		self.top_frame_mut().last_frame_output = output;
+		Ok(())
+	}
+
 	/// Run the current (top) frame.
 	///
 	/// This can be either a call or an instantiate.
@@ -1410,9 +1460,8 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
-			if is_precompile(dest_addr) {
-				log::debug!(target: crate::LOG_TARGET, "Unsupported precompile address {dest_addr:?}");
-				return Err(Error::<T>::UnsupportedPrecompileAddress.into());
+			if is_precompile(&dest_addr) {
+				return self.run_precompile(dest_addr, value, &input_data)?;
 			}
 
 			let dest = T::AddressMapper::to_account_id(dest_addr);

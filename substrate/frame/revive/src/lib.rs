@@ -26,6 +26,7 @@ mod benchmarking;
 mod exec;
 mod gas;
 mod limits;
+mod precompiles;
 mod primitives;
 mod storage;
 mod transient_storage;

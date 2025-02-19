@@ -26,6 +26,7 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	exec::{Ext, Key, MomentOf},
 	limits,
+	precompiles::Precompile,
 	storage::WriteOutcome,
 	ConversionPrecision, Pallet as Contracts, *,
 };
@@ -1945,30 +1946,24 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_ecdsa_recover() {
-		let message_hash = sp_io::hashing::blake2_256("Hello world".as_bytes());
-		let key_type = sp_core::crypto::KeyTypeId(*b"code");
-		let signature = {
-			let pub_key = sp_io::crypto::ecdsa_generate(key_type, None);
-			let sig = sp_io::crypto::ecdsa_sign_prehashed(key_type, &pub_key, &message_hash)
-				.expect("Generates signature");
-			AsRef::<[u8; 65]>::as_ref(&sig).to_vec()
-		};
+	fn ecdsa_recover() {
+		use hex_literal::hex;
+		let input = hex! {"
+			18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c
+			000000000000000000000000000000000000000000000000000000000000001c
+			73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f
+			eeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549
+		"};
 
-		build_runtime!(runtime, memory: [signature, message_hash, [0u8; 33], ]);
-
+		let expected = hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
 		let result;
+
 		#[block]
 		{
-			result = runtime.bench_ecdsa_recover(
-				memory.as_mut_slice(),
-				0,       // signature_ptr
-				65,      // message_hash_ptr
-				65 + 32, // output_ptr
-			);
+			result = precompiles::ECRecover::execute(&input);
 		}
 
-		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_eq!(result.unwrap().data, expected);
 	}
 
 	// Only calling the function itself for the list of
