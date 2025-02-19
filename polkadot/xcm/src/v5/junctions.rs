@@ -18,7 +18,7 @@
 
 use super::{Junction, Location, NetworkId};
 use alloc::sync::Arc;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{mem, ops::Range, result};
 use scale_info::TypeInfo;
 
@@ -38,6 +38,7 @@ pub(crate) const MAX_JUNCTIONS: usize = 8;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
