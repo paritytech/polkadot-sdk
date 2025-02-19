@@ -18,7 +18,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2025-02-13, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `b50e56a3e1c7`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `a763a8995546`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -27,10 +27,10 @@
 // benchmark
 // pallet
 // --extrinsic=*
-// --runtime=target/production/wbuild/bridge-hub-westend-runtime/bridge_hub_westend_runtime.wasm
+// --runtime=target/production/wbuild/bridge-hub-rococo-runtime/bridge_hub_rococo_runtime.wasm
 // --pallet=pallet_bridge_relayers
 // --header=/__w/polkadot-sdk/polkadot-sdk/cumulus/file_header.txt
-// --output=./cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/src/weights
+// --output=./cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights
 // --wasm-execution=compiled
 // --steps=50
 // --repeat=20
@@ -50,16 +50,16 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_bridge_relayers`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_bridge_relayers::WeightInfo for WeightInfo<T> {
-	/// Storage: `BridgeRelayers::RelayerRewards` (r:1 w:1)
-	/// Proof: `BridgeRelayers::RelayerRewards` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeRelayersForPermissionlessLanes::RelayerRewards` (r:1 w:1)
+	/// Proof: `BridgeRelayersForPermissionlessLanes::RelayerRewards` (`max_values`: None, `max_size`: Some(101), added: 2576, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn claim_rewards() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `245`
+		//  Measured:  `270`
 		//  Estimated: `3593`
-		// Minimum execution time: 51_920_000 picoseconds.
-		Weight::from_parts(53_320_000, 0)
+		// Minimum execution time: 51_845_000 picoseconds.
+		Weight::from_parts(53_071_000, 0)
 			.saturating_add(Weight::from_parts(0, 3593))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -74,59 +74,59 @@ impl<T: frame_system::Config> pallet_bridge_relayers::WeightInfo for WeightInfo<
 		Weight::from_parts(18_446_744_073_709_551_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
-	/// Storage: `BridgeRelayers::RegisteredRelayers` (r:1 w:1)
-	/// Proof: `BridgeRelayers::RegisteredRelayers` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeRelayersForPermissionlessLanes::RegisteredRelayers` (r:1 w:1)
+	/// Proof: `BridgeRelayersForPermissionlessLanes::RegisteredRelayers` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	/// Storage: UNKNOWN KEY `0x1e8445dc201eeb8560e5579a5dd54655` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0x1e8445dc201eeb8560e5579a5dd54655` (r:1 w:0)
 	/// Storage: `Balances::Reserves` (r:1 w:1)
 	/// Proof: `Balances::Reserves` (`max_values`: None, `max_size`: Some(1249), added: 3724, mode: `MaxEncodedLen`)
 	fn register() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `97`
+		//  Measured:  `58`
 		//  Estimated: `4714`
-		// Minimum execution time: 28_380_000 picoseconds.
-		Weight::from_parts(29_192_000, 0)
+		// Minimum execution time: 26_683_000 picoseconds.
+		Weight::from_parts(27_836_000, 0)
 			.saturating_add(Weight::from_parts(0, 4714))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: `BridgeRelayers::RegisteredRelayers` (r:1 w:1)
-	/// Proof: `BridgeRelayers::RegisteredRelayers` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeRelayersForPermissionlessLanes::RegisteredRelayers` (r:1 w:1)
+	/// Proof: `BridgeRelayersForPermissionlessLanes::RegisteredRelayers` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Reserves` (r:1 w:1)
 	/// Proof: `Balances::Reserves` (`max_values`: None, `max_size`: Some(1249), added: 3724, mode: `MaxEncodedLen`)
 	fn deregister() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `197`
+		//  Measured:  `158`
 		//  Estimated: `4714`
-		// Minimum execution time: 29_084_000 picoseconds.
-		Weight::from_parts(30_297_000, 0)
+		// Minimum execution time: 28_456_000 picoseconds.
+		Weight::from_parts(28_997_000, 0)
 			.saturating_add(Weight::from_parts(0, 4714))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: `BridgeRelayers::RegisteredRelayers` (r:1 w:1)
-	/// Proof: `BridgeRelayers::RegisteredRelayers` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeRelayersForPermissionlessLanes::RegisteredRelayers` (r:1 w:1)
+	/// Proof: `BridgeRelayersForPermissionlessLanes::RegisteredRelayers` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Reserves` (r:1 w:1)
 	/// Proof: `Balances::Reserves` (`max_values`: None, `max_size`: Some(1249), added: 3724, mode: `MaxEncodedLen`)
 	fn slash_and_deregister() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `197`
+		//  Measured:  `158`
 		//  Estimated: `4714`
-		// Minimum execution time: 23_805_000 picoseconds.
-		Weight::from_parts(24_552_000, 0)
+		// Minimum execution time: 22_474_000 picoseconds.
+		Weight::from_parts(23_057_000, 0)
 			.saturating_add(Weight::from_parts(0, 4714))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: `BridgeRelayers::RelayerRewards` (r:1 w:1)
-	/// Proof: `BridgeRelayers::RelayerRewards` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeRelayersForPermissionlessLanes::RelayerRewards` (r:1 w:1)
+	/// Proof: `BridgeRelayersForPermissionlessLanes::RelayerRewards` (`max_values`: None, `max_size`: Some(101), added: 2576, mode: `MaxEncodedLen`)
 	fn register_relayer_reward() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `42`
-		//  Estimated: `3539`
-		// Minimum execution time: 7_220_000 picoseconds.
-		Weight::from_parts(7_497_000, 0)
-			.saturating_add(Weight::from_parts(0, 3539))
+		//  Measured:  `3`
+		//  Estimated: `3566`
+		// Minimum execution time: 7_245_000 picoseconds.
+		Weight::from_parts(7_816_000, 0)
+			.saturating_add(Weight::from_parts(0, 3566))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
