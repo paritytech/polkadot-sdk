@@ -162,7 +162,17 @@ pub struct InboundHrmpMessage<BlockNumber = crate::BlockNumber> {
 }
 
 /// An HRMP message seen from the perspective of a sender.
-#[derive(Encode, Decode, Clone, sp_runtime::RuntimeDebug, PartialEq, Eq, Hash, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	sp_runtime::RuntimeDebug,
+	PartialEq,
+	Eq,
+	Hash,
+	TypeInfo,
+)]
 pub struct OutboundHrmpMessage<Id> {
 	/// The para that will get this message in its downward message queue.
 	pub recipient: Id,
