@@ -267,6 +267,7 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 		announce_block: true,
 		base_path: BasePath::new(root.clone()),
 		data_path: root,
+		force_in_memory_trie_cache: false,
 	}
 }
 
