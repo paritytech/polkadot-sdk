@@ -105,7 +105,13 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::call]
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> Pallet<T, I>
+	where
+		<<T as pallet::Config<I>>::PaymentProcedure as bp_relayers::PaymentProcedure<
+			<T as frame_system::Config>::AccountId,
+			<T as pallet::Config<I>>::Reward,
+			<T as pallet::Config<I>>::RewardBalance>>::Beneficiary: From<<T as frame_system::Config>::AccountId>,
+	{
 		/// Claim accumulated rewards.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim_rewards())]

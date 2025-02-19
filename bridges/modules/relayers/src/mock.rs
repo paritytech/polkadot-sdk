@@ -355,7 +355,7 @@ impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, 
 		relayer: &ThisChainAccountId,
 		_reward_kind: RewardsAccountParams<TestLaneIdType>,
 		_reward: RewardBalance,
-		_beneficiary: impl Into<Self::Beneficiary>,
+		_beneficiary: Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		match *relayer {
 			FAILING_RELAYER => Err(()),

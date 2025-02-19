@@ -53,6 +53,13 @@ fn assert_last_event<T: Config<I>, I: 'static>(
 }
 
 benchmarks_instance_pallet! {
+	where_clause { where
+		<<T as pallet::Config<I>>::PaymentProcedure as bp_relayers::PaymentProcedure<
+			<T as frame_system::Config>::AccountId,
+			<T as pallet::Config<I>>::Reward,
+			<T as pallet::Config<I>>::RewardBalance>>::Beneficiary: From<<T as frame_system::Config>::AccountId>,
+	}
+
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
 		let reward_kind = T::bench_reward();
@@ -70,7 +77,7 @@ benchmarks_instance_pallet! {
 			relayer: relayer.clone(),
 			reward_kind,
 			reward_balance,
-			beneficiary: relayer,
+			beneficiary: relayer.into(),
 		}.into());
 	}
 

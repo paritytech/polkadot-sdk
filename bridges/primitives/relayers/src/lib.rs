@@ -103,7 +103,7 @@ pub trait PaymentProcedure<Relayer, Reward, RewardBalance> {
 		relayer: &Relayer,
 		reward: Reward,
 		reward_balance: RewardBalance,
-		beneficiary: impl Into<Self::Beneficiary>,
+		beneficiary: Self::Beneficiary,
 	) -> Result<(), Self::Error>;
 }
 
@@ -115,7 +115,7 @@ impl<Relayer, Reward, RewardBalance> PaymentProcedure<Relayer, Reward, RewardBal
 		_: &Relayer,
 		_: Reward,
 		_: RewardBalance,
-		_: impl Into<Self::Beneficiary>,
+		_: Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		Ok(())
 	}
@@ -154,7 +154,7 @@ where
 		_: &Relayer,
 		reward_kind: RewardsAccountParams<LaneId>,
 		reward: RewardBalance,
-		beneficiary: impl Into<Self::Beneficiary>,
+		beneficiary: Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		T::transfer(
 			&Self::rewards_account(reward_kind),

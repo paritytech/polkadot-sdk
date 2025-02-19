@@ -25,7 +25,7 @@ use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, Runtime
 use bp_messages::LegacyLaneId;
 use bp_relayers::RewardsAccountParams;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{parameter_types, sp_runtime::Either};
+use frame_support::parameter_types;
 use scale_info::TypeInfo;
 use xcm::VersionedLocation;
 
@@ -59,6 +59,12 @@ pub enum BridgeRewardBeneficiaries {
 	Location(VersionedLocation),
 }
 
+impl From<AccountId> for BridgeRewardBeneficiaries {
+	fn from(value: AccountId) -> Self {
+		BridgeRewardBeneficiaries::LocalAccount(value)
+	}
+}
+
 /// Implementation of `bp_relayers::PaymentProcedure` as a pay/claim rewards scheme.
 pub struct BridgeRewardPayer;
 impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewardPayer {
@@ -69,7 +75,7 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewa
 		relayer: &AccountId,
 		reward_kind: BridgeReward,
 		reward: u128,
-		beneficiary: &Self::Beneficiary,
+		beneficiary: BridgeRewardBeneficiaries,
 	) -> Result<(), Self::Error> {
 		match reward_kind {
 			BridgeReward::RococoWestend(lane_params) => {
