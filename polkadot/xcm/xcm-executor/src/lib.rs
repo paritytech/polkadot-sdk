@@ -64,6 +64,8 @@ pub struct FeesMode {
 ///
 /// Exceeding this limit results in `XcmError::ExceedsStackLimit` or
 /// `ProcessMessageError::StackLimitReached`.
+///
+/// Also used in the `DenyRecursively` barrier.
 pub const RECURSION_LIMIT: u8 = 10;
 
 environmental::environmental!(recursion_count: u8);
