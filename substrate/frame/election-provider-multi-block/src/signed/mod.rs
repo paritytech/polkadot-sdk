@@ -821,6 +821,7 @@ pub mod pallet {
 					"signed validation started, sending validation start signal? {:?}",
 					maybe_leader.is_some()
 				);
+
 				// start an attempt to verify our best thing.
 				if maybe_leader.is_some() {
 					// defensive: signed phase has just began, verifier should be in a clear state

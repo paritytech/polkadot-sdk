@@ -174,6 +174,7 @@ mod pallet {
 				claimed_score,
 				_supports.len()
 			);
+
 			Ok(None.into())
 		}
 	}

@@ -358,8 +358,9 @@ mod benchmarks {
 		assert_eq!(
 			T::Currency::balance(&caller),
 			caller_funding::<T>() -
-				value - deposit - code_deposit -
-				mapping_deposit - Pallet::<T>::min_balance(),
+				value - deposit -
+				code_deposit - mapping_deposit -
+				Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -397,8 +398,9 @@ mod benchmarks {
 		assert_eq!(
 			T::Currency::total_balance(&caller),
 			caller_funding::<T>() -
-				value - deposit - code_deposit -
-				mapping_deposit - Pallet::<T>::min_balance(),
+				value - deposit -
+				code_deposit - mapping_deposit -
+				Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -438,8 +440,9 @@ mod benchmarks {
 		assert_eq!(
 			T::Currency::balance(&instance.caller),
 			caller_funding::<T>() -
-				value - deposit - code_deposit -
-				mapping_deposit - Pallet::<T>::min_balance()
+				value - deposit -
+				code_deposit - mapping_deposit -
+				Pallet::<T>::min_balance()
 		);
 		// contract should have received the value
 		assert_eq!(T::Currency::balance(&instance.account_id), before + value);

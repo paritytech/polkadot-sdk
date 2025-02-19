@@ -109,8 +109,7 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		u64::MAX,       /* How much ref_time weight to devote for the execution. u64::MAX = use
-		                 * all. */
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
@@ -123,9 +122,9 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		load_code_ref_time,   // just enough to load the contract
+		load_code_ref_time, // just enough to load the contract
 		load_code_proof_size, // just enough to load the contract
-		&[u8::MAX; 32],       // No deposit limit.
+		&[u8::MAX; 32], // No deposit limit.
 		&value,
 		&INPUT,
 		None,
@@ -150,8 +149,7 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		u64::MAX,       /* How much ref_time weight to devote for the execution. u64::MAX = use
-		                 * all. */
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&value,

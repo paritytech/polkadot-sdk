@@ -1041,9 +1041,9 @@ parameter_types! {
 	/// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
 	/// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(5000.into()).targets_count(10.into()).build();
+		.voters_count(10_000.into()).targets_count(1_500.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(1000.into()).targets_count(1000.into()).build();
+		.voters_count(5_000.into()).targets_count(1_250.into()).build();
 
 	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
@@ -1449,7 +1449,7 @@ parameter_types! {
 	// additional data per vote is 32 bytes (account id).
 	pub const VotingBondFactor: Balance = deposit(0, 32);
 	pub const TermDuration: BlockNumber = 7 * DAYS;
-	pub const DesiredMembers: u32 = CouncilMaxMembers::get();
+	pub const DesiredMembers: u32 = 13;
 	pub const DesiredRunnersUp: u32 = 7;
 	pub const MaxVotesPerVoter: u32 = 16;
 	pub const MaxVoters: u32 = 256;

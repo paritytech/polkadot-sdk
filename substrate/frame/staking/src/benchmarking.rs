@@ -32,7 +32,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
-	BoundedBTreeSet, Perbill, Percent, Saturating,
+	Perbill, Percent, Saturating,
 };
 use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
 use testing_utils::*;

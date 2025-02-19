@@ -1616,6 +1616,7 @@ fn check_backable_query_single_candidate() {
 #[rstest]
 #[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
 #[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+
 fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
 	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
 	// extensively tested in the `fragment_chain::tests` module.

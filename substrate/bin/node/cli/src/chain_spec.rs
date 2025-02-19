@@ -276,6 +276,7 @@ fn configure_accounts(
 	)>,
 	initial_nominators: Vec<AccountId>,
 	endowed_accounts: Option<Vec<AccountId>>,
+	stash: Balance,
 ) -> (
 	Vec<(
 		AccountId,
@@ -304,31 +305,21 @@ fn configure_accounts(
 			}
 		});
 
-	use rand::Rng;
-	let mut rng = rand::thread_rng();
-	let mut rng2 = rand::thread_rng();
 	// stakers: all validators and nominators.
+	let mut rng = rand::thread_rng();
 	let stakers = initial_authorities
 		.iter()
-		.map(|x| {
-			(
-				x.0.clone(),
-				x.0.clone(),
-				rng.gen_range(ENDOWMENT / 100..ENDOWMENT / 2),
-				StakerStatus::Validator,
-			)
-		})
+		.map(|x| (x.0.clone(), x.0.clone(), stash, StakerStatus::Validator))
 		.chain(initial_nominators.iter().map(|x| {
 			use rand::{seq::SliceRandom, Rng};
 			let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
-			let count = (rng2.gen::<usize>() % limit).max(1);
+			let count = rng.gen::<usize>() % limit;
 			let nominations = initial_authorities
 				.as_slice()
-				.choose_multiple(&mut rng2, count)
+				.choose_multiple(&mut rng, count)
 				.into_iter()
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
-			let stash = rng2.gen_range(ENDOWMENT / 100..ENDOWMENT / 2);
 			(x.clone(), x.clone(), stash, StakerStatus::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
