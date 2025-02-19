@@ -170,7 +170,7 @@ parameter_types! {
 			epoch: 132608,
 		},
 		electra: Fork {
-			version: hex!("90000073"),
+			version: hex!("90000074"),
 			epoch: 222464, // https://github.com/ethereum/EIPs/pull/9322/files
 		},
 	};
