@@ -83,7 +83,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// Possible operations on the configuration values of this pallet.
-	#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+	#[derive(TypeInfo, Debug, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq)]
 	pub enum ConfigOp<T: Default + Codec> {
 		/// Don't change.
 		Noop,
