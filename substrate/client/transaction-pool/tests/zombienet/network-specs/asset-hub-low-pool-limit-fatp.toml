@@ -2,8 +2,6 @@
 timeout = 1500
 
 [relaychain]
-# single-state
-# fork-aware
 default_image = "parity/polkadot:latest"
 default_command = "polkadot"
 chain = "rococo-local"
