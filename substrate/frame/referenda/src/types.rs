@@ -19,7 +19,7 @@
 
 use super::*;
 use alloc::borrow::Cow;
-use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
@@ -119,7 +119,9 @@ pub struct Deposit<AccountId, Balance> {
 pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 
 /// Detailed information about the configuration of a referenda track
-#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug)]
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
+)]
 pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
 	/// Name of this track.
 	pub name: [u8; N],
@@ -145,7 +147,9 @@ pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LE
 }
 
 /// Track groups the information of a voting track with its corresponding identifier
-#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug)]
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
+)]
 pub struct Track<Id, Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
 	pub id: Id,
 	pub info: TrackInfo<Balance, Moment, N>,
@@ -324,7 +328,7 @@ impl<
 
 /// Type for describing a curve over the 2-dimensional space of axes between 0-1, as represented
 /// by `(Perbill, Perbill)`.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(not(feature = "std"), derive(RuntimeDebug))]
 pub enum Curve {
 	/// Linear curve starting at `(0, ceil)`, proceeding linearly to `(length, floor)`, then

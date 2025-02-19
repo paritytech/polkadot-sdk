@@ -103,6 +103,18 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Broker::Leases` (r:1 w:1)
+	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(81), added: 576, mode: `MaxEncodedLen`)
+	fn remove_lease() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `88`
+		//  Estimated: `1566`
+		// Minimum execution time: 7_779_000 picoseconds.
+		Weight::from_parts(8_213_000, 0)
+			.saturating_add(Weight::from_parts(0, 1566))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `Broker::Configuration` (r:1 w:0)
 	/// Proof: `Broker::Configuration` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Leases` (r:1 w:1)
@@ -348,7 +360,6 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `535`
 		//  Estimated: `4698`
-		// Minimum execution time: 36_770_000 picoseconds.
 		Weight::from_parts(39_990_000, 0)
 			.saturating_add(Weight::from_parts(0, 4698))
 			.saturating_add(T::DbWeight::get().reads(2))

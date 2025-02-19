@@ -59,6 +59,7 @@ pub trait WeightInfo {
 	fn reserve() -> Weight;
 	fn unreserve() -> Weight;
 	fn set_lease() -> Weight;
+	fn remove_lease() -> Weight;
 	fn start_sales(n: u32, ) -> Weight;
 	fn purchase() -> Weight;
 	fn renew() -> Weight;
@@ -133,7 +134,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Measured:  `39`
 		//  Estimated: `1526`
 		// Minimum execution time: 7_751_000 picoseconds.
-		Weight::from_parts(8_040_000, 1526)
+		Weight::from_parts(8_066_000, 1526)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Broker::Leases` (r:1 w:1)
+	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
+	fn remove_lease() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `47`
+		//  Estimated: `1526`
+		// Minimum execution time: 7_307_000 picoseconds.
+		Weight::from_parts(7_597_000, 1526)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -370,12 +382,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Broker::CoreCountInbox` (r:1 w:1)
 	/// Proof: `Broker::CoreCountInbox` (`max_values`: Some(1), `max_size`: Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn process_core_count(_n: u32, ) -> Weight {
+	fn process_core_count(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `208`
 		//  Estimated: `1487`
 		// Minimum execution time: 5_828_000 picoseconds.
 		Weight::from_parts(6_199_804, 1487)
+			// Standard Error: 13
+			.saturating_add(Weight::from_parts(45, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -624,6 +638,17 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Broker::Leases` (r:1 w:1)
+	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
+	fn remove_lease() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `47`
+		//  Estimated: `1526`
+		// Minimum execution time: 7_307_000 picoseconds.
+		Weight::from_parts(7_597_000, 1526)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Broker::Configuration` (r:1 w:0)
 	/// Proof: `Broker::Configuration` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Leases` (r:1 w:1)
@@ -857,12 +882,14 @@ impl WeightInfo for () {
 	/// Storage: `Broker::CoreCountInbox` (r:1 w:1)
 	/// Proof: `Broker::CoreCountInbox` (`max_values`: Some(1), `max_size`: Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn process_core_count(_n: u32, ) -> Weight {
+	fn process_core_count(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `208`
 		//  Estimated: `1487`
 		// Minimum execution time: 5_828_000 picoseconds.
 		Weight::from_parts(6_199_804, 1487)
+			// Standard Error: 13
+			.saturating_add(Weight::from_parts(45, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
