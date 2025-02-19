@@ -17,9 +17,7 @@
 //! Bridge definitions used on BridgeHub with the Westend flavor.
 
 use crate::{
-	bridge_common_config::{DeliveryRewardInBalance, RelayersForLegacyLaneIdsMessagesInstance},
-	weights,
-	xcm_config::UniversalLocation,
+	bridge_common_config::BridgeRelayersInstance, weights, xcm_config::UniversalLocation,
 	AccountId, Balance, Balances, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent,
 	RuntimeHoldReason, XcmOverBridgeHubRococo, XcmRouter, XcmpQueue,
 };
@@ -78,6 +76,7 @@ parameter_types! {
 	);
 
 	pub storage BridgeDeposit: Balance = 10 * WND;
+	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
 
 /// Proof of messages, coming from Rococo.
@@ -99,10 +98,9 @@ pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = BridgeRelayersTransac
 		StrOnBridgeHubWestendRefundBridgeHubRococoMessages,
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
-		RelayersForLegacyLaneIdsMessagesInstance,
+		BridgeRelayersInstance,
 		PriorityBoostPerMessage,
 	>,
-	LaneIdOf<Runtime, WithBridgeHubRococoMessagesInstance>,
 >;
 bp_runtime::generate_static_str_provider!(OnBridgeHubWestendRefundBridgeHubRococoMessages);
 
@@ -152,7 +150,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
-		RelayersForLegacyLaneIdsMessagesInstance,
+		BridgeRelayersInstance,
 		DeliveryRewardInBalance,
 	>;
 
