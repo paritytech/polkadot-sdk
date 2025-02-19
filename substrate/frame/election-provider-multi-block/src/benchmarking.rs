@@ -46,7 +46,6 @@ mod benchmarks {
 	fn on_initialize_into_snapshot_msp() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
 		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
-		// TODO: the results of this benchmark cause too many hits to voters bags list, why???
 
 		// roll to next block until we are about to go into the snapshot.
 		Pallet::<T>::run_until_before_matches(|| {
@@ -61,19 +60,15 @@ mod benchmarks {
 			Pallet::<T>::roll_next(true, false);
 		}
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 1));
-		assert_eq!(
-			Snapshot::<T>::voters_decode_len(T::Pages::get() - 1).unwrap() as u32,
-			T::VoterSnapshotPerBlock::get(),
-			"{}",
-			SNAPSHOT_NOT_BIG_ENOUGH
-		);
+		// we have collected the target snapshot only
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
 		assert_eq!(
 			Snapshot::<T>::targets_decode_len().unwrap() as u32,
 			T::TargetSnapshotPerBlock::get(),
 			"{}",
 			SNAPSHOT_NOT_BIG_ENOUGH
 		);
+		assert_eq!(Snapshot::<T>::voters_decode_len(T::Pages::get() - 1), None);
 
 		Ok(())
 	}
@@ -86,7 +81,11 @@ mod benchmarks {
 		// roll to the first block of the snapshot.
 		Pallet::<T>::roll_until_matches(|| matches!(CurrentPhase::<T>::get(), Phase::Snapshot(_)));
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 1));
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
+		// we have collected the target snapshot only
+		assert_eq!(Snapshot::<T>::targets_decode_len().unwrap() as u32, T::TargetSnapshotPerBlock::get());
+		// and no voters yet.
+		assert_eq!(Snapshot::<T>::voters_decode_len(T::Pages::get() - 1), None);
 
 		// take one more snapshot page.
 		#[block]
@@ -94,9 +93,11 @@ mod benchmarks {
 			Pallet::<T>::roll_next(true, false);
 		}
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 2));
+		// we have now collected the first page of voters.
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 1));
+		// it must be full
 		assert_eq!(
-			Snapshot::<T>::voters_decode_len(T::Pages::get() - 2).unwrap() as u32,
+			Snapshot::<T>::voters_decode_len(T::Pages::get() - 1).unwrap() as u32,
 			T::VoterSnapshotPerBlock::get(),
 			"{}",
 			SNAPSHOT_NOT_BIG_ENOUGH

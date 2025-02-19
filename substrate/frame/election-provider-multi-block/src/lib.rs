@@ -503,7 +503,8 @@ pub mod pallet {
 			let signed_validation_deadline =
 				T::SignedValidationPhase::get().saturating_add(unsigned_deadline);
 			let signed_deadline = T::SignedPhase::get().saturating_add(signed_validation_deadline);
-			let snapshot_deadline = signed_deadline.saturating_add(T::Pages::get().into());
+			// add one block to take the target snapshot a block ahead of time.
+			let snapshot_deadline = signed_deadline.saturating_add(T::Pages::get().into()).saturating_add(One::one());
 
 			let next_election = T::DataProvider::next_election_prediction(now)
 				.saturating_sub(T::Lookahead::get())
@@ -526,10 +527,8 @@ pub mod pallet {
 			match current_phase {
 				// start and continue snapshot.
 				Phase::Off if remaining_blocks <= snapshot_deadline => {
-					let remaining_pages = Self::msp();
+					let remaining_pages = Self::msp() + 1;
 					Self::create_targets_snapshot().defensive_unwrap_or_default();
-					Self::create_voters_snapshot_paged(remaining_pages)
-						.defensive_unwrap_or_default();
 					Self::phase_transition(Phase::Snapshot(remaining_pages));
 					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
@@ -819,9 +818,6 @@ pub mod pallet {
 			mut up_to_page: PageIndex,
 		) -> Result<(), &'static str> {
 			up_to_page = up_to_page.min(T::Pages::get());
-			// NOTE: if someday we split the snapshot taking of voters(msp) and targets into two
-			// different blocks, then this assertion becomes obsolete.
-			ensure!(up_to_page > 0, "can't check snapshot up to page 0");
 
 			// if any number of pages supposed to exist, these must also exist.
 			ensure!(exists ^ Self::desired_targets().is_none(), "desired target mismatch");
@@ -1392,17 +1388,19 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(13);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
 
 				roll_to(14);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 
 				roll_to(15);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(0) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
 					]
 				);
@@ -1419,7 +1417,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(0) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
 							from: Phase::Signed,
@@ -1439,7 +1437,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(0) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
 							from: Phase::Signed,
@@ -1468,8 +1466,11 @@ mod phase_rotation {
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(false, 1));
 				assert_eq!(MultiBlock::round(), 1);
 
-				roll_to(43);
+				roll_to(42);
 				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+
+				roll_to(43);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
 
 				roll_to(44);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
@@ -1505,7 +1506,8 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(12);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
 
 				roll_to(13);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
@@ -1520,7 +1522,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
 					]
 				);
@@ -1537,7 +1539,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
 							from: Phase::Signed,
@@ -1557,7 +1559,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
 							from: Phase::Signed,
@@ -1591,7 +1593,7 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 1);
 
 				roll_to(42);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
 
 				roll_to(43);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
@@ -1630,7 +1632,8 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(11);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
 
 				roll_to(12);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
@@ -1649,7 +1652,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
 					]
 				);
@@ -1664,7 +1667,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
 							from: Phase::Signed,
@@ -1682,7 +1685,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
 							from: Phase::Signed,
@@ -1713,7 +1716,7 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 1);
 
 				roll_to(41);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
 
 				roll_to(42);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
@@ -1756,7 +1759,9 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(9);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
+				// ensure only target snapshot has been taken, and no voter snapshot.
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
 
 				roll_to(10);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
@@ -1775,7 +1780,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
 					]
 				);
@@ -1791,7 +1796,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
 							from: Phase::Signed,
@@ -1810,7 +1815,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
 							from: Phase::Signed,
@@ -1841,7 +1846,7 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 1);
 
 				roll_to(41 - 2);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
 
 				roll_to(42 - 2);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
@@ -1883,10 +1888,15 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Off);
 				assert_eq!(MultiBlock::round(), 0);
 
+				roll_to(16);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
+
 				roll_to(17);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
+
 				roll_to(18);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
+
 				roll_to(19);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
 
@@ -1901,7 +1911,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
 							from: Phase::Signed,
@@ -1947,6 +1957,8 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Off);
 				assert_eq!(MultiBlock::round(), 0);
 
+				roll_to(21);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
 				roll_to(22);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
 				roll_to(23);
@@ -1962,7 +1974,7 @@ mod phase_rotation {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned {
 							from: Phase::Snapshot(0),
 							to: Phase::Unsigned(25)
@@ -2036,7 +2048,7 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 					Event::PhaseTransitioned {
 						from: Phase::Signed,
@@ -2357,7 +2369,7 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Export(2) },
 					Event::PhaseTransitioned { from: Phase::Export(1), to: Phase::Off }
@@ -2381,7 +2393,7 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Off }
 				]
@@ -2439,7 +2451,7 @@ mod admin_ops {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Emergency },
 					Event::PhaseTransitioned { from: Phase::Emergency, to: Phase::Off }
@@ -2484,7 +2496,7 @@ mod admin_ops {
 				assert_eq!(
 					multi_block_events(),
 					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Emergency },
 						Event::PhaseTransitioned { from: Phase::Emergency, to: Phase::Off }
