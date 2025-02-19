@@ -259,17 +259,65 @@ macro_rules! enter_span {
 #[cfg(feature = "std")]
 pub use tracing_test;
 
+/// A module for capturing and asserting logs in tests.
+///
+/// This module provides utilities for capturing logs during test execution
+/// and verifying expected log output.
+///
+/// # Example
+///
+/// ```
+/// use sp_tracing::log_capture;
+///
+/// log_capture::capture(|| {
+///     tracing::info!("This is a test log message");
+/// });
+///
+/// assert!(log_capture::logs_contain("test log message"));
+/// ```
 #[cfg(feature = "std")]
 pub mod log_capture {
 	use tracing::subscriber;
 	use tracing_test::internal::{global_buf, MockWriter};
 
+	/// Runs a test block with logging enabled and captures logs for assertions.
+	///
+	/// This function sets up a `tracing_subscriber` that redirects logs
+	/// to an internal buffer, which can later be queried.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use sp_tracing::log_capture;
+	///
+	/// log_capture::capture(|| {
+	///     tracing::warn!("Captured warning message");
+	/// });
+	///
+	/// assert!(log_capture::logs_contain("Captured warning message"));
+	/// ```
 	pub fn capture<F: FnOnce()>(f: F) {
 		let log_capture = MockWriter::new(&global_buf());
 		let subscriber = tracing_subscriber::fmt().with_writer(log_capture).finish();
 		subscriber::with_default(subscriber, f);
 	}
 
+	/// Checks whether a captured log message contains a given substring.
+	///
+	/// This function retrieves all captured logs and checks if the provided
+	/// string is present.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use sp_tracing::log_capture;
+	///
+	/// log_capture::capture(|| {
+	///     tracing::debug!("Debug log for testing");
+	/// });
+	///
+	/// assert!(log_capture::logs_contain("Debug log"));
+	/// ```
 	pub fn logs_contain(value: &str) -> bool {
 		let logs = String::from_utf8(global_buf().lock().unwrap().clone()).unwrap();
 		logs.contains(value)
