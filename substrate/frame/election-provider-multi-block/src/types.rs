@@ -22,7 +22,7 @@ use sp_core::Get;
 use sp_std::{collections::btree_set::BTreeSet, fmt::Debug, prelude::*};
 
 use crate::unsigned::miner::MinerConfig;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 pub use frame_election_provider_support::{NposSolution, PageIndex};
 use scale_info::TypeInfo;
@@ -53,6 +53,7 @@ pub type AssignmentOf<T> =
 	TypeInfo,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	DebugNoBound,
 	CloneNoBound,
 	EqNoBound,
@@ -230,7 +231,18 @@ impl Default for ElectionCompute {
 }
 
 /// Current phase of the pallet.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	Debug,
+	TypeInfo,
+)]
 pub enum Phase<Bn> {
 	/// Nothing is happening, and nothing will happen.
 	Halted,

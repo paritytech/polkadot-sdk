@@ -39,7 +39,7 @@
 
 use crate::RewardsAccountParams;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Get, Zero},
@@ -64,7 +64,18 @@ impl<AccountId, LaneId: Decode + Encode> From<RewardsAccountParams<LaneId>>
 }
 
 /// Relayer registration.
-#[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Copy,
+	Clone,
+	Debug,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct Registration<BlockNumber, Balance> {
 	/// The last block number, where this registration is considered active.
 	///

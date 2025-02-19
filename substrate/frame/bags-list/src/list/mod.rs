@@ -29,7 +29,7 @@ use alloc::{
 	boxed::Box,
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{iter, marker::PhantomData};
 use frame_election_provider_support::ScoreProvider;
 use frame_support::{
@@ -51,7 +51,17 @@ use alloc::vec::Vec;
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 use sp_runtime::TryRuntimeError;
 
-#[derive(Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, PalletError)]
+#[derive(
+	Debug,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	PalletError,
+)]
 pub enum ListError {
 	/// A duplicate id has been detected.
 	Duplicate,
