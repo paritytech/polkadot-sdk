@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::marker::PhantomData;
 use xcm_executor::traits::Properties;
 
 use super::*;
@@ -462,3 +463,493 @@ fn allow_hrmp_notifications_from_relay_chain_should_work() {
 		Ok(()),
 	);
 }
+<<<<<<< HEAD
+=======
+
+#[test]
+fn deny_then_try_works() {
+	/// A dummy `DenyExecution` impl which returns `ProcessMessageError::Yield` when XCM contains
+	/// `ClearTransactStatus`
+	struct DenyClearTransactStatusAsYield;
+	impl DenyExecution for DenyClearTransactStatusAsYield {
+		fn deny_execution<RuntimeCall>(
+			_origin: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearTransactStatus { .. } => Err(ProcessMessageError::Yield),
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	/// A dummy `DenyExecution` impl which returns `ProcessMessageError::BadFormat` when XCM
+	/// contains `ClearOrigin` with origin location from `Here`
+	struct DenyClearOriginFromHereAsBadFormat;
+	impl DenyExecution for DenyClearOriginFromHereAsBadFormat {
+		fn deny_execution<RuntimeCall>(
+			origin: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearOrigin { .. } =>
+						if origin.clone() == Here.into_location() {
+							Err(ProcessMessageError::BadFormat)
+						} else {
+							Ok(ControlFlow::Continue(()))
+						},
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	/// A dummy `DenyExecution` impl which returns `ProcessMessageError::StackLimitReached` when XCM
+	/// contains a single `UnsubscribeVersion`
+	struct DenyUnsubscribeVersionAsStackLimitReached;
+	impl DenyExecution for DenyUnsubscribeVersionAsStackLimitReached {
+		fn deny_execution<RuntimeCall>(
+			_origin: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			if instructions.len() != 1 {
+				return Ok(())
+			}
+			match instructions.get(0).unwrap() {
+				UnsubscribeVersion { .. } => Err(ProcessMessageError::StackLimitReached),
+				_ => Ok(()),
+			}
+		}
+	}
+
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains a single `ClearError`,
+	/// else return `ProcessMessageError::Yield`
+	struct AllowSingleClearErrorOrYield;
+	impl ShouldExecute for AllowSingleClearErrorOrYield {
+		fn should_execute<Call>(
+			_origin: &Location,
+			instructions: &mut [Instruction<Call>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().assert_remaining_insts(1)?.match_next_inst(
+				|inst| match inst {
+					ClearError { .. } => Ok(()),
+					_ => Err(ProcessMessageError::Yield),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains `ClearTopic` and
+	/// origin from `Here`, else return `ProcessMessageError::Unsupported`
+	struct AllowClearTopicFromHere;
+	impl ShouldExecute for AllowClearTopicFromHere {
+		fn should_execute<Call>(
+			origin: &Location,
+			instructions: &mut [Instruction<Call>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			ensure!(origin.clone() == Here.into_location(), ProcessMessageError::Unsupported);
+			let mut found = false;
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearTopic { .. } => {
+						found = true;
+						Ok(ControlFlow::Break(()))
+					},
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			ensure!(found, ProcessMessageError::Unsupported);
+			Ok(())
+		}
+	}
+	// closure for (xcm, origin) testing with `DenyThenTry`
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		pub type Barrier = DenyThenTry<
+			(
+				DenyClearTransactStatusAsYield,
+				DenyClearOriginFromHereAsBadFormat,
+				DenyUnsubscribeVersionAsStackLimitReached,
+			),
+			(AllowSingleClearErrorOrYield, AllowClearTopicFromHere),
+		>;
+		assert_eq!(
+			Barrier::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+
+	// Deny cases:
+	// trigger DenyClearTransactStatusAsYield
+	assert_should_execute(
+		vec![ClearTransactStatus],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Yield),
+	);
+	// DenyClearTransactStatusAsYield wins against AllowSingleClearErrorOrYield
+	assert_should_execute(
+		vec![ClearError, ClearTransactStatus],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Yield),
+	);
+	// trigger DenyClearOriginFromHereAsBadFormat
+	assert_should_execute(
+		vec![ClearOrigin],
+		Here.into_location(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// trigger DenyUnsubscribeVersionAsStackLimitReached
+	assert_should_execute(
+		vec![UnsubscribeVersion],
+		Here.into_location(),
+		Err(ProcessMessageError::StackLimitReached),
+	);
+
+	// deny because none of the allow items match
+	assert_should_execute(
+		vec![ClearError, ClearTopic],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// ok
+	assert_should_execute(vec![ClearError], Parachain(1).into_location(), Ok(()));
+	assert_should_execute(vec![ClearTopic], Here.into(), Ok(()));
+	assert_should_execute(vec![ClearError, ClearTopic], Here.into_location(), Ok(()));
+}
+
+#[test]
+fn deny_reserve_transfer_to_relaychain_should_work() {
+	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			DenyReserveTransferToRelayChain::deny_execution(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+	// deny DepositReserveAsset to RelayChain
+	assert_deny_execution(
+		vec![DepositReserveAsset {
+			assets: Wild(All),
+			dest: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// deny InitiateReserveWithdraw to RelayChain
+	assert_deny_execution(
+		vec![InitiateReserveWithdraw {
+			assets: Wild(All),
+			reserve: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// deny TransferReserveAsset to RelayChain
+	assert_deny_execution(
+		vec![TransferReserveAsset {
+			assets: vec![].into(),
+			dest: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// accept DepositReserveAsset to destination other than RelayChain
+	assert_deny_execution(
+		vec![DepositReserveAsset {
+			assets: Wild(All),
+			dest: Here.into_location(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Ok(()),
+	);
+	// others instructions should pass
+	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
+}
+
+// Dummy Barriers
+// Dummy filter to allow all
+struct AllowAll;
+impl ShouldExecute for AllowAll {
+	fn should_execute<RuntimeCall>(
+		_: &Location,
+		_: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Ok(())
+	}
+}
+
+// Dummy filter which denies `ClearOrigin`
+struct DenyClearOrigin;
+impl DenyExecution for DenyClearOrigin {
+	fn deny_execution<RuntimeCall>(
+		_: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		instructions.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				ClearOrigin => Err(ProcessMessageError::Unsupported),
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
+		Ok(())
+	}
+}
+
+// Dummy filter which denies nothing
+struct DenyNothing;
+impl DenyExecution for DenyNothing {
+	fn deny_execution<RuntimeCall>(
+		_origin: &Location,
+		_instructions: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Ok(())
+	}
+}
+
+// Test helper: Adapts a `DenyExecution` barrier to the `ShouldExecute` trait
+struct Executable<Barrier: DenyExecution>(PhantomData<Barrier>);
+impl<Barrier: DenyExecution> ShouldExecute for Executable<Barrier> {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Barrier::deny_execution(origin, instructions, max_weight, properties)
+	}
+}
+
+#[test]
+fn deny_recursively_then_try_works() {
+	type Barrier = DenyThenTry<DenyRecursively<DenyReserveTransferToRelayChain>, AllowAll>;
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+		assets: Wild(All),
+		dest: Location::parent(),
+		xcm: vec![].into(),
+	}]);
+	let origin = Here.into_location();
+	let max_weight = Weight::from_parts(10, 10);
+	let mut properties = props(Weight::zero());
+
+	// Should deny the original XCM
+	let result =
+		Barrier::should_execute(&origin, xcm.clone().inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should deny with `SetAppendix`
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
+	let result =
+		Barrier::should_execute(&origin, message.clone().inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should allow with `SetAppendix` for the original `DenyThenTry`
+	type OriginalBarrier = DenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	let result =
+		OriginalBarrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+
+	// Should deny with `SetErrorHandler`
+	let mut message = Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.clone())]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should deny with `ExecuteWithOrigin`
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
+		xcm: xcm.clone(),
+		descendant_origin: None,
+	}]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should deny with more levels
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
+		xcm: vec![SetErrorHandler(vec![SetAppendix(xcm.clone())].into())].into(),
+		descendant_origin: None,
+	}]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should allow for valid XCM with `SetAppendix`
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+		assets: Wild(All),
+		dest: Here.into_location(),
+		xcm: vec![].into(),
+	}]);
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+
+	// Should ensure unrelated XCMs are not blocked
+	let mut unrelated_xcm = Xcm::<Instruction<()>>(vec![BuyExecution {
+		fees: (Parent, 100).into(),
+		weight_limit: Unlimited,
+	}]);
+	let result =
+		Barrier::should_execute(&origin, unrelated_xcm.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+
+	// Should deny recursively before allow
+	type BarrierDenyClearOrigin = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll>;
+	assert_deny_instructions_recursively::<BarrierDenyClearOrigin>();
+}
+
+#[test]
+fn deny_recursively_works() {
+	type Barrier = Executable<DenyRecursively<DenyClearOrigin>>;
+	assert_deny_instructions_recursively::<Barrier>();
+}
+
+#[test]
+fn compare_deny_filters() {
+	type Denies = (DenyNothing, DenyReserveTransferToRelayChain);
+
+	fn assert_barrier<Barrier: ShouldExecute>(
+		top_level_result: Result<(), ProcessMessageError>,
+		nested_result: Result<(), ProcessMessageError>,
+	) {
+		let origin = Here.into_location();
+		let max_weight = Weight::zero();
+		let mut properties = props(Weight::zero());
+
+		// Validate Top-Level
+		let xcm = Xcm::<Instruction<()>>(
+			vec![DepositReserveAsset {
+				assets: Wild(All),
+				dest: Location::parent(),
+				xcm: Xcm(vec![ClearOrigin]),
+			}]
+			.into(),
+		);
+		let result =
+			Barrier::should_execute(&origin, xcm.clone().inner_mut(), max_weight, &mut properties);
+		assert_eq!(top_level_result, result);
+
+		// Validate Nested
+		let mut nested_xcm = Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.into())].into());
+		let result =
+			Barrier::should_execute(&origin, nested_xcm.inner_mut(), max_weight, &mut properties);
+		assert_eq!(nested_result, result);
+	}
+
+	// `DenyThenTry`: Top-level=Deny, Nested=Allow, TryAllow=Yes
+	assert_barrier::<DenyThenTry<Denies, AllowAll>>(Err(ProcessMessageError::Unsupported), Ok(()));
+
+	// `DenyThenTry<DenyRecursively<Deny>>`: Top-level=Deny, Nested=Deny, TryAllow=Yes
+	assert_barrier::<DenyThenTry<DenyRecursively<Denies>, AllowAll>>(
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// `DenyRecursively`: Top-level=Deny, Nested=Deny, TryAllow=No
+	assert_barrier::<Executable<DenyRecursively<Denies>>>(
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
+	);
+}
+
+fn assert_deny_instructions_recursively<Barrier: ShouldExecute>() {
+	// closure for (xcm, origin) testing with `Barrier` which denies `ClearOrigin`
+	// instruction
+	let test_barrier = |mut xcm: Vec<Instruction<()>>, origin| {
+		Barrier::should_execute(
+			&origin,
+			&mut xcm,
+			Weight::from_parts(10, 10),
+			&mut props(Weight::zero()),
+		)
+	};
+
+	// ok
+	assert_eq!(test_barrier(vec![ClearTransactStatus], Location::parent()), Ok(()));
+	// invalid top-level contains `ClearOrigin`
+	assert_eq!(
+		test_barrier(vec![ClearOrigin], Location::parent()),
+		Err(ProcessMessageError::Unsupported)
+	);
+	// ok - SetAppendix with XCM without ClearOrigin
+	assert_eq!(
+		test_barrier(vec![SetAppendix(Xcm(vec![ClearTransactStatus]))], Location::parent()),
+		Ok(())
+	);
+	// ok - DepositReserveAsset with XCM contains ClearOrigin
+	assert_eq!(
+		test_barrier(
+			vec![DepositReserveAsset {
+				assets: Wild(All),
+				dest: Here.into(),
+				xcm: Xcm(vec![ClearOrigin]),
+			}],
+			Location::parent()
+		),
+		Ok(()),
+	);
+
+	// invalid - empty XCM
+	assert_eq!(test_barrier(vec![], Location::parent()), Err(ProcessMessageError::BadFormat));
+	// invalid - SetAppendix with empty XCM
+	assert_eq!(
+		test_barrier(vec![SetAppendix(Xcm(vec![]))], Location::parent()),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid SetAppendix contains `ClearOrigin`
+	assert_eq!(
+		test_barrier(vec![SetAppendix(Xcm(vec![ClearOrigin]))], Location::parent()),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// invalid nested SetAppendix contains `ClearOrigin`
+	assert_eq!(
+		test_barrier(
+			vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+				SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+					SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+						SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+							ClearOrigin
+						]))])),]))
+					]))])),]))
+				]))]))]),)
+			]))]))]))],
+			Location::parent()
+		),
+		Err(ProcessMessageError::StackLimitReached),
+	);
+}
+>>>>>>> bd7cf119 (XCM: Deny barrier checks for nested XCMs with specific instructions to be executed on the local chain (#7200))

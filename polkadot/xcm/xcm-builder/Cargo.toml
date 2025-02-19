@@ -10,9 +10,17 @@ version = "16.0.3"
 workspace = true
 
 [dependencies]
+<<<<<<< HEAD
+=======
+codec = { features = ["derive"], workspace = true }
+environmental = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+>>>>>>> bd7cf119 (XCM: Deny barrier checks for nested XCMs with specific instructions to be executed on the local chain (#7200))
 impl-trait-for-tuples = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+<<<<<<< HEAD
 xcm.workspace = true
 xcm-executor.workspace = true
 sp-arithmetic.workspace = true
@@ -35,6 +43,28 @@ polkadot-primitives = { default-features = true, path = "../../primitives" }
 polkadot-runtime-parachains = { default-features = true, path = "../../runtime/parachains" }
 assert_matches = { workspace = true }
 polkadot-test-runtime = { path = "../../runtime/test-runtime" }
+=======
+sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-weights = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+
+# Polkadot dependencies
+polkadot-parachain-primitives = { workspace = true }
+
+[dev-dependencies]
+pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-salary = { workspace = true, default-features = true }
+pallet-xcm = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+polkadot-test-runtime = { workspace = true }
+primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+>>>>>>> bd7cf119 (XCM: Deny barrier checks for nested XCMs with specific instructions to be executed on the local chain (#7200))
 
 [features]
 default = ["std"]
@@ -47,6 +77,7 @@ runtime-benchmarks = [
 ]
 std = [
 	"codec/std",
+	"environmental/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -54,6 +85,7 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-weights/std",
