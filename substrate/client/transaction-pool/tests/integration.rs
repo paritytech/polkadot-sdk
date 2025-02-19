@@ -20,7 +20,6 @@
 
 pub mod zombienet;
 
-use tracing::{info_span, Instrument};
 use txtesttool::execution_log::ExecutionLog;
 use zombienet::{default_zn_scenario_builder, NetworkSpawner};
 
@@ -41,25 +40,27 @@ async fn send_future_and_ready_from_many_accounts_to_collator() {
 	let ws = net.node_rpc_uri("charlie").unwrap();
 	let future_scenario_executor = default_zn_scenario_builder()
 		.with_rpc_uri(ws.clone())
-		.with_start_id("0".to_string())
+		.with_start_id(0)
 		.with_last_id(99)
 		.with_nonce_from(Some(100))
 		.with_txs_count(100)
+		.with_executor_id("future-txs-executor".to_string())
 		.build()
 		.await;
 	let ready_scenario_executor = default_zn_scenario_builder()
 		.with_rpc_uri(ws)
-		.with_start_id("0".to_string())
+		.with_start_id(0)
 		.with_last_id(99)
 		.with_nonce_from(Some(0))
 		.with_txs_count(100)
+		.with_executor_id("ready-txs-executor".to_string())
 		.build()
 		.await;
 
 	// Execute transactions and fetch the execution logs.
 	let (future_logs, ready_logs) = futures::future::join(
-		future_scenario_executor.execute().instrument(info_span!("future-txs-executor")),
-		ready_scenario_executor.execute().instrument(info_span!("ready-txs-executor")),
+		future_scenario_executor.execute(),
+		ready_scenario_executor.execute(),
 	)
 	.await;
 

@@ -8982,7 +8982,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.8",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -16882,7 +16882,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand 0.8.5",
- "rand_core 0.6.4",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -31241,7 +31241,7 @@ dependencies = [
 [[package]]
 name = "txtesttool"
 version = "0.1.0"
-source = "git+https://github.com/iulianbarbu/tx-test-tool.git?branch=provide-a-ttxt-api#47aa1d2cfecdf41eec614a6e2e30e0043c81d0e9"
+source = "git+https://github.com/iulianbarbu/tx-test-tool.git?branch=provide-a-ttxt-api#db287e1ed3856311a0e5a5ce78e1d596ff7890b0"
 dependencies = [
  "async-trait",
  "average",

@@ -58,7 +58,6 @@ substrate-test-runtime-transaction-pool = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
-# TODO: publish txtesttool and use it from crates.io
 txtesttool = { git = "https://github.com/iulianbarbu/tx-test-tool.git", branch = "provide-a-ttxt-api" }
 zombienet-configuration = { workspace = true }
 zombienet-sdk = { workspace = true }
