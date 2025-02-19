@@ -98,6 +98,11 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 			// Standard Error: 1_601
 			.saturating_add(Weight::from_parts(5_138_293, 0).saturating_mul(c.into()))
 	}
+
+	fn dispatch_as_fallible() -> Weight {
+		Default::default()
+	}
+
 	fn if_else() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

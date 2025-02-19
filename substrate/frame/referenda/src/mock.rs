@@ -20,7 +20,7 @@
 use super::*;
 use crate::{self as pallet_referenda, types::Track};
 use alloc::borrow::Cow;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
@@ -239,7 +239,9 @@ impl ExtBuilder {
 	}
 }
 
-#[derive(Encode, Debug, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(
+	Encode, Debug, Decode, DecodeWithMemTracking, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen,
+)]
 pub struct Tally {
 	pub ayes: u32,
 	pub nays: u32,
