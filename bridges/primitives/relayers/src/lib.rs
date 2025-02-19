@@ -94,8 +94,8 @@ pub trait PaymentProcedure<Relayer, Reward, RewardBalance> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
 
-	/// Type parameter used to identify the alternative beneficiaries eligible to receive rewards.
-	type AlternativeBeneficiary: Clone + Debug + Decode + Encode + Eq + TypeInfo;
+	/// Type parameter used to identify the beneficiaries eligible to receive rewards.
+	type Beneficiary: Clone + Debug + Decode + Encode + Eq + TypeInfo;
 
 	/// Pay reward to the relayer (or alternative beneficiary if provided) from the account with
 	/// provided params.
@@ -103,19 +103,19 @@ pub trait PaymentProcedure<Relayer, Reward, RewardBalance> {
 		relayer: &Relayer,
 		reward: Reward,
 		reward_balance: RewardBalance,
-		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
+		beneficiary: Self::Beneficiary,
 	) -> Result<(), Self::Error>;
 }
 
 impl<Relayer, Reward, RewardBalance> PaymentProcedure<Relayer, Reward, RewardBalance> for () {
 	type Error = &'static str;
-	type AlternativeBeneficiary = ();
+	type Beneficiary = ();
 
 	fn pay_reward(
 		_: &Relayer,
 		_: Reward,
 		_: RewardBalance,
-		_: Option<Self::AlternativeBeneficiary>,
+		_: Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		Ok(())
 	}
@@ -148,17 +148,17 @@ where
 	LaneId: Decode + Encode,
 {
 	type Error = sp_runtime::DispatchError;
-	type AlternativeBeneficiary = Relayer;
+	type Beneficiary = Relayer;
 
 	fn pay_reward(
-		relayer: &Relayer,
+		_: &Relayer,
 		reward_kind: RewardsAccountParams<LaneId>,
 		reward: RewardBalance,
-		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
+		beneficiary: Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		T::transfer(
 			&Self::rewards_account(reward_kind),
-			alternative_beneficiary.as_ref().unwrap_or(relayer),
+			&beneficiary.into(),
 			reward.into(),
 			Preservation::Expendable,
 		)

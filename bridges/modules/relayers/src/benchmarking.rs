@@ -41,7 +41,7 @@ pub trait Config<I: 'static = ()>: crate::Config<I> {
 	fn prepare_rewards_account(
 		reward_kind: Self::Reward,
 		reward: Self::RewardBalance,
-	) -> Option<AlternativeBeneficiaryOf<Self, I>>;
+	) -> Option<BeneficiaryOf<Self, I>>;
 	/// Give enough balance to given account.
 	fn deposit_account(account: Self::AccountId, balance: Self::Balance);
 }
@@ -53,6 +53,10 @@ fn assert_last_event<T: Config<I>, I: 'static>(
 }
 
 benchmarks_instance_pallet! {
+	where_clause { where
+		BeneficiaryOf<T, I>: From<<T as frame_system::Config>::AccountId>,
+	}
+
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
 		let reward_kind = T::bench_reward();
@@ -67,10 +71,10 @@ benchmarks_instance_pallet! {
 		// payment logic, so we assume that if call has succeeded, the procedure has
 		// also completed successfully
 		assert_last_event::<T, I>(Event::RewardPaid {
-			relayer,
+			relayer: relayer.clone(),
 			reward_kind,
 			reward_balance,
-			alternative_beneficiary: None,
+			beneficiary: relayer.into(),
 		}.into());
 	}
 
@@ -93,7 +97,7 @@ benchmarks_instance_pallet! {
 			relayer,
 			reward_kind,
 			reward_balance,
-			alternative_beneficiary: Some(alternative_beneficiary),
+			beneficiary: alternative_beneficiary,
 		}.into());
 	}
 

@@ -349,13 +349,13 @@ impl PaymentProcedure<ThisChainAccountId, RewardsAccountParams<TestLaneIdType>, 
 	for TestPaymentProcedure
 {
 	type Error = ();
-	type AlternativeBeneficiary = ThisChainAccountId;
+	type Beneficiary = ThisChainAccountId;
 
 	fn pay_reward(
 		relayer: &ThisChainAccountId,
 		_reward_kind: RewardsAccountParams<TestLaneIdType>,
 		_reward: RewardBalance,
-		_alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
+		_beneficiary: Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		match *relayer {
 			FAILING_RELAYER => Err(()),

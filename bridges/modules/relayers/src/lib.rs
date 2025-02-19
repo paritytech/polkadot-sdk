@@ -66,12 +66,11 @@ pub mod pallet {
 	>;
 
 	/// Shortcut to alternative beneficiary type for `Config::PaymentProcedure`.
-	pub type AlternativeBeneficiaryOf<T, I> =
-		<<T as Config<I>>::PaymentProcedure as PaymentProcedure<
-			<T as frame_system::Config>::AccountId,
-			<T as Config<I>>::Reward,
-			<T as Config<I>>::RewardBalance,
-		>>::AlternativeBeneficiary;
+	pub type BeneficiaryOf<T, I> = <<T as Config<I>>::PaymentProcedure as PaymentProcedure<
+		<T as frame_system::Config>::AccountId,
+		<T as Config<I>>::Reward,
+		<T as Config<I>>::RewardBalance,
+	>>::Beneficiary;
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
@@ -106,14 +105,17 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::call]
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> Pallet<T, I>
+	where
+		BeneficiaryOf<T, I>: From<<T as frame_system::Config>::AccountId>,
+	{
 		/// Claim accumulated rewards.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim_rewards())]
 		pub fn claim_rewards(origin: OriginFor<T>, reward_kind: T::Reward) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 
-			Self::do_claim_rewards(relayer, reward_kind, None)
+			Self::do_claim_rewards(relayer.clone(), reward_kind, relayer.into())
 		}
 
 		/// Register relayer or update its registration.
@@ -225,11 +227,11 @@ pub mod pallet {
 		pub fn claim_rewards_to(
 			origin: OriginFor<T>,
 			reward_kind: T::Reward,
-			alternative_beneficiary: AlternativeBeneficiaryOf<T, I>,
+			beneficiary: BeneficiaryOf<T, I>,
 		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 
-			Self::do_claim_rewards(relayer, reward_kind, Some(alternative_beneficiary))
+			Self::do_claim_rewards(relayer, reward_kind, beneficiary)
 		}
 	}
 
@@ -237,7 +239,7 @@ pub mod pallet {
 		fn do_claim_rewards(
 			relayer: T::AccountId,
 			reward_kind: T::Reward,
-			alternative_beneficiary: Option<AlternativeBeneficiaryOf<T, I>>,
+			beneficiary: BeneficiaryOf<T, I>,
 		) -> DispatchResult {
 			RelayerRewards::<T, I>::try_mutate_exists(
 				&relayer,
@@ -249,16 +251,16 @@ pub mod pallet {
 						&relayer,
 						reward_kind,
 						reward_balance,
-						alternative_beneficiary.clone(),
+						beneficiary.clone(),
 					)
 					.map_err(|e| {
 						log::error!(
 							target: LOG_TARGET,
-							"Failed to pay ({:?} / {:?}) rewards to {:?}(alternative beneficiary: {:?}), error: {:?}",
+							"Failed to pay ({:?} / {:?}) rewards to {:?}(beneficiary: {:?}), error: {:?}",
 							reward_kind,
 							reward_balance,
 							relayer,
-							alternative_beneficiary,
+							beneficiary,
 							e,
 						);
 						Error::<T, I>::FailedToPayReward
@@ -268,7 +270,7 @@ pub mod pallet {
 						relayer: relayer.clone(),
 						reward_kind,
 						reward_balance,
-						alternative_beneficiary,
+						beneficiary,
 					});
 					Ok(())
 				},
@@ -459,8 +461,8 @@ pub mod pallet {
 			reward_kind: T::Reward,
 			/// Reward amount.
 			reward_balance: T::RewardBalance,
-			/// Alternative beneficiary.
-			alternative_beneficiary: Option<AlternativeBeneficiaryOf<T, I>>,
+			/// Beneficiary.
+			beneficiary: BeneficiaryOf<T, I>,
 		},
 		/// Relayer registration has been added or updated.
 		RegistrationUpdated {
@@ -659,7 +661,7 @@ mod tests {
 						relayer: REGULAR_RELAYER,
 						reward_kind: test_reward_account_param(),
 						reward_balance: 100,
-						alternative_beneficiary: None,
+						beneficiary: REGULAR_RELAYER,
 					}),
 					topics: vec![],
 				}),
@@ -696,7 +698,7 @@ mod tests {
 						relayer: REGULAR_RELAYER,
 						reward_kind: test_reward_account_param(),
 						reward_balance: 100,
-						alternative_beneficiary: Some(REGULAR_RELAYER2),
+						beneficiary: REGULAR_RELAYER2,
 					}),
 					topics: vec![],
 				}),

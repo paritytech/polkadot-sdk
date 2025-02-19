@@ -204,19 +204,19 @@ mod tests {
 			assert_eq!(Balances::balance(&1), 0);
 			assert_eq!(Balances::balance(&2), 0);
 
-			assert_ok!(PayLaneRewardFromAccount::pay_reward(&1, in_lane_0, 100, None));
+			assert_ok!(PayLaneRewardFromAccount::pay_reward(&1, in_lane_0, 100, 1_u64));
 			assert_eq!(Balances::balance(&in_lane0_rewards_account), 100);
 			assert_eq!(Balances::balance(&out_lane1_rewards_account), 100);
 			assert_eq!(Balances::balance(&1), 100);
 			assert_eq!(Balances::balance(&2), 0);
 
-			assert_ok!(PayLaneRewardFromAccount::pay_reward(&1, out_lane_1, 100, None));
+			assert_ok!(PayLaneRewardFromAccount::pay_reward(&1, out_lane_1, 100, 1_u64));
 			assert_eq!(Balances::balance(&in_lane0_rewards_account), 100);
 			assert_eq!(Balances::balance(&out_lane1_rewards_account), 0);
 			assert_eq!(Balances::balance(&1), 200);
 			assert_eq!(Balances::balance(&2), 0);
 
-			assert_ok!(PayLaneRewardFromAccount::pay_reward(&1, in_lane_0, 100, Some(2)));
+			assert_ok!(PayLaneRewardFromAccount::pay_reward(&1, in_lane_0, 100, 2_u64));
 			assert_eq!(Balances::balance(&in_lane0_rewards_account), 0);
 			assert_eq!(Balances::balance(&out_lane1_rewards_account), 0);
 			assert_eq!(Balances::balance(&1), 200);

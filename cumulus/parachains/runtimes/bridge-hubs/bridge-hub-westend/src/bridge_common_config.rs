@@ -50,32 +50,48 @@ impl From<RewardsAccountParams<LegacyLaneId>> for BridgeReward {
 	}
 }
 
+/// An enum representing the different types of supported beneficiaries.
+#[derive(Clone, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+pub enum BridgeRewardBeneficiaries {
+	/// A local chain account.
+	LocalAccount(AccountId),
+	/// A beneficiary specified by a VersionedLocation.
+	AssetHubLocation(VersionedLocation),
+}
+
+impl From<sp_runtime::AccountId32> for BridgeRewardBeneficiaries {
+	fn from(value: sp_runtime::AccountId32) -> Self {
+		BridgeRewardBeneficiaries::LocalAccount(value)
+	}
+}
+
 /// Implementation of `bp_relayers::PaymentProcedure` as a pay/claim rewards scheme.
 pub struct BridgeRewardPayer;
 impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewardPayer {
 	type Error = sp_runtime::DispatchError;
-	type AlternativeBeneficiary = VersionedLocation;
+	type Beneficiary = BridgeRewardBeneficiaries;
 
 	fn pay_reward(
 		relayer: &AccountId,
 		reward_kind: BridgeReward,
 		reward: u128,
-		alternative_beneficiary: Option<Self::AlternativeBeneficiary>,
+		beneficiary: BridgeRewardBeneficiaries,
 	) -> Result<(), Self::Error> {
 		match reward_kind {
 			BridgeReward::RococoWestend(lane_params) => {
-				frame_support::ensure!(
-					alternative_beneficiary.is_none(),
-					Self::Error::Other("`alternative_beneficiary` is not supported for `RococoWestend` rewards!")
-				);
-				bp_relayers::PayRewardFromAccount::<
-					Balances,
-					AccountId,
-					LegacyLaneId,
-					u128,
-				>::pay_reward(
-					relayer, lane_params, reward, None,
-				)
+				match beneficiary {
+					BridgeRewardBeneficiaries::LocalAccount(account) => {
+						bp_relayers::PayRewardFromAccount::<
+							Balances,
+							AccountId,
+							LegacyLaneId,
+							u128,
+						>::pay_reward(
+							&relayer, lane_params, reward, account,
+						)
+					},
+					BridgeRewardBeneficiaries::AssetHubLocation(_) => Err(Self::Error::Other("`AssetHubLocation` beneficiary is not supported for `RococoWestend` rewards!")),
+				}
 			},
 			BridgeReward::Snowbridge =>
 				Err(sp_runtime::DispatchError::Other("Not implemented yet, check also `fn prepare_rewards_account` to return `alternative_beneficiary`!")),
