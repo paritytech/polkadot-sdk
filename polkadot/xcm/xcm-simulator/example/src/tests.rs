@@ -515,31 +515,9 @@ fn query_holding() {
 #[test]
 fn reserve_transfer_with_error() {
 	use sp_tracing::{tracing, tracing_subscriber};
-	use std::sync::{Arc, Mutex};
 
 	// Reset the test network
 	MockNet::reset();
-
-	// let buffer = Arc::new(Mutex::new(Vec::new()));
-	// let buffer_static: &'static Arc<Mutex<Vec<u8>>> = Box::leak(Box::new(buffer.clone()));
-	// let mock_writer = sp_tracing::tracing_test::internal::MockWriter::new(&buffer_static);
-	// let subscriber = tracing_subscriber::fmt().with_writer(mock_writer).finish();
-	// tracing::subscriber::with_default(subscriber, || {
-	// 	let invalid_dest = Box::new(Parachain(9999).into());
-	// 	let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
-	// 		relay_chain::RuntimeOrigin::signed(ALICE),
-	// 		invalid_dest,
-	// 		Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
-	// 		Box::new((Here, 123u128).into()),
-	// 		0,
-	// 		Unlimited,
-	// 	);
-	//
-	// 	// Ensure an error occurred
-	// 	assert!(result.is_err(), "Expected an error due to invalid destination");
-	// });
-	// let logs = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
-	// assert!(logs.contains("XCM validate_send failed"));
 
 	// Execute XCM Transfer and Capture Logs
 	let log_capture = run_with_logging!({
