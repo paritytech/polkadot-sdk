@@ -18,7 +18,7 @@
 #![deny(missing_docs)]
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::Parameter;
 use scale_info::TypeInfo;
@@ -39,7 +39,17 @@ pub type PartsOf57600 = u16;
 
 /// An element to which a core can be assigned.
 #[derive(
-	Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub enum CoreAssignment {
 	/// Core need not be used for anything.
