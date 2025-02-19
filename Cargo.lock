@@ -18288,6 +18288,7 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "sp-weights 27.0.0",
+ "staging-chain-spec-builder",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
