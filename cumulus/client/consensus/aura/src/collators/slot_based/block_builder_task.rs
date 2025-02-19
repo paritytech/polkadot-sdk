@@ -90,6 +90,7 @@ pub struct BuilderTaskParams<
 	pub authoring_duration: Duration,
 	/// Channel to send built blocks to the collation task.
 	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
+	/// Slot duration of the relay chain.
 	pub relay_chain_slot_duration: Duration,
 	/// Offset all time operations by this duration.
 	///

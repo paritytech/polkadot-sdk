@@ -15,6 +15,7 @@
 // limitations under the License.
 
 use crate::{
+	cli::AuthoringPolicy,
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::BuildParachainRpcExtensions,
@@ -217,7 +218,7 @@ where
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	AuraId: AuraIdT + Sync,
 {
-	if extra_args.use_slot_based_consensus {
+	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {
 		Box::new(AuraNode::<
 			Block,
 			RuntimeApi,

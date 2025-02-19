@@ -54,21 +54,14 @@ pub struct TestCollatorCli {
 	#[arg(long)]
 	pub fail_pov_recovery: bool,
 
-	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
-	///
-	/// Use slot-based collator which can handle elastic scaling.
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long)]
-	pub experimental_use_slot_based: bool,
-
 	/// Authoring style to use.
-	#[arg(long, default_value_t = AuthoringStyle::Lookahead)]
-	pub authoring: AuthoringStyle,
+	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
+	pub authoring: AuthoringPolicy,
 }
 
 /// Collator implementation to use.
 #[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
-pub enum AuthoringStyle {
+pub enum AuthoringPolicy {
 	/// Use the lookahead collator. Builds blocks once per relay chain block,
 	/// builds on relay chain forks.
 	Lookahead,
@@ -77,11 +70,11 @@ pub enum AuthoringStyle {
 	SlotBased,
 }
 
-impl Display for AuthoringStyle {
+impl Display for AuthoringPolicy {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
-			AuthoringStyle::Lookahead => write!(f, "lookahead"),
-			AuthoringStyle::SlotBased => write!(f, "slot-based"),
+			AuthoringPolicy::Lookahead => write!(f, "lookahead"),
+			AuthoringPolicy::SlotBased => write!(f, "slot-based"),
 		}
 	}
 }
@@ -316,7 +309,7 @@ impl SubstrateCli for TestCollatorCli {
 			},
 			path => {
 				let chain_spec =
-					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;
+					cumulus_test_service::ChainSpec::from_json_file(path.into())?;
 				Box::new(chain_spec)
 			},
 		})

@@ -32,7 +32,11 @@ add_to_genesis = true
 name = "collator-elastic"
 image = "{{COL_IMAGE}}"
 command = "test-parachain"
-args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--authoring", "slot-based"]
+args = [
+    "--force-authoring",
+    "--authoring=slot-based",
+    "-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug"
+]
 
 # Slot based authoring with 1 core and 6s slot duration
 [[parachains]]
@@ -43,4 +47,8 @@ add_to_genesis = true
 name = "collator-single-core"
 image = "{{COL_IMAGE}}"
 command = "test-parachain"
-args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--authoring", "slot-based"]
+args = [
+    "--force-authoring",
+    "--authoring=slot-based",
+    "-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug"
+]
