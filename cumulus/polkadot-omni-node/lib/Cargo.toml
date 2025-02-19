@@ -24,7 +24,7 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-chain-spec-builder = { git = "https://github.com/paritytech/polkadot-sdk", package = "staging-chain-spec-builder" }
+chain-spec-builder = { workspace = true , package = "staging-chain-spec-builder" }
 
 # Local
 jsonrpsee = { features = ["server"], workspace = true }

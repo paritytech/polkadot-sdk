@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::path::PathBuf;
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
@@ -150,20 +151,21 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			})
 		},
 		Some(Subcommand::ChainSpecBuilder(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
+			let cloned_cmd = cmd.clone(); // Clone it outside to take ownership
 
-			runner.sync_run(|_config| {
-				let chain_spec_builder = ChainSpecBuilder {
-					command: cmd.clone(), // Clone because match provides a reference
-					chain_spec_path: "./chain_spec.json".into(), // Provide an output path if needed
-				};
+			let chain_spec_builder = ChainSpecBuilder {
+				command: cloned_cmd, // Pass owned value
+				chain_spec_path: PathBuf::from("./chain_spec.json"),
+			};
 
-				chain_spec_builder.run().map_err(|err| {
-					eprintln!("Error executing chain-spec-builder: {}", err);
-					sc_cli::Error::Application(err.into())
-				})
-			})
+			if let Err(err) = chain_spec_builder.run() {
+				eprintln!("Error executing chain-spec-builder: {}", err);
+				return Err(sc_cli::Error::Application(err.into()));
+			}
+
+			Ok(())
 		},
+
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			let polkadot_cli =

@@ -90,6 +90,7 @@ pub enum Subcommand {
 	Revert(sc_cli::RevertCmd),
 
 	#[command(alias = "chain-spec-builder")]
+	#[command(subcommand)]
 	ChainSpecBuilder(ChainSpecBuilderCmd),
 
 	/// Remove the whole chain.

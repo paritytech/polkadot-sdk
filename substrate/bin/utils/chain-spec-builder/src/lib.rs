@@ -33,7 +33,7 @@ use std::{
 };
 
 /// A utility to easily create a chain spec definition.
-#[derive(Debug, Parser)]
+#[derive(Debug, Clone, Parser)]
 #[command(rename_all = "kebab-case", version, about)]
 pub struct ChainSpecBuilder {
 	#[command(subcommand)]
@@ -43,7 +43,7 @@ pub struct ChainSpecBuilder {
 	pub chain_spec_path: PathBuf,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Clone, Subcommand)]
 #[command(rename_all = "kebab-case")]
 pub enum ChainSpecBuilderCmd {
 	Create(CreateCmd),
@@ -56,7 +56,7 @@ pub enum ChainSpecBuilderCmd {
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
-#[derive(Parser, Debug)]
+#[derive(Parser, Clone, Debug)]
 pub struct CreateCmd {
 	/// The name of chain.
 	#[arg(long, short = 'n', default_value = "Custom")]
