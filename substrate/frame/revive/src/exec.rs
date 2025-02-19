@@ -1445,8 +1445,10 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				let result = if is_read_only {
+				let result = if is_read_only && value.is_zero() {
 					Ok(Default::default())
+				} else if is_read_only {
+					Err(Error::<T>::StateChangeDenied.into())
 				} else {
 					Self::transfer_from_origin(
 						&self.origin,
