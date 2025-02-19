@@ -273,11 +273,8 @@ impl<
 	}
 }
 
-impl<
-		T: SigningTypes + CreateBare<LocalCall>,
-		C: AppCrypto<T::Public, T::Signature>,
-		LocalCall,
-	> SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAny>
+impl<T: SigningTypes + CreateBare<LocalCall>, C: AppCrypto<T::Public, T::Signature>, LocalCall>
+	SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAny>
 {
 	type Result = Option<(Account<T>, Result<(), ()>)>;
 
@@ -299,11 +296,8 @@ impl<
 	}
 }
 
-impl<
-		T: SigningTypes + CreateBare<LocalCall>,
-		C: AppCrypto<T::Public, T::Signature>,
-		LocalCall,
-	> SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAll>
+impl<T: SigningTypes + CreateBare<LocalCall>, C: AppCrypto<T::Public, T::Signature>, LocalCall>
+	SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAll>
 {
 	type Result = Vec<(Account<T>, Result<(), ()>)>;
 
