@@ -90,7 +90,8 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 	let ws = net.node_rpc_uri("alice").unwrap();
 	let future_scenario_executor = default_zn_scenario_builder()
 		.with_rpc_uri(ws.clone())
-		.with_account_id("ferdie".to_string())
+		.with_account_id(0)
+		.with_last_id(99)
 		.with_nonce_from(Some(100))
 		.with_txs_count(100)
 		.with_executor_id("future-txs-executor".to_string())
@@ -99,7 +100,8 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 	let ws = net.node_rpc_uri("bob").unwrap();
 	let ready_scenario_executor = default_zn_scenario_builder()
 		.with_rpc_uri(ws)
-		.with_account_id("ferdie".to_string())
+		.with_start_id(0)
+		.with_last_id(99)
 		.with_nonce_from(Some(0))
 		.with_txs_count(100)
 		.with_executor_id("ready-txs-executor".to_string())
@@ -118,6 +120,6 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 	let finalized_ready =
 		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
 
-	assert_eq!(finalized_future, 100);
-	assert_eq!(finalized_ready, 100);
+	assert_eq!(finalized_future, 10_000);
+	assert_eq!(finalized_ready, 10_000);
 }
