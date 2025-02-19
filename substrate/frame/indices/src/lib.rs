@@ -273,9 +273,8 @@ pub mod pallet {
 					// Defensive logging if we can't unreserve the full amount.
 					if !unreserved.is_zero() {
 						defensive!(
-							"Failed to unreserve full amount. (Index, Requested, Actual): ", (
-								index, excess, unreserved
-							)
+							"Failed to unreserve full amount. (Index, Requested, Actual): ",
+							(index, excess, unreserved)
 						);
 					}
 				}
