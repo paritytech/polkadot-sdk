@@ -16,6 +16,12 @@ default_args = [
 	"-lsync=trace",
 	"-ltxpool=trace",
 ]
+[relaychain.genesis.runtimeGenesis.patch.balances]
+devAccounts = [
+	100,
+	1000000000000000000,
+	"//Sender//{}",
+]
 
 [[relaychain.nodes]]
 name = "alice"
