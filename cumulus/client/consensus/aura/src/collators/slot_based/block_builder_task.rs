@@ -92,6 +92,7 @@ pub struct BuilderTaskParams<
 	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	pub relay_chain_slot_duration: Duration,
 	/// Offset all time operations by this duration.
+	///
 	/// This is a time quantity that is subtracted from the actual timestamp when computing
 	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the
 	/// intent to keep our "clock" slightly behind the relay chain one and thus reducing the
