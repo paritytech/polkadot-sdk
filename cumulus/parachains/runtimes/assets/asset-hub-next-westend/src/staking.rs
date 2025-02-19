@@ -352,6 +352,6 @@ where
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = AccountId;
-	type FullIdentificationOf = pallet_staking::IdentityOf<Runtime>;
+	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
 }

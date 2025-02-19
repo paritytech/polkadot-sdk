@@ -3174,7 +3174,6 @@ fn staker_cannot_bail_deferred_slash() {
 }
 
 #[test]
-#[ignore] //fixme: cancel_deferred_slash broken
 fn remove_deferred() {
 	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
 		mock::start_active_era(1);
@@ -3282,7 +3281,6 @@ fn remove_deferred() {
 }
 
 #[test]
-#[ignore]
 fn remove_multi_deferred() {
 	ExtBuilder::default()
 		.slash_defer_duration(2)

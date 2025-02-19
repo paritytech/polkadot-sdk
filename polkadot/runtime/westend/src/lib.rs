@@ -529,8 +529,7 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	// todo(ank4n): Recheck if this is correct. We probably need a modified historical root.
-	type SessionManager = Staking;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
@@ -538,8 +537,8 @@ impl pallet_session::Config for Runtime {
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = AccountId;
-	type FullIdentificationOf = pallet_staking::IdentityOf<Runtime>;
+	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
 }
 
 pub struct MaybeSignedPhase;

@@ -1993,7 +1993,7 @@ where
 			}
 		}
 
-		Weight::default()
+		consumed_weight
 	}
 }
 
