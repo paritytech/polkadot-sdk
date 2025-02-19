@@ -7,8 +7,9 @@ The `Polkadot SDK` project is an **OPENISH Open Source Project**
 Individuals making significant and valuable contributions are given commit-access to the project. Contributions are done
 via pull-requests and need to be approved by the maintainers.
 
-> **Note:** Contributors who are part of the organization do not need to fork the repository. They can create a branch
-> directly in the repository to send a pull request.
+> **Note:** If you are using the GitHub CLI (`gh`), it will automatically determine if a fork is needed based on your
+> access permissions. Contributors who are part of the organization do not need to fork the repository. They can create
+> a branch directly in the repository to send a pull request.
 
 ## Rules
 
