@@ -1173,6 +1173,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
+			force_in_memory_trie_cache: false,
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
@@ -2799,6 +2800,7 @@ pub(crate) mod tests {
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
+				force_in_memory_trie_cache: false,
 			},
 			0,
 		)
