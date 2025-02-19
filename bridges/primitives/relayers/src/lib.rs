@@ -90,38 +90,44 @@ impl<LaneId: Decode + Encode> TypeId for RewardsAccountParams<LaneId> {
 }
 
 /// Reward payment procedure.
-pub trait PaymentProcedure<Relayer, Reward> {
+pub trait PaymentProcedure<Relayer, Reward, RewardBalance> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
-	/// Lane identifier type.
-	type LaneId: Decode + Encode;
 
-	/// Pay reward to the relayer from the account with provided params.
+	/// Type parameter used to identify the beneficiaries eligible to receive rewards.
+	type Beneficiary: Clone + Debug + Decode + Encode + Eq + TypeInfo;
+
+	/// Pay reward to the relayer (or alternative beneficiary if provided) from the account with
+	/// provided params.
 	fn pay_reward(
 		relayer: &Relayer,
-		rewards_account_params: RewardsAccountParams<Self::LaneId>,
 		reward: Reward,
+		reward_balance: RewardBalance,
+		beneficiary: Self::Beneficiary,
 	) -> Result<(), Self::Error>;
 }
 
-impl<Relayer, Reward> PaymentProcedure<Relayer, Reward> for () {
+impl<Relayer, Reward, RewardBalance> PaymentProcedure<Relayer, Reward, RewardBalance> for () {
 	type Error = &'static str;
-	type LaneId = ();
+	type Beneficiary = ();
 
 	fn pay_reward(
 		_: &Relayer,
-		_: RewardsAccountParams<Self::LaneId>,
 		_: Reward,
+		_: RewardBalance,
+		_: Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		Ok(())
 	}
 }
 
-/// Reward payment procedure that does `balances::transfer` call from the account, derived from
-/// given params.
-pub struct PayRewardFromAccount<T, Relayer, LaneId>(PhantomData<(T, Relayer, LaneId)>);
+/// Reward payment procedure that executes a `balances::transfer` call from the account
+/// derived from the given `RewardsAccountParams` to the relayer or an alternative beneficiary.
+pub struct PayRewardFromAccount<T, Relayer, LaneId, RewardBalance>(
+	PhantomData<(T, Relayer, LaneId, RewardBalance)>,
+);
 
-impl<T, Relayer, LaneId> PayRewardFromAccount<T, Relayer, LaneId>
+impl<T, Relayer, LaneId, RewardBalance> PayRewardFromAccount<T, Relayer, LaneId, RewardBalance>
 where
 	Relayer: Decode + Encode,
 	LaneId: Decode + Encode,
@@ -132,25 +138,28 @@ where
 	}
 }
 
-impl<T, Relayer, LaneId> PaymentProcedure<Relayer, T::Balance>
-	for PayRewardFromAccount<T, Relayer, LaneId>
+impl<T, Relayer, LaneId, RewardBalance>
+	PaymentProcedure<Relayer, RewardsAccountParams<LaneId>, RewardBalance>
+	for PayRewardFromAccount<T, Relayer, LaneId, RewardBalance>
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,
-	Relayer: Decode + Encode + Eq,
+	T::Balance: From<RewardBalance>,
+	Relayer: Clone + Debug + Decode + Encode + Eq + TypeInfo,
 	LaneId: Decode + Encode,
 {
 	type Error = sp_runtime::DispatchError;
-	type LaneId = LaneId;
+	type Beneficiary = Relayer;
 
 	fn pay_reward(
-		relayer: &Relayer,
-		rewards_account_params: RewardsAccountParams<Self::LaneId>,
-		reward: T::Balance,
+		_: &Relayer,
+		reward_kind: RewardsAccountParams<LaneId>,
+		reward: RewardBalance,
+		beneficiary: Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		T::transfer(
-			&Self::rewards_account(rewards_account_params),
-			relayer,
-			reward,
+			&Self::rewards_account(reward_kind),
+			&beneficiary.into(),
+			reward.into(),
 			Preservation::Expendable,
 		)
 		.map(drop)
@@ -159,24 +168,33 @@ where
 
 /// Can be used to access the runtime storage key within the `RelayerRewards` map of the relayers
 /// pallet.
-pub struct RelayerRewardsKeyProvider<AccountId, Reward, LaneId>(
-	PhantomData<(AccountId, Reward, LaneId)>,
+pub struct RelayerRewardsKeyProvider<AccountId, Reward, RewardBalance>(
+	PhantomData<(AccountId, Reward, RewardBalance)>,
 );
 
-impl<AccountId, Reward, LaneId> StorageDoubleMapKeyProvider
-	for RelayerRewardsKeyProvider<AccountId, Reward, LaneId>
+impl<AccountId, Reward, RewardBalance> StorageDoubleMapKeyProvider
+	for RelayerRewardsKeyProvider<AccountId, Reward, RewardBalance>
 where
 	AccountId: 'static + Codec + EncodeLike + Send + Sync,
-	Reward: 'static + Codec + EncodeLike + Send + Sync,
-	LaneId: Codec + EncodeLike + Send + Sync,
+	Reward: Codec + EncodeLike + Send + Sync,
+	RewardBalance: 'static + Codec + EncodeLike + Send + Sync,
 {
 	const MAP_NAME: &'static str = "RelayerRewards";
 
 	type Hasher1 = Blake2_128Concat;
 	type Key1 = AccountId;
 	type Hasher2 = Identity;
-	type Key2 = RewardsAccountParams<LaneId>;
-	type Value = Reward;
+	type Key2 = Reward;
+	type Value = RewardBalance;
+}
+
+/// A trait defining a reward ledger, which tracks rewards that can be later claimed.
+///
+/// This ledger allows registering rewards for a relayer, categorized by a specific `Reward`.
+/// The registered rewards can be claimed later through an appropriate payment procedure.
+pub trait RewardLedger<Relayer, Reward, RewardBalance> {
+	/// Registers a reward for a given relayer.
+	fn register_reward(relayer: &Relayer, reward: Reward, reward_balance: RewardBalance);
 }
 
 #[cfg(test)]
@@ -188,7 +206,7 @@ mod tests {
 	#[test]
 	fn different_lanes_are_using_different_accounts() {
 		assert_eq!(
-			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+			PayRewardFromAccount::<(), H256, HashedLaneId, ()>::rewards_account(
 				RewardsAccountParams::new(
 					HashedLaneId::try_new(1, 2).unwrap(),
 					*b"test",
@@ -200,7 +218,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+			PayRewardFromAccount::<(), H256, HashedLaneId, ()>::rewards_account(
 				RewardsAccountParams::new(
 					HashedLaneId::try_new(1, 3).unwrap(),
 					*b"test",
@@ -215,7 +233,7 @@ mod tests {
 	#[test]
 	fn different_directions_are_using_different_accounts() {
 		assert_eq!(
-			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+			PayRewardFromAccount::<(), H256, HashedLaneId, ()>::rewards_account(
 				RewardsAccountParams::new(
 					HashedLaneId::try_new(1, 2).unwrap(),
 					*b"test",
@@ -227,7 +245,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+			PayRewardFromAccount::<(), H256, HashedLaneId, ()>::rewards_account(
 				RewardsAccountParams::new(
 					HashedLaneId::try_new(1, 2).unwrap(),
 					*b"test",
@@ -303,6 +321,7 @@ mod tests {
 					[u8; 32],
 					[u8; 32],
 					LegacyLaneId,
+					(),
 				>::rewards_account(RewardsAccountParams::new(
 					lane_id,
 					*bridged_chain_id,
