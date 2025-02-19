@@ -759,13 +759,7 @@ pub mod pallet {
 			config::altair::BLOCK_ROOTS_INDEX
 		}
 
-		pub fn execution_header_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
-			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
-
-			if epoch >= fork_versions.electra.epoch {
-				return config::electra::EXECUTION_HEADER_INDEX;
-			}
-
+		pub fn execution_header_gindex() -> usize {
 			config::altair::EXECUTION_HEADER_INDEX
 		}
 	}

@@ -11,5 +11,3 @@ pub const FINALIZED_ROOT_INDEX: usize = 169;
 pub const CURRENT_SYNC_COMMITTEE_INDEX: usize = 86;
 /// get_generalized_index(BeaconState, 'next_sync_committee')
 pub const NEXT_SYNC_COMMITTEE_INDEX: usize = 87;
-///  get_generalized_index(BeaconBlockBody, 'execution_payload')
-pub const EXECUTION_HEADER_INDEX: usize = 25;
