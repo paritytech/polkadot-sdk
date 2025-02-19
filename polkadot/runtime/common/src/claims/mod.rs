@@ -19,7 +19,7 @@
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String};
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
 	ensure,
@@ -85,6 +85,7 @@ impl WeightInfo for TestWeightInfo {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Clone,
 	Copy,
 	Eq,
@@ -128,7 +129,17 @@ impl Default for StatementKind {
 ///
 /// This gets serialized to the 0x-prefixed hex representation.
 #[derive(
-	Clone, Copy, PartialEq, Eq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub struct EthereumAddress(pub [u8; 20]);
 
@@ -163,7 +174,7 @@ impl<'de> Deserialize<'de> for EthereumAddress {
 	}
 }
 
-#[derive(Encode, Decode, Clone, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, MaxEncodedLen)]
 pub struct EcdsaSignature(pub [u8; 65]);
 
 impl PartialEq for EcdsaSignature {
