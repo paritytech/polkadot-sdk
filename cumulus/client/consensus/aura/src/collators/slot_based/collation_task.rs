@@ -31,7 +31,7 @@ use cumulus_primitives_core::relay_chain::BlockId;
 
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::{Block as BlockT, Header};
-use crate::collators::lookahead::export_pov_to_path;
+use crate::export_pov_to_path;
 
 use super::CollatorMessage;
 
@@ -147,25 +147,20 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 
 	if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 
-		if let Ok(relay_parent_header) = relay_client.header(BlockId::Hash(relay_parent)).await {
-
-			if let Some(relay_parent_header) = relay_parent_header {
-				if let Some(pov_path) = export_pov {
-					export_pov_to_path::<Block>(
-						pov_path.clone(),
-						pov.clone(),
-						block_data.header().hash(),
-						*block_data.header().number(),
-						parent_header.clone(),
-						relay_parent_header.state_root,
-						relay_parent_header.number
-					);
-				}
-			}else{
-				tracing::error!(target: LOG_TARGET, "relay parent header from hash: {relay_parent} not found");
+		if let Some(pov_path) = export_pov {
+			if let Ok(Some(relay_parent_header)) = relay_client.header(BlockId::Hash(relay_parent)).await {
+				export_pov_to_path::<Block>(
+					pov_path.clone(),
+					pov.clone(),
+					block_data.header().hash(),
+					*block_data.header().number(),
+					parent_header.clone(),
+					relay_parent_header.state_root,
+					relay_parent_header.number
+				);
+			}else {
+				tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent}");
 			}
-		}else {
-			tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent}.");
 		}
 
 		tracing::info!(
