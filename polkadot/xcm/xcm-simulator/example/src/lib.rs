@@ -21,6 +21,7 @@ mod relay_chain;
 mod tests;
 
 use sp_runtime::BuildStorage;
+use sp_tracing;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
