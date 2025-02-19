@@ -258,4 +258,3 @@ macro_rules! enter_span {
 
 #[cfg(feature = "std")]
 pub use tracing_test;
-
