@@ -34,6 +34,7 @@ use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunc
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
+use chain_spec_builder::ChainSpecBuilder;
 use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
@@ -148,12 +149,18 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
-		Some(Subcommand::ChainSpecBuilder(cmd))=>{
+		Some(Subcommand::ChainSpecBuilder(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+
 			runner.sync_run(|_config| {
-				cmd.run().map_err(|err| {
+				let chain_spec_builder = ChainSpecBuilder {
+					command: cmd.clone(), // Clone because match provides a reference
+					chain_spec_path: "./chain_spec.json".into(), // Provide an output path if needed
+				};
+
+				chain_spec_builder.run().map_err(|err| {
 					eprintln!("Error executing chain-spec-builder: {}", err);
-					sc_cli::Error::Application(err)
+					sc_cli::Error::Application(err.into())
 				})
 			})
 		},
