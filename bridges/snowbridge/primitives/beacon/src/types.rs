@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
@@ -45,7 +45,7 @@ pub struct Fork {
 	pub epoch: u64,
 }
 
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct PublicKey(pub [u8; PUBKEY_SIZE]);
 
 impl Default for PublicKey {
@@ -86,7 +86,7 @@ impl Serialize for PublicKey {
 	}
 }
 
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Signature(pub [u8; SIGNATURE_SIZE]);
 
 impl Default for Signature {
@@ -144,7 +144,14 @@ impl SigningData {
 
 /// Sync committee as it is stored in the runtime storage.
 #[derive(
-	Encode, Decode, PartialEqNoBound, CloneNoBound, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEqNoBound,
+	CloneNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[cfg_attr(
 	feature = "std",
@@ -216,7 +223,16 @@ impl<const COMMITTEE_SIZE: usize> TryFrom<&SyncCommittee<COMMITTEE_SIZE>>
 /// Beacon block header as it is stored in the runtime storage. The block root is the
 /// Merkleization of a BeaconHeader.
 #[derive(
-	Copy, Clone, Default, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Default,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BeaconHeader {
@@ -239,7 +255,15 @@ impl BeaconHeader {
 	}
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[cfg_attr(
 	feature = "std",
 	derive(Deserialize),
@@ -304,7 +328,14 @@ impl<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize>
 /// ExecutionPayloadHeader
 /// <https://github.com/ethereum/annotated-spec/blob/master/capella/beacon-chain.md#executionpayloadheader>
 #[derive(
-	Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+	Default,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
 )]
 #[cfg_attr(
 	feature = "std",
@@ -357,7 +388,15 @@ pub struct CompactBeaconState {
 }
 
 /// VersionedExecutionPayloadHeader
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[cfg_attr(
 	feature = "std",
 	derive(Serialize, Deserialize),
@@ -411,7 +450,15 @@ impl VersionedExecutionPayloadHeader {
 	}
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Deserialize),
@@ -428,7 +475,15 @@ pub struct ExecutionProof {
 	pub execution_branch: Vec<H256>,
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Deserialize),
@@ -567,7 +622,7 @@ pub enum Mode {
 }
 
 pub mod deneb {
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 	use scale_info::TypeInfo;
 	#[cfg(feature = "std")]
@@ -578,7 +633,14 @@ pub mod deneb {
 	/// ExecutionPayloadHeader
 	/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#executionpayloadheader>
 	#[derive(
-		Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+		Default,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		CloneNoBound,
+		PartialEqNoBound,
+		RuntimeDebugNoBound,
+		TypeInfo,
 	)]
 	#[cfg_attr(
 		feature = "std",
