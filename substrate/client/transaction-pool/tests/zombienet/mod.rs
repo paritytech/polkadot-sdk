@@ -83,7 +83,7 @@ impl NetworkSpawner {
 		&self.network
 	}
 
-	/// Returns a node client and waits for blocks production to kick-off.
+	/// Waits for blocks production/import to kick-off on given node.
 	pub async fn wait_for_block_production(&self, node_name: &str) -> Result<()> {
 		let node = self
 			.network
