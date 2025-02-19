@@ -72,20 +72,6 @@ pub fn expand_runtime_metadata(
 		})
 		.collect::<Vec<_>>();
 
-	let view_functions = pallet_declarations.iter().map(|decl| {
-		let name = &decl.name;
-		let path = &decl.path;
-		let instance = decl.instance.as_ref().into_iter();
-		let attr = decl.get_attributes();
-
-		quote! {
-			#attr
-			#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_view_functions_metadata(
-				::core::stringify!(#name)
-			)
-		}
-	});
-
 	quote! {
 		impl #runtime {
 			fn metadata_ir() -> #scrate::__private::metadata_ir::MetadataIR {
