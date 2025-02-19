@@ -30,7 +30,6 @@ use tracing_subscriber::fmt::MakeWriter;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
-use sp_tracing::tracing_test::internal::MockWriter;
 
 pub const ALICE: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([1u8; 32]);
 pub const INITIAL_BALANCE: u128 = 1_000_000_000;
@@ -39,19 +38,12 @@ pub const INITIAL_BALANCE: u128 = 1_000_000_000;
 /// Captures logs written during test execution for assertions.
 pub struct LogCapture {
 	buffer: Arc<Mutex<Vec<u8>>>,
-	writer: MockWriter<'static>,
 }
 
 impl LogCapture {
 	/// Creates a new `LogCapture` instance with an internal buffer.
 	pub fn new() -> Self {
-		let buffer = Arc::new(Mutex::new(Vec::new()));
-
-		// Convert Arc to a leaked 'static reference
-		let buffer_static: &'static Mutex<Vec<u8>> = Box::leak(Box::new(Mutex::new(Vec::new())));
-		let writer = MockWriter::new(buffer_static);
-
-		LogCapture { buffer, writer }
+		LogCapture { buffer: Arc::new(Mutex::new(Vec::new())) }
 	}
 
 	/// Retrieves the captured logs as a `String`.
@@ -60,8 +52,8 @@ impl LogCapture {
 	}
 
 	/// Returns a clone of the internal buffer for use in `MakeWriter`.
-	pub fn writer(&self) -> MockWriter {
-		MockWriter::new(unsafe { &*(Arc::as_ptr(&self.buffer)) })
+	pub fn writer(&self) -> Self {
+		LogCapture { buffer: Arc::clone(&self.buffer) }
 	}
 }
 
@@ -78,7 +70,7 @@ impl Write for LogCapture {
 }
 
 impl<'a> MakeWriter<'a> for LogCapture {
-	type Writer = MockWriter<'a>;
+	type Writer = Self;
 
 	/// Provides a `MakeWriter` implementation for `tracing_subscriber`.
 	fn make_writer(&'a self) -> Self::Writer {
