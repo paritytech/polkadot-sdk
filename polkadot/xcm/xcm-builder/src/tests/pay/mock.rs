@@ -112,7 +112,6 @@ impl pallet_assets::Config for Test {
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
-	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();
