@@ -10,9 +10,9 @@ doc:
     with `DenyThenTry<DenyRecursively<Deny>, Allow>`, ensuring that both
     top-level and nested local instructions are properly checked. This change
     enhances the security and predictability of XCM execution by enforcing
-    consistent denial policies across all levels of message execution.
-
-    If you need to deny instructions recursively make sure to change your barrier in the XCM configuration.
+    consistent denial policies across all levels of message execution. If you
+    need to deny instructions recursively make sure to change your barrier in
+    the XCM configuration.
 crates:
 - name: staging-xcm-builder
   bump: minor
