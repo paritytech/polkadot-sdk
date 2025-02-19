@@ -55,7 +55,7 @@ fn coretime_rococo_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
-		sudo: { key: Some(Sr25519Keyring::Alice.to_account_id()) }
+		sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) }
 	})
 }
 
