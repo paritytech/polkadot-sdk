@@ -51,6 +51,7 @@ cumulus-client-parachain-inherent = { workspace = true, default-features = true 
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
+cumulus-pallet-aura-ext = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-node-primitives = { workspace = true, default-features = true }

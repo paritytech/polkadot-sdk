@@ -39,9 +39,12 @@ use crate::{
 	},
 	LOG_TARGET,
 };
+use cumulus_pallet_aura_ext::RelayParentAgeApi;
+use cumulus_primitives_core::relay_chain::BlockId;
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
+use schnellru::ByLength;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
@@ -49,7 +52,7 @@ use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, One};
 use std::{sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
@@ -115,8 +118,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + GetCoreSelectorApi<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ GetCoreSelectorApi<Block>
+		+ RelayParentAgeApi<Block>
+		+ AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -176,10 +181,39 @@ where
 				return;
 			};
 
-			let Ok(relay_parent) = relay_client.best_block_hash().await else {
+			let Ok(mut relay_parent) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
 				continue
 			};
+
+			let best_hash = para_client.info().best_hash;
+			let relay_parent_offset = para_client
+				.runtime_api()
+				.slot_offset(best_hash)
+				.expect("Should be able to fetch offset.");
+
+			let mut relay_parent_header = relay_client
+				.header(BlockId::Hash(relay_parent))
+				.await
+				.expect("Can find header")
+				.expect("Header hash was known");
+			for i in 0..relay_parent_offset {
+				tracing::info!(
+					relay_parent_offset,
+					i,
+					current_hash = %relay_parent_header.hash(),
+					current_number = relay_parent_header.number(),
+					"Searching older parent."
+				);
+				if let Some(header) = relay_client
+					.header(BlockId::Hash(*relay_parent_header.parent_hash()))
+					.await
+					.expect("Can find header")
+				{
+					relay_parent_header = header;
+				}
+			}
+			let relay_parent = relay_parent_header.hash();
 
 			let Some((included_block, parent)) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)

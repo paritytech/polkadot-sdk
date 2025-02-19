@@ -45,7 +45,8 @@ impl<
 		const V: u32,
 		const C: u32,
 		const AGE: u64,
-	> ConsensusHook for OlderParentFixedVelocityConsensusHook<T, RELAY_CHAIN_SLOT_DURATION_MILLIS, V, C, AGE>
+	> ConsensusHook
+	for OlderParentFixedVelocityConsensusHook<T, RELAY_CHAIN_SLOT_DURATION_MILLIS, V, C, AGE>
 where
 	<T as pallet_timestamp::Config>::Moment: Into<u64>,
 {
@@ -78,19 +79,23 @@ where
 			u64::from(RELAY_CHAIN_SLOT_DURATION_MILLIS).saturating_mul(*relay_chain_slot);
 
 		let para_slot_duration = SlotDuration::from_millis(Aura::<T>::slot_duration().into());
-		let adjusted_relay_timestamp = relay_chain_timestamp + (RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * AGE);
+		let adjusted_relay_timestamp =
+			relay_chain_timestamp + (RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * AGE);
 
-		let new_slot = Slot::from_timestamp(adjusted_relay_timestamp.into(), SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS as u64));
+		let new_slot = Slot::from_timestamp(
+			adjusted_relay_timestamp.into(),
+			SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS as u64),
+		);
 
-			log::info!(target: "skunert", "aura-ext: Relay chain is at timestamp: {relay_chain_slot:?}, we expect para to be in the future at: {new_slot:?}");
+		log::info!(target: "skunert", "aura-ext: Relay chain is at timestamp: {relay_chain_slot:?}, we expect para to be in the future at: {new_slot:?}, para_slot: {para_slot:?}");
 		let para_slot_from_relay =
 			Slot::from_timestamp(adjusted_relay_timestamp.into(), para_slot_duration);
 
 		// Check that we are not too far in the future. Since we expect `V` parachain blocks
 		// during the relay chain slot, we can allow for `V` parachain slots into the future.
-		if *para_slot > *para_slot_from_relay + u64::from(velocity) {
+		if *para_slot != *para_slot_from_relay {
 			panic!(
-				"Parachain slot is too far in the future: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
+				"Parachain slot is not what was expected: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
 				para_slot,
 				para_slot_from_relay,
 				velocity,

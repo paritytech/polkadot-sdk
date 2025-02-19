@@ -53,6 +53,7 @@ std = [
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
+	"log/std",
 	"sp-api/std",
 ]
 try-runtime = [
