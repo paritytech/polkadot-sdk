@@ -23,7 +23,7 @@
 //! be two versions of polkadot crates included in the runtime. Which is bad.
 
 use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
-use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::Hasher;
 use sp_runtime::RuntimeDebug;
@@ -41,6 +41,7 @@ use serde::{Deserialize, Serialize};
 	CompactAs,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,
@@ -85,7 +86,7 @@ pub type ParaHash = crate::Hash;
 pub type ParaHasher = crate::Hasher;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct ParaHeadsProof {
 	/// Unverified storage proof of finalized parachain heads.
 	pub storage_proof: RawStorageProof,
