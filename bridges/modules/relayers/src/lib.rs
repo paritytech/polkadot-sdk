@@ -18,7 +18,6 @@
 //! coordinate relations between relayers.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![warn(missing_docs)]
 
 use bp_relayers::{
 	ExplicitOrAccountParams, PaymentProcedure, Registration, RelayerRewardsKeyProvider,
@@ -245,7 +244,7 @@ pub mod pallet {
 
 			// registration is inactive if relayer stake is less than required
 			if registration.stake < Self::required_stake() {
-				return false
+				return false;
 			}
 
 			// registration is inactive if it ends soon
@@ -253,7 +252,7 @@ pub mod pallet {
 				.valid_till
 				.saturating_sub(frame_system::Pallet::<T>::block_number());
 			if remaining_lease <= Self::required_registration_lease() {
-				return false
+				return false;
 			}
 
 			true
@@ -275,7 +274,7 @@ pub mod pallet {
 						relayer,
 					);
 
-					return
+					return;
 				},
 			};
 
@@ -321,6 +320,11 @@ pub mod pallet {
 					);
 				},
 			}
+
+			Self::deposit_event(Event::<T, I>::SlashedAndDeregistered {
+				relayer: relayer.clone(),
+				registration,
+			});
 		}
 
 		/// Register reward for given relayer.
@@ -330,7 +334,7 @@ pub mod pallet {
 			reward: T::Reward,
 		) {
 			if reward.is_zero() {
-				return
+				return;
 			}
 
 			RelayerRewards::<T, I>::mutate(
@@ -531,6 +535,45 @@ mod tests {
 					topics: vec![],
 				}),
 			);
+		});
+	}
+
+	#[test]
+	fn slash_and_deregister_works() {
+		run_test(|| {
+			get_ready_for_events();
+
+			// register
+			assert_ok!(Pallet::<TestRuntime>::register(
+				RuntimeOrigin::signed(REGISTER_RELAYER),
+				150,
+			));
+			// check if registered
+			let registration = Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER).unwrap();
+			assert_eq!(registration, Registration { valid_till: 150, stake: Stake::get() });
+
+			// slash and deregister
+			let slash_destination = RewardsAccountParams::new(
+				TestLaneIdType::try_new(1, 2).unwrap(),
+				*b"test",
+				RewardsAccountOwner::ThisChain,
+			);
+			Pallet::<TestRuntime>::slash_and_deregister(
+				&REGISTER_RELAYER,
+				slash_destination.into(),
+			);
+			// check if event emitted
+			assert_eq!(
+				System::<TestRuntime>::events().last(),
+				Some(&EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::BridgeRelayers(Event::SlashedAndDeregistered {
+						relayer: REGISTER_RELAYER,
+						registration,
+					}),
+					topics: vec![],
+				})
+			)
 		});
 	}
 
