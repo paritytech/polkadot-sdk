@@ -56,6 +56,8 @@ pub trait WeightInfo {
 	fn batch_all(c: u32, ) -> Weight;
 	fn dispatch_as() -> Weight;
 	fn force_batch(c: u32, ) -> Weight;
+	fn dispatch_as_fallible() -> Weight;
+	fn if_else() -> Weight;
 }
 
 /// Weights for `pallet_utility` using the Substrate node and recommended hardware.
@@ -125,6 +127,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(4_570_923, 0).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
+	fn dispatch_as_fallible() -> Weight {
+		Weight::MAX
+	}
+
+	fn if_else() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(7_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -192,5 +206,18 @@ impl WeightInfo for () {
 			// Standard Error: 2_511
 			.saturating_add(Weight::from_parts(4_570_923, 0).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
+	}
+
+	fn dispatch_as_fallible() -> Weight {
+		Weight::MAX
+	}
+
+	fn if_else() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(7_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
 	}
 }

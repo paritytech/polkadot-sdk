@@ -47,7 +47,7 @@ pub use commitment::{Commitment, KnownSignature, SignedCommitment, VersionedFina
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
 
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode};
 use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 use sp_application_crypto::{AppPublic, RuntimeAppPublic};
@@ -298,7 +298,7 @@ pub enum ConsensusLog<AuthorityId: Codec> {
 /// A vote message is a direct vote created by a BEEFY node on every voting round
 /// and is gossiped to its peers.
 // TODO: Remove `Signature` generic type, instead get it from `Id::Signature`.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo)]
 pub struct VoteMessage<Number, Id, Signature> {
 	/// Commit to information extracted from a finalized block
 	pub commitment: Commitment<Number>,
@@ -313,7 +313,7 @@ pub struct VoteMessage<Number, Id, Signature> {
 /// One type of misbehavior in BEEFY happens when an authority votes in the same round/block
 /// for different payloads.
 /// Proving is achieved by collecting the signed commitments of conflicting votes.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo)]
 pub struct DoubleVotingProof<Number, Id, Signature> {
 	/// The first vote in the equivocation.
 	pub first: VoteMessage<Number, Id, Signature>,
@@ -340,7 +340,7 @@ impl<Number, Id, Signature> DoubleVotingProof<Number, Id, Signature> {
 ///
 /// Proving is achieved by providing a proof that contains relevant info about the canonical chain
 /// at `commitment.block_number`. The `commitment` can be checked against this info.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo)]
 pub struct ForkVotingProof<Header: HeaderT, Id: RuntimeAppPublic, AncestryProof> {
 	/// The equivocated vote.
 	pub vote: VoteMessage<Header::Number, Id, Id::Signature>,
@@ -364,7 +364,7 @@ impl<Header: HeaderT, Id: RuntimeAppPublic> ForkVotingProof<Header, Id, OpaqueVa
 }
 
 /// Proof showing that an authority voted for a future block.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo)]
 pub struct FutureBlockVotingProof<Number, Id: RuntimeAppPublic> {
 	/// The equivocated vote.
 	pub vote: VoteMessage<Number, Id, Id::Signature>,

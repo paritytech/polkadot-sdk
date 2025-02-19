@@ -74,7 +74,7 @@ macro_rules! log {
 	};
 }
 
-type BalanceOf<T> =
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type BlockNumberFor<T> =
@@ -84,13 +84,23 @@ pub type BlockNumberFor<T> =
 /// block's height. This allows a transaction in which a multisig operation of a particular
 /// composite was created to be uniquely identified.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub struct Timepoint<BlockNumber> {
 	/// The height of the chain at the point in time.
-	height: BlockNumber,
+	pub height: BlockNumber,
 	/// The index of the extrinsic at the point in time.
-	index: u32,
+	pub index: u32,
 }
 
 /// An open multisig operation.
@@ -101,13 +111,13 @@ where
 	MaxApprovals: Get<u32>,
 {
 	/// The extrinsic when the multisig operation was opened.
-	when: Timepoint<BlockNumber>,
+	pub when: Timepoint<BlockNumber>,
 	/// The amount held in reserve of the `depositor`, to be returned once the operation ends.
-	deposit: Balance,
+	pub deposit: Balance,
 	/// The account who opened it (i.e. the first to approve it).
-	depositor: AccountId,
+	pub depositor: AccountId,
 	/// The approvals achieved so far, including the depositor. Always sorted.
-	approvals: BoundedVec<AccountId, MaxApprovals>,
+	pub approvals: BoundedVec<AccountId, MaxApprovals>,
 }
 
 type CallHash = [u8; 32];
@@ -157,7 +167,28 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: weights::WeightInfo;
 
-		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		/// Query the current block number.
+		///
+		/// Must return monotonically increasing values when called from consecutive blocks.
+		/// Can be configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// There is currently no migration provided to "hot-swap" block number providers and it may
+		/// result in undefined behavior when doing so. Parachains are therefore best off setting
+		/// this to their local block number provider if they have the pallet already deployed.
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains: `frame_system::Pallet`
+		/// - Parachains that may produce blocks sparingly or only when needed (on-demand):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: `RelaychainDataProvider`
+		/// - Parachains with a reliably block production rate (PLO or bulk-coretime):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
+		///     providers can be used. Relay provider can be a bit better in cases where the
+		///     parachain is lagging its block production to avoid clock skew.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 

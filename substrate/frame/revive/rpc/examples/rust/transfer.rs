@@ -16,14 +16,12 @@
 // limitations under the License.
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{Account, BlockTag, ReceiptInfo};
-use pallet_revive_eth_rpc::{
-	example::{wait_for_receipt, TransactionBuilder},
-	EthRpcClient,
-};
+use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	let client = HttpClientBuilder::default().build("http://localhost:8545")?;
+	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
 
 	let alith = Account::default();
 	let alith_address = alith.address();
@@ -41,16 +39,15 @@ async fn main() -> anyhow::Result<()> {
 	print_balance().await?;
 	println!("\n\n=== Transferring  ===\n\n");
 
-	let hash = TransactionBuilder::default()
+	let tx = TransactionBuilder::new(&client)
 		.signer(alith)
 		.value(value)
 		.to(ethan.address())
-		.send(&client)
+		.send()
 		.await?;
-	println!("Transaction hash: {hash:?}");
+	println!("Transaction hash: {:?}", tx.hash());
 
-	let ReceiptInfo { block_number, gas_used, status, .. } =
-		wait_for_receipt(&client, hash).await?;
+	let ReceiptInfo { block_number, gas_used, status, .. } = tx.wait_for_receipt().await?;
 	println!("Receipt: ");
 	println!("- Block number: {block_number}");
 	println!("- Gas used: {gas_used}");
