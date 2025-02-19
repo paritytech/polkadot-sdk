@@ -18,7 +18,6 @@ use crate::*;
 
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
-use sp_tracing::tracing::Subscriber;
 use xcm::latest::QueryResponseInfo;
 use xcm_simulator::{mock_message_queue::ReceivedDmp, TestExt};
 
