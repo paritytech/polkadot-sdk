@@ -274,7 +274,10 @@ pub mod pallet {
 					if !unreserved.is_zero() {
 						defensive!(
 							"Failed to unreserve for index {:?}",
-							format!("{:?} (requested: {:?}, actual: {:?})", index, excess, unreserved)
+							format!(
+								"{:?} (requested: {:?}, actual: {:?})",
+								index, excess, unreserved
+							)
 						);
 					}
 				}
