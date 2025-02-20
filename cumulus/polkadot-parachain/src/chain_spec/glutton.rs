@@ -16,7 +16,6 @@
 
 use cumulus_primitives_core::ParaId;
 use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
-use sc_chain_spec::ChainSpecBuilder;
 use sc_service::ChainType;
 use sp_keyring::Sr25519Keyring;
 
@@ -25,7 +24,7 @@ pub fn glutton_westend_config(
 	para_id: ParaId,
 	chain_type: ChainType,
 	relay_chain: &str,
-) -> ChainSpecBuilder {
+) -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 42.into());
 
@@ -36,15 +35,15 @@ pub fn glutton_westend_config(
 
 	GenericChainSpec::builder(
 		glutton_westend_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain, para_id: para_id.into() },
+		Extensions { relay_chain: relay_chain.into(), para_id: para_id.into() },
 	)
-	.with_name(chain_type_name(para_id, &chain_type))
-	.with_id(chain_id(para_id, &chain_type))
+	.with_name(&chain_type_name(para_id, &chain_type))
+	.with_id(&chain_id(para_id, &chain_type))
 	.with_chain_type(chain_type)
 	.with_genesis_config_patch(
 		glutton_westend_runtime::genesis_config_presets::glutton_westend_genesis(
-			para_id,
 			authorities,
+			para_id,
 		),
 	)
 	.build()
