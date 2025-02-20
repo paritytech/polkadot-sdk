@@ -10,3 +10,5 @@ doc:
 crates:
 - name: glutton-westend-runtime
   bump: minor
+- name: polkadot-parachain-bin
+  bump: minor
