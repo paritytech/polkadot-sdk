@@ -173,6 +173,7 @@ pub use extensions::{
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
 	check_weight::CheckWeight, weight_reclaim::WeightReclaim, WeightInfo as ExtensionsWeightInfo,
+	weights::SubstrateWeight as SubstrateExtensionsWeight
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
