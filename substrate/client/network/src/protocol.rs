@@ -54,9 +54,14 @@ mod notifications;
 
 pub mod message;
 
+<<<<<<< HEAD
 /// Maximum size used for notifications in the block announce and transaction protocols.
 // Must be equal to `max(MAX_BLOCK_ANNOUNCE_SIZE, MAX_TRANSACTIONS_SIZE)`.
 pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = 16 * 1024 * 1024;
+=======
+// Log target for this file.
+const LOG_TARGET: &str = "sub-libp2p";
+>>>>>>> 42e9de7 (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 
 /// Identifier of the peerset for the block announces protocol.
 const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);

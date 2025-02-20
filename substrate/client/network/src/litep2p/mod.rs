@@ -39,7 +39,6 @@ use crate::{
 		},
 	},
 	peer_store::PeerStoreProvider,
-	protocol,
 	service::{
 		metrics::{register_without_sources, MetricSources, Metrics, NotificationMetrics},
 		out_events,
@@ -269,6 +268,7 @@ impl Litep2pNetworkBackend {
 		};
 		let config_builder = ConfigBuilder::new();
 
+<<<<<<< HEAD
 		// The yamux buffer size limit is configured to be equal to the maximum frame size
 		// of all protocols. 10 bytes are added to each limit for the length prefix that
 		// is not included in the upper layer protocols limit but is still present in the
@@ -320,6 +320,8 @@ impl Litep2pNetworkBackend {
 			yamux_config
 		};
 
+=======
+>>>>>>> 42e9de7 (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 		let (tcp, websocket): (Vec<Option<_>>, Vec<Option<_>>) = config
 			.network_config
 			.listen_addresses
@@ -368,13 +370,13 @@ impl Litep2pNetworkBackend {
 		config_builder
 			.with_websocket(WebSocketTransportConfig {
 				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
-				yamux_config: yamux_config.clone(),
+				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
 				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
-				yamux_config,
+				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
 				..Default::default()
 			})
