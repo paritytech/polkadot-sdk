@@ -16,35 +16,11 @@
 
 use cumulus_primitives_core::ParaId;
 use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
+use sc_chain_spec::ChainSpecBuilder;
 use sc_service::ChainType;
 use sp_keyring::Sr25519Keyring;
 
-use glutton_westend_runtime::genesis_config_presets::glutton_westend_genesis;
-use sc_chain_spec::ChainSpecBuilder;
-
-/// Generate the name directly from the ChainType
-fn chain_type_name(para_id: ParaId, chain_type: &ChainType) -> String {
-	match chain_type {
-		ChainType::Development => format!("Glutton Development {}", para_id),
-		ChainType::Local => format!("Glutton Local {}", para_id),
-		ChainType::Live => format!("Glutton {}", para_id),
-		ChainType::Custom(name) => name.clone(),
-	}
-	.into()
-}
-
-/// Generate the name directly from the ChainType
-pub fn chain_id(para_id: ParaId, chain_type: &ChainType) -> String {
-	match chain_type {
-		ChainType::Development => format!("glutton-westend-dev-{}", para_id),
-		ChainType::Local => format!("glutton-westend-local-{}", para_id),
-		ChainType::Live => format!("glutton-westend-{}", para_id),
-		ChainType::Custom(_) => format!("glutton-westend-custom-{}", para_id),
-	}
-	.into()
-}
-
-/// Generic Glutton Westend Configs for all currently used setups.
+/// Generic Glutton Westend Config for all currently used setups.
 pub fn glutton_westend_config(
 	para_id: ParaId,
 	chain_type: ChainType,
@@ -65,5 +41,30 @@ pub fn glutton_westend_config(
 	.with_name(chain_type_name(para_id, &chain_type))
 	.with_id(chain_id(para_id, &chain_type))
 	.with_chain_type(chain_type)
-	.with_genesis_config_patch(glutton_westend_genesis(para_id, authorities))
+	.with_genesis_config_patch(
+		glutton_westend_runtime::genesis_config_presets::glutton_westend_genesis(
+			para_id,
+			authorities,
+		),
+	)
+}
+
+/// Generate the name directly from the ChainType
+fn chain_type_name(para_id: ParaId, chain_type: &ChainType) -> String {
+	match chain_type {
+		ChainType::Development => format!("Glutton Development {}", para_id),
+		ChainType::Local => format!("Glutton Local {}", para_id),
+		ChainType::Live => format!("Glutton {}", para_id),
+		ChainType::Custom(name) => name.clone(),
+	}
+}
+
+/// Generate the name directly from the ChainType
+pub fn chain_id(para_id: ParaId, chain_type: &ChainType) -> String {
+	match chain_type {
+		ChainType::Development => format!("glutton-westend-dev-{}", para_id),
+		ChainType::Local => format!("glutton-westend-local-{}", para_id),
+		ChainType::Live => format!("glutton-westend-{}", para_id),
+		ChainType::Custom(_) => format!("glutton-westend-custom-{}", para_id),
+	}
 }
