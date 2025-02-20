@@ -29,7 +29,7 @@ use cumulus_client_consensus_aura::{
 		lookahead::{self as aura, Params as AuraParams},
 		slot_based::{
 			self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
-			SlotBasedBlockImportHandle, ParamsWithExport as SlotBasedParamsWithExport
+			SlotBasedBlockImportHandle
 		},
 	},
 	ImportQueueParams,
@@ -506,12 +506,10 @@ where
 					slot_drift: Duration::from_secs(1),
 					block_import_handle: slot_based_handle,
 					spawner: task_manager.spawn_handle(),
+					export_pov: None
 				};
-				let params_with_export = SlotBasedParamsWithExport {
-					params,
-					None
-				};
-				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params_with_export);
+
+				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
 				let params = AuraParams {

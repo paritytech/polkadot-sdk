@@ -53,6 +53,8 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
 	/// The handle from the special slot based block import.
 	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
+	/// When set, the collator will export every produced `POV` to this folder.
+	pub export_pov: Option<PathBuf>
 }
 
 /// Asynchronously executes the collation task for a parachain.
@@ -70,8 +72,8 @@ pub async fn run_collation_task<Block, RClient, CS>(
 		collator_service,
 		mut collator_receiver,
 		mut block_import_handle,
+		export_pov
 	}: Params<Block, RClient, CS>,
-	export_pov: Option<PathBuf>
 ) where
 	Block: BlockT,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,

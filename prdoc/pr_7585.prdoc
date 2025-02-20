@@ -1,11 +1,11 @@
 title: 'Add export PoV on slot base collator'
 doc:
 - audience: [Node Dev, Node Operator]
-  description: Add functionality to export Proof of Validity (PoV) based on collator slots.
+  description: Add functionality to export the Proof of Validity (PoV) when the slot-based collator is used.
 crates:
 - name: cumulus-test-service
-  bump: patch
+  bump: major
 - name: cumulus-client-consensus-aura
-  bump: patch
+  bump: major
 - name: polkadot-omni-node
-  bump: patch
+  bump: major
