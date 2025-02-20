@@ -16,7 +16,10 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with common functionality.
 
-use crate::{AccountIdOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf};
+use crate::{
+	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, ExtBuilder, GovernanceOrigin,
+	ValidatorIdOf,
+};
 use codec::Encode;
 use frame_support::{
 	assert_ok,
@@ -24,6 +27,8 @@ use frame_support::{
 };
 use parachains_common::AccountId;
 use sp_runtime::traits::{Block as BlockT, StaticLookup};
+use sp_runtime::{DispatchError, Either};
+use xcm::prelude::XcmError;
 use xcm_runtime_apis::fees::{
 	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
 };
@@ -192,4 +197,33 @@ where
 			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), non_existent_token_versioned);
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 	});
+}
+
+/// Generic test case for Cumulus-based parachain that verifies if runtime can process `frame_system::Call::authorize_upgrade` from governance system.
+pub fn can_governance_authorize_upgrade<Runtime, RuntimeOrigin>(
+	governance_origin: GovernanceOrigin<RuntimeOrigin>,
+) -> Result<(), Either<DispatchError, XcmError>>
+where
+	Runtime: BasicParachainRuntime
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>,
+{
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// check before
+		assert!(frame_system::Pallet::<Runtime>::authorized_upgrade().is_none());
+
+		// execute call as governance does
+		let code_hash = Runtime::Hash::default();
+		let authorize_upgrade_call: <Runtime as frame_system::Config>::RuntimeCall =
+			frame_system::Call::<Runtime>::authorize_upgrade { code_hash }.into();
+		RuntimeHelper::<Runtime>::execute_as_governance_call(
+			authorize_upgrade_call,
+			governance_origin,
+		)?;
+
+		// check after
+		match frame_system::Pallet::<Runtime>::authorized_upgrade() {
+			None => Err(Either::Left(frame_system::Error::<Runtime>::NothingAuthorized.into())),
+			Some(_) => Ok(()),
+		}
+	})
 }
