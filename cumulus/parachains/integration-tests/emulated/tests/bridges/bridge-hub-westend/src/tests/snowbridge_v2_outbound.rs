@@ -26,9 +26,9 @@ use xcm_executor::traits::ConvertLocation;
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemFrontendCall {
 	#[codec(index = 1)]
-	CreateAgent { fee: u128 },
+	CreateAgent {},
 	#[codec(index = 2)]
-	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata, fee: u128 },
+	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata },
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -112,8 +112,7 @@ pub fn register_relay_token_from_asset_hub_with_sudo() {
 					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
 					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
 					decimals: 12,
-				},
-				REMOTE_FEE_AMOUNT_IN_ETHER
+				}
 			)
 		);
 	});
@@ -144,7 +143,6 @@ pub fn register_relay_token_from_asset_hub_user_origin() {
 					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
 					decimals: 12,
 				},
-				REMOTE_FEE_AMOUNT_IN_ETHER
 			)
 		);
 	});
@@ -323,7 +321,6 @@ fn register_agent_from_asset_hub() {
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::create_agent(
 				RuntimeOrigin::signed(AssetHubWestendSender::get()),
-				REMOTE_FEE_AMOUNT_IN_ETHER
 			)
 		);
 	});
@@ -455,7 +452,6 @@ fn register_token_from_penpal() {
 			EthereumSystemFrontendCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(foreign_asset_at_asset_hub)),
 				metadata: Default::default(),
-				fee: REMOTE_FEE_AMOUNT_IN_ETHER,
 			},
 		);
 
@@ -545,7 +541,7 @@ fn register_user_agent_from_penpal() {
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
 
 		let call = EthereumSystemFrontend::EthereumSystemFrontend(
-			EthereumSystemFrontendCall::CreateAgent { fee: REMOTE_FEE_AMOUNT_IN_ETHER },
+			EthereumSystemFrontendCall::CreateAgent {},
 		);
 
 		let assets = vec![
