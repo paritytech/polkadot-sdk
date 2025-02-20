@@ -27,17 +27,18 @@ use crate::{
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
-		BaseSubmitOutcome, ExtrinsicFor, ExtrinsicHash, TransactionFor, ValidatedPoolSubmitOutcome,
+		BaseSubmitOutcome, BlockHash, ExtrinsicFor, ExtrinsicHash, TransactionFor,
+		ValidatedPoolSubmitOutcome,
 	},
 	ReadyIteratorFor, LOG_TARGET,
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
 use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TxInvalidityReportMap};
-use sp_blockchain::TreeRoute;
+use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
-	traits::Block as BlockT,
+	traits::{Block as BlockT, Saturating},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use std::{
@@ -595,7 +596,7 @@ where
 		);
 
 		self.listener.remove_stale_controllers();
-		self.dropped_stream_controller.remove_finalized_txs(finalized_xts.clone());
+		self.dropped_stream_controller.remove_transactions(finalized_xts.clone());
 
 		self.listener.remove_view(finalized_hash);
 		for view in dropped_views {
@@ -863,5 +864,41 @@ where
 		}
 
 		removed
+	}
+
+	/// Clears stale views when blockchain finality stalls.
+	///
+	/// This function removes outdated active and inactive views based on the block height
+	/// difference compared to the current block's height. Views are considered stale and
+	/// purged from the `ViewStore` if their height difference from the current block `at`
+	/// exceeds the specified `threshold`.
+	///
+	/// If any views are removed, corresponding cleanup operations are performed on multi-view
+	/// stream controllers to ensure views are also removed there.
+	pub(crate) fn finality_stall_view_cleanup(&self, at: &HashAndNumber<Block>, threshold: usize) {
+		let mut dropped_views = vec![];
+		{
+			let mut active_views = self.active_views.write();
+			let mut inactive_views = self.inactive_views.write();
+			let mut f = |hash: &BlockHash<ChainApi>, v: &View<ChainApi>| -> bool {
+				let diff = at.number.saturating_sub(v.at.number);
+				if diff.into() > threshold.into() {
+					dropped_views.push(*hash);
+					false
+				} else {
+					true
+				}
+			};
+
+			active_views.retain(|h, v| f(h, v));
+			inactive_views.retain(|h, v| f(h, v));
+		}
+
+		if !dropped_views.is_empty() {
+			for view in dropped_views {
+				self.listener.remove_view(view);
+				self.dropped_stream_controller.remove_view(view);
+			}
+		}
 	}
 }
