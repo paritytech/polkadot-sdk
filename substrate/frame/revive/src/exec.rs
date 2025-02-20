@@ -1012,7 +1012,7 @@ where
 
 	fn run_precompile(
 		&mut self,
-		precompile_address: H160,
+		precompile_address: &H160,
 		value_transferred: U256,
 		input_data: &[u8],
 		read_only: bool,
@@ -1023,7 +1023,7 @@ where
 			let frame = top_frame_mut!(self);
 			tracer.enter_child_span(
 				maybe_caller_address.unwrap_or_default(),
-				precompile_address,
+				*precompile_address,
 				false,
 				read_only,
 				value_transferred,
@@ -1034,11 +1034,11 @@ where
 
 		// TODO burn value_transferred if any
 
-		let output = if dest_addr == &precompiles::ECRECOVER {
-			self.gas_meter_mut().charge(crate::RuntimeCosts::EcdsaRecovery);
+		let output = if precompile_address == &precompiles::ECRECOVER {
+			self.gas_meter_mut().charge(crate::RuntimeCosts::EcdsaRecovery)?;
 			precompiles::ECRecover::execute(&input_data)
 		} else {
-			log::debug!(target: crate::LOG_TARGET, "Unsupported precompile address {dest_addr:?}");
+			log::debug!(target: crate::LOG_TARGET, "Unsupported precompile address {precompile_address:?}");
 			todo!()
 		}
 		.map_err(|e| {
@@ -1461,7 +1461,7 @@ where
 
 		let try_call = || {
 			if is_precompile(&dest_addr) {
-				return self.run_precompile(dest_addr, value, &input_data)?;
+				return self.run_precompile(dest_addr, value, &input_data, read_only);
 			}
 
 			let dest = T::AddressMapper::to_account_id(dest_addr);
