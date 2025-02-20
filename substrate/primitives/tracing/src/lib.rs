@@ -256,6 +256,23 @@ macro_rules! enter_span {
 	};
 }
 
+/// `tracing-test` can be used for general logging capture but doesn't support logging within
+/// scoped functions like `Relay::execute_with`.
+///
+/// # Example
+///
+/// ```
+/// use tracing_test::traced_test;
+/// use tracing::info;
+///
+/// #[traced_test]
+/// fn test_logging() {
+///     info!("This is a test log message");
+///     assert!(logs_contain("test log message"));
+/// }
+/// ```
+///
+/// For more details, see [`tracing-test`](https://crates.io/crates/tracing-test).
 #[cfg(feature = "std")]
 pub use tracing_test;
 
@@ -301,6 +318,23 @@ pub mod test_log_capture {
 		capture_with_max_level(LevelFilter::TRACE, f);
 	}
 
+	/// Runs a test block with logging enabled and captures logs for assertions
+	/// while allowing the maximum log level to be specified.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use sp_tracing::test_log_capture;
+	/// use sp_tracing::tracing::Level;
+	///
+	/// test_log_capture::capture_with_max_level(Level::INFO, || {
+	///     tracing::info!("This will be captured at INFO level");
+	///     tracing::debug!("This will be captured at DEBUG level");
+	/// });
+	///
+	///  assert!(test_log_capture::logs_contain("INFO level"));
+	///  assert!(!test_log_capture::logs_contain("DEBUG level"));
+	/// ```
 	pub fn capture_with_max_level<F: FnOnce()>(max_level: impl Into<LevelFilter>, f: F) {
 		let log_capture = MockWriter::new(&global_buf());
 		let subscriber = tracing_subscriber::fmt()
