@@ -2,25 +2,11 @@ title: '`fatxpool`: improved handling of finality stalls'
 doc:
 - audience: Node Dev
   description: |-
-    #### PR Description
-
     This pull request introduces measures to handle finality stalls by :
-    - notifying outdated transactions with a [`FinalityTimeout`](https://github.com/paritytech/polkadot-sdk/blob/d821c84d61b8040d979178b2355be7dd1da83388/substrate/client/transaction-pool/api/src/lib.rs#L145-L147) event.
+    - notifying outdated transactions with a `FinalityTimeout` event.
     - removing outdated views from the `view_store`
 
     An item is considered _outdated_ when the difference between its associated block and the current block exceeds a pre-defined threshold.
-
-    #### Note for Reviewers
-    The core logic is provided in the following small commits:
-    - `ViewStore`: new method [`finality_stall_view_cleanup`](https://github.com/paritytech/polkadot-sdk/blob/d821c84d61b8040d979178b2355be7dd1da83388/substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs#L869-L903) for removing stale views was added: 64267000db
-    - `ForkAwareTransactionPool`: core logic for tracking finality stalls added here: 7b37ea6f0b. Entry point in [`finality_stall_cleanup`](https://github.com/paritytech/polkadot-sdk/blob/d821c84d61b8040d979178b2355be7dd1da83388/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L1096-L1136)
-    - Some related renaming was made to better reflect purpose/shorten the names: 1a3a1284b4, a511601fe9. Also new method [`transactions_finality_timeout`](https://github.com/paritytech/polkadot-sdk/blob/a511601fe9f0febba43d223f12e23ee33e0606b1/substrate/client/transaction-pool/src/fork_aware_txpool/multi_view_listener.rs#L771-L790) for triggering external events was added for `MultiViewListener`.
-
-    I also sneaked in some minor improvements:
-    - fixed per-transaction logging: 1572f721e4
-    - `handle_pre_finalized` method was removed, it was some old leftover which is no longer needed: a6f84ad019,
-
-    closes: #5482
 crates:
 - name: sc-transaction-pool
   bump: minor
