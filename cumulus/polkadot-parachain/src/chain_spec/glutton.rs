@@ -20,17 +20,7 @@ use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 use sp_keyring::Sr25519Keyring;
 
-fn glutton_genesis(parachain_id: ParaId, collators: Vec<AuraId>) -> serde_json::Value {
-	serde_json::json!( {
-		"parachainInfo": {
-			"parachainId": parachain_id
-		},
-		"sudo": {
-			"key": Some(Sr25519Keyring::Alice.to_account_id()),
-		},
-		"aura": { "authorities": collators },
-	})
-}
+use glutton_westend_runtime::genesis_config_presets::glutton_westend_genesis;
 
 pub fn glutton_westend_development_config(para_id: ParaId) -> GenericChainSpec {
 	GenericChainSpec::builder(
@@ -40,7 +30,7 @@ pub fn glutton_westend_development_config(para_id: ParaId) -> GenericChainSpec {
 	.with_name("Glutton Development")
 	.with_id("glutton_westend_dev")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(glutton_genesis(
+	.with_genesis_config_patch(glutton_westend_genesis(
 		para_id,
 		vec![Sr25519Keyring::Alice.public().into()],
 	))
@@ -55,7 +45,7 @@ pub fn glutton_westend_local_config(para_id: ParaId) -> GenericChainSpec {
 	.with_name("Glutton Local")
 	.with_id("glutton_westend_local")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(glutton_genesis(
+	.with_genesis_config_patch(glutton_westend_genesis(
 		para_id,
 		vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()],
 	))
@@ -80,16 +70,4 @@ pub fn glutton_westend_config(para_id: ParaId) -> GenericChainSpec {
 	.with_protocol_id(format!("glutton-westend-{}", para_id).as_str())
 	.with_properties(properties)
 	.build()
-}
-
-fn glutton_westend_genesis(parachain_id: ParaId, collators: Vec<AuraId>) -> serde_json::Value {
-	serde_json::json!( {
-		"parachainInfo": {
-			"parachainId": parachain_id
-		},
-		"sudo": {
-			"key": Some(Sr25519Keyring::Alice.to_account_id()),
-		},
-		"aura": { "authorities": collators },
-	})
 }
