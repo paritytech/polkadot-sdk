@@ -18,7 +18,7 @@ mod cli;
 
 use std::sync::Arc;
 
-use cli::{RelayChainCli, Subcommand, TestCollatorCli, AuthoringPolicy};
+use cli::{AuthoringPolicy, RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_primitives_core::relay_chain::CollatorPair;
 use cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
 use sc_cli::{CliConfiguration, SubstrateCli};

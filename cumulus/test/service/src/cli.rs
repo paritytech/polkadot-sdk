@@ -308,8 +308,7 @@ impl SubstrateCli for TestCollatorCli {
 				)) as Box<_>
 			},
 			path => {
-				let chain_spec =
-					cumulus_test_service::ChainSpec::from_json_file(path.into())?;
+				let chain_spec = cumulus_test_service::ChainSpec::from_json_file(path.into())?;
 				Box::new(chain_spec)
 			},
 		})
