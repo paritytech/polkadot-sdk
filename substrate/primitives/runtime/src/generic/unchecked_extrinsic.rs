@@ -738,7 +738,18 @@ mod tests {
 	const TEST_ACCOUNT: TestAccountId = 0;
 
 	// NOTE: this is demonstration. One can simply use `()` for testing.
-	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
+	#[derive(
+		Debug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Clone,
+		Eq,
+		PartialEq,
+		Ord,
+		PartialOrd,
+		TypeInfo,
+	)]
 	struct DummyExtension;
 	impl TransactionExtension<TestCall> for DummyExtension {
 		const IDENTIFIER: &'static str = "DummyExtension";

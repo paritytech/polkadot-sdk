@@ -44,7 +44,7 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
@@ -172,7 +172,7 @@ pub mod pallet {
 /// - Payments with a native asset are charged by
 ///   [pallet_transaction_payment::Config::OnChargeTransaction].
 /// - Payments with other assets are charged by [Config::OnChargeAssetTransaction].
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeAssetTxPayment<T: Config> {
 	#[codec(compact)]
@@ -285,7 +285,8 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync + From<u64>,
-	T::AssetId: Send + Sync,
+	<BalanceOf<T> as codec::HasCompact>::Type: DecodeWithMemTracking,
+	T::AssetId: DecodeWithMemTracking + Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";

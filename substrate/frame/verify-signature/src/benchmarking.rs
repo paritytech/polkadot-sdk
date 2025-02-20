@@ -26,6 +26,7 @@ use super::*;
 #[allow(unused)]
 use crate::{extension::VerifySignature, Config, Pallet as VerifySignaturePallet};
 use alloc::vec;
+use codec::DecodeWithMemTracking;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
@@ -44,6 +45,8 @@ pub trait BenchmarkHelper<Signature, Signer> {
 
 #[benchmarks(where
 	T: Config + Send + Sync,
+	T::Signature: DecodeWithMemTracking,
+	T::AccountId: DecodeWithMemTracking,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 )]

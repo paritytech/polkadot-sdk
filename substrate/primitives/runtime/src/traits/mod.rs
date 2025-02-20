@@ -1629,7 +1629,7 @@ pub trait AsTransactionAuthorizedOrigin {
 /// that should be additionally associated with the transaction. It should be plain old data.
 #[deprecated = "Use `TransactionExtension` instead."]
 pub trait SignedExtension:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+	Codec + DecodeWithMemTracking + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
 	/// Unique identifier of this signed extension.
 	///

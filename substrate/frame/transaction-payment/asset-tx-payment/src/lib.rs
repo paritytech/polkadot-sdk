@@ -35,7 +35,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
 	pallet_prelude::{TransactionSource, Weight},
@@ -169,7 +169,7 @@ pub mod pallet {
 ///
 /// Wraps the transaction logic in [`pallet_transaction_payment`] and extends it with assets.
 /// An asset id of `None` falls back to the underlying transaction payment via the native currency.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeAssetTxPayment<T: Config> {
 	#[codec(compact)]
@@ -299,7 +299,8 @@ where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
 	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
-	ChargeAssetIdOf<T>: Send + Sync,
+	<BalanceOf<T> as codec::HasCompact>::Type: DecodeWithMemTracking,
+	ChargeAssetIdOf<T>: DecodeWithMemTracking + Send + Sync,
 	Credit<T::AccountId, T::Fungibles>: IsType<ChargeAssetLiquidityOf<T>>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {

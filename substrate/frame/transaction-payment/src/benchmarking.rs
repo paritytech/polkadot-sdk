@@ -38,6 +38,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	T: Config,
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	<BalanceOf<T> as codec::HasCompact>::Type: DecodeWithMemTracking,
 )]
 mod benchmarks {
 	use super::*;
