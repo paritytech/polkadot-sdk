@@ -434,8 +434,7 @@ mod stake {
 					Preservation::Expendable,
 					Fortitude::Force,
 				),
-				// - extra 1 for ed
-				initial_balance - 1000 - 1
+				initial_balance - 1000
 			);
 
 			// User stakes more tokens
@@ -460,8 +459,7 @@ mod stake {
 					Preservation::Expendable,
 					Fortitude::Force,
 				),
-				// - extra 1 for ed
-				initial_balance - 1500 - 1
+				initial_balance - 1500
 			);
 
 			// Event is emitted.

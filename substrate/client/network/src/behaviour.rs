@@ -184,6 +184,7 @@ impl<B: BlockT> Behaviour<B> {
 		request_response_protocols: Vec<ProtocolConfig>,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
+		public_addresses: Vec<Multiaddr>,
 		connection_limits: ConnectionLimits,
 	) -> Result<Self, request_responses::RegisterError> {
 		Ok(Self {
@@ -192,6 +193,7 @@ impl<B: BlockT> Behaviour<B> {
 				user_agent,
 				local_public_key,
 				external_addresses,
+				public_addresses,
 			),
 			discovery: disco_config.finish(),
 			request_responses: request_responses::RequestResponsesBehaviour::new(

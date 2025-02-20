@@ -40,7 +40,7 @@ jobs:
         uses: korthout/backport-action@v3
         id: backport
         with:
-          target_branches: stable2407 stable2409 stable2412
+          target_branches: stable2407 stable2409 stable2412 stable2503
           merge_commits: skip
           github_token: ${{ steps.generate_token.outputs.token }}
           pull_description: |

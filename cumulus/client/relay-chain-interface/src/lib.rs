@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -244,6 +245,9 @@ pub trait RelayChainInterface: Send + Sync {
 		&self,
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>>;
+
+	/// Fetch the scheduling lookahead value.
+	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32>;
 }
 
 #[async_trait]
@@ -397,6 +401,10 @@ where
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
 		(**self).claim_queue(relay_parent).await
+	}
+
+	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32> {
+		(**self).scheduling_lookahead(relay_parent).await
 	}
 }
 
