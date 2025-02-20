@@ -15,7 +15,6 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use parachains_common::Balance as PeopleBalance;
 use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::str::FromStr;
@@ -126,7 +125,6 @@ pub mod rococo {
 	use super::ParaId;
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_keyring::Sr25519Keyring;
 
 	pub(crate) const PEOPLE_ROCOCO: &str = "people-rococo";
 	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
@@ -167,7 +165,6 @@ pub mod westend {
 	use super::ParaId;
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_keyring::Sr25519Keyring;
 
 	pub(crate) const PEOPLE_WESTEND: &str = "people-westend";
 	pub(crate) const PEOPLE_WESTEND_LOCAL: &str = "people-westend-local";
