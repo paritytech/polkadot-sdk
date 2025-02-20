@@ -27,7 +27,7 @@ use crate::{
 	DispatchResult,
 };
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 #[doc(hidden)]
 pub use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
@@ -1209,7 +1209,16 @@ impl<
 ///
 /// You can also create a `new` one from those fields.
 pub trait Header:
-	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + 'static
+	Clone
+	+ Send
+	+ Sync
+	+ Codec
+	+ DecodeWithMemTracking
+	+ Eq
+	+ MaybeSerialize
+	+ Debug
+	+ TypeInfo
+	+ 'static
 {
 	/// Header number.
 	type Number: BlockNumber;
