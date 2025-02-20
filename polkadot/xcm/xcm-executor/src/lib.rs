@@ -207,6 +207,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	pub fn set_message_weight(&mut self, weight: Weight) {
 		self.message_weight = weight;
 	}
+	pub fn already_paid_fees(&self) -> bool {
+		self.already_paid_fees
+	}
 }
 
 pub struct WeighedMessage<Call>(Weight, Xcm<Call>);
@@ -1385,10 +1388,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					asset_for_fees = ?asset,
 					message_weight = ?self.message_weight,
 				);
-				let max_fee =
-					self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				// Pay for execution fees.
 				let result = Config::TransactionalProcessor::process(|| {
+					let max_fee =
+						self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
 					let unspent =
 						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
 					// Move unspent to the `fees` register, it can later be moved to holding
@@ -1399,6 +1402,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
 					// Rollback on error.
 					self.holding = old_holding;
+					self.already_paid_fees = false;
 				}
 				result
 			},

@@ -316,3 +316,28 @@ fn pay_fees_is_processed_only_once() {
 	assert!(vm.bench_post_process(weight).ensure_complete().is_ok());
 	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 6u128).into()]);
 }
+
+#[test]
+fn already_paid_fees_rolls_back_on_error() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER, (Here, 100u128));
+
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 200u128))
+		.deposit_asset(All, RECIPIENT)
+		.build();
+
+	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
+
+	// Program fails.
+	assert!(vm.bench_process(xcm).is_err());
+
+	// Everything left in the `holding` register.
+	assert_eq!(get_first_fungible(vm.holding()).unwrap(), (Here, 100u128).into());
+	// Nothing in the `fees` register.
+	assert_eq!(get_first_fungible(vm.fees()), None);
+
+	// Already paid fees is false.
+	assert_eq!(vm.already_paid_fees(), false);
+}
