@@ -17,7 +17,7 @@
 use super::Precompile;
 use crate::{
 	exec::{ExecResult, Ext},
-	Config, ExecReturnValue,
+	Config, ExecReturnValue, RuntimeCosts,
 };
 use hex_literal::hex;
 use pallet_revive_uapi::ReturnFlags;
@@ -28,7 +28,9 @@ pub const ECRECOVER: H160 = H160(hex!("0000000000000000000000000000000000000001"
 pub struct ECRecover;
 
 impl<T: Config> Precompile<T> for ECRecover {
-	fn execute<E: Ext<T = T>>(_ext: &mut E, i: &[u8]) -> ExecResult {
+	fn execute<E: Ext<T = T>>(ext: &mut E, i: &[u8]) -> ExecResult {
+		ext.gas_meter_mut().charge(RuntimeCosts::EcdsaRecovery)?;
+
 		let mut input = [0u8; 128];
 		let len = i.len().min(128);
 		input[..len].copy_from_slice(&i[..len]);
