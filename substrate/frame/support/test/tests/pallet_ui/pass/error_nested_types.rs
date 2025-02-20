@@ -20,7 +20,7 @@ use frame_support::PalletError;
 
 #[frame_support::pallet]
 #[allow(unused_imports)]
-mod pallet {
+pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
 

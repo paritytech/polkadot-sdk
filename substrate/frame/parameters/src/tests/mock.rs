@@ -107,7 +107,7 @@ mod custom_origin {
 		) -> Result<Self::Success, RuntimeOrigin> {
 			// Account 123 is allowed to set parameters in benchmarking only:
 			#[cfg(feature = "runtime-benchmarks")]
-			if ensure_signed(origin.clone()).map_or(false, |acc| acc == 123) {
+			if ensure_signed(origin.clone()).is_ok_and(|acc| acc == 123) {
 				return Ok(());
 			}
 
