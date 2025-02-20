@@ -328,10 +328,6 @@ pub use pallet_assets;
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
 
-/// Provides holding features to `pallet-assets`.
-#[cfg(feature = "pallet-assets-holder")]
-pub use pallet_assets_holder;
-
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;

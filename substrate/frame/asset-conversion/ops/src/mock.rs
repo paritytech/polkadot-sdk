@@ -67,7 +67,6 @@ impl pallet_assets::Config<Instance1> for Test {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type Holder = ();
 	type Freezer = ();
 }
 
@@ -77,7 +76,6 @@ impl pallet_assets::Config<Instance2> for Test {
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type Holder = ();
 	type Freezer = ();
 }
 
