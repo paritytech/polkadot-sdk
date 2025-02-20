@@ -10,16 +10,16 @@ crates:
   - name: sc-network
     bump: minor
   - name: cumulus-client-cli
-    bump: patch
+    bump: minor
   - name: sc-network-types
-    bump: patch
+    bump: minor
   - name: sc-transaction-pool-api
-    bump: patch
+    bump: minor
   - name: sc-transaction-pool
-    bump: patch
+    bump: minor
   - name: polkadot-statement-distribution
-    bump: patch
+    bump: minor
   - name: polkadot-dispute-distribution
-    bump: patch
+    bump: minor
   - name: cumulus-relay-chain-rpc-interface
-    bump: patch
+    bump: minor
