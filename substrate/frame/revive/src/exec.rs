@@ -452,9 +452,8 @@ pub enum PrecompileOrExecutable<E> {
 	Executable(E),
 }
 
-#[cfg(feature = "runtime-benchmarks")]
 impl<E> PrecompileOrExecutable<E> {
-	fn as_executable(self) -> Option<E> {
+	fn as_executable(&self) -> Option<&E> {
 		match self {
 			Self::Executable(e) => Some(e),
 			_ => None,
@@ -462,47 +461,19 @@ impl<E> PrecompileOrExecutable<E> {
 	}
 }
 
-impl<T: Config, V> Executable<T> for PrecompileOrExecutable<V>
-where
-	V: Executable<T>,
-{
-	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
-		Ok(Self::Executable(V::from_storage(code_hash, gas_meter)?))
-	}
-
-	fn execute<E: Ext<T = T>>(
+impl<Exec> PrecompileOrExecutable<Exec> {
+	fn execute<T: Config, E: Ext<T = T>>(
 		self,
 		ext: &mut E,
 		function: ExportedFunction,
 		input_data: Vec<u8>,
-	) -> ExecResult {
+	) -> ExecResult
+	where
+		Exec: Executable<T>,
+	{
 		match self {
 			Self::Precompile(addr) => Precompiles::<T>::execute(addr, ext, &input_data),
 			Self::Executable(executable) => executable.execute(ext, function, input_data),
-		}
-	}
-
-	fn code_deposit(&self) -> BalanceOf<T> {
-		match self {
-			Self::Precompile(_) => 0u32.into(),
-			Self::Executable(executable) => executable.code_deposit(),
-		}
-	}
-
-	fn code(&self) -> &[u8] {
-		match self {
-			Self::Precompile(_) => &[],
-			Self::Executable(executable) => executable.code(),
-		}
-	}
-
-	fn code_hash(&self) -> &H256 {
-		match self {
-			Self::Precompile(_) => {
-				const ZERO: H256 = H256::zero();
-				&ZERO
-			},
-			Self::Executable(executable) => executable.code_hash(),
 		}
 	}
 }
@@ -878,7 +849,11 @@ where
 		)
 		.unwrap()
 		.unwrap();
-		(stack, e.as_executable().unwrap())
+
+		match e {
+			PrecompileOrExecutable::Executable(e) => (stack, e),
+			_ => panic!("Expected executable"),
+		}
 	}
 
 	/// Create a new call stack.
@@ -1098,7 +1073,7 @@ where
 		let entry_point = frame.entry_point;
 		let is_delegate_call = frame.delegate.is_some();
 		let delegated_code_hash = if frame.delegate.is_some() {
-			Some(*<PrecompileOrExecutable<E> as Executable<T>>::code_hash(&executable))
+			executable.as_executable().map(|e| *e.code_hash())
 		} else {
 			None
 		};
@@ -1130,6 +1105,7 @@ where
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
+				let executable = executable.as_executable().ok_or(Error::<T>::ContractNotFound)?;
 
 				let ed = <Contracts<T>>::min_balance();
 				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed));
@@ -1167,7 +1143,7 @@ where
 
 			let contract_address = T::AddressMapper::to_address(account_id);
 			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
-			let code_deposit = executable.code_deposit();
+			let code_deposit = executable.as_executable().map_or(0u32.into(), |e| e.code_deposit());
 
 			if_tracing(|tracer| {
 				tracer.enter_child_span(
