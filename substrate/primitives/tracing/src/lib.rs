@@ -267,17 +267,18 @@ pub use tracing_test;
 /// # Example
 ///
 /// ```
-/// use sp_tracing::log_capture;
+/// use sp_tracing::test_log_capture;
 ///
-/// log_capture::capture(|| {
+/// test_log_capture::capture(|| {
 ///     tracing::info!("This is a test log message");
 /// });
 ///
-/// assert!(log_capture::logs_contain("test log message"));
+/// assert!(test_log_capture::logs_contain("test log message"));
 /// ```
 #[cfg(feature = "std")]
-pub mod log_capture {
+pub mod test_log_capture {
 	use tracing::subscriber;
+	use tracing_core::LevelFilter;
 	use tracing_test::internal::{global_buf, MockWriter};
 
 	/// Runs a test block with logging enabled and captures logs for assertions.
@@ -288,17 +289,24 @@ pub mod log_capture {
 	/// # Example
 	///
 	/// ```
-	/// use sp_tracing::log_capture;
+	/// use sp_tracing::test_log_capture;
 	///
-	/// log_capture::capture(|| {
+	/// test_log_capture::capture(|| {
 	///     tracing::warn!("Captured warning message");
 	/// });
 	///
-	/// assert!(log_capture::logs_contain("Captured warning message"));
+	/// assert!(test_log_capture::logs_contain("Captured warning message"));
 	/// ```
 	pub fn capture<F: FnOnce()>(f: F) {
+		capture_with_max_level(LevelFilter::TRACE, f);
+	}
+
+	pub fn capture_with_max_level<F: FnOnce()>(max_level: impl Into<LevelFilter>, f: F) {
 		let log_capture = MockWriter::new(&global_buf());
-		let subscriber = tracing_subscriber::fmt().with_writer(log_capture).finish();
+		let subscriber = tracing_subscriber::fmt()
+			.with_max_level(max_level)
+			.with_writer(log_capture)
+			.finish();
 		subscriber::with_default(subscriber, f);
 	}
 
@@ -310,13 +318,13 @@ pub mod log_capture {
 	/// # Example
 	///
 	/// ```
-	/// use sp_tracing::log_capture;
+	/// use sp_tracing::test_log_capture;
 	///
-	/// log_capture::capture(|| {
+	/// test_log_capture::capture(|| {
 	///     tracing::debug!("Debug log for testing");
 	/// });
 	///
-	/// assert!(log_capture::logs_contain("Debug log"));
+	/// assert!(test_log_capture::logs_contain("Debug log"));
 	/// ```
 	pub fn logs_contain(value: &str) -> bool {
 		let logs = String::from_utf8(global_buf().lock().unwrap().clone()).unwrap();

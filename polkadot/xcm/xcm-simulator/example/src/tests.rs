@@ -514,13 +514,13 @@ fn query_holding() {
 
 #[test]
 fn reserve_transfer_with_error() {
-	use sp_tracing::log_capture;
+	use sp_tracing::test_log_capture;
 
 	// Reset the test network
 	MockNet::reset();
 
 	// Execute XCM Transfer and Capture Logs
-	log_capture::capture(|| {
+	test_log_capture::capture(|| {
 		Relay::execute_with(|| {
 			let invalid_dest = Box::new(Parachain(9999).into());
 			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
@@ -546,5 +546,5 @@ fn reserve_transfer_with_error() {
 	});
 
 	// Assertions on Captured Logs
-	assert!(log_capture::logs_contain("XCM validate_send failed"));
+	assert!(test_log_capture::logs_contain("XCM validate_send failed"));
 }
