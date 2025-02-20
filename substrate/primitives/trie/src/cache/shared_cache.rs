@@ -15,9 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::cache::LOG_TARGET;
+
 ///! Provides the [`SharedNodeCache`], the [`SharedValueCache`] and the [`SharedTrieCache`]
 ///! that combines both caches and is exported to the outside.
-use super::{CacheSize, NodeCached};
+use super::{
+	CacheSize, LocalNodeCacheConfig, LocalNodeCacheLimiter, LocalValueCacheConfig,
+	LocalValueCacheLimiter, NodeCached, TrieHitStats,
+};
 use hash_db::Hasher;
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
@@ -27,8 +32,8 @@ use std::{
 	hash::{BuildHasher, Hasher as _},
 	sync::{Arc, LazyLock},
 };
+use tracing::warn;
 use trie_db::{node::NodeOwned, CachedValue};
-
 static RANDOM_STATE: LazyLock<ahash::RandomState> = LazyLock::new(|| {
 	use rand::Rng;
 	let mut rng = rand::thread_rng();
@@ -72,7 +77,8 @@ where
 		// Once we hit the limit of max items evicted this will return `false` and prevent
 		// any further evictions, but this is fine because the outer loop which inserts
 		// items into this cache will just detect this and stop inserting new items.
-		self.items_evicted <= self.max_items_evicted && self.heap_size > self.max_heap_size
+		// self.items_evicted <= self.max_items_evicted && self.heap_size > self.max_heap_size
+		self.heap_size > self.max_heap_size
 	}
 
 	#[inline]
@@ -266,21 +272,26 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 	}
 
 	/// Update the cache with the `list` of nodes which were either newly added or accessed.
-	pub fn update(&mut self, list: impl IntoIterator<Item = (H, NodeCached<H>)>) {
+	pub fn update(
+		&mut self,
+		list: impl IntoIterator<Item = (H, NodeCached<H>)>,
+		config: &LocalNodeCacheConfig,
+	) {
 		let mut access_count = 0;
 		let mut add_count = 0;
 
 		self.lru.limiter_mut().items_evicted = 0;
 		self.lru.limiter_mut().max_items_evicted =
-			self.lru.len() * 100 / super::SHARED_NODE_CACHE_MAX_REPLACE_PERCENT;
+			self.lru.len() * 100 / config.shared_node_cache_max_replace_percent;
 
 		for (key, cached_node) in list {
 			if cached_node.is_from_shared_cache {
 				if self.lru.get(&key).is_some() {
 					access_count += 1;
 
-					if access_count >= super::SHARED_NODE_CACHE_MAX_PROMOTED_KEYS {
+					if access_count >= config.shared_node_cache_max_promoted_keys {
 						// Stop when we've promoted a large enough number of items.
+						warn!(target: super::LOG_TARGET, "Promoted {} items from the shared node cache", access_count);
 						break
 					}
 
@@ -292,6 +303,7 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 			add_count += 1;
 
 			if self.lru.limiter().items_evicted > self.lru.limiter().max_items_evicted {
+				warn!(target: super::LOG_TARGET, "Evicted {} items from the shared node cache", self.lru.limiter().items_evicted);
 				// Stop when we've evicted a big enough chunk of the shared cache.
 				break
 			}
@@ -509,6 +521,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 		&mut self,
 		added: impl IntoIterator<Item = (ValueCacheKey<H>, CachedValue<H>)>,
 		accessed: impl IntoIterator<Item = ValueCacheKeyHash>,
+		config: &LocalValueCacheConfig,
 	) {
 		let mut access_count = 0;
 		let mut add_count = 0;
@@ -531,7 +544,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 
 		self.lru.limiter_mut().items_evicted = 0;
 		self.lru.limiter_mut().max_items_evicted =
-			self.lru.len() * 100 / super::SHARED_VALUE_CACHE_MAX_REPLACE_PERCENT;
+			self.lru.len() * 100 / config.shared_value_cache_max_replace_percent;
 
 		for (key, value) in added {
 			self.lru.insert(key, value);
@@ -539,6 +552,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 
 			if self.lru.limiter().items_evicted > self.lru.limiter().max_items_evicted {
 				// Stop when we've evicted a big enough chunk of the shared cache.
+				warn!(target: super::LOG_TARGET, "Evicted {} items from the shared value cache", self.lru.limiter().items_evicted);
 				break
 			}
 		}
@@ -569,6 +583,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 pub(super) struct SharedTrieCacheInner<H: Hasher> {
 	node_cache: SharedNodeCache<H::Out>,
 	value_cache: SharedValueCache<H::Out>,
+	stats: TrieHitStats,
 }
 
 impl<H: Hasher> SharedTrieCacheInner<H> {
@@ -592,6 +607,10 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 	/// Returns a mutable reference to the [`SharedNodeCache`].
 	pub(super) fn node_cache_mut(&mut self) -> &mut SharedNodeCache<H::Out> {
 		&mut self.node_cache
+	}
+
+	pub(super) fn stats(&mut self) -> &TrieHitStats {
+		&self.stats
 	}
 }
 
@@ -659,20 +678,57 @@ impl<H: Hasher> SharedTrieCache<H> {
 					value_cache_max_inline_size,
 					value_cache_max_heap_size,
 				),
+				stats: Default::default(),
 			})),
 		}
 	}
 
 	/// Create a new [`LocalTrieCache`](super::LocalTrieCache) instance from this shared cache.
 	pub fn local_cache(&self) -> super::LocalTrieCache<H> {
+		let local_value_cache_config = LocalValueCacheConfig::default();
+		let local_node_cache_config = LocalNodeCacheConfig::default();
+
 		super::LocalTrieCache {
 			shared: self.clone(),
-			node_cache: Default::default(),
-			value_cache: Default::default(),
-			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
-				schnellru::ByLength::new(super::SHARED_VALUE_CACHE_MAX_PROMOTED_KEYS),
+			node_cache: Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(Default::default()))),
+			value_cache: Mutex::new(LruMap::with_hasher(
+				LocalValueCacheLimiter::new(Default::default()),
 				Default::default(),
 			)),
+			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
+				schnellru::ByLength::new(
+					local_value_cache_config.shared_value_cache_max_promoted_keys,
+				),
+				Default::default(),
+			)),
+			value_cache_config: local_value_cache_config,
+			node_cache_config: local_node_cache_config,
+			stats: Default::default(),
+		}
+	}
+
+	/// Create a new [`LocalTrieCache`](super::LocalTrieCache) instance from this shared cache.
+	pub fn local_cache_unlimited(&self) -> super::LocalTrieCache<H> {
+		let local_value_cache_config = LocalValueCacheConfig::unlimited();
+		let local_node_cache_config = LocalNodeCacheConfig::unlimited();
+
+		super::LocalTrieCache {
+			shared: self.clone(),
+			node_cache: Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
+				super::LocalNodeCacheConfig::unlimited(),
+			))),
+			value_cache: Mutex::new(LruMap::with_hasher(
+				LocalValueCacheLimiter::new(super::LocalValueCacheConfig::unlimited()),
+				Default::default(),
+			)),
+			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
+				schnellru::ByLength::new(
+					local_value_cache_config.shared_value_cache_max_promoted_keys,
+				),
+				Default::default(),
+			)),
+			value_cache_config: local_value_cache_config,
+			node_cache_config: local_node_cache_config,
 			stats: Default::default(),
 		}
 	}
@@ -708,7 +764,11 @@ impl<H: Hasher> SharedTrieCache<H> {
 
 	/// Returns the used memory size of this cache in bytes.
 	pub fn used_memory_size(&self) -> usize {
-		let inner = self.inner.read();
+		let mut inner = self.inner.read();
+
+		tracing::info!(target: LOG_TARGET, "Node cache stats {:}", inner.stats.node_cache);
+		tracing::info!(target: LOG_TARGET, "Value cache stats {:}", inner.stats.value_cache);
+
 		let value_cache_size =
 			inner.value_cache.lru.memory_usage() + inner.value_cache.lru.limiter().heap_size;
 		let node_cache_size =

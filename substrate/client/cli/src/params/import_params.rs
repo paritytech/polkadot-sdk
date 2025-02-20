@@ -80,6 +80,12 @@ pub struct ImportParams {
 	/// Providing `0` will disable the cache.
 	#[arg(long, value_name = "Bytes", default_value_t = 1024 * 1024 * 1024)]
 	pub trie_cache_size: usize,
+
+	/// Specify the state cache size.
+	///
+	/// Providing `0` will disable the cache.
+	#[arg(long)]
+	pub unlimited_local_cache: bool,
 }
 
 impl ImportParams {
@@ -90,6 +96,10 @@ impl ImportParams {
 		} else {
 			Some(self.trie_cache_size)
 		}
+	}
+
+	pub fn unlimited_local_cache(&self) -> bool {
+		self.unlimited_local_cache
 	}
 
 	/// Get the WASM execution method from the parameters

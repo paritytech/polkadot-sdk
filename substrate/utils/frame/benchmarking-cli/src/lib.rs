@@ -121,4 +121,10 @@ impl CliConfiguration for BenchmarkCmd {
 			self, cmd, cmd.chain_id(is_dev)
 		}
 	}
+
+	fn unlimited_local_cache(&self) -> Result<bool> {
+		unwrap_cmd! {
+			self, cmd, cmd.unlimited_local_cache()
+		}
+	}
 }

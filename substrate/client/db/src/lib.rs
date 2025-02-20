@@ -312,6 +312,9 @@ pub struct DatabaseSettings {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
+
+	/// Enables unlimited trie local cache.
+	pub unlimited_local_cache: bool,
 }
 
 /// Block pruning settings.
@@ -1115,6 +1118,7 @@ pub struct Backend<Block: BlockT> {
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+	unlimited_local_cache: bool,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -1238,6 +1242,7 @@ impl<Block: BlockT> Backend<Block> {
 			shared_trie_cache: config.trie_cache_maximum_size.map(|maximum_size| {
 				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
 			}),
+			unlimited_local_cache: config.unlimited_local_cache,
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
@@ -2494,9 +2499,13 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					let root = hdr.state_root;
 					let db_state =
 						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
-							.with_optional_cache(
-								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-							)
+							.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| {
+								if self.unlimited_local_cache {
+									c.local_cache_unlimited()
+								} else {
+									c.local_cache()
+								}
+							}))
 							.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
