@@ -43,7 +43,7 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-feature
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-basic-authorship = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
-sc-cli = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = false }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
@@ -53,7 +53,7 @@ sc-network = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = false }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
