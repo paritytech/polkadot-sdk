@@ -47,6 +47,7 @@ pub fn glutton_westend_config(
 			authorities,
 		),
 	)
+	.build()
 }
 
 /// Generate the name directly from the ChainType
