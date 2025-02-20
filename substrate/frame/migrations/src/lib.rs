@@ -784,7 +784,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, took });
 				cursor.inner_cursor = Some(bound_next_cursor);
 
-				if max_steps.map_or(false, |max| took > max.into()) {
+				if max_steps.is_some_and(|max| took > max.into()) {
 					Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
 					Self::upgrade_failed(Some(cursor.index));
 					None

@@ -25,7 +25,10 @@ use frame_support::{
 };
 use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
-use sp_runtime::{traits::Get, Perbill, TokenError};
+use sp_runtime::{
+	traits::{BadOrigin, Get},
+	Perbill, TokenError,
+};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -1224,6 +1227,18 @@ fn leases_are_limited() {
 }
 
 #[test]
+fn remove_lease_works() {
+	TestExt::new().execute_with(|| {
+		Leases::<Test>::put(
+			BoundedVec::try_from(vec![LeaseRecordItem { task: 1u32, until: 10u32 }]).unwrap(),
+		);
+		assert_noop!(Broker::do_remove_lease(2), Error::<Test>::LeaseNotFound);
+		assert_ok!(Broker::do_remove_lease(1));
+		assert_noop!(Broker::do_remove_lease(1), Error::<Test>::LeaseNotFound);
+	});
+}
+
+#[test]
 fn purchase_requires_valid_status_and_sale_info() {
 	TestExt::new().execute_with(|| {
 		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::Uninitialized);
@@ -1832,6 +1847,25 @@ fn disable_auto_renew_works() {
 		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![]);
 		System::assert_has_event(
 			Event::<Test>::AutoRenewalDisabled { core: region_id.core, task: 1001 }.into(),
+		);
+	});
+}
+
+#[test]
+fn remove_assignment_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		let workplan_key = (region_id.begin, region_id.core);
+		assert_ne!(Workplan::<Test>::get(workplan_key), None);
+		assert_noop!(Broker::remove_assignment(RuntimeOrigin::signed(2), region_id), BadOrigin);
+		assert_ok!(Broker::remove_assignment(RuntimeOrigin::root(), region_id));
+		assert_eq!(Workplan::<Test>::get(workplan_key), None);
+		assert_noop!(
+			Broker::remove_assignment(RuntimeOrigin::root(), region_id),
+			Error::<Test>::AssignmentNotFound
 		);
 	});
 }

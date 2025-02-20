@@ -1476,7 +1476,7 @@ where
 /// For now, we consider that all addresses between 0x1 and 0xff are reserved for precompiles.
 fn is_precompile(address: &H160) -> bool {
 	let bytes = address.as_bytes();
-	bytes.starts_with(&[0u8; 19]) && (1..=255).contains(&bytes[19])
+	bytes.starts_with(&[0u8; 19]) && bytes[19] != 0
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -1509,10 +1509,6 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
-			//if is_precompile(&dest_addr) {
-			//	return self.run_precompile(dest_addr, value, &input_data, read_only);
-			//}
-
 			let dest = T::AddressMapper::to_account_id(dest_addr);
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
