@@ -17,8 +17,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{
-	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder},
-	onchain, ElectionDataProvider, SequentialPhragmen,
+	bounds::ElectionBoundsBuilder, onchain, ElectionDataProvider, SequentialPhragmen,
 };
 use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
@@ -27,6 +26,51 @@ use polkadot_runtime_common::{prod_or_fast, BalanceToU256, CurrencyToVote, U256T
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
+use westend_runtime_constants::time::EPOCH_DURATION_IN_SLOTS;
+
+parameter_types! {
+	pub const EpochDuration: u64 = prod_or_fast!(
+		EPOCH_DURATION_IN_SLOTS as u64,
+		2 * MINUTES as u64
+	);
+
+	// phase durations. 1/4 of the last session for each.
+	pub SignedPhase: u32 = prod_or_fast!(
+		EPOCH_DURATION_IN_SLOTS / 4,
+		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
+	);
+	pub UnsignedPhase: u32 = prod_or_fast!(
+		EPOCH_DURATION_IN_SLOTS / 4,
+		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
+	);
+
+	// 1 hour session, 15 minutes unsigned phase, 4 offchain executions.
+	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 4;
+
+	pub const MaxElectingVoters: u32 = 22_500;
+	/// We take the top 22500 nominators as electing voters and all of the validators as electable
+	/// targets. Whilst this is the case, we cannot and shall not increase the size of the
+	/// validator intentions.
+	pub ElectionBounds: frame_election_provider_support::bounds::ElectionBounds =
+		ElectionBoundsBuilder::default().voters_count(MaxElectingVoters::get().into()).build();
+	// Maximum winners that can be chosen as active validators
+	pub const MaxActiveValidators: u32 = 1000;
+	// One page only, fill the whole page with the `MaxActiveValidators`.
+	pub const MaxWinnersPerPage: u32 = MaxActiveValidators::get();
+	// Unbonded, thus the max backers per winner maps to the max electing voters limit.
+	pub const MaxBackersPerWinner: u32 = MaxElectingVoters::get();
+
+	pub MaxBackersPerWinnerPerPage: u32 = 64;
+	pub MaxBackersPerWinnerFinal: u32 = 512;
+	pub MaxExposurePageSize: u32 = MaxBackersPerWinnerFinal::get() / 4;
+	pub MaxValidatorSet: u32 = 1000;
+	pub Pages: u32 = 8;
+	pub VoterSnapshotPerBlock: u32 = 22_500 / Pages::get();
+	pub TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
+	// validate up to 4 signed solution.
+	pub SignedValidationPhase: u32 = Pages::get() * 4;
+	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
+}
 
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
@@ -34,7 +78,7 @@ frame_election_provider_support::generate_solution_type!(
 		VoterIndex = u32,
 		TargetIndex = u16,
 		Accuracy = sp_runtime::PerU16,
-		MaxVoters = ConstU32<22_500>, // TODO: this should be made more accurate, as it improves the `MaxEncodedLen` estimate of this type.
+		MaxVoters = MaxElectingVoters,
 	>(16)
 );
 
@@ -53,23 +97,6 @@ impl multi_block::unsigned::miner::MinerConfig for Runtime {
 	type Solution = NposCompactSolution16;
 	type VoterSnapshotPerBlock = <Runtime as multi_block::Config>::VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = <Runtime as multi_block::Config>::TargetSnapshotPerBlock;
-}
-
-parameter_types! {
-	pub MaxWinnersPerPage: u32 = 64;
-	pub MaxBackersPerWinnerPerPage: u32 = 64;
-	pub MaxBackersPerWinnerFinal: u32 = 512;
-	pub MaxExposurePageSize: u32 = MaxBackersPerWinnerFinal::get() / 4;
-	pub MaxValidatorSet: u32 = 1000;
-	pub Pages: u32 = 8;
-	pub VoterSnapshotPerBlock: u32 = 22_500 / Pages::get();
-	pub TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
-	// TODO: the duration of phases, plus our estimation of the next election should be fixed up based on the rc-client pallet.
-	pub SignedPhase: u32 = prod_or_fast!(MINUTES * 30, MINUTES * 2);
-	pub UnsignedPhase: u32 = prod_or_fast!(MINUTES * 30, MINUTES * 2);
-	// validate up to 4 signed solution.
-	pub SignedValidationPhase: u32 = Pages::get() * 4;
-	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 impl multi_block::Config for Runtime {
@@ -135,15 +162,9 @@ impl multi_block::unsigned::Config for Runtime {
 	type WeightInfo = ();
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
-	type OffchainRepeat = ConstU32<5>;
+	type OffchainRepeat = OffchainRepeat;
 }
 
-parameter_types! {
-	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(CountBound(500))
-		.targets_count(CountBound(100))
-		.build();
-}
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type Sort = ConstBool<true>;
@@ -151,7 +172,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type DataProvider = Staking;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-	type Bounds = ElectionBoundsOnChain;
+	type Bounds = ElectionBounds;
 	type MaxBackersPerWinner = <Runtime as multi_block::verifier::Config>::MaxBackersPerWinner;
 	type MaxWinnersPerPage = <Runtime as multi_block::verifier::Config>::MaxWinnersPerPage;
 }
@@ -232,11 +253,10 @@ parameter_types! {
 }
 
 impl pallet_staking::Config for Runtime {
-	type MaxValidatorSet = MaxValidatorSet;
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyBalance = Balance;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = CurrencyToVote;
 	type RewardRemainder = ();
@@ -251,18 +271,20 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type NextNewSession = Session;
-	type ElectionProvider = MultiBlock; // Kaboom!
+	type ElectionProvider = MultiBlock;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type TargetList = UseValidatorsMap<Self>;
+	type MaxValidatorSet = MaxActiveValidators;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type HistoryDepth = ConstU32<84>;
+	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
+	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -298,6 +320,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
 parameter_types! {

@@ -18,7 +18,6 @@
 
 use super::*;
 use crate::xcm_config::Collectives;
-use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -39,8 +38,8 @@ use xcm::latest::{
 
 mod origins;
 pub use origins::{
-	pallet_custom_origins, AuctionAdmin, FellowshipAdmin, GeneralAdmin, ReferendumCanceller,
-	ReferendumKiller, Spender, StakingAdmin, Treasurer, WhitelistedCaller,
+	pallet_custom_origins, AuctionAdmin, FellowshipAdmin, GeneralAdmin, LeaseAdmin,
+	ReferendumCanceller, ReferendumKiller, Spender, StakingAdmin, Treasurer, WhitelistedCaller,
 };
 mod tracks;
 pub use tracks::TracksInfo;
@@ -59,6 +58,7 @@ impl pallet_conviction_voting::Config for Runtime {
 	type MaxTurnout =
 		frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
 parameter_types! {
@@ -104,6 +104,7 @@ impl pallet_referenda::Config for Runtime {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
 parameter_types! {
@@ -125,6 +126,7 @@ parameter_types! {
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 	pub const MaxBalance: Balance = Balance::max_value();
 }
+
 pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, MaxBalance>, Spender>;
 
 impl pallet_treasury::Config for Runtime {
@@ -162,11 +164,10 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
-	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
-
 impl pallet_asset_rate::Config for Runtime {
 	type WeightInfo = weights::pallet_asset_rate::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
@@ -197,6 +198,7 @@ impl pallet_scheduler::Config for Runtime {
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type Preimages = Preimage;
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
 parameter_types! {

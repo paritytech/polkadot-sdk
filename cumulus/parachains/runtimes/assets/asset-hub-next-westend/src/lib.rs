@@ -42,7 +42,7 @@ use assets_common::{
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -65,7 +65,7 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_nfts::{DestroyWitness, PalletFeatures};
+use pallet_nfts::PalletFeatures;
 use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_xcm::EnsureXcm;
@@ -79,8 +79,8 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, U256};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Saturating,
-		TransactionExtension, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, TransactionExtension,
+		Verify,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
@@ -137,8 +137,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// "asset-hub-next-westend". Many wallets/tools depend on the `spec_name`, so it remains
 	// "westmint" for the time being. Wallets/tools should update to treat "asset-hub-next-westend"
 	// equally.
-	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
-	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
+	spec_name: alloc::borrow::Cow::Borrowed("asset-hub-next"),
+	impl_name: alloc::borrow::Cow::Borrowed("asset-hub-next"),
 	authoring_version: 1,
 	spec_version: 1_017_007,
 	impl_version: 0,
@@ -152,6 +152,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
+
+type RelayChainBlockNumberProvider = RelaychainDataProvider<Runtime>;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -488,12 +490,12 @@ parameter_types! {
 
 impl pallet_vesting::Config for Runtime {
 	const MAX_VESTING_SCHEDULES: u32 = 100;
-	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 	type BlockNumberToBalance = ConvertInto;
 	type Currency = Balances;
 	type MinVestedTransfer = MinVestedTransfer;
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 }
 
@@ -608,7 +610,8 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
-	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	// TODO add migration.
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -793,7 +796,8 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
-	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	// TODO add migration.
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
 parameter_types! {
@@ -1056,7 +1060,7 @@ impl pallet_nfts::Config for Runtime {
 	type WeightInfo = weights::pallet_nfts::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
-	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	type BlockNumberProvider = System;
 }
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
