@@ -29,7 +29,7 @@ use sp_keyring::Sr25519Keyring;
 /// as it must obtain the para-id from the CLI to support multiple
 /// gluttons with different para-ids connecting to a relay chain.
 /// Currently, genesis presets do not allow dynamic para-ids.
-pub const DEFAULT_GLUTTON_PARA_ID: ParaId = ParaId::new(1000);
+pub const DEFAULT_GLUTTON_PARA_ID: ParaId = ParaId::new(1300);
 
 fn glutton_westend_genesis(authorities: Vec<AuraId>, id: ParaId) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
