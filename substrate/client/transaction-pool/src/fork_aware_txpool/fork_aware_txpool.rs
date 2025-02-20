@@ -1605,6 +1605,17 @@ where
 {
 	/// Executes the maintainance for the given chain event.
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
+		if std::path::Path::new("/tmp/skip-finalization").exists() {
+			let n = self
+				.api
+				.block_id_to_number(&BlockId::Hash(event.hash()))
+				.map_err(|e| format!("{}", e));
+			debug!("skipping: ChainEvent::Finalized {n:?}");
+			if matches!(event, ChainEvent::Finalized { .. }) {
+				return
+			}
+		}
+
 		let start = Instant::now();
 		debug!(
 			target: LOG_TARGET,
