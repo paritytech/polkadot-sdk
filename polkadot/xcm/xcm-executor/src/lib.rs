@@ -99,6 +99,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	/// Stores the current message's weight.
 	message_weight: Weight,
 	asset_claimer: Option<Location>,
+	already_paid_fees: bool,
 	_config: PhantomData<Config>,
 }
 
@@ -362,6 +363,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			asset_used_in_buy_execution: None,
 			message_weight: Weight::zero(),
 			asset_claimer: None,
+			already_paid_fees: false,
 			_config: PhantomData,
 		}
 	}
@@ -1361,6 +1363,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				result
 			},
 			PayFees { asset } => {
+				// If we've already paid for fees, do nothing.
+				if self.already_paid_fees {
+					return Ok(());
+				}
+				// Make sure `PayFees` won't be processed again.
+				self.already_paid_fees = true;
 				// Message was not weighed, there is nothing to pay.
 				if self.message_weight == Weight::zero() {
 					tracing::warn!(
@@ -1383,12 +1391,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let result = Config::TransactionalProcessor::process(|| {
 					let unspent =
 						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
-					// Move unspent to the `fees` register.
+					// Move unspent to the `fees` register, it can later be moved to holding
+					// by calling `RefundSurplus`.
 					self.fees.subsume_assets(unspent);
 					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					// Rollback.
+					// Rollback on error.
 					self.holding = old_holding;
 				}
 				result
