@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::fmt::Debug;
 use cumulus_primitives_core::ParaId;
 use frame_support::{
 	pallet_prelude::Get,
@@ -44,8 +45,8 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 pub struct FromSiblingParachain<SelfParaId, L = Location>(
 	core::marker::PhantomData<(SelfParaId, L)>,
 );
-impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> ContainsPair<L, L>
-	for FromSiblingParachain<SelfParaId, L>
+impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone + Debug>
+	ContainsPair<L, L> for FromSiblingParachain<SelfParaId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
 		tracing::trace!(target: "xcm:contains", ?a, ?b, "FromSiblingParachain");
@@ -72,7 +73,7 @@ pub struct FromNetwork<UniversalLocation, ExpectedNetworkId, L = Location>(
 impl<
 		UniversalLocation: Get<InteriorLocation>,
 		ExpectedNetworkId: Get<NetworkId>,
-		L: TryFrom<Location> + TryInto<Location> + Clone,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
 	> ContainsPair<L, L> for FromNetwork<UniversalLocation, ExpectedNetworkId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {

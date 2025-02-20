@@ -143,7 +143,7 @@ impl<
 	for CurrencyAdapter<Currency, Matcher, AccountIdConverter, AccountId, CheckedAccount>
 {
 	fn can_check_in(origin: &Location, what: &Asset, _context: &XcmContext) -> Result {
-		tracing::trace!(target: "xcm::currency_adapter", ?origin, ?what, "can_check_in origin",);
+		tracing::trace!(target: "xcm::currency_adapter", ?origin, ?what, "can_check_in origin");
 		// Check we handle this asset.
 		let amount: Currency::Balance =
 			Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
@@ -170,7 +170,7 @@ impl<
 	}
 
 	fn can_check_out(dest: &Location, what: &Asset, _context: &XcmContext) -> Result {
-		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "can_check_out",);
+		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "can_check_out");
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		match CheckedAccount::get() {
 			Some((checked_account, MintLocation::Local)) =>
@@ -182,7 +182,7 @@ impl<
 	}
 
 	fn check_out(dest: &Location, what: &Asset, _context: &XcmContext) {
-		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "check_out",);
+		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "check_out");
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckedAccount::get() {
 				Some((checked_account, MintLocation::Local)) =>
@@ -195,7 +195,7 @@ impl<
 	}
 
 	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> Result {
-		tracing::trace!(target: "xcm::currency_adapter", ?what, ?who, "deposit_asset",);
+		tracing::trace!(target: "xcm::currency_adapter", ?what, ?who, "deposit_asset");
 		// Check we handle this asset.
 		let amount = Matcher::matches_fungible(&what).ok_or(Error::AssetNotHandled)?;
 		let who =

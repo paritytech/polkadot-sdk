@@ -16,7 +16,7 @@
 
 //! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
 
-use core::{marker::PhantomData, result};
+use core::{fmt::Debug, marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
 		fungibles, Fortitude::Polite, Precision::Exact, Preservation::Expendable,
@@ -35,7 +35,8 @@ impl<
 		Assets: fungibles::Mutate<AccountId>,
 		Matcher: MatchesFungibles<Assets::AssetId, Assets::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone, /* can't get away without it since Currency is generic over it. */
+		AccountId: Eq + Clone + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 	> TransactAsset for FungiblesTransferAdapter<Assets, Matcher, AccountIdConverter, AccountId>
 {
 	fn internal_transfer_asset(
@@ -47,7 +48,7 @@ impl<
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?what, ?from, ?to,
-			"internal_transfer_asset",
+			"internal_transfer_asset"
 		);
 		// Check we handle this asset.
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
@@ -55,12 +56,10 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-
-		Assets::transfer(asset_id, &source, &dest, amount, Expendable)
-			.map_err(|e| {
-				tracing::debug!(target: "xcm::fungibles_adapter", error = ?e, ?asset_id, ?source, ?dest, ?amount, "Failed internal transfer asset");
-				XcmError::FailedToTransactAsset(e.into())
-			})?;
+		Assets::transfer(asset_id.clone(), &source, &dest, amount, Expendable).map_err(|e| {
+			tracing::debug!(target: "xcm::fungibles_adapter", error = ?e, ?asset_id, ?source, ?dest, ?amount, "Failed internal transfer asset");
+			XcmError::FailedToTransactAsset(e.into())
+		})?;
 		Ok(what.clone().into())
 	}
 }
@@ -208,7 +207,7 @@ impl<
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?origin, ?what,
-			"can_check_in",
+			"can_check_in"
 		);
 		// Check we handle this asset.
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
@@ -225,7 +224,7 @@ impl<
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?origin, ?what,
-			"check_in",
+			"check_in"
 		);
 		if let Ok((asset_id, amount)) = Matcher::matches_fungibles(what) {
 			match CheckAsset::asset_checking(&asset_id) {
@@ -242,7 +241,7 @@ impl<
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?origin, ?what,
-			"can_check_out",
+			"can_check_out"
 		);
 		// Check we handle this asset.
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
@@ -259,7 +258,7 @@ impl<
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?dest, ?what,
-			"check_out",
+			"check_out"
 		);
 		if let Ok((asset_id, amount)) = Matcher::matches_fungibles(what) {
 			match CheckAsset::asset_checking(&asset_id) {
@@ -276,7 +275,7 @@ impl<
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?what, ?who,
-			"deposit_asset",
+			"deposit_asset"
 		);
 		// Check we handle this asset.
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
@@ -295,7 +294,7 @@ impl<
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?what, ?who,
-			"withdraw_asset",
+			"withdraw_asset"
 		);
 		// Check we handle this asset.
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
@@ -319,7 +318,8 @@ impl<
 		Assets: fungibles::Mutate<AccountId>,
 		Matcher: MatchesFungibles<Assets::AssetId, Assets::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone, /* can't get away without it since Currency is generic over it. */
+		AccountId: Eq + Clone + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 		CheckAsset: AssetChecking<Assets::AssetId>,
 		CheckingAccount: Get<AccountId>,
 	> TransactAsset

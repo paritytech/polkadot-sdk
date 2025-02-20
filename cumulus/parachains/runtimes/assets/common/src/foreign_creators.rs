@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::fmt::Debug;
 use frame_support::traits::{
 	ContainsPair, EnsureOrigin, EnsureOriginWithArg, Everything, OriginTrait,
 };
@@ -29,8 +30,8 @@ impl<
 		IsForeign: ContainsPair<L, L>,
 		AccountOf: ConvertLocation<AccountId>,
 		AccountId: Clone,
-		RuntimeOrigin: From<XcmOrigin> + OriginTrait + Clone,
-		L: TryFrom<Location> + TryInto<Location> + Clone,
+		RuntimeOrigin: From<XcmOrigin> + OriginTrait + Clone + Debug,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
 	> EnsureOriginWithArg<RuntimeOrigin, L> for ForeignCreators<IsForeign, AccountOf, AccountId, L>
 where
 	RuntimeOrigin::PalletsOrigin:

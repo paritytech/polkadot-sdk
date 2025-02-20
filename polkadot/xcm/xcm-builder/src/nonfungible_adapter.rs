@@ -17,7 +17,7 @@
 //! Adapters to work with [`frame_support::traits::tokens::nonfungible`] through XCM.
 
 use crate::MintLocation;
-use core::{marker::PhantomData, result};
+use core::{fmt::Debug, marker::PhantomData, result};
 use frame_support::{
 	ensure,
 	traits::{tokens::nonfungible, Get},
@@ -34,14 +34,17 @@ const LOG_TARGET: &str = "xcm::nonfungible_adapter";
 /// Only works for transfers.
 pub struct NonFungibleTransferAdapter<NonFungible, Matcher, AccountIdConverter, AccountId>(
 	PhantomData<(NonFungible, Matcher, AccountIdConverter, AccountId)>,
-);
+)
+where
+	NonFungible: nonfungible::Transfer<AccountId>;
 impl<
 		NonFungible: nonfungible::Transfer<AccountId>,
 		Matcher: MatchesNonFungible<NonFungible::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone, // can't get away without it since Currency is generic over it.
-	> TransactAsset
-	for NonFungibleTransferAdapter<NonFungible, Matcher, AccountIdConverter, AccountId>
+		AccountId: Clone + Debug, // can't get away without it since Currency is generic over it.
+	> TransactAsset for NonFungibleTransferAdapter<NonFungible, Matcher, AccountIdConverter, AccountId>
+where
+	NonFungible::ItemId: Debug,
 {
 	fn transfer_asset(
 		what: &Asset,
@@ -78,15 +81,21 @@ pub struct NonFungibleMutateAdapter<
 	AccountIdConverter,
 	AccountId,
 	CheckingAccount,
->(PhantomData<(NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>);
+>(PhantomData<(NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>)
+where
+	NonFungible: nonfungible::Mutate<AccountId>,
+	NonFungible::ItemId: Debug;
 
 impl<
 		NonFungible: nonfungible::Mutate<AccountId>,
 		Matcher: MatchesNonFungible<NonFungible::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone + Eq, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Eq + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> NonFungibleMutateAdapter<NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
+where
+	NonFungible::ItemId: Debug,
 {
 	fn can_accrue_checked(instance: NonFungible::ItemId) -> XcmResult {
 		ensure!(NonFungible::owner(&instance).is_none(), XcmError::NotDepositable);
@@ -113,10 +122,13 @@ impl<
 		NonFungible: nonfungible::Mutate<AccountId>,
 		Matcher: MatchesNonFungible<NonFungible::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone + Eq, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Eq + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for NonFungibleMutateAdapter<NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
+where
+	NonFungible::ItemId: Debug,
 {
 	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		tracing::trace!(
@@ -226,7 +238,7 @@ impl<
 			?what,
 			?who,
 			?maybe_context,
-			"withdraw_asset",
+			"withdraw_asset"
 		);
 		// Check we handle this asset.
 		let who = AccountIdConverter::convert_location(who)
@@ -245,15 +257,21 @@ impl<
 /// Works for everything.
 pub struct NonFungibleAdapter<NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>(
 	PhantomData<(NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>,
-);
+)
+where
+	NonFungible: nonfungible::Mutate<AccountId> + nonfungible::Transfer<AccountId>,
+	NonFungible::ItemId: Debug;
 impl<
 		NonFungible: nonfungible::Mutate<AccountId> + nonfungible::Transfer<AccountId>,
 		Matcher: MatchesNonFungible<NonFungible::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone + Eq, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Eq + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for NonFungibleAdapter<NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
+where
+	NonFungible::ItemId: Debug,
 {
 	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		NonFungibleMutateAdapter::<

@@ -573,7 +573,7 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
 					tracing::warn!(
-						target: "xcm::barrier",
+						target: "xcm::barriers",
 						"Unexpected ReserveAssetDeposited from the Relay Chain",
 					);
 					Ok(ControlFlow::Continue(()))
@@ -615,7 +615,7 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 			// Prevent stack overflow by enforcing a recursion depth limit.
 			recursion_count::with(|count| {
 				if *count > xcm_executor::RECURSION_LIMIT {
-					log::debug!(
+					tracing::debug!(
                     	target: "xcm::barriers",
                     	"Recursion limit exceeded (count: {count}), origin: {:?}, xcm: {:?}, max_weight: {:?}, properties: {:?}",
                     	origin, xcm, max_weight, properties
@@ -654,7 +654,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyRecursively<Inner> {
 	) -> Result<(), ProcessMessageError> {
 		// First, check if the top-level message should be denied.
 		Inner::deny_execution(origin, instructions, max_weight, properties).inspect_err(|e| {
-			log::warn!(
+			tracing::warn!(
 				target: "xcm::barriers",
 				"DenyRecursively::Inner denied execution, origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}, error: {:?}",
 				origin, instructions, max_weight, properties, e
