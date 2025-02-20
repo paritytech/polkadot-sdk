@@ -128,7 +128,7 @@ pub mod pallet {
 			]);
 
 			if let Err(err) = send_xcm::<T::SendXcm>(Location::new(1, Here), message) {
-				log::error!(target: LOG_TARGET, "Sending `NewValidators` to relay chain failed: {:?}", err);
+				log::error!(target: LOG_TARGET, "Sending `NewValidatorSet` to relay chain failed: {:?}", err);
 			}
 		}
 	}
