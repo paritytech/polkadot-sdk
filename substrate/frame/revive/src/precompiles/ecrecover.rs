@@ -15,7 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use super::Precompile;
-use crate::{exec::ExecResult, ExecReturnValue};
+use crate::{
+	exec::{ExecResult, Ext},
+	Config, ExecReturnValue,
+};
 use hex_literal::hex;
 use pallet_revive_uapi::ReturnFlags;
 use sp_core::H160;
@@ -24,8 +27,8 @@ pub const ECRECOVER: H160 = H160(hex!("0000000000000000000000000000000000000001"
 /// The ecrecover precompile.
 pub struct ECRecover;
 
-impl Precompile for ECRecover {
-	fn execute(i: &[u8]) -> ExecResult {
+impl<T: Config> Precompile<T> for ECRecover {
+	fn execute<E: Ext<T = T>>(_ext: &mut E, i: &[u8]) -> ExecResult {
 		let mut input = [0u8; 128];
 		let len = i.len().min(128);
 		input[..len].copy_from_slice(&i[..len]);

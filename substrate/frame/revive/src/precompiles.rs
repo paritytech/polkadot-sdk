@@ -15,17 +15,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 mod ecrecover;
-use crate::exec::ExecResult;
+
+use crate::{
+	exec::{ExecResult, Ext},
+	Config, Error, H160,
+};
 pub use ecrecover::*;
 
 /// The `Precompile` trait defines the functionality for executing a precompiled contract.
-pub trait Precompile {
+pub trait Precompile<T: Config> {
 	/// Executes the precompile with the provided input data.
-	///
-	/// # Parameters
-	/// - `input`: The input data passed to the precompile.
-	///
-	/// # Returns
-	/// - `ExecResult`: The result of the precompile execution
-	fn execute(input: &[u8]) -> ExecResult;
+	fn execute<E: Ext<T = T>>(ext: &mut E, input: &[u8]) -> ExecResult;
+}
+
+pub struct Precompiles<T: Config> {
+	_phantom: core::marker::PhantomData<T>,
+}
+
+impl<T: Config> Precompiles<T> {
+	pub fn execute<E: Ext<T = T>>(addr: H160, ext: &mut E, input: &[u8]) -> ExecResult {
+		if addr == ECRECOVER {
+			ECRecover::execute(ext, input)
+		} else {
+			Err(Error::<T>::UnsupportedPrecompileAddress.into())
+		}
+	}
 }

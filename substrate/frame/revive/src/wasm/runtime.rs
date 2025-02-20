@@ -1862,36 +1862,6 @@ pub mod env {
 		self.contains_storage(memory, flags, key_ptr, key_len)
 	}
 
-	/// Recovers the ECDSA public key from the given message hash and signature.
-	/// See [`pallet_revive_uapi::HostFn::ecdsa_recover`].
-	fn ecdsa_recover(
-		&mut self,
-		memory: &mut M,
-		signature_ptr: u32,
-		message_hash_ptr: u32,
-		output_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::EcdsaRecovery)?;
-
-		let mut signature: [u8; 65] = [0; 65];
-		memory.read_into_buf(signature_ptr, &mut signature)?;
-		let mut message_hash: [u8; 32] = [0; 32];
-		memory.read_into_buf(message_hash_ptr, &mut message_hash)?;
-
-		let result = self.ext.ecdsa_recover(&signature, &message_hash);
-
-		match result {
-			Ok(pub_key) => {
-				// Write the recovered compressed ecdsa public key back into the sandboxed output
-				// buffer.
-				memory.write(output_ptr, pub_key.as_ref())?;
-
-				Ok(ReturnErrorCode::Success)
-			},
-			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
-		}
-	}
-
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// See [`pallet_revive_uapi::HostFn::ecdsa_to_eth_address`].
 	fn ecdsa_to_eth_address(

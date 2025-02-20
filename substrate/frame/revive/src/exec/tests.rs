@@ -180,8 +180,8 @@ impl Executable<Test> for MockExecutable {
 		&self.code_hash
 	}
 
-	fn code_info(&self) -> &CodeInfo<Test> {
-		&self.code_info
+	fn code_deposit(&self) -> BalanceOf<Test> {
+		self.code_info.deposit()
 	}
 }
 

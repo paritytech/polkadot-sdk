@@ -15,10 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! This calls another contract as passed as its account id.
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -29,16 +30,27 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		signature: [u8; 65],
-		hash: [u8; 32],
+		256,
+		callee_addr: &[u8; 20],
+		value: u64,
+		callee_input: [u8],
 	);
 
-	let mut output = [0u8; 33];
-	api::ecdsa_recover(
-		&signature[..].try_into().unwrap(),
-		&hash[..].try_into().unwrap(),
-		&mut output,
+	// Call the callee
+	let mut output = [0u8; 32];
+	let output = &mut &mut output[..];
+
+	api::call(
+		uapi::CallFlags::empty(),
+		callee_addr,
+		u64::MAX,           // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX,           // How much proof_size to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32],     // No deposit limit.
+		&u256_bytes(value), // Value transferred to the contract.
+		callee_input,
+		Some(output),
 	)
 	.unwrap();
-	api::return_value(uapi::ReturnFlags::empty(), &output);
+
+	api::return_value(uapi::ReturnFlags::empty(), output);
 }
