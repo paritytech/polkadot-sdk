@@ -92,7 +92,7 @@ version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "891477e0c6a8957309ee5c45a6368af3ae14bb510732d2684ffa19af310920f9"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom",
  "once_cell",
  "version_check",
 ]
@@ -104,10 +104,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
- "getrandom 0.2.10",
+ "getrandom",
  "once_cell",
  "version_check",
- "zerocopy 0.7.32",
+ "zerocopy",
 ]
 
 [[package]]
@@ -139,44 +139,13 @@ dependencies = [
  "hex-literal",
  "itoa",
  "proptest",
- "rand 0.8.5",
+ "rand",
  "ruint",
  "serde",
  "tiny-keccak",
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "alloy-primitives"
-version = "0.8.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6259a506ab13e1d658796c31e6e39d2e2ee89243bcc505ddc613b35732e0a430"
-dependencies = [
- "alloy-rlp",
- "bytes",
- "cfg-if",
- "const-hex",
- "derive_more 1.0.0",
- "foldhash",
- "hashbrown 0.15.2",
- "hex-literal",
- "indexmap 2.7.1",
- "itoa",
- "k256",
- "keccak-asm",
- "paste",
- "proptest",
- "rand 0.8.5",
- "ruint",
- "rustc-hash 2.0.0",
- "serde",
- "sha3 0.10.8",
- "tiny-keccak",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "alloy-rlp"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -205,66 +174,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "alloy-sol-macro"
-version = "0.8.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9d64f851d95619233f74b310f12bcf16e0cbc27ee3762b6115c14a84809280a"
-dependencies = [
- "alloy-sol-macro-expander",
- "alloy-sol-macro-input",
- "proc-macro-error2",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
-]
-
-[[package]]
-name = "alloy-sol-macro-expander"
-version = "0.8.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bf7ed1574b699f48bf17caab4e6e54c6d12bc3c006ab33d58b1e227c1c3559f"
-dependencies = [
- "alloy-sol-macro-input",
- "const-hex",
- "heck 0.5.0",
- "indexmap 2.7.1",
- "proc-macro-error2",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
- "syn-solidity 0.8.15",
- "tiny-keccak",
-]
-
-[[package]]
-name = "alloy-sol-macro-input"
-version = "0.8.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c02997ccef5f34f9c099277d4145f183b422938ed5322dc57a089fe9b9ad9ee"
-dependencies = [
- "const-hex",
- "dunce",
- "heck 0.5.0",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
- "syn-solidity 0.8.15",
-]
-
-[[package]]
-name = "alloy-sol-type-parser"
-version = "0.8.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce13ff37285b0870d0a0746992a4ae48efaf34b766ae4c2640fa15e5305f8e73"
-dependencies = [
- "serde",
- "winnow 0.6.18",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "alloy-sol-types"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -703,7 +612,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1df2c09229cbc5a028b1d70e00fdb2acee28b1055dfb5ca73eea49c5a25c4e7c"
 dependencies = [
  "num-traits",
- "rand 0.8.5",
+ "rand",
 ]
 
 [[package]]
@@ -713,7 +622,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
 dependencies = [
  "num-traits",
- "rand 0.8.5",
+ "rand",
  "rayon",
 ]
 
@@ -773,32 +682,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22ad1373757efa0f70ec53939aabc7152e1591cb485208052993070ac8d2429d"
 dependencies = [
  "asn1-rs-derive 0.5.0",
-<<<<<<< HEAD
  "asn1-rs-impl 0.2.0",
-=======
- "asn1-rs-impl",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "displaydoc",
  "nom",
  "num-traits",
  "rusticata-macros",
- "thiserror 1.0.65",
- "time",
-]
-
-[[package]]
-name = "asn1-rs"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "607495ec7113b178fbba7a6166a27f99e774359ef4823adbefd756b5b81d7970"
-dependencies = [
- "asn1-rs-derive 0.6.0",
- "asn1-rs-impl",
- "displaydoc",
- "nom",
- "num-traits",
- "rusticata-macros",
- "thiserror 2.0.11",
+ "thiserror",
  "time",
 ]
 
@@ -823,18 +712,6 @@ dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
- "synstructure 0.13.1",
-]
-
-[[package]]
-name = "asn1-rs-derive"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3109e49b1e4909e9db6515a30c633684d68cdeaa252f215214cb4fa1a5bfee2c"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
  "synstructure 0.13.1",
 ]
 
@@ -1559,9 +1436,9 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b62ddb9cb1ec0a098ad4bbf9344d0713fa193ae1a80af55febcff2627b6a00c1"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom",
  "instant",
- "rand 0.8.5",
+ "rand",
 ]
 
 [[package]]
@@ -1580,30 +1457,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "bandersnatch_vrfs"
-version = "0.0.4"
-source = "git+https://github.com/w3f/ring-vrf?rev=0fef826#0fef8266d851932ad25d6b41bc4b34d834d1e11d"
-dependencies = [
- "ark-bls12-381",
- "ark-ec",
- "ark-ed-on-bls12-381-bandersnatch",
- "ark-ff 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "dleq_vrf",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "ring 0.1.0",
- "sha2 0.10.8",
- "sp-ark-bls12-381",
- "sp-ark-ed-on-bls12-381-bandersnatch",
- "zeroize",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "base-x"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1942,7 +1795,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68534a48cbf63a4b1323c433cf21238c9ec23711e0df13b08c33e5c2082663ce"
 dependencies = [
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -2731,16 +2584,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.10.0"
+version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-<<<<<<< HEAD
 checksum = "428d9aa8fbc0670b7b8d6030a7fadd0f86151cae55e4dbbece15f3780a3dfaf3"
-=======
-checksum = "f61dac84819c6588b558454b194026eb1f09c293b9036ae9b159e74e73ab6cf9"
-dependencies = [
- "serde",
-]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 
 [[package]]
 name = "bzip2-sys"
@@ -2811,7 +2657,7 @@ dependencies = [
  "semver 1.0.18",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -3205,7 +3051,7 @@ checksum = "a90d114103adbc625300f346d4d09dfb4ab1c4a8df6868435dd903392ecf4354"
 dependencies = [
  "libc",
  "once_cell",
- "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasi",
  "wasm-bindgen",
 ]
 
@@ -3412,25 +3258,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "common"
-version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof?rev=665f5f5#665f5f51af5734c7b6d90b985dd6861d4c5b4752"
-dependencies = [
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "fflonk",
- "getrandom_or_panic",
- "merlin",
- "rand_chacha 0.3.1",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "common-path"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3539,7 +3366,7 @@ version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d7d6ab3c3a2282db210df5f02c4dab6e0a7057af0fb7ebd4070f30fe05c0ddb"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom",
  "once_cell",
  "proc-macro-hack",
  "tiny-keccak",
@@ -4296,17 +4123,10 @@ dependencies = [
  "async-trait",
  "cumulus-primitives-parachain-inherent",
  "sp-consensus",
-<<<<<<< HEAD
  "sp-inherents",
  "sp-runtime 40.1.0",
  "sp-state-machine 0.44.0",
  "thiserror",
-=======
- "sp-inherents 26.0.0",
- "sp-runtime 31.0.1",
- "sp-state-machine 0.35.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -4405,14 +4225,9 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-overseer",
-<<<<<<< HEAD
  "polkadot-primitives",
  "portpicker",
  "rand",
-=======
- "polkadot-primitives 7.0.0",
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "rstest",
  "sc-cli",
  "sc-client-api",
@@ -4523,16 +4338,10 @@ dependencies = [
  "log",
  "pallet-message-queue",
  "parity-scale-codec",
-<<<<<<< HEAD
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "rand",
-=======
- "polkadot-parachain-primitives 6.0.0",
- "polkadot-runtime-parachains 7.0.0",
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "sc-client-api",
  "scale-info",
  "sp-consensus-slots",
@@ -4795,15 +4604,9 @@ dependencies = [
  "sc-client-api",
  "sp-api 35.0.0",
  "sp-blockchain",
-<<<<<<< HEAD
  "sp-state-machine 0.44.0",
  "sp-version 38.0.0",
  "thiserror",
-=======
- "sp-state-machine 0.35.0",
- "sp-version 29.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -4856,7 +4659,7 @@ dependencies = [
  "polkadot-overseer",
  "portpicker",
  "prometheus",
- "rand 0.8.5",
+ "rand",
  "sc-client-api",
  "sc-rpc-api",
  "sc-service",
@@ -4874,7 +4677,7 @@ dependencies = [
  "sp-storage 22.0.0",
  "sp-version 38.0.0",
  "substrate-prometheus-endpoint",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-util",
  "tracing",
@@ -5014,7 +4817,7 @@ dependencies = [
  "polkadot-test-service",
  "portpicker",
  "prometheus",
- "rand 0.8.5",
+ "rand",
  "sc-basic-authorship",
  "sc-block-builder",
  "sc-chain-spec",
@@ -5066,7 +4869,7 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "schannel",
- "socket2 0.5.8",
+ "socket2 0.5.7",
  "windows-sys 0.52.0",
 ]
 
@@ -5332,23 +5135,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5cd0a5c643689626bec213c4d8bd4d96acc8ffdb4ad4bb6bc16abf27d5f4b553"
 dependencies = [
  "asn1-rs 0.6.1",
-<<<<<<< HEAD
-=======
- "displaydoc",
- "nom",
- "num-bigint",
- "num-traits",
- "rusticata-macros",
-]
-
-[[package]]
-name = "der-parser"
-version = "10.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07da5016415d5a3c4dd39b11ed26f915f52fc4e0dc197d87908bc916e51bc1a6"
-dependencies = [
- "asn1-rs 0.7.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "displaydoc",
  "nom",
  "num-bigint",
@@ -5933,30 +5719,8 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
 dependencies = [
-<<<<<<< HEAD
  "cc",
  "libc",
-=======
- "ethereum-types 0.14.1",
- "hex",
- "once_cell",
- "regex",
- "serde",
- "serde_json",
- "sha3 0.10.8",
- "thiserror 1.0.65",
- "uint 0.9.5",
-]
-
-[[package]]
-name = "ethabi-decode"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09d398648d65820a727d6a81e58b962f874473396a047e4c30bafe3240953417"
-dependencies = [
- "ethereum-types 0.14.1",
- "tiny-keccak",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -6127,7 +5891,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec6f82451ff7f0568c6181287189126d492b5654e30a788add08027b6363d019"
 dependencies = [
  "fatality-proc-macro",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -6137,11 +5901,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb42427514b063d97ce21d5199f36c0c307d981434a6be32582bc79fe5bd2303"
 dependencies = [
  "expander",
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
@@ -6155,7 +5915,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e182f7dbc2ef73d9ef67351c5fbbea084729c48362d3ce9dd44c28e32e277fe5"
 dependencies = [
  "libc",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -6235,7 +5995,7 @@ dependencies = [
  "num-traits",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "scale-info",
 ]
 
@@ -6283,7 +6043,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835c052cb0c08c1acf6ffd71c022172e18723949c8282f2b9f27efbc51e64534"
 dependencies = [
  "byteorder",
- "rand 0.8.5",
+ "rand",
  "rustc-hex",
  "static_assertions",
 ]
@@ -6357,7 +6117,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8835f84f38484cc86f110a805655697908257fb9a7af005234060891557198e9"
 dependencies = [
  "nonempty",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -6424,15 +6184,9 @@ dependencies = [
  "linked-hash-map",
  "log",
  "parity-scale-codec",
-<<<<<<< HEAD
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rand",
-=======
- "polkadot-parachain-primitives 6.0.0",
- "polkadot-primitives 7.0.0",
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "rand_pcg",
  "sc-block-builder",
  "sc-chain-spec",
@@ -6467,7 +6221,7 @@ dependencies = [
  "substrate-test-runtime",
  "subxt",
  "subxt-signer",
- "thiserror 1.0.65",
+ "thiserror",
  "thousands",
  "westend-runtime",
 ]
@@ -6509,7 +6263,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "sp-arithmetic 26.0.0",
  "sp-core 35.0.0",
@@ -6528,7 +6282,7 @@ dependencies = [
  "frame-support",
  "honggfuzz",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "sp-arithmetic 26.0.0",
  "sp-npos-elections",
@@ -7118,19 +6872,7 @@ checksum = "be4136b2a15dd319360be1c07d9933517ccf0be8f16bf62a3bee4f0d618df427"
 dependencies = [
  "cfg-if",
  "libc",
- "wasi 0.11.0+wasi-snapshot-preview1",
-]
-
-[[package]]
-name = "getrandom"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43a49c392881ce6d5c3b8cb70f98717b7c07aabbdff06687b9030dbfbe2725f8"
-dependencies = [
- "cfg-if",
- "libc",
- "wasi 0.13.3+wasi-0.2.2",
- "windows-targets 0.52.6",
+ "wasi",
 ]
 
 [[package]]
@@ -7139,7 +6881,7 @@ version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ea1015b5a70616b688dc230cfe50c8af89d972cb132d5a622814d29773b10b9"
 dependencies = [
- "rand 0.8.5",
+ "rand",
  "rand_core 0.6.4",
 ]
 
@@ -7211,7 +6953,7 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -7301,7 +7043,7 @@ dependencies = [
  "nonzero_ext",
  "parking_lot 0.12.3",
  "quanta",
- "rand 0.8.5",
+ "rand",
  "smallvec",
 ]
 
@@ -7328,11 +7070,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.9",
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "slab",
  "tokio",
  "tokio-util",
@@ -7351,11 +7089,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http 1.1.0",
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "slab",
  "tokio",
  "tokio-util",
@@ -7379,7 +7113,7 @@ dependencies = [
  "pest_derive",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -7505,14 +7239,8 @@ dependencies = [
  "idna 0.4.0",
  "ipnet",
  "once_cell",
-<<<<<<< HEAD
  "rand",
  "thiserror",
-=======
- "rand 0.8.5",
- "socket2 0.5.8",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tinyvec",
  "tokio",
  "tracing",
@@ -7532,10 +7260,10 @@ dependencies = [
  "lru-cache",
  "once_cell",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "resolv-conf",
  "smallvec",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tracing",
 ]
@@ -7708,7 +7436,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.9",
+ "socket2 0.5.7",
  "tokio",
  "tower-service",
  "tracing",
@@ -7810,7 +7538,7 @@ dependencies = [
  "http-body 1.0.0",
  "hyper 1.3.1",
  "pin-project-lite",
- "socket2 0.5.8",
+ "socket2 0.5.7",
  "tokio",
  "tower",
  "tower-service",
@@ -7838,124 +7566,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "icu_collections"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db2fa452206ebee18c4b5c2274dbf1de17008e874b4dc4f0aea9d01ca79e4526"
-dependencies = [
- "displaydoc",
- "yoke",
- "zerofrom",
- "zerovec",
-]
-
-[[package]]
-name = "icu_locid"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13acbb8371917fc971be86fc8057c41a64b521c184808a698c02acc242dbf637"
-dependencies = [
- "displaydoc",
- "litemap",
- "tinystr",
- "writeable",
- "zerovec",
-]
-
-[[package]]
-name = "icu_locid_transform"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01d11ac35de8e40fdeda00d9e1e9d92525f3f9d887cdd7aa81d727596788b54e"
-dependencies = [
- "displaydoc",
- "icu_locid",
- "icu_locid_transform_data",
- "icu_provider",
- "tinystr",
- "zerovec",
-]
-
-[[package]]
-name = "icu_locid_transform_data"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fdc8ff3388f852bede6b579ad4e978ab004f139284d7b28715f773507b946f6e"
-
-[[package]]
-name = "icu_normalizer"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19ce3e0da2ec68599d193c93d088142efd7f9c5d6fc9b803774855747dc6a84f"
-dependencies = [
- "displaydoc",
- "icu_collections",
- "icu_normalizer_data",
- "icu_properties",
- "icu_provider",
- "smallvec",
- "utf16_iter",
- "utf8_iter",
- "write16",
- "zerovec",
-]
-
-[[package]]
-name = "icu_normalizer_data"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8cafbf7aa791e9b22bec55a167906f9e1215fd475cd22adfcf660e03e989516"
-
-[[package]]
-name = "icu_properties"
-version = "1.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93d6020766cfc6302c15dbbc9c8778c37e62c14427cb7f6e601d849e092aeef5"
-dependencies = [
- "displaydoc",
- "icu_collections",
- "icu_locid_transform",
- "icu_properties_data",
- "icu_provider",
- "tinystr",
- "zerovec",
-]
-
-[[package]]
-name = "icu_properties_data"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67a8effbc3dd3e4ba1afa8ad918d5684b8868b3b26500753effea8d2eed19569"
-
-[[package]]
-name = "icu_provider"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ed421c8a8ef78d3e2dbc98a973be2f3770cb42b606e3ab18d6237c4dfde68d9"
-dependencies = [
- "displaydoc",
- "icu_locid",
- "icu_provider_macros",
- "stable_deref_trait",
- "tinystr",
- "writeable",
- "yoke",
- "zerofrom",
- "zerovec",
-]
-
-[[package]]
-name = "icu_provider_macros"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ec89e9337638ecdc08744df490b221a7399bf8d164eb52a665454e60e075ad6"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
 ]
 
 [[package]]
@@ -7987,23 +7597,12 @@ dependencies = [
 
 [[package]]
 name = "idna"
-version = "1.0.3"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "686f825264d630750a544639377bae737628043f20d38bbc029e8f29ea968a7e"
+checksum = "634d9b1461af396cad843f47fdba5597a4f9e6ddd4bfb6ff5d85028c25cb12f6"
 dependencies = [
- "idna_adapter",
- "smallvec",
- "utf8_iter",
-]
-
-[[package]]
-name = "idna_adapter"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "daca1df1c957320b2cf139ac61e7bd64fed304c5040df000a745aa1de3b4ef71"
-dependencies = [
- "icu_normalizer",
- "icu_properties",
+ "unicode-bidi",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -8048,7 +7647,7 @@ dependencies = [
  "http 0.2.9",
  "hyper 0.14.29",
  "log",
- "rand 0.8.5",
+ "rand",
  "tokio",
  "url",
  "xmltree",
@@ -8170,15 +7769,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-<<<<<<< HEAD
 version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "233cf39063f058ea2caae4091bf4a3ef70a653afbc026f5c4a4135d114e3c177"
-=======
-version = "2.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c9c992b02b5b4c94ea26e32fe5bccb7aa7d9f390ab5c1221ff895bc7ea8b652"
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 dependencies = [
  "equivalent",
  "hashbrown 0.14.5",
@@ -8253,7 +7846,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b58db92f96b720de98181bbbe63c831e87005ab460c1bf306eb2622b4707997f"
 dependencies = [
- "socket2 0.5.8",
+ "socket2 0.5.7",
  "widestring",
  "windows-sys 0.48.0",
  "winreg 0.50.0",
@@ -8265,7 +7858,7 @@ version = "0.21.3"
 source = "git+https://github.com/chevdor/subwasm?rev=v0.21.3#aa8acb6fdfb34144ac51ab95618a9b37fa251295"
 dependencies = [
  "ipfs-unixfs",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -8395,7 +7988,7 @@ dependencies = [
  "combine",
  "jni-sys",
  "log",
- "thiserror 1.0.65",
+ "thiserror",
  "walkdir",
 ]
 
@@ -8437,7 +8030,7 @@ checksum = "ec9ad60d674508f3ca8f380a928cfe7b096bc729c4e2dbfe3852bc45da3ab30b"
 dependencies = [
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -8450,7 +8043,7 @@ dependencies = [
  "pest_derive",
  "regex",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -8566,7 +8159,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto 0.8.0",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-rustls 0.26.0",
  "tokio-util",
@@ -8635,11 +8228,11 @@ dependencies = [
  "jsonrpsee-types 0.24.3",
  "parking_lot 0.12.3",
  "pin-project",
- "rand 0.8.5",
+ "rand",
  "rustc-hash 2.0.0",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -8684,7 +8277,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tower",
  "tracing",
@@ -8723,7 +8316,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto 0.8.0",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -8766,7 +8359,7 @@ dependencies = [
  "http 1.1.0",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -8922,16 +8515,16 @@ dependencies = [
  "kube-core",
  "pem 3.0.4",
  "pin-project",
- "rand 0.8.5",
+ "rand",
  "rustls 0.21.7",
  "rustls-pemfile 1.0.3",
  "secrecy",
  "serde",
  "serde_json",
  "serde_yaml",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
- "tokio-tungstenite 0.20.1",
+ "tokio-tungstenite",
  "tokio-util",
  "tower",
  "tower-http 0.4.4",
@@ -8952,7 +8545,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -8975,7 +8568,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-util",
  "tracing",
@@ -9040,7 +8633,7 @@ checksum = "1530c5b973eeed4ac216af7e24baf5737645a6272e361f1fb95710678b67d9cc"
 dependencies = [
  "enumflags2",
  "libc",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -9134,12 +8727,8 @@ dependencies = [
  "either",
  "futures",
  "futures-timer",
-<<<<<<< HEAD
  "getrandom",
  "instant",
-=======
- "getrandom 0.2.10",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "libp2p-allow-block-list",
  "libp2p-connection-limits",
  "libp2p-core",
@@ -9162,7 +8751,7 @@ dependencies = [
  "multiaddr 0.18.1",
  "pin-project",
  "rw-stream-sink",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -9209,17 +8798,11 @@ dependencies = [
  "parking_lot 0.12.3",
  "pin-project",
  "quick-protobuf 0.8.1",
- "rand 0.8.5",
+ "rand",
  "rw-stream-sink",
  "smallvec",
-<<<<<<< HEAD
  "thiserror",
  "unsigned-varint 0.7.2",
-=======
- "thiserror 1.0.65",
- "tracing",
- "unsigned-varint 0.8.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "void",
 ]
 
@@ -9258,12 +8841,7 @@ dependencies = [
  "quick-protobuf 0.8.1",
  "quick-protobuf-codec",
  "smallvec",
-<<<<<<< HEAD
  "thiserror",
-=======
- "thiserror 1.0.65",
- "tracing",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "void",
 ]
 
@@ -9278,9 +8856,9 @@ dependencies = [
  "hkdf",
  "multihash 0.19.1",
  "quick-protobuf 0.8.1",
- "rand 0.8.5",
+ "rand",
  "sha2 0.10.8",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing",
  "zeroize",
 ]
@@ -9305,15 +8883,10 @@ dependencies = [
  "log",
  "quick-protobuf 0.8.1",
  "quick-protobuf-codec",
- "rand 0.8.5",
+ "rand",
  "sha2 0.10.8",
  "smallvec",
-<<<<<<< HEAD
  "thiserror",
-=======
- "thiserror 1.0.65",
- "tracing",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "uint 0.9.5",
  "unsigned-varint 0.7.2",
  "void",
@@ -9331,14 +8904,10 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm",
-<<<<<<< HEAD
  "log",
  "rand",
-=======
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "smallvec",
- "socket2 0.5.8",
+ "socket2 0.5.7",
  "tokio",
  "trust-dns-proto 0.22.0",
  "void",
@@ -9377,16 +8946,11 @@ dependencies = [
  "multihash 0.19.1",
  "once_cell",
  "quick-protobuf 0.8.1",
- "rand 0.8.5",
+ "rand",
  "sha2 0.10.8",
  "snow",
  "static_assertions",
-<<<<<<< HEAD
  "thiserror",
-=======
- "thiserror 1.0.65",
- "tracing",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "x25519-dalek",
  "zeroize",
 ]
@@ -9404,13 +8968,8 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm",
-<<<<<<< HEAD
  "log",
  "rand",
-=======
- "rand 0.8.5",
- "tracing",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "void",
 ]
 
@@ -9429,21 +8988,12 @@ dependencies = [
  "libp2p-tls",
  "log",
  "parking_lot 0.12.3",
-<<<<<<< HEAD
  "quinn 0.10.2",
  "rand",
  "ring 0.16.20",
  "rustls 0.21.7",
  "socket2 0.5.7",
  "thiserror",
-=======
- "quinn",
- "rand 0.8.5",
- "ring 0.17.8",
- "rustls 0.23.18",
- "socket2 0.5.8",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio",
 ]
 
@@ -9459,12 +9009,8 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm",
-<<<<<<< HEAD
  "log",
  "rand",
-=======
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "smallvec",
  "void",
 ]
@@ -9486,7 +9032,7 @@ dependencies = [
  "log",
  "multistream-select",
  "once_cell",
- "rand 0.8.5",
+ "rand",
  "smallvec",
  "tokio",
  "void",
@@ -9517,12 +9063,8 @@ dependencies = [
  "libc",
  "libp2p-core",
  "libp2p-identity",
-<<<<<<< HEAD
  "log",
  "socket2 0.5.7",
-=======
- "socket2 0.5.8",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio",
 ]
 
@@ -9540,13 +9082,8 @@ dependencies = [
  "ring 0.16.20",
  "rustls 0.21.7",
  "rustls-webpki 0.101.4",
-<<<<<<< HEAD
  "thiserror",
  "x509-parser 0.15.1",
-=======
- "thiserror 1.0.65",
- "x509-parser 0.16.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "yasna",
 ]
 
@@ -9596,12 +9133,7 @@ dependencies = [
  "pin-project-lite",
  "rw-stream-sink",
  "soketto 0.8.0",
-<<<<<<< HEAD
  "thiserror",
-=======
- "thiserror 1.0.65",
- "tracing",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "url",
  "webpki-roots 0.25.2",
 ]
@@ -9614,16 +9146,9 @@ checksum = "8eedcb62824c4300efb9cfd4e2a6edaf3ca097b9e68b36dabe45a44469fd6a85"
 dependencies = [
  "futures",
  "libp2p-core",
-<<<<<<< HEAD
  "log",
  "thiserror",
  "yamux",
-=======
- "thiserror 1.0.65",
- "tracing",
- "yamux 0.12.1",
- "yamux 0.13.4",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -9654,7 +9179,7 @@ dependencies = [
  "libsecp256k1-core",
  "libsecp256k1-gen-ecmult",
  "libsecp256k1-gen-genmult",
- "rand 0.8.5",
+ "rand",
  "serde",
  "sha2 0.9.9",
  "typenum",
@@ -9783,16 +9308,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "litemap"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
-
-[[package]]
 name = "litep2p"
-version = "0.9.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e5a3d13ee6af6f01bb2093aa6d5f29b79ede7de6277e5d0394e8f5d8eaa5a86"
+checksum = "6ca6ee50a125dc4fc4e9a3ae3640010796d1d07bc517a0ac715fdf0b24a0b6ac"
 dependencies = [
  "async-trait",
  "bs58",
@@ -9803,27 +9322,19 @@ dependencies = [
  "futures-timer",
  "hex-literal",
  "hickory-resolver",
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "libc",
- "mockall 0.13.1",
+ "mockall 0.13.0",
  "multiaddr 0.17.1",
  "multihash 0.17.0",
  "network-interface",
+ "nohash-hasher",
  "parking_lot 0.12.3",
  "pin-project",
  "prost 0.12.6",
  "prost-build",
-<<<<<<< HEAD
  "rand",
  "rcgen",
-=======
- "rand 0.8.5",
- "rcgen 0.10.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "ring 0.16.20",
  "rustls 0.20.9",
  "serde",
@@ -9831,23 +9342,19 @@ dependencies = [
  "simple-dns",
  "smallvec",
  "snow",
- "socket2 0.5.8",
- "thiserror 2.0.11",
+ "socket2 0.5.7",
+ "static_assertions",
+ "thiserror",
  "tokio",
  "tokio-stream",
- "tokio-tungstenite 0.26.2",
+ "tokio-tungstenite",
  "tokio-util",
  "tracing",
- "uint 0.10.0",
+ "uint 0.9.5",
  "unsigned-varint 0.8.0",
  "url",
  "x25519-dalek",
-<<<<<<< HEAD
  "x509-parser 0.16.0",
-=======
- "x509-parser 0.17.0",
- "yamux 0.13.4",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "yasna",
  "zeroize",
 ]
@@ -10205,7 +9712,7 @@ checksum = "80e04d1dcff3aae0704555fe5fee3bcfaf3d1fdf8a7e521d5b9d2b42acb52cec"
 dependencies = [
  "hermit-abi 0.3.9",
  "libc",
- "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasi",
  "windows-sys 0.52.0",
 ]
 
@@ -10226,11 +9733,11 @@ dependencies = [
  "lioness",
  "log",
  "parking_lot 0.12.3",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "rand_distr",
  "subtle 2.5.0",
- "thiserror 1.0.65",
+ "thiserror",
  "zeroize",
 ]
 
@@ -10289,14 +9796,14 @@ dependencies = [
 
 [[package]]
 name = "mockall"
-version = "0.13.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39a6bfcc6c8c7eed5ee98b9c3e33adc726054389233e201c95dab2d41a3839d2"
+checksum = "d4c28b3fb6d753d28c20e826cd46ee611fda1cf3cde03a443a974043247c065a"
 dependencies = [
  "cfg-if",
  "downcast",
  "fragile",
- "mockall_derive 0.13.1",
+ "mockall_derive 0.13.0",
  "predicates 3.0.3",
  "predicates-tree",
 ]
@@ -10315,9 +9822,9 @@ dependencies = [
 
 [[package]]
 name = "mockall_derive"
-version = "0.13.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25ca3004c2efe9011bd4e461bd8256445052b9615405b4f7ea43fc8ca5c20898"
+checksum = "341014e7f530314e9a1fdbc7400b244efea7122662c96bfa248c31da5bfb2020"
 dependencies = [
  "cfg-if",
  "proc-macro2 1.0.86",
@@ -10518,7 +10025,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bddcd3bf5144b6392de80e04c347cd7fab2508f6df16a85fc496ecd5cec39bc"
 dependencies = [
  "clap 3.2.25",
- "rand 0.8.5",
+ "rand",
 ]
 
 [[package]]
@@ -10579,7 +10086,7 @@ dependencies = [
  "anyhow",
  "byteorder",
  "paste",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -10593,7 +10100,7 @@ dependencies = [
  "log",
  "netlink-packet-core",
  "netlink-sys",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -10618,7 +10125,7 @@ checksum = "ae72fd9dbd7f55dda80c00d66acc3b2130436fcba9ea89118fc508eaae48dfb0"
 dependencies = [
  "cc",
  "libc",
- "thiserror 1.0.65",
+ "thiserror",
  "winapi",
 ]
 
@@ -10697,7 +10204,7 @@ dependencies = [
  "node-primitives",
  "node-testing",
  "parity-db",
- "rand 0.8.5",
+ "rand",
  "sc-basic-authorship",
  "sc-client-api",
  "sc-transaction-pool",
@@ -10905,26 +10412,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "num-bigint-dig"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc84195820f291c7697304f3cbdadd1cb7199c0efc917ff5eafd71225c136151"
-dependencies = [
- "byteorder",
- "lazy_static",
- "libm",
- "num-integer",
- "num-iter",
- "num-traits",
- "rand 0.8.5",
- "smallvec",
- "zeroize",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "num-complex"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11074,18 +10561,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c958dd45046245b9c3c2547369bb634eb461670b2e7e0de552905801a648d1d"
 dependencies = [
  "asn1-rs 0.6.1",
-<<<<<<< HEAD
-=======
-]
-
-[[package]]
-name = "oid-registry"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12f40cff3dde1b6087cc5d5f5d4d65712f34016a03ed60e9c08dcc392736b5b7"
-dependencies = [
- "asn1-rs 0.7.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -11175,7 +10650,7 @@ dependencies = [
  "orchestra-proc-macro",
  "pin-project",
  "prioritized-metered-channel",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing",
 ]
 
@@ -11186,11 +10661,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7b1d40dd8f367db3c65bec8d3dd47d4a604ee8874480738f93191bddab4e0e0"
 dependencies = [
  "expander",
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "itertools 0.11.0",
  "petgraph",
  "proc-macro-crate 3.1.0",
@@ -11499,13 +10970,8 @@ version = "4.0.0"
 dependencies = [
  "frame-election-provider-support",
  "honggfuzz",
-<<<<<<< HEAD
  "pallet-bags-list",
  "rand",
-=======
- "pallet-bags-list 27.0.0",
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -11627,7 +11093,7 @@ dependencies = [
  "pallet-beefy-mmr",
  "pallet-mmr",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "serde",
  "sp-consensus-beefy",
@@ -11784,43 +11250,14 @@ dependencies = [
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "scale-info",
-<<<<<<< HEAD
  "sp-consensus-aura",
  "sp-core 35.0.0",
  "sp-io 39.0.0",
  "sp-runtime 40.1.0",
  "sp-staking",
  "sp-tracing 17.0.1",
-=======
- "sp-consensus-aura 0.32.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-staking 26.0.0",
- "sp-tracing 16.0.0",
-]
-
-[[package]]
-name = "pallet-collator-selection"
-version = "19.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "658798d70c9054165169f6a6a96cfa9d6a5e7d24a524bc19825bf17fcbc5cc5a"
-dependencies = [
- "frame-benchmarking 38.0.0",
- "frame-support 38.0.0",
- "frame-system 38.0.0",
- "log",
- "pallet-authorship 38.0.0",
- "pallet-balances 39.0.0",
- "pallet-session 38.0.0",
- "parity-scale-codec",
- "rand 0.8.5",
- "scale-info",
- "sp-runtime 39.0.2",
- "sp-staking 36.0.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -11880,7 +11317,7 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "pretty_assertions",
- "rand 0.8.5",
+ "rand",
  "rand_pcg",
  "scale-info",
  "serde",
@@ -11900,42 +11337,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "pallet-contracts"
-version = "38.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5df77077745d891c822b4275f273f336077a97e69e62a30134776aa721c96fee"
-dependencies = [
- "bitflags 1.3.2",
- "environmental",
- "frame-benchmarking 38.0.0",
- "frame-support 38.0.0",
- "frame-system 38.0.0",
- "impl-trait-for-tuples",
- "log",
- "pallet-balances 39.0.0",
- "pallet-contracts-proc-macro 23.0.1",
- "pallet-contracts-uapi 12.0.0",
- "parity-scale-codec",
- "paste",
- "rand 0.8.5",
- "scale-info",
- "serde",
- "smallvec",
- "sp-api 34.0.0",
- "sp-core 34.0.0",
- "sp-io 38.0.0",
- "sp-runtime 39.0.2",
- "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "staging-xcm 14.2.0",
- "staging-xcm-builder 17.0.1",
- "wasm-instrument",
- "wasmi 0.32.3",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "pallet-contracts-fixtures"
 version = "1.0.0"
 dependencies = [
@@ -12127,41 +11528,11 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "scale-info",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-io 39.0.0",
  "sp-npos-elections",
  "sp-runtime 40.1.0",
  "sp-staking",
-=======
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-npos-elections 26.0.0",
- "sp-runtime 31.0.1",
- "sp-staking 26.0.0",
- "sp-tracing 16.0.0",
-]
-
-[[package]]
-name = "pallet-election-provider-multi-block"
-version = "0.9.0"
-dependencies = [
- "frame-benchmarking 28.0.0",
- "frame-election-provider-support 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
- "log",
- "pallet-balances 28.0.0",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "rand 0.8.5",
- "scale-info",
- "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-npos-elections 26.0.0",
- "sp-runtime 31.0.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "sp-std 14.0.0",
  "sp-tracing 17.0.1",
 ]
@@ -12179,35 +11550,8 @@ dependencies = [
  "pallet-election-provider-support-benchmarking",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "scale-info",
-<<<<<<< HEAD
-=======
- "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-npos-elections 26.0.0",
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
- "strum 0.26.3",
-]
-
-[[package]]
-name = "pallet-election-provider-multi-phase"
-version = "37.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62f9ad5ae0c13ba3727183dadf1825b6b7b0b0598ed5c366f8697e13fd540f7d"
-dependencies = [
- "frame-benchmarking 38.0.0",
- "frame-election-provider-support 38.0.0",
- "frame-support 38.0.0",
- "frame-system 38.0.0",
- "log",
- "pallet-election-provider-support-benchmarking 37.0.0",
- "parity-scale-codec",
- "rand 0.8.5",
- "scale-info",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "sp-arithmetic 26.0.0",
  "sp-core 35.0.0",
  "sp-io 39.0.0",
@@ -12581,7 +11925,7 @@ dependencies = [
  "frame-system",
  "log",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "rand_distr",
  "scale-info",
  "serde",
@@ -12800,19 +12144,11 @@ dependencies = [
  "frame-system",
  "honggfuzz",
  "log",
-<<<<<<< HEAD
  "pallet-nomination-pools",
  "rand",
  "sp-io 39.0.0",
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
-=======
- "pallet-nomination-pools 25.0.0",
- "rand 0.8.5",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -13148,7 +12484,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "subxt",
  "subxt-signer",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -13310,209 +12646,6 @@ dependencies = [
  "sp-io 39.0.0",
  "sp-runtime 40.1.0",
  "sp-weights 31.0.0",
-<<<<<<< HEAD
-=======
-]
-
-[[package]]
-name = "pallet-scored-pool"
-version = "28.0.0"
-dependencies = [
- "frame-support 28.0.0",
- "frame-system 28.0.0",
- "pallet-balances 28.0.0",
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
-]
-
-[[package]]
-name = "pallet-scored-pool"
-version = "38.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f84b48bb4702712c902f43931c4077d3a1cb6773c8d8c290d4a6251f6bc2a5c"
-dependencies = [
- "frame-support 38.0.0",
- "frame-system 38.0.0",
- "parity-scale-codec",
- "scale-info",
- "sp-io 38.0.0",
- "sp-runtime 39.0.2",
-]
-
-[[package]]
-name = "pallet-session"
-version = "28.0.0"
-dependencies = [
- "frame-support 28.0.0",
- "frame-system 28.0.0",
- "impl-trait-for-tuples",
- "log",
- "pallet-timestamp 27.0.0",
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-session 27.0.0",
- "sp-staking 26.0.0",
- "sp-state-machine 0.35.0",
- "sp-trie 29.0.0",
-]
-
-[[package]]
-name = "pallet-session"
-version = "38.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8474b62b6b7622f891e83d922a589e2ad5be5471f5ca47d45831a797dba0b3f4"
-dependencies = [
- "frame-support 38.0.0",
- "frame-system 38.0.0",
- "impl-trait-for-tuples",
- "log",
- "pallet-timestamp 37.0.0",
- "parity-scale-codec",
- "scale-info",
- "sp-core 34.0.0",
- "sp-io 38.0.0",
- "sp-runtime 39.0.2",
- "sp-session 36.0.0",
- "sp-staking 36.0.0",
- "sp-state-machine 0.43.0",
- "sp-trie 37.0.0",
-]
-
-[[package]]
-name = "pallet-session-benchmarking"
-version = "28.0.0"
-dependencies = [
- "frame-benchmarking 28.0.0",
- "frame-election-provider-support 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
- "pallet-balances 28.0.0",
- "pallet-session 28.0.0",
- "pallet-staking 28.0.0",
- "pallet-staking-reward-curve",
- "pallet-timestamp 27.0.0",
- "parity-scale-codec",
- "rand 0.8.5",
- "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-session 27.0.0",
-]
-
-[[package]]
-name = "pallet-session-benchmarking"
-version = "38.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8aadce7df0fee981721983795919642648b846dab5ab9096f82c2cea781007d0"
-dependencies = [
- "frame-benchmarking 38.0.0",
- "frame-support 38.0.0",
- "frame-system 38.0.0",
- "pallet-session 38.0.0",
- "pallet-staking 38.0.0",
- "parity-scale-codec",
- "rand 0.8.5",
- "sp-runtime 39.0.2",
- "sp-session 36.0.0",
-]
-
-[[package]]
-name = "pallet-skip-feeless-payment"
-version = "3.0.0"
-dependencies = [
- "frame-support 28.0.0",
- "frame-system 28.0.0",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime 31.0.1",
-]
-
-[[package]]
-name = "pallet-skip-feeless-payment"
-version = "13.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8c2cb0dae13d2c2d2e76373f337d408468f571459df1900cbd7458f21cf6c01"
-dependencies = [
- "frame-support 38.0.0",
- "frame-system 38.0.0",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime 39.0.2",
-]
-
-[[package]]
-name = "pallet-society"
-version = "28.0.0"
-dependencies = [
- "frame-benchmarking 28.0.0",
- "frame-support 28.0.0",
- "frame-support-test",
- "frame-system 28.0.0",
- "log",
- "pallet-balances 28.0.0",
- "parity-scale-codec",
- "rand_chacha 0.3.1",
- "scale-info",
- "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
-]
-
-[[package]]
-name = "pallet-society"
-version = "38.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1dc69fea8a8de343e71691f009d5fece6ae302ed82b7bb357882b2ea6454143"
-dependencies = [
- "frame-benchmarking 38.0.0",
- "frame-support 38.0.0",
- "frame-system 38.0.0",
- "log",
- "parity-scale-codec",
- "rand_chacha 0.3.1",
- "scale-info",
- "sp-arithmetic 26.0.0",
- "sp-io 38.0.0",
- "sp-runtime 39.0.2",
-]
-
-[[package]]
-name = "pallet-staking"
-version = "28.0.0"
-dependencies = [
- "frame-benchmarking 28.0.0",
- "frame-election-provider-support 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
- "log",
- "pallet-authorship 28.0.0",
- "pallet-bags-list 27.0.0",
- "pallet-balances 28.0.0",
- "pallet-session 28.0.0",
- "pallet-staking-reward-curve",
- "pallet-timestamp 27.0.0",
- "parity-scale-codec",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "scale-info",
- "serde",
- "sp-application-crypto 30.0.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-npos-elections 26.0.0",
- "sp-runtime 31.0.1",
- "sp-staking 26.0.0",
- "sp-tracing 16.0.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "substrate-test-utils",
 ]
 
@@ -14167,7 +13300,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
- "rand 0.8.5",
+ "rand",
  "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
@@ -14194,7 +13327,7 @@ dependencies = [
  "lz4",
  "memmap2 0.5.10",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "siphasher 0.3.11",
  "snap",
 ]
@@ -14635,7 +13768,7 @@ version = "2.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1acb4a4365a13f749a93f1a094a7805e5cfa0955373a9de860d962eaa3a5fe5a"
 dependencies = [
- "thiserror 1.0.65",
+ "thiserror",
  "ucd-trie",
 ]
 
@@ -14680,11 +13813,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
 dependencies = [
  "fixedbitset",
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -14808,8 +13937,8 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "rand_core 0.6.4",
  "sc-keystore",
  "schnorrkel 0.11.4",
@@ -14834,7 +13963,6 @@ dependencies = [
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-util",
-<<<<<<< HEAD
  "polkadot-primitives",
  "rand",
  "rand_chacha",
@@ -14844,17 +13972,6 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-tracing 17.0.1",
-=======
- "polkadot-primitives 7.0.0",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "sp-application-crypto 30.0.0",
- "sp-authority-discovery 26.0.0",
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-tracing 16.0.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -14877,23 +13994,15 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-subsystem-bench",
- "rand 0.8.5",
+ "rand",
  "rstest",
  "sc-network",
  "schnellru",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -14917,23 +14026,15 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-subsystem-bench",
- "rand 0.8.5",
+ "rand",
  "rstest",
  "sc-network",
  "schnellru",
-<<<<<<< HEAD
  "sp-application-crypto 39.0.0",
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-application-crypto 30.0.0",
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio",
  "tracing-gum",
 ]
@@ -14974,7 +14075,7 @@ dependencies = [
  "sp-maybe-compressed-blob 11.0.0",
  "sp-runtime 40.1.0",
  "substrate-build-script-utils",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -14998,21 +14099,12 @@ dependencies = [
  "sc-keystore",
  "sc-network",
  "schnellru",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio-util",
  "tracing-gum",
 ]
@@ -15038,11 +14130,7 @@ dependencies = [
  "fatality",
  "futures",
  "futures-timer",
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -15055,19 +14143,11 @@ dependencies = [
  "sc-keystore",
  "sc-network",
  "schnellru",
-<<<<<<< HEAD
  "sp-application-crypto 39.0.0",
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-application-crypto 30.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15081,15 +14161,9 @@ dependencies = [
  "polkadot-primitives",
  "quickcheck",
  "reed-solomon-novelpoly",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-trie 38.0.0",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-trie 29.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -15107,8 +14181,8 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "quickcheck",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "sc-network",
  "sc-network-common",
  "sp-application-crypto 39.0.0",
@@ -15145,15 +14219,9 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "sc-network",
  "sp-consensus",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-keyring",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15176,7 +14244,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-maybe-compressed-blob 11.0.0",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing-gum",
 ]
 
@@ -15205,15 +14273,14 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-subsystem-bench",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "rand_core 0.6.4",
  "sc-keystore",
  "schnellru",
  "schnorrkel 0.11.4",
  "sp-application-crypto 39.0.0",
  "sp-consensus",
-<<<<<<< HEAD
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core 35.0.0",
@@ -15222,16 +14289,6 @@ dependencies = [
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-consensus-babe 0.32.0",
- "sp-consensus-slots 0.32.0",
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15259,14 +14316,13 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-subsystem-bench",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "rand_core 0.6.4",
  "sc-keystore",
  "schnorrkel 0.11.4",
  "sp-application-crypto 39.0.0",
  "sp-consensus",
-<<<<<<< HEAD
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core 35.0.0",
@@ -15275,16 +14331,6 @@ dependencies = [
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-consensus-babe 0.32.0",
- "sp-consensus-slots 0.32.0",
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15310,17 +14356,10 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "sp-consensus",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15344,21 +14383,12 @@ dependencies = [
  "rstest",
  "sc-keystore",
  "schnellru",
-<<<<<<< HEAD
  "sp-application-crypto 39.0.0",
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-application-crypto 30.0.0",
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15372,13 +14402,8 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
-<<<<<<< HEAD
  "sp-keystore 0.41.0",
  "thiserror",
-=======
- "sp-keystore 0.34.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
  "wasm-timer",
 ]
@@ -15446,15 +14471,9 @@ dependencies = [
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-util",
-<<<<<<< HEAD
  "polkadot-primitives",
  "sp-core 35.0.0",
  "thiserror",
-=======
- "polkadot-primitives 7.0.0",
- "sp-core 28.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15477,21 +14496,12 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "sc-keystore",
  "schnellru",
-<<<<<<< HEAD
  "sp-application-crypto 39.0.0",
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-application-crypto 30.0.0",
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15506,13 +14516,8 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "sp-blockchain",
-<<<<<<< HEAD
  "sp-inherents",
  "thiserror",
-=======
- "sp-inherents 26.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15528,17 +14533,11 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "rand 0.8.5",
+ "rand",
  "rstest",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15558,15 +14557,9 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "rstest",
  "schnellru",
-<<<<<<< HEAD
  "sp-application-crypto 39.0.0",
  "sp-keystore 0.41.0",
  "thiserror",
-=======
- "sp-application-crypto 30.0.0",
- "sp-keystore 0.34.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15599,7 +14592,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "procfs",
- "rand 0.8.5",
+ "rand",
  "rococo-runtime",
  "rusty-fork",
  "sc-sysinfo",
@@ -15610,7 +14603,7 @@ dependencies = [
  "tempfile",
  "test-parachain-adder",
  "test-parachain-halt",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tracing-gum",
 ]
@@ -15629,21 +14622,12 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "sc-keystore",
-<<<<<<< HEAD
  "sp-application-crypto 39.0.0",
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-application-crypto 30.0.0",
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -15670,7 +14654,7 @@ dependencies = [
  "sp-io 39.0.0",
  "sp-tracing 17.0.1",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing-gum",
 ]
 
@@ -15777,21 +14761,15 @@ dependencies = [
  "hex",
  "parity-scale-codec",
  "polkadot-node-primitives",
-<<<<<<< HEAD
  "polkadot-primitives",
  "rand",
  "rand_chacha",
-=======
- "polkadot-primitives 7.0.0",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "sc-authority-discovery",
  "sc-network",
  "sc-network-types",
  "sp-runtime 40.1.0",
  "strum 0.26.3",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing-gum",
 ]
 
@@ -15816,13 +14794,8 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-keystore 0.41.0",
  "sp-maybe-compressed-blob 11.0.0",
-<<<<<<< HEAD
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "zstd 0.12.4",
 ]
 
@@ -15880,7 +14853,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-runtime 40.1.0",
  "substrate-prometheus-endpoint",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -15913,14 +14886,14 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
- "rand 0.8.5",
+ "rand",
  "sc-client-api",
  "schnellru",
  "sp-application-crypto 39.0.0",
  "sp-core 35.0.0",
  "sp-keystore 0.41.0",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing-gum",
 ]
 
@@ -16108,28 +15081,19 @@ dependencies = [
  "sp-runtime 40.1.0",
  "sp-staking",
  "sp-std 14.0.0",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
 name = "polkadot-primitives-test-helpers"
 version = "0.1.0"
 dependencies = [
-<<<<<<< HEAD
  "polkadot-primitives",
  "rand",
  "sp-application-crypto 39.0.0",
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-runtime 40.1.0",
-=======
- "polkadot-primitives 7.0.0",
- "rand 0.8.5",
- "sp-application-crypto 30.0.0",
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-runtime 31.0.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -16264,15 +15228,9 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
-<<<<<<< HEAD
  "polkadot-runtime-metrics",
  "rand",
  "rand_chacha",
-=======
- "polkadot-runtime-metrics 7.0.0",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "rstest",
  "sc-keystore",
  "scale-info",
@@ -16299,58 +15257,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "polkadot-runtime-parachains"
-version = "17.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd58e3a17e5df678f5737b018cbfec603af2c93bec56bbb9f8fb8b2b017b54b1"
-dependencies = [
- "bitflags 1.3.2",
- "bitvec",
- "derive_more 0.99.17",
- "frame-benchmarking 38.0.0",
- "frame-support 38.0.0",
- "frame-system 38.0.0",
- "impl-trait-for-tuples",
- "log",
- "pallet-authority-discovery 38.0.0",
- "pallet-authorship 38.0.0",
- "pallet-babe 38.0.0",
- "pallet-balances 39.0.0",
- "pallet-broker 0.17.0",
- "pallet-message-queue 41.0.1",
- "pallet-mmr 38.0.0",
- "pallet-session 38.0.0",
- "pallet-staking 38.0.0",
- "pallet-timestamp 37.0.0",
- "pallet-vesting 38.0.0",
- "parity-scale-codec",
- "polkadot-core-primitives 15.0.0",
- "polkadot-parachain-primitives 14.0.0",
- "polkadot-primitives 16.0.0",
- "polkadot-runtime-metrics 17.0.0",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "scale-info",
- "serde",
- "sp-api 34.0.0",
- "sp-application-crypto 38.0.0",
- "sp-arithmetic 26.0.0",
- "sp-core 34.0.0",
- "sp-inherents 34.0.0",
- "sp-io 38.0.0",
- "sp-keystore 0.40.0",
- "sp-runtime 39.0.2",
- "sp-session 36.0.0",
- "sp-staking 36.0.0",
- "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "staging-xcm 14.2.0",
- "staging-xcm-executor 17.0.0",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "polkadot-sdk"
 version = "0.11.0"
 dependencies = [
@@ -16785,13 +15691,8 @@ dependencies = [
  "polkadot-sdk",
  "polkadot-sdk-docs-first-pallet",
  "polkadot-sdk-docs-first-runtime",
-<<<<<<< HEAD
  "polkadot-sdk-frame",
  "rand",
-=======
- "polkadot-sdk-frame 0.1.0",
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "sc-chain-spec",
  "sc-cli",
  "sc-client-db",
@@ -17007,7 +15908,7 @@ dependencies = [
  "staging-xcm",
  "substrate-prometheus-endpoint",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants",
@@ -17025,11 +15926,7 @@ dependencies = [
  "fatality",
  "futures",
  "futures-timer",
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "parity-scale-codec",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
@@ -17039,11 +15936,10 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-subsystem-bench",
- "rand_chacha 0.3.1",
+ "rand_chacha",
  "rstest",
  "sc-keystore",
  "sc-network",
-<<<<<<< HEAD
  "sp-application-crypto 39.0.0",
  "sp-authority-discovery",
  "sp-core 35.0.0",
@@ -17052,16 +15948,6 @@ dependencies = [
  "sp-staking",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-application-crypto 30.0.0",
- "sp-authority-discovery 26.0.0",
- "sp-core 28.0.0",
- "sp-keyring 31.0.0",
- "sp-keystore 0.34.0",
- "sp-staking 26.0.0",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing-gum",
 ]
 
@@ -17121,8 +16007,8 @@ dependencies = [
  "prometheus",
  "pyroscope",
  "pyroscope_pprofrs",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "rand_core 0.6.4",
  "rand_distr",
  "sc-keystore",
@@ -17203,17 +16089,10 @@ dependencies = [
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
-<<<<<<< HEAD
  "polkadot-primitives",
  "rand",
  "sp-core 35.0.0",
  "sp-keystore 0.41.0",
-=======
- "polkadot-primitives 7.0.0",
- "rand 0.8.5",
- "sp-core 28.0.0",
- "sp-keystore 0.34.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "substrate-build-script-utils",
  "tracing-gum",
 ]
@@ -17298,7 +16177,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "polkadot-service",
  "polkadot-test-runtime",
- "rand 0.8.5",
+ "rand",
  "sc-authority-discovery",
  "sc-chain-spec",
  "sc-cli",
@@ -17633,7 +16512,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
 dependencies = [
- "rand 0.8.5",
+ "rand",
 ]
 
 [[package]]
@@ -17659,7 +16538,7 @@ dependencies = [
  "smallvec",
  "symbolic-demangle",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -17784,7 +16663,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "nanorand",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing",
 ]
 
@@ -17936,7 +16815,7 @@ dependencies = [
  "lazy_static",
  "memchr",
  "parking_lot 0.12.3",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -17985,8 +16864,8 @@ dependencies = [
  "bitflags 2.6.0",
  "lazy_static",
  "num-traits",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "rand_xorshift",
  "regex-syntax 0.8.2",
  "rusty-fork",
@@ -18114,13 +16993,8 @@ dependencies = [
  "log",
  "names",
  "prost 0.11.9",
-<<<<<<< HEAD
  "reqwest 0.11.20",
  "thiserror",
-=======
- "reqwest 0.11.27",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "url",
  "winapi",
 ]
@@ -18134,7 +17008,7 @@ dependencies = [
  "log",
  "pprof",
  "pyroscope",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -18148,7 +17022,7 @@ dependencies = [
  "mach2",
  "once_cell",
  "raw-cpuid",
- "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasi",
  "web-sys",
  "winapi",
 ]
@@ -18186,13 +17060,8 @@ dependencies = [
  "asynchronous-codec",
  "bytes",
  "quick-protobuf 0.8.1",
-<<<<<<< HEAD
  "thiserror",
  "unsigned-varint 0.7.2",
-=======
- "thiserror 1.0.65",
- "unsigned-varint 0.8.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -18214,7 +17083,7 @@ checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
 dependencies = [
  "env_logger 0.8.4",
  "log",
- "rand 0.8.5",
+ "rand",
 ]
 
 [[package]]
@@ -18246,15 +17115,9 @@ dependencies = [
  "quinn-proto 0.11.8",
  "quinn-udp 0.5.4",
  "rustc-hash 2.0.0",
-<<<<<<< HEAD
  "rustls 0.23.14",
  "socket2 0.5.7",
  "thiserror",
-=======
- "rustls 0.23.18",
- "socket2 0.5.8",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio",
  "tracing",
 ]
@@ -18283,17 +17146,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fadfaed2cd7f389d0161bb73eeb07b7b78f8691047a6f3e73caaeae55310a4a6"
 dependencies = [
  "bytes",
-<<<<<<< HEAD
  "rand",
  "ring 0.17.7",
-=======
- "rand 0.8.5",
- "ring 0.17.8",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "rustc-hash 2.0.0",
  "rustls 0.23.14",
  "slab",
- "thiserror 1.0.65",
+ "thiserror",
  "tinyvec",
  "tracing",
 ]
@@ -18319,7 +17177,7 @@ checksum = "8bffec3605b73c6f1754535084a85229fa8a30f86014e6c81aeec4abb68b0285"
 dependencies = [
  "libc",
  "once_cell",
- "socket2 0.5.8",
+ "socket2 0.5.7",
  "tracing",
  "windows-sys 0.52.0",
 ]
@@ -18355,19 +17213,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
- "rand_chacha 0.3.1",
+ "rand_chacha",
  "rand_core 0.6.4",
-]
-
-[[package]]
-name = "rand"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3779b94aeb87e8bd4e834cee3650289ee9e0d5677f976ecdb6d219e5f4f6cd94"
-dependencies = [
- "rand_chacha 0.9.0",
- "rand_core 0.9.1",
- "zerocopy 0.8.20",
 ]
 
 [[package]]
@@ -18378,16 +17225,6 @@ checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
  "rand_core 0.6.4",
-]
-
-[[package]]
-name = "rand_chacha"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
-dependencies = [
- "ppv-lite86",
- "rand_core 0.9.1",
 ]
 
 [[package]]
@@ -18402,17 +17239,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
- "getrandom 0.2.10",
-]
-
-[[package]]
-name = "rand_core"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a88e0da7a2c97baa202165137c158d0a2e824ac465d13d81046727b34cb247d3"
-dependencies = [
- "getrandom 0.3.1",
- "zerocopy 0.8.20",
+ "getrandom",
 ]
 
 [[package]]
@@ -18422,7 +17249,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
 dependencies = [
  "num-traits",
- "rand 0.8.5",
+ "rand",
 ]
 
 [[package]]
@@ -18559,9 +17386,9 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b033d837a7cf162d7993aded9304e30a83213c648b6e389db233191f891e5c2b"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom",
  "redox_syscall 0.2.16",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -18573,7 +17400,7 @@ dependencies = [
  "derive_more",
  "fs-err",
  "static_init",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -18698,7 +17525,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "quick_cache",
- "rand 0.8.5",
+ "rand",
  "relay-utils",
  "sc-chain-spec",
  "sc-rpc-api",
@@ -18710,17 +17537,10 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 40.1.0",
  "sp-std 14.0.0",
-<<<<<<< HEAD
  "sp-trie 38.0.0",
  "sp-version 38.0.0",
  "staging-xcm",
  "thiserror",
-=======
- "sp-trie 29.0.0",
- "sp-version 29.0.0",
- "staging-xcm 7.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio",
 ]
 
@@ -18745,7 +17565,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "sysinfo",
- "thiserror 1.0.65",
+ "thiserror",
  "time",
  "tokio",
 ]
@@ -18892,12 +17712,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "688c63d65483050968b2a8937f7995f443e27041a0f7700aa59b0822aedebb74"
 dependencies = [
  "cc",
-<<<<<<< HEAD
  "getrandom",
-=======
- "cfg-if",
- "getrandom 0.2.10",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "libc",
  "spin 0.9.8",
  "untrusted 0.9.0",
@@ -19223,7 +18038,7 @@ dependencies = [
  "netlink-packet-route",
  "netlink-proto",
  "nix 0.24.3",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -19253,7 +18068,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types 0.12.2",
  "proptest",
- "rand 0.8.5",
+ "rand",
  "rlp 0.5.2",
  "ruint-macro",
  "serde",
@@ -19617,32 +18432,14 @@ dependencies = [
 
 [[package]]
 name = "sc-allocator"
-<<<<<<< HEAD
-=======
-version = "23.0.0"
-dependencies = [
- "log",
- "sp-core 28.0.0",
- "sp-wasm-interface 20.0.0",
- "thiserror 1.0.65",
-]
-
-[[package]]
-name = "sc-allocator"
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 version = "28.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3f01218e73ea57916be5f08987995ac802d6f4ede4ea5ce0242e468c590e4e2"
 dependencies = [
  "log",
  "sp-core 33.0.1",
-<<<<<<< HEAD
  "sp-wasm-interface 21.0.0",
  "thiserror",
-=======
- "sp-wasm-interface 21.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -19652,7 +18449,7 @@ dependencies = [
  "log",
  "sp-core 35.0.0",
  "sp-wasm-interface 21.0.1",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -19671,7 +18468,7 @@ dependencies = [
  "prost 0.12.6",
  "prost-build",
  "quickcheck",
- "rand 0.8.5",
+ "rand",
  "sc-client-api",
  "sc-network",
  "sc-network-types",
@@ -19684,7 +18481,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -19786,7 +18583,7 @@ dependencies = [
  "names",
  "parity-bip39",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "regex",
  "rpassword",
  "sc-client-api",
@@ -19810,7 +18607,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "sp-version 38.0.0",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -19840,7 +18637,7 @@ dependencies = [
  "sp-trie 38.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -19859,12 +18656,8 @@ dependencies = [
  "parity-db",
  "parity-scale-codec",
  "parking_lot 0.12.3",
-<<<<<<< HEAD
  "quickcheck",
  "rand",
-=======
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "sc-client-api",
  "sc-state-db",
  "schnellru",
@@ -19901,7 +18694,7 @@ dependencies = [
  "sp-state-machine 0.44.0",
  "sp-test-primitives",
  "substrate-prometheus-endpoint",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -19938,7 +18731,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -19980,7 +18773,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -20008,7 +18801,7 @@ dependencies = [
  "sp-keystore 0.41.0",
  "sp-runtime 40.1.0",
  "substrate-test-runtime-client",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -20051,7 +18844,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "wasm-timer",
 ]
@@ -20074,7 +18867,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-runtime 40.1.0",
  "substrate-test-runtime-client",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -20106,7 +18899,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",
@@ -20136,7 +18929,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -20160,7 +18953,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime 40.1.0",
  "substrate-test-runtime-client",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -20198,7 +18991,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -20223,7 +19016,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime 40.1.0",
  "substrate-prometheus-endpoint",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -20297,7 +19090,6 @@ dependencies = [
  "sp-externalities 0.30.0",
  "sp-io 39.0.0",
  "sp-maybe-compressed-blob 11.0.0",
-<<<<<<< HEAD
  "sp-panic-handler 13.0.1",
  "sp-runtime 40.1.0",
  "sp-runtime-interface 29.0.0",
@@ -20311,11 +19103,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.18",
  "wat",
-=======
- "sp-wasm-interface 20.0.0",
- "thiserror 1.0.65",
- "wasm-instrument",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -20327,13 +19114,8 @@ dependencies = [
  "polkavm 0.9.3",
  "sc-allocator 28.0.0",
  "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
-<<<<<<< HEAD
  "sp-wasm-interface 21.0.0",
  "thiserror",
-=======
- "sp-wasm-interface 21.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "wasm-instrument",
 ]
 
@@ -20345,7 +19127,7 @@ dependencies = [
  "sc-allocator 30.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 21.0.1",
- "thiserror 1.0.65",
+ "thiserror",
  "wasm-instrument",
 ]
 
@@ -20441,7 +19223,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-keystore 0.41.0",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -20465,19 +19247,11 @@ dependencies = [
  "sc-transaction-pool-api",
  "sp-api 35.0.0",
  "sp-consensus",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-keystore 0.41.0",
  "sp-mixnet",
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-keystore 0.34.0",
- "sp-mixnet 0.4.0",
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -20510,7 +19284,7 @@ dependencies = [
  "pin-project",
  "prost 0.12.6",
  "prost-build",
- "rand 0.8.5",
+ "rand",
  "sc-block-builder",
  "sc-client-api",
  "sc-consensus",
@@ -20535,7 +19309,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-test",
@@ -20602,15 +19376,9 @@ dependencies = [
  "sc-network",
  "sc-network-types",
  "sp-blockchain",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -20667,7 +19435,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-stream",
 ]
@@ -20682,7 +19450,7 @@ dependencies = [
  "libp2p",
  "log",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "sc-block-builder",
  "sc-client-api",
  "sc-consensus",
@@ -20733,8 +19501,8 @@ dependencies = [
  "multiaddr 0.18.1",
  "multihash 0.19.1",
  "quickcheck",
- "rand 0.8.5",
- "thiserror 1.0.65",
+ "rand",
+ "thiserror",
  "zeroize",
 ]
 
@@ -20757,13 +19525,8 @@ dependencies = [
  "once_cell",
  "parity-scale-codec",
  "parking_lot 0.12.3",
-<<<<<<< HEAD
  "rand",
  "rustls 0.23.14",
-=======
- "rand 0.8.5",
- "rustls 0.23.18",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "sc-block-builder",
  "sc-client-api",
  "sc-client-db",
@@ -20849,15 +19612,9 @@ dependencies = [
  "serde_json",
  "sp-core 35.0.0",
  "sp-rpc",
-<<<<<<< HEAD
  "sp-runtime 40.1.0",
  "sp-version 38.0.0",
  "thiserror",
-=======
- "sp-runtime 31.0.1",
- "sp-version 29.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -20898,7 +19655,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "pretty_assertions",
- "rand 0.8.5",
+ "rand",
  "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",
@@ -20922,7 +19679,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-stream",
 ]
@@ -20931,38 +19688,11 @@ dependencies = [
 name = "sc-runtime-test"
 version = "2.0.0"
 dependencies = [
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-io 39.0.0",
  "sp-runtime 40.1.0",
  "sp-runtime-interface 29.0.0",
  "substrate-wasm-builder",
-=======
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-runtime-interface 24.0.0",
- "substrate-wasm-builder 17.0.0",
-]
-
-[[package]]
-name = "sc-runtime-utilities"
-version = "0.1.0"
-dependencies = [
- "cumulus-primitives-proof-size-hostfunction 0.2.0",
- "cumulus-test-runtime",
- "parity-scale-codec",
- "sc-executor 0.32.0",
- "sc-executor-common 0.29.0",
- "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
- "sp-io 30.0.0",
- "sp-state-machine 0.35.0",
- "sp-version 29.0.0",
- "sp-wasm-interface 20.0.0",
- "subxt",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -20979,7 +19709,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "pin-project",
- "rand 0.8.5",
+ "rand",
  "sc-chain-spec",
  "sc-client-api",
  "sc-client-db",
@@ -21024,7 +19754,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-futures",
@@ -21103,13 +19833,8 @@ dependencies = [
  "clap 4.5.13",
  "fs4",
  "log",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio",
 ]
 
@@ -21127,13 +19852,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-blockchain",
-<<<<<<< HEAD
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -21144,7 +19864,7 @@ dependencies = [
  "futures",
  "libc",
  "log",
- "rand 0.8.5",
+ "rand",
  "rand_pcg",
  "regex",
  "sc-telemetry",
@@ -21167,16 +19887,12 @@ dependencies = [
  "log",
  "parking_lot 0.12.3",
  "pin-project",
-<<<<<<< HEAD
  "rand",
  "sc-network",
-=======
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "sc-utils",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
  "wasm-timer",
 ]
 
@@ -21201,15 +19917,9 @@ dependencies = [
  "sp-blockchain",
  "sp-core 35.0.0",
  "sp-rpc",
-<<<<<<< HEAD
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
  "thiserror",
-=======
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing",
  "tracing-log 0.2.0",
  "tracing-subscriber 0.3.18",
@@ -21235,11 +19945,7 @@ dependencies = [
  "criterion",
  "futures",
  "futures-timer",
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "itertools 0.11.0",
  "linked-hash-map",
  "log",
@@ -21262,7 +19968,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-stream",
 ]
@@ -21273,24 +19979,14 @@ version = "38.0.0"
 dependencies = [
  "async-trait",
  "futures",
-<<<<<<< HEAD
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "log",
  "parity-scale-codec",
  "serde",
  "serde_json",
  "sp-blockchain",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -21419,13 +20115,8 @@ dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "scale-info",
-<<<<<<< HEAD
  "syn 2.0.87",
  "thiserror",
-=======
- "syn 2.0.98",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -21586,22 +20277,7 @@ version = "0.28.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d24b59d129cdadea20aea4fb2352fa053712e5d713eee47d700cd4b2bc002f10"
 dependencies = [
-<<<<<<< HEAD
  "secp256k1-sys",
-=======
- "secp256k1-sys 0.9.2",
-]
-
-[[package]]
-name = "secp256k1"
-version = "0.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b50c5943d326858130af85e049f2661ba3c78b26589b8ab98e65e80ae44a1252"
-dependencies = [
- "bitcoin_hashes 0.14.0",
- "rand 0.8.5",
- "secp256k1-sys 0.10.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -21790,11 +20466,7 @@ version = "1.0.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d726bfaff4b320266d395898905d0eba0345aae23b54aee3a737e260fd46db03"
 dependencies = [
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "itoa",
  "memchr",
  "ryu",
@@ -21828,11 +20500,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "itoa",
  "ryu",
  "serde",
@@ -21978,9 +20646,9 @@ dependencies = [
 
 [[package]]
 name = "simple-dns"
-version = "0.9.3"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dee851d0e5e7af3721faea1843e8015e820a234f81fda3dea9247e15bac9a86a"
+checksum = "4c80e565e7dcc4f1ef247e2f395550d4cf7d777746d5988e7e4e3156b71077fc"
 dependencies = [
  "bitflags 2.6.0",
 ]
@@ -22138,8 +20806,8 @@ dependencies = [
  "pbkdf2",
  "pin-project",
  "poly1305",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "ruzstd 0.4.0",
  "schnorrkel 0.10.2",
  "serde",
@@ -22193,15 +20861,9 @@ dependencies = [
  "pbkdf2",
  "pin-project",
  "poly1305",
-<<<<<<< HEAD
  "rand",
  "rand_chacha",
  "ruzstd 0.5.0",
-=======
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "ruzstd 0.6.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "schnorrkel 0.11.4",
  "serde",
  "serde_json",
@@ -22242,8 +20904,8 @@ dependencies = [
  "no-std-net",
  "parking_lot 0.12.3",
  "pin-project",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "serde",
  "serde_json",
  "siphasher 0.3.11",
@@ -22278,8 +20940,8 @@ dependencies = [
  "no-std-net",
  "parking_lot 0.12.3",
  "pin-project",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "serde",
  "serde_json",
  "siphasher 1.0.1",
@@ -22378,7 +21040,7 @@ dependencies = [
  "hex-literal",
  "parity-bytes",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "rlp 0.6.1",
  "scale-info",
  "serde",
@@ -22399,7 +21061,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "snowbridge-amcl",
  "zeroize",
@@ -22443,7 +21105,7 @@ dependencies = [
  "log",
  "pallet-timestamp",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "serde",
  "serde_json",
@@ -22645,9 +21307,9 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.5.8"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c970269d99b64e60ec3bd6ad27270092a5394c4e309314b18ae3fe575695fbe8"
+checksum = "ce305eb0b4296696835b71df73eb912e0f1ffd2556a501fcede6e0c50349191c"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
@@ -22664,7 +21326,7 @@ dependencies = [
  "futures",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand",
  "sha-1",
 ]
 
@@ -22680,7 +21342,7 @@ dependencies = [
  "http 1.1.0",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand",
  "sha1",
 ]
 
@@ -22750,7 +21412,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde_json",
-<<<<<<< HEAD
  "sp-api 35.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -22766,45 +21427,6 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version 38.0.0",
  "substrate-wasm-builder",
-=======
- "sp-api 26.0.0",
- "sp-block-builder 26.0.0",
- "sp-consensus-aura 0.32.0",
- "sp-consensus-grandpa 13.0.0",
- "sp-core 28.0.0",
- "sp-genesis-builder 0.8.0",
- "sp-inherents 26.0.0",
- "sp-keyring 31.0.0",
- "sp-offchain 26.0.0",
- "sp-runtime 31.0.1",
- "sp-session 27.0.0",
- "sp-storage 19.0.0",
- "sp-transaction-pool 26.0.0",
- "sp-version 29.0.0",
- "substrate-wasm-builder 17.0.0",
-]
-
-[[package]]
-name = "sp-api"
-version = "26.0.0"
-dependencies = [
- "docify",
- "hash-db",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-api-proc-macro 15.0.0",
- "sp-core 28.0.0",
- "sp-externalities 0.25.0",
- "sp-metadata-ir 0.6.0",
- "sp-runtime 31.0.1",
- "sp-runtime-interface 24.0.0",
- "sp-state-machine 0.35.0",
- "sp-test-primitives",
- "sp-trie 29.0.0",
- "sp-version 29.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -22827,7 +21449,7 @@ dependencies = [
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 35.0.0",
  "sp-version 35.0.0",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -22839,7 +21461,6 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
-<<<<<<< HEAD
  "sp-api-proc-macro 21.0.0",
  "sp-core 35.0.0",
  "sp-externalities 0.30.0",
@@ -22851,18 +21472,6 @@ dependencies = [
  "sp-trie 38.0.0",
  "sp-version 38.0.0",
  "thiserror",
-=======
- "sp-api-proc-macro 20.0.0",
- "sp-core 34.0.0",
- "sp-externalities 0.29.0",
- "sp-metadata-ir 0.7.0",
- "sp-runtime 39.0.2",
- "sp-runtime-interface 28.0.0",
- "sp-state-machine 0.43.0",
- "sp-trie 37.0.0",
- "sp-version 37.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -23006,7 +21615,7 @@ dependencies = [
  "num-traits",
  "parity-scale-codec",
  "primitive-types 0.13.1",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "serde",
  "sp-crypto-hashing 0.1.0",
@@ -23072,15 +21681,9 @@ dependencies = [
  "sp-consensus",
  "sp-core 35.0.0",
  "sp-database",
-<<<<<<< HEAD
  "sp-runtime 40.1.0",
  "sp-state-machine 0.44.0",
  "thiserror",
-=======
- "sp-runtime 31.0.1",
- "sp-state-machine 0.35.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing",
 ]
 
@@ -23096,7 +21699,7 @@ dependencies = [
  "sp-runtime 40.1.0",
  "sp-state-machine 0.44.0",
  "sp-test-primitives",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -23214,14 +21817,8 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "paste",
-<<<<<<< HEAD
  "primitive-types 0.12.2",
  "rand",
-=======
- "primitive-types 0.13.1",
- "rand 0.8.5",
- "regex",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "scale-info",
  "schnorrkel 0.11.4",
  "secp256k1",
@@ -23234,13 +21831,8 @@ dependencies = [
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-storage 20.0.0",
  "ss58-registry",
-<<<<<<< HEAD
  "substrate-bip39 0.5.0",
  "thiserror",
-=======
- "substrate-bip39 0.4.7",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -23273,7 +21865,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "paste",
  "primitive-types 0.12.2",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "schnorrkel 0.11.4",
  "secp256k1",
@@ -23286,13 +21878,8 @@ dependencies = [
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-storage 21.0.0",
  "ss58-registry",
-<<<<<<< HEAD
  "substrate-bip39 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
-=======
- "substrate-bip39 0.6.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -23325,7 +21912,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "paste",
  "primitive-types 0.12.2",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "schnorrkel 0.11.4",
  "secp256k1",
@@ -23338,60 +21925,8 @@ dependencies = [
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-storage 21.0.0",
  "ss58-registry",
-<<<<<<< HEAD
  "substrate-bip39 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
-=======
- "substrate-bip39 0.6.0",
- "thiserror 1.0.65",
- "tracing",
- "w3f-bls",
- "zeroize",
-]
-
-[[package]]
-name = "sp-core"
-version = "34.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c961a5e33fb2962fa775c044ceba43df9c6f917e2c35d63bfe23738468fa76a7"
-dependencies = [
- "array-bytes",
- "bitflags 1.3.2",
- "blake2 0.10.6",
- "bounded-collections",
- "bs58",
- "dyn-clonable",
- "ed25519-zebra 4.0.3",
- "futures",
- "hash-db",
- "hash256-std-hasher",
- "impl-serde 0.4.0",
- "itertools 0.11.0",
- "k256",
- "libsecp256k1",
- "log",
- "merlin",
- "parity-bip39",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "paste",
- "primitive-types 0.12.2",
- "rand 0.8.5",
- "scale-info",
- "schnorrkel 0.11.4",
- "secp256k1 0.28.2",
- "secrecy 0.8.0",
- "serde",
- "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-debug-derive 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-externalities 0.29.0",
- "sp-runtime-interface 28.0.0",
- "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-storage 21.0.0",
- "ss58-registry",
- "substrate-bip39 0.6.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -23423,12 +21958,8 @@ dependencies = [
  "parking_lot 0.12.3",
  "paste",
  "primitive-types 0.13.1",
-<<<<<<< HEAD
  "rand",
  "regex",
-=======
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "scale-info",
  "schnorrkel 0.11.4",
  "secp256k1",
@@ -23443,7 +21974,7 @@ dependencies = [
  "sp-storage 22.0.0",
  "ss58-registry",
  "substrate-bip39 0.6.0",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -23619,27 +22150,8 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
-<<<<<<< HEAD
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
-]
-
-[[package]]
-name = "sp-inherents"
-version = "34.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afffbddc380d99a90c459ba1554bbbc01d62e892de9f1485af6940b89c4c0d57"
-dependencies = [
- "async-trait",
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime 39.0.2",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -23765,15 +22277,8 @@ checksum = "bdbab8b61bd61d5f8625a0c75753b5d5a23be55d3445419acd42caf59cf6236b"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
-<<<<<<< HEAD
  "sp-core 31.0.0",
  "sp-externalities 0.27.0",
-=======
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "sp-core 28.0.0",
- "sp-externalities 0.25.0",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -23816,7 +22321,7 @@ dependencies = [
 name = "sp-maybe-compressed-blob"
 version = "11.0.0"
 dependencies = [
- "thiserror 1.0.65",
+ "thiserror",
  "zstd 0.12.4",
 ]
 
@@ -23826,7 +22331,7 @@ version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c768c11afbe698a090386876911da4236af199cd38a5866748df4d8628aeff"
 dependencies = [
- "thiserror 1.0.65",
+ "thiserror",
  "zstd 0.12.4",
 ]
 
@@ -23873,31 +22378,8 @@ dependencies = [
  "sp-api 35.0.0",
  "sp-core 35.0.0",
  "sp-debug-derive 14.0.0",
-<<<<<<< HEAD
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
-]
-
-[[package]]
-name = "sp-mmr-primitives"
-version = "34.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a12dd76e368f1e48144a84b4735218b712f84b3f976970e2f25a29b30440e10"
-dependencies = [
- "log",
- "parity-scale-codec",
- "polkadot-ckb-merkle-mountain-range 0.7.0",
- "scale-info",
- "serde",
- "sp-api 34.0.0",
- "sp-core 34.0.0",
- "sp-debug-derive 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-runtime 39.0.2",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -23905,7 +22387,7 @@ name = "sp-npos-elections"
 version = "35.0.0"
 dependencies = [
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "serde",
  "sp-arithmetic 26.0.0",
@@ -23920,15 +22402,9 @@ version = "2.0.0"
 dependencies = [
  "clap 4.5.13",
  "honggfuzz",
-<<<<<<< HEAD
  "rand",
  "sp-npos-elections",
  "sp-runtime 40.1.0",
-=======
- "rand 0.8.5",
- "sp-npos-elections 26.0.0",
- "sp-runtime 31.0.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -23982,7 +22458,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "paste",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "serde",
  "simple-mermaid 0.1.1",
@@ -24007,7 +22483,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "paste",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "serde",
  "simple-mermaid 0.1.1",
@@ -24033,7 +22509,7 @@ dependencies = [
  "num-traits",
  "parity-scale-codec",
  "paste",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "serde",
  "simple-mermaid 0.1.1",
@@ -24058,7 +22534,7 @@ dependencies = [
  "num-traits",
  "parity-scale-codec",
  "paste",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "serde",
  "serde_json",
@@ -24241,25 +22717,14 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
-<<<<<<< HEAD
  "rand",
-=======
- "pretty_assertions",
- "rand 0.8.5",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "smallvec",
  "sp-core 31.0.0",
  "sp-externalities 0.27.0",
  "sp-panic-handler 13.0.0",
-<<<<<<< HEAD
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 32.0.0",
  "thiserror",
-=======
- "sp-runtime 31.0.1",
- "sp-trie 29.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing",
  "trie-db 0.28.0",
 ]
@@ -24274,13 +22739,13 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "smallvec",
  "sp-core 32.0.0",
  "sp-externalities 0.28.0",
  "sp-panic-handler 13.0.0",
  "sp-trie 34.0.0",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing",
  "trie-db 0.29.1",
 ]
@@ -24295,13 +22760,13 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "smallvec",
  "sp-core 33.0.1",
  "sp-externalities 0.28.0",
  "sp-panic-handler 13.0.0",
  "sp-trie 35.0.0",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing",
  "trie-db 0.29.1",
 ]
@@ -24317,7 +22782,6 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
-<<<<<<< HEAD
  "pretty_assertions",
  "rand",
  "smallvec",
@@ -24327,15 +22791,6 @@ dependencies = [
  "sp-runtime 40.1.0",
  "sp-trie 38.0.0",
  "thiserror",
-=======
- "rand 0.8.5",
- "smallvec",
- "sp-core 34.0.0",
- "sp-externalities 0.29.0",
- "sp-panic-handler 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-trie 37.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing",
  "trie-db 0.29.1",
 ]
@@ -24349,61 +22804,21 @@ dependencies = [
  "ed25519-dalek",
  "hkdf",
  "parity-scale-codec",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "sha2 0.10.8",
  "sp-api 35.0.0",
  "sp-application-crypto 39.0.0",
  "sp-core 35.0.0",
  "sp-crypto-hashing 0.1.0",
-<<<<<<< HEAD
  "sp-externalities 0.30.0",
  "sp-runtime 40.1.0",
  "sp-runtime-interface 29.0.0",
  "thiserror",
-=======
- "sp-externalities 0.25.0",
- "sp-runtime 31.0.1",
- "sp-runtime-interface 24.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "x25519-dalek",
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "sp-statement-store"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c219bc34ef4d1f9835f3ed881f965643c32034fcc030eb33b759dadbc802c1c2"
-dependencies = [
- "aes-gcm",
- "curve25519-dalek 4.1.3",
- "ed25519-dalek",
- "hkdf",
- "parity-scale-codec",
- "rand 0.8.5",
- "scale-info",
- "sha2 0.10.8",
- "sp-api 34.0.0",
- "sp-application-crypto 38.0.0",
- "sp-core 34.0.0",
- "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-externalities 0.29.0",
- "sp-runtime 39.0.2",
- "sp-runtime-interface 28.0.0",
- "thiserror 1.0.65",
- "x25519-dalek",
-]
-
-[[package]]
-name = "sp-std"
-version = "8.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "sp-std"
 version = "14.0.0"
 
@@ -24469,28 +22884,9 @@ version = "35.0.0"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
-<<<<<<< HEAD
  "sp-inherents",
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-inherents 26.0.0",
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
-]
-
-[[package]]
-name = "sp-timestamp"
-version = "34.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72a1cb4df653d62ccc0dbce1db45d1c9443ec60247ee9576962d24da4c9c6f07"
-dependencies = [
- "async-trait",
- "parity-scale-codec",
- "sp-inherents 34.0.0",
- "sp-runtime 39.0.2",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -24562,20 +22958,13 @@ dependencies = [
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "schnellru",
-<<<<<<< HEAD
  "sp-core 31.0.0",
  "sp-externalities 0.27.0",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-externalities 0.25.0",
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing",
  "trie-db 0.28.0",
  "trie-root",
@@ -24594,12 +22983,12 @@ dependencies = [
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "schnellru",
  "sp-core 32.0.0",
  "sp-externalities 0.28.0",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing",
  "trie-db 0.29.1",
  "trie-root",
@@ -24618,12 +23007,12 @@ dependencies = [
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "schnellru",
  "sp-core 33.0.1",
  "sp-externalities 0.28.0",
- "thiserror 1.0.65",
+ "thiserror",
  "tracing",
  "trie-db 0.29.1",
  "trie-root",
@@ -24641,43 +23030,18 @@ dependencies = [
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
+ "rand",
  "scale-info",
  "schnellru",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-externalities 0.30.0",
  "sp-runtime 40.1.0",
  "thiserror",
-=======
- "sp-core 34.0.0",
- "sp-externalities 0.29.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tracing",
  "trie-bench",
  "trie-db 0.29.1",
  "trie-root",
-<<<<<<< HEAD
  "trie-standardmap",
-=======
-]
-
-[[package]]
-name = "sp-version"
-version = "29.0.0"
-dependencies = [
- "impl-serde 0.5.0",
- "parity-scale-codec",
- "parity-wasm",
- "scale-info",
- "serde",
- "sp-crypto-hashing-proc-macro 0.1.0",
- "sp-runtime 31.0.1",
- "sp-std 14.0.0",
- "sp-version-proc-macro 13.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -24695,7 +23059,7 @@ dependencies = [
  "sp-runtime 37.0.0",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-version-proc-macro 14.0.0",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -24707,19 +23071,11 @@ dependencies = [
  "parity-wasm",
  "scale-info",
  "serde",
-<<<<<<< HEAD
  "sp-crypto-hashing-proc-macro 0.1.0",
  "sp-runtime 40.1.0",
  "sp-std 14.0.0",
  "sp-version-proc-macro 15.0.0",
  "thiserror",
-=======
- "sp-crypto-hashing-proc-macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-runtime 39.0.2",
- "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-version-proc-macro 14.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -24863,213 +23219,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "sqlformat"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bba3a93db0cc4f7bdece8bb09e77e2e785c20bfebf79eb8340ed80708048790"
-dependencies = [
- "nom",
- "unicode_categories",
-]
-
-[[package]]
-name = "sqlx"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93334716a037193fac19df402f8571269c84a00852f6a7066b5d2616dcd64d3e"
-dependencies = [
- "sqlx-core",
- "sqlx-macros",
- "sqlx-mysql",
- "sqlx-postgres",
- "sqlx-sqlite",
-]
-
-[[package]]
-name = "sqlx-core"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4d8060b456358185f7d50c55d9b5066ad956956fddec42ee2e8567134a8936e"
-dependencies = [
- "atoi",
- "byteorder",
- "bytes",
- "crc",
- "crossbeam-queue",
- "either",
- "event-listener 5.3.1",
- "futures-channel",
- "futures-core",
- "futures-intrusive",
- "futures-io",
- "futures-util",
- "hashbrown 0.14.5",
- "hashlink 0.9.1",
- "hex",
- "indexmap 2.7.1",
- "log",
- "memchr",
- "once_cell",
- "paste",
- "percent-encoding",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "smallvec",
- "sqlformat",
- "thiserror 1.0.65",
- "tokio",
- "tokio-stream",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "sqlx-macros"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cac0692bcc9de3b073e8d747391827297e075c7710ff6276d9f7a1f3d58c6657"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "sqlx-core",
- "sqlx-macros-core",
- "syn 2.0.98",
-]
-
-[[package]]
-name = "sqlx-macros-core"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1804e8a7c7865599c9c79be146dc8a9fd8cc86935fa641d3ea58e5f0688abaa5"
-dependencies = [
- "dotenvy",
- "either",
- "heck 0.5.0",
- "hex",
- "once_cell",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "sqlx-core",
- "sqlx-mysql",
- "sqlx-postgres",
- "sqlx-sqlite",
- "syn 2.0.98",
- "tempfile",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "sqlx-mysql"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64bb4714269afa44aef2755150a0fc19d756fb580a67db8885608cf02f47d06a"
-dependencies = [
- "atoi",
- "base64 0.22.1",
- "bitflags 2.6.0",
- "byteorder",
- "bytes",
- "crc",
- "digest 0.10.7",
- "dotenvy",
- "either",
- "futures-channel",
- "futures-core",
- "futures-io",
- "futures-util",
- "generic-array 0.14.7",
- "hex",
- "hkdf",
- "hmac 0.12.1",
- "itoa",
- "log",
- "md-5",
- "memchr",
- "once_cell",
- "percent-encoding",
- "rand 0.8.5",
- "rsa",
- "serde",
- "sha1",
- "sha2 0.10.8",
- "smallvec",
- "sqlx-core",
- "stringprep",
- "thiserror 1.0.65",
- "tracing",
- "whoami",
-]
-
-[[package]]
-name = "sqlx-postgres"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fa91a732d854c5d7726349bb4bb879bb9478993ceb764247660aee25f67c2f8"
-dependencies = [
- "atoi",
- "base64 0.22.1",
- "bitflags 2.6.0",
- "byteorder",
- "crc",
- "dotenvy",
- "etcetera",
- "futures-channel",
- "futures-core",
- "futures-io",
- "futures-util",
- "hex",
- "hkdf",
- "hmac 0.12.1",
- "home",
- "itoa",
- "log",
- "md-5",
- "memchr",
- "once_cell",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "smallvec",
- "sqlx-core",
- "stringprep",
- "thiserror 1.0.65",
- "tracing",
- "whoami",
-]
-
-[[package]]
-name = "sqlx-sqlite"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5b2cf34a45953bfd3daaf3db0f7a7878ab9b7a6b91b422d24a7a9e4c857b680"
-dependencies = [
- "atoi",
- "flume",
- "futures-channel",
- "futures-core",
- "futures-executor",
- "futures-intrusive",
- "futures-util",
- "libsqlite3-sys",
- "log",
- "percent-encoding",
- "serde",
- "serde_urlencoded",
- "sqlx-core",
- "tracing",
- "url",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "ss58-registry"
 version = "1.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -25149,7 +23298,7 @@ dependencies = [
  "platforms",
  "polkadot-sdk",
  "pretty_assertions",
- "rand 0.8.5",
+ "rand",
  "regex",
  "sc-service-test",
  "scale-info",
@@ -25177,19 +23326,11 @@ dependencies = [
  "sc-client-api",
  "sc-service",
  "sp-blockchain",
-<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-io 39.0.0",
  "sp-runtime 40.1.0",
  "sp-statement-store",
  "thiserror",
-=======
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-statement-store 10.0.0",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -25523,7 +23664,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
  "wasm-testbed",
 ]
 
@@ -25577,7 +23718,7 @@ dependencies = [
  "hyper-util",
  "log",
  "prometheus",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
 ]
 
@@ -25621,7 +23762,7 @@ dependencies = [
  "sp-trie 38.0.0",
  "structopt",
  "strum 0.26.3",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -25650,13 +23791,8 @@ dependencies = [
  "sp-core 32.0.0",
  "sp-io 35.0.0",
  "sp-runtime 36.0.0",
-<<<<<<< HEAD
  "sp-wasm-interface 21.0.0",
  "thiserror",
-=======
- "sp-wasm-interface 21.0.1",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -25784,7 +23920,7 @@ dependencies = [
  "sp-blockchain",
  "sp-runtime 40.1.0",
  "substrate-test-runtime-client",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -25855,20 +23991,15 @@ dependencies = [
  "ipfs-hasher",
  "log",
  "num-format",
-<<<<<<< HEAD
  "rand",
  "reqwest 0.12.5",
-=======
- "rand 0.8.5",
- "reqwest 0.12.9",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "scale-info",
  "semver 1.0.18",
  "serde",
  "serde_json",
  "sp-version 35.0.0",
  "substrate-differ",
- "thiserror 1.0.65",
+ "thiserror",
  "url",
  "uuid",
  "wasm-loader",
@@ -25905,12 +24036,7 @@ dependencies = [
  "subxt-lightclient",
  "subxt-macro",
  "subxt-metadata",
-<<<<<<< HEAD
  "thiserror",
-=======
- "thiserror 1.0.65",
- "tokio",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio-util",
  "tracing",
  "url",
@@ -25932,14 +24058,9 @@ dependencies = [
  "scale-info",
  "scale-typegen",
  "subxt-metadata",
-<<<<<<< HEAD
  "syn 2.0.87",
  "thiserror",
  "tokio",
-=======
- "syn 2.0.98",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 ]
 
 [[package]]
@@ -25981,13 +24102,8 @@ dependencies = [
  "futures-util",
  "serde",
  "serde_json",
-<<<<<<< HEAD
  "smoldot-light 0.14.0",
  "thiserror",
-=======
- "smoldot-light 0.16.2",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio",
  "tokio-stream",
  "tracing",
@@ -26046,20 +24162,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "subxt-utils-fetchmetadata"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3082b17a86e3c3fe45d858d94d68f6b5247caace193dad6201688f24db8ba9bb"
-dependencies = [
- "hex",
- "parity-scale-codec",
- "thiserror 1.0.65",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "sval"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -26495,16 +24597,7 @@ version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d11abd9594d9b38965ef50805c5e469ca9cc6f197f883f717e0269a3057b3d5"
 dependencies = [
- "thiserror-impl 1.0.65",
-]
-
-[[package]]
-name = "thiserror"
-version = "2.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d452f284b73e6d76dd36758a0c8684b1d5be31f92b89d07fd5822175732206fc"
-dependencies = [
- "thiserror-impl 2.0.11",
+ "thiserror-impl",
 ]
 
 [[package]]
@@ -26536,17 +24629,6 @@ dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "2.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26afc1baea8a989337eeb52b6e72a039780ce45c3edfcc9c5b9d112feeb173c2"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
 ]
 
 [[package]]
@@ -26648,16 +24730,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinystr"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9117f5d4db391c1cf6927e7bea3db74b9a1c1add8f7eda9ffd5364f40f57b82f"
-dependencies = [
- "displaydoc",
- "zerovec",
-]
-
-[[package]]
 name = "tinytemplate"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -26695,7 +24767,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.5.8",
+ "socket2 0.5.7",
  "tokio-macros",
  "windows-sys 0.52.0",
 ]
@@ -26738,7 +24810,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f57eb36ecbe0fc510036adff84824dd3c24bb781e21bfa67b69d556aa85214f"
 dependencies = [
  "pin-project",
- "rand 0.8.5",
+ "rand",
  "tokio",
 ]
 
@@ -26807,24 +24879,11 @@ checksum = "212d5dcb2a1ce06d81107c3d0ffa3121fe974b73f068c8282cb1c32328113b6c"
 dependencies = [
  "futures-util",
  "log",
+ "rustls 0.21.7",
+ "rustls-native-certs 0.6.3",
  "tokio",
+ "tokio-rustls 0.24.1",
  "tungstenite 0.20.1",
-]
-
-[[package]]
-name = "tokio-tungstenite"
-version = "0.26.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a9daff607c6d2bf6c16fd681ccb7eecc83e4e2cdc1ca067ffaadfca5de7f084"
-dependencies = [
- "futures-util",
- "log",
- "rustls 0.23.18",
- "rustls-native-certs 0.8.0",
- "rustls-pki-types",
- "tokio",
- "tokio-rustls 0.26.0",
- "tungstenite 0.26.2",
 ]
 
 [[package]]
@@ -26890,13 +24949,9 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
-<<<<<<< HEAD
  "indexmap 2.2.3",
  "serde",
  "serde_spanned",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "toml_datetime",
  "winnow 0.5.15",
 ]
@@ -26907,11 +24962,7 @@ version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d34d383cd00a163b4a5b85053df514d45bc330f6de7737edfe0a93311d1eaa03"
 dependencies = [
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "toml_datetime",
  "winnow 0.5.15",
 ]
@@ -26922,11 +24973,7 @@ version = "0.22.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3328d4f68a705b2a4498da1d580585d39a6510f98318a2cec3018a7ec61ddef"
 dependencies = [
-<<<<<<< HEAD
  "indexmap 2.2.3",
-=======
- "indexmap 2.7.1",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -27311,9 +25358,10 @@ dependencies = [
  "http 0.2.9",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand",
+ "rustls 0.21.7",
  "sha1",
- "thiserror 1.0.65",
+ "thiserror",
  "url",
  "utf-8",
 ]
@@ -27330,32 +25378,12 @@ dependencies = [
  "http 1.1.0",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand",
  "rustls 0.22.4",
  "rustls-native-certs 0.7.0",
  "rustls-pki-types",
  "sha1",
- "thiserror 1.0.65",
- "url",
- "utf-8",
-]
-
-[[package]]
-name = "tungstenite"
-version = "0.26.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4793cb5e56680ecbb1d843515b23b6de9a75eb04b66643e256a396d43be33c13"
-dependencies = [
- "bytes",
- "data-encoding",
- "http 1.1.0",
- "httparse",
- "log",
- "rand 0.9.0",
- "rustls 0.23.18",
- "rustls-pki-types",
- "sha1",
- "thiserror 2.0.11",
+ "thiserror",
  "url",
  "utf-8",
 ]
@@ -27374,7 +25402,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.8.5",
+ "rand",
  "static_assertions",
 ]
 
@@ -27547,12 +25575,12 @@ dependencies = [
 
 [[package]]
 name = "url"
-version = "2.5.4"
+version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32f8b686cadd1473f4bd0117a5d28d36b1ade384ea9b5069a1c40aefed7fda60"
+checksum = "22784dbdf76fdde8af1aeda5622b546b422b6fc585325248a2bf9f5e41e94d6c"
 dependencies = [
  "form_urlencoded",
- "idna 1.0.3",
+ "idna 0.5.0",
  "percent-encoding",
  "serde",
 ]
@@ -27562,18 +25590,6 @@ name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
-
-[[package]]
-name = "utf16_iter"
-version = "1.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8232dd3cdaed5356e0f716d285e4b40b932ac434100fe9b7e0e8e935b9e6246"
-
-[[package]]
-name = "utf8_iter"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
 name = "utf8parse"
@@ -27587,7 +25603,7 @@ version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom",
 ]
 
 [[package]]
@@ -27671,12 +25687,12 @@ dependencies = [
  "arrayref",
  "constcat",
  "digest 0.10.7",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand",
+ "rand_chacha",
  "rand_core 0.6.4",
  "sha2 0.10.8",
  "sha3 0.10.8",
- "thiserror 1.0.65",
+ "thiserror",
  "zeroize",
 ]
 
@@ -27721,24 +25737,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "wasi"
-version = "0.13.3+wasi-0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26816d2e1a4a36a2940b96c5296ce403917633dff8f3440e9b236ed6f6bacad2"
-dependencies = [
- "wit-bindgen-rt",
-]
-
-[[package]]
-name = "wasite"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8dad83b4f25e74f184f64c43b150b91efe7647395b42289f38e50566d82855b"
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "wasm-bindgen"
 version = "0.2.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -27862,7 +25860,7 @@ dependencies = [
  "serde_json",
  "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subrpcer",
- "thiserror 1.0.65",
+ "thiserror",
  "tungstenite 0.21.0",
  "ureq",
  "url",
@@ -27879,7 +25877,7 @@ dependencies = [
  "strum 0.24.1",
  "strum_macros 0.24.3",
  "tempfile",
- "thiserror 1.0.65",
+ "thiserror",
  "wasm-opt-cxx-sys",
  "wasm-opt-sys",
 ]
@@ -27927,7 +25925,7 @@ dependencies = [
  "sp-version 35.0.0",
  "sp-wasm-interface 21.0.0",
  "substrate-runtime-proposal-hash",
- "thiserror 1.0.65",
+ "thiserror",
  "wasm-loader",
 ]
 
@@ -28109,7 +26107,7 @@ dependencies = [
  "log",
  "object 0.30.4",
  "target-lexicon",
- "thiserror 1.0.65",
+ "thiserror",
  "wasmparser",
  "wasmtime-cranelift-shared",
  "wasmtime-environ",
@@ -28144,7 +26142,7 @@ dependencies = [
  "object 0.30.4",
  "serde",
  "target-lexicon",
- "thiserror 1.0.65",
+ "thiserror",
  "wasmparser",
  "wasmtime-types",
 ]
@@ -28211,7 +26209,7 @@ dependencies = [
  "memfd",
  "memoffset 0.8.0",
  "paste",
- "rand 0.8.5",
+ "rand",
  "rustix 0.36.15",
  "wasmtime-asm-macros",
  "wasmtime-environ",
@@ -28227,7 +26225,7 @@ checksum = "a4f6fffd2a1011887d57f07654dd112791e872e3ff4a2e626aee8059ee17f06f"
 dependencies = [
  "cranelift-entity",
  "serde",
- "thiserror 1.0.65",
+ "thiserror",
  "wasmparser",
 ]
 
@@ -28787,7 +26785,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "winreg"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -28798,29 +26795,6 @@ dependencies = [
 ]
 
 [[package]]
-=======
-name = "wit-bindgen-rt"
-version = "0.33.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3268f3d866458b787f390cf61f4bbb563b922d091359f9608842999eaee3943c"
-dependencies = [
- "bitflags 2.6.0",
-]
-
-[[package]]
-name = "write16"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1890f4022759daae28ed4fe62859b1236caebfc61ede2f63ed4e695f3f6d936"
-
-[[package]]
-name = "writeable"
-version = "0.5.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "wyz"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -28831,9 +26805,9 @@ dependencies = [
 
 [[package]]
 name = "x25519-dalek"
-version = "2.0.1"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7e468321c81fb07fa7f4c636c3972b9100f0346e5b6a9f2bd0603a52f7ed277"
+checksum = "fb66477291e7e8d2b0ff1bcb900bf29489a9692816d79874bea351e7a8b6de96"
 dependencies = [
  "curve25519-dalek 4.1.3",
  "rand_core 0.6.4",
@@ -28871,24 +26845,7 @@ dependencies = [
  "nom",
  "oid-registry 0.7.0",
  "rusticata-macros",
- "thiserror 1.0.65",
- "time",
-]
-
-[[package]]
-name = "x509-parser"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4569f339c0c402346d4a75a9e39cf8dad310e287eef1ff56d4c68e5067f53460"
-dependencies = [
- "asn1-rs 0.7.0",
- "data-encoding",
- "der-parser 10.0.0",
- "lazy_static",
- "nom",
- "oid-registry 0.8.1",
- "rusticata-macros",
- "thiserror 2.0.11",
+ "thiserror",
  "time",
 ]
 
@@ -29122,30 +27079,11 @@ dependencies = [
  "nohash-hasher",
  "parking_lot 0.12.3",
  "pin-project",
- "rand 0.8.5",
+ "rand",
  "static_assertions",
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "yamux"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17610762a1207ee816c6fadc29220904753648aba0a9ed61c7b8336e80a559c4"
-dependencies = [
- "futures",
- "log",
- "nohash-hasher",
- "parking_lot 0.12.3",
- "pin-project",
- "rand 0.8.5",
- "static_assertions",
- "web-time",
-]
-
-[[package]]
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
 name = "yansi"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -29167,45 +27105,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "yoke"
-version = "0.7.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "120e6aef9aa629e3d4f52dc8cc43a015c7724194c97dfaf45180d2daf2b77f40"
-dependencies = [
- "serde",
- "stable_deref_trait",
- "yoke-derive",
- "zerofrom",
-]
-
-[[package]]
-name = "yoke-derive"
-version = "0.7.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2380878cad4ac9aac1e2435f3eb4020e8374b5f13c296cb75b4620ff8e229154"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
- "synstructure 0.13.1",
-]
-
-[[package]]
 name = "zerocopy"
 version = "0.7.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74d4d3961e53fa4c9a25a8637fc2bfaf2595b3d3ae34875568a5cf64787716be"
 dependencies = [
- "zerocopy-derive 0.7.32",
-]
-
-[[package]]
-name = "zerocopy"
-version = "0.8.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dde3bb8c68a8f3f1ed4ac9221aad6b10cece3e60a8e2ea54a6a2dec806d0084c"
-dependencies = [
- "zerocopy-derive 0.8.20",
+ "zerocopy-derive",
 ]
 
 [[package]]
@@ -29217,38 +27122,6 @@ dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
-]
-
-[[package]]
-name = "zerocopy-derive"
-version = "0.8.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eea57037071898bf96a6da35fd626f4f27e9cee3ead2a6c703cf09d472b2e700"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
-]
-
-[[package]]
-name = "zerofrom"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cff3ee08c995dee1859d998dea82f7374f2826091dd9cd47def953cae446cd2e"
-dependencies = [
- "zerofrom-derive",
-]
-
-[[package]]
-name = "zerofrom-derive"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "595eed982f7d355beb85837f651fa22e90b3c044842dc7f2c2842c086f295808"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
- "synstructure 0.13.1",
 ]
 
 [[package]]
@@ -29272,28 +27145,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "zerovec"
-version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa2b893d79df23bfb12d5461018d408ea19dfafe76c2c7ef6d4eba614f8ff079"
-dependencies = [
- "yoke",
- "zerofrom",
- "zerovec-derive",
-]
-
-[[package]]
-name = "zerovec-derive"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6eafa6dfb17584ea3e2bd6e76e0cc15ad7af12b09abdd1ca55961bed9b1063c6"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
-]
-
-[[package]]
 name = "zombienet-backchannel"
 version = "1.0.0"
 dependencies = [
@@ -29302,9 +27153,9 @@ dependencies = [
  "reqwest 0.11.20",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
- "tokio-tungstenite 0.20.1",
+ "tokio-tungstenite",
  "tracing-gum",
  "url",
 ]
@@ -29322,7 +27173,7 @@ dependencies = [
  "reqwest 0.11.20",
  "serde",
  "serde_json",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "toml 0.7.8",
  "url",
@@ -29343,7 +27194,7 @@ dependencies = [
  "libp2p",
  "libsecp256k1",
  "multiaddr 0.18.1",
- "rand 0.8.5",
+ "rand",
  "regex",
  "reqwest 0.11.20",
  "serde",
@@ -29352,7 +27203,7 @@ dependencies = [
  "sp-core 31.0.0",
  "subxt",
  "subxt-signer",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tracing",
  "uuid",
@@ -29370,7 +27221,7 @@ checksum = "7203390ab88919240da3a3eb06b625b6e300e94f98e04ba5141e9138dc663b7d"
 dependencies = [
  "pest",
  "pest_derive",
- "thiserror 1.0.65",
+ "thiserror",
 ]
 
 [[package]]
@@ -29394,7 +27245,7 @@ dependencies = [
  "serde_yaml",
  "sha2 0.10.8",
  "tar",
- "thiserror 1.0.65",
+ "thiserror",
  "tokio",
  "tokio-util",
  "tracing",
@@ -29430,19 +27281,11 @@ dependencies = [
  "anyhow",
  "async-trait",
  "futures",
-<<<<<<< HEAD
  "nix 0.27.1",
  "rand",
  "regex",
  "reqwest 0.11.20",
  "thiserror",
-=======
- "nix 0.29.0",
- "rand 0.8.5",
- "regex",
- "reqwest 0.11.27",
- "thiserror 1.0.65",
->>>>>>> 42e9de7f (net/litep2p: Bring the latest compatibility fixes via v0.9.1 (#7640))
  "tokio",
  "tracing",
  "uuid",
