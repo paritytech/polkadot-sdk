@@ -1377,7 +1377,7 @@ where
 /// For now, we consider that all addresses between 0x1 and 0xff are reserved for precompiles.
 fn is_precompile(address: &H160) -> bool {
 	let bytes = address.as_bytes();
-	bytes.starts_with(&[0u8; 19]) && (1..=255).contains(&bytes[19])
+	bytes.starts_with(&[0u8; 19]) && bytes[19] != 0
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
