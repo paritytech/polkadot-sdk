@@ -26,6 +26,7 @@ use crate::Event as ChildBountiesEvent;
 use core::cell::RefCell;
 
 use alloc::collections::btree_map::BTreeMap;
+use pallet_bounties::{BountyStatus, PaymentState, BountyIndex};
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{
@@ -53,12 +54,6 @@ thread_local! {
 	pub static TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
 }
 
-// This function directly jumps to a block number, and calls `on_initialize`.
-pub fn go_to_block(n: u64) {
-	<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
-	<Treasury as OnInitialize<u64>>::on_initialize(n);
-}
-
 pub struct TestPay;
 impl Pay for TestPay {
 	type Beneficiary = AccountId;
@@ -74,18 +69,21 @@ impl Pay for TestPay {
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
 		let balance_from = Balances::free_balance(*from).saturating_sub(amount);
+
 		assert_ok!(Balances::force_set_balance(
 			frame_system::RawOrigin::Root.into(),
 			*from,
 			balance_from,
 		));
 		let balance_to = Balances::free_balance(*to).saturating_add(amount);
+
 		assert_ok!(Balances::force_set_balance(
 			frame_system::RawOrigin::Root.into(),
 			*to,
 			balance_to,
 		));
 
+		println!("paying {} from {:?} to {:?} with asset kind {}", amount, from, to, asset_kind);
 		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
 		Ok(LAST_ID.with(|lid| {
 			let x = *lid.borrow();
@@ -94,7 +92,7 @@ impl Pay for TestPay {
 		}))
 	}
 	fn check_payment(id: Self::Id) -> PaymentStatus {
-		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown))
+		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
@@ -121,15 +119,9 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-
-
-pub fn account_id(id: u8) -> AccountId {
-	sp_core::U256::from(id)
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type AccountId = sp_core::U256; 
+	type AccountId = AccountId; 
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
@@ -142,8 +134,8 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
-	pub TreasuryAccount: AccountId = Treasury::account_id();
 	pub const SpendLimit: Balance = u64::MAX;
+	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
 impl pallet_treasury::Config for Test {
@@ -201,6 +193,31 @@ impl pallet_child_bounties::Config for Test {
 	type BenchmarkHelper = ();
 }
 
+pub fn account_id(id: u8) -> AccountId {
+	sp_core::U256::from(id)
+}
+
+/// paid balance for a given account and asset ids
+pub fn paid(who: AccountId, asset_id: u32) -> u64 {
+	PAID.with(|p| p.borrow().get(&(who, asset_id)).cloned().unwrap_or(0))
+}
+
+/// reduce paid balance for a given account and asset ids
+fn unpay(who: AccountId, asset_id: u32, amount: u64) {
+	PAID.with(|p| p.borrow_mut().entry((who, asset_id)).or_default().saturating_reduce(amount))
+}
+
+/// set status for a given payment id
+pub fn set_status(id: u64, s: PaymentStatus) {
+	STATUS.with(|m| m.borrow_mut().insert(id, s));
+}
+
+// This function directly jumps to a block number, and calls `on_initialize`.
+pub fn go_to_block(n: u64) {
+	<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
+	<Treasury as OnInitialize<u64>>::on_initialize(n);
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
@@ -223,4 +240,64 @@ pub fn last_event() -> ChildBountiesEvent<Test> {
 		.filter_map(|e| if let RuntimeEvent::ChildBounties(inner) = e { Some(inner) } else { None })
 		.last()
 		.unwrap()
+}
+
+pub fn get_bounty_payment_id(i: BountyIndex, to: Option<AccountId>) -> Option<u64> {
+	let bounty = pallet_bounties::Bounties::<Test>::get(i).expect("no bounty");
+
+	match bounty.get_status() {
+		BountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
+		BountyStatus::ApprovedWithCurator { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
+		BountyStatus::RefundAttempted { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
+		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } => to.and_then(|account| {
+			if account == curator_stash.0 {
+				if let PaymentState::Attempted { id } = curator_stash.1 {
+					return Some(id);
+				}
+			} else if account == beneficiary.0 {
+				if let PaymentState::Attempted { id } = beneficiary.1 {
+					return Some(id);
+				}
+			}
+			None
+		}),
+		_ => None,
+	}
+}
+
+pub fn get_child_bounty_payment_id(parent_id: BountyIndex, child_id: BountyIndex, to: Option<AccountId>) -> Option<u64> {
+	let child_bounty = pallet_child_bounties::ChildBounties::<Test>::get(parent_id, child_id).expect("no child-bounty");
+
+	match child_bounty.status {
+		ChildBountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
+		ChildBountyStatus::ApprovedWithCurator { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
+		ChildBountyStatus::RefundAttempted { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
+		ChildBountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } => to.and_then(|account| {
+			if account == curator_stash.0 {
+				if let PaymentState::Attempted { id } = curator_stash.1 {
+					return Some(id);
+				}
+			} else if account == beneficiary.0 {
+				if let PaymentState::Attempted { id } = beneficiary.1 {
+					return Some(id);
+				}
+			}
+			None
+		}),
+		_ => None,
+	}
+}
+
+pub fn approve_bounty_payment(account: AccountId, parent_id: BountyIndex, asset_id: u32, amount: u64) {
+	assert_eq!(paid(account, asset_id), amount);
+	let payment_id = get_bounty_payment_id(parent_id, Some(account)).expect("no payment attempt");
+	set_status(payment_id, PaymentStatus::Success);
+	assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(account_id(0)), parent_id));
+}
+
+pub fn approve_child_bounty_payment(account: AccountId, parent_id: BountyIndex, child_id: BountyIndex, asset_id: u32, amount: u64) {
+	assert_eq!(paid(account, asset_id), amount);
+	let payment_id = get_child_bounty_payment_id(parent_id, child_id, Some(account)).expect("no payment attempt");
+	set_status(payment_id, PaymentStatus::Success);
+    assert_ok!(ChildBounties::check_payment_status(RuntimeOrigin::signed(account_id(0)), parent_id, child_id));
 }

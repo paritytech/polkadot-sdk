@@ -1585,7 +1585,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		payments_succeeded: &mut i32,
 		beneficiary: &mut (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
 	) -> Result<(), Error<T, I>> {
-		
+
 		match beneficiary.1 {
 			PaymentState::Pending => {
 				// user should try processing payment again, not check its status
@@ -1630,12 +1630,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		fee: BountyBalanceOf<T, I>,
 		value: BountyBalanceOf<T, I>,
 	) -> (BountyBalanceOf<T, I>, BountyBalanceOf<T, I>) {
+		// Tiago: The payout should be the balance of the bounty account of asset_kind.
+		// if a child bounty is added and claimed, and parent-bounty is claimed the bounty.amount is returned
+		// and not the balance of the bounty account.
+		// right? how to handle this?
 		let payout = value - fee;
 
 		// Get total child bounties curator fees, and subtract it from the parent
 		// curator fee (the fee in present referenced bounty, `self`).
 		let children_fee = T::ChildBountyManager::children_curator_fees(bounty_id);
 		debug_assert!(children_fee <= fee);
+
 		let final_fee = fee.saturating_sub(children_fee);
 		(final_fee, payout)
 	}
