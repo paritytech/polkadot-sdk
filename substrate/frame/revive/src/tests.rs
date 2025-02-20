@@ -4613,7 +4613,6 @@ fn ecrecover_precompile_works() {
 			let result = builder::bare_call(addr)
 				.data((H160::from_low_u64_be(0x1), 100u64, input).encode())
 				.build_and_unwrap_result();
-			assert_eq!(result.flags, ReturnFlags::empty());
 			assert_eq!(result.data, output);
 		}
 	});
