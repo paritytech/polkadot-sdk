@@ -41,14 +41,14 @@ frame-system.default-features = true
 sc-block-builder.workspace = true
 sc-block-builder.default-features = true
 sc-chain-spec.workspace = true
-sc-cli.workspace = true
+sc-cli = { workspace = true, default-features = false }
 sc-client-api.workspace = true
 sc-client-api.default-features = true
-sc-client-db.workspace = true
+sc-client-db = { workspace = true, default-features = false }
 sc-executor.workspace = true
 sc-executor.default-features = true
 sc-executor-common.workspace = true
-sc-service.workspace = true
+sc-service = { workspace = true, default-features = false }
 sc-sysinfo.workspace = true
 sc-sysinfo.default-features = true
 sp-api.workspace = true
@@ -108,7 +108,7 @@ substrate-test-runtime = { default-features = true, path = "../../../test-utils/
 westend-runtime = { default-features = true, path = "../../../../polkadot/runtime/westend" }
 
 [features]
-default = ["rocksdb"]
+default = []
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",

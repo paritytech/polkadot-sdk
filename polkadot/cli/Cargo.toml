@@ -35,8 +35,8 @@ sp-keyring.default-features = true
 sp-maybe-compressed-blob.workspace = true
 sp-maybe-compressed-blob.default-features = true
 frame-benchmarking-cli = { optional = true, workspace = true, default-features = true }
-sc-cli = { optional = true, workspace = true, default-features = true }
-sc-service = { optional = true, workspace = true, default-features = true }
+sc-cli = { optional = true, workspace = true, default-features = false }
+sc-service = { optional = true, workspace = true, default-features = false }
 polkadot-node-metrics.workspace = true
 polkadot-node-metrics.default-features = true
 polkadot-node-primitives.workspace = true

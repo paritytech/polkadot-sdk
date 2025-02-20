@@ -28,9 +28,9 @@ node-primitives.workspace = true
 node-primitives.default-features = true
 node-cli.workspace = true
 sc-cli.workspace = true
-sc-cli.default-features = true
+sc-cli.default-features = false
 sc-service.workspace = true
-sc-service.default-features = true
+sc-service.default-features = false
 futures = { workspace = true }
 
 [features]

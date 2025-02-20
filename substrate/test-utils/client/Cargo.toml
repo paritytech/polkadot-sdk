@@ -24,14 +24,14 @@ serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sc-client-api.workspace = true
 sc-client-api.default-features = true
-sc-client-db = { features = ["test-helpers"], workspace = true }
+sc-client-db = { features = ["test-helpers"], workspace = true, default-features = false}
 sc-consensus.workspace = true
 sc-consensus.default-features = true
 sc-executor.workspace = true
 sc-executor.default-features = true
 sc-offchain.workspace = true
 sc-offchain.default-features = true
-sc-service = { features = ["test-helpers"], workspace = true }
+sc-service = { features = ["test-helpers"], workspace = true, default-features = false }
 sp-blockchain.workspace = true
 sp-blockchain.default-features = true
 sp-consensus.workspace = true
