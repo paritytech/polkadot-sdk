@@ -30,8 +30,8 @@ use xcm::prelude::*;
 
 use crate::{
 	traits::{
-		DropAssets, FeeManager, Properties, ShouldExecute, TransactAsset, WeightBounds,
-		WeightTrader, ProcessTransaction,
+		DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute, TransactAsset,
+		WeightBounds, WeightTrader,
 	},
 	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
@@ -275,7 +275,7 @@ impl ProcessTransaction for TestTransactionalProcessor {
 
 	fn process<F>(f: F) -> Result<(), XcmError>
 	where
-		F: FnOnce() -> Result<(), XcmError>
+		F: FnOnce() -> Result<(), XcmError>,
 	{
 		f()
 	}
