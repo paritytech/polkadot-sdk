@@ -35,8 +35,8 @@ use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, Member,
-		TransactionExtension,
+		self, AtLeast32BitUnsigned, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata,
+		IdentifyAccount, Member, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic, RuntimeDebug,
@@ -491,6 +491,11 @@ mod test {
 				Ok(dry_run) => {
 					log::debug!(target: LOG_TARGET, "Estimated gas: {:?}", dry_run.eth_gas);
 					self.tx.gas = Some(dry_run.eth_gas);
+					let (gas_limit, deposit) =
+						<<Test as Config>::EthGasEncoder as GasEncoder<_>>::decode(dry_run.eth_gas)
+							.unwrap();
+					self.gas_limit = gas_limit;
+					self.storage_deposit_limit = deposit;
 				},
 				Err(err) => {
 					log::debug!(target: LOG_TARGET, "Failed to estimate gas: {:?}", err);
