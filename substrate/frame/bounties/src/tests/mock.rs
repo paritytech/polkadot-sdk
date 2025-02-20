@@ -96,7 +96,7 @@ impl Pay for TestPay {
 		}))
 	}
 	fn check_payment(id: Self::Id) -> PaymentStatus {
-		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown))
+		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
@@ -300,36 +300,32 @@ pub fn expect_events(e: Vec<BountiesEvent<Test>>) {
 	assert_eq!(last_events(e.len()), e);
 }
 
-pub fn get_payment_id(i: BountyIndex) -> Option<u64> {
+pub fn get_payment_id(i: BountyIndex, to: Option<u128>) -> Option<u64> {
 	let bounty = pallet_bounties::Bounties::<Test>::get(i).expect("no bounty");
-
+	println!("{:?}", bounty);
 	match bounty.status {
 		BountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
 		BountyStatus::ApprovedWithCurator { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
 		BountyStatus::RefundAttempted { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
+		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } => to.and_then(|account| {
+			if account == curator_stash.0 {
+				if let PaymentState::Attempted { id } = curator_stash.1 {
+					return Some(id);
+				}
+			} else if account == beneficiary.0 {
+				if let PaymentState::Attempted { id } = beneficiary.1 {
+					return Some(id);
+				}
+			}
+			None
+		}),
 		_ => None,
 	}
 }
 
-pub fn get_payment_ids(i: BountyIndex) -> Option<(u64, u64)> {
-    let bounty = pallet_bounties::Bounties::<Test>::get(i).expect("no bounty");
-
-    match bounty.status {
-        BountyStatus::PayoutAttempted { curator_stash, beneficiary, curator: _ } => {
-            match (curator_stash.1, beneficiary.1) {
-                (PaymentState::Attempted { id: curator_payment_id }, PaymentState::Attempted { id: beneficiary_payment_id }) => {
-                    Some((curator_payment_id, beneficiary_payment_id))
-                },
-                _ => None,
-            }
-        },
-        _ => None,
-    }
-}
-
 pub fn approve_payment(account_id: u128, bounty_index: BountyIndex, asset_id: u32, amount: u64) {
 	assert_eq!(paid(account_id, asset_id), amount);
-	let payment_id = get_payment_id(bounty_index).expect("no payment attempt");
+	let payment_id = get_payment_id(bounty_index, Some(account_id)).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Success);
 	assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(0), bounty_index));
 }

@@ -87,35 +87,29 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod migrations;
 #[cfg(test)]
 mod tests;
+pub mod migrations;
 pub mod weights;
+pub use pallet::*;
+pub use weights::WeightInfo;
 
 extern crate alloc;
-
 use alloc::vec::Vec;
-
 use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
-	Get, OnUnbalanced, ReservableCurrency,
+	Get, OnUnbalanced, ReservableCurrency, Currency
 };
-
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
 	DispatchResult, Permill, RuntimeDebug,
 };
-
 use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
-
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
 };
 use scale_info::TypeInfo;
-pub use weights::WeightInfo;
-
-pub use pallet::*;
 
 type DepositBalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
 type BountyBalanceOf<T, I = ()> = pallet_treasury::AssetBalanceOf<T, I>;
@@ -743,6 +737,7 @@ pub mod pallet {
 						
 						let update_due =
 							Self::treasury_block_number() + T::BountyUpdatePeriod::get();
+						
 						bounty.status = BountyStatus::Active {
 							curator: curator.clone(),
 							curator_stash: stash,
@@ -848,6 +843,7 @@ pub mod pallet {
 						final_fee,
 					)
 					.map_err(|_| Error::<T, I>::PayoutError)?;
+
 					let beneficiary_payment_id = T::Paymaster::pay(
 						&bounty_account,
 						&beneficiary,
@@ -933,6 +929,7 @@ pub mod pallet {
 							// Nothing extra to do besides the removal of the bounty below.
 						},
 						BountyStatus::Active { curator, .. } => {
+							// Tiago: I should only unreserve once payment succeeds right?
 							// Cancelled by council, refund deposit of the working curator.
 							let err_amount =
 								T::Currency::unreserve(curator, bounty.curator_deposit);
@@ -1288,7 +1285,7 @@ pub mod pallet {
 									match T::Paymaster::check_payment(*id) {
 										PaymentStatus::Success => {
 
-											// Tiago: Do you need this?
+											// Tiago: Do we need this?
 											// let res = T::Currency::transfer(
 											// 	&bounty_account,
 											// 	&Self::account_id(),
@@ -1438,6 +1435,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::PalletId::get().into_sub_account_truncating(("bt", id))
 	}
 
+	/// Return the amount of money in the bounty.
+	pub fn bounty_balance(id: BountyIndex) -> DepositBalanceOf<T, I> {
+		// Tiago: Currency::free_balance accepts AccountId. Is this how I can get the balance of the bounty?
+		let native_account_id = T::PalletId::get().into_sub_account_truncating(("bt", id));
+		T::Currency::free_balance(&native_account_id)
+			// Must never be less than 0 but better be safe.
+			.saturating_sub(T::Currency::minimum_balance())
+	}
+
 	fn create_bounty(
 		proposer: T::AccountId,
 		description: Vec<u8>,
@@ -1568,6 +1574,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
+	// Tiago: can I make this functin public and use it in the child-bounties pallet?
 	/// advance state machine of payout, used for curator and beneficiary payments
 	fn check_payment_status_for_payout(
 		// counter for the state changes that we'd like to keep in the storage
@@ -1578,6 +1585,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		payments_succeeded: &mut i32,
 		beneficiary: &mut (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
 	) -> Result<(), Error<T, I>> {
+		
 		match beneficiary.1 {
 			PaymentState::Pending => {
 				// user should try processing payment again, not check its status

@@ -166,7 +166,7 @@ fn approve_bounty_works() {
 		// Then (deposit not returned -> PaymentState::Attempted)
 		let deposit: u64 = 80 + 5;
 		assert_eq!(last_event(), BountiesEvent::BountyApproved { index: 0 });
-		let payment_id = get_payment_id(0).expect("no payment attempt");
+		let payment_id = get_payment_id(0, None).expect("no payment attempt");
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
@@ -252,7 +252,7 @@ fn approve_bounty_with_curator_works() {
 		assert_ok!(Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), 0, curator, 10));
 
 		// Then
-		let payment_id = get_payment_id(0).expect("no payment attempt");
+		let payment_id = get_payment_id(0, None).expect("no payment attempt");
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
@@ -333,14 +333,11 @@ fn approve_bounty_with_curator_works() {
 			Error::<Test>::Premature
 		);
 
-		// When (block_number >= unlock_at)
-		go_to_block(4);
+		// When
+		go_to_block(4); // block_number >= unlock_at
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(curator), 0));
-		let (curator_payment_id, beneficiary_payment_id) =
-			get_payment_ids(0).expect("no payment attempt");
-		set_status(curator_payment_id, PaymentStatus::Success);
-		set_status(beneficiary_payment_id, PaymentStatus::Success);
-		assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(0), 0));
+		approve_payment(7, 0, 1, 10);  // curator_stash fee
+		approve_payment(5, 0, 1, 40);  // beneficiary payout
 
 		// Then (final state)
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 0);
@@ -379,7 +376,7 @@ fn approve_bounty_with_curator_early_unassign_works() {
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), 0));
 
 		// Then
-		let payment_id = get_payment_id(0).expect("no payment attempt");
+		let payment_id = get_payment_id(0, None).expect("no payment attempt");
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
@@ -699,14 +696,29 @@ fn award_and_claim_bounty_works() {
 
 		// When
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(1), 0));
+
+		// Then (PaymentState::Attempted)
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee,
+				curator_deposit: expected_deposit,
+				asset_kind: 1,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::PayoutAttempted {
+					curator: 4,
+					curator_stash: (5, PaymentState::Attempted { id: 1 }),
+					beneficiary: (3, PaymentState::Attempted { id: 2 })
+				},
+			}
+		);
+
+		// When (PaymentState::Success)
 		let (final_fee, payout) = Bounties::calculate_curator_fee_and_payout(0, fee, 50);
-		assert_eq!(paid(5, 1), final_fee); // pay curator_stash final_fee
-		assert_eq!(paid(3, 1), payout);  // pay beneficiary payout
-		let (curator_payment_id, beneficiary_payment_id) =
-			get_payment_ids(0).expect("no payment attempt");
-		set_status(curator_payment_id, PaymentStatus::Success);
-		set_status(beneficiary_payment_id, PaymentStatus::Success);
-		assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(0), 0));
+		approve_payment(5, 0, 1, final_fee);  // pay curator_stash final_fe
+		approve_payment(3, 0, 1, payout); // pay beneficiary payout
 
 		// Then
 		assert_eq!(
@@ -753,13 +765,8 @@ fn claim_handles_high_fee() {
 		go_to_block(5);
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(1), 0));
 		let (final_fee, payout) = Bounties::calculate_curator_fee_and_payout(0, 49, 50);
-		assert_eq!(paid(5, 1), final_fee); // pay curator_stash final_fee
-		assert_eq!(paid(3, 1), payout);  // pay beneficiary payout
-		let (curator_payment_id, beneficiary_payment_id) =
-			get_payment_ids(0).expect("no payment attempt");
-		set_status(curator_payment_id, PaymentStatus::Success);
-		set_status(beneficiary_payment_id, PaymentStatus::Success);
-		assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(0), 0));
+		approve_payment(5, 0, 1, final_fee);   // pay curator_stash final_fee
+		approve_payment(3, 0, 1, payout);    // pay beneficiary payout
 		
 		// Then
 		assert_eq!(
