@@ -138,12 +138,24 @@ fn reserve_transfer() {
 		);
 		// Ensure expected events were emitted
 		let events = relay_chain::System::events();
-		let attempted_count = events.iter().filter(|e|
-			matches!(e.event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. }))
-		).count();
-		let sent_count = events.iter().filter(|e|
-			matches!(e.event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }))
-		).count();
+		let attempted_count = events
+			.iter()
+			.filter(|e| {
+				matches!(
+					e.event,
+					relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
+				)
+			})
+			.count();
+		let sent_count = events
+			.iter()
+			.filter(|e| {
+				matches!(
+					e.event,
+					relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. })
+				)
+			})
+			.count();
 		assert_eq!(attempted_count, 1, "Expected one XcmPallet::Attempted event");
 		assert_eq!(sent_count, 1, "Expected one XcmPallet::Sent event");
 	});
@@ -184,9 +196,12 @@ fn reserve_transfer_with_error() {
 
 			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
 			let events = relay_chain::System::events();
-			let xcm_attempted_emitted = events.iter().any(|e|
-				matches!(e.event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. }))
-			);
+			let xcm_attempted_emitted = events.iter().any(|e| {
+				matches!(
+					e.event,
+					relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
+				)
+			});
 			assert!(
 				!xcm_attempted_emitted,
 				"Expected no XcmPallet::Attempted event due to rollback, but it was emitted"

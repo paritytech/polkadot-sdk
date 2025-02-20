@@ -2,20 +2,7 @@ title: Improve XCM Debugging by Capturing Logs in Unit Tests
 doc:
 - audience: Runtime Dev
   description: |-
-    # Description
-
-    This PR introduces a lightweight log-capturing mechanism for XCM unit tests, making it easier to troubleshoot failures when needed. It partially addresses #6119 and #6125 by providing an optional way to verify log outputs in tests.
-
-    # TODOs
-
-    * [ ] Introduces a structured way to capture logs for XCM debugging.
-    * [ ] Ensures logging remains unobtrusive in passing tests but is available when debugging.
-
-    # Review Notes:
-
-    * This PR does not enforce logging in all tests but provides a reusable mechanism for capturing logs when necessary.
-    * The implementation is minimal and does not add complexity to existing test setups.
-    * Developers can still rely on standard logging, [`sp_tracing::init_for_tests()`](https://paritytech.github.io/polkadot-sdk/master/sp_tracing/fn.init_for_tests.html), when manual debugging is sufficient.
+    This PR introduces a lightweight log-capturing mechanism for XCM unit tests, making it easier to troubleshoot failures when needed.
 crates:
 - name: pallet-xcm
   bump: patch
