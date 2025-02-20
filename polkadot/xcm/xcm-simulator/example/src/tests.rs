@@ -136,6 +136,16 @@ fn reserve_transfer() {
 			relay_chain::Balances::free_balance(&child_account_id(1)),
 			INITIAL_BALANCE + withdraw_amount
 		);
+		// Ensure expected events were emitted
+		let events = relay_chain::System::events();
+		let attempted_count = events.iter().filter(|e|
+			matches!(e.event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. }))
+		).count();
+		let sent_count = events.iter().filter(|e|
+			matches!(e.event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }))
+		).count();
+		assert_eq!(attempted_count, 1, "Expected one XcmPallet::Attempted event");
+		assert_eq!(sent_count, 1, "Expected one XcmPallet::Sent event");
 	});
 
 	ParaA::execute_with(|| {
@@ -145,6 +155,58 @@ fn reserve_transfer() {
 			INITIAL_BALANCE + withdraw_amount
 		);
 	});
+}
+
+#[test]
+fn reserve_transfer_with_error() {
+	use sp_tracing::test_log_capture;
+
+	// Reset the test network
+	MockNet::reset();
+
+	// Execute XCM Transfer and Capture Logs
+	test_log_capture::capture(|| {
+		let invalid_dest = Box::new(Parachain(9999).into());
+		let withdraw_amount = 123;
+
+		Relay::execute_with(|| {
+			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
+				relay_chain::RuntimeOrigin::signed(ALICE),
+				invalid_dest,
+				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
+				Box::new((Here, withdraw_amount).into()),
+				0,
+				Unlimited,
+			);
+
+			// Ensure an error occurred
+			assert!(result.is_err(), "Expected an error due to invalid destination");
+
+			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
+			let events = relay_chain::System::events();
+			let xcm_attempted_emitted = events.iter().any(|e|
+				matches!(e.event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. }))
+			);
+			assert!(
+				!xcm_attempted_emitted,
+				"Expected no XcmPallet::Attempted event due to rollback, but it was emitted"
+			);
+		});
+
+		// Ensure no balance change due to the error
+		ParaA::execute_with(|| {
+			assert_eq!(
+				pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
+				INITIAL_BALANCE
+			);
+
+			let events = parachain::System::events();
+			println!("{:?}", events);
+		});
+	});
+
+	// Assertions on Captured Logs
+	assert!(test_log_capture::logs_contain("XCM validate_send failed"));
 }
 
 #[test]
@@ -510,41 +572,4 @@ fn query_holding() {
 			}])],
 		);
 	});
-}
-
-#[test]
-fn reserve_transfer_with_error() {
-	use sp_tracing::test_log_capture;
-
-	// Reset the test network
-	MockNet::reset();
-
-	// Execute XCM Transfer and Capture Logs
-	test_log_capture::capture(|| {
-		Relay::execute_with(|| {
-			let invalid_dest = Box::new(Parachain(9999).into());
-			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
-				relay_chain::RuntimeOrigin::signed(ALICE),
-				invalid_dest,
-				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
-				Box::new((Here, 123u128).into()),
-				0,
-				Unlimited,
-			);
-
-			// Ensure an error occurred
-			assert!(result.is_err(), "Expected an error due to invalid destination");
-		});
-
-		// Ensure no balance change due to the error
-		ParaA::execute_with(|| {
-			assert_eq!(
-				pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
-				INITIAL_BALANCE
-			);
-		});
-	});
-
-	// Assertions on Captured Logs
-	assert!(test_log_capture::logs_contain("XCM validate_send failed"));
 }
