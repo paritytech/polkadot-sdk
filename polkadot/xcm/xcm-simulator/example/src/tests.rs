@@ -214,9 +214,6 @@ fn reserve_transfer_with_error() {
 				pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
 				INITIAL_BALANCE
 			);
-
-			let events = parachain::System::events();
-			println!("{:?}", events);
 		});
 	});
 
