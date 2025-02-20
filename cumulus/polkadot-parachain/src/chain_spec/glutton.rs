@@ -30,6 +30,7 @@ pub fn glutton_westend_config(
 
 	let authorities = match chain_type {
 		ChainType::Development => vec![Sr25519Keyring::Alice.public().into()],
+		// Even the westend live setup does currently use Alice & Bob.
 		_ => vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()],
 	};
 
