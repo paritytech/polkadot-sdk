@@ -14,7 +14,7 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 sc-cli.workspace = true
-sc-cli.default-features = true
+sc-cli.default-features = false
 sc-client-api.workspace = true
 sc-client-api.default-features = true
 sc-telemetry.workspace = true
