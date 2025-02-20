@@ -4608,7 +4608,6 @@ fn ecrecover_precompile_works() {
 			),
 		];
 
-
 		for (input, output) in cases {
 			let result = builder::bare_call(addr)
 				.data((H160::from_low_u64_be(0x1), 100u64, input).encode())
