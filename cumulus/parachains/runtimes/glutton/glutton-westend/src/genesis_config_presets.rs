@@ -28,7 +28,7 @@ use sp_keyring::Sr25519Keyring;
 /// The parachain binary does not yet utilize genesis presets,
 /// as it must obtain the para-id from the CLI to support multiple
 /// gluttons with different para-ids connecting to a relay chain.
-/// Currently, genesis presets do not allow dynamic para-IDs.
+/// Currently, genesis presets do not allow dynamic para-ids.
 pub const DEFAULT_GLUTTON_PARA_ID: ParaId = ParaId::new(1000);
 
 fn glutton_westend_genesis(authorities: Vec<AuraId>, id: ParaId) -> serde_json::Value {
