@@ -19,7 +19,10 @@ env:
 
 # only run if we have changes in [subtrate, cumulus, polkadot] directories or this workflow.
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
   zombienet-cumulus-0001-sync_blocks_from_tip_without_connected_collator:
@@ -157,7 +160,6 @@ jobs:
           name: zombienet-logs-${{ github.job }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*
-
 
   zombienet-cumulus-0005-migrate_solo_to_para:
     needs: [preflight]

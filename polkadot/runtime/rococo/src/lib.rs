@@ -38,7 +38,7 @@ use alloc::{
 	vec,
 	vec::Vec,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
@@ -482,6 +482,7 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, ValidatorManager>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
@@ -864,6 +865,7 @@ parameter_types! {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	MaxEncodedLen,
 	TypeInfo,
@@ -1758,6 +1760,9 @@ pub mod migrations {
         parachains_configuration::migration::v12::MigrateToV12<Runtime>,
         parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
 
+		// migrates session storage item
+		pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
+
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
@@ -2447,7 +2452,7 @@ sp_api::impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -2463,6 +2468,7 @@ sp_api::impl_runtime_apis! {
 			return (list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig,
 		) -> Result<
@@ -2470,7 +2476,7 @@ sp_api::impl_runtime_apis! {
 			alloc::string::String,
 		> {
 			use frame_support::traits::WhitelistedStorageKeys;
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
+			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;

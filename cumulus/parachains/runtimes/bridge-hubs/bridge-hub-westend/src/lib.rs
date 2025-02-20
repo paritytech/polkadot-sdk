@@ -162,13 +162,26 @@ pub type Migrations = (
 		OutboundLanesCongestedSignalsKey,
 		RocksDbWeight,
 	>,
-	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
+	pallet_bridge_relayers::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_common_config::BridgeRelayersInstance,
+		bp_messages::LegacyLaneId,
+	>,
+	pallet_bridge_relayers::migration::v2::MigrationToV2<
+		Runtime,
+		bridge_common_config::BridgeRelayersInstance,
+		bp_messages::LegacyLaneId,
+	>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
 	bridge_to_ethereum_config::migrations::MigrationForXcmV5<Runtime>,
+	pallet_session::migrations::v1::MigrateV0ToV1<
+		Runtime,
+		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -475,6 +488,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
@@ -945,7 +959,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
@@ -971,10 +985,11 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
+			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -1229,12 +1244,14 @@ impl_runtime_apis! {
 					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>::bench_lane_id();
 					use bp_runtime::Chain;
 					let bridged_chain_id =<Self as pallet_bridge_messages::Config<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>::BridgedChain::ID;
-					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+					pallet_bridge_relayers::Pallet::<Runtime, bridge_common_config::BridgeRelayersInstance>::relayer_reward(
 						relayer,
-						bp_relayers::RewardsAccountParams::new(
-							bench_lane_id,
-							bridged_chain_id,
-							bp_relayers::RewardsAccountOwner::BridgedChain
+						bridge_common_config::BridgeReward::RococoWestend(
+							bp_relayers::RewardsAccountParams::new(
+								bench_lane_id,
+								bridged_chain_id,
+								bp_relayers::RewardsAccountOwner::BridgedChain
+							)
 						)
 					).is_some()
 				}
@@ -1309,17 +1326,31 @@ impl_runtime_apis! {
 				}
 			}
 
-			impl BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
+			impl BridgeRelayersConfig<bridge_common_config::BridgeRelayersInstance> for Runtime {
+				fn bench_reward() -> Self::Reward {
+					bp_relayers::RewardsAccountParams::new(
+						bp_messages::LegacyLaneId::default(),
+						*b"test",
+						bp_relayers::RewardsAccountOwner::ThisChain
+					).into()
+				}
+
 				fn prepare_rewards_account(
-					account_params: bp_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId>,
+					reward_kind: Self::Reward,
 					reward: Balance,
-				) {
+				) -> Option<pallet_bridge_relayers::BeneficiaryOf<Runtime, bridge_common_config::BridgeRelayersInstance>> {
+					let bridge_common_config::BridgeReward::RococoWestend(reward_kind) = reward_kind else {
+						panic!("Unexpected reward_kind: {:?} - not compatible with `bench_reward`!", reward_kind);
+					};
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
-						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId,
-					>::rewards_account(account_params);
+						bp_messages::LegacyLaneId,
+						u128,
+					>::rewards_account(reward_kind);
 					Self::deposit_account(rewards_account, reward);
+
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
