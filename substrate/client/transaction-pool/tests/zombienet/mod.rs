@@ -110,8 +110,12 @@ impl NetworkSpawner {
 
 			tracing::info!("[{node_name}] waiting for first best block");
 		}
-
 		Ok(())
+	}
+
+	/// Get the network filesystem base dir path.
+	pub fn base_dir_path(&self) -> Option<&str> {
+		self.network.base_dir()
 	}
 
 	/// Get a certain node rpc uri.
@@ -144,11 +148,12 @@ impl Default for ScenarioBuilderSharedParams {
 
 /// Creates a [`txtesttool::scenario::ScenarioBuilder`] with a set of default parameters defined
 /// with [`ScenarioBuilderSharedParams::default`].
-pub fn default_zn_scenario_builder() -> ScenarioBuilder {
+pub fn default_zn_scenario_builder(net_spawner: &NetworkSpawner) -> ScenarioBuilder {
 	let shared_params = ScenarioBuilderSharedParams::default();
 	ScenarioBuilder::new()
 		.with_watched_txs(shared_params.watched_txs)
 		.with_send_threshold(shared_params.send_threshold)
 		.with_block_monitoring(shared_params.does_block_monitoring)
 		.with_chain_type(shared_params.chain_type)
+		.with_base_dir_path(net_spawner.base_dir_path().unwrap().to_string())
 }

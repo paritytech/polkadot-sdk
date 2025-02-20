@@ -31242,7 +31242,7 @@ dependencies = [
 [[package]]
 name = "txtesttool"
 version = "0.1.0"
-source = "git+https://github.com/iulianbarbu/tx-test-tool.git?branch=provide-a-ttxt-api#d0a6ab208f5f55bf6c4ada55fa04c9b85002a9dc"
+source = "git+https://github.com/iulianbarbu/tx-test-tool.git?branch=provide-a-ttxt-api#100ab7058b7d1405ab4809b6ca90f18d35f6359a"
 dependencies = [
  "async-trait",
  "average",

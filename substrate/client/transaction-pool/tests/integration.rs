@@ -38,7 +38,7 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 
 	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("charlie").unwrap();
-	let future_scenario_executor = default_zn_scenario_builder()
+	let future_scenario_executor = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws.clone())
 		.with_start_id(0)
 		.with_last_id(99)
@@ -47,7 +47,7 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 		.with_executor_id("future-txs-executor".to_string())
 		.build()
 		.await;
-	let ready_scenario_executor = default_zn_scenario_builder()
+	let ready_scenario_executor = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws)
 		.with_start_id(0)
 		.with_last_id(99)
@@ -84,11 +84,11 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 	.unwrap();
 
 	// Wait for the paracha validator to start block production & have its genesis block finalized.
-	net.wait_for_block_production("charlie").await.unwrap();
+	net.wait_for_block_production("alice").await.unwrap();
 
 	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
-	let future_scenario_executor = default_zn_scenario_builder()
+	let future_scenario_executor = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws.clone())
 		.with_start_id(0)
 		.with_last_id(99)
@@ -98,7 +98,7 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 		.build()
 		.await;
 	let ws = net.node_rpc_uri("bob").unwrap();
-	let ready_scenario_executor = default_zn_scenario_builder()
+	let ready_scenario_executor = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws)
 		.with_start_id(0)
 		.with_last_id(99)
