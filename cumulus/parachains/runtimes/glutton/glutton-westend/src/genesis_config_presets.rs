@@ -23,12 +23,10 @@ use parachains_common::AuraId;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 
-/// Default value, unused in a testnet setup.
-///
-/// The parachain binary does not yet utilize genesis presets,
-/// as it must obtain the para-id from the CLI to support multiple
-/// gluttons with different para-ids connecting to a relay chain.
-/// Currently, genesis presets do not allow dynamic para-ids.
+/// Default value, unused in a testnet setup currently because
+/// It is unused, as we want to supply varying para-ids from the
+/// CLI for Glutton. However, the presets does not allow dynamic
+/// para-ids currently.
 pub const DEFAULT_GLUTTON_PARA_ID: ParaId = ParaId::new(1300);
 
 pub fn glutton_westend_genesis(authorities: Vec<AuraId>, id: ParaId) -> serde_json::Value {
