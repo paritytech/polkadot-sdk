@@ -14,7 +14,7 @@ fn create_agent() {
 	new_test_ext().execute_with(|| {
 		let origin_location = Location::new(1, [Parachain(2000)]);
 		let origin = make_xcm_origin(origin_location);
-		assert_ok!(EthereumSystemFrontend::create_agent(origin, 100));
+		assert_ok!(EthereumSystemFrontend::create_agent(origin));
 	});
 }
 
@@ -30,6 +30,6 @@ fn register_token() {
 			symbol: "pal".as_bytes().to_vec().try_into().unwrap(),
 			decimals: 12,
 		};
-		assert_ok!(EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata, 100));
+		assert_ok!(EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata));
 	});
 }
