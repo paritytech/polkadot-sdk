@@ -1373,6 +1373,13 @@ where
 	}
 }
 
+/// Determine if the given address is a precompile.
+/// For now, we consider that all addresses between 0x1 and 0xff are reserved for precompiles.
+fn is_precompile(address: &H160) -> bool {
+	let bytes = address.as_bytes();
+	bytes.starts_with(&[0u8; 19]) && bytes[19] != 0
+}
+
 impl<'a, T, E> Ext for Stack<'a, T, E>
 where
 	T: Config,
@@ -1403,6 +1410,11 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
+			if is_precompile(dest_addr) {
+				log::debug!(target: crate::LOG_TARGET, "Unsupported precompile address {dest_addr:?}");
+				return Err(Error::<T>::UnsupportedPrecompileAddress.into());
+			}
+
 			let dest = T::AddressMapper::to_account_id(dest_addr);
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
@@ -1420,28 +1432,38 @@ where
 					CachedContract::Cached(contract) => Some(contract.clone()),
 					_ => None,
 				});
+
+			// Enable read-only access if requested; cannot disable it if already set.
+			let is_read_only = read_only || self.is_read_only();
+
 			if let Some(executable) = self.push_frame(
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
 				gas_limit,
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
-				// Enable read-only access if requested; cannot disable it if already set.
-				read_only || self.is_read_only(),
+				is_read_only,
 			)? {
 				self.run(executable, input_data)
 			} else {
-				let result = Self::transfer_from_origin(
-					&self.origin,
-					&Origin::from_account_id(self.account_id().clone()),
-					&dest,
-					value,
-				);
+				let result = if is_read_only && value.is_zero() {
+					Ok(Default::default())
+				} else if is_read_only {
+					Err(Error::<T>::StateChangeDenied.into())
+				} else {
+					Self::transfer_from_origin(
+						&self.origin,
+						&Origin::from_account_id(self.account_id().clone()),
+						&dest,
+						value,
+					)
+				};
+
 				if_tracing(|t| {
 					t.enter_child_span(
 						T::AddressMapper::to_address(self.account_id()),
 						T::AddressMapper::to_address(&dest),
 						false,
-						false,
+						is_read_only,
 						value,
 						&input_data,
 						Weight::zero(),

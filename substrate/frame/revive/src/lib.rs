@@ -492,6 +492,8 @@ pub mod pallet {
 		InvalidGenericTransaction,
 		/// The refcount of a code either over or underflowed.
 		RefcountOverOrUnderflow,
+		/// Unsupported precompile address
+		UnsupportedPrecompileAddress,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
