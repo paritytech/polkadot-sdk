@@ -38,7 +38,7 @@ use crate::{
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
-		ExtrinsicFor, ExtrinsicHash, IsValidator, Options,
+		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options,
 	},
 	ReadyIteratorFor, LOG_TARGET,
 };
@@ -62,15 +62,21 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionValidityError, ValidTransaction},
+	Saturating,
 };
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet},
 	pin::Pin,
 	sync::Arc,
 	time::Instant,
 };
 use tokio::select;
 use tracing::{debug, info, trace, warn};
+
+/// The maximum block height difference before considering a view or transaction as timed-out
+/// due to a finality stall. When the difference exceeds this threshold, elements are treated
+/// as stale and are subject to cleanup.
+const FINALITY_TIMEOUT_THRESHOLD: usize = 20;
 
 /// Fork aware transaction pool task, that needs to be polled.
 pub type ForkAwareTxPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -161,6 +167,20 @@ where
 
 	/// Is node the validator.
 	is_validator: IsValidator,
+
+	/// Finality timeout threshold.
+	///
+	/// Sets the maximum permissible block height difference between the latest block
+	/// and the oldest transactions or views in the pool. Beyond this difference,
+	/// transactions/views are considered timed out and eligible for cleanup.
+	finality_timeout_threshold: usize,
+
+	/// Transactions included in blocks since recent finalization.
+	///
+	/// Holds a mapping of block hash and number to their corresponding transaction hashes.
+	/// This structure enables efficient tracking and cleanup of transactions affected by finality
+	/// stalls.
+	included_transacations: Mutex<BTreeMap<HashAndNumber<Block>, Vec<ExtrinsicHash<ChainApi>>>>,
 }
 
 impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
@@ -175,6 +195,7 @@ where
 		pool_api: Arc<ChainApi>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
+		finality_timeout_threshold: Option<usize>,
 	) -> (Self, ForkAwareTxPoolTask) {
 		Self::new_test_with_limits(
 			pool_api,
@@ -183,6 +204,7 @@ where
 			Options::default().ready,
 			Options::default().future,
 			usize::MAX,
+			finality_timeout_threshold,
 		)
 	}
 
@@ -195,6 +217,7 @@ where
 		ready_limits: crate::PoolLimit,
 		future_limits: crate::PoolLimit,
 		mempool_max_transactions_count: usize,
+		finality_timeout_threshold: Option<usize>,
 	) -> (Self, ForkAwareTxPoolTask) {
 		let (listener, listener_task) = MultiViewListener::new_with_worker(Default::default());
 		let listener = Arc::new(listener);
@@ -250,6 +273,9 @@ where
 				is_validator: false.into(),
 				metrics: Default::default(),
 				events_metrics_collector: EventsMetricsCollector::default(),
+				finality_timeout_threshold: finality_timeout_threshold
+					.unwrap_or(FINALITY_TIMEOUT_THRESHOLD),
+				included_transacations: Default::default(),
 			},
 			combined_tasks,
 		)
@@ -381,6 +407,8 @@ where
 			metrics,
 			events_metrics_collector,
 			is_validator,
+			finality_timeout_threshold: FINALITY_TIMEOUT_THRESHOLD,
+			included_transacations: Default::default(),
 		}
 	}
 
@@ -1061,6 +1089,50 @@ where
 
 			View::start_background_revalidation(view, self.revalidation_queue.clone()).await;
 		}
+
+		self.finality_stall_cleanup(hash_and_number);
+	}
+
+	/// Cleans up transactions and views outdated by potential finality stalls.
+	///
+	/// This function identifies transactions included in blocks that have not achieved finality
+	/// and removes them from the transaction pool if they exceed a specified block height
+	/// threshold. Such transactions are notified as having finality timed out. The threshold is
+	/// determined based on the current block number 'at'.
+	///
+	/// Additionally, this method triggers the view store to handle and remove stale views caused by
+	/// the finality stall.
+	fn finality_stall_cleanup(&self, at: &HashAndNumber<Block>) {
+		let mut finality_timedout_hashes =
+			indexmap::IndexMap::<BlockHash<ChainApi>, Vec<ExtrinsicHash<ChainApi>>>::default();
+
+		self.included_transacations.lock().retain(
+			|HashAndNumber { number: view_number, hash: view_hash }, tx_hashes| {
+				trace!(target:LOG_TARGET, "cleanup_xxx: {:?} {:?}", view_number, tx_hashes);
+				let diff = at.number.saturating_sub(*view_number);
+				if diff.into() > self.finality_timeout_threshold.into() {
+					finality_timedout_hashes.insert(*view_hash, std::mem::take(tx_hashes));
+					false
+				} else {
+					true
+				}
+			},
+		);
+
+		if !finality_timedout_hashes.is_empty() {
+			self.ready_poll.lock().remove_cancelled();
+			self.view_store.listener.remove_stale_controllers();
+		}
+
+		for (block_hash, tx_hashes) in finality_timedout_hashes {
+			self.view_store.listener.transactions_finality_timeout(&tx_hashes, block_hash);
+
+			self.mempool.remove_transactions(&tx_hashes);
+			self.import_notification_sink.clean_notified_items(&tx_hashes);
+			self.view_store.dropped_stream_controller.remove_transactions(tx_hashes.clone());
+		}
+
+		self.view_store.finality_stall_view_cleanup(at, self.finality_timeout_threshold);
 	}
 
 	/// Builds a new view.
@@ -1289,16 +1361,15 @@ where
 		// transactions with those hashes from the retracted blocks.
 		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 
-		future::join_all(
-			tree_route
-				.enacted()
-				.iter()
-				.map(|h| crate::prune_known_txs_for_block(h, &*api, &view.pool)),
-		)
+		future::join_all(tree_route.enacted().iter().map(|hn| {
+			let api = api.clone();
+			async move { (hn, crate::prune_known_txs_for_block(hn, &*api, &view.pool).await) }
+		}))
 		.await
 		.into_iter()
-		.for_each(|enacted_log| {
-			pruned_log.extend(enacted_log);
+		.for_each(|(key, enacted_log)| {
+			pruned_log.extend(enacted_log.clone());
+			self.included_transacations.lock().insert(key.clone(), enacted_log);
 		});
 
 		self.metrics.report(|metrics| {
@@ -1416,6 +1487,7 @@ where
 			active_views_count = self.active_views_count(),
 			"handle_finalized after"
 		);
+		self.included_transacations.lock().clear();
 	}
 
 	/// Computes a hash of the provided transaction
