@@ -447,12 +447,14 @@ pub enum ExportedFunction {
 	Call,
 }
 
+/// Either a precompile or an executable contract.
 pub enum PrecompileOrExecutable<E> {
 	Precompile(H160),
 	Executable(E),
 }
 
 impl<E> PrecompileOrExecutable<E> {
+	/// Convert to an executable, if it is one.
 	fn as_executable(&self) -> Option<&E> {
 		match self {
 			Self::Executable(e) => Some(e),
@@ -462,6 +464,7 @@ impl<E> PrecompileOrExecutable<E> {
 }
 
 impl<Exec> PrecompileOrExecutable<Exec> {
+	/// Execute the underlying precompile or executable.
 	fn execute<T: Config, E: Ext<T = T>>(
 		self,
 		ext: &mut E,
