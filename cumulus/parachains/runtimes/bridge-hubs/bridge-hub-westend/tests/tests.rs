@@ -1,46 +1,56 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg(test)]
 
 use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
-use bridge_common_config::{
-	DeliveryRewardInBalance, RelayersForLegacyLaneIdsMessagesInstance,
-	RequiredStakeForStakeAndSlash,
+use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
+use bridge_common_config::{BridgeRelayersInstance, BridgeReward, RequiredStakeForStakeAndSlash};
+use bridge_hub_test_utils::{
+	test_cases::{from_parachain, run_test},
+	SlotDurations,
 };
-use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	bridge_to_rococo_config::RococoGlobalConsensusNetwork,
 	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
-	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
-	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
+	AllPalletsWithoutSystem, Balances, Block, BridgeRejectObsoleteHeadersAndMessages,
+	BridgeRelayers, Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension,
+	UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
-	WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
+	DeliveryRewardInBalance, WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
-use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
+use frame_support::{
+	assert_err, assert_ok,
+	dispatch::GetDispatchInfo,
+	parameter_types,
+	traits::{
+		fungible::{Inspect, Mutate},
+		ConstU8,
+	},
+};
 use parachains_common::{AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_keyring::Sr25519Keyring::Alice;
+use sp_keyring::Sr25519Keyring::{Alice, Bob};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32, Perbill,
@@ -69,7 +79,7 @@ type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
 	BridgeGrandpaRococoInstance,
 	BridgeParachainRococoInstance,
 	WithBridgeHubRococoMessagesInstance,
-	RelayersForLegacyLaneIdsMessagesInstance,
+	BridgeRelayersInstance,
 >;
 
 parameter_types! {
@@ -533,4 +543,84 @@ fn xcm_payment_api_works() {
 		RuntimeOrigin,
 		Block,
 	>();
+}
+
+#[test]
+pub fn bridge_rewards_works() {
+	run_test::<Runtime, _>(
+		collator_session_keys(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		vec![],
+		|| {
+			// reward in WNDs
+			let reward1: u128 = 2_000_000_000;
+			// reward in WETH
+			let reward2: u128 = 3_000_000_000;
+
+			// prepare accounts
+			let account1 = AccountId32::from(Alice);
+			let account2 = AccountId32::from(Bob);
+			let reward1_for = RewardsAccountParams::new(
+				LegacyLaneId([1; 4]),
+				*b"test",
+				RewardsAccountOwner::ThisChain,
+			);
+			let expected_reward1_account =
+				PayRewardFromAccount::<(), AccountId, LegacyLaneId, ()>::rewards_account(
+					reward1_for,
+				);
+			assert_ok!(Balances::mint_into(&expected_reward1_account, ExistentialDeposit::get()));
+			assert_ok!(Balances::mint_into(&expected_reward1_account, reward1.into()));
+			assert_ok!(Balances::mint_into(&account1, ExistentialDeposit::get()));
+
+			// register rewards
+			use bp_relayers::RewardLedger;
+			BridgeRelayers::register_reward(&account1, BridgeReward::from(reward1_for), reward1);
+			BridgeRelayers::register_reward(&account2, BridgeReward::Snowbridge, reward2);
+
+			// check stored rewards
+			assert_eq!(
+				BridgeRelayers::relayer_reward(&account1, BridgeReward::from(reward1_for)),
+				Some(reward1)
+			);
+			assert_eq!(BridgeRelayers::relayer_reward(&account1, BridgeReward::Snowbridge), None,);
+			assert_eq!(
+				BridgeRelayers::relayer_reward(&account2, BridgeReward::Snowbridge),
+				Some(reward2),
+			);
+			assert_eq!(
+				BridgeRelayers::relayer_reward(&account2, BridgeReward::from(reward1_for)),
+				None,
+			);
+
+			// claim rewards
+			assert_ok!(BridgeRelayers::claim_rewards(
+				RuntimeOrigin::signed(account1.clone()),
+				reward1_for.into()
+			));
+			assert_eq!(Balances::total_balance(&account1), ExistentialDeposit::get() + reward1);
+			assert_eq!(
+				BridgeRelayers::relayer_reward(&account1, BridgeReward::from(reward1_for)),
+				None,
+			);
+
+			// already claimed
+			assert_err!(
+				BridgeRelayers::claim_rewards(
+					RuntimeOrigin::signed(account1.clone()),
+					reward1_for.into()
+				),
+				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::NoRewardForRelayer
+			);
+
+			// not yet implemented for Snowbridge
+			assert_err!(
+				BridgeRelayers::claim_rewards(
+					RuntimeOrigin::signed(account2.clone()),
+					BridgeReward::Snowbridge
+				),
+				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
+			);
+		},
+	);
 }
