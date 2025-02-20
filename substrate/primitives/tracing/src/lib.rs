@@ -315,7 +315,7 @@ pub mod test_log_capture {
 	/// assert!(test_log_capture::logs_contain("Captured warning message"));
 	/// ```
 	pub fn capture<F: FnOnce()>(f: F) {
-		capture_with_max_level(LevelFilter::TRACE, f);
+		capture_with_max_level(LevelFilter::DEBUG, f);
 	}
 
 	/// Runs a test block with logging enabled and captures logs for assertions
