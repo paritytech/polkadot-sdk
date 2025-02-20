@@ -46,32 +46,12 @@ mod validator_side;
 
 const LOG_TARGET: &'static str = "parachain::collator-protocol";
 
-/// A collator eviction policy - how fast to evict collators which are inactive.
-#[derive(Debug, Clone, Copy)]
-pub struct CollatorEvictionPolicy {
-	/// How fast to evict collators who are inactive.
-	pub inactive_collator: Duration,
-	/// How fast to evict peers which don't declare their para.
-	pub undeclared: Duration,
-}
-
-impl Default for CollatorEvictionPolicy {
-	fn default() -> Self {
-		CollatorEvictionPolicy {
-			inactive_collator: Duration::from_secs(24),
-			undeclared: Duration::from_secs(1),
-		}
-	}
-}
-
 /// What side of the collator protocol is being engaged
 pub enum ProtocolSide {
 	/// Validators operate on the relay chain.
 	Validator {
 		/// The keystore holding validator keys.
 		keystore: KeystorePtr,
-		/// An eviction policy for inactive peers or validators.
-		eviction_policy: CollatorEvictionPolicy,
 		/// Prometheus metrics for validators.
 		metrics: validator_side::Metrics,
 	},
