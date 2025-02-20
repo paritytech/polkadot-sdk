@@ -449,7 +449,7 @@ for (const env of envs) {
 			})
 		})
 
-		test.only('tracing', async () => {
+		test('tracing', async () => {
 			let [callerAddr, calleeAddr] = await getTracingExampleAddrs()
 
 			const receipt = await (async () => {
@@ -525,20 +525,6 @@ for (const env of envs) {
 					{ withLog: true }
 				)
 				expect(visit(res, visitor)).toEqual(fixture)
-			}
-
-			{
-				const res = await env.debugClient.traceCall(
-					{
-						to: callerAddr,
-						data: encodeFunctionData({
-							abi: TracingCallerAbi,
-							functionName: 'tryDelegateCall',
-						}),
-					},
-					{ withLog: true }
-				)
-				console.error(visit(res, visitor))
 			}
 		})
 	})
