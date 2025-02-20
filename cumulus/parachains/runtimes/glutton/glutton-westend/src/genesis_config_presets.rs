@@ -24,9 +24,8 @@ use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 
 /// Default value, unused in a testnet setup currently because
-/// It is unused, as we want to supply varying para-ids from the
-/// CLI for Glutton. However, the presets does not allow dynamic
-/// para-ids currently.
+/// we want to supply varying para-ids from the CLI for Glutton.
+/// However, the presets does not allow dynamic para-ids currently.
 pub const DEFAULT_GLUTTON_PARA_ID: ParaId = ParaId::new(1300);
 
 pub fn glutton_westend_genesis(authorities: Vec<AuraId>, id: ParaId) -> serde_json::Value {
