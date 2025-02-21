@@ -24,7 +24,6 @@ use crate::{
 	EthRpcClient,
 };
 use clap::Parser;
-use ethabi::Token;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
