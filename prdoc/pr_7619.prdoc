@@ -6,6 +6,6 @@ doc:
     This PR add chain-spec-builder as a subcommand to the polkadot-omni-node
 crates:
 - name: polkadot-omni-node-lib
-  bump: patch
+  bump: major
 - name: staging-chain-spec-builder
   bump: minor
