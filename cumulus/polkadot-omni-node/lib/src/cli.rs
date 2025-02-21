@@ -90,7 +90,6 @@ pub enum Subcommand {
 	Revert(sc_cli::RevertCmd),
 
 	/// Subcommand for generating and managing chain specifications.
-	#[command(alias = "chain-spec-builder")]
 	#[command(subcommand)]
 	ChainSpecBuilder(ChainSpecBuilderCmd),
 
