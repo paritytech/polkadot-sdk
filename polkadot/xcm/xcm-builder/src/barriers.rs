@@ -572,7 +572,7 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 				ReserveAssetDeposited { .. }
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
-					tracing::warn!(
+					tracing::debug!(
 						target: "xcm::barriers",
 						"Unexpected ReserveAssetDeposited from the Relay Chain",
 					);
@@ -654,7 +654,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyRecursively<Inner> {
 	) -> Result<(), ProcessMessageError> {
 		// First, check if the top-level message should be denied.
 		Inner::deny_execution(origin, instructions, max_weight, properties).inspect_err(|e| {
-			tracing::warn!(
+			tracing::debug!(
 				target: "xcm::barriers",
 				"DenyRecursively::Inner denied execution, origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}, error: {:?}",
 				origin, instructions, max_weight, properties, e
