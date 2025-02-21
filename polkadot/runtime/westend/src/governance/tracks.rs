@@ -18,9 +18,6 @@
 
 use super::*;
 
-use alloc::borrow::Cow;
-use sp_runtime::str_array as s;
-
 const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
 	sp_arithmetic::FixedI64::from_rational(x as u128, 100)
 }
@@ -68,11 +65,11 @@ const APP_WHITELISTED_CALLER: Curve =
 const SUP_WHITELISTED_CALLER: Curve =
 	Curve::make_reciprocal(1, 28, percent(20), percent(5), percent(50));
 
-const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
-	pallet_referenda::Track {
-		id: 0,
-		info: pallet_referenda::TrackInfo {
-			name: s("root"),
+const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 15] = [
+	(
+		0,
+		pallet_referenda::TrackInfo {
+			name: "root",
 			max_deciding: 1,
 			decision_deposit: 100 * GRAND,
 			prepare_period: 8 * MINUTES,
@@ -82,11 +79,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_ROOT,
 			min_support: SUP_ROOT,
 		},
-	},
-	pallet_referenda::Track {
-		id: 1,
-		info: pallet_referenda::TrackInfo {
-			name: s("whitelisted_caller"),
+	),
+	(
+		1,
+		pallet_referenda::TrackInfo {
+			name: "whitelisted_caller",
 			max_deciding: 100,
 			decision_deposit: 10 * GRAND,
 			prepare_period: 6 * MINUTES,
@@ -96,11 +93,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_WHITELISTED_CALLER,
 			min_support: SUP_WHITELISTED_CALLER,
 		},
-	},
-	pallet_referenda::Track {
-		id: 10,
-		info: pallet_referenda::TrackInfo {
-			name: s("staking_admin"),
+	),
+	(
+		10,
+		pallet_referenda::TrackInfo {
+			name: "staking_admin",
 			max_deciding: 10,
 			decision_deposit: 5 * GRAND,
 			prepare_period: 8 * MINUTES,
@@ -110,11 +107,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_STAKING_ADMIN,
 			min_support: SUP_STAKING_ADMIN,
 		},
-	},
-	pallet_referenda::Track {
-		id: 11,
-		info: pallet_referenda::TrackInfo {
-			name: s("treasurer"),
+	),
+	(
+		11,
+		pallet_referenda::TrackInfo {
+			name: "treasurer",
 			max_deciding: 10,
 			decision_deposit: 1 * GRAND,
 			prepare_period: 8 * MINUTES,
@@ -124,11 +121,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_TREASURER,
 			min_support: SUP_TREASURER,
 		},
-	},
-	pallet_referenda::Track {
-		id: 12,
-		info: pallet_referenda::TrackInfo {
-			name: s("lease_admin"),
+	),
+	(
+		12,
+		pallet_referenda::TrackInfo {
+			name: "lease_admin",
 			max_deciding: 10,
 			decision_deposit: 5 * GRAND,
 			prepare_period: 8 * MINUTES,
@@ -138,11 +135,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_LEASE_ADMIN,
 			min_support: SUP_LEASE_ADMIN,
 		},
-	},
-	pallet_referenda::Track {
-		id: 13,
-		info: pallet_referenda::TrackInfo {
-			name: s("fellowship_admin"),
+	),
+	(
+		13,
+		pallet_referenda::TrackInfo {
+			name: "fellowship_admin",
 			max_deciding: 10,
 			decision_deposit: 5 * GRAND,
 			prepare_period: 8 * MINUTES,
@@ -152,11 +149,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_FELLOWSHIP_ADMIN,
 			min_support: SUP_FELLOWSHIP_ADMIN,
 		},
-	},
-	pallet_referenda::Track {
-		id: 14,
-		info: pallet_referenda::TrackInfo {
-			name: s("general_admin"),
+	),
+	(
+		14,
+		pallet_referenda::TrackInfo {
+			name: "general_admin",
 			max_deciding: 10,
 			decision_deposit: 5 * GRAND,
 			prepare_period: 8 * MINUTES,
@@ -166,11 +163,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_GENERAL_ADMIN,
 			min_support: SUP_GENERAL_ADMIN,
 		},
-	},
-	pallet_referenda::Track {
-		id: 15,
-		info: pallet_referenda::TrackInfo {
-			name: s("auction_admin"),
+	),
+	(
+		15,
+		pallet_referenda::TrackInfo {
+			name: "auction_admin",
 			max_deciding: 10,
 			decision_deposit: 5 * GRAND,
 			prepare_period: 8 * MINUTES,
@@ -180,11 +177,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_AUCTION_ADMIN,
 			min_support: SUP_AUCTION_ADMIN,
 		},
-	},
-	pallet_referenda::Track {
-		id: 20,
-		info: pallet_referenda::TrackInfo {
-			name: s("referendum_canceller"),
+	),
+	(
+		20,
+		pallet_referenda::TrackInfo {
+			name: "referendum_canceller",
 			max_deciding: 1_000,
 			decision_deposit: 10 * GRAND,
 			prepare_period: 8 * MINUTES,
@@ -194,11 +191,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_REFERENDUM_CANCELLER,
 			min_support: SUP_REFERENDUM_CANCELLER,
 		},
-	},
-	pallet_referenda::Track {
-		id: 21,
-		info: pallet_referenda::TrackInfo {
-			name: s("referendum_killer"),
+	),
+	(
+		21,
+		pallet_referenda::TrackInfo {
+			name: "referendum_killer",
 			max_deciding: 1_000,
 			decision_deposit: 50 * GRAND,
 			prepare_period: 8 * MINUTES,
@@ -208,11 +205,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_REFERENDUM_KILLER,
 			min_support: SUP_REFERENDUM_KILLER,
 		},
-	},
-	pallet_referenda::Track {
-		id: 30,
-		info: pallet_referenda::TrackInfo {
-			name: s("small_tipper"),
+	),
+	(
+		30,
+		pallet_referenda::TrackInfo {
+			name: "small_tipper",
 			max_deciding: 200,
 			decision_deposit: 1 * 3 * CENTS,
 			prepare_period: 1 * MINUTES,
@@ -222,11 +219,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_SMALL_TIPPER,
 			min_support: SUP_SMALL_TIPPER,
 		},
-	},
-	pallet_referenda::Track {
-		id: 31,
-		info: pallet_referenda::TrackInfo {
-			name: s("big_tipper"),
+	),
+	(
+		31,
+		pallet_referenda::TrackInfo {
+			name: "big_tipper",
 			max_deciding: 100,
 			decision_deposit: 10 * 3 * CENTS,
 			prepare_period: 4 * MINUTES,
@@ -236,11 +233,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_BIG_TIPPER,
 			min_support: SUP_BIG_TIPPER,
 		},
-	},
-	pallet_referenda::Track {
-		id: 32,
-		info: pallet_referenda::TrackInfo {
-			name: s("small_spender"),
+	),
+	(
+		32,
+		pallet_referenda::TrackInfo {
+			name: "small_spender",
 			max_deciding: 50,
 			decision_deposit: 100 * 3 * CENTS,
 			prepare_period: 10 * MINUTES,
@@ -250,11 +247,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_SMALL_SPENDER,
 			min_support: SUP_SMALL_SPENDER,
 		},
-	},
-	pallet_referenda::Track {
-		id: 33,
-		info: pallet_referenda::TrackInfo {
-			name: s("medium_spender"),
+	),
+	(
+		33,
+		pallet_referenda::TrackInfo {
+			name: "medium_spender",
 			max_deciding: 50,
 			decision_deposit: 200 * 3 * CENTS,
 			prepare_period: 10 * MINUTES,
@@ -264,11 +261,11 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_MEDIUM_SPENDER,
 			min_support: SUP_MEDIUM_SPENDER,
 		},
-	},
-	pallet_referenda::Track {
-		id: 34,
-		info: pallet_referenda::TrackInfo {
-			name: s("big_spender"),
+	),
+	(
+		34,
+		pallet_referenda::TrackInfo {
+			name: "big_spender",
 			max_deciding: 50,
 			decision_deposit: 400 * 3 * CENTS,
 			prepare_period: 10 * MINUTES,
@@ -278,18 +275,15 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_approval: APP_BIG_SPENDER,
 			min_support: SUP_BIG_SPENDER,
 		},
-	},
+	),
 ];
 
 pub struct TracksInfo;
 impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 	type Id = u16;
 	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-
-	fn tracks(
-	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
-	{
-		TRACKS_DATA.iter().map(Cow::Borrowed)
+	fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
+		&TRACKS_DATA[..]
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
 		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
@@ -323,3 +317,4 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 		}
 	}
 }
+pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);

@@ -16,13 +16,8 @@
 
 //! Elements of governance concerning the Rococo Fellowship.
 
-use alloc::borrow::Cow;
 use frame_support::traits::{MapSuccess, TryMapSuccess};
-use pallet_referenda::{Track, TrackInfo};
-use sp_runtime::{
-	str_array as s,
-	traits::{CheckedReduceBy, ConstU16, Replace, ReplaceWithDefault},
-};
+use sp_runtime::traits::{CheckedReduceBy, ConstU16, Replace, ReplaceWithDefault};
 
 use super::*;
 use crate::{CENTS, DAYS};
@@ -37,13 +32,12 @@ pub struct TracksInfo;
 impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 	type Id = u16;
 	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-
-	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, Balance, BlockNumber>>> {
-		static DATA: [Track<u16, Balance, BlockNumber>; 10] = [
-			Track {
-				id: 0u16,
-				info: TrackInfo {
-					name: s("candidates"),
+	fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
+		static DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 10] = [
+			(
+				0u16,
+				pallet_referenda::TrackInfo {
+					name: "candidates",
 					max_deciding: 10,
 					decision_deposit: 100 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -61,11 +55,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
-			Track {
-				id: 1u16,
-				info: TrackInfo {
-					name: s("members"),
+			),
+			(
+				1u16,
+				pallet_referenda::TrackInfo {
+					name: "members",
 					max_deciding: 10,
 					decision_deposit: 10 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -83,11 +77,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
-			Track {
-				id: 2u16,
-				info: TrackInfo {
-					name: s("proficients"),
+			),
+			(
+				2u16,
+				pallet_referenda::TrackInfo {
+					name: "proficients",
 					max_deciding: 10,
 					decision_deposit: 10 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -105,11 +99,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
-			Track {
-				id: 3u16,
-				info: TrackInfo {
-					name: s("fellows"),
+			),
+			(
+				3u16,
+				pallet_referenda::TrackInfo {
+					name: "fellows",
 					max_deciding: 10,
 					decision_deposit: 10 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -127,11 +121,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
-			Track {
-				id: 4u16,
-				info: TrackInfo {
-					name: s("senior fellows"),
+			),
+			(
+				4u16,
+				pallet_referenda::TrackInfo {
+					name: "senior fellows",
 					max_deciding: 10,
 					decision_deposit: 10 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -149,11 +143,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
-			Track {
-				id: 5u16,
-				info: TrackInfo {
-					name: s("experts"),
+			),
+			(
+				5u16,
+				pallet_referenda::TrackInfo {
+					name: "experts",
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -171,11 +165,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
-			Track {
-				id: 6u16,
-				info: TrackInfo {
-					name: s("senior experts"),
+			),
+			(
+				6u16,
+				pallet_referenda::TrackInfo {
+					name: "senior experts",
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -193,11 +187,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
-			Track {
-				id: 7u16,
-				info: TrackInfo {
-					name: s("masters"),
+			),
+			(
+				7u16,
+				pallet_referenda::TrackInfo {
+					name: "masters",
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -215,11 +209,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
-			Track {
-				id: 8u16,
-				info: TrackInfo {
-					name: s("senior masters"),
+			),
+			(
+				8u16,
+				pallet_referenda::TrackInfo {
+					name: "senior masters",
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -237,11 +231,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
-			Track {
-				id: 9u16,
-				info: TrackInfo {
-					name: s("grand masters"),
+			),
+			(
+				9u16,
+				pallet_referenda::TrackInfo {
+					name: "grand masters",
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -259,9 +253,9 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			},
+			),
 		];
-		DATA.iter().map(Cow::Borrowed)
+		&DATA[..]
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
 		use super::origins::Origin;
@@ -291,6 +285,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 		}
 	}
 }
+pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);
 
 pub type FellowshipReferendaInstance = pallet_referenda::Instance2;
 

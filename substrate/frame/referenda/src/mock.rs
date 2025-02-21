@@ -30,7 +30,6 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{
-	str_array as s,
 	traits::{BlakeTwo256, Hash},
 	BuildStorage, DispatchResult, Perbill,
 };
@@ -105,13 +104,12 @@ pub struct TestTracksInfo;
 impl TracksInfo<u64, u64> for TestTracksInfo {
 	type Id = u8;
 	type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
-
-	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, u64, u64>>> {
-		static DATA: [Track<u8, u64, u64>; 3] = [
-			Track {
-				id: 0u8,
-				info: TrackInfo {
-					name: s("root"),
+	fn tracks() -> &'static [(Self::Id, TrackInfo<u64, u64>)] {
+		static DATA: [(u8, TrackInfo<u64, u64>); 3] = [
+			(
+				0u8,
+				TrackInfo {
+					name: "root",
 					max_deciding: 1,
 					decision_deposit: 10,
 					prepare_period: 4,
@@ -129,11 +127,11 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			},
-			Track {
-				id: 1u8,
-				info: TrackInfo {
-					name: s("none"),
+			),
+			(
+				1u8,
+				TrackInfo {
+					name: "none",
 					max_deciding: 3,
 					decision_deposit: 1,
 					prepare_period: 2,
@@ -151,11 +149,11 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			},
-			Track {
-				id: 2u8,
-				info: TrackInfo {
-					name: s("none"),
+			),
+			(
+				2u8,
+				TrackInfo {
+					name: "none",
 					max_deciding: 3,
 					decision_deposit: 1,
 					prepare_period: 2,
@@ -173,9 +171,9 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			},
+			),
 		];
-		DATA.iter().map(Cow::Borrowed)
+		&DATA[..]
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
 		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
@@ -190,6 +188,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 		}
 	}
 }
+impl_tracksinfo_get!(TestTracksInfo, u64, u64);
 
 impl Config for Test {
 	type WeightInfo = ();
