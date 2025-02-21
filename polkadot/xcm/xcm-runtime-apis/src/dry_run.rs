@@ -64,7 +64,7 @@ sp_api::decl_runtime_apis! {
 		OriginCaller: Encode
 	{
 		/// Dry run call.
-		fn dry_run_call(origin: OriginCaller, xcms_version: XcmVersion, call: Call) -> Result<CallDryRunEffects<Event>, Error>;
+		fn dry_run_call(origin: OriginCaller, call: Call, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<Event>, Error>;
 
 		/// Dry run XCM program
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>) -> Result<XcmDryRunEffects<Event>, Error>;

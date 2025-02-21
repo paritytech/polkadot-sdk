@@ -146,7 +146,7 @@ fn multi_hop_works() {
 
 		let call = transfer_assets_para_to_para_through_ah_call(test.clone());
 		let origin = OriginCaller::system(RawOrigin::Signed(sender.clone()));
-		let result = Runtime::dry_run_call(origin, xcm::prelude::XCM_VERSION, call).unwrap();
+		let result = Runtime::dry_run_call(origin, call, xcm::prelude::XCM_VERSION).unwrap();
 		// We filter the result to get only the messages we are interested in.
 		let (destination_to_query, messages_to_query) = &result
 			.forwarded_xcms

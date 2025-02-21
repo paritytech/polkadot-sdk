@@ -63,7 +63,7 @@ fn fee_estimation_for_teleport() {
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
 		let dry_run_effects = runtime_api
-			.dry_run_call(H256::zero(), origin, XCM_VERSION, call)
+			.dry_run_call(H256::zero(), origin, call, XCM_VERSION)
 			.unwrap()
 			.unwrap();
 
@@ -224,7 +224,7 @@ fn dry_run_reserve_asset_transfer_common(xcm_version: XcmVersion) {
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
 		let dry_run_effects = runtime_api
-			.dry_run_call(H256::zero(), origin, xcm_version, call)
+			.dry_run_call(H256::zero(), origin, call, xcm_version)
 			.unwrap()
 			.unwrap();
 

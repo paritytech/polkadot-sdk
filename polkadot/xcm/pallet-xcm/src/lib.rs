@@ -2513,8 +2513,8 @@ impl<T: Config> Pallet<T> {
 	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_call<Runtime, Router, OriginCaller, RuntimeCall>(
 		origin: OriginCaller,
-		xcms_version: XcmVersion,
 		call: RuntimeCall,
+		result_xcms_version: XcmVersion,
 	) -> Result<CallDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
 	where
 		Runtime: crate::Config,
@@ -2530,7 +2530,7 @@ impl<T: Config> Pallet<T> {
 		let result = call.dispatch(origin.into());
 		crate::Pallet::<Runtime>::set_record_xcm(false);
 		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm()
-			.map(|xcm| VersionedXcm::<()>::from(xcm).into_version(xcms_version))
+			.map(|xcm| VersionedXcm::<()>::from(xcm).into_version(result_xcms_version))
 			.transpose()
 			.map_err(|()| {
 				tracing::error!(
@@ -2542,7 +2542,7 @@ impl<T: Config> Pallet<T> {
 			})?;
 
 		// Should only get messages from this call since we cleared previous ones.
-		let forwarded_xcms = Self::convert_forwarded_xcms(xcms_version, Router::get_messages())
+		let forwarded_xcms = Self::convert_forwarded_xcms(result_xcms_version, Router::get_messages())
 			.inspect_err(|error| {
 				tracing::error!(
 					target: "xcm::DryRunApi::dry_run_call",
