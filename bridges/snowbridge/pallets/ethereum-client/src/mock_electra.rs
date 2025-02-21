@@ -10,6 +10,7 @@ use sp_std::default::Default;
 use std::{fs::File, path::PathBuf};
 
 type Block = frame_system::mocking::MockBlock<Test>;
+use frame_support::traits::ConstU32;
 use sp_runtime::BuildStorage;
 
 fn load_fixture<T>(basename: String) -> Result<T, serde_json::Error>
@@ -17,7 +18,7 @@ where
 	T: for<'de> serde::Deserialize<'de>,
 {
 	let filepath: PathBuf =
-		[env!("CARGO_MANIFEST_DIR"), "tests", "fixtures", &basename].iter().collect();
+		[env!("CARGO_MANIFEST_DIR"), "tests", "electra", &basename].iter().collect();
 	serde_json::from_reader(File::open(filepath).unwrap())
 }
 
@@ -56,6 +57,13 @@ pub fn load_next_finalized_header_update_fixture() -> snowbridge_beacon_primitiv
 	{ config::SYNC_COMMITTEE_BITS_SIZE },
 > {
 	load_fixture("next-finalized-header-update.json".to_string()).unwrap()
+}
+
+pub fn load_other_finalized_header_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
+	load_fixture("other-finalized-header-update.json".to_string()).unwrap()
 }
 
 pub fn get_message_verification_payload() -> (Log, Proof) {
@@ -107,14 +115,17 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: [5, 0, 0, 0], // 0x05000000
-			epoch: 80000000000,
+			epoch: 0,
 		}
 	};
 }
 
+pub const FREE_SLOTS_INTERVAL: u32 = config::SLOTS_PER_EPOCH as u32;
+
 impl ethereum_beacon_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
+	type FreeHeadersInterval = ConstU32<FREE_SLOTS_INTERVAL>;
 	type WeightInfo = ();
 }
 
