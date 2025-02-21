@@ -3,14 +3,13 @@
 //! Helpers for implementing runtime api
 
 use crate::Config;
-use snowbridge_core::{AgentId, AgentIdOf};
+use sp_core::H256;
 use xcm::{prelude::*, VersionedLocation};
-use xcm_executor::traits::ConvertLocation;
 
-pub fn agent_id<Runtime>(location: VersionedLocation) -> Option<AgentId>
+pub fn agent_id<Runtime>(location: VersionedLocation) -> Option<H256>
 where
 	Runtime: Config,
 {
 	let location: Location = location.try_into().ok()?;
-	AgentIdOf::convert_location(&location)
+	crate::Pallet::<Runtime>::location_to_message_origin(&location).ok()
 }

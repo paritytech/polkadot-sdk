@@ -10,15 +10,6 @@ use xcm::{
 };
 
 #[test]
-fn create_agent() {
-	new_test_ext().execute_with(|| {
-		let origin_location = Location::new(1, [Parachain(2000)]);
-		let origin = make_xcm_origin(origin_location);
-		assert_ok!(EthereumSystemFrontend::create_agent(origin));
-	});
-}
-
-#[test]
 fn register_token() {
 	new_test_ext().execute_with(|| {
 		let origin_location = Location::new(1, [Parachain(2000)]);

@@ -13,17 +13,6 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn create_agent() -> Result<(), BenchmarkError> {
-		let origin_location = Location::new(1, [Parachain(2000)]);
-		let origin = T::Helper::make_xcm_origin(origin_location);
-
-		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin);
-
-		Ok(())
-	}
-
-	#[benchmark]
 	fn register_token() -> Result<(), BenchmarkError> {
 		let origin_location = Location::new(1, [Parachain(2000)]);
 		let origin = T::Helper::make_xcm_origin(origin_location);

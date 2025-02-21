@@ -45,7 +45,7 @@ use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
-use snowbridge_pallet_system::{Agents, ForeignToNativeId, NativeToForeignId};
+use snowbridge_pallet_system::{ForeignToNativeId, NativeToForeignId};
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::OriginTrait;
@@ -87,8 +87,6 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// An CreateAgent message was sent to the Gateway
-		CreateAgent { location: Box<Location>, agent_id: H256 },
 		/// Register Polkadot-native token as a wrapped ERC20 token on Ethereum
 		RegisterToken {
 			/// Location of Polkadot-native token
@@ -102,8 +100,6 @@ pub mod pallet {
 	pub enum Error<T> {
 		LocationReanchorFailed,
 		LocationConversionFailed,
-		AgentAlreadyCreated,
-		NoAgent,
 		UnsupportedLocationVersion,
 		InvalidLocation,
 		Send(SendError),
@@ -111,45 +107,12 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Sends a command to the Gateway contract to instantiate a new agent contract representing
-		/// `origin`.
-		///
-		/// - `location`: The location representing the agent
-		/// - `fee`: Ether to pay for the execution cost on Ethereum
-		#[pallet::call_index(1)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::create_agent())]
-		pub fn create_agent(
-			origin: OriginFor<T>,
-			location: Box<VersionedLocation>,
-		) -> DispatchResult {
-			T::FrontendOrigin::ensure_origin(origin)?;
-
-			let location: Location =
-				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
-
-			let message_origin = Self::location_to_message_origin(&location)?;
-
-			// Record the agent id or fail if it has already been created
-			ensure!(!Agents::<T>::contains_key(message_origin), Error::<T>::AgentAlreadyCreated);
-			Agents::<T>::insert(message_origin, ());
-
-			let command = Command::CreateAgent {};
-
-			Self::send(message_origin, command, 0)?;
-
-			Self::deposit_event(Event::<T>::CreateAgent {
-				location: Box::new(location),
-				agent_id: message_origin,
-			});
-			Ok(())
-		}
-
 		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
 		///
 		/// - `asset_id`: Location of the asset (relative to this chain)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
 		/// - `fee`: Ether to pay for the execution cost on Ethereum
-		#[pallet::call_index(2)]
+		#[pallet::call_index(0)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_token())]
 		pub fn register_token(
 			origin: OriginFor<T>,

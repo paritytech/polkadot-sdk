@@ -41,6 +41,7 @@ hex-literal = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

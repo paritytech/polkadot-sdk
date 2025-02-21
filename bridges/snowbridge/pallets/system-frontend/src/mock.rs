@@ -211,7 +211,6 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
-	type CreateAgentOrigin = EnsureXcm<Everything>;
 	type RegisterTokenOrigin = AsEnsureOriginWithArg<EnsureXcm<Everything>>;
 	type XcmSender = MockXcmSender;
 	type AssetTransactor = SuccessfulTransactor;
