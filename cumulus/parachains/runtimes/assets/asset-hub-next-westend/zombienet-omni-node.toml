@@ -13,10 +13,9 @@ validator = true
 rpc_port = 9955
 
 [[parachains]]
-id = 1000
-chain_spec_path = "chain_spec.json"
+id = 1100
+chain_spec_path = "./chain_spec.json"
 
 [parachains.collator]
 name = "charlie"
 rpc_port = 9988
-command = "polkadot-omni-node"

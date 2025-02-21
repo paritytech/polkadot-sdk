@@ -5,7 +5,7 @@
 In any case, prepare a chain-spec.
 
 ```
-VALIDATORS=1000 NOMINATORS=20000 cargo build --release -p asset-hub-next-westend-runtime -p staging-chain-spec-builder
+VALIDATORS=1000 NOMINATORS=25000 cargo build --release -p asset-hub-next-westend-runtime -p staging-chain-spec-builder
 ./target/release/chain-spec-builder create --runtime ./target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm --relay-chain westend-local --para-id 1100 named-preset genesis
 ./target/release/chain-spec-builder convert-to-raw chain_spec.json
 ```

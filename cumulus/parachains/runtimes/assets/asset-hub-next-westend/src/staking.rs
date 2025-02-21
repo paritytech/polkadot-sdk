@@ -47,7 +47,7 @@ parameter_types! {
 		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
 	);
 
-	/// Compatible with Polkadot, we allow up to 22_500 nominators to be considered for electio
+	/// Compatible with Polkadot, we allow up to 22_500 nominators to be considered for election
 	pub const MaxElectingVoters: u32 = 22_500;
 
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
