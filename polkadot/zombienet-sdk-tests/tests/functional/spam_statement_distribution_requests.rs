@@ -109,7 +109,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		"*Duplicating AttestedCandidateV2 request*",
 		true,
 		1,
-		90,
+		90u64,
 	);
 
 	// Ensure parachains made progress.
@@ -127,7 +127,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		"*Peer already being served, dropping request*",
 		true,
 		1,
-		60,
+		60u64,
 	);
 
 	// Check lag - approval
