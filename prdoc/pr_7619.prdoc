@@ -1,9 +1,11 @@
 title: Effort towards getting chainspecbuilder into omni-node fix 5567
 doc:
 - audience: Runtime Dev
-  description: This PR add chain-spec-builder as a subcommand to the polkadot-omni-node
+
+  description: |
+    This PR add chain-spec-builder as a subcommand to the polkadot-omni-node
 crates:
 - name: polkadot-omni-node
   bump: patch
-  name: chain-spec-builder
+- name: chain-spec-builder
   bump: minor
