@@ -3005,7 +3005,6 @@ dependencies = [
  "sp-session 27.0.0",
  "sp-std 14.0.0",
  "sp-storage 19.0.0",
- "sp-tracing 16.0.0",
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
@@ -3014,6 +3013,7 @@ dependencies = [
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
+ "tracing",
  "westend-runtime-constants 7.0.0",
  "xcm-runtime-apis 0.1.0",
 ]
