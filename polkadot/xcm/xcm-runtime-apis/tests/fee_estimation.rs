@@ -20,7 +20,10 @@ use frame_support::sp_runtime::testing::H256;
 use frame_system::RawOrigin;
 use sp_api::ProvideRuntimeApi;
 use xcm::prelude::*;
-use xcm_runtime_apis::{dry_run::{DryRunApi, CallDryRunEffects}, fees::XcmPaymentApi};
+use xcm_runtime_apis::{
+	dry_run::{CallDryRunEffects, DryRunApi},
+	fees::XcmPaymentApi,
+};
 
 mod mock;
 use mock::{
@@ -219,7 +222,9 @@ fn dry_run_reserve_asset_transfer_common(
 					.unwrap(),
 			),
 			assets: Box::new(
-				VersionedAssets::from((Parent, 100u128)).into_version(input_xcm_version).unwrap(),
+				VersionedAssets::from((Parent, 100u128))
+					.into_version(input_xcm_version)
+					.unwrap(),
 			),
 			fee_asset_item: 0,
 			weight_limit: Unlimited,
@@ -256,7 +261,9 @@ fn dry_run_reserve_asset_transfer_common(
 				VersionedLocation::from(send_destination.clone())
 					.into_version(expected_result_xcms_version)
 					.unwrap(),
-				vec![VersionedXcm::from(send_message.clone()).into_version(expected_result_xcms_version).unwrap()],
+				vec![VersionedXcm::from(send_message.clone())
+					.into_version(expected_result_xcms_version)
+					.unwrap()],
 			),],
 		);
 
@@ -298,11 +305,12 @@ fn dry_run_reserve_asset_transfer_xcm_versions() {
 			input_version,
 			expected_result_xcms_version,
 			|client, origin, call| {
-				client.runtime_api()
+				client
+					.runtime_api()
 					.dry_run_call(H256::zero(), origin, call, expected_result_xcms_version)
 					.unwrap()
 					.unwrap()
-			}
+			},
 		);
 	}
 }
@@ -319,11 +327,12 @@ fn dry_run_before_api_v2_reserve_asset_transfer() {
 			expected_result_xcms_version,
 			|client, origin, call| {
 				#[allow(deprecated)]
-				client.runtime_api()
+				client
+					.runtime_api()
 					.dry_run_call_before_version_2(H256::zero(), origin, call)
 					.unwrap()
 					.unwrap()
-			}
+			},
 		);
 	}
 }
