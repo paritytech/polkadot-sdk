@@ -754,6 +754,8 @@ impl<T: Config> Pallet<T> {
 			return false
 		}
 
+		log!(trace, "disabling validator {:?}", i);
+
 		DisabledValidators::<T>::mutate(|disabled| {
 			if let Err(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
 				disabled.insert(index, (i, OffenceSeverity(Perbill::zero())));
@@ -930,6 +932,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
+		log!(trace, "reporting offence for {:?} with {:?}", validator, severity);
 		DisabledValidators::<T>::mutate(|disabled| {
 			let decision = T::DisablingStrategy::decision(&validator, severity, &disabled);
 
@@ -939,11 +942,13 @@ impl<T: Config> Pallet<T> {
 					// Offender is already disabled, update severity if the new one is higher
 					Ok(index) => {
 						let (_, old_severity) = &mut disabled[index];
+						log!(trace, "Offender was already disabled, updating severity from {:?} to {:?}", old_severity, severity);
 						if severity > *old_severity {
 							*old_severity = severity;
 						}
 					},
 					Err(index) => {
+						log!(trace, "Disabling validator {:?} with severity: {:?}", offender_idx, severity);
 						// Offender is not disabled, add to `DisabledValidators` and disable it
 						disabled.insert(index, (offender_idx, severity));
 						// let the session handlers know that a validator got disabled
@@ -961,6 +966,7 @@ impl<T: Config> Pallet<T> {
 				// Remove the validator from `DisabledValidators` and re-enable it.
 				if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index)
 				{
+					log!(trace, "Re-enabling validator {:?} to make space", reenable_idx);
 					disabled.remove(index);
 					// Emit event that a validator got re-enabled
 					let reenabled_stash = Validators::<T>::get()[reenable_idx as usize].clone();
