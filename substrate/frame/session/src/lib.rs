@@ -656,6 +656,11 @@ impl<T: Config> Pallet<T> {
 		DisabledValidators::<T>::get().iter().map(|(i, _)| *i).collect()
 	}
 
+	/// Public function to access the disabled validators with their severities.
+	pub fn disabled_validators_with_severities() -> Vec<(u32, OffenceSeverity)> {
+		DisabledValidators::<T>::get()
+	}
+
 	/// Move on to next session. Register new validator set and session keys. Changes to the
 	/// validator set have a session of delay to take effect. This allows for equivocation
 	/// punishment after a fork.
