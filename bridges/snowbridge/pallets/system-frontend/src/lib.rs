@@ -41,9 +41,9 @@ pub const LOG_TARGET: &str = "snowbridge-system-frontend";
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemCall {
 	#[codec(index = 1)]
-	CreateAgent { location: Box<VersionedLocation>, fee: u128 },
+	CreateAgent { location: Box<VersionedLocation> },
 	#[codec(index = 2)]
-	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata, fee: u128 },
+	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata },
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -154,17 +154,13 @@ pub mod pallet {
 		/// - `fee`: Fee in Ether paying for the execution cost on Ethreum
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::create_agent())]
-		pub fn create_agent(origin: OriginFor<T>, fee: u128) -> DispatchResult {
+		pub fn create_agent(origin: OriginFor<T>) -> DispatchResult {
 			let origin_location = T::CreateAgentOrigin::ensure_origin(origin)?;
-
-			// Burn Ether Fee for the cost on ethereum
-			Self::burn_for_teleport(&origin_location, &(T::EthereumLocation::get(), fee).into())?;
 
 			let reanchored_location = Self::reanchor(&origin_location)?;
 
 			let call = BridgeHubRuntime::EthereumSystem(EthereumSystemCall::CreateAgent {
 				location: Box::new(VersionedLocation::from(reanchored_location.clone())),
-				fee,
 			});
 
 			let message_id = Self::send(origin_location.clone(), Self::build_xcm(&call))?;
@@ -183,22 +179,17 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			asset_id: Box<VersionedLocation>,
 			metadata: AssetMetadata,
-			fee: u128,
 		) -> DispatchResult {
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
 			let origin_location = T::RegisterTokenOrigin::ensure_origin(origin, &asset_location)?;
 
-			// Burn Ether Fee for the cost on ethereum
-			Self::burn_for_teleport(&origin_location, &(T::EthereumLocation::get(), fee).into())?;
-
 			let reanchored_asset_location = Self::reanchor(&asset_location)?;
 
 			let call = BridgeHubRuntime::EthereumSystem(EthereumSystemCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(reanchored_asset_location.clone())),
 				metadata,
-				fee,
 			});
 
 			let message_id = Self::send(origin_location.clone(), Self::build_xcm(&call))?;
