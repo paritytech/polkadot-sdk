@@ -1,0 +1,16 @@
+title: "Revert #2072 Tracks iter"
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Revert [#2072](https://github.com/paritytech/polkadot-sdk/pull/2072) TracksInfo iterator
+
+crates:
+  - name: pallet-referenda
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
