@@ -37,7 +37,7 @@ pub const LOG_TARGET: &str = "snowbridge-system-frontend";
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemCall {
-	#[codec(index = 0)]
+	#[codec(index = 2)]
 	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata },
 }
 
@@ -103,7 +103,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A message to register a Polkadot-native token was sent to Bridge Hub
+		/// A message to register a Polkadot-native token was sent to BridgeHub
 		RegisterToken {
 			/// Location of Polkadot-native token
 			location: Location,
@@ -143,7 +143,6 @@ pub mod pallet {
 		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
 		/// - `asset_id`: Location of the asset (should starts from the dispatch origin)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
-		/// - `fee`: Fee in Ether paying for the execution cost on Ethreum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::register_token())]
 		pub fn register_token(
@@ -153,16 +152,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
-
 			let origin_location = T::RegisterTokenOrigin::ensure_origin(origin, &asset_location)?;
-
 			let reanchored_asset_location = Self::reanchor(&asset_location)?;
 
 			let call = BridgeHubRuntime::EthereumSystem(EthereumSystemCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(reanchored_asset_location.clone())),
 				metadata,
 			});
-
 			let message_id = Self::send(origin_location.clone(), Self::build_xcm(&call))?;
 
 			Self::deposit_event(Event::<T>::RegisterToken { location: asset_location, message_id });
@@ -182,17 +178,6 @@ pub mod pallet {
 				)?;
 			T::XcmExecutor::charge_fees(origin, price).map_err(|_| Error::<T>::FeesNotMet)?;
 			Ok(message_id.into())
-		}
-
-		fn burn_for_teleport(origin: &Location, fee: &Asset) -> DispatchResult {
-			let dummy_context =
-				XcmContext { origin: None, message_id: Default::default(), topic: None };
-			T::AssetTransactor::can_check_out(origin, fee, &dummy_context)
-				.map_err(|_| Error::<T>::FeesNotMet)?;
-			T::AssetTransactor::check_out(origin, fee, &dummy_context);
-			T::AssetTransactor::withdraw_asset(fee, origin, None)
-				.map_err(|_| Error::<T>::FeesNotMet)?;
-			Ok(())
 		}
 
 		fn build_xcm(call: &impl Encode) -> Xcm<()> {

@@ -91,6 +91,10 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// An Upgrade message was sent to the Gateway
+		Upgrade { impl_address: H160, impl_code_hash: H256, initializer_params_hash: H256 },
+		/// An SetOperatingMode message was sent to the Gateway
+		SetOperatingMode { mode: OperatingMode },
 		/// Register Polkadot-native token as a wrapped ERC20 token on Ethereum
 		RegisterToken {
 			/// Location of Polkadot-native token
@@ -98,10 +102,6 @@ pub mod pallet {
 			/// ID of Polkadot-native token on Ethereum
 			foreign_token_id: H256,
 		},
-		/// An Upgrade message was sent to the Gateway
-		Upgrade { impl_address: H160, impl_code_hash: H256, initializer_params_hash: Option<H256> },
-		/// An SetOperatingMode message was sent to the Gateway
-		SetOperatingMode { mode: OperatingMode },
 	}
 
 	#[pallet::error]
@@ -116,6 +116,62 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Sends command to the Gateway contract to upgrade itself with a new implementation
+		/// contract
+		///
+		/// Fee required: No
+		///
+		/// - `origin`: Must be `Root`.
+		/// - `impl_address`: The address of the implementation contract.
+		/// - `impl_code_hash`: The codehash of the implementation contract.
+		/// - `initializer`: Optionally call an initializer on the implementation contract.
+		#[pallet::call_index(3)]
+		#[pallet::weight((<T as pallet::Config>::WeightInfo::upgrade(), DispatchClass::Operational))]
+		pub fn upgrade(
+			origin: OriginFor<T>,
+			impl_address: H160,
+			impl_code_hash: H256,
+			initializer: Initializer,
+		) -> DispatchResult {
+			let origin_location = T::GovernanceOrigin::ensure_origin(origin)?;
+			let origin = Self::location_to_message_origin(&origin_location)?;
+
+			ensure!(
+				!impl_address.eq(&H160::zero()) && !impl_code_hash.eq(&H256::zero()),
+				Error::<T>::InvalidUpgradeParameters
+			);
+
+			let initializer_params_hash: H256 = blake2_256(initializer.params.as_ref()).into();
+
+			let command = Command::Upgrade { impl_address, impl_code_hash, initializer };
+			Self::send(origin, command, 0)?;
+
+			Self::deposit_event(Event::<T>::Upgrade {
+				impl_address,
+				impl_code_hash,
+				initializer_params_hash,
+			});
+			Ok(())
+		}
+
+		/// Sends a message to the Gateway contract to change its operating mode
+		///
+		/// Fee required: No
+		///
+		/// - `origin`: Must be `Root`
+		#[pallet::call_index(4)]
+		#[pallet::weight((<T as pallet::Config>::WeightInfo::set_operating_mode(), DispatchClass::Operational))]
+		pub fn set_operating_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
+			let origin_location = T::GovernanceOrigin::ensure_origin(origin)?;
+			let origin = Self::location_to_message_origin(&origin_location)?;
+
+			let command = Command::SetOperatingMode { mode };
+			Self::send(origin, command, 0)?;
+
+			Self::deposit_event(Event::<T>::SetOperatingMode { mode });
+			Ok(())
+		}
+
 		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
 		///
 		/// - `asset_id`: Location of the asset (relative to this chain)
@@ -157,63 +213,6 @@ pub mod pallet {
 				foreign_token_id: token_id,
 			});
 
-			Ok(())
-		}
-
-		/// Sends command to the Gateway contract to upgrade itself with a new implementation
-		/// contract
-		///
-		/// Fee required: No
-		///
-		/// - `origin`: Must be `Root`.
-		/// - `impl_address`: The address of the implementation contract.
-		/// - `impl_code_hash`: The codehash of the implementation contract.
-		/// - `initializer`: Optionally call an initializer on the implementation contract.
-		#[pallet::call_index(3)]
-		#[pallet::weight((<T as pallet::Config>::WeightInfo::upgrade(), DispatchClass::Operational))]
-		pub fn upgrade(
-			origin: OriginFor<T>,
-			impl_address: H160,
-			impl_code_hash: H256,
-			initializer: Option<Initializer>,
-		) -> DispatchResult {
-			let origin_location = T::GovernanceOrigin::ensure_origin(origin)?;
-			let origin = Self::location_to_message_origin(&origin_location)?;
-
-			ensure!(
-				!impl_address.eq(&H160::zero()) && !impl_code_hash.eq(&H256::zero()),
-				Error::<T>::InvalidUpgradeParameters
-			);
-
-			let initializer_params_hash: Option<H256> =
-				initializer.as_ref().map(|i| H256::from(blake2_256(i.params.as_ref())));
-
-			let command = Command::Upgrade { impl_address, impl_code_hash, initializer };
-			Self::send(origin, command, 0)?;
-
-			Self::deposit_event(Event::<T>::Upgrade {
-				impl_address,
-				impl_code_hash,
-				initializer_params_hash,
-			});
-			Ok(())
-		}
-
-		/// Sends a message to the Gateway contract to change its operating mode
-		///
-		/// Fee required: No
-		///
-		/// - `origin`: Must be `Root`
-		#[pallet::call_index(4)]
-		#[pallet::weight((<T as pallet::Config>::WeightInfo::set_operating_mode(), DispatchClass::Operational))]
-		pub fn set_operating_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
-			let origin_location = T::GovernanceOrigin::ensure_origin(origin)?;
-			let origin = Self::location_to_message_origin(&origin_location)?;
-
-			let command = Command::SetOperatingMode { mode };
-			Self::send(origin, command, 0)?;
-
-			Self::deposit_event(Event::<T>::SetOperatingMode { mode });
 			Ok(())
 		}
 	}
