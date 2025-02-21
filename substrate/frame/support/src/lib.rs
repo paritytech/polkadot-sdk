@@ -914,7 +914,7 @@ pub mod pallet_prelude {
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
 	};
-	pub use codec::{Decode, Encode, MaxEncodedLen};
+	pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	pub use core::marker::PhantomData;
 	pub use frame_support::pallet_macros::*;
 	pub use frame_support_procedural::{inject_runtime_type, register_default_impl};

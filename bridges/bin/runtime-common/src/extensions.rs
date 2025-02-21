@@ -111,7 +111,7 @@ where
 		// let's slash registered relayer
 		RelayersPallet::<T>::slash_and_deregister(
 			relayer,
-			ExplicitOrAccountParams::Explicit(SlashAccount::get()),
+			ExplicitOrAccountParams::Explicit::<_, ()>(SlashAccount::get()),
 		);
 	}
 }
@@ -182,7 +182,7 @@ where
 		// let's slash registered relayer
 		RelayersPallet::<T>::slash_and_deregister(
 			relayer,
-			ExplicitOrAccountParams::Explicit(SlashAccount::get()),
+			ExplicitOrAccountParams::Explicit::<_, ()>(SlashAccount::get()),
 		);
 	}
 }

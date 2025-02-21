@@ -20,6 +20,7 @@
 //! [Fellowship RFC 122](https://github.com/polkadot-fellows/rfCs/pull/122), and the
 //! [specification](https://github.com/polkadot-fellows/xcm-format) for more information.
 
+use codec::Encode;
 use xcm::{latest::AssetTransferFilter, prelude::*};
 
 use super::mock::*;
@@ -103,4 +104,116 @@ fn preserves_origin() {
 	));
 	assert!(matches!(instr.next().unwrap(), RefundSurplus));
 	assert!(matches!(instr.next().unwrap(), DepositAsset { .. }));
+}
+
+#[test]
+fn unpaid_execution_goes_after_origin_alteration() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER, (Here, 100u128));
+
+	let xcm_on_destination =
+		Xcm::builder_unsafe().refund_surplus().deposit_asset(All, RECIPIENT).build();
+	let asset: Asset = (Here, 90u128).into();
+	let xcm = Xcm::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 10u128))
+		.initiate_transfer(
+			Parent,
+			None, // We specify no remote fees.
+			true, // Preserve origin, necessary for `UnpaidExecution`.
+			vec![AssetTransferFilter::ReserveDeposit(asset.into())],
+			xcm_on_destination,
+		)
+		.build();
+
+	// We initialize the executor with the SENDER origin, which is not waived.
+	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
+
+	// Program fails with `BadOrigin`.
+	let result = vm.bench_process(xcm);
+	assert!(result.is_ok(), "execution error {:?}", result);
+
+	let (destination, sent_message) = sent_xcm().pop().unwrap();
+	assert_eq!(destination, Parent.into());
+	assert_eq!(sent_message.len(), 5);
+	let mut instructions = sent_message.inner().iter();
+	assert!(matches!(instructions.next().unwrap(), ReserveAssetDeposited(..)));
+	assert!(matches!(
+		instructions.next().unwrap(),
+		AliasOrigin(origin) if matches!(origin.unpack(), (0, [Parachain(1000), AccountId32 { id: SENDER, network: None }]))
+	));
+	assert!(matches!(instructions.next().unwrap(), UnpaidExecution { .. }));
+	assert!(matches!(instructions.next().unwrap(), RefundSurplus));
+	assert!(matches!(instructions.next().unwrap(), DepositAsset { .. }));
+}
+
+#[test]
+fn no_alias_origin_if_root() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(Here, (Here, 100u128));
+
+	let xcm_on_destination =
+		Xcm::builder_unsafe().refund_surplus().deposit_asset(All, RECIPIENT).build();
+	let asset: Asset = (Here, 90u128).into();
+	let xcm = Xcm::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 10u128))
+		.initiate_transfer(
+			Parent,
+			None, // We specify no remote fees.
+			true, // Preserve origin, necessary for `UnpaidExecution`.
+			vec![AssetTransferFilter::ReserveDeposit(asset.into())],
+			xcm_on_destination,
+		)
+		.build();
+
+	// We initialize the executor with the SENDER origin, which is not waived.
+	let (mut vm, _) = instantiate_executor(Here, xcm.clone());
+
+	// Program fails with `BadOrigin`.
+	let result = vm.bench_process(xcm);
+	assert!(result.is_ok(), "execution error {:?}", result);
+
+	let (destination, sent_message) = sent_xcm().pop().unwrap();
+	assert_eq!(destination, Parent.into());
+	assert_eq!(sent_message.len(), 4);
+	let mut instructions = sent_message.inner().iter();
+	assert!(matches!(instructions.next().unwrap(), ReserveAssetDeposited(..)));
+	assert!(matches!(instructions.next().unwrap(), UnpaidExecution { .. }));
+	assert!(matches!(instructions.next().unwrap(), RefundSurplus));
+	assert!(matches!(instructions.next().unwrap(), DepositAsset { .. }));
+}
+
+// We simulate going from one system parachain to another without
+// having to pay remote fees.
+#[test]
+fn unpaid_transact() {
+	let to_another_system_para: Location = (Parent, Parachain(1001)).into();
+	// We want to execute some call in the receiving chain.
+	let xcm_on_destination = Xcm::builder_unsafe()
+		.transact(OriginKind::Superuser, None, b"".encode())
+		.build();
+	let xcm = Xcm::builder_unsafe()
+		.initiate_transfer(
+			to_another_system_para.clone(),
+			None,   // We specify no remote fees.
+			true,   // Preserve necessary for `UnpaidExecution`.
+			vec![], // No need for assets.
+			xcm_on_destination,
+		)
+		.build();
+
+	// We initialize the executor with the root origin, which is waived.
+	let (mut vm, _) = instantiate_executor(Here, xcm.clone());
+
+	// Program executes successfully.
+	let result = vm.bench_process(xcm.clone());
+	assert!(result.is_ok(), "execution error: {:?}", result);
+
+	let (destination, sent_message) = sent_xcm().pop().unwrap();
+	assert_eq!(destination, to_another_system_para);
+	assert_eq!(sent_message.len(), 2);
+	let mut instructions = sent_message.inner().iter();
+	assert!(matches!(instructions.next().unwrap(), UnpaidExecution { .. }));
+	assert!(matches!(instructions.next().unwrap(), Transact { .. }));
 }
