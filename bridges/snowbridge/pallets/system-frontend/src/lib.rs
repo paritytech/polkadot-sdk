@@ -213,6 +213,17 @@ pub mod pallet {
 			Ok(message_id.into())
 		}
 
+		fn burn_for_teleport(origin: &Location, fee: &Asset) -> DispatchResult {
+			let dummy_context =
+				XcmContext { origin: None, message_id: Default::default(), topic: None };
+			T::AssetTransactor::can_check_out(origin, fee, &dummy_context)
+				.map_err(|_| Error::<T>::FeesNotMet)?;
+			T::AssetTransactor::check_out(origin, fee, &dummy_context);
+			T::AssetTransactor::withdraw_asset(fee, origin, None)
+				.map_err(|_| Error::<T>::FeesNotMet)?;
+			Ok(())
+		}
+
 		fn build_xcm(call: &impl Encode) -> Xcm<()> {
 			Xcm(vec![
 				DescendOrigin(T::PalletLocation::get()),
