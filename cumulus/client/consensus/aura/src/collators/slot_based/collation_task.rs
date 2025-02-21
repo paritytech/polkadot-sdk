@@ -161,7 +161,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 					relay_parent_header.number
 				);
 			}else {
-				tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent}");
+				tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {:?relay_parent}");
 			}
 		}
 
