@@ -8,4 +8,4 @@ crates:
 - name: polkadot-omni-node-lib
   bump: major
 - name: staging-chain-spec-builder
-  bump: minor
+  bump: patch
