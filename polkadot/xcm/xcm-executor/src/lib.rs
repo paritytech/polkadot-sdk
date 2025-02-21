@@ -60,7 +60,13 @@ pub struct FeesMode {
 	pub jit_withdraw: bool,
 }
 
-const RECURSION_LIMIT: u8 = 10;
+/// The maximum recursion depth allowed when executing nested XCM instructions.
+///
+/// Exceeding this limit results in `XcmError::ExceedsStackLimit` or
+/// `ProcessMessageError::StackLimitReached`.
+///
+/// Also used in the `DenyRecursively` barrier.
+pub const RECURSION_LIMIT: u8 = 10;
 
 environmental::environmental!(recursion_count: u8);
 
@@ -794,13 +800,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return Err(XcmError::ExceedsStackLimit)
+								return None
 							}
 							*count = count.saturating_add(1);
-							Ok(())
+							Some(())
 						})
-						// This should always return `Some`, but let's play it safe.
-						.unwrap_or(Ok(()))?;
+						.flatten()
+						.ok_or(XcmError::ExceedsStackLimit)?;
 
 						// Ensure that we always decrement the counter whenever we finish processing
 						// the instruction.

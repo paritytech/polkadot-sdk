@@ -628,6 +628,8 @@ pub trait OnTimestampSet<Moment> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::parameter_types;
+	use alloc::vec::Vec;
 	use sp_io::TestExternalities;
 
 	#[cfg(feature = "try-runtime")]
@@ -712,7 +714,9 @@ mod tests {
 
 	#[test]
 	fn on_idle_round_robin_works() {
-		static mut ON_IDLE_INVOCATION_ORDER: alloc::vec::Vec<&str> = alloc::vec::Vec::new();
+		parameter_types! {
+			static OnIdleInvocationOrder: Vec<&'static str> = Vec::new();
+		}
 
 		struct Test1;
 		struct Test2;
@@ -720,49 +724,41 @@ mod tests {
 		type TestTuple = (Test1, Test2, Test3);
 		impl OnIdle<u32> for Test1 {
 			fn on_idle(_n: u32, _weight: Weight) -> Weight {
-				unsafe {
-					ON_IDLE_INVOCATION_ORDER.push("Test1");
-				}
+				OnIdleInvocationOrder::mutate(|o| o.push("Test1"));
 				Weight::zero()
 			}
 		}
 		impl OnIdle<u32> for Test2 {
 			fn on_idle(_n: u32, _weight: Weight) -> Weight {
-				unsafe {
-					ON_IDLE_INVOCATION_ORDER.push("Test2");
-				}
+				OnIdleInvocationOrder::mutate(|o| o.push("Test2"));
 				Weight::zero()
 			}
 		}
 		impl OnIdle<u32> for Test3 {
 			fn on_idle(_n: u32, _weight: Weight) -> Weight {
-				unsafe {
-					ON_IDLE_INVOCATION_ORDER.push("Test3");
-				}
+				OnIdleInvocationOrder::mutate(|o| o.push("Test3"));
 				Weight::zero()
 			}
 		}
 
-		unsafe {
-			TestTuple::on_idle(0, Weight::zero());
-			assert_eq!(ON_IDLE_INVOCATION_ORDER, ["Test1", "Test2", "Test3"].to_vec());
-			ON_IDLE_INVOCATION_ORDER.clear();
+		TestTuple::on_idle(0, Weight::zero());
+		assert_eq!(OnIdleInvocationOrder::get(), ["Test1", "Test2", "Test3"].to_vec());
+		OnIdleInvocationOrder::mutate(|o| o.clear());
 
-			TestTuple::on_idle(1, Weight::zero());
-			assert_eq!(ON_IDLE_INVOCATION_ORDER, ["Test2", "Test3", "Test1"].to_vec());
-			ON_IDLE_INVOCATION_ORDER.clear();
+		TestTuple::on_idle(1, Weight::zero());
+		assert_eq!(OnIdleInvocationOrder::get(), ["Test2", "Test3", "Test1"].to_vec());
+		OnIdleInvocationOrder::mutate(|o| o.clear());
 
-			TestTuple::on_idle(2, Weight::zero());
-			assert_eq!(ON_IDLE_INVOCATION_ORDER, ["Test3", "Test1", "Test2"].to_vec());
-			ON_IDLE_INVOCATION_ORDER.clear();
+		TestTuple::on_idle(2, Weight::zero());
+		assert_eq!(OnIdleInvocationOrder::get(), ["Test3", "Test1", "Test2"].to_vec());
+		OnIdleInvocationOrder::mutate(|o| o.clear());
 
-			TestTuple::on_idle(3, Weight::zero());
-			assert_eq!(ON_IDLE_INVOCATION_ORDER, ["Test1", "Test2", "Test3"].to_vec());
-			ON_IDLE_INVOCATION_ORDER.clear();
+		TestTuple::on_idle(3, Weight::zero());
+		assert_eq!(OnIdleInvocationOrder::get(), ["Test1", "Test2", "Test3"].to_vec());
+		OnIdleInvocationOrder::mutate(|o| o.clear());
 
-			TestTuple::on_idle(4, Weight::zero());
-			assert_eq!(ON_IDLE_INVOCATION_ORDER, ["Test2", "Test3", "Test1"].to_vec());
-			ON_IDLE_INVOCATION_ORDER.clear();
-		}
+		TestTuple::on_idle(4, Weight::zero());
+		assert_eq!(OnIdleInvocationOrder::get(), ["Test2", "Test3", "Test1"].to_vec());
+		OnIdleInvocationOrder::mutate(|o| o.clear());
 	}
 }
