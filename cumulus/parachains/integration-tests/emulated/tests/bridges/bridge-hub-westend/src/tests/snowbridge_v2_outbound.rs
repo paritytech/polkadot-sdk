@@ -97,6 +97,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 	});
 }
 
+#[test]
 pub fn register_relay_token_from_asset_hub_with_sudo() {
 	fund_on_bh();
 	register_assets_on_ah();
