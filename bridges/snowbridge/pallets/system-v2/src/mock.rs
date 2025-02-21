@@ -8,6 +8,7 @@ use frame_support::{
 use sp_core::H256;
 
 use crate as snowbridge_system_v2;
+use frame_system::EnsureRootWithSuccess;
 use snowbridge_core::{
 	gwei, meth, sibling_sovereign_account, AllowSiblingsOnly, ParaId, PricingParameters, Rewards,
 };
@@ -192,6 +193,7 @@ parameter_types! {
 	pub BridgeHubParaId: ParaId = ParaId::new(1002);
 	pub AssetHubParaId: ParaId = ParaId::new(1000);
 	pub TestParaId: u32 = 2000;
+	pub RootLocation: Location = Location::parent();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -220,6 +222,7 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = MockOkOutboundQueue;
 	type FrontendOrigin = EnsureXcm<AllowFromAssetHub>;
+	type GovernanceOrigin = EnsureRootWithSuccess<AccountId, RootLocation>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();

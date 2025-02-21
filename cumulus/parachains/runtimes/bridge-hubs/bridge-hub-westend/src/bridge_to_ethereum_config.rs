@@ -41,6 +41,7 @@ use crate::xcm_config::{RelayNetwork, XcmConfig, XcmRouter};
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
+use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::EnsureXcm;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
@@ -89,6 +90,7 @@ parameter_types! {
 	pub InboundQueueLocation: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
 	pub SnowbridgeFrontendLocation: Location = Location::new(1,[Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID),PalletInstance(FRONTEND_PALLET_INDEX)]);
 	pub AssethubLocation: Location = Location::new(1,[Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
+	pub RootLocation: Location = Location::new(0,[]);
 }
 
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
@@ -287,6 +289,7 @@ impl snowbridge_pallet_system_v2::Config for Runtime {
 	type OutboundQueue = EthereumOutboundQueueV2;
 	type FrontendOrigin = EnsureXcm<AllowFromEthereumFrontend>;
 	type WeightInfo = crate::weights::snowbridge_pallet_system_v2::WeightInfo<Runtime>;
+	type GovernanceOrigin = EnsureRootWithSuccess<crate::AccountId, RootLocation>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 }

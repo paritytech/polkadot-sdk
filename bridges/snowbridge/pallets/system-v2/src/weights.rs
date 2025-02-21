@@ -33,6 +33,8 @@ use core::marker::PhantomData;
 /// Weight functions needed for `snowbridge_system`.
 pub trait WeightInfo {
 	fn register_token() -> Weight;
+	fn upgrade() -> Weight;
+	fn set_operating_mode() -> Weight;
 }
 
 // For backwards compatibility and tests.
@@ -44,6 +46,44 @@ impl WeightInfo for () {
 		// Minimum execution time: 45_000_000 picoseconds.
 		Weight::from_parts(45_000_000, 6044)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: ParachainInfo ParachainId (r:1 w:0)
+	/// Proof: ParachainInfo ParachainId (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: EthereumOutboundQueue PalletOperatingMode (r:1 w:0)
+	/// Proof: EthereumOutboundQueue PalletOperatingMode (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
+	/// Storage: MessageQueue BookStateFor (r:1 w:1)
+	/// Proof: MessageQueue BookStateFor (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
+	/// Storage: MessageQueue ServiceHead (r:1 w:1)
+	/// Proof: MessageQueue ServiceHead (max_values: Some(1), max_size: Some(5), added: 500, mode: MaxEncodedLen)
+	/// Storage: MessageQueue Pages (r:0 w:1)
+	/// Proof: MessageQueue Pages (max_values: None, max_size: Some(65585), added: 68060, mode: MaxEncodedLen)
+	fn upgrade() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `80`
+		//  Estimated: `3517`
+		// Minimum execution time: 44_000_000 picoseconds.
+		Weight::from_parts(44_000_000, 3517)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: ParachainInfo ParachainId (r:1 w:0)
+	/// Proof: ParachainInfo ParachainId (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: EthereumOutboundQueue PalletOperatingMode (r:1 w:0)
+	/// Proof: EthereumOutboundQueue PalletOperatingMode (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
+	/// Storage: MessageQueue BookStateFor (r:1 w:1)
+	/// Proof: MessageQueue BookStateFor (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
+	/// Storage: MessageQueue ServiceHead (r:1 w:1)
+	/// Proof: MessageQueue ServiceHead (max_values: Some(1), max_size: Some(5), added: 500, mode: MaxEncodedLen)
+	/// Storage: MessageQueue Pages (r:0 w:1)
+	/// Proof: MessageQueue Pages (max_values: None, max_size: Some(65585), added: 68060, mode: MaxEncodedLen)
+	fn set_operating_mode() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `80`
+		//  Estimated: `3517`
+		// Minimum execution time: 31_000_000 picoseconds.
+		Weight::from_parts(31_000_000, 3517)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }
