@@ -5,7 +5,7 @@
 
 use anyhow::anyhow;
 
-use crate::helpers::{assert_finalized_block_height, assert_para_throughput};
+use crate::helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -105,12 +105,14 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	.await?;
 
 	// Ensure that malus is already attempting to DoS
-	malus.wait_log_line_count_with_timeout(
-		"*Duplicating AttestedCandidateV2 request*",
-		true,
-		1,
-		90u64,
-	);
+	malus
+		.wait_log_line_count_with_timeout(
+			"*Duplicating AttestedCandidateV2 request*",
+			true,
+			1,
+			90u64,
+		)
+		.await?;
 
 	// Ensure parachains made progress.
 	assert_para_throughput(
@@ -122,19 +124,23 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	)
 	.await?;
 
-	// Ensure that honest nodes drop extra requests
-	honest.wait_log_line_count_with_timeout(
-		"*Peer already being served, dropping request*",
-		true,
-		1,
-		60u64,
-	);
+	// Ensure that honest nodes drop extra requests.
+	honest
+		.wait_log_line_count_with_timeout(
+			"*Peer already being served, dropping request*",
+			true,
+			1,
+			60u64,
+		)
+		.await?;
 
 	// Check lag - approval
 	honest.assert("polkadot_parachain_approval_checking_finality_lag", 0.0).await?;
 
 	// Check lag - dispute conclusion
 	honest.assert("polkadot_parachain_disputes_finality_lag", 0.0).await?;
+
+	log::info!("Test finished successfully");
 
 	Ok(())
 }
