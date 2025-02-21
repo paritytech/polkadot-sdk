@@ -20,7 +20,7 @@ mod benchmarks {
 		let agent_origin = Box::new(VersionedLocation::from(Location::parent()));
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, agent_origin, 100);
+		_(origin as T::RuntimeOrigin, agent_origin);
 
 		Ok(())
 	}
@@ -39,7 +39,7 @@ mod benchmarks {
 		};
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, asset, asset_metadata, 100);
+		_(origin as T::RuntimeOrigin, asset, asset_metadata);
 
 		Ok(())
 	}

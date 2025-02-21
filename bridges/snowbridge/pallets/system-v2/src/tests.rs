@@ -17,7 +17,6 @@ fn create_agent() {
 		assert_ok!(EthereumSystemV2::create_agent(
 			origin,
 			Box::new(VersionedLocation::from(agent_origin)),
-			1
 		));
 
 		assert!(Agents::<Test>::contains_key(agent_id));
@@ -31,14 +30,13 @@ fn create_agent_bad_origin() {
 			EthereumSystemV2::create_agent(
 				make_xcm_origin(Location::new(1, []),),
 				Box::new(Here.into()),
-				1,
 			),
 			BadOrigin,
 		);
 
 		// None origin not allowed
 		assert_noop!(
-			EthereumSystemV2::create_agent(RuntimeOrigin::none(), Box::new(Here.into()), 1),
+			EthereumSystemV2::create_agent(RuntimeOrigin::none(), Box::new(Here.into())),
 			BadOrigin
 		);
 	});
@@ -54,7 +52,6 @@ fn register_tokens_succeeds() {
 			origin,
 			Box::new(versioned_location),
 			Default::default(),
-			1
 		));
 	});
 }

@@ -337,7 +337,6 @@ fn register_rococo_asset_on_ethereum_from_rah() {
 		EthereumSystemFrontend::EthereumSystemFrontend(EthereumSystemFrontendCall::RegisterToken {
 			asset_id: Box::new(VersionedLocation::from(bridged_asset_at_wah.clone())),
 			metadata: Default::default(),
-			fee: REMOTE_FEE_AMOUNT_IN_ETHER,
 		})
 		.encode();
 
@@ -407,10 +406,8 @@ fn register_agent_on_ethereum_from_rah() {
 		);
 
 	let call =
-		EthereumSystemFrontend::EthereumSystemFrontend(EthereumSystemFrontendCall::CreateAgent {
-			fee: REMOTE_FEE_AMOUNT_IN_ETHER,
-		})
-		.encode();
+		EthereumSystemFrontend::EthereumSystemFrontend(EthereumSystemFrontendCall::CreateAgent {})
+			.encode();
 
 	let origin_kind = OriginKind::Xcm;
 	let fee_amount = XCM_FEE;
