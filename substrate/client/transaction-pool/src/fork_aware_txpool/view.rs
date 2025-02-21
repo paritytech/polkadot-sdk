@@ -27,14 +27,16 @@ use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
-		self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash, IsValidator,
-		TransactionFor, ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
+		self, base_pool::TimedTransactionSource, BlockHash, ExtrinsicFor, ExtrinsicHash,
+		IsValidator, TransactionFor, ValidatedPoolSubmitOutcome, ValidatedTransaction,
+		ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
 use indexmap::IndexMap;
 use parking_lot::Mutex;
-use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus};
+use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus, TransactionStatus};
+use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
@@ -109,13 +111,139 @@ impl<ChainApi: graph::ChainApi> FinishRevalidationWorkerChannels<ChainApi> {
 	}
 }
 
+/// Single event used in aggregated stream. Tuple containing hash of transactions and its status.
+pub(super) type TransactionStatusEvent<H, BH> = (H, TransactionStatus<H, BH>);
+/// Warning threshold for (unbounded) channel used in aggregated view's streams.
+const VIEW_STREAM_WARN_THRESHOLD: usize = 100_000;
+
+/// Stream of events providing statuses of all the transactions within the pool.
+pub(super) type AggregatedStream<H, BH> = TracingUnboundedReceiver<TransactionStatusEvent<H, BH>>;
+
+/// Type alias for a stream of events intended to track dropped transactions.
+type DroppedMonitoringStream<H, BH> = TracingUnboundedReceiver<TransactionStatusEvent<H, BH>>;
+
+/// Notification handler for transactions updates triggered in `ValidatedPool`.
+///
+/// `ViewPoolObserver` handles transaction status changes notifications coming from an instance of
+/// validated pool associated with the `View` and forwards them through specified channels
+/// into the View's streams.
+pub(super) struct ViewPoolObserver<ChainApi: graph::ChainApi> {
+	/// The sink used to notify dropped by enforcing limits or by being usurped, or invalid
+	/// transactions.
+	///
+	/// Note: Ready and future statuses are alse communicated through this channel, enabling the
+	/// stream consumer to track views that reference the transaction.
+	dropped_stream_sink: TracingUnboundedSender<
+		TransactionStatusEvent<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+	>,
+
+	/// The sink of the single, merged stream providing updates for all the transactions in the
+	/// associated pool.
+	///
+	/// Note: some of the events which are currently ignored on the other side of this channel
+	/// (external watcher) are not relayed.
+	aggregated_stream_sink: TracingUnboundedSender<
+		TransactionStatusEvent<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+	>,
+}
+
+impl<C: graph::ChainApi> graph::EventHandler<C> for ViewPoolObserver<C> {
+	// note: skipped, notified by ForkAwareTxPool directly to multi view listener.
+	fn broadcasted(&self, _: ExtrinsicHash<C>, _: Vec<String>) {}
+	fn dropped(&self, _: ExtrinsicHash<C>) {}
+	fn finalized(&self, _: ExtrinsicHash<C>, _: BlockHash<C>, _: usize) {}
+	fn retracted(&self, _: ExtrinsicHash<C>, _: BlockHash<C>) {
+		// note: [#5479], we do not send to aggregated stream.
+	}
+
+	fn ready(&self, tx: ExtrinsicHash<C>) {
+		let status = TransactionStatus::Ready;
+		self.send_to_dropped_stream_sink(tx, status.clone());
+		self.send_to_aggregated_stream_sink(tx, status);
+	}
+
+	fn future(&self, tx: ExtrinsicHash<C>) {
+		let status = TransactionStatus::Future;
+		self.send_to_dropped_stream_sink(tx, status.clone());
+		self.send_to_aggregated_stream_sink(tx, status);
+	}
+
+	fn limits_enforced(&self, tx: ExtrinsicHash<C>) {
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Dropped);
+	}
+
+	fn usurped(&self, tx: ExtrinsicHash<C>, by: ExtrinsicHash<C>) {
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Usurped(by));
+	}
+
+	fn invalid(&self, tx: ExtrinsicHash<C>) {
+		self.send_to_dropped_stream_sink(tx, TransactionStatus::Invalid);
+	}
+
+	fn pruned(&self, tx: ExtrinsicHash<C>, block_hash: BlockHash<C>, tx_index: usize) {
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::InBlock((block_hash, tx_index)));
+	}
+
+	fn finality_timeout(&self, tx: ExtrinsicHash<C>, hash: BlockHash<C>) {
+		//todo: do we need this? [related issue: #5482]
+		self.send_to_aggregated_stream_sink(tx, TransactionStatus::FinalityTimeout(hash));
+	}
+}
+
+impl<ChainApi: graph::ChainApi> ViewPoolObserver<ChainApi> {
+	/// Creates an instance of `ViewPoolObserver` together with associated view's streams.
+	///
+	/// This methods creates an event handler that shall be registered in the `ValidatedPool`
+	/// instance associated with the view. It also creates new view's streams:
+	/// - a single stream intended to watch dropped transactions only. The stream can be used to
+	///   subscribe to events related to dropping of all extrinsics in the pool.
+	/// - a single merged stream for all extrinsics in the associated pool. The stream can be used
+	/// to subscribe to life-cycle events of all extrinsics in the pool. For fork-aware
+	/// pool implementation this approach seems to be more efficient than using individual
+	/// streams for every transaction.
+	fn new() -> (
+		Self,
+		DroppedMonitoringStream<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+		AggregatedStream<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+	) {
+		let (dropped_stream_sink, dropped_stream) =
+			tracing_unbounded("mpsc_txpool_watcher", VIEW_STREAM_WARN_THRESHOLD);
+		let (aggregated_stream_sink, aggregated_stream) =
+			tracing_unbounded("mpsc_txpool_aggregated_stream", VIEW_STREAM_WARN_THRESHOLD);
+
+		(Self { dropped_stream_sink, aggregated_stream_sink }, dropped_stream, aggregated_stream)
+	}
+
+	/// Sends given event to the `dropped_stream_sink`.
+	fn send_to_dropped_stream_sink(
+		&self,
+		tx: ExtrinsicHash<ChainApi>,
+		status: TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+	) {
+		if let Err(e) = self.dropped_stream_sink.unbounded_send((tx, status.clone())) {
+			trace!(target: LOG_TARGET, "[{:?}] dropped_sink: {:?} send message failed: {:?}", tx, status, e);
+		}
+	}
+
+	/// Sends given event to the `aggregated_stream_sink`.
+	fn send_to_aggregated_stream_sink(
+		&self,
+		tx: ExtrinsicHash<ChainApi>,
+		status: TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+	) {
+		if let Err(e) = self.aggregated_stream_sink.unbounded_send((tx, status.clone())) {
+			trace!(target: LOG_TARGET, "[{:?}] aggregated_stream {:?} send message failed: {:?}", tx, status, e);
+		}
+	}
+}
+
 /// Represents the state of transaction pool for given block.
 ///
 /// Refer to [*View*](../index.html#view) section for more details on the purpose and life cycle of
 /// the `View`.
 pub(super) struct View<ChainApi: graph::ChainApi> {
 	/// The internal pool keeping the set of ready and future transaction at the given block.
-	pub(super) pool: graph::Pool<ChainApi>,
+	pub(super) pool: graph::Pool<ChainApi, ViewPoolObserver<ChainApi>>,
 	/// The hash and number of the block with which this view is associated.
 	pub(super) at: HashAndNumber<ChainApi::Block>,
 	/// Endpoints of communication channel with background worker.
@@ -136,24 +264,50 @@ where
 		options: graph::Options,
 		metrics: PrometheusMetrics,
 		is_validator: IsValidator,
-	) -> Self {
+	) -> (
+		Self,
+		DroppedMonitoringStream<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+		AggregatedStream<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+	) {
 		metrics.report(|metrics| metrics.non_cloned_views.inc());
-		Self {
-			pool: graph::Pool::new(options, is_validator, api),
-			at,
-			revalidation_worker_channels: Mutex::from(None),
-			metrics,
-		}
+		let (event_handler, dropped_stream, aggregated_stream) = ViewPoolObserver::new();
+		(
+			Self {
+				pool: graph::Pool::new_with_event_handler(
+					options,
+					is_validator,
+					api,
+					event_handler,
+				),
+				at,
+				revalidation_worker_channels: Mutex::from(None),
+				metrics,
+			},
+			dropped_stream,
+			aggregated_stream,
+		)
 	}
 
 	/// Creates a copy of the other view.
-	pub(super) fn new_from_other(&self, at: &HashAndNumber<ChainApi::Block>) -> Self {
-		View {
-			at: at.clone(),
-			pool: self.pool.deep_clone(),
-			revalidation_worker_channels: Mutex::from(None),
-			metrics: self.metrics.clone(),
-		}
+	pub(super) fn new_from_other(
+		&self,
+		at: &HashAndNumber<ChainApi::Block>,
+	) -> (
+		Self,
+		DroppedMonitoringStream<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+		AggregatedStream<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+	) {
+		let (event_handler, dropped_stream, aggregated_stream) = ViewPoolObserver::new();
+		(
+			View {
+				at: at.clone(),
+				pool: self.pool.deep_clone_with_event_handler(event_handler),
+				revalidation_worker_channels: Mutex::from(None),
+				metrics: self.metrics.clone(),
+			},
+			dropped_stream,
+			aggregated_stream,
+		)
 	}
 
 	/// Imports single unvalidated extrinsic into the view.
@@ -504,7 +658,10 @@ where
 		listener_action: F,
 	) -> Vec<TransactionFor<ChainApi>>
 	where
-		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>),
+		F: Fn(
+			&mut crate::graph::EventDispatcher<ChainApi, ViewPoolObserver<ChainApi>>,
+			ExtrinsicHash<ChainApi>,
+		),
 	{
 		self.pool.validated_pool().remove_subtree(hashes, listener_action)
 	}
