@@ -296,6 +296,12 @@ pub mod pallet {
 			}
 			Ok(())
 		}
+
+		pub fn handle_parachain_rewards(
+			validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
+		) {
+			todo!()
+		}
 	}
 
 	fn mk_asset_hub_call(call: StakingCalls) -> Instruction<()> {
