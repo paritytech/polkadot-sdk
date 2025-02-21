@@ -203,7 +203,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub type Test<T: Config> = StorageValue<_, types::TestType<T>, ValueQuery>;
+	pub type Test<T: Config> = StorageValue<_, types::TestType<u32, T, u32>, ValueQuery>;
 
 	/// The current time for the current block.
 	#[pallet::storage]
