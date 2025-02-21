@@ -324,7 +324,15 @@ impl<T: Config> From<verifier::FeasibilityError> for ElectionError<T> {
 
 /// Different operations that the [`Config::AdminOrigin`] can perform on the pallet.
 #[derive(
-	Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, CloneNoBound, PartialEqNoBound, EqNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	DebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
 )]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]

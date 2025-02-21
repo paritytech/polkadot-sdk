@@ -498,6 +498,7 @@ pub mod pallet {
 		OrdNoBound,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		TypeInfo,
 		MaxEncodedLen,
 	)]

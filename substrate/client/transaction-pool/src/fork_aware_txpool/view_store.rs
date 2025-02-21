@@ -20,7 +20,7 @@
 
 use super::{
 	multi_view_listener::{MultiViewListener, TxStatusStream},
-	view::View,
+	view::{View, ViewPoolObserver},
 };
 use crate::{
 	fork_aware_txpool::dropped_watcher::MultiViewDroppedWatcherController,
@@ -62,8 +62,13 @@ where
 
 /// Helper type representing the callback allowing to trigger per-transaction events on
 /// `ValidatedPool`'s listener.
-type RemovalListener<ChainApi> =
-	Arc<dyn Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>) + Send + Sync>;
+type RemovalCallback<ChainApi> = Arc<
+	dyn Fn(
+			&mut crate::graph::EventDispatcher<ChainApi, ViewPoolObserver<ChainApi>>,
+			ExtrinsicHash<ChainApi>,
+		) + Send
+		+ Sync,
+>;
 
 /// Helper struct to maintain the context for pending transaction removal, executed for
 /// newly inserted views.
@@ -74,7 +79,7 @@ where
 	/// Hash of the transaction that will be removed,
 	xt_hash: ExtrinsicHash<ChainApi>,
 	/// Action that shall be executed on underlying `ValidatedPool`'s listener.
-	listener_action: RemovalListener<ChainApi>,
+	listener_action: RemovalCallback<ChainApi>,
 }
 
 /// This enum represents an action that should be executed on the newly built
@@ -119,7 +124,7 @@ where
 	/// Creates new unprocessed instance of pending transaction removal.
 	fn new_removal_action(
 		xt_hash: ExtrinsicHash<ChainApi>,
-		listener: RemovalListener<ChainApi>,
+		listener: RemovalCallback<ChainApi>,
 	) -> Self {
 		Self {
 			processed: false,
@@ -876,8 +881,10 @@ where
 		listener_action: F,
 	) -> Vec<TransactionFor<ChainApi>>
 	where
-		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>)
-			+ Clone
+		F: Fn(
+				&mut crate::graph::EventDispatcher<ChainApi, ViewPoolObserver<ChainApi>>,
+				ExtrinsicHash<ChainApi>,
+			) + Clone
 			+ Send
 			+ Sync
 			+ 'static,
