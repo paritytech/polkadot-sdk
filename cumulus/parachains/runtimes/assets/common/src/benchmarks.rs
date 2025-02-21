@@ -24,6 +24,8 @@ pub struct AssetPairFactory<Target, SelfParaId, PalletId, L = Location>(
 );
 impl<Target: Get<L>, SelfParaId: Get<ParaId>, PalletId: Get<u32>, L: TryFrom<Location> + Debug>
 	pallet_asset_conversion::BenchmarkHelper<L> for AssetPairFactory<Target, SelfParaId, PalletId, L>
+where
+	<L as TryFrom<Location>>::Error: Debug,
 {
 	fn create_pair(seed1: u32, seed2: u32) -> (L, L) {
 		let with_id = Location::new(
