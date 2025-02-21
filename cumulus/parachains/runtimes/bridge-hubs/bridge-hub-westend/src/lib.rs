@@ -1170,7 +1170,7 @@ impl_runtime_apis! {
 							?origin,
 							?bridge,
 							?XCM_VERSION,
-							?e
+							?e,
 							"Failed to dispatch `force_xcm_version`",
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
@@ -1205,7 +1205,7 @@ impl_runtime_apis! {
 							target: "xcm::export_message_origin_and_destination",
 							?sibling_parachain_location,
 							?bridge_destination_universal_location,
-							?e
+							?e,
 							"Failed to `XcmOverBridgeHubRococo::open_bridge`",
 						);
 						BenchmarkError::Stop("Bridge was not opened!")
