@@ -23,7 +23,7 @@ use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
-	Parameter,
+	BoundedVec, Parameter,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
@@ -118,10 +118,40 @@ pub struct Deposit<AccountId, Balance> {
 
 pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 
+struct BoundedSize<const N: usize>;
+
+impl<const N: usize> Get<u32> for BoundedSize<N> {
+	fn get() -> u32 {
+		N as u32
+	}
+}
+
+#[derive(Encode, Decode)]
+struct ArrayLikeVec<const N: usize>(BoundedVec<u8, BoundedSize<N>>);
+
+impl<'a, const N: usize> From<&'a [u8; N]> for ArrayLikeVec<N> {
+	fn from(bytes: &'a [u8; N]) -> Self {
+		ArrayLikeVec(BoundedVec::truncate_from(bytes.to_vec()))
+	}
+}
+
+impl<const N: usize> From<ArrayLikeVec<N>> for [u8; N] {
+	fn from(s: ArrayLikeVec<N>) -> Self {
+		let mut bytes = [0u8; N];
+		bytes[..N].copy_from_slice(&s.0[..N]);
+		bytes
+	}
+}
+
+impl<'a, const N: usize> codec::EncodeAsRef<'a, [u8; N]> for ArrayLikeVec<N> {
+	type RefType = ArrayLikeVec<N>;
+}
+
 /// Detailed information about the configuration of a referenda track
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug)]
 pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
 	/// Name of this track.
+	#[codec(encoded_as = "ArrayLikeVec<N>")]
 	pub name: [u8; N],
 	/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
@@ -580,7 +610,7 @@ impl Debug for Curve {
 mod tests {
 	use super::*;
 	use frame_support::traits::ConstU32;
-	use sp_runtime::{str_array as s, PerThing};
+	use sp_runtime::{str_array as s, traits::TrailingZeroInput, PerThing};
 
 	const fn percent(x: u128) -> FixedI64 {
 		FixedI64::from_rational(x, 100)
@@ -790,5 +820,39 @@ mod tests {
 			BadTracksInfo::check_integrity(),
 			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
 		);
+	}
+
+	#[test]
+	fn track_encoding_works() {
+		let track_info = TrackInfo::<u64, u64> {
+			name: s("track name"),
+			max_deciding: 3,
+			decision_deposit: 1,
+			prepare_period: 2,
+			decision_period: 2,
+			confirm_period: 1,
+			min_enactment_period: 2,
+			min_approval: Curve::LinearDecreasing {
+				length: Perbill::from_percent(100),
+				floor: Perbill::from_percent(95),
+				ceil: Perbill::from_percent(100),
+			},
+			min_support: Curve::LinearDecreasing {
+				length: Perbill::from_percent(100),
+				floor: Perbill::from_percent(90),
+				ceil: Perbill::from_percent(100),
+			},
+		};
+
+		let encoded = track_info.encode();
+
+		let name: Vec<u8> = Decode::decode(&mut TrailingZeroInput::new(&encoded.clone()))
+			.expect("decoding to an array should be supported");
+		assert_eq!(name, track_info.name.to_vec());
+
+		let decoded: TrackInfo<u64, u64> = Decode::decode(&mut TrailingZeroInput::new(&encoded))
+			.expect("decoding a track should be supported");
+
+		assert_eq!(decoded, track_info);
 	}
 }
