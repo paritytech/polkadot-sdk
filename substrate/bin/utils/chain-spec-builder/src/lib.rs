@@ -56,7 +56,7 @@ pub enum ChainSpecBuilderCmd {
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 pub struct CreateCmd {
 	/// The name of chain.
 	#[arg(long, short = 'n', default_value = "Custom")]
