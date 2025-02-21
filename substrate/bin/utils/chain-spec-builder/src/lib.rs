@@ -33,7 +33,7 @@ use std::{
 };
 
 /// A utility to easily create a chain spec definition.
-#[derive(Debug, Clone, Parser)]
+#[derive(Debug, Parser)]
 #[command(rename_all = "kebab-case", version, about)]
 pub struct ChainSpecBuilder {
 	#[command(subcommand)]
@@ -43,7 +43,7 @@ pub struct ChainSpecBuilder {
 	pub chain_spec_path: PathBuf,
 }
 
-#[derive(Debug, Clone, Subcommand)]
+#[derive(Debug, Subcommand)]
 #[command(rename_all = "kebab-case")]
 pub enum ChainSpecBuilderCmd {
 	Create(CreateCmd),
@@ -56,7 +56,7 @@ pub enum ChainSpecBuilderCmd {
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug)]
 pub struct CreateCmd {
 	/// The name of chain.
 	#[arg(long, short = 'n', default_value = "Custom")]
@@ -224,10 +224,10 @@ type ChainSpec = GenericChainSpec<()>;
 
 impl ChainSpecBuilder {
 	/// Executes the internal command.
-	pub fn run(self) -> Result<(), String> {
+	pub fn run(&self) -> Result<(), String> {
 		let chain_spec_path = self.chain_spec_path.to_path_buf();
 
-		match self.command {
+		match &self.command {
 			ChainSpecBuilderCmd::Create(cmd) => {
 				let chain_spec_json = generate_chain_spec_for_runtime(&cmd)?;
 				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
@@ -259,7 +259,7 @@ impl ChainSpecBuilder {
 					&mut chain_spec_json,
 					&fs::read(runtime.as_path())
 						.map_err(|e| format!("Wasm blob file could not be read: {e}"))?[..],
-					block_height,
+					*block_height,
 				);
 				let chain_spec_json = serde_json::to_string_pretty(&chain_spec_json)
 					.map_err(|e| format!("to pretty failed: {e}"))?;

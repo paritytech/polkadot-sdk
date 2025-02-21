@@ -151,14 +151,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			})
 		},
 		Some(Subcommand::ChainSpecBuilder(cmd)) => {
-			let cloned_cmd = cmd.clone(); // Clone it outside to take ownership
-
-			let chain_spec_builder = ChainSpecBuilder {
-				command: cloned_cmd, // Pass owned value
-				chain_spec_path: PathBuf::from("./chain_spec.json"),
-			};
-
-			if let Err(err) = chain_spec_builder.run() {
+			if let Err(err) = cmd.run() {
 				eprintln!("Error executing chain-spec-builder: {}", err);
 				return Err(sc_cli::Error::Application(err.into()));
 			}

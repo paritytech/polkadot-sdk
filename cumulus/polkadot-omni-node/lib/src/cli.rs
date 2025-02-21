@@ -23,7 +23,7 @@ use crate::{
 		NodeExtraArgs,
 	},
 };
-use chain_spec_builder::ChainSpecBuilderCmd;
+use chain_spec_builder::{ChainSpecBuilder, ChainSpecBuilderCmd};
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
@@ -90,8 +90,7 @@ pub enum Subcommand {
 	Revert(sc_cli::RevertCmd),
 
 	/// Subcommand for generating and managing chain specifications.
-	#[command(subcommand)]
-	ChainSpecBuilder(ChainSpecBuilderCmd),
+	ChainSpecBuilder(ChainSpecBuilder),
 
 	/// Remove the whole chain.
 	PurgeChain(cumulus_client_cli::PurgeChainCmd),
