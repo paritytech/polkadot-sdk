@@ -24,6 +24,7 @@ type AccountId = AccountId32;
 // A stripped-down version of pallet-xcm that only inserts an XCM origin into the runtime
 #[frame_support::pallet]
 mod pallet_xcm_origin {
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Contains, OriginTrait},
@@ -40,7 +41,7 @@ mod pallet_xcm_origin {
 
 	// Insert this custom Origin into the aggregate RuntimeOrigin
 	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub struct Origin(pub Location);
 
 	impl From<Location> for Origin {

@@ -66,7 +66,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ChainForkVersions: ForkVersions = ForkVersions{
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
 			version: [0, 0, 0, 1], // 0x00000001
 			epoch: 0,

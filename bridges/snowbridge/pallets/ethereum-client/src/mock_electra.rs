@@ -5,7 +5,7 @@ use crate::config;
 use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types};
 use pallet_timestamp;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_core::inbound::{Log, Proof};
+use snowbridge_inbound_queue_primitives::{Log, Proof};
 use sp_std::default::Default;
 use std::{fs::File, path::PathBuf};
 
@@ -68,7 +68,7 @@ pub fn load_other_finalized_header_update_fixture() -> snowbridge_beacon_primiti
 
 pub fn get_message_verification_payload() -> (Log, Proof) {
 	let inbound_fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
-	(inbound_fixture.message.event_log, inbound_fixture.message.proof)
+	(inbound_fixture.event.event_log, inbound_fixture.event.proof)
 }
 
 frame_support::construct_runtime!(

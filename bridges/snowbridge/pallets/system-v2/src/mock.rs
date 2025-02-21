@@ -35,6 +35,7 @@ pub type AccountId = AccountId32;
 #[allow(dead_code)]
 #[frame_support::pallet]
 mod pallet_xcm_origin {
+	use codec::DecodeWithMemTracking;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Contains, OriginTrait},
@@ -51,7 +52,7 @@ mod pallet_xcm_origin {
 
 	// Insert this custom Origin into the aggregate RuntimeOrigin
 	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub struct Origin(pub Location);
 
 	impl From<Location> for Origin {

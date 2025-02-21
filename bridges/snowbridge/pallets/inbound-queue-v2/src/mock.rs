@@ -59,7 +59,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ChainForkVersions: ForkVersions = ForkVersions{
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
 			version: [0, 0, 0, 1], // 0x00000001
 			epoch: 0,
@@ -78,7 +78,11 @@ parameter_types! {
 		},
 		deneb: Fork {
 			version: [4, 0, 0, 1], // 0x04000001
-			epoch: 4294967295,
+			epoch: 0,
+		},
+		electra: Fork {
+			version: [5, 0, 0, 0], // 0x05000000
+			epoch: 80000000000,
 		}
 	};
 }
