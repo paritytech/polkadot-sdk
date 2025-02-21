@@ -113,7 +113,7 @@ pub fn expand_outer_enum(
 					be constructed: pallet `{}` must have generic `{}`",
 				enum_name_str, pallet_name, enum_name_str,
 			);
-			return Err(syn::Error::new(pallet_name.span(), msg))
+			return Err(syn::Error::new(pallet_name.span(), msg));
 		}
 
 		let part_is_generic = !generics.params.is_empty();
@@ -161,7 +161,7 @@ pub fn expand_outer_enum(
 			#scrate::__private::codec::Decode,
 			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::Debug,
+			#scrate::__private::RuntimeDebug,
 		)]
 		#[allow(non_camel_case_types)]
 		pub enum #enum_name_ident {
@@ -244,7 +244,7 @@ fn expand_enum_conversion(
 fn generate_error_impl(scrate: &TokenStream, enum_ty: OuterEnumType) -> TokenStream {
 	// Implementation is specific to `Error`s.
 	if enum_ty == OuterEnumType::Event {
-		return quote! {}
+		return quote! {};
 	}
 
 	let enum_name_ident = Ident::new(enum_ty.struct_name(), Span::call_site());

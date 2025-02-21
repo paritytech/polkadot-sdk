@@ -11,21 +11,33 @@ import-storage:
     System:
         Account: [
                 [
-                    [5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY],
+                    [5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY], # Alice
                     { providers: 1, data: { free: 1000000000000000 } },
-                ], # Alice
+                ], 
                 [
                     [5Eg2fntQqFi3EvFWAf71G66Ecjjah26bmFzoANAeHFgj9Lia],
                     { providers: 1, data: { free: 1000000000000000 } },
                 ],
                 [
-                    [5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty],
+                    [5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty], # Bob
                     { providers: 1, data: { free: 1000000000000000 } },
-                ], # Bob
+                ], 
                 [
-                    [5F9zau4ebeX91LbBMtHFpFPw6343rG2nqzKwou5tdfrFbL3s], # Smart Contract Substrate Address
+                    [ 5HYRCKHYJN9z5xUtfFkyMj4JUhsAwWyvuU8vKB1FcnYTf9ZQ ], # Default TS account
                     { providers: 1, data: { free: 1000000000000000 } },
                 ],
+                [
+                    [5CPWuyB5HLfEx2SVKXp4CvyjRBta7GKu2X3GUNSVjJtNMapa], # Burner Wallet
+                    { providers: 1, data: { free: 1000000000000000 } },
+                ], 
+                [
+                    [5GQcEQoUZ739HMMYe5rmgQMoLi3or3KyXaYyQfnqsVAUqM9h], # Rust xcm_execute Smart Contract Substrate Address <-> 0xc4f828a303f35b8d6e9b3815ab0c5ccd9b1384cb
+                    { providers: 1, data: { free: 1000000000000000 } },
+                ],
+                [
+                    [5DV6SEQcod8hQLQp9BzsQHFzdL4v76MCxjyrVyQ9BjE4qzfj], # Solidity Storage Smart Contract Substrate Address <-> 0x83ad22b97c354859580d684507602f648cddf10f
+                    { providers: 1, data: { free: 1000000000000000 } },
+                ],   
             ]
     Assets:
         Account:

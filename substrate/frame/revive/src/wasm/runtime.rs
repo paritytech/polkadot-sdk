@@ -38,7 +38,7 @@ use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
-use sp_runtime::{DispatchError, RuntimeDebug};
+use sp_runtime::DispatchError;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
@@ -235,7 +235,7 @@ impl From<&ExecReturnValue> for ReturnErrorCode {
 }
 
 /// The data passed through when a contract uses `seal_return`.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct ReturnData {
 	/// The flags as passed through by the contract. They are still unchecked and
 	/// will later be parsed into a `ReturnFlags` bitflags struct.
@@ -250,7 +250,7 @@ pub struct ReturnData {
 /// occurred (the SupervisorError variant).
 /// The other case is where the trap does not constitute an error but rather was invoked
 /// as a quick way to terminate the application (all other variants).
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum TrapReason {
 	/// The supervisor trapped the contract because of an error condition occurred during
 	/// execution in privileged code.
