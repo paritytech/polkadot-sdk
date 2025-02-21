@@ -20,32 +20,34 @@ crates:
   - name: frame-support
     bump: patch
   - name: frame-system
-    bump: patch
+    bump: minor
   - name: pallet-verify-signature
-    bump: patch
+    bump: minor
   - name: pallet-transaction-payment
-    bump: patch
+    bump: minor
   - name: pallet-sudo
-    bump: patch
+    bump: minor
   - name: polkadot-runtime-common
-    bump: patch
+    bump: minor
   - name: cumulus-pallet-weight-reclaim
-    bump: patch
+    bump: minor
   - name: cumulus-primitives-storage-weight-reclaim
-    bump: patch
+    bump: minor
   - name: frame-benchmarking-cli
     bump: patch
   - name: frame-metadata-hash-extension
-    bump: patch
+    bump: minor
   - name: pallet-asset-tx-payment
-    bump: patch
+    bump: minor
   - name: pallet-bridge-relayers
-    bump: patch
+    bump: minor
   - name: pallet-asset-conversion-tx-payment
-    bump: patch
+    bump: minor
   - name: pallet-revive
-    bump: patch
+    bump: minor
   - name: pallet-skip-feeless-payment
-    bump: patch
+    bump: minor
   - name: bp-polkadot-bulletin
+    bump: minor
+  - name: frame-system-benchmarking
     bump: patch
