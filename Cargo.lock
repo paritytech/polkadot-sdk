@@ -2197,7 +2197,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2298,7 +2298,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-test-utils"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "asset-test-utils",
  "bp-header-chain",
@@ -2390,7 +2390,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2490,7 +2490,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-runtime-common"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -3990,7 +3990,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-cli"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "clap 4.5.13",
  "parity-scale-codec",
@@ -4415,7 +4415,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
@@ -4645,7 +4645,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-rpc-interface"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -5508,7 +5508,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "19.0.0"
+version = "19.0.1"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -11146,7 +11146,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "40.0.0"
+version = "40.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -13291,7 +13291,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -14203,7 +14203,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-cli"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "cfg-if",
  "clap 4.5.13",
@@ -14273,7 +14273,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-dispute-distribution"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "assert_matches",
  "async-channel 1.9.0",
@@ -15060,7 +15060,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -15410,7 +15410,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "0.11.0"
+version = "0.12.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -15953,7 +15953,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -16069,7 +16069,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-statement-distribution"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "arrayvec 0.7.4",
  "assert_matches",
@@ -19439,7 +19439,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.48.1"
+version = "0.48.2"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -19674,7 +19674,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "bs58",
  "ed25519-dalek",
@@ -20120,7 +20120,7 @@ dependencies = [
 
 [[package]]
 name = "sc-transaction-pool"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -20158,7 +20158,7 @@ dependencies = [
 
 [[package]]
 name = "sc-transaction-pool-api"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -23557,7 +23557,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "18.0.0"
+version = "18.0.1"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -23588,7 +23588,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "18.0.0"
+version = "18.0.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
