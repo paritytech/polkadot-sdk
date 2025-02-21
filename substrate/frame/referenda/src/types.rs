@@ -116,18 +116,8 @@ pub struct Deposit<AccountId, Balance> {
 	pub amount: Balance,
 }
 
-<<<<<<< HEAD
-pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
-
-/// Detailed information about the configuration of a referenda track
-#[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
-)]
-pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
-=======
 #[derive(Clone, Encode, TypeInfo)]
 pub struct TrackInfo<Balance, Moment> {
->>>>>>> parent of c078d2f41cf8 (Change pallet referenda TracksInfo::tracks to return an iterator (#2072))
 	/// Name of this track.
 	pub name: &'static str,
 	/// A limit for the number of referenda on this track that can be being decided at once.
@@ -151,18 +141,6 @@ pub struct TrackInfo<Balance, Moment> {
 	pub min_support: Curve,
 }
 
-<<<<<<< HEAD
-/// Track groups the information of a voting track with its corresponding identifier
-#[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
-)]
-pub struct Track<Id, Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
-	pub id: Id,
-	pub info: TrackInfo<Balance, Moment, N>,
-}
-
-=======
->>>>>>> parent of c078d2f41cf8 (Change pallet referenda TracksInfo::tracks to return an iterator (#2072))
 /// Information on the voting tracks.
 pub trait TracksInfo<Balance, Moment> {
 	/// The identifier for a track.
