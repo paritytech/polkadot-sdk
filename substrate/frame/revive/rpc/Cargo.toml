@@ -17,26 +17,6 @@ path = "src/main.rs"
 name = "eth-rpc-tester"
 path = "src/eth-rpc-tester.rs"
 
-[[example]]
-name = "deploy"
-path = "examples/rust/deploy.rs"
-
-[[example]]
-name = "transfer"
-path = "examples/rust/transfer.rs"
-
-[[example]]
-name = "rpc-playground"
-path = "examples/rust/rpc-playground.rs"
-
-[[example]]
-name = "extrinsic"
-path = "examples/rust/extrinsic.rs"
-
-[[example]]
-name = "remark-extrinsic"
-path = "examples/rust/remark-extrinsic.rs"
-
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
@@ -70,7 +50,6 @@ tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 env_logger = { workspace = true }
-ethabi = { version = "18.0.0" }
 pretty_assertions = { workspace = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
