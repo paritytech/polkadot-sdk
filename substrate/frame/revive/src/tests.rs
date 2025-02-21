@@ -4590,7 +4590,7 @@ fn unknown_precompiles_revert() {
 #[test]
 fn ecrecover_precompile_works() {
 	use hex_literal::hex;
-	let (code, _code_hash) = compile_module("call_with_value").unwrap();
+	let (code, _code_hash) = compile_module("call_and_return").unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -4613,6 +4613,7 @@ fn ecrecover_precompile_works() {
 				.data((H160::from_low_u64_be(0x1), 100u64, input).encode())
 				.build_and_unwrap_result();
 			assert_eq!(result.data, output);
+			assert_eq!(result.flags, ReturnFlags::empty());
 		}
 	});
 }

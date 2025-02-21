@@ -20,7 +20,7 @@
 #![no_main]
 
 use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode, ReturnFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -40,7 +40,7 @@ pub extern "C" fn call() {
 	let mut output = [0u8; 32];
 	let output = &mut &mut output[..];
 
-	api::call(
+	match api::call(
 		uapi::CallFlags::empty(),
 		callee_addr,
 		u64::MAX,           // How much ref_time to devote for the execution. u64::MAX = use all.
@@ -49,8 +49,9 @@ pub extern "C" fn call() {
 		&u256_bytes(value), // Value transferred to the contract.
 		callee_input,
 		Some(output),
-	)
-	.unwrap();
-
-	api::return_value(uapi::ReturnFlags::empty(), output);
+	) {
+		Ok(_) => api::return_value(uapi::ReturnFlags::empty(), output),
+		Err(ReturnErrorCode::CalleeReverted) => api::return_value(ReturnFlags::REVERT, output),
+		Err(_) => panic!(),
+	}
 }
