@@ -24,6 +24,7 @@ codec = { features = [
 scale-info = { features = [
 	"derive",
 ], workspace = true }
+serde = { workspace = true }
 
 # primitive deps, used for developing FRAME pallets.
 sp-arithmetic = { workspace = true }

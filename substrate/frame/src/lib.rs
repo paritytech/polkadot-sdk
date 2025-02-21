@@ -549,6 +549,7 @@ pub mod derive {
 	};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;
+	pub use serde::{Serialize, Deserialize};
 }
 
 pub mod hashing {

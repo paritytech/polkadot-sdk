@@ -19716,6 +19716,7 @@ dependencies = [
  "pallet-examples",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-api 26.0.0",
  "sp-arithmetic 23.0.0",
  "sp-block-builder 26.0.0",
