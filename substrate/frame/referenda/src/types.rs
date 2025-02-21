@@ -18,7 +18,6 @@
 //! Miscellaneous additional datatypes.
 
 use super::*;
-use alloc::borrow::Cow;
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
