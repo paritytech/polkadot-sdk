@@ -12,3 +12,11 @@ doc:
 crates:
 - name: xcm-runtime-apis
   bump: patch
+- name: staging-xcm
+  bump: patch
+- name: pallet-xcm
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
