@@ -1,0 +1,52 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: derive `DecodeWithMemTracking` for `Block`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds `DecodeWithMemTracking` as a trait bound for `Header`, `Block` and `TransactionExtension` and
+      derives it for all the types that implement these traits in `polkadot-sdk`.
+      All the external types used in the `RuntimeCall` that implement these traits will need to implement
+      `DecodeWithMemTracking` as well.
+
+crates:
+  - name: sp-runtime
+    bump: major
+  - name: bp-runtime
+    bump: major
+  - name: bridge-runtime-common
+    bump: patch
+  - name: frame-support
+    bump: patch
+  - name: frame-system
+    bump: patch
+  - name: pallet-verify-signature
+    bump: patch
+  - name: pallet-transaction-payment
+    bump: patch
+  - name: pallet-sudo
+    bump: patch
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: cumulus-pallet-weight-reclaim
+    bump: patch
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: patch
+  - name: frame-benchmarking-cli
+    bump: patch
+  - name: frame-metadata-hash-extension
+    bump: patch
+  - name: pallet-asset-tx-payment
+    bump: patch
+  - name: pallet-bridge-relayers
+    bump: patch
+  - name: pallet-asset-conversion-tx-payment
+    bump: patch
+  - name: pallet-revive
+    bump: patch
+  - name: pallet-skip-feeless-payment
+    bump: patch
+  - name: bp-polkadot-bulletin
+    bump: patch
