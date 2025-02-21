@@ -23,6 +23,7 @@ use crate::{
 		NodeExtraArgs,
 	},
 };
+use chain_spec_builder::ChainSpecBuilderCmd;
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
@@ -31,7 +32,6 @@ use sc_cli::{
 };
 use sc_service::{config::PrometheusConfig, BasePath};
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
-use chain_spec_builder::ChainSpecBuilderCmd;
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
 ///

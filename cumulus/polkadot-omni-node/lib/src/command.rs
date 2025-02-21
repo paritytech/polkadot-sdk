@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::PathBuf;
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
@@ -30,16 +29,17 @@ use crate::{
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
+use chain_spec_builder::ChainSpecBuilder;
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use chain_spec_builder::ChainSpecBuilder;
 use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
+use std::path::PathBuf;
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
