@@ -105,6 +105,9 @@ where
 
 /// Extra args that are passed when creating a new node spec.
 pub struct NodeExtraArgs {
+	/// The authoring policy to use.
+	///
+	/// Can be used to influence details of block production.
 	pub authoring_policy: AuthoringPolicy,
 
 	/// If set, each `PoV` build by the node will be exported to this folder.
