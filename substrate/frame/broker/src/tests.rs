@@ -25,7 +25,10 @@ use frame_support::{
 };
 use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
-use sp_runtime::{traits::Get, Perbill, TokenError};
+use sp_runtime::{
+	traits::{BadOrigin, Get},
+	Perbill, TokenError,
+};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -113,7 +116,7 @@ fn drop_history_works() {
 	TestExt::new()
 		.contribution_timeout(4)
 		.endow(1, 1000)
-		.endow(2, 30)
+		.endow(2, 50)
 		.execute_with(|| {
 			assert_ok!(Broker::do_start_sales(100, 1));
 			advance_to(2);
@@ -121,7 +124,7 @@ fn drop_history_works() {
 			// Place region in pool. Active in pool timeslices 4, 5, 6 = rcblocks 8, 10, 12; we
 			// expect to make/receive revenue reports on blocks 10, 12, 14.
 			assert_ok!(Broker::do_pool(region, Some(1), 1, Final));
-			assert_ok!(Broker::do_purchase_credit(2, 30, 2));
+			assert_ok!(Broker::do_purchase_credit(2, 50, 2));
 			advance_to(6);
 			// In the stable state with no pending payouts, we expect to see 3 items in
 			// InstaPoolHistory here since there is a latency of 1 timeslice (for generating the
@@ -695,6 +698,24 @@ fn purchase_works() {
 }
 
 #[test]
+fn purchase_credit_works() {
+	TestExt::new().endow(1, 50).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let credits = CoretimeCredit::get();
+		assert_eq!(credits.get(&1), None);
+
+		assert_noop!(Broker::do_purchase_credit(1, 10, 1), Error::<Test>::CreditPurchaseTooSmall);
+		assert_noop!(Broker::do_purchase_credit(1, 100, 1), TokenError::FundsUnavailable);
+
+		assert_ok!(Broker::do_purchase_credit(1, 50, 1));
+		let credits = CoretimeCredit::get();
+		assert_eq!(credits.get(&1), Some(&50));
+	});
+}
+
+#[test]
 fn partition_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
@@ -1202,6 +1223,18 @@ fn leases_are_limited() {
 			.unwrap(),
 		);
 		assert_noop!(Broker::do_set_lease(1000, 10), Error::<Test>::TooManyLeases);
+	});
+}
+
+#[test]
+fn remove_lease_works() {
+	TestExt::new().execute_with(|| {
+		Leases::<Test>::put(
+			BoundedVec::try_from(vec![LeaseRecordItem { task: 1u32, until: 10u32 }]).unwrap(),
+		);
+		assert_noop!(Broker::do_remove_lease(2), Error::<Test>::LeaseNotFound);
+		assert_ok!(Broker::do_remove_lease(1));
+		assert_noop!(Broker::do_remove_lease(1), Error::<Test>::LeaseNotFound);
 	});
 }
 
@@ -1814,6 +1847,25 @@ fn disable_auto_renew_works() {
 		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![]);
 		System::assert_has_event(
 			Event::<Test>::AutoRenewalDisabled { core: region_id.core, task: 1001 }.into(),
+		);
+	});
+}
+
+#[test]
+fn remove_assignment_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		let workplan_key = (region_id.begin, region_id.core);
+		assert_ne!(Workplan::<Test>::get(workplan_key), None);
+		assert_noop!(Broker::remove_assignment(RuntimeOrigin::signed(2), region_id), BadOrigin);
+		assert_ok!(Broker::remove_assignment(RuntimeOrigin::root(), region_id));
+		assert_eq!(Workplan::<Test>::get(workplan_key), None);
+		assert_noop!(
+			Broker::remove_assignment(RuntimeOrigin::root(), region_id),
+			Error::<Test>::AssignmentNotFound
 		);
 	});
 }

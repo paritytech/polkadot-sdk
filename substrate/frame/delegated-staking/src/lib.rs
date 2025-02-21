@@ -273,12 +273,12 @@ pub mod pallet {
 	/// Implementation note: We are not using a double map with `delegator` and `agent` account
 	/// as keys since we want to restrict delegators to delegate only to one account at a time.
 	#[pallet::storage]
-	pub(crate) type Delegators<T: Config> =
+	pub type Delegators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Delegation<T>, OptionQuery>;
 
 	/// Map of `Agent` to their `Ledger`.
 	#[pallet::storage]
-	pub(crate) type Agents<T: Config> =
+	pub type Agents<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, AgentLedger<T>, OptionQuery>;
 
 	// This pallet is not currently written with the intention of exposing any calls. But the

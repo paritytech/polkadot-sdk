@@ -98,21 +98,9 @@ macro_rules! declare_chain_connection_params_cli_schema {
 			#[doc = $chain " connection params."]
 			#[derive(StructOpt, Debug, PartialEq, Eq, Clone)]
 			pub struct [<$chain ConnectionParams>] {
-				#[doc = "WS endpoint of " $chain ": full URI. Overrides all other connection string components (host, port, path, secure)."]
+				#[doc = "WS endpoint of " $chain ": full URI."]
 				#[structopt(long)]
-				pub [<$chain_prefix _uri>]: Option<String>,
-				#[doc = "WS endpoint of " $chain ": host component."]
-				#[structopt(long, default_value = "127.0.0.1")]
-				pub [<$chain_prefix _host>]: String,
-				#[doc = "WS endpoint of " $chain ": port component."]
-				#[structopt(long, default_value = "9944")]
-				pub [<$chain_prefix _port>]: u16,
-				#[doc = "WS endpoint of " $chain ": path component."]
-				#[structopt(long)]
-				pub [<$chain_prefix _path>]: Option<String>,
-				#[doc = "Use secure websocket connection."]
-				#[structopt(long)]
-				pub [<$chain_prefix _secure>]: bool,
+				pub [<$chain_prefix _uri>]: String,
 				#[doc = "Custom runtime version"]
 				#[structopt(flatten)]
 				pub [<$chain_prefix _runtime_version>]: [<$chain RuntimeVersionParams>],
@@ -129,10 +117,6 @@ macro_rules! declare_chain_connection_params_cli_schema {
 						.into_runtime_version(Chain::RUNTIME_VERSION)?;
 					Ok(relay_substrate_client::new(relay_substrate_client::ConnectionParams {
 						uri: self.[<$chain_prefix _uri>],
-						host: self.[<$chain_prefix _host>],
-						port: self.[<$chain_prefix _port>],
-						path: self.[<$chain_prefix _path>],
-						secure: self.[<$chain_prefix _secure>],
 						chain_runtime_version,
 					})
 					.await
