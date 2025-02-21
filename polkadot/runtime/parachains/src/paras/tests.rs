@@ -2041,7 +2041,7 @@ fn authorize_and_apply_set_current_code_works() {
 				para_a,
 				code_1.clone()
 			),
-			Error::<Test>::NotAuthorizedCode,
+			Error::<Test>::NothingAuthorized,
 		);
 
 		// non-root user cannot authorize
@@ -2066,7 +2066,7 @@ fn authorize_and_apply_set_current_code_works() {
 				para_a,
 				code_2.clone()
 			),
-			Error::<Test>::NotAuthorizedCode,
+			Error::<Test>::Unauthorized,
 		);
 		assert_eq!(AuthorizedCodeHash::<Test>::get(para_a), Some(code_1_hash));
 		assert!(CurrentCodeHash::<Test>::get(para_a).is_none());
@@ -2111,7 +2111,7 @@ fn authorize_and_apply_set_current_code_works() {
 				para_a,
 				code_1.clone()
 			),
-			Error::<Test>::NotAuthorizedCode,
+			Error::<Test>::Unauthorized,
 		);
 		assert_err!(
 			Paras::apply_authorized_force_set_current_code(
@@ -2119,7 +2119,7 @@ fn authorize_and_apply_set_current_code_works() {
 				para_a,
 				code_2.clone()
 			),
-			Error::<Test>::NotAuthorizedCode,
+			Error::<Test>::Unauthorized,
 		);
 
 		// apply just authorized
