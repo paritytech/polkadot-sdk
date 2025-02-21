@@ -11,4 +11,4 @@ doc:
 
 crates:
 - name: xcm-runtime-apis
-  bump: major
+  bump: minor
