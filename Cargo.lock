@@ -945,7 +945,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "staging-xcm 7.0.0",
  "staging-xcm-executor 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -1031,7 +1031,7 @@ dependencies = [
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -1082,7 +1082,7 @@ dependencies = [
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "westend-system-emulated-network",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -1171,7 +1171,7 @@ dependencies = [
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -1202,7 +1202,7 @@ dependencies = [
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -2655,7 +2655,7 @@ dependencies = [
  "staging-xcm 7.0.0",
  "staging-xcm-executor 7.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -2757,7 +2757,7 @@ dependencies = [
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -2893,7 +2893,7 @@ dependencies = [
  "staging-xcm 7.0.0",
  "staging-xcm-executor 7.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -2994,7 +2994,7 @@ dependencies = [
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -3729,7 +3729,7 @@ dependencies = [
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -4010,7 +4010,7 @@ dependencies = [
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -4157,7 +4157,7 @@ dependencies = [
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -4257,7 +4257,7 @@ dependencies = [
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -16057,7 +16057,7 @@ dependencies = [
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "tracing",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -16362,7 +16362,7 @@ dependencies = [
  "staging-xcm 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -16694,7 +16694,7 @@ dependencies = [
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -16795,7 +16795,7 @@ dependencies = [
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -16898,7 +16898,7 @@ dependencies = [
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -18995,7 +18995,7 @@ dependencies = [
  "tracing-gum-proc-macro",
  "xcm-emulator",
  "xcm-procedural 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
  "xcm-simulator 7.0.0",
 ]
 
@@ -19542,7 +19542,7 @@ dependencies = [
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -21647,7 +21647,7 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder 17.0.0",
  "tokio",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -31231,7 +31231,7 @@ dependencies = [
  "staging-xcm 7.0.0",
  "westend-runtime",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -31343,7 +31343,7 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.2.0",
 ]
 
 [[package]]
@@ -31924,7 +31924,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "frame-executive 28.0.0",
  "frame-support 28.0.0",
