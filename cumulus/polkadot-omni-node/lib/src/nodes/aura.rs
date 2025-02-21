@@ -35,7 +35,7 @@ use cumulus_client_collator::service::{
 };
 #[docify::export(slot_based_colator_import)]
 use cumulus_client_consensus_aura::collators::slot_based::{
-	self as slot_based, Params as SlotBasedParams
+	self as slot_based, Params as SlotBasedParams,
 };
 use cumulus_client_consensus_aura::{
 	collators::{
@@ -277,7 +277,9 @@ where
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnNamed,
 	{
-		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params_with_export);
+		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(
+			params_with_export,
+		);
 	}
 }
 
@@ -358,7 +360,7 @@ where
 			slot_drift: Duration::from_secs(1),
 			block_import_handle,
 			spawner: task_manager.spawn_handle(),
-			export_pov: node_extra_args.export_pov
+			export_pov: node_extra_args.export_pov,
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
