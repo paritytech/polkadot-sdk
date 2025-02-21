@@ -675,6 +675,7 @@ impl<T: Config> Pallet<T> {
 		Validators::<T>::put(&validators);
 
 		if changed {
+			log!(trace, "resetting disabled validators");
 			// reset disabled validators if active set was changed
 			DisabledValidators::<T>::take();
 		}
@@ -683,12 +684,12 @@ impl<T: Config> Pallet<T> {
 		let session_index = session_index + 1;
 		CurrentIndex::<T>::put(session_index);
 		T::SessionManager::start_session(session_index);
-		log::trace!(target: "runtime::session", "starting_session {:?}", session_index);
+		log!(trace, "starting_session {:?}", session_index);
 
 		// Get next validator set.
 		let maybe_next_validators = T::SessionManager::new_session(session_index + 1);
-		log::trace!(
-			target: "runtime::session",
+		log!(
+			trace,
 			"planning_session {:?} with {:?} validators",
 			session_index + 1,
 			maybe_next_validators.as_ref().map(|v| v.len())
