@@ -44,7 +44,7 @@ pub fn expand_outer_origin(
 					 be constructed: pallet `{}` must have generic `Origin`",
 					name
 				);
-				return Err(syn::Error::new(name.span(), msg))
+				return Err(syn::Error::new(name.span(), msg));
 			}
 
 			caller_variants.extend(expand_origin_caller_variant(
@@ -189,18 +189,8 @@ pub fn expand_outer_origin(
 		}
 
 		#[derive(
-<<<<<<< HEAD
-			Clone, PartialEq, Eq,
-			#scrate::__private::RuntimeDebug,
-			#scrate::__private::codec::Encode,
-			#scrate::__private::codec::Decode,
-			#scrate::__private::codec::DecodeWithMemTracking,
-			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::codec::MaxEncodedLen,
-=======
 			Clone, PartialEq, Eq, Debug, #scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode, #scrate::__private::scale_info::TypeInfo, #scrate::__private::codec::MaxEncodedLen,
->>>>>>> 9b072bdd9b (Add more logs)
 		)]
 		#[allow(non_camel_case_types)]
 		pub enum OriginCaller {
