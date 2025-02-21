@@ -6665,23 +6665,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethabi"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7413c5f74cc903ea37386a8965a936cbeb334bd270862fdece542c1b2dcbc898"
-dependencies = [
- "ethereum-types 0.14.1",
- "hex",
- "once_cell",
- "regex",
- "serde",
- "serde_json",
- "sha3 0.10.8",
- "thiserror 1.0.65",
- "uint 0.9.5",
-]
-
-[[package]]
 name = "ethabi-decode"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15170,7 +15153,6 @@ dependencies = [
  "anyhow",
  "clap 4.5.13",
  "env_logger 0.11.3",
- "ethabi",
  "futures",
  "git2",
  "hex",
