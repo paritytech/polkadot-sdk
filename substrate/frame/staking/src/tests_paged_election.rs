@@ -791,6 +791,8 @@ mod paged_snapshot {
 				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
 					.unwrap()
 					.is_empty());
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
 				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
 					.unwrap()
 					.is_empty());
@@ -819,6 +821,17 @@ mod paged_snapshot {
 	#[test]
 	#[should_panic]
 	fn voter_snapshot_starts_from_msp_to_lsp() {
+		todo!();
+	}
+
+	#[test]
+	#[should_panic]
+	fn locked_nominator_cannot_move_in_list() {
+		// they cannot chill, which removes them from the list
+		// they cannot bond_extra, which adds to their score
+		// they cannot unbond, which reduces their stake
+		// they cannot receive rewards, which uncreases their stake
+		// they cannot be slashed
 		todo!();
 	}
 }

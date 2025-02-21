@@ -610,6 +610,7 @@ impl<T: Config> Pallet<T> {
 						match Self::finalize_async_verification(claimed_score) {
 							Ok(_) => {
 								T::SolutionDataProvider::report_result(VerificationResult::Queued);
+								VerifierWeightsOf::<T>::on_initialize_valid_terminal()
 							},
 							Err(_) => {
 								T::SolutionDataProvider::report_result(
@@ -617,9 +618,9 @@ impl<T: Config> Pallet<T> {
 								);
 								// In case of any of the errors, kill the solution.
 								QueuedSolution::<T>::clear_invalid_and_backings();
+								VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
 							},
 						}
-						VerifierWeightsOf::<T>::on_initialize_valid_terminal()
 					}
 				},
 				Err(err) => {
@@ -628,13 +629,12 @@ impl<T: Config> Pallet<T> {
 					StatusStorage::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
 					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
-					// TODO: use lower weight if non-terminal.
-					VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
+					let wasted_pages = T::Pages::get() - current_page;
+					VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages)
 				},
 			}
 		} else {
-			// TODO: weight for when nothing happens
-			Default::default()
+			T::DbWeight::get().reads(1)
 		}
 	}
 

@@ -27,6 +27,20 @@ frame_support::parameter_types! {
 
 pub struct DualMockWeightInfo;
 impl multi_block::WeightInfo for DualMockWeightInfo {
+	fn export_non_terminal() -> Weight {
+		if MockWeightInfo::get() {
+			Zero::zero()
+		} else {
+			<() as multi_block::WeightInfo>::export_non_terminal()
+		}
+	}
+	fn export_terminal() -> Weight {
+		if MockWeightInfo::get() {
+			Zero::zero()
+		} else {
+			<() as multi_block::WeightInfo>::export_terminal()
+		}
+	}
 	fn on_initialize_nothing() -> Weight {
 		if MockWeightInfo::get() {
 			Zero::zero()

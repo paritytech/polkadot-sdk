@@ -176,7 +176,7 @@ pub fn load_signed_for_verification_and_start(
 	assert_eq!(
 		multi_block_events(),
 		vec![
-			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
 		]
@@ -200,7 +200,7 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(
 		multi_block_events(),
 		vec![
-			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
 		]
