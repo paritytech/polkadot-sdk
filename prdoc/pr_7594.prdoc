@@ -9,4 +9,4 @@ crates:
 - name: xcm-simulator-example
   bump: patch
 - name: sp-tracing
-  bump: patch
+  bump: minor
