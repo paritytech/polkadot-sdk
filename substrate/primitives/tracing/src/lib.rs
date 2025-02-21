@@ -256,112 +256,56 @@ macro_rules! enter_span {
 	};
 }
 
-/// `tracing-test` can be used for general logging capture but doesn't support logging within
-/// scoped functions like `Relay::execute_with`.
-///
-/// # Example
-///
-/// ```
-/// use tracing_test::traced_test;
-/// use tracing::info;
-///
-/// #[traced_test]
-/// fn test_logging() {
-///     info!("This is a test log message");
-///     assert!(logs_contain("test log message"));
-/// }
-/// ```
-///
-/// For more details, see [`tracing-test`](https://crates.io/crates/tracing-test).
-#[cfg(feature = "std")]
-pub use tracing_test;
-
-/// A module for capturing and asserting logs in tests.
-///
-/// This module provides utilities for capturing logs during test execution
-/// and verifying expected log output.
-///
-/// # Example
-///
-/// ```
-/// use sp_tracing::test_log_capture;
-///
-/// test_log_capture::capture(|| {
-///     tracing::info!("This is a test log message");
-/// });
-///
-/// assert!(test_log_capture::logs_contain("test log message"));
-/// ```
-#[cfg(feature = "std")]
+#[cfg(test)]
 pub mod test_log_capture {
-	use tracing::subscriber;
+	use std::{
+		io::Write,
+		sync::{Arc, Mutex},
+	};
+	use tracing_subscriber::fmt::MakeWriter;
 	use tracing_core::LevelFilter;
-	use tracing_test::internal::{global_buf, MockWriter};
 
-	/// Runs a test block with logging enabled and captures logs for assertions.
-	///
-	/// This function sets up a `tracing_subscriber` that redirects logs
-	/// to an internal buffer, which can later be queried.
-	///
-	/// # Example
-	///
-	/// ```
-	/// use sp_tracing::test_log_capture;
-	///
-	/// test_log_capture::capture(|| {
-	///     tracing::warn!("Captured warning message");
-	/// });
-	///
-	/// assert!(test_log_capture::logs_contain("Captured warning message"));
-	/// ```
-	pub fn capture<F: FnOnce()>(f: F) {
-		capture_with_max_level(LevelFilter::DEBUG, f);
+	/// A reusable log capturing struct for unit tests.
+	/// Captures logs written during test execution for assertions.
+	pub struct LogCapture {
+		buffer: Arc<Mutex<Vec<u8>>>,
 	}
 
-	/// Runs a test block with logging enabled and captures logs for assertions
-	/// while allowing the maximum log level to be specified.
-	///
-	/// # Example
-	///
-	/// ```
-	/// use sp_tracing::test_log_capture;
-	/// use sp_tracing::tracing::Level;
-	///
-	/// test_log_capture::capture_with_max_level(Level::INFO, || {
-	///     tracing::info!("This will be captured at INFO level");
-	///     tracing::debug!("This will be captured at DEBUG level");
-	/// });
-	///
-	///  assert!(test_log_capture::logs_contain("INFO level"));
-	///  assert!(!test_log_capture::logs_contain("DEBUG level"));
-	/// ```
-	pub fn capture_with_max_level<F: FnOnce()>(max_level: impl Into<LevelFilter>, f: F) {
-		let log_capture = MockWriter::new(&global_buf());
-		let subscriber = tracing_subscriber::fmt()
-			.with_max_level(max_level)
-			.with_writer(log_capture)
-			.finish();
-		subscriber::with_default(subscriber, f);
+	impl LogCapture {
+		/// Creates a new `LogCapture` instance with an internal buffer.
+		pub fn new(max_level: impl Into<LevelFilter>) -> Self {
+			LogCapture { buffer: Arc::new(Mutex::new(Vec::new())) }
+		}
+
+		/// Retrieves the captured logs as a `String`.
+		pub fn get_logs(&self) -> String {
+			String::from_utf8(self.buffer.lock().unwrap().clone()).unwrap()
+		}
+
+		/// Returns a clone of the internal buffer for use in `MakeWriter`.
+		pub fn writer(&self) -> Self {
+			LogCapture { buffer: Arc::clone(&self.buffer) }
+		}
 	}
 
-	/// Checks whether a captured log message contains a given substring.
-	///
-	/// This function retrieves all captured logs and checks if the provided
-	/// string is present.
-	///
-	/// # Example
-	///
-	/// ```
-	/// use sp_tracing::test_log_capture;
-	///
-	/// test_log_capture::capture(|| {
-	///     tracing::debug!("Debug log for testing");
-	/// });
-	///
-	/// assert!(test_log_capture::logs_contain("Debug log"));
-	/// ```
-	pub fn logs_contain(value: &str) -> bool {
-		let logs = String::from_utf8(global_buf().lock().unwrap().clone()).unwrap();
-		logs.contains(value)
+	impl Write for LogCapture {
+		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+			let mut logs = self.buffer.lock().unwrap();
+			logs.extend_from_slice(buf);
+			Ok(buf.len())
+		}
+
+		fn flush(&mut self) -> std::io::Result<()> {
+			Ok(())
+		}
+	}
+
+	impl<'a> MakeWriter<'a> for LogCapture {
+		type Writer = Self;
+
+		/// Provides a `MakeWriter` implementation for `tracing_subscriber`.
+		fn make_writer(&'a self) -> Self::Writer {
+			self.writer()
+		}
 	}
 }
