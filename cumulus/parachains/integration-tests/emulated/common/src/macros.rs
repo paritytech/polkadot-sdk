@@ -638,7 +638,7 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 			use frame_support::{dispatch::RawOrigin, traits::fungible};
 			use sp_runtime::AccountId32;
 			use xcm::prelude::*;
-			use xcm_runtime_apis::dry_run::runtime_decl_for_dry_run_api::DryRunApiV1;
+			use xcm_runtime_apis::dry_run::runtime_decl_for_dry_run_api::DryRunApiV2;
 
 			let who = AccountId32::new([1u8; 32]);
 			let transfer_amount = 10_000_000_000_000u128;

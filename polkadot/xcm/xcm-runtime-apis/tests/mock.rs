@@ -506,6 +506,13 @@ sp_api::mock_impl_runtime_apis! {
 			pallet_xcm::Pallet::<TestRuntime>::dry_run_call::<TestRuntime, XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
+		fn dry_run_call_before_version_2(
+			origin: OriginCaller,
+			call: RuntimeCall,
+		) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			pallet_xcm::Pallet::<TestRuntime>::dry_run_call::<TestRuntime, XcmRouter, OriginCaller, RuntimeCall>(origin, call, xcm::latest::VERSION)
+		}
+
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			pallet_xcm::Pallet::<TestRuntime>::dry_run_xcm::<TestRuntime, XcmRouter, RuntimeCall, XcmConfig>(origin_location, xcm)
 		}
