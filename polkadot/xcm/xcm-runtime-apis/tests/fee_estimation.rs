@@ -289,7 +289,7 @@ fn dry_run_reserve_asset_transfer_common(
 
 #[test]
 fn dry_run_reserve_asset_transfer_xcm_versions() {
-	let tested_versions = [XCM_VERSION, 5, 4, 3];
+	let tested_versions = MIN_XCM_VERSION..=XCM_VERSION;
 
 	for version in tested_versions {
 		let input_version = version;
@@ -309,7 +309,7 @@ fn dry_run_reserve_asset_transfer_xcm_versions() {
 
 #[test]
 fn dry_run_before_api_v2_reserve_asset_transfer() {
-	let tested_versions = [XCM_VERSION, 5, 4, 3];
+	let tested_versions = MIN_XCM_VERSION..=XCM_VERSION;
 
 	for version in tested_versions {
 		let input_version = version;
