@@ -23,6 +23,7 @@ pallet-asset-conversion = { workspace = true }
 pallet-assets = { workspace = true }
 sp-api = { workspace = true }
 sp-runtime = { workspace = true }
+sp-tracing = { workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
