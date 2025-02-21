@@ -23,7 +23,7 @@ use crate::{
 		NodeExtraArgs,
 	},
 };
-use chain_spec_builder::{ChainSpecBuilder, ChainSpecBuilderCmd};
+use chain_spec_builder::{ChainSpecBuilder};
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
