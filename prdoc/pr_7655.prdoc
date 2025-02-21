@@ -8,8 +8,7 @@ doc:
     description: |
       This PR adds `DecodeWithMemTracking` as a trait bound for `Header`, `Block` and `TransactionExtension` and
       derives it for all the types that implement these traits in `polkadot-sdk`.
-      All the external types used in the `RuntimeCall` that implement these traits will need to implement
-      `DecodeWithMemTracking` as well.
+      All the external types that implement these traits will need to implement `DecodeWithMemTracking` as well.
 
 crates:
   - name: sp-runtime
