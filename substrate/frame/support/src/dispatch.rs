@@ -700,6 +700,17 @@ impl<Call> VersionedCall<Call> {
 			transaction_version,
 		}
 	}
+
+	 /// Get a reference to the inner call.
+	 pub fn call(&self) -> &Call {
+        &self.call
+    }
+
+    /// Get the transaction version.
+    pub fn transaction_version(&self) -> u32 {
+        self.transaction_version
+    }
+	
     pub fn validate(&self, current_transaction_version: u32) -> Result<&Call, DispatchError> {
         if self.transaction_version != current_transaction_version {
             Err(DispatchError::TransactionVersionMismatch)
@@ -713,6 +724,16 @@ impl<Call> VersionedCall<Call> {
         self.call
     }
 }
+
+// impl<Call: Dispatchable> VersionedCall<Call> {
+//     pub fn dispatch(self, origin: OriginFor<T>) -> DispatchResult {
+//         self.call.dispatch(origin)
+//     }
+
+//     pub fn get_dispatch_info(&self) -> DispatchInfo {
+//         self.call.get_dispatch_info()
+//     }
+// }
 
 // END TODO
 

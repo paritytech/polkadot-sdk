@@ -117,10 +117,10 @@ pub type PeriodicIndex = u32;
 pub type TaskAddress<BlockNumber> = (BlockNumber, u32);
 
 pub type CallOrHashOf<T> =
-	MaybeHashed<VersionedCall<<T as Config>::RuntimeCall>, <T as frame_system::Config>::Hash>;
+	MaybeHashed<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hash>;
 
 pub type BoundedCallOf<T> =
-	Bounded<VersionedCall<<T as Config>::RuntimeCall>, <T as frame_system::Config>::Hashing>;
+	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 pub type BlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
@@ -152,7 +152,7 @@ pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	pub maybe_id: Option<Name>,
 	/// This task's priority.
 	pub priority: schedule::Priority,
-	/// The call to be dispatched, wrapped in `VersionedCall`.
+	/// The call to be dispatched.
 	pub call: VersionedCall<Call>,
 	/// If the call is periodic, then this points to the information concerning that.
 	pub maybe_periodic: Option<schedule::Period<BlockNumber>>,
@@ -182,18 +182,6 @@ where
 	}
 }
 
-// impl frame_system::Config for Runtime {
-// 	type Block = Block;
-// 	type AccountId = AccountId;
-// 	type Balance = Balance;
-// 	type BaseCallFilter = crate::traits::Everything;
-// 	type RuntimeOrigin = RuntimeOrigin;
-// 	type RuntimeCall = RuntimeCall;
-// 	type RuntimeTask = RuntimeTask;
-// 	type DbWeight = DbWeight;
-// 	type PalletInfo = PalletInfo;
-// }
-
 use crate::{Scheduled as ScheduledV3, Scheduled as ScheduledV2};
 
 pub type ScheduledV2Of<T> = ScheduledV2<
@@ -214,7 +202,7 @@ pub type ScheduledV3Of<T> = ScheduledV3<
 
 pub type ScheduledOf<T> = Scheduled<
 	TaskName,
-	VersionedCall<BoundedCallOf<T>>,
+	BoundedCallOf<T>,
 	BlockNumberFor<T>,
 	<T as Config>::PalletsOrigin,
 	<T as frame_system::Config>::AccountId,
@@ -1002,7 +990,7 @@ impl<T: Config> Pallet<T> {
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: VersionedCall<BoundedCallOf<T>>,
+		call: BoundedCallOf<T>,
 	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
 		let when = Self::resolve_time(when)?;
 
@@ -1013,10 +1001,13 @@ impl<T: Config> Pallet<T> {
 			.filter(|p| p.1 > 1 && !p.0.is_zero())
 			// Remove one from the number of repetitions since we will schedule one now.
 			.map(|(p, c)| (p, c - 1));
+
+		let versioned_call = VersionedCall::new(call, <T as frame_system::Config>::Version::get().transaction_version);
+
 		let task = Scheduled {
 			maybe_id: None,
 			priority,
-			call,
+			versioned_call,
 			maybe_periodic,
 			origin,
 			_phantom: PhantomData,
@@ -1027,6 +1018,13 @@ impl<T: Config> Pallet<T> {
 			// Request the call to be made available.
 			T::Preimages::request(&hash);
 		}
+
+		        // // Add the scheduled task to the agenda
+				// Agenda::<T>::mutate(when, |agenda| {
+				// 	agenda.try_push(Some(task)).map_err(|_| DispatchError::Overflow)?;
+				// 	Ok(())
+				// })
+		
 
 		Ok(res)
 	}
@@ -1087,7 +1085,7 @@ impl<T: Config> Pallet<T> {
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: VersionedCall<BoundedCallOf<T>>,
+		call: BoundedCallOf<T>,
 	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
 		// ensure id it is unique
 		if Lookup::<T>::contains_key(&id) {
@@ -1103,6 +1101,9 @@ impl<T: Config> Pallet<T> {
 			.filter(|p| p.1 > 1 && !p.0.is_zero())
 			// Remove one from the number of repetitions since we will schedule one now.
 			.map(|(p, c)| (p, c - 1));
+
+			 // Wrap the call in a VersionedCall
+			 let versioned_call = VersionedCall::new(call, <T as frame_system::Config>::Version::get().transaction_version);
 
 		let task = Scheduled {
 			maybe_id: Some(id),
@@ -1303,16 +1304,6 @@ impl<T: Config> Pallet<T> {
 			Lookup::<T>::remove(id);
 		}
 
-		 // Validate the VersionedCall against the current runtime version
-		//  let current_transaction_version = <Runtime as frame_system::Config>::Version::get().transaction_version;
-		//  let validated_call = task.call.validate(current_transaction_version).map_err(|_| {
-		// 	 Self::deposit_event(Event::CallUnavailable {
-		// 		 task: (when, agenda_index),
-		// 		 id: task.maybe_id,
-		// 	 });
-		// 	 (Unavailable, Some(task))
-		//  })?;
-
 		let (call, lookup_len) = match T::Preimages::peek(&task.call) {
 			Ok(c) => c,
 			Err(_) => {
@@ -1409,8 +1400,10 @@ impl<T: Config> Pallet<T> {
 	fn execute_dispatch(
 		weight: &mut WeightMeter,
 		origin: T::PalletsOrigin,
-		call: VersionedCall<<T as Config>::RuntimeCall>,
+		versioned_call: VersionedCall<<T as Config>::RuntimeCall>,
 	) -> Result<DispatchResult, ()> {
+
+		let call = versioned_call.validate(<T as frame_system::Config>::Version::get().transaction_version).map_err(|_| ())?;
 		let base_weight = match origin.as_system_ref() {
 			Some(&RawOrigin::Signed(_)) => T::WeightInfo::execute_dispatch_signed(),
 			_ => T::WeightInfo::execute_dispatch_unsigned(),
@@ -1424,7 +1417,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let dispatch_origin = origin.into();
-		let (maybe_actual_call_weight, result) = match call.dispatch(dispatch_origin) {
+		let (maybe_actual_call_weight, result) = match call.clone().dispatch(dispatch_origin) {
 			Ok(post_info) => (post_info.actual_weight, Ok(())),
 			Err(error_and_info) =>
 				(error_and_info.post_info.actual_weight, Err(error_and_info.error)),
