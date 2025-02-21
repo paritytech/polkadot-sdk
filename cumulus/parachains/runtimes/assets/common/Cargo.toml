@@ -51,7 +51,7 @@ std = [
 	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
-	"tracing/std",
+	"sp-tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

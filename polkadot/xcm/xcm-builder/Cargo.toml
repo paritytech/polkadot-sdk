@@ -25,7 +25,7 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-weights = { workspace = true }
-tracing = { workspace = true }
+sp-tracing = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
@@ -76,7 +76,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-weights/std",
-	"tracing/std",
+	"sp-tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
