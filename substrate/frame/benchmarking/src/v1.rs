@@ -1828,7 +1828,7 @@ macro_rules! add_benchmark {
 			internal_repeats,
 		} = config;
 		if &pallet[..] == &name_string[..] && &instance[..] == &instance_string[..] {
-			let benchmark_result = <$location>::run_benchmark(
+			let benchmark_result = <$location as $crate::Benchmarking>::run_benchmark(
 				&benchmark[..],
 				&selected_components[..],
 				whitelist,
@@ -1915,8 +1915,8 @@ macro_rules! list_benchmark {
 	( $list:ident, $extra:ident, $name:path, $location:ty ) => {
 		let pallet_string = stringify!($name).as_bytes();
 		let instance_string = stringify!($location).as_bytes();
-		let benchmarks = <$location>::benchmarks($extra);
-		let pallet_benchmarks = BenchmarkList {
+		let benchmarks = <$location as $crate::Benchmarking>::benchmarks($extra);
+		let pallet_benchmarks = $crate::BenchmarkList {
 			pallet: pallet_string.to_vec(),
 			instance: instance_string.to_vec(),
 			benchmarks: benchmarks.to_vec(),

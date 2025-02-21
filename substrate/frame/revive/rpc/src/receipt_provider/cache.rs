@@ -16,7 +16,7 @@
 // limitations under the License.
 use super::ReceiptProvider;
 use jsonrpsee::core::async_trait;
-use pallet_revive::evm::{ReceiptInfo, TransactionSigned, H256, U256};
+use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned, H256};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -35,6 +35,12 @@ impl CacheReceiptProvider {
 
 #[async_trait]
 impl ReceiptProvider for CacheReceiptProvider {
+	async fn archive(&self, _block_hash: &H256, _receipts: &[(TransactionSigned, ReceiptInfo)]) {}
+
+	async fn logs(&self, _filter: Option<Filter>) -> anyhow::Result<Vec<Log>> {
+		anyhow::bail!("Not implemented")
+	}
+
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
 		let mut cache = self.cache.write().await;
 		cache.insert(block_hash, receipts);
@@ -48,13 +54,13 @@ impl ReceiptProvider for CacheReceiptProvider {
 	async fn receipt_by_block_hash_and_index(
 		&self,
 		block_hash: &H256,
-		transaction_index: &U256,
+		transaction_index: usize,
 	) -> Option<ReceiptInfo> {
 		let cache = self.cache().await;
 		let receipt_hash = cache
 			.transaction_hashes_by_block_and_index
 			.get(block_hash)?
-			.get(transaction_index)?;
+			.get(&transaction_index)?;
 		let receipt = cache.receipts_by_hash.get(receipt_hash)?;
 		Some(receipt.clone())
 	}
@@ -62,6 +68,11 @@ impl ReceiptProvider for CacheReceiptProvider {
 	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<usize> {
 		let cache = self.cache().await;
 		cache.transaction_hashes_by_block_and_index.get(block_hash).map(|v| v.len())
+	}
+
+	async fn block_transaction_hashes(&self, block_hash: &H256) -> Option<HashMap<usize, H256>> {
+		let cache = self.cache().await;
+		cache.transaction_hashes_by_block_and_index.get(block_hash).cloned()
 	}
 
 	async fn receipt_by_hash(&self, hash: &H256) -> Option<ReceiptInfo> {
@@ -84,7 +95,7 @@ struct ReceiptCache {
 	signed_tx_by_hash: HashMap<H256, TransactionSigned>,
 
 	/// A map of receipt hashes by block hash.
-	transaction_hashes_by_block_and_index: HashMap<H256, HashMap<U256, H256>>,
+	transaction_hashes_by_block_and_index: HashMap<H256, HashMap<usize, H256>>,
 }
 
 impl ReceiptCache {
@@ -93,7 +104,9 @@ impl ReceiptCache {
 		if !receipts.is_empty() {
 			let values = receipts
 				.iter()
-				.map(|(_, receipt)| (receipt.transaction_index, receipt.transaction_hash))
+				.map(|(_, receipt)| {
+					(receipt.transaction_index.as_usize(), receipt.transaction_hash)
+				})
 				.collect::<HashMap<_, _>>();
 
 			self.transaction_hashes_by_block_and_index.insert(*block_hash, values);
