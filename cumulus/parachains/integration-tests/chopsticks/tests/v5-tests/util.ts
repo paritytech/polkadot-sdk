@@ -20,7 +20,7 @@ export interface MockChain<T extends ChainDefinition> {
 }
 
 export interface MockNetwork {
-	parachain: MockChain<typeof wnd_penpal>,
+	// parachain: MockChain<typeof wnd_penpal>,
 	relay: MockChain<typeof wnd_rc>,
 	assetHub: MockChain<typeof wnd_ah>,
 	paraSovAccOnRelay: SS58String,
@@ -40,18 +40,19 @@ const setSystemAsset = async (context: NetworkContext, accounts: [SS58String, bi
 };
 
 export const setup = async (): Promise<MockNetwork> => {
-	const { parachain, polkadot, assetHub } = await setupNetworks({
-		parachain: {
-			endpoint: getPenpalEndpoint(),
-			'wasm-override': getPenpalWasm(),
-			'runtime-log-level': 5,
-			db: './db.sqlite',
-			// TODO: ports might be moved to .env if needed.
-			port: 8006,
-		},
+	const { /*parachain, */ polkadot, assetHub } = await setupNetworks({
+		// parachain: {
+		// 	endpoint: getPenpalEndpoint(),
+		// 	'wasm-override': getPenpalWasm(),
+		// 	'runtime-log-level': 5,
+		// 	db: './db.sqlite',
+		// 	// TODO: ports might be moved to .env if needed.
+		// 	port: 8006,
+		// },
 		polkadot: {
 			endpoint: getRelayEndpoint(),
 			'wasm-override': getRelayWasm(),
+			'runtime-log-level': 5,
 			db: './db.sqlite',
 			port: 8007,
 		},
@@ -64,8 +65,8 @@ export const setup = async (): Promise<MockNetwork> => {
 		},
 	});
 
-	const parachainClient = createClient(getWsProvider(parachain.ws.endpoint));
-	const parachainApi = parachainClient.getTypedApi(wnd_penpal);
+	// const parachainClient = createClient(getWsProvider(parachain.ws.endpoint));
+	// const parachainApi = parachainClient.getTypedApi(wnd_penpal);
 	const relayClient = createClient(getWsProvider(polkadot.ws.endpoint));
 	const relayApi = relayClient.getTypedApi(wnd_rc);
 	const assetHubClient = createClient(getWsProvider(assetHub.ws.endpoint));
@@ -93,85 +94,85 @@ export const setup = async (): Promise<MockNetwork> => {
 	const assetMap = new AssetMap(assetHubIndexMap);
 
 	return {
-		parachain: {
-			context: parachain,
-			api: parachainApi,
-			setSystemAsset: async (accounts) => setSystemAsset(parachain, accounts),
-			setAssets: async (assets) => {
-				const changes: any = {};
-
-				for (const [who, what, state, amount] of assets) {
-					if (state === AssetState.Local) {
-						changes.Assets = changes.Assets ?? {};
-						changes.Assets.Asset = changes.Assets.Asset ?? [];
-						changes.Assets.Account = changes.Assets.Account ?? [];
-
-						// TODO: detect asset supply increase and override it.
-						changes.Assets.Asset.push(
-							[[[assetMap.getIndex(what)]], { supply: amount }]
-						);
-						changes.Assets.Account.push(
-							[[assetMap.getIndex(what), who], { balance: amount }],
-						);
-					} else {
-						changes.ForeignAssets = changes.ForeignAssets ?? {};
-						changes.ForeignAssets.Asset = changes.ForeignAssets.Asset ?? [];
-						changes.ForeignAssets.Account = changes.ForeignAssets.Account ?? [];
-
-						// TODO: detect asset supply increase and override it.
-						changes.ForeignAssets.Asset.push(
-							[[assetMap.getRelativeRawLocation(what, false)], {supply: amount }]
-						);
-						changes.ForeignAssets.Account.push(
-							[[assetMap.getRelativeRawLocation(what, false), who], { balance: amount }],
-						);
-					}
-				}
-
-				await parachain.dev.setStorage(changes);
-			},
-			setXcmVersion: async (version: number) => {
-				const changes: any = {};
-				changes.PolkadotXcm = changes.PolkadotXcm ?? {};
-				changes.PolkadotXcm.SafeXcmVersion = changes.PolkadotXcm.SafeXcmVersion ?? 0;
-				changes.PolkadotXcm.SafeXcmVersion = 5;
-
-				changes.PolkadotXcm.SupportedVersion = changes.PolkadotXcm.SupportedVersion ?? [];
-				changes.PolkadotXcm.SupportedVersion.push(
-					[[5, { V5: {parents: 1, interior: { X1: [{Parachain: 1000}]}}}], 5]
-				);
-
-				await parachain.dev.setStorage(changes);
-			},
-			getSystemAsset: async (accounts: [SS58String][]) => {
-				const results = [];
-				for (const [who] of accounts) {
-					results.push((await parachainApi.query.System.Account.getValue(who)).data.free);
-				}
-				return results;
-			},
-			getAssets: async(assets: [SS58String, Asset, AssetState][]) => {
-				const results = [];
-				for (const [who, what, state] of assets) {
-					if (state === AssetState.Local) {
-						results.push((await parachainApi
-							.query
-							.Assets
-							.Account
-							.getValue(assetMap.getIndex(what), who))?.balance ?? 0n
-						);
-					} else {
-						results.push((await parachainApi
-							.query
-							.ForeignAssets
-							.Account
-							.getValue(assetMap.getRelativeLocation(what, false), who))?.balance ?? 0n
-						);
-					}
-				}
-				return results;
-			},
-		},
+		// parachain: {
+		// 	context: parachain,
+		// 	api: parachainApi,
+		// 	setSystemAsset: async (accounts) => setSystemAsset(parachain, accounts),
+		// 	setAssets: async (assets) => {
+		// 		const changes: any = {};
+		//
+		// 		for (const [who, what, state, amount] of assets) {
+		// 			if (state === AssetState.Local) {
+		// 				changes.Assets = changes.Assets ?? {};
+		// 				changes.Assets.Asset = changes.Assets.Asset ?? [];
+		// 				changes.Assets.Account = changes.Assets.Account ?? [];
+		//
+		// 				// TODO: detect asset supply increase and override it.
+		// 				changes.Assets.Asset.push(
+		// 					[[[assetMap.getIndex(what)]], { supply: amount }]
+		// 				);
+		// 				changes.Assets.Account.push(
+		// 					[[assetMap.getIndex(what), who], { balance: amount }],
+		// 				);
+		// 			} else {
+		// 				changes.ForeignAssets = changes.ForeignAssets ?? {};
+		// 				changes.ForeignAssets.Asset = changes.ForeignAssets.Asset ?? [];
+		// 				changes.ForeignAssets.Account = changes.ForeignAssets.Account ?? [];
+		//
+		// 				// TODO: detect asset supply increase and override it.
+		// 				changes.ForeignAssets.Asset.push(
+		// 					[[assetMap.getRelativeRawLocation(what, false)], {supply: amount }]
+		// 				);
+		// 				changes.ForeignAssets.Account.push(
+		// 					[[assetMap.getRelativeRawLocation(what, false), who], { balance: amount }],
+		// 				);
+		// 			}
+		// 		}
+		//
+		// 		await parachain.dev.setStorage(changes);
+		// 	},
+		// 	setXcmVersion: async (version: number) => {
+		// 		const changes: any = {};
+		// 		changes.PolkadotXcm = changes.PolkadotXcm ?? {};
+		// 		changes.PolkadotXcm.SafeXcmVersion = changes.PolkadotXcm.SafeXcmVersion ?? 0;
+		// 		changes.PolkadotXcm.SafeXcmVersion = 5;
+		//
+		// 		changes.PolkadotXcm.SupportedVersion = changes.PolkadotXcm.SupportedVersion ?? [];
+		// 		changes.PolkadotXcm.SupportedVersion.push(
+		// 			[[5, { V5: {parents: 1, interior: { X1: [{Parachain: 1000}]}}}], 5]
+		// 		);
+		//
+		// 		await parachain.dev.setStorage(changes);
+		// 	},
+		// 	getSystemAsset: async (accounts: [SS58String][]) => {
+		// 		const results = [];
+		// 		for (const [who] of accounts) {
+		// 			results.push((await parachainApi.query.System.Account.getValue(who)).data.free);
+		// 		}
+		// 		return results;
+		// 	},
+		// 	getAssets: async(assets: [SS58String, Asset, AssetState][]) => {
+		// 		const results = [];
+		// 		for (const [who, what, state] of assets) {
+		// 			if (state === AssetState.Local) {
+		// 				results.push((await parachainApi
+		// 					.query
+		// 					.Assets
+		// 					.Account
+		// 					.getValue(assetMap.getIndex(what), who))?.balance ?? 0n
+		// 				);
+		// 			} else {
+		// 				results.push((await parachainApi
+		// 					.query
+		// 					.ForeignAssets
+		// 					.Account
+		// 					.getValue(assetMap.getRelativeLocation(what, false), who))?.balance ?? 0n
+		// 				);
+		// 			}
+		// 		}
+		// 		return results;
+		// 	},
+		// },
 		relay: {
 			context: polkadot,
 			api: relayApi,
@@ -288,7 +289,8 @@ type WebSocketEndpoint = `wss://${string}`;
 export const getRelayEndpoint = (): WebSocketEndpoint => {
 	switch (process.env.NETWORK) {
 		case 'westend':
-			return 'wss://westend-rpc.polkadot.io';
+			return 'wss://polkadot-rpc.dwellir.com';
+			// return 'wss://westend-rpc.polkadot.io';
 		case 'kusama':
 			return 'wss://rpc-kusama.luckyfriday.io';
 		case 'polkadot':
@@ -301,7 +303,8 @@ export const getRelayEndpoint = (): WebSocketEndpoint => {
 export const getAssetHubEndpoint = (): WebSocketEndpoint => {
 	switch (process.env.NETWORK) {
 		case 'westend':
-			return 'wss://westend-asset-hub-rpc.polkadot.io';
+			return 'wss://polkadot-asset-hub-rpc.polkadot.io';
+			// return 'wss://westend-asset-hub-rpc.polkadot.io';
 		case 'kusama':
 			return 'wss://kusama-asset-hub-rpc.polkadot.io';
 		case 'polkadot':
@@ -323,7 +326,8 @@ export const getPenpalEndpoint = () : WebSocketEndpoint => {
 export const getRelayWasm = (): string => {
 	switch (process.env.NETWORK) {
 		case 'westend':
-			return process.env.RELAY_WASM;
+			return '../../wasms/polkadot_runtime.compact.compressed.wasm';
+			// return process.env.RELAY_WASM;
 		default:
 			throw 'Set one of the available networks: westend kusama polkadot';
 	}
@@ -332,17 +336,17 @@ export const getRelayWasm = (): string => {
 export const getAssetHubWasm = (): string => {
 	switch (process.env.NETWORK) {
 		case 'westend':
-			return '../../wasms/asset_hub_westend_runtime.compact.compressed.wasm';
+			return '../../wasms/asset_hub_polkadot_runtime.compact.compressed.wasm';
 		default:
 			throw 'Set one of the available networks: westend kusama polkadot';
 	}
 }
 
-export const getPenpalWasm = (): string => {
-	switch (process.env.NETWORK) {
-		case 'westend':
-			return '../../wasms/penpal_runtime.compact.compressed.wasm';
-		default:
-			throw 'Set one of the available networks: westend kusama polkadot';
-	}
-}
+// export const getPenpalWasm = (): string => {
+// 	switch (process.env.NETWORK) {
+// 		case 'westend':
+// 			return '../../wasms/penpal_runtime.compact.compressed.wasm';
+// 		default:
+// 			throw 'Set one of the available networks: westend kusama polkadot';
+// 	}
+// }
