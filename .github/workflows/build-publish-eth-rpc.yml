@@ -5,7 +5,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -13,13 +13,15 @@ concurrency:
 
 env:
   ETH_RPC_IMAGE_NAME: "docker.io/paritypr/eth-rpc"
-  ETH_INDEXER_IMAGE_NAME: "docker.io/paritypr/eth-indexer"
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   set-variables:
     # This workaround sets the container image for each job using 'set-variables' job output.
     # env variables don't work for PR from forks, so we need to use outputs.
     runs-on: ubuntu-latest
+    needs: isdraft
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
     steps:
@@ -53,15 +55,6 @@ jobs:
           tags: |
             ${{ env.ETH_RPC_IMAGE_NAME }}:${{ env.VERSION }}
 
-      - name: Build eth-indexer Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./substrate/frame/revive/rpc/dockerfiles/eth-indexer/Dockerfile
-          push: false
-          tags: |
-            ${{ env.ETH_INDEXER_IMAGE_NAME }}:${{ env.VERSION }}
-
   build_push_docker:
     name: Build and push docker images
     runs-on: parity-large
@@ -87,12 +80,3 @@ jobs:
           push: true
           tags: |
             ${{ env.ETH_RPC_IMAGE_NAME }}:${{ env.VERSION }}
-
-      - name: Build eth-indexer Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./substrate/frame/revive/rpc/dockerfiles/eth-indexer/Dockerfile
-          push: true
-          tags: |
-            ${{ env.ETH_INDEXER_IMAGE_NAME }}:${{ env.VERSION }}

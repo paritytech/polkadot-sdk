@@ -3,7 +3,7 @@
 //! # Outbound V1 primitives
 
 use crate::{OperatingMode, SendError, SendMessageFeeProvider};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use ethabi::Token;
 use scale_info::TypeInfo;
 use snowbridge_core::{pricing::UD60x18, ChannelId};
@@ -254,7 +254,7 @@ impl Command {
 
 /// Representation of a call to the initializer of an implementation contract.
 /// The initializer has the following ABI signature: `initialize(bytes)`.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Initializer {
 	/// ABI-encoded params of type `bytes` to pass to the initializer
 	pub params: Vec<u8>,

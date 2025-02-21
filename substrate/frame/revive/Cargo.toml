@@ -17,6 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 derive_more = { workspace = true }
 environmental = { workspace = true }
@@ -26,7 +27,8 @@ hex = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.19.0", default-features = false }
+polkavm = { version = "0.21.0", default-features = false }
+polkavm-common = { version = "0.21.0", default-features = false, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = [
@@ -77,6 +79,7 @@ xcm-builder = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-core/std",
 	"codec/std",
 	"environmental/std",
 	"ethabi/std",
@@ -91,6 +94,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
+	"polkavm-common?/std",
 	"polkavm/std",
 	"rlp/std",
 	"scale-info/std",
@@ -120,6 +124,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"polkavm-common/alloc",
 	"sp-consensus-aura",
 	"sp-consensus-babe",
 	"sp-consensus-slots",

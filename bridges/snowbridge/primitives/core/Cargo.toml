@@ -38,21 +38,22 @@ hex = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "ethabi/std",
-    "frame-support/std",
-    "frame-system/std",
-    "polkadot-parachain-primitives/std",
-    "scale-info/std",
-    "serde/std",
-    "sp-arithmetic/std",
-    "sp-core/std",
-    "sp-io/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "xcm-builder/std",
-    "xcm-executor/std",
-    "xcm/std",
+	"codec/std",
+	"ethabi/std",
+	"frame-support/std",
+	"frame-system/std",
+	"polkadot-parachain-primitives/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+	"log/std"
 ]
 serde = ["dep:serde", "scale-info/serde"]
 runtime-benchmarks = [

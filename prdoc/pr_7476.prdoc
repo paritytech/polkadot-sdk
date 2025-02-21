@@ -1,0 +1,14 @@
+title: add genesis presets for coretime parachains
+doc:
+- audience: Runtime Dev
+  description: |-
+    Extracted from #7473.
+
+    Part of: https://github.com/paritytech/polkadot-sdk/issues/5704.
+crates:
+- name: coretime-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor

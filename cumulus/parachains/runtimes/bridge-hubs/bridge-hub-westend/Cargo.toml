@@ -236,6 +236,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"snowbridge-pallet-inbound-queue-v2/std"
 ]
 default = ["std"]
 
@@ -322,6 +323,7 @@ try-runtime = [
 	"snowbridge-pallet-system-v2/try-runtime",
 	"snowbridge-pallet-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"snowbridge-pallet-inbound-queue-v2/try-runtime"
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain

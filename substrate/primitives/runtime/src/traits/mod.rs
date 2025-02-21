@@ -2066,6 +2066,7 @@ macro_rules! impl_opaque_keys_inner {
 			Clone, PartialEq, Eq,
 			$crate::codec::Encode,
 			$crate::codec::Decode,
+			$crate::codec::DecodeWithMemTracking,
 			$crate::scale_info::TypeInfo,
 			$crate::RuntimeDebug,
 		)]
@@ -2351,7 +2352,8 @@ pub trait BlockNumberProvider {
 		+ Debug
 		+ MaxEncodedLen
 		+ Copy
-		+ EncodeLike;
+		+ EncodeLike
+		+ Default;
 
 	/// Returns the current block number.
 	///

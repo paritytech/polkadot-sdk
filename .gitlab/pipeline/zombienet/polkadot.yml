@@ -112,14 +112,6 @@ zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0004-parachains-garbage-candidate.zndsl"
 
-.zombienet-polkadot-functional-0005-parachains-disputes-past-session:
-  extends:
-    - .zombienet-polkadot-common
-  script:
-    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-      --local-dir="${LOCAL_DIR}/functional"
-      --test="0005-parachains-disputes-past-session.zndsl"
-
 zombienet-polkadot-functional-0006-parachains-max-tranche0:
   extends:
     - .zombienet-polkadot-common
@@ -188,7 +180,7 @@ zombienet-polkadot-functional-0015-coretime-shared-core:
   extends:
     - .zombienet-polkadot-common
   before_script:
-    - !reference [ .zombienet-polkadot-common, before_script ]
+    - !reference [.zombienet-polkadot-common, before_script]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -207,7 +199,7 @@ zombienet-polkadot-functional-0018-shared-core-idle-parachain:
   extends:
     - .zombienet-polkadot-common
   before_script:
-    - !reference [ .zombienet-polkadot-common, before_script ]
+    - !reference [.zombienet-polkadot-common, before_script]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -218,7 +210,7 @@ zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness:
   extends:
     - .zombienet-polkadot-common
   before_script:
-    - !reference [ .zombienet-polkadot-common, before_script ]
+    - !reference [.zombienet-polkadot-common, before_script]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -354,7 +346,7 @@ zombienet-polkadot-malus-0001-dispute-valid:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
   script:
     # we want to use `--no-capture` in zombienet tests.
@@ -369,7 +361,7 @@ zombienet-polkadot-elastic-scaling-slot-based-3cores:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export CUMULUS_IMAGE="docker.io/paritypr/test-parachain:${PIPELINE_IMAGE_TAG}"
     - export X_INFRA_INSTANCE=spot # use spot by default
@@ -386,7 +378,7 @@ zombienet-polkadot-elastic-scaling-slot-based-12cores:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export CUMULUS_IMAGE="docker.io/paritypr/test-parachain:${PIPELINE_IMAGE_TAG}"
     - export X_INFRA_INSTANCE=spot # use spot by default
@@ -403,7 +395,7 @@ zombienet-polkadot-elastic-scaling-doesnt-break-parachains:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export X_INFRA_INSTANCE=spot # use spot by default
   variables:
@@ -421,7 +413,7 @@ zombienet-polkadot-elastic-scaling-basic-3cores:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export CUMULUS_IMAGE="${COL_IMAGE}"
     - export X_INFRA_INSTANCE=spot # use spot by default
@@ -438,7 +430,7 @@ zombienet-polkadot-functional-sync-backing:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     # Hardcoded to an old polkadot-parachain image, pre async backing.
     - export CUMULUS_IMAGE="docker.io/paritypr/polkadot-parachain-debug:master-99623e62"
@@ -456,7 +448,7 @@ zombienet-polkadot-functional-async-backing-6-seconds-rate:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export X_INFRA_INSTANCE=spot # use spot by default
   script:
@@ -464,3 +456,35 @@ zombienet-polkadot-functional-async-backing-6-seconds-rate:
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::async_backing_6_seconds_rate::async_backing_6_seconds_rate_test
+
+zombienet-polkadot-functional-duplicate-collations:
+  extends:
+    - .zombienet-polkadot-common
+  needs:
+    - job: build-polkadot-zombienet-tests
+      artifacts: true
+  before_script:
+    - !reference [".zombienet-polkadot-common", "before_script"]
+    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - export X_INFRA_INSTANCE=spot # use spot by default
+  script:
+    # we want to use `--no-capture` in zombienet tests.
+    - unset NEXTEST_FAILURE_OUTPUT
+    - unset NEXTEST_SUCCESS_OUTPUT
+    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::duplicate_collations::duplicate_collations_test
+
+zombienet-polkadot-disputes-slashing:
+  extends:
+    - .zombienet-polkadot-common
+  needs:
+    - job: build-polkadot-zombienet-tests
+      artifacts: true
+  before_script:
+    - !reference [".zombienet-polkadot-common", "before_script"]
+    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - export X_INFRA_INSTANCE=spot # use spot by default
+  script:
+    # we want to use `--no-capture` in zombienet tests.
+    - unset NEXTEST_FAILURE_OUTPUT
+    - unset NEXTEST_SUCCESS_OUTPUT
+    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- disabling::slashing

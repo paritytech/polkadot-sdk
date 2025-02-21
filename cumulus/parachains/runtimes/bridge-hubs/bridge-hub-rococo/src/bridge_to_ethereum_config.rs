@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 use crate::XcmRouter;
@@ -38,6 +38,7 @@ use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
+use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
@@ -56,7 +57,7 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 
 // Ethereum Bridge
 parameter_types! {
-	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
+	pub storage EthereumGatewayAddress: H160 = H160(hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
 }
 
 parameter_types! {
@@ -121,24 +122,28 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [0, 0, 0, 0], // 0x00000000
+			version: hex!("00000000"),
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [1, 0, 0, 0], // 0x01000000
+			version: hex!("01000000"),
 			epoch: 0,
 		},
 		bellatrix: Fork {
-			version: [2, 0, 0, 0], // 0x02000000
+			version: hex!("02000000"),
 			epoch: 0,
 		},
 		capella: Fork {
-			version: [3, 0, 0, 0], // 0x03000000
+			version: hex!("03000000"),
 			epoch: 0,
 		},
 		deneb: Fork {
-			version: [4, 0, 0, 0], // 0x04000000
+			version: hex!("04000000"),
 			epoch: 0,
+		},
+		electra: Fork {
+			version: hex!("05000000"),
+			epoch: 80000000000,
 		}
 	};
 }
@@ -147,24 +152,28 @@ parameter_types! {
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [144, 0, 0, 111], // 0x90000069
+			version: hex!("90000069"),
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [144, 0, 0, 112], // 0x90000070
+			version: hex!("90000070"),
 			epoch: 50,
 		},
 		bellatrix: Fork {
-			version: [144, 0, 0, 113], // 0x90000071
+			version: hex!("90000071"),
 			epoch: 100,
 		},
 		capella: Fork {
-			version: [144, 0, 0, 114], // 0x90000072
+			version: hex!("90000072"),
 			epoch: 56832,
 		},
 		deneb: Fork {
-			version: [144, 0, 0, 115], // 0x90000073
+			version: hex!("90000073"),
 			epoch: 132608,
+		},
+		electra: Fork {
+			version: hex!("90000074"),
+			epoch: 222464, // https://github.com/ethereum/EIPs/pull/9322/files
 		},
 	};
 }

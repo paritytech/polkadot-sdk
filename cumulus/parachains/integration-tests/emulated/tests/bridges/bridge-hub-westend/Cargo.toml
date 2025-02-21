@@ -38,6 +38,7 @@ pallet-bridge-messages = { workspace = true }
 # Cumulus
 asset-hub-westend-runtime = { workspace = true }
 bridge-hub-westend-runtime = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }

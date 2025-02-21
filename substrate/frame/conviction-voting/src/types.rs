@@ -17,7 +17,7 @@
 
 //! Miscellaneous additional datatypes.
 
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -40,6 +40,7 @@ use crate::{AccountVote, Conviction, Vote};
 	TypeInfo,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(Total))]

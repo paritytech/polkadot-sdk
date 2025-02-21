@@ -24,7 +24,7 @@ mod code;
 use self::{call_builder::CallSetup, code::WasmModule};
 use crate::{
 	evm::runtime::GAS_PRICE,
-	exec::{Key, MomentOf},
+	exec::{Ext, Key, MomentOf},
 	limits,
 	storage::WriteOutcome,
 	ConversionPrecision, Pallet as Contracts, *,
@@ -259,14 +259,19 @@ mod benchmarks {
 	}
 
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
-	// the execution engine. This does **not** include the actual execution for which the gas meter
-	// is responsible. This is achieved by generating all code to the `deploy` function
-	// which is in the wasm module but not executed on `call`.
-	// The results are supposed to be used as `call_with_code_per_byte(c) -
-	// call_with_code_per_byte(0)`.
+	// the execution engine.
+	//
+	// `call_with_code_per_byte(c) - call_with_code_per_byte(0)`
+	//
+	// This does **not** include the actual execution for which the gas meter
+	// is responsible. The code used here will just return on call.
+	//
+	// We expect the influence of `c` to be none in this benchmark because every instruction that
+	// is not in the first basic block is never read. We are primarily interested in the
+	// `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_code_per_byte(
-		c: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
 	) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::sized(c), vec![])?;
@@ -286,11 +291,46 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Measure the amount of time it takes to compile a single basic block.
+	//
+	// (basic_block_compilation(1) - basic_block_compilation(0)).ref_time()
+	//
+	// This is needed because the interpreter will always compile a whole basic block at
+	// a time. To prevent a contract from triggering compilation without doing any execution
+	// we will always charge one max sized block per contract call.
+	//
+	// We ignore the proof size component when using this benchmark as this is already accounted
+	// for in `call_with_code_per_byte`.
+	#[benchmark(pov_mode = Measured)]
+	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			WasmModule::with_num_instructions(limits::code::BASIC_BLOCK_SIZE),
+			vec![],
+		)?;
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[block]
+		{
+			Pallet::<T>::call(
+				RawOrigin::Signed(instance.caller.clone()).into(),
+				instance.address,
+				value,
+				Weight::MAX,
+				storage_deposit,
+				vec![],
+			)?;
+		}
+
+		Ok(())
+	}
+
 	// `c`: Size of the code in bytes.
 	// `i`: Size of the input in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
-		c: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
 		i: Linear<0, { limits::code::BLOB_BYTES }>,
 	) {
 		let input = vec![42u8; i as usize];
@@ -416,7 +456,9 @@ mod benchmarks {
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn upload_code(c: Linear<0, { limits::code::BLOB_BYTES }>) {
+	fn upload_code(
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
+	) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::sized(c);
@@ -1073,23 +1115,10 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate(
-		n: Linear<0, { limits::DELEGATE_DEPENDENCIES }>,
-	) -> Result<(), BenchmarkError> {
+	fn seal_terminate() -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		let caller = whitelisted_caller();
-		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let origin = RawOrigin::Signed(caller);
-		let storage_deposit = default_deposit_limit::<T>();
 
 		build_runtime!(runtime, memory: [beneficiary.encode(),]);
-
-		(0..n).for_each(|i| {
-			let new_code = WasmModule::dummy_unique(65 + i);
-			Contracts::<T>::bare_upload_code(origin.clone().into(), new_code.code, storage_deposit)
-				.unwrap();
-			runtime.ext().lock_delegate_dependency(new_code.hash).unwrap();
-		});
 
 		let result;
 		#[block]
@@ -1976,43 +2005,6 @@ mod benchmarks {
 		#[block]
 		{
 			result = runtime.bench_set_code_hash(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		Ok(())
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn lock_delegate_dependency() -> Result<(), BenchmarkError> {
-		let code_hash = Contract::<T>::with_index(1, WasmModule::dummy_unique(1), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_lock_delegate_dependency(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		Ok(())
-	}
-
-	#[benchmark]
-	fn unlock_delegate_dependency() -> Result<(), BenchmarkError> {
-		let code_hash = Contract::<T>::with_index(1, WasmModule::dummy_unique(1), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
-		runtime.bench_lock_delegate_dependency(memory.as_mut_slice(), 0).unwrap();
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_unlock_delegate_dependency(memory.as_mut_slice(), 0);
 		}
 
 		assert_ok!(result);

@@ -41,7 +41,4 @@ substrate.code-workspace
 target/
 *.scale
 justfile
-
-# Dont commit
-.zed
-.target.rust-analyzer
+rustc-ice-*

@@ -1094,6 +1094,16 @@ pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
+/// Documentation for this macro can be found at
+/// `frame_support::pallet_macros::view_functions_experimental`.
+#[proc_macro_attribute]
+pub fn view_functions_experimental(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::origin`.
 #[proc_macro_attribute]
 pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {

@@ -16,7 +16,9 @@ use crate::{
 use frame_support::{assert_err, assert_noop, assert_ok, pallet_prelude::Pays};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
-	types::deneb, Fork, ForkVersions, NextSyncCommitteeUpdate, VersionedExecutionPayloadHeader,
+	merkle_proof::{generalized_index_length, subtree_index},
+	types::deneb,
+	Fork, ForkVersions, NextSyncCommitteeUpdate, VersionedExecutionPayloadHeader,
 };
 use snowbridge_inbound_queue_primitives::{VerificationError, Verifier};
 use sp_core::H256;
@@ -173,8 +175,8 @@ pub fn verify_merkle_branch_for_finalized_root() {
 				hex!("d2dc4ba9fd4edff6716984136831e70a6b2e74fca27b8097a820cbbaa5a6e3c3").into(),
 				hex!("91f77a19d8afa4a08e81164bb2e570ecd10477b3b65c305566a6d2be88510584").into(),
 			],
-			crate::config::FINALIZED_ROOT_INDEX,
-			crate::config::FINALIZED_ROOT_DEPTH,
+			subtree_index(crate::config::altair::FINALIZED_ROOT_INDEX),
+			generalized_index_length(crate::config::altair::FINALIZED_ROOT_INDEX),
 			hex!("e46559327592741956f6beaa0f52e49625eb85dce037a0bd2eff333c743b287f").into()
 		));
 	});
@@ -190,8 +192,8 @@ pub fn verify_merkle_branch_fails_if_depth_and_branch_dont_match() {
 				hex!("5f6f02af29218292d21a69b64a794a7c0873b3e0f54611972863706e8cbdf371").into(),
 				hex!("e7125ff9ab5a840c44bedb4731f440a405b44e15f2d1a89e27341b432fabe13d").into(),
 			],
-			crate::config::FINALIZED_ROOT_INDEX,
-			crate::config::FINALIZED_ROOT_DEPTH,
+			subtree_index(crate::config::altair::FINALIZED_ROOT_INDEX),
+			generalized_index_length(crate::config::altair::FINALIZED_ROOT_INDEX),
 			hex!("e46559327592741956f6beaa0f52e49625eb85dce037a0bd2eff333c743b287f").into()
 		));
 	});
@@ -210,26 +212,7 @@ pub fn sync_committee_participation_is_supermajority() {
 #[test]
 pub fn sync_committee_participation_is_supermajority_errors_when_not_supermajority() {
 	new_tester().execute_with(|| {
-		let participation: [u8; 512] = [
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-			1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-			1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0,
-			1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
-			1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-			0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1,
-			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
-		];
+		let participation = hex!("0000000000000000000000000000000000000001010100010100000000000000000000000101010101000100010101010101010101010101010101010100010101000000000001010101010100010101000000000000000000000000000101000101010101010001010101010100010101010101010101010101000101010101010100010101010100000000010101010100000000000000000001010101010101010101010101010101010100010101010101010001010101010101010101010101010101000101010101010101010101010100010101010101010101010101010101010101010101010101010101010101010001010100010101010101010101000101010101010101010001010101010101010101000101010100010101010101010101010100010000000000000000000100000000000001010100000001000100010101010100000000000000000000000000000000000000010101010101010100010101010101010101010100010101010001010101010101010101010101010100000000000000000101010101000000000001000000000000000000010000000000000000000101010101010100010001010101010101000101010101010101010101010101010101000101010101010101010101010101010001010101010101010001010001000000000000000000000000000001000000000000");
 
 		assert_err!(
 			EthereumBeaconClient::sync_committee_participation_is_supermajority(&participation),
@@ -246,6 +229,7 @@ fn compute_fork_version() {
 		bellatrix: Fork { version: [0, 0, 0, 2], epoch: 20 },
 		capella: Fork { version: [0, 0, 0, 3], epoch: 30 },
 		deneb: Fork { version: [0, 0, 0, 4], epoch: 40 },
+		electra: Fork { version: [0, 0, 0, 5], epoch: 50 },
 	};
 	new_tester().execute_with(|| {
 		assert_eq!(EthereumBeaconClient::select_fork_version(&mock_fork_versions, 0), [0, 0, 0, 0]);
@@ -266,15 +250,21 @@ fn compute_fork_version() {
 			EthereumBeaconClient::select_fork_version(&mock_fork_versions, 32),
 			[0, 0, 0, 3]
 		);
+		assert_eq!(
+			EthereumBeaconClient::select_fork_version(&mock_fork_versions, 40),
+			[0, 0, 0, 4]
+		);
+		assert_eq!(
+			EthereumBeaconClient::select_fork_version(&mock_fork_versions, 50),
+			[0, 0, 0, 5]
+		);
 	});
 }
 
 #[test]
 fn find_absent_keys() {
-	let participation: [u8; 32] = [
-		0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1,
-	];
+	let participation: [u8; 32] =
+		hex!("0001010101010100010101010101010101010101010101010101010101010101").into();
 	let update = load_sync_committee_update_fixture();
 	let sync_committee_prepared: SyncCommitteePrepared =
 		(&update.next_sync_committee_update.unwrap().next_sync_committee)
@@ -295,10 +285,8 @@ fn find_absent_keys() {
 
 #[test]
 fn find_present_keys() {
-	let participation: [u8; 32] = [
-		0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
-		1, 0,
-	];
+	let participation: [u8; 32] =
+		hex!("0001000000000000010000000000000000000000000000000000010000000100").into();
 	let update = load_sync_committee_update_fixture();
 	let sync_committee_prepared: SyncCommitteePrepared =
 		(&update.next_sync_committee_update.unwrap().next_sync_committee)

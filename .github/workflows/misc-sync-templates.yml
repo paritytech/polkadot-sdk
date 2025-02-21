@@ -62,20 +62,20 @@ jobs:
         - name: Build runtime and generate chain spec
           run: |
             # Prepare directories
-            sudo mkdir -p ${{ matrix.template.runtime_path }}/target
-            sudo chmod -R 777 ${{ matrix.template.runtime_path }}/target
+            sudo mkdir -p ${{ matrix.runtime_path }}/target
+            sudo chmod -R 777 ${{ matrix.runtime_path }}/target
             
             # Build runtime
-            srtool build --package ${{ matrix.template.package_name }} --runtime-dir ${{ matrix.template.runtime_path }} --root
+            srtool build --package ${{ matrix.package_name }} --runtime-dir ${{ matrix.runtime_path }} --root
             
             # Generate chain spec
             # Note that para-id is set to 1000 for both minimal/parachain templates. 
             # `parachain-runtime` is hardcoded to use this parachain id. 
             # `minimal` template isn't using it, but when started with Omni Node, this para id is required (any number can do it, so setting it to 1000 for convenience).
             chain-spec-builder -c dev_chain_spec.json create \
-              --relay-chain "${{ matrix.template.relay_chain }}" \
+              --relay-chain "${{ matrix.relay_chain }}" \
               --para-id 1000 \
-              --runtime "${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.template.runtime_wasm_path }}" \
+              --runtime "${{ matrix.runtime_path }}/target/srtool/release/wbuild/${{ matrix.runtime_wasm_path }}" \
               named-preset development
 
         - name: Prepare upload directory
@@ -149,6 +149,10 @@ jobs:
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Create a new workspace Cargo.toml
         run: |
+          # This replaces the existing Cargo.toml for parachain-template,
+          # corresponding to the `parachain-template-docs` crate, so no need
+          # to delete that `Cargo.toml` after copying the `polkadot-sdk/templates/parachain/*`
+          # to the `polkadot-sdk-parachain-template` repo.
           cat << EOF > Cargo.toml
           [workspace.package]
           license = "MIT-0"
@@ -204,7 +208,6 @@ jobs:
         if: ${{ matrix.template == 'parachain' }}
         run: |
           rm -f "${{ env.template-path }}/README.docify.md"
-          rm -f "${{ env.template-path }}/Cargo.toml"
           rm -f "${{ env.template-path }}/src/lib.rs"
 
       - name: Run psvm on monorepo workspace dependencies
@@ -256,7 +259,7 @@ jobs:
         timeout-minutes: 90
       - name: Create PR on failure
         if: failure() && steps.check-compilation.outcome == 'failure'
-        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v5
+        uses: peter-evans/create-pull-request@67ccf781d68cd99b580ae25a5c18a1cc84ffff1f # v5
         with:
           path: "${{ env.template-path }}"
           token: ${{ steps.app_token.outputs.token }}
@@ -266,7 +269,7 @@ jobs:
           body: "The template has NOT been successfully built and needs to be inspected."
           branch: "update-template/${{ github.event.inputs.stable_release_branch }}"
       - name: Create PR on success
-        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v5
+        uses: peter-evans/create-pull-request@67ccf781d68cd99b580ae25a5c18a1cc84ffff1f # v5
         with:
           path: "${{ env.template-path }}"
           token: ${{ steps.app_token.outputs.token }}
