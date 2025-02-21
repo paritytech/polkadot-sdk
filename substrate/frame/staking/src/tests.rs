@@ -8416,6 +8416,41 @@ fn do_not_reenable_higher_offenders_mock() {
 		});
 }
 
+#[test]
+fn clear_disabled_only_on_era_change(){
+	ExtBuilder::default()
+		.validator_count(7)
+		.set_status(41, StakerStatus::Validator)
+		.set_status(51, StakerStatus::Validator)
+		.set_status(201, StakerStatus::Validator)
+		.set_status(202, StakerStatus::Validator)
+		.session_per_era(3)
+		.build_and_execute(|| {
+			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41, 51, 201, 202]);
+
+			// offence with a major slash
+			on_offence_now(
+				&[offence_from(11, None), offence_from(21, None)],
+				&[Perbill::from_percent(50), Perbill::from_percent(50)],
+				true,
+			);
+
+			// both validators should be disabled
+			assert!(is_disabled(11));
+			assert!(is_disabled(21));
+
+			// progress session and check if disablement is retained
+			start_session(2);
+			assert!(is_disabled(11));
+			assert!(is_disabled(21));
+
+			// progress era (3 sessions per era) and clear disablement
+			start_session(3);
+			assert!(!is_disabled(11));
+			assert!(!is_disabled(21));
+		});
+}
+
 #[cfg(all(feature = "try-runtime", test))]
 mod migration_tests {
 	use super::*;
