@@ -58,14 +58,24 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("undying-collator")
-				.with_default_image(images.cumulus.as_str())
+				.cumulus_based(false)
+				.with_default_image(
+					std::env::var("COL_IMAGE")
+						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
+						.as_str(),
+				)
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_collator(|n| n.with_name("collator-2000"))
 		})
 		.with_parachain(|p| {
 			p.with_id(2001)
 				.with_default_command("undying-collator")
-				.with_default_image(images.cumulus.as_str())
+				.cumulus_based(false)
+				.with_default_image(
+					std::env::var("COL_IMAGE")
+						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
+						.as_str(),
+				)
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_collator(|n| n.with_name("collator-2001"))
 		})
@@ -77,6 +87,54 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
+
+	let malus = network.get_node("malus")?;
+	let honest = network.get_node("honest-0")?;
+	let relay_client: OnlineClient<PolkadotConfig> = honest.wait_client().await?;
+
+	// Check authority status and peers.
+	malus.assert("node_roles", 4.0).await?;
+	honest.assert("node_roles", 4.0).await?;
+
+	// Ensure parachains are registered.
+	assert_para_throughput(
+		&relay_client,
+		2,
+		[(ParaId::from(2000), 1..3), (ParaId::from(2001), 1..3)].into_iter().collect(),
+	)
+	.await?;
+
+	// Ensure that malus is already attempting to DoS
+	malus.wait_log_line_count_with_timeout(
+		"*Duplicating AttestedCandidateV2 request*",
+		true,
+		1,
+		90.0,
+	);
+
+	// Ensure parachains made progress.
+	assert_para_throughput(
+		&relay_client,
+		10,
+		[(ParaId::from(2000), 18..12), (ParaId::from(2001), 8..12)]
+			.into_iter()
+			.collect(),
+	)
+	.await?;
+
+	// Ensure that honest nodes drop extra requests
+	honest.wait_log_line_count_with_timeout(
+		"*Peer already being served, dropping request*",
+		true,
+		1,
+		60.0,
+	);
+
+	// Check lag - approval
+	honest.assert("polkadot_parachain_approval_checking_finality_lag", 0.0).await?;
+
+	// Check lag - dispute conclusion
+	honest.assert("polkadot_parachain_disputes_finality_lag", 0.0).await?;
 
 	Ok(())
 }
