@@ -17,7 +17,7 @@
 
 use super::Origin;
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS};
-use sp_runtime::{str_array as s, Perbill};
+use sp_runtime::{BoundedVec, Perbill};
 use sp_std::borrow::Cow;
 
 /// Referendum `TrackId` type.
@@ -38,24 +38,12 @@ pub mod constants {
 	pub const MASTER_AMBASSADOR_TIER_9: TrackId = 9;
 }
 
-/// The type implementing the [`pallet_referenda::TracksInfo`] trait for referenda pallet.
-pub struct TracksInfo;
-
-/// Information on the voting tracks.
-impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
-	type Id = TrackId;
-
-	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-
-	/// Return the list of available tracks and their information.
-	fn tracks(
-	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
-	{
-		static DATA: [pallet_referenda::Track<TrackId, Balance, BlockNumber>; 9] = [
+lazy_static::lazy_static! {
+	pub static ref DATA: [pallet_referenda::Track<TrackId, Balance, BlockNumber>; 9] = [
 			pallet_referenda::Track {
 				id: constants::AMBASSADOR_TIER_1,
 				info: pallet_referenda::TrackInfo {
-					name: s("ambassador tier 1"),
+					name: BoundedVec::truncate_from(b"ambassador tier 1".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -77,7 +65,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: constants::AMBASSADOR_TIER_2,
 				info: pallet_referenda::TrackInfo {
-					name: s("ambassador tier 2"),
+					name: BoundedVec::truncate_from(b"ambassador tier 2".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -99,7 +87,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: constants::SENIOR_AMBASSADOR_TIER_3,
 				info: pallet_referenda::TrackInfo {
-					name: s("senior ambassador tier 3"),
+					name: BoundedVec::truncate_from(b"ambassador tier 3".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -121,7 +109,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: constants::SENIOR_AMBASSADOR_TIER_4,
 				info: pallet_referenda::TrackInfo {
-					name: s("senior ambassador tier 4"),
+					name: BoundedVec::truncate_from(b"ambassador tier 4".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -143,7 +131,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: constants::HEAD_AMBASSADOR_TIER_5,
 				info: pallet_referenda::TrackInfo {
-					name: s("head ambassador tier 5"),
+					name: BoundedVec::truncate_from(b"ambassador tier 5".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -165,7 +153,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: constants::HEAD_AMBASSADOR_TIER_6,
 				info: pallet_referenda::TrackInfo {
-					name: s("head ambassador tier 6"),
+					name: BoundedVec::truncate_from(b"ambassador tier 6".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -187,7 +175,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: constants::HEAD_AMBASSADOR_TIER_7,
 				info: pallet_referenda::TrackInfo {
-					name: s("head ambassador tier 7"),
+					name: BoundedVec::truncate_from(b"ambassador tier 7".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -209,7 +197,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: constants::MASTER_AMBASSADOR_TIER_8,
 				info: pallet_referenda::TrackInfo {
-					name: s("master ambassador tier 8"),
+					name: BoundedVec::truncate_from(b"ambassador tier 8".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -231,7 +219,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: constants::MASTER_AMBASSADOR_TIER_9,
 				info: pallet_referenda::TrackInfo {
-					name: s("master ambassador tier 9"),
+					name: BoundedVec::truncate_from(b"ambassador tier 9".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -251,6 +239,21 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				},
 			},
 		];
+}
+
+/// The type implementing the [`pallet_referenda::TracksInfo`] trait for referenda pallet.
+pub struct TracksInfo;
+
+/// Information on the voting tracks.
+impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
+	type Id = TrackId;
+
+	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
+
+	/// Return the list of available tracks and their information.
+	fn tracks(
+	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
+	{
 		DATA.iter().map(Cow::Borrowed)
 	}
 

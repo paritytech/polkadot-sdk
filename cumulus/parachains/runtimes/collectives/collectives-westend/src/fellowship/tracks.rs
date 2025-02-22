@@ -18,7 +18,7 @@
 
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS, MINUTES};
 use pallet_ranked_collective::Rank;
-use sp_runtime::{str_array as s, traits::Convert, Perbill};
+use sp_runtime::{traits::Convert, BoundedVec, Perbill};
 use sp_std::borrow::Cow;
 
 /// Referendum `TrackId` type.
@@ -111,20 +111,13 @@ const PROMOTE_MIN_SUPPORT: pallet_referenda::Curve = pallet_referenda::Curve::Li
 	ceil: Perbill::from_percent(100),
 };
 
-pub struct TracksInfo;
-impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
-	type Id = TrackId;
-	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-
-	fn tracks(
-	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
-	{
-		use constants as tracks;
-		static DATA: [pallet_referenda::Track<TrackId, Balance, BlockNumber>; 21] = [
+use constants as tracks;
+lazy_static::lazy_static! {
+		pub static ref DATA: [pallet_referenda::Track<TrackId, Balance, BlockNumber>; 21] = [
 			pallet_referenda::Track {
 				id: tracks::MEMBERS,
 				info: pallet_referenda::TrackInfo {
-					name: s("members"),
+					name: BoundedVec::truncate_from(b"members".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -146,7 +139,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::PROFICIENTS,
 				info: pallet_referenda::TrackInfo {
-					name: s("proficient members"),
+					name: BoundedVec::truncate_from(b"proficient members".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -168,7 +161,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::FELLOWS,
 				info: pallet_referenda::TrackInfo {
-					name: s("fellows"),
+					name: BoundedVec::truncate_from(b"fellows".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -190,7 +183,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::ARCHITECTS,
 				info: pallet_referenda::TrackInfo {
-					name: s("architects"),
+					name: BoundedVec::truncate_from(b"architects".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -212,7 +205,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::ARCHITECTS_ADEPT,
 				info: pallet_referenda::TrackInfo {
-					name: s("architects adept"),
+					name: BoundedVec::truncate_from(b"architects adept".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -234,7 +227,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::GRAND_ARCHITECTS,
 				info: pallet_referenda::TrackInfo {
-					name: s("grand architects"),
+					name: BoundedVec::truncate_from(b"grand architects".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -256,7 +249,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::MASTERS,
 				info: pallet_referenda::TrackInfo {
-					name: s("masters"),
+					name: BoundedVec::truncate_from(b"masters".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -278,7 +271,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::MASTERS_CONSTANT,
 				info: pallet_referenda::TrackInfo {
-					name: s("masters constant"),
+					name: BoundedVec::truncate_from(b"masters constant".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -300,7 +293,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::GRAND_MASTERS,
 				info: pallet_referenda::TrackInfo {
-					name: s("grand masters"),
+					name: BoundedVec::truncate_from(b"grand masters".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -322,7 +315,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::RETAIN_AT_1DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("retain at I Dan"),
+					name: BoundedVec::truncate_from(b"retain at I Dan".to_vec()),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -336,7 +329,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::RETAIN_AT_2DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("retain at II Dan"),
+					name: BoundedVec::truncate_from(b"retain at II Dan".to_vec()),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -350,7 +343,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::RETAIN_AT_3DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("retain at III Dan"),
+					name: BoundedVec::truncate_from(b"retain at III Dan".to_vec()),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -364,7 +357,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::RETAIN_AT_4DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("retain at IV Dan"),
+					name: BoundedVec::truncate_from(b"retain at IV Dan".to_vec()),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -378,7 +371,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::RETAIN_AT_5DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("retain at V Dan"),
+					name: BoundedVec::truncate_from(b"retain at V Dan".to_vec()),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -392,7 +385,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::RETAIN_AT_6DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("retain at VI Dan"),
+					name: BoundedVec::truncate_from(b"retain at VI Dan".to_vec()),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -406,7 +399,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::PROMOTE_TO_1DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("promote to I Dan"),
+					name: BoundedVec::truncate_from(b"promote to I Dan".to_vec()),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -420,7 +413,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::PROMOTE_TO_2DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("promote to II Dan"),
+					name: BoundedVec::truncate_from(b"promote to II Dan".to_vec()),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -434,7 +427,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::PROMOTE_TO_3DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("promote to III Dan"),
+					name: BoundedVec::truncate_from(b"promote to III Dan".to_vec()),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -448,7 +441,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::PROMOTE_TO_4DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("promote to IV Dan"),
+					name: BoundedVec::truncate_from(b"promote to IV Dan".to_vec()),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -462,7 +455,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::PROMOTE_TO_5DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("promote to V Dan"),
+					name: BoundedVec::truncate_from(b"promote to V Dan".to_vec()),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -476,7 +469,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			pallet_referenda::Track {
 				id: tracks::PROMOTE_TO_6DAN,
 				info: pallet_referenda::TrackInfo {
-					name: s("promote to VI Dan"),
+					name: BoundedVec::truncate_from(b"promote to VI Dan".to_vec()),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -488,6 +481,16 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				},
 			},
 		];
+}
+
+pub struct TracksInfo;
+impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
+	type Id = TrackId;
+	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
+
+	fn tracks(
+	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
+	{
 		DATA.iter().map(Cow::Borrowed)
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {

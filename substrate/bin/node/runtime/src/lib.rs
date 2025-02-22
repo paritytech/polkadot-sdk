@@ -2645,7 +2645,7 @@ pub mod dynamic_params {
 		> = BoundedVec::truncate_from(vec![pallet_referenda::Track {
 			id: 0u16,
 			info: pallet_referenda::TrackInfo {
-				name: s("root"),
+				name: BoundedVec::truncate_from(b"root".to_vec()),
 				max_deciding: 1,
 				decision_deposit: 10,
 				prepare_period: 4,

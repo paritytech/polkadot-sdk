@@ -20,8 +20,8 @@ use alloc::borrow::Cow;
 use frame_support::traits::{MapSuccess, TryMapSuccess};
 use pallet_referenda::{Track, TrackInfo};
 use sp_runtime::{
-	str_array as s,
 	traits::{CheckedReduceBy, ConstU16, Replace, ReplaceWithDefault},
+	BoundedVec,
 };
 
 use super::*;
@@ -33,17 +33,12 @@ parameter_types! {
 	pub const UndecidingTimeout: BlockNumber = 7 * DAYS;
 }
 
-pub struct TracksInfo;
-impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
-	type Id = u16;
-	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-
-	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, Balance, BlockNumber>>> {
-		static DATA: [Track<u16, Balance, BlockNumber>; 10] = [
+lazy_static::lazy_static! {
+	pub static ref DATA: [Track<u16, Balance, BlockNumber>; 10] = [
 			Track {
 				id: 0u16,
 				info: TrackInfo {
-					name: s("candidates"),
+					name: BoundedVec::truncate_from(b"candidates".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 100 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -65,7 +60,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			Track {
 				id: 1u16,
 				info: TrackInfo {
-					name: s("members"),
+					name: BoundedVec::truncate_from(b"members".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 10 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -87,7 +82,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			Track {
 				id: 2u16,
 				info: TrackInfo {
-					name: s("proficients"),
+					name: BoundedVec::truncate_from(b"proficients".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 10 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -109,7 +104,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			Track {
 				id: 3u16,
 				info: TrackInfo {
-					name: s("fellows"),
+					name: BoundedVec::truncate_from(b"fellows".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 10 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -131,7 +126,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			Track {
 				id: 4u16,
 				info: TrackInfo {
-					name: s("senior fellows"),
+					name: BoundedVec::truncate_from(b"senior fellows".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 10 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -153,7 +148,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			Track {
 				id: 5u16,
 				info: TrackInfo {
-					name: s("experts"),
+					name: BoundedVec::truncate_from(b"experts".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -175,7 +170,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			Track {
 				id: 6u16,
 				info: TrackInfo {
-					name: s("senior experts"),
+					name: BoundedVec::truncate_from(b"senior experts".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -197,7 +192,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			Track {
 				id: 7u16,
 				info: TrackInfo {
-					name: s("masters"),
+					name: BoundedVec::truncate_from(b"masters".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -219,7 +214,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			Track {
 				id: 8u16,
 				info: TrackInfo {
-					name: s("senior masters"),
+					name: BoundedVec::truncate_from(b"senior masters".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -241,7 +236,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			Track {
 				id: 9u16,
 				info: TrackInfo {
-					name: s("grand masters"),
+					name: BoundedVec::truncate_from(b"grand masters".to_vec()),
 					max_deciding: 10,
 					decision_deposit: 1 * 3 * CENTS,
 					prepare_period: 30 * MINUTES,
@@ -261,6 +256,14 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				},
 			},
 		];
+}
+
+pub struct TracksInfo;
+impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
+	type Id = u16;
+	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
+
+	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, Balance, BlockNumber>>> {
 		DATA.iter().map(Cow::Borrowed)
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {

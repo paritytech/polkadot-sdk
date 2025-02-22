@@ -16,6 +16,7 @@ workspace = true
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 log = { workspace = true }
+lazy_static = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
