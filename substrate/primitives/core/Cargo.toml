@@ -73,6 +73,7 @@ w3f-bls = { optional = true, workspace = true }
 bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "0fef826", default-features = false, features = [
 	"substrate-curves",
 ], optional = true }
+ark-ec-vrfs = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
@@ -87,7 +88,7 @@ harness = false
 bench = false
 
 [features]
-default = ["std"]
+default = ["std", "bandersnatch-experimental"]
 
 std = [
 	"bandersnatch_vrfs?/std",
@@ -165,4 +166,4 @@ bls-experimental = ["w3f-bls"]
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = ["bandersnatch_vrfs"]
+bandersnatch-experimental = ["bandersnatch_vrfs", "ark-ec-vrfs"]

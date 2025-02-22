@@ -72,6 +72,7 @@ pub mod uint;
 
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
+pub mod bandersnatch2;
 #[cfg(feature = "bls-experimental")]
 pub mod bls;
 pub mod crypto_bytes;
