@@ -118,7 +118,7 @@ pub struct Deposit<AccountId, Balance> {
 
 pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 
-struct BoundedSize<const N: usize>;
+pub struct BoundedSize<const N: usize>;
 
 impl<const N: usize> Get<u32> for BoundedSize<N> {
 	fn get() -> u32 {
@@ -126,33 +126,12 @@ impl<const N: usize> Get<u32> for BoundedSize<N> {
 	}
 }
 
-#[derive(Encode, Decode)]
-struct ArrayLikeVec<const N: usize>(BoundedVec<u8, BoundedSize<N>>);
-
-impl<'a, const N: usize> From<&'a [u8; N]> for ArrayLikeVec<N> {
-	fn from(bytes: &'a [u8; N]) -> Self {
-		ArrayLikeVec(BoundedVec::truncate_from(bytes.to_vec()))
-	}
-}
-
-impl<const N: usize> From<ArrayLikeVec<N>> for [u8; N] {
-	fn from(s: ArrayLikeVec<N>) -> Self {
-		let mut bytes = [0u8; N];
-		bytes[..N].copy_from_slice(&s.0[..N]);
-		bytes
-	}
-}
-
-impl<'a, const N: usize> codec::EncodeAsRef<'a, [u8; N]> for ArrayLikeVec<N> {
-	type RefType = ArrayLikeVec<N>;
-}
-
 /// Detailed information about the configuration of a referenda track
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug)]
 pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
 	/// Name of this track.
-	#[codec(encoded_as = "ArrayLikeVec<N>")]
-	pub name: [u8; N],
+	// #[codec(encoded_as = "ArrayLikeVec<N>")]
+	pub name: BoundedVec<u8, BoundedSize<N>>,
 	/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
 	pub max_deciding: u32,
@@ -610,7 +589,8 @@ impl Debug for Curve {
 mod tests {
 	use super::*;
 	use frame_support::traits::ConstU32;
-	use sp_runtime::{str_array as s, traits::TrailingZeroInput, PerThing};
+	use sp_runtime::{traits::TrailingZeroInput, PerThing};
+	use std::sync::LazyLock;
 
 	const fn percent(x: u128) -> FixedI64 {
 		FixedI64::from_rational(x, 100)
@@ -763,52 +743,54 @@ mod tests {
 			type Id = u8;
 			type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
 			fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, u64, u64>>> {
-				static DATA: [Track<u8, u64, u64>; 2] = [
-					Track {
-						id: 1u8,
-						info: TrackInfo {
-							name: s("root"),
-							max_deciding: 1,
-							decision_deposit: 10,
-							prepare_period: 4,
-							decision_period: 4,
-							confirm_period: 2,
-							min_enactment_period: 4,
-							min_approval: Curve::LinearDecreasing {
-								length: Perbill::from_percent(100),
-								floor: Perbill::from_percent(50),
-								ceil: Perbill::from_percent(100),
-							},
-							min_support: Curve::LinearDecreasing {
-								length: Perbill::from_percent(100),
-								floor: Perbill::from_percent(0),
-								ceil: Perbill::from_percent(100),
-							},
-						},
-					},
-					Track {
-						id: 0u8,
-						info: TrackInfo {
-							name: s("none"),
-							max_deciding: 3,
-							decision_deposit: 1,
-							prepare_period: 2,
-							decision_period: 2,
-							confirm_period: 1,
-							min_enactment_period: 2,
-							min_approval: Curve::LinearDecreasing {
-								length: Perbill::from_percent(100),
-								floor: Perbill::from_percent(95),
-								ceil: Perbill::from_percent(100),
-							},
-							min_support: Curve::LinearDecreasing {
-								length: Perbill::from_percent(100),
-								floor: Perbill::from_percent(90),
-								ceil: Perbill::from_percent(100),
+				static DATA: LazyLock<[Track<u8, u64, u64>; 2]> = LazyLock::new(|| {
+					[
+						Track {
+							id: 1u8,
+							info: TrackInfo {
+								name: BoundedVec::truncate_from(b"root".to_vec()),
+								max_deciding: 1,
+								decision_deposit: 10,
+								prepare_period: 4,
+								decision_period: 4,
+								confirm_period: 2,
+								min_enactment_period: 4,
+								min_approval: Curve::LinearDecreasing {
+									length: Perbill::from_percent(100),
+									floor: Perbill::from_percent(50),
+									ceil: Perbill::from_percent(100),
+								},
+								min_support: Curve::LinearDecreasing {
+									length: Perbill::from_percent(100),
+									floor: Perbill::from_percent(0),
+									ceil: Perbill::from_percent(100),
+								},
 							},
 						},
-					},
-				];
+						Track {
+							id: 0u8,
+							info: TrackInfo {
+								name: BoundedVec::truncate_from(b"none".to_vec()),
+								max_deciding: 3,
+								decision_deposit: 1,
+								prepare_period: 2,
+								decision_period: 2,
+								confirm_period: 1,
+								min_enactment_period: 2,
+								min_approval: Curve::LinearDecreasing {
+									length: Perbill::from_percent(100),
+									floor: Perbill::from_percent(95),
+									ceil: Perbill::from_percent(100),
+								},
+								min_support: Curve::LinearDecreasing {
+									length: Perbill::from_percent(100),
+									floor: Perbill::from_percent(90),
+									ceil: Perbill::from_percent(100),
+								},
+							},
+						},
+					]
+				});
 				DATA.iter().map(Cow::Borrowed)
 			}
 			fn track_for(_: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
@@ -825,7 +807,7 @@ mod tests {
 	#[test]
 	fn track_encoding_works() {
 		let track_info = TrackInfo::<u64, u64> {
-			name: s("track name"),
+			name: BoundedVec::truncate_from(b"track name".to_vec()),
 			max_deciding: 3,
 			decision_deposit: 1,
 			prepare_period: 2,
