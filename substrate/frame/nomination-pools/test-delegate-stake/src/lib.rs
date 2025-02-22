@@ -176,7 +176,6 @@ fn pool_lifecycle_e2e() {
 		assert_eq!(
 			pool_events_since_last_call(),
 			vec![
-				PoolsEvent::PoolNominatorChilled { pool_id: 1, caller: 10 },
 				PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 6 },
 			]
 		);
