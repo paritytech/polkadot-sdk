@@ -225,8 +225,11 @@ pub mod pallet {
 	#[pallet::extra_constants]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		#[pallet::constant_name(Tracks)]
-		fn tracks() -> Vec<Track<TrackIdOf<T, I>, BalanceOf<T, I>, BlockNumberFor<T, I>>> {
-			T::Tracks::tracks().map(|t| t.into_owned()).collect()
+		fn tracks() -> Vec<(TrackIdOf<T, I>, TrackInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>)> {
+			T::Tracks::tracks()
+				.map(|t| t.into_owned())
+				.map(|Track { id, info }| (id, info))
+				.collect()
 		}
 	}
 
