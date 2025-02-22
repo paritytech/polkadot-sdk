@@ -21,7 +21,7 @@ use crate::{
 };
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cmp::Ordering;
 use frame_support::{ensure, weights::Weight};
 use frame_system::pallet_prelude::*;
@@ -55,14 +55,14 @@ pub mod migration;
 const LOG_TARGET: &str = "runtime::disputes";
 
 /// Whether the dispute is local or remote.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum DisputeLocation {
 	Local,
 	Remote,
 }
 
 /// The result of a dispute, whether the candidate is deemed valid (for) or invalid (against).
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum DisputeResult {
 	Valid,
 	Invalid,

@@ -189,7 +189,9 @@ pub mod pallet {
 		ConvertMessage(ConvertMessageError),
 	}
 
-	#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, PalletError)]
+	#[derive(
+		Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo, PalletError,
+	)]
 	pub enum SendError {
 		NotApplicable,
 		NotRoutable,

@@ -45,6 +45,8 @@ use sp_statement_store::{
 };
 
 #[cfg(test)]
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 #[cfg(test)]
 mod tests;
