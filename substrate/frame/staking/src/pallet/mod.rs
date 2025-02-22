@@ -18,6 +18,7 @@
 //! Staking FRAME Pallet.
 
 use alloc::vec::Vec;
+use std::iter::Sum;
 use codec::Codec;
 use frame_election_provider_support::{
 	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
@@ -106,7 +107,8 @@ pub mod pallet {
 			+ Default
 			+ From<u64>
 			+ TypeInfo
-			+ MaxEncodedLen;
+			+ MaxEncodedLen
+			+ Sum;
 		/// Time used for computing era duration.
 		///
 		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
@@ -1304,11 +1306,6 @@ pub mod pallet {
 
 				// Calculate unbonding era based on unbonding queue mechanism.
 				let era: EraIndex = Self::process_unbond_queue_request(current_era, value);
-
-				// Update chunks with the new unbonding era.
-				let era = CurrentEra::<T>::get()
-					.unwrap_or(0)
-					.defensive_saturating_add(T::BondingDuration::get());
 
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since

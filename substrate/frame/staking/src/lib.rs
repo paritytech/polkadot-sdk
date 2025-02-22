@@ -388,6 +388,8 @@ pub struct UnbondingQueueConfig {
 	/// The share of stake backing the lowest 1/3 of validators that is slashable at any point in
 	/// time. It offers a trade-off between security and unbonding time.
 	pub min_slashable_share: Perbill,
+	/// Min truncate ratio stake.
+	pub lowest_ratio: Perbill,
 	/// The minimum unbonding time for an active stake.
 	pub unbond_period_lower_bound: EraIndex,
 	// The era when all the existing unbonders have unbonded.
@@ -398,6 +400,7 @@ impl Default for UnbondingQueueConfig {
 	fn default() -> Self {
 		Self {
 			min_slashable_share: Zero::zero(),
+			lowest_ratio: Zero::zero(),
 			unbond_period_lower_bound: Zero::zero(),
 			back_of_unbonding_queue_era: Zero::zero(),
 		}
