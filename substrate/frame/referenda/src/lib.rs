@@ -97,10 +97,11 @@ use self::branch::{BeginDecidingBranch, OneFewerDecidingBranch, ServiceBranch};
 pub use self::{
 	pallet::*,
 	types::{
-		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf,
-		Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex,
-		ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf,
-		TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
+		string_like_track_name, BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, Curve,
+		DecidingStatus, DecidingStatusOf, Deposit, InsertSorted, NegativeImbalanceOf,
+		PalletsOriginOf, ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus,
+		ReferendumStatusOf, ScheduleAddressOf, StringLike, TallyOf, Track, TrackIdOf, TrackInfo,
+		TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };

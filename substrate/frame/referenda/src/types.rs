@@ -19,7 +19,7 @@
 
 use super::*;
 use alloc::borrow::Cow;
-use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
@@ -118,13 +118,59 @@ pub struct Deposit<AccountId, Balance> {
 
 pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 
+#[inline]
+pub const fn string_like_track_name<const N: usize>(name: &str) -> StringLike<N> {
+	use sp_runtime::str_array as s;
+	StringLike(s(name))
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct StringLike<const N: usize>(pub [u8; N]);
+
+use codec::Input;
+use scale_info::Type;
+impl<const N: usize> TypeInfo for StringLike<N> {
+	type Identity = <&'static str as TypeInfo>::Identity;
+
+	fn type_info() -> Type {
+		<&str as TypeInfo>::type_info()
+	}
+}
+
+impl<const N: usize> MaxEncodedLen for StringLike<N> {
+	fn max_encoded_len() -> usize {
+		<Compact<u32> as MaxEncodedLen>::max_encoded_len() + N
+	}
+}
+
+impl<const N: usize> Encode for StringLike<N> {
+	fn encode(&self) -> Vec<u8> {
+		use codec::Compact;
+		(Compact(N as u32), self.0).encode()
+	}
+}
+
+impl<const N: usize> Decode for StringLike<N> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let Compact(size): Compact<u32> = Decode::decode(input)?;
+		if size != N as u32 {
+			return Err("Invalid size".into());
+		}
+
+		let bytes: [u8; N] = Decode::decode(input)?;
+		Ok(Self(bytes))
+	}
+}
+
+impl<const N: usize> DecodeWithMemTracking for StringLike<N> {}
+
 /// Detailed information about the configuration of a referenda track
 #[derive(
 	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
 )]
 pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
 	/// Name of this track.
-	pub name: [u8; N],
+	pub name: StringLike<N>,
 	/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
 	pub max_deciding: u32,
@@ -741,7 +787,7 @@ mod tests {
 					Track {
 						id: 1u8,
 						info: TrackInfo {
-							name: s("root"),
+							name: string_like_track_name("root"),
 							max_deciding: 1,
 							decision_deposit: 10,
 							prepare_period: 4,
@@ -763,7 +809,7 @@ mod tests {
 					Track {
 						id: 0u8,
 						info: TrackInfo {
-							name: s("none"),
+							name: string_like_track_name("none"),
 							max_deciding: 3,
 							decision_deposit: 1,
 							prepare_period: 2,

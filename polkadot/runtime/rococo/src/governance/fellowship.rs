@@ -18,7 +18,7 @@
 
 use alloc::borrow::Cow;
 use frame_support::traits::{MapSuccess, TryMapSuccess};
-use pallet_referenda::{Track, TrackInfo};
+use pallet_referenda::{string_like_track_name as s, Track, TrackInfo};
 use sp_runtime::{
 	str_array as s,
 	traits::{CheckedReduceBy, ConstU16, Replace, ReplaceWithDefault},
