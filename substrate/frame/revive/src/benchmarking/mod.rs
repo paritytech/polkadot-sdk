@@ -26,7 +26,7 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	exec::{Ext, Key, MomentOf},
 	limits,
-	precompiles::Precompile,
+	pure_precompiles::Precompile,
 	storage::WriteOutcome,
 	ConversionPrecision, Pallet as Contracts, *,
 };
@@ -1957,7 +1957,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			result = precompiles::ECRecover::execute(&mut ext, &input);
+			result = pure_precompiles::ECRecover::execute(ext.gas_meter_mut(), &input);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
