@@ -573,6 +573,24 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "ark-secret-scalar"
+version = "0.0.2"
+source = "git+https://github.com/davxy/ring-vrf?branch=locked#c64ae9b1aad7755ae1bf88016002365ffcc4912e"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "ark-transcript 0.0.2 (git+https://github.com/davxy/ring-vrf?branch=locked)",
+ "digest 0.10.7",
+ "getrandom_or_panic",
+ "zeroize",
+]
+
+[[package]]
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 name = "ark-serialize"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -627,6 +645,35 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "ark-transcript"
+version = "0.0.2"
+source = "git+https://github.com/davxy/ring-vrf?branch=locked#c64ae9b1aad7755ae1bf88016002365ffcc4912e"
+dependencies = [
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "digest 0.10.7",
+ "rand_core 0.6.4",
+ "sha3 0.10.8",
+]
+
+[[package]]
+name = "ark-transcript"
+version = "0.0.2"
+source = "git+https://github.com/w3f/ark-transcript?rev=288e49d#288e49ddba6f8f8e67be6822715afe36b11c4e65"
+dependencies = [
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "digest 0.10.7",
+ "rand_core 0.6.4",
+ "sha3 0.10.8",
+]
+
+[[package]]
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 name = "array-bytes"
 version = "6.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1457,6 +1504,30 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "bandersnatch_vrfs"
+version = "0.0.4"
+source = "git+https://github.com/davxy/ring-vrf?branch=locked#c64ae9b1aad7755ae1bf88016002365ffcc4912e"
+dependencies = [
+ "ark-bls12-381",
+ "ark-ec",
+ "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "dleq_vrf",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "ring 0.1.0",
+ "sha2 0.10.8",
+ "sp-ark-bls12-381",
+ "sp-ark-ed-on-bls12-381-bandersnatch",
+ "zeroize",
+]
+
+[[package]]
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 name = "base-x"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3258,6 +3329,23 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "common"
+version = "0.1.0"
+source = "git+https://github.com/davxy/ring-proof?branch=locked#a24b371b8d51725ac2ce195aa3369b31df6c9873"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-poly",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "fflonk",
+ "getrandom_or_panic",
+]
+
+[[package]]
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 name = "common-path"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4468,7 +4556,7 @@ dependencies = [
  "sp-io 39.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "tracing",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -5310,6 +5398,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86e3bdc80eee6e16b2b6b0f87fbc98c04bee3455e35174c0de1a125d0688c632"
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "dleq_vrf"
+version = "0.0.2"
+source = "git+https://github.com/davxy/ring-vrf?branch=locked#c64ae9b1aad7755ae1bf88016002365ffcc4912e"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-scale",
+ "ark-secret-scalar",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "ark-transcript 0.0.2 (git+https://github.com/davxy/ring-vrf?branch=locked)",
+ "arrayvec 0.7.4",
+ "zeroize",
+]
+
+[[package]]
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 name = "dlmalloc"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5710,6 +5817,20 @@ checksum = "6b30f669a7961ef1631673d2766cc92f52d64f7ef354d4fe0ddfd30ed52f0f4f"
 dependencies = [
  "errno-dragonfly",
  "libc",
+<<<<<<< HEAD
+=======
+ "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "etcetera"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "136d1b5283a1ab77bd9257427ffd09d8667ced0570b6f938942bc7568ed5b943"
+dependencies = [
+ "cfg-if",
+ "home",
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
  "windows-sys 0.48.0",
 ]
 
@@ -5945,6 +6066,22 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "fflonk"
+version = "0.1.0"
+source = "git+https://github.com/w3f/fflonk?rev=1e854f3#1e854f35e9a65d08b11a86291405cdc95baa0a35"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-poly",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "merlin",
+]
+
+[[package]]
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 name = "fiat-crypto"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6385,7 +6522,7 @@ dependencies = [
  "sp-statement-store",
  "sp-tracing 17.0.1",
  "tempfile",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -9671,15 +9808,6 @@ name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffbee8634e0d45d258acb448e7eaab3fce7a0a467395d4d9f228e3c1f01fb2e4"
-
-[[package]]
-name = "matchers"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f099785f7595cc4b4553a174ce30dd7589ef93391ff414dbb67f62392b9e0ce1"
-dependencies = [
- "regex-automata 0.1.10",
-]
 
 [[package]]
 name = "matchers"
@@ -13453,7 +13581,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand 0.8.5",
- "rand_core 0.6.4",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -17875,6 +18003,26 @@ dependencies = [
 
 [[package]]
 name = "ring"
+<<<<<<< HEAD
+=======
+version = "0.1.0"
+source = "git+https://github.com/davxy/ring-proof?branch=locked#a24b371b8d51725ac2ce195aa3369b31df6c9873"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-poly",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "ark-transcript 0.0.2 (git+https://github.com/w3f/ark-transcript?rev=288e49d)",
+ "arrayvec 0.7.4",
+ "blake2 0.10.6",
+ "common",
+ "fflonk",
+]
+
+[[package]]
+name = "ring"
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 version = "0.16.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3053cf52e236a3ed746dfc745aa9cacf1b791d846bdaf412f60a8d7d6e17c8fc"
@@ -18362,8 +18510,13 @@ dependencies = [
  "bitflags 2.6.0",
  "errno",
  "libc",
+<<<<<<< HEAD
  "linux-raw-sys 0.4.11",
  "windows-sys 0.48.0",
+=======
+ "linux-raw-sys 0.4.14",
+ "windows-sys 0.52.0",
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 ]
 
 [[package]]
@@ -19227,6 +19380,48 @@ dependencies = [
 
 [[package]]
 name = "sc-executor"
+<<<<<<< HEAD
+=======
+version = "0.32.0"
+dependencies = [
+ "array-bytes",
+ "assert_matches",
+ "criterion",
+ "num_cpus",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "paste",
+ "regex",
+ "sc-executor-common 0.29.0",
+ "sc-executor-polkavm 0.29.0",
+ "sc-executor-wasmtime 0.29.0",
+ "sc-runtime-test",
+ "sc-tracing",
+ "schnellru",
+ "sp-api 26.0.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-externalities 0.25.0",
+ "sp-io 30.0.0",
+ "sp-maybe-compressed-blob 11.0.0",
+ "sp-panic-handler 13.0.0",
+ "sp-runtime 31.0.1",
+ "sp-runtime-interface 24.0.0",
+ "sp-state-machine 0.35.0",
+ "sp-tracing 16.0.0",
+ "sp-trie 29.0.0",
+ "sp-version 29.0.0",
+ "sp-wasm-interface 20.0.0",
+ "substrate-test-runtime",
+ "tempfile",
+ "tracing",
+ "tracing-subscriber",
+ "wat",
+]
+
+[[package]]
+name = "sc-executor"
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "321e9431a3d5c95514b1ba775dd425efd4b18bd79dfdb6d8e397f0c96d6831e9"
@@ -20104,8 +20299,8 @@ dependencies = [
  "sp-tracing 17.0.1",
  "thiserror 1.0.65",
  "tracing",
- "tracing-log 0.2.0",
- "tracing-subscriber 0.3.18",
+ "tracing-log",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -21829,7 +22024,29 @@ dependencies = [
  "fraction",
  "honggfuzz",
  "num-bigint",
+<<<<<<< HEAD
  "sp-arithmetic 26.0.0",
+=======
+ "sp-arithmetic 23.0.0",
+]
+
+[[package]]
+name = "sp-ark-bls12-381"
+version = "0.4.2"
+source = "git+https://github.com/paritytech/arkworks-substrate?rev=caa2eed#caa2eed74beb885dd07c7db5f916f2281dad818f"
+dependencies = [
+ "ark-bls12-381-ext",
+ "sp-crypto-ec-utils 0.10.0 (git+https://github.com/paritytech/polkadot-sdk)",
+]
+
+[[package]]
+name = "sp-ark-ed-on-bls12-381-bandersnatch"
+version = "0.4.2"
+source = "git+https://github.com/paritytech/arkworks-substrate?rev=caa2eed#caa2eed74beb885dd07c7db5f916f2281dad818f"
+dependencies = [
+ "ark-ed-on-bls12-381-bandersnatch-ext",
+ "sp-crypto-ec-utils 0.10.0 (git+https://github.com/paritytech/polkadot-sdk)",
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 ]
 
 [[package]]
@@ -22188,7 +22405,11 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-ec-utils"
+<<<<<<< HEAD
 version = "0.15.0"
+=======
+version = "0.10.0"
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -22202,7 +22423,52 @@ dependencies = [
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ed-on-bls12-381-bandersnatch-ext",
  "ark-scale",
+<<<<<<< HEAD
  "sp-runtime-interface 29.0.0",
+=======
+ "sp-runtime-interface 24.0.0",
+]
+
+[[package]]
+name = "sp-crypto-ec-utils"
+version = "0.10.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#934c091421af4be362839996bfaa441ba59bf12b"
+dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-377-ext",
+ "ark-bls12-381",
+ "ark-bls12-381-ext",
+ "ark-bw6-761",
+ "ark-bw6-761-ext",
+ "ark-ec",
+ "ark-ed-on-bls12-377",
+ "ark-ed-on-bls12-377-ext",
+ "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ed-on-bls12-381-bandersnatch-ext",
+ "ark-scale",
+ "sp-runtime-interface 24.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+]
+
+[[package]]
+name = "sp-crypto-ec-utils"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2acb24f8a607a48a87f0ee4c090fc5d577eee49ff39ced6a3c491e06eca03c37"
+dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-377-ext",
+ "ark-bls12-381",
+ "ark-bls12-381-ext",
+ "ark-bw6-761",
+ "ark-bw6-761-ext",
+ "ark-ec",
+ "ark-ed-on-bls12-377",
+ "ark-ed-on-bls12-377-ext",
+ "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ed-on-bls12-381-bandersnatch-ext",
+ "ark-scale",
+ "sp-runtime-interface 28.0.0",
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 ]
 
 [[package]]
@@ -22282,6 +22548,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "sp-externalities"
 version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -22291,6 +22558,34 @@ dependencies = [
  "parity-scale-codec",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-storage 20.0.0",
+=======
+name = "sp-debug-derive"
+version = "14.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#934c091421af4be362839996bfaa441ba59bf12b"
+dependencies = [
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "sp-externalities"
+version = "0.25.0"
+dependencies = [
+ "environmental",
+ "parity-scale-codec",
+ "sp-storage 19.0.0",
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
+]
+
+[[package]]
+name = "sp-externalities"
+version = "0.25.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#934c091421af4be362839996bfaa441ba59bf12b"
+dependencies = [
+ "environmental",
+ "parity-scale-codec",
+ "sp-storage 19.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
 
 [[package]]
@@ -22725,9 +23020,35 @@ dependencies = [
  "sp-api 35.0.0",
  "sp-application-crypto 39.0.0",
  "sp-arithmetic 26.0.0",
+<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-io 39.0.0",
  "sp-state-machine 0.44.0",
+=======
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-weights 31.0.0",
+ "tracing",
+]
+
+[[package]]
+name = "sp-runtime-interface"
+version = "24.0.0"
+dependencies = [
+ "bytes",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "polkavm-derive 0.18.0",
+ "primitive-types 0.13.1",
+ "rustversion",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
+ "sp-io 30.0.0",
+ "sp-runtime-interface-proc-macro 17.0.0",
+ "sp-runtime-interface-test-wasm",
+ "sp-state-machine 0.35.0",
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
  "sp-std 14.0.0",
  "sp-tracing 17.0.1",
  "sp-trie 38.0.0",
@@ -22755,6 +23076,25 @@ dependencies = [
  "sp-storage 20.0.0",
  "sp-tracing 16.0.0",
  "sp-wasm-interface 20.0.0",
+ "static_assertions",
+]
+
+[[package]]
+name = "sp-runtime-interface"
+version = "24.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#934c091421af4be362839996bfaa441ba59bf12b"
+dependencies = [
+ "bytes",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "polkavm-derive 0.18.0",
+ "primitive-types 0.13.1",
+ "sp-externalities 0.25.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-runtime-interface-proc-macro 17.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-storage 19.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-tracing 16.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-wasm-interface 20.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "static_assertions",
 ]
 
@@ -22804,7 +23144,24 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime-interface-proc-macro"
+<<<<<<< HEAD
 version = "18.0.0"
+=======
+version = "17.0.0"
+dependencies = [
+ "Inflector",
+ "expander",
+ "proc-macro-crate 3.1.0",
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "sp-runtime-interface-proc-macro"
+version = "17.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#934c091421af4be362839996bfaa441ba59bf12b"
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 dependencies = [
  "Inflector",
  "expander",
@@ -23002,6 +23359,34 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "sp-statement-store"
+version = "18.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c219bc34ef4d1f9835f3ed881f965643c32034fcc030eb33b759dadbc802c1c2"
+dependencies = [
+ "aes-gcm",
+ "curve25519-dalek 4.1.3",
+ "ed25519-dalek",
+ "hkdf",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "scale-info",
+ "sha2 0.10.8",
+ "sp-api 34.0.0",
+ "sp-application-crypto 38.0.0",
+ "sp-core 34.0.0",
+ "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-externalities 0.29.0",
+ "sp-runtime 39.0.2",
+ "sp-runtime-interface 28.0.0",
+ "thiserror 1.0.65",
+ "x25519-dalek",
+]
+
+[[package]]
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 name = "sp-std"
 version = "14.0.0"
 
@@ -23012,6 +23397,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12f8ee986414b0a9ad741776762f4083cd3a5128449b982a3919c4df36874834"
 
 [[package]]
+<<<<<<< HEAD
 name = "sp-storage"
 version = "20.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -23023,6 +23409,33 @@ dependencies = [
  "serde",
  "sp-debug-derive 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+=======
+name = "sp-std"
+version = "14.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#934c091421af4be362839996bfaa441ba59bf12b"
+
+[[package]]
+name = "sp-storage"
+version = "19.0.0"
+dependencies = [
+ "impl-serde 0.5.0",
+ "parity-scale-codec",
+ "ref-cast",
+ "serde",
+ "sp-debug-derive 14.0.0",
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
+]
+
+[[package]]
+name = "sp-storage"
+version = "19.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#934c091421af4be362839996bfaa441ba59bf12b"
+dependencies = [
+ "impl-serde 0.5.0",
+ "parity-scale-codec",
+ "ref-cast",
+ "serde",
+ "sp-debug-derive 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
 
 [[package]]
@@ -23075,6 +23488,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
+<<<<<<< HEAD
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0351810b9d074df71c4514c5228ed05c250607cba131c1c9d1526760ab69c05c"
 dependencies = [
@@ -23090,11 +23504,28 @@ name = "sp-tracing"
 version = "17.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90b3decf116db9f1dfaf1f1597096b043d0e12c952d3bcdc018c6d6b77deec7e"
+=======
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 dependencies = [
  "parity-scale-codec",
  "tracing",
  "tracing-core",
+<<<<<<< HEAD
  "tracing-subscriber 0.2.25",
+=======
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "sp-tracing"
+version = "16.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#934c091421af4be362839996bfaa441ba59bf12b"
+dependencies = [
+ "parity-scale-codec",
+ "tracing",
+ "tracing-core",
+ "tracing-subscriber",
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 ]
 
 [[package]]
@@ -23104,7 +23535,7 @@ dependencies = [
  "parity-scale-codec",
  "tracing",
  "tracing-core",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -23274,6 +23705,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "sp-version-proc-macro"
 version = "15.0.0"
 dependencies = [
@@ -23286,6 +23718,8 @@ dependencies = [
 ]
 
 [[package]]
+=======
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 name = "sp-wasm-interface"
 version = "20.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -23310,6 +23744,17 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "wasmtime",
+]
+
+[[package]]
+name = "sp-wasm-interface"
+version = "20.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#934c091421af4be362839996bfaa441ba59bf12b"
+dependencies = [
+ "anyhow",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
 ]
 
 [[package]]
@@ -24575,10 +25020,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ef1adac450ad7f4b3c28589471ade84f25f731a7a0fe30d71dfa9f60fd808e5"
 dependencies = [
  "cfg-if",
+<<<<<<< HEAD
  "fastrand 2.1.0",
  "redox_syscall 0.4.1",
  "rustix 0.38.25",
  "windows-sys 0.48.0",
+=======
+ "fastrand 2.3.0",
+ "once_cell",
+ "rustix 0.38.42",
+ "windows-sys 0.52.0",
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 ]
 
 [[package]]
@@ -24625,7 +25077,7 @@ checksum = "3dffced63c2b5c7be278154d76b479f9f9920ed34e7574201407f0b14e2bbb93"
 dependencies = [
  "env_logger 0.11.3",
  "test-log-macros",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -25339,17 +25791,6 @@ dependencies = [
 
 [[package]]
 name = "tracing-log"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78ddad33d2d10b1ed7eb9d1f518a5674713876e97e5bb9b7345a7984fbb4f922"
-dependencies = [
- "lazy_static",
- "log",
- "tracing-core",
-]
-
-[[package]]
-name = "tracing-log"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
@@ -25360,45 +25801,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-serde"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc6b213177105856957181934e4920de57730fc69bf42c37ee5bb664d406d9e1"
-dependencies = [
- "serde",
- "tracing-core",
-]
-
-[[package]]
-name = "tracing-subscriber"
-version = "0.2.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e0d2eaa99c3c2e41547cfa109e910a68ea03823cccad4a0525dcbc9b01e8c71"
-dependencies = [
- "ansi_term",
- "chrono",
- "lazy_static",
- "matchers 0.0.1",
- "regex",
- "serde",
- "serde_json",
- "sharded-slab",
- "smallvec",
- "thread_local",
- "tracing",
- "tracing-core",
- "tracing-log 0.1.3",
- "tracing-serde",
-]
-
-[[package]]
 name = "tracing-subscriber"
 version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
 dependencies = [
  "chrono",
- "matchers 0.1.0",
+ "matchers",
  "nu-ansi-term",
  "once_cell",
  "parking_lot 0.12.3",
@@ -25409,7 +25818,7 @@ dependencies = [
  "time",
  "tracing",
  "tracing-core",
- "tracing-log 0.2.0",
+ "tracing-log",
 ]
 
 [[package]]
