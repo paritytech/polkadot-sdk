@@ -62,6 +62,13 @@ secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = tru
 
 # bls crypto
 w3f-bls = { optional = true, workspace = true }
+<<<<<<< HEAD
+=======
+# bandersnatch crypto
+bandersnatch_vrfs = { git = "https://github.com/davxy/ring-vrf", branch = "locked", default-features = false, features = [
+	"substrate-curves",
+], optional = true }
+>>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
