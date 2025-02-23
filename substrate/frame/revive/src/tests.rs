@@ -27,7 +27,7 @@ use crate::{
 	},
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
-	limits,
+	limits, pure_precompiles,
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
@@ -4590,14 +4590,8 @@ fn unknown_precompiles_revert() {
 #[test]
 fn ecrecover_precompile_works() {
 	use hex_literal::hex;
-	let (code, _code_hash) = compile_module("call_and_return").unwrap();
 
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).value(1000).build_and_unwrap_contract();
-
-		let cases = vec![
+	let cases = vec![
 			(
 				hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"),
 				hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b").to_vec(),
@@ -4608,12 +4602,29 @@ fn ecrecover_precompile_works() {
 			),
 		];
 
-		for (input, output) in cases {
+	for (input, output) in cases {
+		let (code, _code_hash) = compile_module("call_and_return").unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.value(1000)
+				.build_and_unwrap_contract();
+
 			let result = builder::bare_call(addr)
-				.data((H160::from_low_u64_be(0x1), 100u64, input).encode())
+				.data((pure_precompiles::ECRECOVER, 100u64, input).encode())
 				.build_and_unwrap_result();
+
+			test_utils::get_balance(&<Test as Config>::AddressMapper::to_account_id(
+				&pure_precompiles::ECRECOVER,
+			));
+			assert_eq!(
+				test_utils::get_balance(&<Test as Config>::AddressMapper::to_account_id(
+					&pure_precompiles::ECRECOVER
+				)),
+				101u64
+			);
 			assert_eq!(result.data, output);
 			assert_eq!(result.flags, ReturnFlags::empty());
-		}
-	});
+		});
+	}
 }
