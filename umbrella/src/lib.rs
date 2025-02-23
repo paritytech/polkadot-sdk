@@ -1169,7 +1169,7 @@ pub use sc_sysinfo;
 pub use sc_telemetry;
 
 /// Instrumentation implementation for substrate.
-#[cfg(feature = "sc-tracing")]
+#[cfg(feature = "node")]
 pub use sc_tracing;
 
 /// Helper macros for Substrate's client CLI.
