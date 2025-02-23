@@ -111,8 +111,8 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 			Span::call_site(),
 			"missing argument: name of the node. Example: #[prefix_logs_with(\"MyNode\")]",
 		)
-			.to_compile_error()
-			.into();
+		.to_compile_error()
+		.into();
 	}
 
 	let name = syn::parse_macro_input!(arg as Expr);
@@ -121,7 +121,8 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 		Ok(FoundCrate::Name(sdk_name)) => Ident::new(sdk_name.as_str(), Span::call_site()),
 		_ => match crate_name("sc-tracing") {
 			Ok(FoundCrate::Itself) => Ident::new("sc_tracing", Span::call_site()),
-			Ok(FoundCrate::Name(tracing_name)) => Ident::new(tracing_name.as_str(), Span::call_site()),
+			Ok(FoundCrate::Name(tracing_name)) =>
+				Ident::new(tracing_name.as_str(), Span::call_site()),
 			Err(e) => return Error::new(Span::call_site(), e).to_compile_error().into(),
 		},
 	};
@@ -129,16 +130,16 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 	let ItemFn { attrs, vis, sig, block } = item_fn;
 
 	(quote! {
-        #(#attrs)*
-        #vis #sig {
-            let span = #crate_name::tracing::info_span!(
-                #crate_name::logging::PREFIX_LOG_SPAN,
-                name = #name,
-            );
-            let _enter = span.enter();
+		#(#attrs)*
+		#vis #sig {
+			let span = #crate_name::tracing::info_span!(
+				#crate_name::logging::PREFIX_LOG_SPAN,
+				name = #name,
+			);
+			let _enter = span.enter();
 
-            #block
-        }
-    })
-		.into()
+			#block
+		}
+	})
+	.into()
 }
