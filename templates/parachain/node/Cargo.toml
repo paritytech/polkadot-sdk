@@ -26,7 +26,7 @@ parachain-template-runtime = { workspace = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 
 [build-dependencies]
-polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils", "node"] }
+polkadot-sdk = { workspace = true, features = ["node", "substrate-build-script-utils"] }
 
 [features]
 default = ["std"]
