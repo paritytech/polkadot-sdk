@@ -14,18 +14,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-mod ecrecover;
 
-use crate::{
-	exec::{ExecResult, Ext},
-	Config, Error, H160,
-};
+use crate::{exec::ExecResult, Config, Error, GasMeter, H160};
+
+mod ecrecover;
 pub use ecrecover::*;
+
+/// Determine if the given address is a precompile.
+/// For now, we consider that all addresses between 0x1 and 0xff are reserved for precompiles.
+pub fn is_precompile(address: &H160) -> bool {
+	let bytes = address.as_bytes();
+	bytes.starts_with(&[0u8; 19]) && bytes[19] != 0
+}
 
 /// The `Precompile` trait defines the functionality for executing a precompiled contract.
 pub trait Precompile<T: Config> {
 	/// Executes the precompile with the provided input data.
-	fn execute<E: Ext<T = T>>(ext: &mut E, input: &[u8]) -> ExecResult;
+	fn execute(gas_meter: &mut GasMeter<T>, input: &[u8]) -> ExecResult;
 }
 
 pub struct Precompiles<T: Config> {
@@ -33,9 +38,9 @@ pub struct Precompiles<T: Config> {
 }
 
 impl<T: Config> Precompiles<T> {
-	pub fn execute<E: Ext<T = T>>(addr: H160, ext: &mut E, input: &[u8]) -> ExecResult {
+	pub fn execute(addr: H160, gas_meter: &mut GasMeter<T>, input: &[u8]) -> ExecResult {
 		if addr == ECRECOVER {
-			ECRecover::execute(ext, input)
+			ECRecover::execute(gas_meter, input)
 		} else {
 			Err(Error::<T>::UnsupportedPrecompileAddress.into())
 		}

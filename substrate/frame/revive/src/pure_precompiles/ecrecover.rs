@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use super::Precompile;
-use crate::{
-	exec::{ExecResult, Ext},
-	Config, ExecReturnValue, RuntimeCosts,
-};
+use crate::{exec::ExecResult, Config, ExecReturnValue, GasMeter, RuntimeCosts};
 use hex_literal::hex;
 use pallet_revive_uapi::ReturnFlags;
 use sp_core::H160;
@@ -28,8 +25,8 @@ pub const ECRECOVER: H160 = H160(hex!("0000000000000000000000000000000000000001"
 pub struct ECRecover;
 
 impl<T: Config> Precompile<T> for ECRecover {
-	fn execute<E: Ext<T = T>>(ext: &mut E, i: &[u8]) -> ExecResult {
-		ext.gas_meter_mut().charge(RuntimeCosts::EcdsaRecovery)?;
+	fn execute(gas_meter: &mut GasMeter<T>, i: &[u8]) -> ExecResult {
+		gas_meter.charge(RuntimeCosts::EcdsaRecovery)?;
 
 		let mut input = [0u8; 128];
 		let len = i.len().min(128);

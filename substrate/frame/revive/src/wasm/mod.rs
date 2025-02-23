@@ -387,7 +387,7 @@ where
 		&self.code_hash
 	}
 
-	fn code_deposit(&self) -> BalanceOf<T> {
-		self.code_info.deposit
+	fn code_info(&self) -> &CodeInfo<T> {
+		&self.code_info
 	}
 }
