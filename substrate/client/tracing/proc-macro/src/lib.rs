@@ -19,7 +19,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{parse_macro_input, Error, Expr, Ident, ItemFn, Meta, MetaNameValue};
+use syn::{Error, Expr, Ident, ItemFn};
 
 /// Add a log prefix to the function.
 ///
