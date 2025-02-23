@@ -33,7 +33,7 @@ use polkadot_sdk::sp_core::crypto::FromEntropy;
 use polkadot_sdk::*;
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
@@ -417,6 +417,7 @@ parameter_types! {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
@@ -676,8 +677,6 @@ impl_opaque_keys! {
 
 #[cfg(feature = "staking-playground")]
 pub mod staking_playground {
-	use pallet_staking::Exposure;
-
 	use super::*;
 
 	/// An adapter to make the chain work with --dev only, even though it is running a large staking
@@ -712,61 +711,43 @@ pub mod staking_playground {
 		}
 	}
 
-	impl pallet_session::historical::SessionManager<AccountId, Exposure<AccountId, Balance>>
-		for AliceAsOnlyValidator
-	{
+	impl pallet_session::historical::SessionManager<AccountId, ()> for AliceAsOnlyValidator {
 		fn end_session(end_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				Exposure<AccountId, Balance>,
-			>>::end_session(end_index)
+			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::end_session(
+				end_index,
+			)
 		}
 
-		fn new_session(
-			new_index: sp_staking::SessionIndex,
-		) -> Option<Vec<(AccountId, Exposure<AccountId, Balance>)>> {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				Exposure<AccountId, Balance>,
-			>>::new_session(new_index)
+		fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<(AccountId, ())>> {
+			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::new_session(
+				new_index,
+			)
 			.map(|_ignored| {
 				// construct a fake exposure for alice.
-				vec![(
-					sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(),
-					pallet_staking::Exposure {
-						total: 1_000_000_000,
-						own: 1_000_000_000,
-						others: vec![],
-					},
-				)]
+				vec![(sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(), ())]
 			})
 		}
 
 		fn new_session_genesis(
 			new_index: sp_staking::SessionIndex,
-		) -> Option<Vec<(AccountId, Exposure<AccountId, Balance>)>> {
+		) -> Option<Vec<(AccountId, ())>> {
 			<Staking as pallet_session::historical::SessionManager<
 				AccountId,
-				Exposure<AccountId, Balance>,
+				(),
 			>>::new_session_genesis(new_index)
 			.map(|_ignored| {
 				// construct a fake exposure for alice.
 				vec![(
 					sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(),
-					pallet_staking::Exposure {
-						total: 1_000_000_000,
-						own: 1_000_000_000,
-						others: vec![],
-					},
+					(),
 				)]
 			})
 		}
 
 		fn start_session(start_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				Exposure<AccountId, Balance>,
-			>>::start_session(start_index)
+			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::start_session(
+				start_index,
+			)
 		}
 	}
 }
@@ -779,6 +760,8 @@ impl pallet_session::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
+
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 	#[cfg(not(feature = "staking-playground"))]
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -790,8 +773,8 @@ impl pallet_session::Config for Runtime {
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 pallet_staking_reward_curve::build! {
@@ -894,7 +877,6 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
-	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
 }
@@ -3763,11 +3745,15 @@ impl_runtime_apis! {
 		{
 			use pallet_revive::tracing::trace;
 			let mut tracer = config.build(Revive::evm_gas_from_weight);
-			trace(&mut tracer, || {
-				Self::eth_transact(tx)
-			})?;
+			let result = trace(&mut tracer, || Self::eth_transact(tx));
 
-			Ok(tracer.collect_traces().pop().expect("eth_transact succeeded, trace must exist, qed"))
+			if let Some(trace) = tracer.collect_traces().pop() {
+				Ok(trace)
+			} else if let Err(err) = result {
+				Err(err)
+			} else {
+				Ok(Default::default())
+			}
 		}
 	}
 
@@ -4077,6 +4063,7 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {

@@ -56,6 +56,7 @@ pub trait WeightInfo {
 	fn batch_all(c: u32, ) -> Weight;
 	fn dispatch_as() -> Weight;
 	fn force_batch(c: u32, ) -> Weight;
+	fn dispatch_as_fallible() -> Weight;
 	fn if_else() -> Weight;
 }
 
@@ -126,6 +127,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(4_570_923, 0).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
+	fn dispatch_as_fallible() -> Weight {
+		Weight::MAX
+	}
+
 	fn if_else() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -202,6 +207,11 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(4_570_923, 0).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
+
+	fn dispatch_as_fallible() -> Weight {
+		Weight::MAX
+	}
+
 	fn if_else() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
