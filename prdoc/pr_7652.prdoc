@@ -3,11 +3,6 @@ doc:
 - audience: Runtime Dev
   description: |-
     Add ECrecover 0x1 precompile and remove the unstable equivalent host function.
-
-    To encompass the change:
-    -  the frame `contract_info` is now an Option and only set when executing a contract.
-    - the executable created with a frame is now wrapped into an enum `PrecompileOrExecutable`
-    - a precompile module list all the registered precompiles (just 1 for now) and execute the one for the given address & input.
 crates:
 - name: asset-hub-westend-runtime
   bump: minor
