@@ -1181,7 +1181,6 @@ pub use sc_telemetry;
 /// Instrumentation implementation for substrate.
 #[cfg(feature = "sc-tracing")]
 pub use sc_tracing;
-pub use sc_tracing::logging;
 
 /// Helper macros for Substrate's client CLI.
 #[cfg(feature = "sc-tracing-proc-macro")]

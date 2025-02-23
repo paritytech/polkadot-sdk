@@ -228,7 +228,7 @@ fn start_consensus(
 }
 
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
-#[logging::prefix_logs_with("Parachain")]
+#[sc_tracing::logging::prefix_logs_with("Parachain")]
 pub async fn start_parachain_node(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
