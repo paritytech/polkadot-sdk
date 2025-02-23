@@ -24,7 +24,7 @@
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use bp_messages::LegacyLaneId;
 use bp_relayers::RewardsAccountParams;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
 use scale_info::TypeInfo;
 use xcm::VersionedLocation;
@@ -36,7 +36,18 @@ parameter_types! {
 }
 
 /// Showcasing that we can handle multiple different rewards with the same pallet.
-#[derive(Clone, Copy, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Debug,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	MaxEncodedLen,
+	PartialEq,
+	TypeInfo,
+)]
 pub enum BridgeReward {
 	/// Rewards for the R/W bridge—distinguished by the `RewardsAccountParams` key.
 	RococoWestend(RewardsAccountParams<LegacyLaneId>),
@@ -51,7 +62,9 @@ impl From<RewardsAccountParams<LegacyLaneId>> for BridgeReward {
 }
 
 /// An enum representing the different types of supported beneficiaries.
-#[derive(Clone, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(
+	Clone, Debug, Decode, DecodeWithMemTracking, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo,
+)]
 pub enum BridgeRewardBeneficiaries {
 	/// A local chain account.
 	LocalAccount(AccountId),

@@ -4441,7 +4441,7 @@ fn tracing_works_for_transfers() {
 			vec![CallTrace {
 				from: ALICE_ADDR,
 				to: BOB_ADDR,
-				value: U256::from(10_000_000),
+				value: Some(U256::from(10_000_000)),
 				call_type: CallType::Call,
 				..Default::default()
 			},]
@@ -4509,6 +4509,7 @@ fn tracing_works() {
 					input: (3u32, addr_callee).encode().into(),
 					call_type: Call,
 					logs: logs.clone(),
+					value: Some(U256::from(0)),
 					calls: vec![
 						CallTrace {
 							from: addr,
@@ -4520,6 +4521,7 @@ fn tracing_works() {
 							revert_reason: Some("revert: This function always fails".to_string()),
 							error: Some("execution reverted".to_string()),
 							call_type: Call,
+							value: Some(U256::from(0)),
 							..Default::default()
 						},
 						CallTrace {
@@ -4528,6 +4530,7 @@ fn tracing_works() {
 							input: (2u32, addr_callee).encode().into(),
 							call_type: Call,
 							logs: logs.clone(),
+							value: Some(U256::from(0)),
 							calls: vec![
 								CallTrace {
 									from: addr,
@@ -4536,6 +4539,7 @@ fn tracing_works() {
 									output: Default::default(),
 									error: Some("ContractTrapped".to_string()),
 									call_type: Call,
+									value: Some(U256::from(0)),
 									..Default::default()
 								},
 								CallTrace {
@@ -4544,6 +4548,7 @@ fn tracing_works() {
 									input: (1u32, addr_callee).encode().into(),
 									call_type: Call,
 									logs: logs.clone(),
+									value: Some(U256::from(0)),
 									calls: vec![
 										CallTrace {
 											from: addr,
@@ -4551,6 +4556,7 @@ fn tracing_works() {
 											input: 0u32.encode().into(),
 											output: 0u32.to_le_bytes().to_vec().into(),
 											call_type: Call,
+											value: Some(U256::from(0)),
 											..Default::default()
 										},
 										CallTrace {
@@ -4558,11 +4564,12 @@ fn tracing_works() {
 											to: addr,
 											input: (0u32, addr_callee).encode().into(),
 											call_type: Call,
+											value: Some(U256::from(0)),
 											calls: vec![
 												CallTrace {
 													from: addr,
 													to: BOB_ADDR,
-													value: U256::from(100),
+													value: Some(U256::from(100)),
 													call_type: CallType::Call,
 													..Default::default()
 												}
@@ -4579,6 +4586,44 @@ fn tracing_works() {
 					..Default::default()
 				},]
 			);
+		}
+	});
+}
+
+#[test]
+fn unknown_precompiles_revert() {
+	let (code, _code_hash) = compile_module("read_only_call").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let cases: Vec<(H160, Box<dyn FnOnce(_)>)> = vec![
+			(
+				H160::from_low_u64_be(0x1),
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::UnsupportedPrecompileAddress);
+				}),
+			),
+			(
+				H160::from_low_u64_be(0xff),
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::UnsupportedPrecompileAddress);
+				}),
+			),
+			(
+				H160::from_low_u64_be(0x1ff),
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+		];
+
+		for (callee_addr, assert_result) in cases {
+			let result =
+				builder::bare_call(addr).data((callee_addr, [0u8; 0]).encode()).build().result;
+			assert_result(result);
 		}
 	});
 }
