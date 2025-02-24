@@ -78,6 +78,7 @@ pub trait WeightInfo {
 	fn approve_as_multi_create(s: u32, ) -> Weight;
 	fn approve_as_multi_approve(s: u32, ) -> Weight;
 	fn cancel_as_multi(s: u32, ) -> Weight;
+	fn poke_deposit(s: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_multisig` using the Substrate node and recommended hardware.
@@ -197,6 +198,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	fn poke_deposit(s: u32, ) -> Weight {
+		Weight::from_parts(28_686_251, 6811)
+			.saturating_add(Weight::from_parts(126_933, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -311,6 +319,13 @@ impl WeightInfo for () {
 		// Minimum execution time: 26_877_000 picoseconds.
 		Weight::from_parts(28_686_251, 6811)
 			// Standard Error: 1_189
+			.saturating_add(Weight::from_parts(126_933, 0).saturating_mul(s.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	fn poke_deposit(s: u32, ) -> Weight {
+		Weight::from_parts(28_686_251, 6811)
 			.saturating_add(Weight::from_parts(126_933, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
