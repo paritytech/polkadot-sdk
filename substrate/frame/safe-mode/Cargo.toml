@@ -17,54 +17,36 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame = { workspace = true, features = ["runtime"] }
 pallet-balances = { optional = true, workspace = true }
 pallet-proxy = { optional = true, workspace = true }
 pallet-utility = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-arithmetic = { workspace = true }
-sp-runtime = { workspace = true }
 
 [dev-dependencies]
-frame-support = { features = ["experimental"], workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-benchmarking/std",
-	"frame-support/std",
-	"frame-system/std",
+	"frame/std",
 	"pallet-balances?/std",
 	"pallet-proxy?/std",
 	"pallet-utility?/std",
 	"scale-info/std",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
+	"frame/try-runtime",
 	"pallet-balances?/try-runtime",
 	"pallet-proxy?/try-runtime",
 	"pallet-utility?/try-runtime",
-	"sp-runtime/try-runtime",
 ]
