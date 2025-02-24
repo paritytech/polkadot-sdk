@@ -34,7 +34,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_nothing() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
 
 		#[block]
@@ -49,7 +49,7 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_into_snapshot_msp() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
 
 		// roll to next block until we are about to go into the snapshot.
 		Pallet::<T>::run_until_before_matches(|| {
@@ -80,7 +80,7 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_into_snapshot_rest() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
 
 		// roll to the first block of the snapshot.
 		Pallet::<T>::roll_until_matches(|| matches!(CurrentPhase::<T>::get(), Phase::Snapshot(_)));
@@ -114,7 +114,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_into_signed() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
 		Pallet::<T>::run_until_before_matches(|| matches!(CurrentPhase::<T>::get(), Phase::Signed));
 
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(0));
@@ -131,7 +131,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_into_signed_validation() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
 		Pallet::<T>::run_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
@@ -148,7 +148,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_into_unsigned() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
 		Pallet::<T>::run_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
@@ -165,7 +165,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn export_non_terminal() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
@@ -195,7 +195,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn export_terminal() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();

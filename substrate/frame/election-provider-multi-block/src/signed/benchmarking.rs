@@ -91,7 +91,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn submit_page() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(crate::Pallet::<T>::average_election_duration());
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Signed)
 		});
@@ -115,7 +115,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn unset_page() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(crate::Pallet::<T>::average_election_duration());
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Signed)
 		});

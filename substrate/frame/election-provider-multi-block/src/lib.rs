@@ -512,7 +512,9 @@ pub mod pallet {
 				T::SignedValidationPhase::get().saturating_add(unsigned_deadline);
 			let signed_deadline = T::SignedPhase::get().saturating_add(signed_validation_deadline);
 			// add one block to take the target snapshot a block ahead of time.
-			let snapshot_deadline = signed_deadline.saturating_add(T::Pages::get().into()).saturating_add(One::one());
+			let snapshot_deadline = signed_deadline
+				.saturating_add(T::Pages::get().into())
+				.saturating_add(One::one());
 
 			let next_election = T::DataProvider::next_election_prediction(now)
 				.saturating_sub(T::Lookahead::get())
@@ -1161,6 +1163,18 @@ impl<T: Config> Pallet<T> {
 			.map_err(|fe| ElectionError::Fallback(fe))
 	}
 
+	/// A reasonable next election block number.
+	///
+	/// This should be passed into `T::DataProvider::set_next_election` in benchmarking.
+	pub fn average_election_duration() -> u32 {
+		let signed: u32 = T::SignedPhase::get().saturated_into();
+		let unsigned: u32 = T::UnsignedPhase::get().saturated_into();
+		let signed_validation: u32 = T::SignedValidationPhase::get().saturated_into();
+		let snapshot = T::Pages::get();
+		let export = T::Pages::get();
+		snapshot + signed + unsigned + signed_validation + export
+	}
+
 	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
 		Snapshot::<T>::sanity_check()
@@ -1175,16 +1189,6 @@ where
 	T: Config + crate::signed::Config + crate::unsigned::Config + crate::verifier::Config,
 	BlockNumberFor<T>: From<u32>,
 {
-	/// A reasonable next election block number.
-	///
-	/// This should be passed into `T::DataProvider::set_next_election` in benchmarking.
-	pub(crate) fn reasonable_next_election() -> u32 {
-		let signed: u32 = T::SignedPhase::get().saturated_into();
-		let unsigned: u32 = T::UnsignedPhase::get().saturated_into();
-		let signed_validation: u32 = T::SignedValidationPhase::get().saturated_into();
-		(T::Pages::get() + signed + unsigned + signed_validation) * 2
-	}
-
 	/// Progress blocks until the criteria is met.
 	pub(crate) fn roll_until_matches(criteria: impl FnOnce() -> bool + Copy) {
 		loop {

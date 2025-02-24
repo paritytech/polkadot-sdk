@@ -33,7 +33,7 @@ mod benchmarks {
 	fn validate_unsigned() -> Result<(), BenchmarkError> {
 		// TODO: for now we are not using this, maybe remove?
 		// roll to unsigned phase open
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(crate::Pallet::<T>::average_election_duration());
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
@@ -52,7 +52,7 @@ mod benchmarks {
 	#[benchmark]
 	fn submit_unsigned() -> Result<(), BenchmarkError> {
 		// roll to unsigned phase open
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
+		T::DataProvider::set_next_election(crate::Pallet::<T>::average_election_duration());
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
