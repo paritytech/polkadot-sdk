@@ -202,10 +202,13 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::{
+		defensive, defensive_assert,
+		traits::{
+			Contains, EitherOf, EstimateNextSessionRotation, Everything, InsideBoth,
+			InstanceFilter, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
+			RankedMembers, RankedMembersSwapHandler, VariantCount, VariantCountOf,
+		},
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -242,7 +245,8 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchError, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
@@ -355,6 +359,11 @@ pub mod runtime {
 	pub mod prelude {
 		pub use crate::prelude::*;
 
+		/// All things runtime metadata.
+		pub use frame_support::traits::{
+			CallMetadata, GetCallMetadata, PalletInfoAccess, STORAGE_VERSION_STORAGE_KEY_POSTFIX,
+		};
+
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
 
@@ -370,6 +379,12 @@ pub mod runtime {
 
 		/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.
 		pub use frame_support::derive_impl;
+
+		/// sovereign account ID for a pallet.
+		pub use frame_support::PalletId;
+
+		/// Runtime storage traits and types.
+		pub use frame_support::storage::{KeyPrefixIterator, StoragePrefixedMap};
 
 		/// Macros to easily impl traits such as `Get` for types.
 		// TODO: using linking in the Get in the line above triggers an ICE :/
@@ -561,9 +576,10 @@ pub mod hashing {
 /// This is already part of the [`prelude`].
 pub mod account {
 	pub use frame_support::traits::{
-		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+		AsEnsureOriginWithArg, ChangeMembers, ContainsLengthBound, EitherOfDiverse,
+		InitializeMembers, NeverEnsureOrigin, SortedMembers,
 	};
-	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
+	pub use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, IdentityLookup};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
