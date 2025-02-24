@@ -1012,9 +1012,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(call_type.cost())?;
-
 		let callee = memory.read_h160(callee_ptr)?;
+
+		if !crate::pure_precompiles::is_precompile(&callee) {
+			self.charge_gas(call_type.cost())?;
+		}
+
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
