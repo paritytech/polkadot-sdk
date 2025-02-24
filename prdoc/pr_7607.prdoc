@@ -10,3 +10,9 @@ crates:
   bump: patch
 - name: sp-metadata-ir
   bump: major
+- name: frame-support
+  bump: none
+- name: substrate-wasm-builder
+  bump: minor
+- name: pallet-example-view-functions
+  bump: minor
