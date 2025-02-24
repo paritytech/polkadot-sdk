@@ -16,6 +16,7 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait = { workspace = true }
+chain-spec-builder = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 color-print = { workspace = true }

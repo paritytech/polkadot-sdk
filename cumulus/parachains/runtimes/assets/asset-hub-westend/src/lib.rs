@@ -1884,6 +1884,7 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
@@ -2371,11 +2372,15 @@ impl_runtime_apis! {
 		{
 			use pallet_revive::tracing::trace;
 			let mut tracer = config.build(Revive::evm_gas_from_weight);
-			trace(&mut tracer, || {
-				Self::eth_transact(tx)
-			})?;
+			let result = trace(&mut tracer, || Self::eth_transact(tx));
 
-			Ok(tracer.collect_traces().pop().expect("eth_transact succeeded, trace must exist, qed"))
+			if let Some(trace) = tracer.collect_traces().pop() {
+				Ok(trace)
+			} else if let Err(err) = result {
+				Err(err)
+			} else {
+				Ok(Default::default())
+			}
 		}
 	}
 }

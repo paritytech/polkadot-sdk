@@ -17,6 +17,8 @@
 
 #![cfg(test)]
 
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 
 use frame_support::{
