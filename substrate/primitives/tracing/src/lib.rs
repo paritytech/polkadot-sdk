@@ -359,7 +359,7 @@ pub mod test_log_capture {
 		}
 	}
 
-	/// Initializes a log capture utility for testing.
+	/// Initialises a log capture utility for testing.
 	///
 	/// This function sets up a `LogCapture` instance to capture logs during test execution.
 	/// It also configures a `tracing_subscriber` with the specified maximum log level
