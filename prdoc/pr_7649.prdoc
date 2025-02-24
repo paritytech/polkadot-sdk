@@ -1,0 +1,20 @@
+title: 'frame-benchmarking-cli should not build RocksDB by default'
+
+doc:
+  - audience: Node Dev
+    description: |- 
+      This PR ensures `frame-benchmarking-cli` does not build RocksDB by default and also ensures rocksDB is not built when `default-features=false`.
+
+crates:
+  - name: cumulus-client-cli
+    bump: minor
+  - name: sc-cli
+    bump: minor
+  - name: polkadot-node-metrics
+    bump: minor
+  - name: frame-benchmarking-cli
+    bump: minor
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: minor
+  - name: polkadot-omni-node-lib
+    bump: minor
