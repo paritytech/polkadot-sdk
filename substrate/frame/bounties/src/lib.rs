@@ -85,10 +85,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-#[cfg(test)]
-mod tests;
 pub mod migrations;
 pub mod weights;
 pub use pallet::*;
@@ -733,6 +733,7 @@ pub mod pallet {
 							bounty.asset_kind.clone(),
 						)?;
 						T::Currency::reserve(curator, deposit)?;
+
 						bounty.curator_deposit = deposit;
 						
 						let update_due =
@@ -1401,10 +1402,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Calculate the deposit required for a curator.
 	pub fn calculate_curator_deposit(
 		fee: &BountyBalanceOf<T, I>,
-		kind: T::AssetKind,
+		asset_kind: T::AssetKind,
 	) -> Result<DepositBalanceOf<T, I>, pallet_treasury::Error<T, I>> {
 		let fee =
-			<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(*fee, kind)
+			<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(*fee, asset_kind)
 				.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 
 		let mut deposit = T::CuratorDepositMultiplier::get() * fee;
@@ -1523,6 +1524,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		payment_status: &mut PaymentState<PaymentIdOf<T, I>>,
 		approved_curator: Option<&T::AccountId>,
 	) -> DispatchResultWithPostInfo {
+		
 		match payment_status {
 			PaymentState::Pending => {
 				// user should try processing payment again, not check its status

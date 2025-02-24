@@ -15,15 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for the bounties pallet.
+//! bounties pallet tests.
 
-#[cfg(test)]
-pub(crate) mod mock;
-#[cfg(test)]
-pub(crate) mod unit;
-#[cfg(test)]
-pub(crate) mod migration;
-#[cfg(test)]
-pub(crate) mod genesis;
-#[cfg(feature = "runtime-benchmarks")]
-pub(crate) mod utils;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use crate::*;
+use crate::PaymentStatus;
+
+thread_local! {
+	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
+	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
+	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
+	pub static TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
+}

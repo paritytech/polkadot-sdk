@@ -17,8 +17,7 @@
 
 //! bounties pallet tests.
 
-#![cfg(test)]
-
+use super::utils::*;
 use crate as pallet_bounties;
 use crate::{Event as BountiesEvent, *};
 
@@ -34,15 +33,6 @@ use frame_support::{
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
 
 type Block = frame_system::mocking::MockBlock<Test>;
-
-thread_local! {
-	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
-	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
-	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
-
-	#[cfg(feature = "runtime-benchmarks")]
-	pub static TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
-}
 
 /// paid balance for a given account and asset ids
 pub fn paid(who: u128, asset_id: u32) -> u64 {
@@ -99,7 +89,7 @@ impl Pay for TestPay {
 		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
+	fn ensure_successful(_: &Self::Beneficiary, _: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
 		set_status(id, PaymentStatus::Failure)
@@ -302,7 +292,7 @@ pub fn expect_events(e: Vec<BountiesEvent<Test>>) {
 
 pub fn get_payment_id(i: BountyIndex, to: Option<u128>) -> Option<u64> {
 	let bounty = pallet_bounties::Bounties::<Test>::get(i).expect("no bounty");
-	println!("{:?}", bounty);
+
 	match bounty.status {
 		BountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
 		BountyStatus::ApprovedWithCurator { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
