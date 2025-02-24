@@ -384,9 +384,9 @@ pub mod test_log_capture {
 	/// };
 	///
 	/// let (log_capture, subscriber) = init_log_capture(Level::INFO);
-	/// 	subscriber::with_default(subscriber, || {
-	/// 		info!("This log will be captured");
-	/// 		assert!(log_capture.contains("This log will be captured"));
+ 	/// subscriber::with_default(subscriber, || {
+	///     info!("This log will be captured");
+	///     assert!(log_capture.contains("This log will be captured"));
 	/// });
 	/// ```
 	pub fn init_log_capture(
