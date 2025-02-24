@@ -1,6 +1,10 @@
 [package]
 name = "cumulus-pallet-xcmp-queue"
+<<<<<<< HEAD
 version = "0.17.1"
+=======
+version = "0.7.1"
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 authors.workspace = true
 edition.workspace = true
 description = "Pallet to queue outbound and inbound XCMP messages."
