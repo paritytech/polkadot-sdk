@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Test the eth-rpc cli with the kitchensink node.
+//! This only includes basic transaction tests, most of the other tests are in the
+//! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
 	cli::{self, CliCommand},
@@ -22,7 +24,6 @@ use crate::{
 	EthRpcClient,
 };
 use clap::Parser;
-use ethabi::Token;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
@@ -46,17 +47,6 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 	})
 	.await
 	.expect("Hit timeout")
-}
-
-fn get_contract(name: &str) -> anyhow::Result<(Vec<u8>, ethabi::Contract)> {
-	let pvm_dir: std::path::PathBuf = "./examples/js/pvm".into();
-	let abi_dir: std::path::PathBuf = "./examples/js/abi".into();
-	let bytecode = std::fs::read(pvm_dir.join(format!("{}.polkavm", name)))?;
-
-	let abi = std::fs::read(abi_dir.join(format!("{}.json", name)))?;
-	let contract = ethabi::Contract::load(abi.as_slice())?;
-
-	Ok((bytecode, contract))
 }
 
 struct SharedResources {
@@ -211,54 +201,6 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn revert_call() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
-	let client = Arc::new(SharedResources::client().await);
-	let (bytecode, contract) = get_contract("Errors")?;
-	let receipt = TransactionBuilder::new(&client)
-		.input(bytecode)
-		.send()
-		.await?
-		.wait_for_receipt()
-		.await?;
-
-	let err = TransactionBuilder::new(&client)
-		.to(receipt.contract_address.unwrap())
-		.input(contract.function("triggerRequireError")?.encode_input(&[])?.to_vec())
-		.send()
-		.await
-		.unwrap_err();
-
-	let call_err = unwrap_call_err!(err.source().unwrap());
-	assert_eq!(call_err.message(), "execution reverted: revert: This is a require error");
-	assert_eq!(call_err.code(), 3);
-	Ok(())
-}
-
-#[tokio::test]
-async fn event_logs() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
-	let client = Arc::new(SharedResources::client().await);
-	let (bytecode, contract) = get_contract("EventExample")?;
-	let receipt = TransactionBuilder::new(&client)
-		.input(bytecode)
-		.send()
-		.await?
-		.wait_for_receipt()
-		.await?;
-
-	let receipt = TransactionBuilder::new(&client)
-		.to(receipt.contract_address.unwrap())
-		.input(contract.function("triggerEvent")?.encode_input(&[])?.to_vec())
-		.send()
-		.await?
-		.wait_for_receipt()
-		.await?;
-	assert_eq!(receipt.logs.len(), 1, "There should be one log.");
-	Ok(())
-}
-
-#[tokio::test]
 async fn invalid_transaction() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = Arc::new(SharedResources::client().await);
@@ -274,53 +216,6 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
 	assert_eq!(call_err.message(), "Invalid Transaction");
-
-	Ok(())
-}
-
-#[tokio::test]
-async fn native_evm_ratio_works() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
-	let client = Arc::new(SharedResources::client().await);
-	let (bytecode, contract) = get_contract("PiggyBank")?;
-	let contract_address = TransactionBuilder::new(&client)
-		.input(bytecode)
-		.send()
-		.await?
-		.wait_for_receipt()
-		.await?
-		.contract_address
-		.unwrap();
-
-	let value = 10_000_000_000_000_000_000u128; // 10 eth
-	TransactionBuilder::new(&client)
-		.to(contract_address)
-		.input(contract.function("deposit")?.encode_input(&[])?.to_vec())
-		.value(value.into())
-		.send()
-		.await?
-		.wait_for_receipt()
-		.await?;
-
-	let contract_value = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	assert_eq!(contract_value, value.into());
-
-	let withdraw_value = 1_000_000_000_000_000_000u128; // 1 eth
-	TransactionBuilder::new(&client)
-		.to(contract_address)
-		.input(
-			contract
-				.function("withdraw")?
-				.encode_input(&[Token::Uint(withdraw_value.into())])?
-				.to_vec(),
-		)
-		.send()
-		.await?
-		.wait_for_receipt()
-		.await?;
-
-	let contract_value = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	assert_eq!(contract_value, (value - withdraw_value).into());
 
 	Ok(())
 }
