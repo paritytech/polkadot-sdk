@@ -149,7 +149,7 @@ where
 		// Run inner block import.
 		let inner_import_result = self.inner.import_block(block).await?;
 
-		match self.backend.state_at(hash) {
+		match self.backend.state_at(hash, None) {
 			Ok(_) => {},
 			Err(_) => {
 				// The block is imported as part of some chain sync.

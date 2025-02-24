@@ -75,6 +75,7 @@ use sp_blockchain::{
 use sp_core::{
 	offchain::OffchainOverlayedChange,
 	storage::{well_known_keys, ChildInfo},
+	traits::CallContext,
 };
 use sp_database::Transaction;
 use sp_runtime::{
@@ -2136,7 +2137,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if block == Default::default() {
 			operation.old_state = self.empty_state();
 		} else {
-			operation.old_state = self.state_at(block)?;
+			operation.old_state = self.state_at(block, None)?;
 		}
 
 		operation.commit_state = true;
@@ -2469,7 +2470,11 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		&self.blockchain
 	}
 
-	fn state_at(&self, hash: Block::Hash) -> ClientResult<Self::State> {
+	fn state_at(
+		&self,
+		hash: Block::Hash,
+		call_context: Option<CallContext>,
+	) -> ClientResult<Self::State> {
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
@@ -2500,7 +2505,13 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					let db_state =
 						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
 							.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| {
-								if self.unlimited_local_cache {
+								if self.unlimited_local_cache &&
+									call_context
+										.map(|call_context| {
+											matches!(call_context, CallContext::Onchain)
+										})
+										.unwrap_or_default()
+								{
 									c.local_cache_unlimited()
 								} else {
 									c.local_cache()
@@ -2719,7 +2730,7 @@ pub(crate) mod tests {
 		let mut op = backend.begin_operation().unwrap();
 
 		let root = backend
-			.state_at(parent_hash)
+			.state_at(parent_hash, None)
 			.unwrap_or_else(|_| {
 				if parent_hash == Default::default() {
 					backend.empty_state()
@@ -2830,7 +2841,7 @@ pub(crate) mod tests {
 
 			db.commit_operation(op).unwrap();
 
-			let state = db.state_at(hash).unwrap();
+			let state = db.state_at(hash, None).unwrap();
 
 			assert_eq!(state.storage(&[1, 3, 5]).unwrap(), Some(vec![2, 4, 6]));
 			assert_eq!(state.storage(&[1, 2, 3]).unwrap(), Some(vec![9, 9, 9]));
@@ -2865,7 +2876,7 @@ pub(crate) mod tests {
 
 			db.commit_operation(op).unwrap();
 
-			let state = db.state_at(header.hash()).unwrap();
+			let state = db.state_at(header.hash(), None).unwrap();
 
 			assert_eq!(state.storage(&[1, 3, 5]).unwrap(), None);
 			assert_eq!(state.storage(&[1, 2, 3]).unwrap(), Some(vec![9, 9, 9]));
@@ -3655,7 +3666,8 @@ pub(crate) mod tests {
 			hash
 		};
 
-		let block0_hash = backend.state_at(hash0).unwrap().storage_hash(&b"test"[..]).unwrap();
+		let block0_hash =
+			backend.state_at(hash0, None).unwrap().storage_hash(&b"test"[..]).unwrap();
 
 		let hash1 = {
 			let mut op = backend.begin_operation().unwrap();
@@ -3694,7 +3706,8 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 		}
 
-		let block1_hash = backend.state_at(hash1).unwrap().storage_hash(&b"test"[..]).unwrap();
+		let block1_hash =
+			backend.state_at(hash1, None).unwrap().storage_hash(&b"test"[..]).unwrap();
 
 		assert_ne!(block0_hash, block1_hash);
 	}
