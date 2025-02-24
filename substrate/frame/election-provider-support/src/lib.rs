@@ -392,6 +392,9 @@ pub trait ElectionDataProvider {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn set_next_election(_to: u32) {}
 
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn fetch_page(_page: PageIndex) {}
+
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
 	/// else a noop.
 	///
@@ -576,6 +579,19 @@ pub trait SortedListProvider<AccountId> {
 	/// An iterator over the list, which can have `take` called on it.
 	fn iter() -> Box<dyn Iterator<Item = AccountId>>;
 
+	/// Lock the list.
+	///
+	/// This will prevent subsequent calls to
+	/// - [`Self::on_insert`]
+	/// - [`Self::on_update`]
+	/// - [`Self::on_decrease`]
+	/// - [`Self::on_increase`]
+	/// - [`Self::on_remove`]
+	fn lock();
+
+	/// Unlock the list. This will nullify the effects of [`Self::lock`].
+	fn unlock();
+
 	/// Returns an iterator over the list, starting right after from the given voter.
 	///
 	/// May return an error if `start` is invalid.
@@ -637,7 +653,7 @@ pub trait SortedListProvider<AccountId> {
 	/// new list, which can lead to too many storage accesses, exhausting the block weight.
 	fn unsafe_regenerate(
 		all: impl IntoIterator<Item = AccountId>,
-		score_of: Box<dyn Fn(&AccountId) -> Self::Score>,
+		score_of: Box<dyn Fn(&AccountId) -> Option<Self::Score>>,
 	) -> u32;
 
 	/// Remove all items from the list.
@@ -664,8 +680,10 @@ pub trait SortedListProvider<AccountId> {
 pub trait ScoreProvider<AccountId> {
 	type Score;
 
-	/// Get the current `Score` of `who`.
-	fn score(who: &AccountId) -> Self::Score;
+	/// Get the current `Score` of `who`, `None` if `who` is not present.
+	///
+	/// `None` can be interpreted as a signal that the voter should be removed from the list.
+	fn score(who: &AccountId) -> Option<Self::Score>;
 
 	/// For tests, benchmarks and fuzzing, set the `score`.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "fuzz", feature = "std"))]

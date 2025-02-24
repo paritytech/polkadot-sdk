@@ -93,6 +93,7 @@ parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
 
 # Bridges
+bp-asset-hub-next-westend = { workspace = true }
 bp-asset-hub-rococo = { workspace = true }
 bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
@@ -189,6 +190,7 @@ try-runtime = [
 ]
 std = [
 	"assets-common/std",
+	"bp-asset-hub-next-westend/std",
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
 	"bp-bridge-hub-rococo/std",

@@ -87,6 +87,7 @@ members = [
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
 	"cumulus/parachains/common",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-next-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo",
@@ -103,6 +104,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/networks/rococo-system",
 	"cumulus/parachains/integration-tests/emulated/networks/rococo-westend-system",
 	"cumulus/parachains/integration-tests/emulated/networks/westend-system",
+	"cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-next-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-rococo",
@@ -115,6 +117,7 @@ members = [
 	"cumulus/parachains/pallets/collective-content",
 	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/pallets/ping",
+	"cumulus/parachains/runtimes/assets/asset-hub-next-westend",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
 	"cumulus/parachains/runtimes/assets/common",
@@ -624,6 +627,8 @@ array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
 assert_matches = { version = "1.5.0" }
+asset-hub-next-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-next-westend" }
+asset-hub-next-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-next-westend" }
 asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo" }
 asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false }
 asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend" }
@@ -646,6 +651,7 @@ blake2b_simd = { version = "1.0.2", default-features = false }
 blake3 = { version = "1.5" }
 bounded-collections = { version = "0.2.3", default-features = false }
 bounded-vec = { version = "0.7" }
+bp-asset-hub-next-westend = { path = "bridges/chains/chain-asset-hub-next-westend", default-features = false }
 bp-asset-hub-rococo = { path = "bridges/chains/chain-asset-hub-rococo", default-features = false }
 bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", default-features = false }
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false }
@@ -935,6 +941,7 @@ pallet-default-config-example = { path = "substrate/frame/examples/default-confi
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
+pallet-election-provider-multi-block = { path = "substrate/frame/election-provider-multi-block", default-features = false }
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }

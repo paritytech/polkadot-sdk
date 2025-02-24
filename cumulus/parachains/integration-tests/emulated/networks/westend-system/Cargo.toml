@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 # Cumulus
+asset-hub-next-westend-emulated-chain = { workspace = true }
 asset-hub-westend-emulated-chain = { workspace = true }
 bridge-hub-westend-emulated-chain = { workspace = true }
 collectives-westend-emulated-chain = { workspace = true }

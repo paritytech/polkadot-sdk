@@ -1929,7 +1929,7 @@ mod offchain_worker_miner {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					crate::Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+					crate::Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 					crate::Event::PhaseTransitioned {
 						from: Phase::Snapshot(0),
 						to: Phase::Unsigned(25)

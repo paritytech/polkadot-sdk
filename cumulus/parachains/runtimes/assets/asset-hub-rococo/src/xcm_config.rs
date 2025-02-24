@@ -369,6 +369,7 @@ impl xcm_executor::Config for XcmConfig {
 	// assets identified by the same respective contracts locations.
 	type IsReserve = (
 		bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
+		bridging::to_westend::WestendOrEthereumAssetFromAssetHubNextWestend,
 		bridging::to_ethereum::EthereumAssetFromEthereum,
 	);
 	type IsTeleporter = TrustedTeleporters;
@@ -598,6 +599,10 @@ pub mod bridging {
 				GlobalConsensus(WestendNetwork::get()),
 				Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)
 			]);
+			pub AssetHubNextWestend: Location = Location::new(2, [
+				GlobalConsensus(WestendNetwork::get()),
+				Parachain(bp_asset_hub_next_westend::ASSET_HUB_NEXT_WESTEND_PARACHAIN_ID)
+			]);
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
@@ -606,6 +611,7 @@ pub mod bridging {
 					WestendNetwork::get(),
 					Some(alloc::vec![
 						AssetHubWestend::get().interior.split_global().expect("invalid configuration for AssetHubWestend").1,
+						AssetHubNextWestend::get().interior.split_global().expect("invalid configuration for AssetHubNextWestend").1,
 					]),
 					SiblingBridgeHub::get(),
 					// base delivery fee to local `BridgeHub`
@@ -635,6 +641,11 @@ pub mod bridging {
 		pub type WestendOrEthereumAssetFromAssetHubWestend = matching::RemoteAssetFromLocation<
 			(StartsWith<WestendEcosystem>, StartsWith<EthereumEcosystem>),
 			AssetHubWestend,
+		>;
+
+		pub type WestendOrEthereumAssetFromAssetHubNextWestend = matching::RemoteAssetFromLocation<
+			(StartsWith<WestendEcosystem>, StartsWith<EthereumEcosystem>),
+			AssetHubNextWestend,
 		>;
 	}
 

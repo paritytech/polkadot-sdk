@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub use asset_hub_next_westend_emulated_chain;
 pub use asset_hub_westend_emulated_chain;
 pub use bridge_hub_westend_emulated_chain;
 pub use collectives_westend_emulated_chain;
@@ -21,6 +22,7 @@ pub use penpal_emulated_chain;
 pub use people_westend_emulated_chain;
 pub use westend_emulated_chain;
 
+use asset_hub_next_westend_emulated_chain::AssetHubNextWestend;
 use asset_hub_westend_emulated_chain::AssetHubWestend;
 use bridge_hub_westend_emulated_chain::BridgeHubWestend;
 use collectives_westend_emulated_chain::CollectivesWestend;
@@ -39,6 +41,7 @@ decl_test_networks! {
 	pub struct WestendMockNet {
 		relay_chain = Westend,
 		parachains = vec![
+			AssetHubNextWestend,
 			AssetHubWestend,
 			BridgeHubWestend,
 			CollectivesWestend,
@@ -53,6 +56,7 @@ decl_test_networks! {
 
 decl_test_sender_receiver_accounts_parameter_types! {
 	WestendRelay { sender: ALICE, receiver: BOB },
+	AssetHubNextWestendPara { sender: ALICE, receiver: BOB },
 	AssetHubWestendPara { sender: ALICE, receiver: BOB },
 	BridgeHubWestendPara { sender: ALICE, receiver: BOB },
 	CollectivesWestendPara { sender: ALICE, receiver: BOB },

@@ -918,7 +918,7 @@ pub(crate) mod multi_block_impls {
 	);
 
 	parameter_types! {
-		pub const Pages: u32 = 32;
+		pub const Pages: u32 = 64;
 		// nominators snapshot size
 		pub VoterSnapshotPerBlock: u32 = 22500 / Pages::get();
 		// validator snapshot size
@@ -1044,7 +1044,7 @@ parameter_types! {
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
 		.voters_count(10_000.into()).targets_count(1_500.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(5_000.into()).targets_count(1_250.into()).build();
+		.voters_count(1000.into()).targets_count(100.into()).build();
 
 	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }

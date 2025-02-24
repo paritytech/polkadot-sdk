@@ -189,7 +189,8 @@ impl<T: Config> Pallet<T> {
 		ledger.update()?;
 		// update this staker in the sorted list, if they exist in it.
 		if T::VoterList::contains(stash) {
-			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash)).defensive();
+			// This might fail if the voter list is locked.
+			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash));
 		}
 
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: extra });
@@ -1039,15 +1040,13 @@ impl<T: Config> Pallet<T> {
 
 	/// Get all the voters associated with `page` that are eligible for the npos election.
 	///
-	/// `maybe_max_len` can impose a cap on the number of voters returned per page.
+	/// `bounds` can impose a cap on the number of voters returned per page.
 	///
 	/// Sets `MinimumActiveStake` to the minimum active nominator stake in the returned set of
 	/// nominators.
 	///
 	/// Note: in the context of the multi-page snapshot, we expect the *order* of `VoterList` and
 	/// `TargetList` not to change while the pages are being processed.
-	///
-	/// This function is self-weighing as [`DispatchClass::Mandatory`].
 	pub(crate) fn get_npos_voters(
 		bounds: DataProviderBounds,
 		status: &SnapshotStatus<T::AccountId>,
@@ -1154,10 +1153,6 @@ impl<T: Config> Pallet<T> {
 
 		// all_voters should have not re-allocated.
 		debug_assert!(all_voters.capacity() == page_len_prediction as usize);
-
-		// TODO remove this and further instances of this, it will now be recorded in the EPM-MB
-		// pallet.
-		Self::register_weight(T::WeightInfo::get_npos_voters(validators_taken, nominators_taken));
 
 		let min_active_stake: T::CurrencyBalance =
 			if all_voters.is_empty() { Zero::zero() } else { min_active_stake.into() };
@@ -1463,17 +1458,19 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 				let maybe_last = voters.last().map(|(x, _, _)| x).cloned();
 
 				if let Some(ref last) = maybe_last {
-					if maybe_last == T::VoterList::iter().last() {
-						// all voters in the voter list have been consumed.
-						status = SnapshotStatus::Consumed;
-					} else {
+					let has_next =
+						T::VoterList::iter_from(last).ok().and_then(|mut i| i.next()).is_some();
+					if has_next {
 						status = SnapshotStatus::Ongoing(last.clone());
+					} else {
+						status = SnapshotStatus::Consumed;
 					}
 				}
 			},
 			// do nothing.
 			(_, SnapshotStatus::Consumed) => (),
 		}
+
 		log!(
 			info,
 			"[page {}, status {:?} (stake?: {:?}), bounds {:?}] generated {} npos voters",
@@ -1487,6 +1484,12 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			bounds,
 			voters.len(),
 		);
+
+		match status {
+			SnapshotStatus::Ongoing(_) => T::VoterList::lock(),
+			_ => T::VoterList::unlock(),
+		}
+
 		VoterSnapshotStatus::<T>::put(status);
 
 		debug_assert!(!bounds.slice_exhausted(&voters));
@@ -1585,6 +1588,11 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			BenchmarkNextElection::key().to_vec().into(),
 		);
 		BenchmarkNextElection::set(&Some(to));
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn fetch_page(page: PageIndex) {
+		Self::do_elect_paged(page);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2000,8 +2008,11 @@ where
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
 
-	fn score(who: &T::AccountId) -> Self::Score {
-		Self::weight_of(who)
+	fn score(who: &T::AccountId) -> Option<Self::Score> {
+		Self::ledger(Stash(who.clone())).map(|l| l.active).map(|a| {
+			let issuance = asset::total_issuance::<T>();
+			T::CurrencyToVote::to_vote(a, issuance)
+		}).ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2050,6 +2061,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 			Err(())
 		}
 	}
+	fn lock() {}
+	fn unlock() {}
 	fn count() -> u32 {
 		Validators::<T>::count()
 	}
@@ -2073,7 +2086,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	}
 	fn unsafe_regenerate(
 		_: impl IntoIterator<Item = T::AccountId>,
-		_: Box<dyn Fn(&T::AccountId) -> Self::Score>,
+		_: Box<dyn Fn(&T::AccountId) -> Option<Self::Score>>,
 	) -> u32 {
 		// nothing to do upon regenerate.
 		0
@@ -2126,6 +2139,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 			Err(())
 		}
 	}
+	fn lock() {}
+	fn unlock() {}
 	fn count() -> u32 {
 		Nominators::<T>::count().saturating_add(Validators::<T>::count())
 	}
@@ -2149,7 +2164,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	}
 	fn unsafe_regenerate(
 		_: impl IntoIterator<Item = T::AccountId>,
-		_: Box<dyn Fn(&T::AccountId) -> Self::Score>,
+		_: Box<dyn Fn(&T::AccountId) -> Option<Self::Score>>,
 	) -> u32 {
 		// nothing to do upon regenerate.
 		0
