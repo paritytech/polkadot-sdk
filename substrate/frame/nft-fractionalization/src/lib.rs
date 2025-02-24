@@ -159,7 +159,6 @@ pub mod pallet {
 
 	/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
 	#[pallet::storage]
-	#[pallet::getter(fn nft_to_asset)]
 	pub type NftToAsset<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
