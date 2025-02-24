@@ -19,7 +19,7 @@ use crate::imports::*;
 
 use frame_system::RawOrigin;
 use xcm_runtime_apis::{
-	dry_run::runtime_decl_for_dry_run_api::DryRunApiV1,
+	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
 };
 
@@ -143,6 +143,7 @@ fn multi_hop_works() {
 		type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
 		type OriginCaller = <PenpalA as Chain>::OriginCaller;
 
+<<<<<<< HEAD
 		let call = RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
 			dest: Box::new(VersionedLocation::V4(destination.clone())),
 			beneficiary: Box::new(VersionedLocation::V4(beneficiary)),
@@ -154,6 +155,19 @@ fn multi_hop_works() {
 		let result = Runtime::dry_run_call(origin, call).unwrap();
 		assert_eq!(result.forwarded_xcms.len(), 1);
 		let (destination_to_query, messages_to_query) = &result.forwarded_xcms[0];
+=======
+		let call = transfer_assets_para_to_para_through_ah_call(test.clone());
+		let origin = OriginCaller::system(RawOrigin::Signed(sender.clone()));
+		let result = Runtime::dry_run_call(origin, call, xcm::prelude::XCM_VERSION).unwrap();
+		// We filter the result to get only the messages we are interested in.
+		let (destination_to_query, messages_to_query) = &result
+			.forwarded_xcms
+			.iter()
+			.find(|(destination, _)| {
+				*destination == VersionedLocation::from(Location::new(1, [Parachain(1000)]))
+			})
+			.unwrap();
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 		assert_eq!(messages_to_query.len(), 1);
 		remote_message = messages_to_query[0].clone();
 		let delivery_fees =

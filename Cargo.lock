@@ -753,9 +753,16 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "rococo-emulated-chain",
+<<<<<<< HEAD
  "sp-core",
  "staging-xcm",
  "testnet-parachains-constants",
+=======
+ "sp-core 28.0.0",
+ "sp-keyring 31.0.0",
+ "staging-xcm 7.0.1",
+ "testnet-parachains-constants 1.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -779,10 +786,18 @@ dependencies = [
  "polkadot-runtime-common",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
+<<<<<<< HEAD
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
  "xcm-runtime-apis",
+=======
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -795,6 +810,7 @@ dependencies = [
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -812,6 +828,25 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-metadata-hash-extension 0.1.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "log",
  "pallet-asset-conversion",
@@ -846,6 +881,7 @@ dependencies = [
  "primitive-types",
  "rococo-runtime-constants",
  "scale-info",
+<<<<<<< HEAD
  "snowbridge-router-primitives",
  "sp-api",
  "sp-block-builder",
@@ -867,6 +903,31 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-runtime-apis",
+=======
+ "serde_json",
+ "snowbridge-router-primitives 0.9.0",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-keyring 31.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "sp-weights 27.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -876,11 +937,20 @@ dependencies = [
  "asset-hub-westend-runtime",
  "cumulus-primitives-core",
  "emulated-integration-tests-common",
+<<<<<<< HEAD
  "frame-support",
  "parachains-common",
  "sp-core",
  "staging-xcm",
  "testnet-parachains-constants",
+=======
+ "frame-support 28.0.0",
+ "parachains-common 7.0.0",
+ "sp-core 28.0.0",
+ "sp-keyring 31.0.0",
+ "staging-xcm 7.0.1",
+ "testnet-parachains-constants 1.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "westend-emulated-chain",
 ]
 
@@ -889,9 +959,16 @@ name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
+<<<<<<< HEAD
  "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
+=======
+ "asset-test-utils 7.0.0",
+ "assets-common 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "emulated-integration-tests-common",
  "frame-metadata-hash-extension",
  "frame-support",
@@ -906,6 +983,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkadot-runtime-common",
  "sp-core",
  "sp-keyring",
@@ -914,6 +992,16 @@ dependencies = [
  "staging-xcm-executor",
  "westend-system-emulated-network",
  "xcm-runtime-apis",
+=======
+ "polkadot-runtime-common 7.0.0",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "westend-system-emulated-network",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -926,6 +1014,7 @@ dependencies = [
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -943,6 +1032,25 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-metadata-hash-extension 0.1.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "log",
  "pallet-asset-conversion",
@@ -977,6 +1085,7 @@ dependencies = [
  "polkadot-runtime-common",
  "primitive-types",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -997,17 +1106,51 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+=======
+ "serde_json",
+ "snowbridge-router-primitives 0.9.0",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-keyring 31.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "westend-runtime-constants 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
 name = "asset-test-utils"
 version = "17.0.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
  "frame-support",
  "frame-system",
+=======
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-core 0.7.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "pallet-asset-conversion",
  "pallet-assets",
@@ -1020,6 +1163,7 @@ dependencies = [
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
+<<<<<<< HEAD
  "sp-io",
  "sp-runtime",
  "staging-parachain-info",
@@ -1028,14 +1172,83 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "xcm-runtime-apis",
+=======
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "xcm-runtime-apis 0.1.1",
+]
+
+[[package]]
+name = "asset-test-utils"
+version = "18.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0324df9ce91a9840632e865dd3272bd20162023856f1b189b7ae58afa5c6b61"
+dependencies = [
+ "cumulus-pallet-parachain-system 0.17.1",
+ "cumulus-pallet-xcmp-queue 0.17.0",
+ "cumulus-primitives-core 0.16.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "pallet-assets 40.0.0",
+ "pallet-balances 39.0.0",
+ "pallet-collator-selection 19.0.0",
+ "pallet-session 38.0.0",
+ "pallet-timestamp 37.0.0",
+ "pallet-xcm 17.0.0",
+ "pallet-xcm-bridge-hub-router 0.15.1",
+ "parachains-common 18.0.0",
+ "parachains-runtimes-test-utils 17.0.0",
+ "parity-scale-codec",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "staging-parachain-info 0.17.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+ "substrate-wasm-builder 24.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
 name = "assets-common"
 version = "0.17.1"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-primitives-core",
  "frame-support",
+=======
+ "cumulus-primitives-core 0.7.0",
+ "frame-support 28.0.0",
+ "impl-trait-for-tuples",
+ "pallet-asset-conversion 10.0.0",
+ "pallet-assets 29.1.0",
+ "pallet-xcm 7.0.0",
+ "parachains-common 7.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "tracing",
+]
+
+[[package]]
+name = "assets-common"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4556e56f9206b129c3f96249cd907b76e8d7ad5265fe368c228c708789a451a3"
+dependencies = [
+ "cumulus-primitives-core 0.16.0",
+ "frame-support 38.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "impl-trait-for-tuples",
  "log",
  "pallet-asset-conversion",
@@ -1657,6 +1870,11 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
+=======
+ "sp-core 28.0.0",
+ "staging-xcm 7.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -1667,6 +1885,11 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
+=======
+ "sp-core 28.0.0",
+ "staging-xcm 7.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -1947,7 +2170,50 @@ dependencies = [
 name = "bp-xcm-bridge-hub"
 version = "0.3.0"
 dependencies = [
+<<<<<<< HEAD
  "sp-std",
+=======
+ "bp-header-chain 0.7.0",
+ "bp-polkadot-core 0.7.0",
+ "bp-runtime 0.7.0",
+ "frame-support 28.0.0",
+ "sp-api 26.0.0",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "bp-xcm-bridge-hub"
+version = "0.2.0"
+dependencies = [
+ "bp-messages 0.7.0",
+ "bp-runtime 0.7.0",
+ "frame-support 28.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+]
+
+[[package]]
+name = "bp-xcm-bridge-hub"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6909117ca87cb93703742939d5f0c4c93e9646d9cda22262e9709d68c929999b"
+dependencies = [
+ "bp-messages 0.18.0",
+ "bp-runtime 0.18.0",
+ "frame-support 38.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -1956,8 +2222,27 @@ version = "0.14.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-core",
  "sp-runtime",
+=======
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+]
+
+[[package]]
+name = "bp-xcm-bridge-hub-router"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9284820ca704f5c065563cad77d2e3d069a23cc9cb3a29db9c0de8dd3b173a87"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 34.0.0",
+ "sp-runtime 39.0.2",
+ "staging-xcm 14.2.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -1969,10 +2254,38 @@ dependencies = [
  "pallet-message-queue",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "snowbridge-core",
  "sp-core",
  "sp-runtime",
  "staging-xcm",
+=======
+ "snowbridge-core 0.2.0",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "bridge-hub-common"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b53c53d627e2da38f8910807944bf3121e154b5c0ac9e122995af9dfb13ed"
+dependencies = [
+ "cumulus-primitives-core 0.16.0",
+ "frame-support 38.0.0",
+ "pallet-message-queue 41.0.1",
+ "parity-scale-codec",
+ "scale-info",
+ "snowbridge-core 0.10.0",
+ "sp-core 34.0.0",
+ "sp-runtime 39.0.2",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -1982,17 +2295,30 @@ dependencies = [
  "bridge-hub-common",
  "bridge-hub-rococo-runtime",
  "emulated-integration-tests-common",
+<<<<<<< HEAD
  "frame-support",
  "parachains-common",
  "sp-core",
  "testnet-parachains-constants",
+=======
+ "frame-support 28.0.0",
+ "parachains-common 7.0.0",
+ "sp-core 28.0.0",
+ "sp-keyring 31.0.0",
+ "staging-xcm 7.0.1",
+ "testnet-parachains-constants 1.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-xcmp-queue",
+=======
+ "cumulus-pallet-xcmp-queue 0.7.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "emulated-integration-tests-common",
  "frame-support",
  "hex-literal",
@@ -2008,6 +2334,7 @@ dependencies = [
  "rococo-system-emulated-network",
  "rococo-westend-system-emulated-network",
  "scale-info",
+<<<<<<< HEAD
  "snowbridge-core",
  "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-pallet-outbound-queue",
@@ -2019,6 +2346,19 @@ dependencies = [
  "staging-xcm-executor",
  "testnet-parachains-constants",
  "xcm-runtime-apis",
+=======
+ "snowbridge-core 0.2.0",
+ "snowbridge-pallet-inbound-queue-fixtures 0.10.0",
+ "snowbridge-pallet-outbound-queue 0.2.0",
+ "snowbridge-pallet-system 0.2.0",
+ "snowbridge-router-primitives 0.9.0",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -2039,6 +2379,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
+<<<<<<< HEAD
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -2058,6 +2399,29 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "bp-xcm-bridge-hub-router 0.6.0",
+ "bridge-hub-common 0.1.0",
+ "bridge-hub-test-utils 0.7.0",
+ "bridge-runtime-common 0.7.0",
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-metadata-hash-extension 0.1.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "log",
  "pallet-aura",
@@ -2086,6 +2450,7 @@ dependencies = [
  "rococo-runtime-constants",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-outbound-queue-runtime-api",
@@ -2120,12 +2485,49 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-runtime-apis",
+=======
+ "serde_json",
+ "snowbridge-beacon-primitives 0.2.0",
+ "snowbridge-core 0.2.0",
+ "snowbridge-outbound-queue-runtime-api 0.2.0",
+ "snowbridge-pallet-ethereum-client 0.2.0",
+ "snowbridge-pallet-inbound-queue 0.2.0",
+ "snowbridge-pallet-outbound-queue 0.2.0",
+ "snowbridge-pallet-system 0.2.0",
+ "snowbridge-router-primitives 0.9.0",
+ "snowbridge-runtime-common 0.2.0",
+ "snowbridge-runtime-test-common 0.2.0",
+ "snowbridge-system-runtime-api 0.2.0",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
 name = "bridge-hub-test-utils"
 version = "0.17.0"
 dependencies = [
+<<<<<<< HEAD
  "asset-test-utils",
  "bp-header-chain",
  "bp-messages",
@@ -2138,6 +2540,20 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
+=======
+ "asset-test-utils 7.0.0",
+ "bp-header-chain 0.7.0",
+ "bp-messages 0.7.0",
+ "bp-parachains 0.7.0",
+ "bp-polkadot-core 0.7.0",
+ "bp-relayers 0.7.0",
+ "bp-runtime 0.7.0",
+ "bp-test-utils 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "impl-trait-for-tuples",
  "log",
  "pallet-balances",
@@ -2150,6 +2566,7 @@ dependencies = [
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-keyring",
@@ -2158,6 +2575,61 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "bridge-hub-test-utils"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de0b3aa5fd8481a06ca16e47fd3d2d9c6abe76b27d922ec8980a853f242173b3"
+dependencies = [
+ "asset-test-utils 18.0.0",
+ "bp-header-chain 0.18.1",
+ "bp-messages 0.18.0",
+ "bp-parachains 0.18.0",
+ "bp-polkadot-core 0.18.0",
+ "bp-relayers 0.18.0",
+ "bp-runtime 0.18.0",
+ "bp-test-utils 0.18.0",
+ "bp-xcm-bridge-hub 0.4.0",
+ "bridge-runtime-common 0.18.0",
+ "cumulus-pallet-parachain-system 0.17.1",
+ "cumulus-pallet-xcmp-queue 0.17.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-balances 39.0.0",
+ "pallet-bridge-grandpa 0.18.0",
+ "pallet-bridge-messages 0.18.0",
+ "pallet-bridge-parachains 0.18.0",
+ "pallet-bridge-relayers 0.18.0",
+ "pallet-timestamp 37.0.0",
+ "pallet-utility 38.0.0",
+ "pallet-xcm 17.0.0",
+ "pallet-xcm-bridge-hub 0.13.0",
+ "parachains-common 18.0.0",
+ "parachains-runtimes-test-utils 17.0.0",
+ "parity-scale-codec",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-keyring 39.0.0",
+ "sp-runtime 39.0.2",
+ "sp-tracing 17.0.1",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -2167,17 +2639,33 @@ dependencies = [
  "bridge-hub-common",
  "bridge-hub-westend-runtime",
  "emulated-integration-tests-common",
+<<<<<<< HEAD
  "frame-support",
  "parachains-common",
  "sp-core",
  "testnet-parachains-constants",
+=======
+ "frame-support 28.0.0",
+ "parachains-common 7.0.0",
+ "sp-core 28.0.0",
+ "sp-keyring 31.0.0",
+ "staging-xcm 7.0.1",
+ "testnet-parachains-constants 1.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
 name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-xcmp-queue",
+=======
+ "asset-hub-westend-runtime",
+ "bridge-hub-westend-runtime",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "emulated-integration-tests-common",
  "frame-support",
  "hex-literal",
@@ -2190,11 +2678,27 @@ dependencies = [
  "pallet-xcm-bridge-hub",
  "parachains-common",
  "rococo-westend-system-emulated-network",
+<<<<<<< HEAD
  "sp-core",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
  "xcm-runtime-apis",
+=======
+ "scale-info",
+ "snowbridge-core 0.2.0",
+ "snowbridge-pallet-inbound-queue 0.2.0",
+ "snowbridge-pallet-inbound-queue-fixtures 0.10.0",
+ "snowbridge-pallet-outbound-queue 0.2.0",
+ "snowbridge-pallet-system 0.2.0",
+ "snowbridge-router-primitives 0.9.0",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -2213,6 +2717,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
+<<<<<<< HEAD
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -2232,6 +2737,29 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "bp-xcm-bridge-hub-router 0.6.0",
+ "bridge-hub-common 0.1.0",
+ "bridge-hub-test-utils 0.7.0",
+ "bridge-runtime-common 0.7.0",
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-metadata-hash-extension 0.1.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "log",
  "pallet-aura",
@@ -2259,6 +2787,7 @@ dependencies = [
  "polkadot-runtime-common",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "snowbridge-runtime-test-common",
  "sp-api",
  "sp-block-builder",
@@ -2284,6 +2813,44 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+=======
+ "serde_json",
+ "snowbridge-beacon-primitives 0.2.0",
+ "snowbridge-core 0.2.0",
+ "snowbridge-outbound-queue-runtime-api 0.2.0",
+ "snowbridge-pallet-ethereum-client 0.2.0",
+ "snowbridge-pallet-inbound-queue 0.2.0",
+ "snowbridge-pallet-outbound-queue 0.2.0",
+ "snowbridge-pallet-system 0.2.0",
+ "snowbridge-router-primitives 0.9.0",
+ "snowbridge-runtime-common 0.2.0",
+ "snowbridge-runtime-test-common 0.2.0",
+ "snowbridge-system-runtime-api 0.2.0",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "tracing",
+ "westend-runtime-constants 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -2311,12 +2878,22 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-io",
  "sp-runtime",
  "sp-std",
  "sp-trie",
  "staging-xcm",
  "staging-xcm-builder",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "sp-trie 29.0.0",
+ "sp-weights 27.0.0",
+ "staging-xcm 7.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "static_assertions",
  "tuplex",
 ]
@@ -2822,8 +3399,13 @@ name = "collectives-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
+<<<<<<< HEAD
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
+=======
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-asset-rate",
@@ -2835,12 +3417,21 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+=======
+ "polkadot-runtime-common 7.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "westend-runtime-constants 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "westend-system-emulated-network",
 ]
 
@@ -2848,6 +3439,7 @@ dependencies = [
 name = "collectives-westend-runtime"
 version = "13.0.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -2864,6 +3456,24 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "log",
  "pallet-alliance",
@@ -2897,6 +3507,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
@@ -2919,6 +3530,33 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+=======
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "westend-runtime-constants 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -3100,6 +3738,7 @@ checksum = "f272d0c4cf831b4fa80ee529c7707f76585986e910e1fbce1d7921970bc1a241"
 name = "contracts-rococo-runtime"
 version = "0.18.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -3116,6 +3755,24 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "log",
  "pallet-aura",
@@ -3139,6 +3796,7 @@ dependencies = [
  "polkadot-runtime-common",
  "rococo-runtime-constants",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -3158,6 +3816,27 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-runtime-apis",
+=======
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -3192,9 +3871,46 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "coretime-rococo-emulated-chain"
+version = "0.1.0"
+dependencies = [
+ "coretime-rococo-runtime",
+ "cumulus-primitives-core 0.7.0",
+ "emulated-integration-tests-common",
+ "frame-support 28.0.0",
+ "parachains-common 7.0.0",
+ "sp-core 28.0.0",
+ "testnet-parachains-constants 1.0.0",
+]
+
+[[package]]
+name = "coretime-rococo-integration-tests"
+version = "0.0.0"
+dependencies = [
+ "cumulus-pallet-parachain-system 0.7.0",
+ "emulated-integration-tests-common",
+ "frame-support 28.0.0",
+ "pallet-balances 28.0.0",
+ "pallet-broker 0.6.0",
+ "pallet-identity 29.0.0",
+ "pallet-message-queue 31.0.0",
+ "polkadot-runtime-common 7.0.0",
+ "polkadot-runtime-parachains 7.0.0",
+ "rococo-runtime-constants 7.0.0",
+ "rococo-system-emulated-network",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 name = "coretime-rococo-runtime"
 version = "0.11.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -3212,6 +3928,25 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-metadata-hash-extension 0.1.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "log",
  "pallet-aura",
@@ -3237,6 +3972,7 @@ dependencies = [
  "rococo-runtime-constants",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -3256,12 +3992,69 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-runtime-apis",
+=======
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-keyring 31.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "xcm-runtime-apis 0.1.1",
+]
+
+[[package]]
+name = "coretime-westend-emulated-chain"
+version = "0.1.0"
+dependencies = [
+ "coretime-westend-runtime",
+ "cumulus-primitives-core 0.7.0",
+ "emulated-integration-tests-common",
+ "frame-support 28.0.0",
+ "parachains-common 7.0.0",
+ "sp-core 28.0.0",
+ "testnet-parachains-constants 1.0.0",
+]
+
+[[package]]
+name = "coretime-westend-integration-tests"
+version = "0.0.0"
+dependencies = [
+ "cumulus-pallet-parachain-system 0.7.0",
+ "emulated-integration-tests-common",
+ "frame-support 28.0.0",
+ "pallet-balances 28.0.0",
+ "pallet-broker 0.6.0",
+ "pallet-identity 29.0.0",
+ "pallet-message-queue 31.0.0",
+ "polkadot-runtime-common 7.0.0",
+ "polkadot-runtime-parachains 7.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+ "westend-runtime-constants 7.0.0",
+ "westend-system-emulated-network",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
 name = "coretime-westend-runtime"
 version = "0.11.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -3279,6 +4072,25 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-metadata-hash-extension 0.1.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "log",
  "pallet-aura",
@@ -3302,6 +4114,7 @@ dependencies = [
  "polkadot-runtime-common",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -3322,6 +4135,30 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+=======
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-keyring 31.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "westend-runtime-constants 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -3938,11 +4775,37 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-tracing",
  "staging-xcm",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+]
+
+[[package]]
+name = "cumulus-pallet-dmp-queue"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97263a8e758d201ebe81db7cea7b278b4fb869c11442f77acef70138ac1a252f"
+dependencies = [
+ "cumulus-primitives-core 0.16.0",
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "staging-xcm 14.2.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -3975,6 +4838,7 @@ dependencies = [
  "rand",
  "sc-client-api",
  "scale-info",
+<<<<<<< HEAD
  "sp-consensus-slots",
  "sp-core",
  "sp-crypto-hashing",
@@ -3990,6 +4854,23 @@ dependencies = [
  "sp-version",
  "staging-xcm",
  "staging-xcm-builder",
+=======
+ "sp-consensus-slots 0.32.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-externalities 0.25.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "sp-trie 29.0.0",
+ "sp-version 29.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "trie-db",
  "trie-standardmap",
 ]
@@ -4039,14 +4920,40 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-io",
  "sp-runtime",
  "staging-xcm",
+=======
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+]
+
+[[package]]
+name = "cumulus-pallet-xcm"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e49231f6cd8274438b078305dc8ce44c54c0d3f4a28e902589bcbaa53d954608"
+dependencies = [
+ "cumulus-primitives-core 0.16.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "staging-xcm 14.2.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
+<<<<<<< HEAD
 version = "0.16.1"
+=======
+version = "0.7.1"
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 dependencies = [
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
@@ -4062,12 +4969,47 @@ dependencies = [
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "scale-info",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "cumulus-pallet-xcmp-queue"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f788bdac9474795ea13ba791b55798fb664b2e3da8c3a7385b480c9af4e6539"
+dependencies = [
+ "bounded-collections",
+ "bp-xcm-bridge-hub-router 0.14.1",
+ "cumulus-primitives-core 0.16.0",
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "pallet-message-queue 41.0.1",
+ "parity-scale-codec",
+ "polkadot-runtime-common 17.0.0",
+ "polkadot-runtime-parachains 17.0.1",
+ "scale-info",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -4080,8 +5022,55 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-runtime",
  "staging-xcm",
+=======
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+]
+
+[[package]]
+name = "cumulus-ping"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f47128f797359951723e2d106a80e592d007bb7446c299958cdbafb1489ddbf0"
+dependencies = [
+ "cumulus-pallet-xcm 0.17.0",
+ "cumulus-primitives-core 0.16.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 39.0.2",
+ "staging-xcm 14.2.0",
+]
+
+[[package]]
+name = "cumulus-pov-validator"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.5.13",
+ "parity-scale-codec",
+ "polkadot-node-primitives",
+ "polkadot-parachain-primitives 6.0.0",
+ "polkadot-primitives 7.0.0",
+ "sc-executor 0.32.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-maybe-compressed-blob 11.0.0",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "cumulus-primitives-aura"
+version = "0.7.0"
+dependencies = [
+ "sp-api 26.0.0",
+ "sp-consensus-aura 0.32.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -4105,10 +5094,34 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
  "sp-runtime",
  "sp-trie",
  "staging-xcm",
+=======
+ "sp-api 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-trie 29.0.0",
+ "staging-xcm 7.0.1",
+]
+
+[[package]]
+name = "cumulus-primitives-core"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c6b5221a4a3097f2ebef66c84c1e6d7a0b8ec7e63f2bd5ae04c1e6d3fc7514e"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-core-primitives 15.0.0",
+ "polkadot-parachain-primitives 14.0.0",
+ "polkadot-primitives 16.0.0",
+ "scale-info",
+ "sp-api 34.0.0",
+ "sp-runtime 39.0.2",
+ "sp-trie 37.0.0",
+ "staging-xcm 14.2.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -4174,6 +5187,7 @@ dependencies = [
  "log",
  "pallet-asset-conversion",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "sp-io",
@@ -4181,6 +5195,31 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "polkadot-runtime-common 7.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "cumulus-primitives-utility"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bdcf4d46dd93f1e6d5dd6d379133566a44042ba6476d04bdcbdb4981c622ae4"
+dependencies = [
+ "cumulus-primitives-core 0.16.0",
+ "frame-support 38.0.0",
+ "log",
+ "pallet-asset-conversion 20.0.0",
+ "parity-scale-codec",
+ "polkadot-runtime-common 17.0.0",
+ "sp-runtime 39.0.2",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -5006,6 +6045,7 @@ dependencies = [
 name = "emulated-integration-tests-common"
 version = "13.2.0"
 dependencies = [
+<<<<<<< HEAD
  "asset-test-utils",
  "bp-messages",
  "bridge-runtime-common",
@@ -5019,18 +6059,44 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
+=======
+ "asset-test-utils 7.0.0",
+ "bp-messages 0.7.0",
+ "bp-xcm-bridge-hub 0.2.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-core 0.7.0",
+ "frame-support 28.0.0",
+ "pallet-assets 29.1.0",
+ "pallet-balances 28.0.0",
+ "pallet-bridge-messages 0.7.0",
+ "pallet-message-queue 31.0.0",
+ "pallet-xcm 7.0.0",
+ "pallet-xcm-bridge-hub 0.2.0",
+ "parachains-common 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "parity-scale-codec",
  "paste",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "sc-consensus-grandpa",
+<<<<<<< HEAD
  "sp-authority-discovery",
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core",
  "sp-runtime",
  "staging-xcm",
+=======
+ "sp-authority-discovery 26.0.0",
+ "sp-consensus-babe 0.32.0",
+ "sp-consensus-beefy 13.0.0",
+ "sp-core 28.0.0",
+ "sp-keyring 31.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "xcm-emulator",
 ]
 
@@ -6357,6 +7423,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -6375,6 +7442,26 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+=======
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -10144,6 +11231,7 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
+<<<<<<< HEAD
  "sp-api",
  "sp-core",
  "sp-io",
@@ -10153,6 +11241,16 @@ dependencies = [
  "sp-tracing",
  "staging-xcm",
  "staging-xcm-builder",
+=======
+ "sp-api 26.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "wasm-instrument",
  "wasmi 0.32.3",
  "wat",
@@ -10197,6 +11295,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "pretty_assertions",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
  "sp-core",
  "sp-io",
@@ -10207,6 +11306,63 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "xcm-simulator",
+=======
+ "sp-api 26.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "xcm-simulator 7.0.0",
+]
+
+[[package]]
+name = "pallet-contracts-mock-network"
+version = "14.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "309666537ed001c61a99f59fa7b98680f4a6e4e361ed3bc64f7b0237da3e3e06"
+dependencies = [
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "pallet-assets 40.0.0",
+ "pallet-balances 39.0.0",
+ "pallet-contracts 38.0.0",
+ "pallet-contracts-proc-macro 23.0.1",
+ "pallet-contracts-uapi 12.0.0",
+ "pallet-insecure-randomness-collective-flip 26.0.0",
+ "pallet-message-queue 41.0.1",
+ "pallet-proxy 38.0.0",
+ "pallet-timestamp 37.0.0",
+ "pallet-utility 38.0.0",
+ "pallet-xcm 17.0.0",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 14.0.0",
+ "polkadot-primitives 16.0.0",
+ "polkadot-runtime-parachains 17.0.1",
+ "scale-info",
+ "sp-api 34.0.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-keystore 0.40.0",
+ "sp-runtime 39.0.2",
+ "sp-tracing 17.0.1",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+ "xcm-simulator 17.0.0",
+]
+
+[[package]]
+name = "pallet-contracts-proc-macro"
+version = "18.0.0"
+dependencies = [
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -11214,9 +12370,287 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-runtime",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "pallet-remark"
+version = "38.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3e8cae0e20888065ec73dda417325c6ecabf797f4002329484b59c25ecc34d4"
+dependencies = [
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+]
+
+[[package]]
+name = "pallet-revive"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
+ "array-bytes",
+ "assert_matches",
+ "derive_more 0.99.17",
+ "environmental",
+ "ethabi-decode 2.0.0",
+ "ethereum-types 0.15.1",
+ "frame-benchmarking 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "hex",
+ "hex-literal",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-balances 28.0.0",
+ "pallet-proxy 28.0.0",
+ "pallet-revive-fixtures 0.1.0",
+ "pallet-revive-proc-macro 0.1.0",
+ "pallet-revive-uapi 0.1.0",
+ "pallet-timestamp 27.0.0",
+ "pallet-transaction-payment 28.0.0",
+ "pallet-utility 28.0.0",
+ "parity-scale-codec",
+ "paste",
+ "polkavm 0.21.0",
+ "polkavm-common 0.21.0",
+ "pretty_assertions",
+ "rlp 0.6.1",
+ "scale-info",
+ "secp256k1 0.28.2",
+ "serde",
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-consensus-babe 0.32.0",
+ "sp-consensus-slots 0.32.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "subxt-signer",
+]
+
+[[package]]
+name = "pallet-revive"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be02c94dcbadd206a910a244ec19b493aac793eed95e23d37d6699547234569f"
+dependencies = [
+ "bitflags 1.3.2",
+ "environmental",
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-balances 39.0.0",
+ "pallet-revive-fixtures 0.2.0",
+ "pallet-revive-proc-macro 0.1.1",
+ "pallet-revive-uapi 0.1.1",
+ "parity-scale-codec",
+ "paste",
+ "polkavm 0.10.0",
+ "scale-info",
+ "serde",
+ "sp-api 34.0.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+]
+
+[[package]]
+name = "pallet-revive-eth-rpc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.5.13",
+ "env_logger 0.11.3",
+ "futures",
+ "git2",
+ "hex",
+ "jsonrpsee",
+ "log",
+ "pallet-revive 0.1.0",
+ "pallet-revive-fixtures 0.1.0",
+ "parity-scale-codec",
+ "pretty_assertions",
+ "rlp 0.6.1",
+ "sc-cli",
+ "sc-rpc",
+ "sc-rpc-api",
+ "sc-service",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
+ "sqlx",
+ "static_init",
+ "substrate-cli-test-utils",
+ "substrate-prometheus-endpoint",
+ "subxt",
+ "subxt-signer",
+ "thiserror 1.0.65",
+ "tokio",
+]
+
+[[package]]
+name = "pallet-revive-fixtures"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "polkavm-linker 0.21.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "toml 0.8.19",
+]
+
+[[package]]
+name = "pallet-revive-fixtures"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a38c27f1531f36e5327f3084eb24cf1c9dd46b372e030c0169e843ce363105e"
+dependencies = [
+ "anyhow",
+ "frame-system 38.0.0",
+ "parity-wasm",
+ "polkavm-linker 0.10.0",
+ "sp-runtime 39.0.2",
+ "tempfile",
+ "toml 0.8.19",
+]
+
+[[package]]
+name = "pallet-revive-mock-network"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "pallet-assets 29.1.0",
+ "pallet-balances 28.0.0",
+ "pallet-message-queue 31.0.0",
+ "pallet-revive 0.1.0",
+ "pallet-revive-fixtures 0.1.0",
+ "pallet-revive-uapi 0.1.0",
+ "pallet-timestamp 27.0.0",
+ "pallet-xcm 7.0.0",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 6.0.0",
+ "polkadot-primitives 7.0.0",
+ "polkadot-runtime-parachains 7.0.0",
+ "pretty_assertions",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "xcm-simulator 7.0.0",
+]
+
+[[package]]
+name = "pallet-revive-mock-network"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60e74591d44dbd78db02c8593f5caa75bd61bcc4d63999302150223fb969ae37"
+dependencies = [
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "pallet-assets 40.0.0",
+ "pallet-balances 39.0.0",
+ "pallet-message-queue 41.0.1",
+ "pallet-proxy 38.0.0",
+ "pallet-revive 0.2.0",
+ "pallet-revive-proc-macro 0.1.1",
+ "pallet-revive-uapi 0.1.1",
+ "pallet-timestamp 37.0.0",
+ "pallet-utility 38.0.0",
+ "pallet-xcm 17.0.0",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 14.0.0",
+ "polkadot-primitives 16.0.0",
+ "polkadot-runtime-parachains 17.0.1",
+ "scale-info",
+ "sp-api 34.0.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-keystore 0.40.0",
+ "sp-runtime 39.0.2",
+ "sp-tracing 17.0.1",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+ "xcm-simulator 17.0.0",
+]
+
+[[package]]
+name = "pallet-revive-proc-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "pallet-revive-proc-macro"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cc16d1f7cee6a1ee6e8cd710e16230d59fb4935316c1704cf770e4d2335f8d4"
+dependencies = [
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "pallet-revive-uapi"
+version = "0.1.0"
+dependencies = [
+ "bitflags 1.3.2",
+ "pallet-revive-proc-macro 0.1.0",
+ "parity-scale-codec",
+ "paste",
+ "polkavm-derive 0.21.0",
+ "scale-info",
+]
+
+[[package]]
+name = "pallet-revive-uapi"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecb4686c8415619cc13e43fadef146ffff46424d9b4d037fe4c069de52708aac"
+dependencies = [
+ "bitflags 1.3.2",
+ "parity-scale-codec",
+ "paste",
+ "polkavm-derive 0.10.0",
+ "scale-info",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -11425,6 +12859,67 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "pallet-staking"
+version = "38.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c870d123f4f053b56af808a4beae1ffc4309a696e829796c26837936c926db3b"
+dependencies = [
+ "frame-benchmarking 38.0.0",
+ "frame-election-provider-support 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "pallet-authorship 38.0.0",
+ "pallet-session 38.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-application-crypto 38.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-staking 36.0.0",
+]
+
+[[package]]
+name = "pallet-staking-ah-client"
+version = "0.1.0"
+dependencies = [
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "log",
+ "pallet-authorship 28.0.0",
+ "pallet-session 28.0.0",
+ "pallet-staking 28.0.0",
+ "pallet-staking-rc-client",
+ "parity-scale-codec",
+ "polkadot-primitives 7.0.0",
+ "polkadot-runtime-parachains 7.0.0",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-staking 26.0.0",
+ "staging-xcm 7.0.1",
+]
+
+[[package]]
+name = "pallet-staking-rc-client"
+version = "0.1.0"
+dependencies = [
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-staking 26.0.0",
+ "staging-xcm 7.0.1",
+]
+
+[[package]]
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 name = "pallet-staking-reward-curve"
 version = "12.0.0"
 dependencies = [
@@ -11743,6 +13238,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -11751,6 +13247,40 @@ dependencies = [
  "staging-xcm-executor",
  "tracing",
  "xcm-runtime-apis",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "tracing",
+ "xcm-runtime-apis 0.1.1",
+]
+
+[[package]]
+name = "pallet-xcm"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b1760b6589e53f4ad82216c72c0e38fcb4df149c37224ab3301dc240c85d1d4"
+dependencies = [
+ "bounded-collections",
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "pallet-balances 39.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+ "xcm-runtime-apis 0.4.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -11768,12 +13298,40 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-common",
  "scale-info",
+<<<<<<< HEAD
  "sp-io",
  "sp-runtime",
  "sp-tracing",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "pallet-xcm-benchmarks"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2da423463933b42f4a4c74175f9e9295a439de26719579b894ce533926665e4a"
+dependencies = [
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -11788,8 +13346,39 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+<<<<<<< HEAD
  "pallet-balances",
  "pallet-bridge-messages",
+=======
+ "pallet-balances 28.0.0",
+ "pallet-bridge-messages 0.7.0",
+ "pallet-xcm-bridge-hub-router 0.5.0",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 6.0.0",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "pallet-xcm-bridge-hub"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5f9670065b7cba92771060a4a3925b6650ff67611443ccfccd5aa356f7d5aac"
+dependencies = [
+ "bp-messages 0.18.0",
+ "bp-runtime 0.18.0",
+ "bp-xcm-bridge-hub 0.4.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "pallet-bridge-messages 0.18.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -11812,12 +13401,48 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
  "staging-xcm",
  "staging-xcm-builder",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+]
+
+[[package]]
+name = "pallet-xcm-bridge-hub-router"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3b5347c826b721098ef39afb0d750e621c77538044fc1e865af1a8747824fdf"
+dependencies = [
+ "bp-xcm-bridge-hub-router 0.14.1",
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 34.0.0",
+ "sp-runtime 39.0.2",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+]
+
+[[package]]
+name = "parachain-template"
+version = "0.0.0"
+dependencies = [
+ "docify",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -11958,6 +13583,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "scale-info",
+<<<<<<< HEAD
  "sp-consensus-aura",
  "sp-core",
  "sp-io",
@@ -11966,6 +13592,47 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+=======
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+]
+
+[[package]]
+name = "parachains-common"
+version = "18.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9460a69f409be27c62161d8b4d36ffc32735d09a4f9097f9c789db0cca7196c"
+dependencies = [
+ "cumulus-primitives-core 0.16.0",
+ "cumulus-primitives-utility 0.17.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "pallet-asset-tx-payment 38.0.0",
+ "pallet-assets 40.0.0",
+ "pallet-authorship 38.0.0",
+ "pallet-balances 39.0.0",
+ "pallet-collator-selection 19.0.0",
+ "pallet-message-queue 41.0.1",
+ "pallet-xcm 17.0.0",
+ "parity-scale-codec",
+ "polkadot-primitives 16.0.0",
+ "scale-info",
+ "sp-consensus-aura 0.40.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "staging-parachain-info 0.17.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-executor 17.0.0",
+ "substrate-wasm-builder 24.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -11987,6 +13654,7 @@ dependencies = [
 name = "parachains-runtimes-test-utils"
 version = "16.0.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -11994,6 +13662,15 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "frame-support",
  "frame-system",
+=======
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-parachain-inherent 0.7.0",
+ "cumulus-test-relay-sproof-builder 0.7.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "pallet-balances",
  "pallet-collator-selection",
@@ -12002,6 +13679,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkadot-parachain-primitives",
  "sp-consensus-aura",
  "sp-core",
@@ -12013,6 +13691,50 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "xcm-runtime-apis",
+=======
+ "polkadot-parachain-primitives 6.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "xcm-runtime-apis 0.1.1",
+]
+
+[[package]]
+name = "parachains-runtimes-test-utils"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "287d2db0a2d19466caa579a69f021bfdc6fa352f382c8395dade58d1d0c6adfe"
+dependencies = [
+ "cumulus-pallet-parachain-system 0.17.1",
+ "cumulus-pallet-xcmp-queue 0.17.0",
+ "cumulus-primitives-core 0.16.0",
+ "cumulus-primitives-parachain-inherent 0.16.0",
+ "cumulus-test-relay-sproof-builder 0.16.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "pallet-balances 39.0.0",
+ "pallet-collator-selection 19.0.0",
+ "pallet-session 38.0.0",
+ "pallet-timestamp 37.0.0",
+ "pallet-xcm 17.0.0",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 14.0.0",
+ "sp-consensus-aura 0.40.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-tracing 17.0.1",
+ "staging-parachain-info 0.17.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-executor 17.0.0",
+ "substrate-wasm-builder 24.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -12227,14 +13949,21 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "penpal-runtime",
+<<<<<<< HEAD
  "sp-core",
  "staging-xcm",
+=======
+ "sp-core 28.0.0",
+ "sp-keyring 31.0.0",
+ "staging-xcm 7.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
 name = "penpal-runtime"
 version = "0.24.0"
 dependencies = [
+<<<<<<< HEAD
  "assets-common",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -12250,6 +13979,23 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "assets-common 0.7.0",
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "hex-literal",
  "log",
  "pallet-asset-tx-payment",
@@ -12272,6 +14018,7 @@ dependencies = [
  "polkadot-runtime-common",
  "scale-info",
  "smallvec",
+<<<<<<< HEAD
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -12290,6 +14037,27 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "xcm-runtime-apis",
+=======
+ "snowbridge-router-primitives 0.9.0",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -12320,15 +14088,22 @@ dependencies = [
  "polkadot-runtime-common",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
+<<<<<<< HEAD
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+=======
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
 name = "people-rococo-runtime"
 version = "0.11.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -12338,6 +14113,17 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "enumflags2",
  "frame-benchmarking",
  "frame-executive",
@@ -12370,6 +14156,7 @@ dependencies = [
  "rococo-runtime-constants",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -12389,6 +14176,29 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-runtime-apis",
+=======
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-keyring 31.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -12416,11 +14226,20 @@ dependencies = [
  "pallet-message-queue",
  "parachains-common",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
  "westend-runtime-constants",
+=======
+ "polkadot-runtime-common 7.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+ "westend-runtime",
+ "westend-runtime-constants 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "westend-system-emulated-network",
 ]
 
@@ -12428,6 +14247,7 @@ dependencies = [
 name = "people-westend-runtime"
 version = "0.11.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -12437,6 +14257,17 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "enumflags2",
  "frame-benchmarking",
  "frame-executive",
@@ -12468,6 +14299,7 @@ dependencies = [
  "polkadot-runtime-common",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -12488,6 +14320,30 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+=======
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-keyring 31.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+ "westend-runtime-constants 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -13701,6 +15557,7 @@ dependencies = [
  "seedling-runtime",
  "serde",
  "serde_json",
+<<<<<<< HEAD
  "shell-runtime",
  "sp-api",
  "sp-block-builder",
@@ -13720,6 +15577,12 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "staging-xcm",
+=======
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-keyring 31.0.0",
+ "staging-xcm 7.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
@@ -13854,6 +15717,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+<<<<<<< HEAD
  "slot-range-helper",
  "sp-api",
  "sp-core",
@@ -13868,6 +15732,72 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "slot-range-helper 7.0.0",
+ "sp-api 26.0.0",
+ "sp-core 28.0.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-keystore 0.34.0",
+ "sp-npos-elections 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-staking 26.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "static_assertions",
+]
+
+[[package]]
+name = "polkadot-runtime-common"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc15154ba5ca55d323fcf7af0f5dcd39d58dcb4dfac3d9b30404840a6d8bbde4"
+dependencies = [
+ "bitvec",
+ "frame-benchmarking 38.0.0",
+ "frame-election-provider-support 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "impl-trait-for-tuples",
+ "libsecp256k1",
+ "log",
+ "pallet-asset-rate 17.0.0",
+ "pallet-authorship 38.0.0",
+ "pallet-balances 39.0.0",
+ "pallet-broker 0.17.0",
+ "pallet-election-provider-multi-phase 37.0.0",
+ "pallet-fast-unstake 37.0.0",
+ "pallet-identity 38.0.0",
+ "pallet-session 38.0.0",
+ "pallet-staking 38.0.0",
+ "pallet-staking-reward-fn 22.0.0",
+ "pallet-timestamp 37.0.0",
+ "pallet-transaction-payment 38.0.0",
+ "pallet-treasury 37.0.0",
+ "pallet-vesting 38.0.0",
+ "parity-scale-codec",
+ "polkadot-primitives 16.0.0",
+ "polkadot-runtime-parachains 17.0.1",
+ "rustc-hex",
+ "scale-info",
+ "serde",
+ "serde_derive",
+ "slot-range-helper 15.0.0",
+ "sp-api 34.0.0",
+ "sp-core 34.0.0",
+ "sp-inherents 34.0.0",
+ "sp-io 38.0.0",
+ "sp-npos-elections 34.0.0",
+ "sp-runtime 39.0.2",
+ "sp-session 36.0.0",
+ "sp-staking 36.0.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "static_assertions",
 ]
 
@@ -13921,6 +15851,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
+<<<<<<< HEAD
  "sp-api",
  "sp-application-crypto",
  "sp-arithmetic",
@@ -13936,6 +15867,24 @@ dependencies = [
  "sp-tracing",
  "staging-xcm",
  "staging-xcm-executor",
+=======
+ "sp-api 26.0.0",
+ "sp-application-crypto 30.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-staking 26.0.0",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "static_assertions",
  "thousands",
 ]
@@ -13981,6 +15930,7 @@ dependencies = [
  "cumulus-client-parachain-inherent",
  "cumulus-client-pov-recovery",
  "cumulus-client-service",
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -13997,6 +15947,25 @@ dependencies = [
  "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-dmp-queue 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-parachain-system-proc-macro 0.6.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-solo-to-para 0.7.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-ping 0.7.0",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-parachain-inherent 0.7.0",
+ "cumulus-primitives-proof-size-hostfunction 0.2.0",
+ "cumulus-primitives-storage-weight-reclaim 1.0.0",
+ "cumulus-primitives-timestamp 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
@@ -14305,9 +16274,15 @@ dependencies = [
  "staging-node-inspect",
  "staging-parachain-info",
  "staging-tracking-allocator",
+<<<<<<< HEAD
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "subkey",
  "substrate-bip39",
  "substrate-build-script-utils",
@@ -14322,9 +16297,247 @@ dependencies = [
  "tracing-gum-proc-macro",
  "westend-runtime-constants",
  "xcm-emulator",
+<<<<<<< HEAD
  "xcm-procedural",
  "xcm-runtime-apis",
  "xcm-simulator",
+=======
+ "xcm-procedural 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+ "xcm-simulator 7.0.0",
+]
+
+[[package]]
+name = "polkadot-sdk"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb819108697967452fa6d8d96ab4c0d48cbaa423b3156499dcb24f1cf95d6775"
+dependencies = [
+ "asset-test-utils 18.0.0",
+ "assets-common 0.18.0",
+ "binary-merkle-tree 15.0.1",
+ "bp-header-chain 0.18.1",
+ "bp-messages 0.18.0",
+ "bp-parachains 0.18.0",
+ "bp-polkadot 0.16.0",
+ "bp-polkadot-core 0.18.0",
+ "bp-relayers 0.18.0",
+ "bp-runtime 0.18.0",
+ "bp-test-utils 0.18.0",
+ "bp-xcm-bridge-hub 0.4.0",
+ "bp-xcm-bridge-hub-router 0.14.1",
+ "bridge-hub-common 0.10.0",
+ "bridge-hub-test-utils 0.18.0",
+ "bridge-runtime-common 0.18.0",
+ "cumulus-pallet-aura-ext 0.17.0",
+ "cumulus-pallet-dmp-queue 0.17.0",
+ "cumulus-pallet-parachain-system 0.17.1",
+ "cumulus-pallet-parachain-system-proc-macro 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cumulus-pallet-session-benchmarking 19.0.0",
+ "cumulus-pallet-solo-to-para 0.17.0",
+ "cumulus-pallet-xcm 0.17.0",
+ "cumulus-pallet-xcmp-queue 0.17.0",
+ "cumulus-ping 0.17.0",
+ "cumulus-primitives-aura 0.15.0",
+ "cumulus-primitives-core 0.16.0",
+ "cumulus-primitives-parachain-inherent 0.16.0",
+ "cumulus-primitives-proof-size-hostfunction 0.10.0",
+ "cumulus-primitives-storage-weight-reclaim 8.0.0",
+ "cumulus-primitives-timestamp 0.16.0",
+ "cumulus-primitives-utility 0.17.0",
+ "cumulus-test-relay-sproof-builder 0.16.0",
+ "frame-benchmarking 38.0.0",
+ "frame-benchmarking-pallet-pov 28.0.0",
+ "frame-election-provider-support 38.0.0",
+ "frame-executive 38.0.0",
+ "frame-metadata-hash-extension 0.6.0",
+ "frame-support 38.0.0",
+ "frame-support-procedural 30.0.4",
+ "frame-system 38.0.0",
+ "frame-system-benchmarking 38.0.0",
+ "frame-system-rpc-runtime-api 34.0.0",
+ "frame-try-runtime 0.44.0",
+ "pallet-alliance 37.0.0",
+ "pallet-asset-conversion 20.0.0",
+ "pallet-asset-conversion-ops 0.6.0",
+ "pallet-asset-conversion-tx-payment 20.0.0",
+ "pallet-asset-rate 17.0.0",
+ "pallet-asset-tx-payment 38.0.0",
+ "pallet-assets 40.0.0",
+ "pallet-assets-freezer 0.5.0",
+ "pallet-atomic-swap 38.0.0",
+ "pallet-aura 37.0.0",
+ "pallet-authority-discovery 38.0.0",
+ "pallet-authorship 38.0.0",
+ "pallet-babe 38.0.0",
+ "pallet-bags-list 37.0.0",
+ "pallet-balances 39.0.0",
+ "pallet-beefy 39.0.0",
+ "pallet-beefy-mmr 39.0.0",
+ "pallet-bounties 37.0.0",
+ "pallet-bridge-grandpa 0.18.0",
+ "pallet-bridge-messages 0.18.0",
+ "pallet-bridge-parachains 0.18.0",
+ "pallet-bridge-relayers 0.18.0",
+ "pallet-broker 0.17.0",
+ "pallet-child-bounties 37.0.0",
+ "pallet-collator-selection 19.0.0",
+ "pallet-collective 38.0.0",
+ "pallet-collective-content 0.16.0",
+ "pallet-contracts 38.0.0",
+ "pallet-contracts-mock-network 14.0.0",
+ "pallet-conviction-voting 38.0.0",
+ "pallet-core-fellowship 22.0.0",
+ "pallet-delegated-staking 5.0.0",
+ "pallet-democracy 38.0.0",
+ "pallet-dev-mode 20.0.0",
+ "pallet-election-provider-multi-phase 37.0.0",
+ "pallet-election-provider-support-benchmarking 37.0.0",
+ "pallet-elections-phragmen 39.0.0",
+ "pallet-fast-unstake 37.0.0",
+ "pallet-glutton 24.0.0",
+ "pallet-grandpa 38.0.0",
+ "pallet-identity 38.0.0",
+ "pallet-im-online 37.0.0",
+ "pallet-indices 38.0.0",
+ "pallet-insecure-randomness-collective-flip 26.0.0",
+ "pallet-lottery 38.0.0",
+ "pallet-membership 38.0.0",
+ "pallet-message-queue 41.0.1",
+ "pallet-migrations 8.0.0",
+ "pallet-mixnet 0.14.0",
+ "pallet-mmr 38.0.0",
+ "pallet-multisig 38.0.0",
+ "pallet-nft-fractionalization 21.0.0",
+ "pallet-nfts 32.0.0",
+ "pallet-nfts-runtime-api 24.0.0",
+ "pallet-nis 38.0.0",
+ "pallet-node-authorization 38.0.0",
+ "pallet-nomination-pools 35.0.0",
+ "pallet-nomination-pools-benchmarking 36.0.0",
+ "pallet-nomination-pools-runtime-api 33.0.0",
+ "pallet-offences 37.0.0",
+ "pallet-offences-benchmarking 38.0.0",
+ "pallet-paged-list 0.16.0",
+ "pallet-parameters 0.9.0",
+ "pallet-preimage 38.0.0",
+ "pallet-proxy 38.0.0",
+ "pallet-ranked-collective 38.0.0",
+ "pallet-recovery 38.0.0",
+ "pallet-referenda 38.0.0",
+ "pallet-remark 38.0.0",
+ "pallet-revive 0.2.0",
+ "pallet-revive-fixtures 0.2.0",
+ "pallet-revive-mock-network 0.2.0",
+ "pallet-root-offences 35.0.0",
+ "pallet-root-testing 14.0.0",
+ "pallet-safe-mode 19.0.0",
+ "pallet-salary 23.0.0",
+ "pallet-scheduler 39.0.0",
+ "pallet-scored-pool 38.0.0",
+ "pallet-session 38.0.0",
+ "pallet-session-benchmarking 38.0.0",
+ "pallet-skip-feeless-payment 13.0.0",
+ "pallet-society 38.0.0",
+ "pallet-staking 38.0.0",
+ "pallet-staking-reward-fn 22.0.0",
+ "pallet-staking-runtime-api 24.0.0",
+ "pallet-state-trie-migration 40.0.0",
+ "pallet-statement 20.0.0",
+ "pallet-sudo 38.0.0",
+ "pallet-timestamp 37.0.0",
+ "pallet-tips 37.0.0",
+ "pallet-transaction-payment 38.0.0",
+ "pallet-transaction-payment-rpc-runtime-api 38.0.0",
+ "pallet-transaction-storage 37.0.0",
+ "pallet-treasury 37.0.0",
+ "pallet-tx-pause 19.0.0",
+ "pallet-uniques 38.0.0",
+ "pallet-utility 38.0.0",
+ "pallet-vesting 38.0.0",
+ "pallet-whitelist 37.0.0",
+ "pallet-xcm 17.0.0",
+ "pallet-xcm-benchmarks 17.0.0",
+ "pallet-xcm-bridge-hub 0.13.0",
+ "pallet-xcm-bridge-hub-router 0.15.1",
+ "parachains-common 18.0.0",
+ "parachains-runtimes-test-utils 17.0.0",
+ "polkadot-core-primitives 15.0.0",
+ "polkadot-parachain-primitives 14.0.0",
+ "polkadot-primitives 16.0.0",
+ "polkadot-runtime-common 17.0.0",
+ "polkadot-runtime-metrics 17.0.0",
+ "polkadot-runtime-parachains 17.0.1",
+ "polkadot-sdk-frame 0.7.0",
+ "sc-executor 0.40.1",
+ "slot-range-helper 15.0.0",
+ "snowbridge-beacon-primitives 0.10.0",
+ "snowbridge-core 0.10.0",
+ "snowbridge-ethereum 0.9.0",
+ "snowbridge-outbound-queue-merkle-tree 0.9.1",
+ "snowbridge-outbound-queue-runtime-api 0.10.0",
+ "snowbridge-pallet-ethereum-client 0.10.0",
+ "snowbridge-pallet-ethereum-client-fixtures 0.18.0",
+ "snowbridge-pallet-inbound-queue 0.10.0",
+ "snowbridge-pallet-inbound-queue-fixtures 0.18.0",
+ "snowbridge-pallet-outbound-queue 0.10.0",
+ "snowbridge-pallet-system 0.10.0",
+ "snowbridge-router-primitives 0.16.0",
+ "snowbridge-runtime-common 0.10.0",
+ "snowbridge-runtime-test-common 0.10.0",
+ "snowbridge-system-runtime-api 0.10.0",
+ "sp-api 34.0.0",
+ "sp-api-proc-macro 20.0.0",
+ "sp-application-crypto 38.0.0",
+ "sp-arithmetic 26.0.0",
+ "sp-authority-discovery 34.0.0",
+ "sp-block-builder 34.0.0",
+ "sp-consensus-aura 0.40.0",
+ "sp-consensus-babe 0.40.0",
+ "sp-consensus-beefy 22.1.0",
+ "sp-consensus-grandpa 21.0.0",
+ "sp-consensus-pow 0.40.0",
+ "sp-consensus-slots 0.40.1",
+ "sp-core 34.0.0",
+ "sp-core-hashing 16.0.0",
+ "sp-crypto-ec-utils 0.14.0",
+ "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-debug-derive 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-externalities 0.29.0",
+ "sp-genesis-builder 0.15.1",
+ "sp-inherents 34.0.0",
+ "sp-io 38.0.0",
+ "sp-keyring 39.0.0",
+ "sp-keystore 0.40.0",
+ "sp-metadata-ir 0.7.0",
+ "sp-mixnet 0.12.0",
+ "sp-mmr-primitives 34.1.0",
+ "sp-npos-elections 34.0.0",
+ "sp-offchain 34.0.0",
+ "sp-runtime 39.0.2",
+ "sp-runtime-interface 28.0.0",
+ "sp-session 36.0.0",
+ "sp-staking 36.0.0",
+ "sp-state-machine 0.43.0",
+ "sp-statement-store 18.0.0",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-storage 21.0.0",
+ "sp-timestamp 34.0.0",
+ "sp-tracing 17.0.1",
+ "sp-transaction-pool 34.0.0",
+ "sp-transaction-storage-proof 34.0.0",
+ "sp-trie 37.0.0",
+ "sp-version 37.0.0",
+ "sp-wasm-interface 21.0.1",
+ "sp-weights 31.0.0",
+ "staging-parachain-info 0.17.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+ "substrate-bip39 0.6.0",
+ "testnet-parachains-constants 10.0.0",
+ "xcm-runtime-apis 0.4.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -14404,8 +16617,15 @@ dependencies = [
  "sp-version",
  "staging-chain-spec-builder",
  "staging-node-cli",
+<<<<<<< HEAD
  "staging-parachain-info",
  "staging-xcm",
+=======
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "subkey",
  "substrate-wasm-builder",
  "xcm-docs",
@@ -14445,7 +16665,11 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
+<<<<<<< HEAD
 version = "18.0.1"
+=======
+version = "7.0.1"
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -14543,6 +16767,7 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
+<<<<<<< HEAD
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-consensus-grandpa",
@@ -14562,13 +16787,38 @@ dependencies = [
  "sp-version",
  "sp-weights",
  "staging-xcm",
+=======
+ "sp-consensus-babe 0.32.0",
+ "sp-consensus-beefy 13.0.0",
+ "sp-consensus-grandpa 13.0.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-mmr-primitives 26.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-timestamp 26.0.0",
+ "sp-tracing 16.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "sp-weights 27.0.0",
+ "staging-xcm 7.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror",
  "tracing-gum",
  "westend-runtime",
+<<<<<<< HEAD
  "westend-runtime-constants",
  "xcm-runtime-apis",
+=======
+ "westend-runtime-constants 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -14782,6 +17032,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
+<<<<<<< HEAD
  "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -14804,6 +17055,30 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+=======
+ "sp-api 26.0.0",
+ "sp-authority-discovery 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-babe 0.32.0",
+ "sp-consensus-beefy 13.0.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-mmr-primitives 26.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-staking 26.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-trie 29.0.0",
+ "sp-version 29.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "test-runtime-constants",
  "tiny-keccak",
 ]
@@ -15980,12 +18255,21 @@ dependencies = [
  "sp-consensus-grandpa",
  "sp-core",
  "sp-rpc",
+<<<<<<< HEAD
  "sp-runtime",
  "sp-std",
  "sp-trie",
  "sp-version",
  "staging-xcm",
  "thiserror",
+=======
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "sp-trie 29.0.0",
+ "sp-version 29.0.0",
+ "staging-xcm 7.0.1",
+ "thiserror 1.0.65",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "tokio",
 ]
 
@@ -16164,6 +18448,7 @@ dependencies = [
 name = "rococo-parachain-runtime"
 version = "0.16.0"
 dependencies = [
+<<<<<<< HEAD
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcm",
@@ -16188,10 +18473,37 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-xcm",
  "parachains-common",
+=======
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
+ "cumulus-ping 0.7.0",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "pallet-assets 29.1.0",
+ "pallet-aura 27.0.0",
+ "pallet-balances 28.0.0",
+ "pallet-message-queue 31.0.0",
+ "pallet-sudo 28.0.0",
+ "pallet-timestamp 27.0.0",
+ "pallet-transaction-payment 28.0.0",
+ "pallet-transaction-payment-rpc-runtime-api 28.0.0",
+ "pallet-xcm 7.0.0",
+ "parachains-common 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -16209,6 +18521,25 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+=======
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -16285,6 +18616,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "smallvec",
+<<<<<<< HEAD
  "sp-api",
  "sp-arithmetic",
  "sp-authority-discovery",
@@ -16310,11 +18642,42 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-authority-discovery 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-babe 0.32.0",
+ "sp-consensus-beefy 13.0.0",
+ "sp-consensus-grandpa 13.0.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-mmr-primitives 26.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-staking 26.0.0",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-trie 29.0.0",
+ "sp-version 29.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "static_assertions",
  "substrate-wasm-builder",
  "tiny-keccak",
  "tokio",
+<<<<<<< HEAD
  "xcm-runtime-apis",
+=======
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -16325,11 +18688,36 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-common",
  "smallvec",
+<<<<<<< HEAD
  "sp-core",
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
  "staging-xcm-builder",
+=======
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+]
+
+[[package]]
+name = "rococo-runtime-constants"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1ec6683a2e52fe3be2eaf942a80619abd99eb36e973c5ab4489a2f3b100db5c"
+dependencies = [
+ "frame-support 38.0.0",
+ "polkadot-primitives 16.0.0",
+ "polkadot-runtime-common 17.0.0",
+ "smallvec",
+ "sp-core 34.0.0",
+ "sp-runtime 39.0.2",
+ "sp-weights 31.0.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -19171,6 +21559,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "snowbridge-beacon-primitives",
  "sp-arithmetic",
  "sp-core",
@@ -19179,6 +21568,62 @@ dependencies = [
  "sp-std",
  "staging-xcm",
  "staging-xcm-builder",
+=======
+ "snowbridge-beacon-primitives 0.2.0",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "snowbridge-core"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6be61e4db95d1e253a1d5e722953b2d2f6605e5f9761f0a919e5d3fbdbff9da9"
+dependencies = [
+ "ethabi-decode 1.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "hex-literal",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 14.0.0",
+ "scale-info",
+ "serde",
+ "snowbridge-beacon-primitives 0.10.0",
+ "sp-arithmetic 26.0.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+]
+
+[[package]]
+name = "snowbridge-ethereum"
+version = "0.3.0"
+dependencies = [
+ "ethabi-decode 2.0.0",
+ "ethbloom 0.14.1",
+ "ethereum-types 0.15.1",
+ "hex-literal",
+ "parity-bytes",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "rlp 0.6.1",
+ "scale-info",
+ "serde",
+ "serde-big-array",
+ "serde_json",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -19298,6 +21743,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-pallet-ethereum-client",
@@ -19310,6 +21756,48 @@ dependencies = [
  "sp-std",
  "staging-xcm",
  "staging-xcm-executor",
+=======
+ "snowbridge-beacon-primitives 0.2.0",
+ "snowbridge-core 0.2.0",
+ "snowbridge-pallet-ethereum-client 0.2.0",
+ "snowbridge-pallet-inbound-queue-fixtures 0.10.0",
+ "snowbridge-router-primitives 0.9.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "snowbridge-pallet-inbound-queue"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2e6a9d00e60e3744e6b6f0c21fea6694b9c6401ac40e41340a96e561dcf1935"
+dependencies = [
+ "alloy-primitives 0.4.2",
+ "alloy-sol-types 0.4.2",
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "pallet-balances 39.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "snowbridge-beacon-primitives 0.10.0",
+ "snowbridge-core 0.10.0",
+ "snowbridge-pallet-inbound-queue-fixtures 0.18.0",
+ "snowbridge-router-primitives 0.16.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -19361,6 +21849,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "scale-info",
+<<<<<<< HEAD
  "snowbridge-core",
  "snowbridge-pallet-outbound-queue",
  "sp-core",
@@ -19370,6 +21859,37 @@ dependencies = [
  "sp-std",
  "staging-xcm",
  "staging-xcm-executor",
+=======
+ "snowbridge-core 0.2.0",
+ "snowbridge-pallet-outbound-queue 0.2.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "snowbridge-pallet-system"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "674db59b3c8013382e5c07243ad9439b64d81d2e8b3c4f08d752b55aa5de697e"
+dependencies = [
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "snowbridge-core 0.10.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -19397,12 +21917,75 @@ dependencies = [
  "frame-support",
  "log",
  "parity-scale-codec",
+<<<<<<< HEAD
  "snowbridge-core",
  "sp-arithmetic",
  "sp-std",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "scale-info",
+ "snowbridge-core 0.2.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "snowbridge-router-primitives"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "025f1e6805753821b1db539369f1fb183fd59fd5df7023f7633a4c0cfd3e62f9"
+dependencies = [
+ "frame-support 38.0.0",
+ "hex-literal",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "snowbridge-core 0.10.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+ "staging-xcm-executor 17.0.0",
+]
+
+[[package]]
+name = "snowbridge-runtime-common"
+version = "0.2.0"
+dependencies = [
+ "frame-support 28.0.0",
+ "log",
+ "parity-scale-codec",
+ "snowbridge-core 0.2.0",
+ "sp-arithmetic 23.0.0",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "snowbridge-runtime-common"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6093f0e73d6cfdd2eea8712155d1d75b5063fc9b1d854d2665b097b4bb29570d"
+dependencies = [
+ "frame-support 38.0.0",
+ "log",
+ "parity-scale-codec",
+ "snowbridge-core 0.10.0",
+ "sp-arithmetic 26.0.0",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -19421,6 +22004,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
+<<<<<<< HEAD
  "snowbridge-core",
  "snowbridge-pallet-ethereum-client",
  "snowbridge-pallet-ethereum-client-fixtures",
@@ -19433,6 +22017,52 @@ dependencies = [
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-executor",
+=======
+ "snowbridge-core 0.2.0",
+ "snowbridge-pallet-ethereum-client 0.2.0",
+ "snowbridge-pallet-ethereum-client-fixtures 0.9.0",
+ "snowbridge-pallet-outbound-queue 0.2.0",
+ "snowbridge-pallet-system 0.2.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-runtime 31.0.1",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "snowbridge-runtime-test-common"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "893480d6cde2489051c65efb5d27fa87efe047b3b61216d8e27bb2f0509b7faf"
+dependencies = [
+ "cumulus-pallet-parachain-system 0.17.1",
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "pallet-balances 39.0.0",
+ "pallet-collator-selection 19.0.0",
+ "pallet-message-queue 41.0.1",
+ "pallet-session 38.0.0",
+ "pallet-timestamp 37.0.0",
+ "pallet-utility 38.0.0",
+ "pallet-xcm 17.0.0",
+ "parachains-runtimes-test-utils 17.0.0",
+ "parity-scale-codec",
+ "snowbridge-core 0.10.0",
+ "snowbridge-pallet-ethereum-client 0.10.0",
+ "snowbridge-pallet-ethereum-client-fixtures 0.18.0",
+ "snowbridge-pallet-outbound-queue 0.10.0",
+ "snowbridge-pallet-system 0.10.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-keyring 39.0.0",
+ "sp-runtime 39.0.2",
+ "staging-parachain-info 0.17.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -19440,10 +22070,30 @@ name = "snowbridge-system-runtime-api"
 version = "0.9.0"
 dependencies = [
  "parity-scale-codec",
+<<<<<<< HEAD
  "snowbridge-core",
  "sp-api",
  "sp-std",
  "staging-xcm",
+=======
+ "snowbridge-core 0.2.0",
+ "sp-api 26.0.0",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+]
+
+[[package]]
+name = "snowbridge-system-runtime-api"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68b8b83b3db781c49844312a23965073e4d93341739a35eafe526c53b578d3b7"
+dependencies = [
+ "parity-scale-codec",
+ "snowbridge-core 0.10.0",
+ "sp-api 34.0.0",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -20618,7 +23268,11 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
+<<<<<<< HEAD
 version = "14.1.0"
+=======
+version = "7.0.1"
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -20658,12 +23312,46 @@ dependencies = [
  "polkadot-test-runtime",
  "primitive-types",
  "scale-info",
+<<<<<<< HEAD
  "sp-arithmetic",
  "sp-io",
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
  "staging-xcm-executor",
+=======
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+ "tracing",
+]
+
+[[package]]
+name = "staging-xcm-builder"
+version = "17.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3746adbbae27b1e6763f0cca622e15482ebcb94835a9e078c212dd7be896e35"
+dependencies = [
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-asset-conversion 20.0.0",
+ "pallet-transaction-payment 38.0.0",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 14.0.0",
+ "scale-info",
+ "sp-arithmetic 26.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-weights 31.0.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -20676,12 +23364,42 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
+=======
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
+ "staging-xcm 7.0.1",
+ "tracing",
+]
+
+[[package]]
+name = "staging-xcm-executor"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79dd0c5332a5318e58f0300b20768b71cf9427c906f94a743c9dc7c3ee9e7fa9"
+dependencies = [
+ "environmental",
+ "frame-benchmarking 38.0.0",
+ "frame-support 38.0.0",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic 26.0.0",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-weights 31.0.0",
+ "staging-xcm 14.2.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "tracing",
 ]
 
@@ -21583,9 +24301,31 @@ dependencies = [
  "polkadot-core-primitives",
  "rococo-runtime-constants",
  "smallvec",
+<<<<<<< HEAD
  "sp-runtime",
  "staging-xcm",
  "westend-runtime-constants",
+=======
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "westend-runtime-constants 7.0.0",
+]
+
+[[package]]
+name = "testnet-parachains-constants"
+version = "10.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94bceae6f7c89d47daff6c7e05f712551a01379f61b07d494661941144878589"
+dependencies = [
+ "cumulus-primitives-core 0.16.0",
+ "frame-support 38.0.0",
+ "polkadot-core-primitives 15.0.0",
+ "rococo-runtime-constants 17.0.0",
+ "smallvec",
+ "sp-runtime 39.0.2",
+ "staging-xcm 14.2.0",
+ "westend-runtime-constants 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -23073,6 +25813,7 @@ dependencies = [
  "parachains-common",
  "polkadot-primitives",
  "sc-consensus-grandpa",
+<<<<<<< HEAD
  "sp-authority-discovery",
  "sp-consensus-babe",
  "sp-consensus-beefy",
@@ -23082,6 +25823,17 @@ dependencies = [
  "westend-runtime",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+=======
+ "sp-authority-discovery 26.0.0",
+ "sp-consensus-babe 0.32.0",
+ "sp-consensus-beefy 13.0.0",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm 7.0.1",
+ "westend-runtime",
+ "westend-runtime-constants 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -23163,6 +25915,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "smallvec",
+<<<<<<< HEAD
  "sp-api",
  "sp-application-crypto",
  "sp-arithmetic",
@@ -23193,6 +25946,39 @@ dependencies = [
  "tokio",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+=======
+ "sp-api 26.0.0",
+ "sp-application-crypto 30.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-authority-discovery 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-babe 0.32.0",
+ "sp-consensus-beefy 13.0.0",
+ "sp-consensus-grandpa 13.0.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-mmr-primitives 26.0.0",
+ "sp-npos-elections 26.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-staking 26.0.0",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "tiny-keccak",
+ "tokio",
+ "westend-runtime-constants 7.0.0",
+ "xcm-runtime-apis 0.1.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -23203,11 +25989,36 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-common",
  "smallvec",
+<<<<<<< HEAD
  "sp-core",
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
  "staging-xcm-builder",
+=======
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+]
+
+[[package]]
+name = "westend-runtime-constants"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06861bf945aadac59f4be23b44c85573029520ea9bd3d6c9ab21c8b306e81cdc"
+dependencies = [
+ "frame-support 38.0.0",
+ "polkadot-primitives 16.0.0",
+ "polkadot-runtime-common 17.0.0",
+ "smallvec",
+ "sp-core 34.0.0",
+ "sp-runtime 39.0.2",
+ "sp-weights 31.0.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -23639,12 +26450,21 @@ dependencies = [
  "polkadot-sdk-frame",
  "scale-info",
  "simple-mermaid 0.1.0",
+<<<<<<< HEAD
  "sp-io",
  "sp-runtime",
  "sp-std",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
  "test-log",
  "xcm-simulator",
 ]
@@ -23668,6 +26488,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "paste",
+<<<<<<< HEAD
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
@@ -23680,6 +26501,20 @@ dependencies = [
  "sp-tracing",
  "staging-xcm",
  "staging-xcm-executor",
+=======
+ "polkadot-parachain-primitives 6.0.0",
+ "polkadot-primitives 7.0.0",
+ "polkadot-runtime-parachains 7.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -23697,6 +26532,7 @@ dependencies = [
  "polkadot-test-runtime",
  "polkadot-test-service",
  "sp-consensus",
+<<<<<<< HEAD
  "sp-core",
  "sp-keyring",
  "sp-runtime",
@@ -23704,6 +26540,28 @@ dependencies = [
  "sp-tracing",
  "staging-xcm",
  "staging-xcm-executor",
+=======
+ "sp-core 28.0.0",
+ "sp-keyring 31.0.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "xcm-procedural"
+version = "7.0.0"
+dependencies = [
+ "Inflector",
+ "frame-support 28.0.0",
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "staging-xcm 7.0.1",
+ "syn 2.0.98",
+ "trybuild",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -23720,7 +26578,11 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
+<<<<<<< HEAD
 version = "0.3.1"
+=======
+version = "0.1.1"
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 dependencies = [
  "env_logger 0.11.3",
  "frame-executive",
@@ -23733,12 +26595,37 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
  "sp-io",
  "sp-weights",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "sp-api 26.0.0",
+ "sp-io 30.0.0",
+ "sp-tracing 16.0.0",
+ "sp-weights 27.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "xcm-runtime-apis"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69d4473a5d157e4d437d9ebcb1b99f9693a64983877ee57d97005f0167869935"
+dependencies = [
+ "frame-support 38.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api 34.0.0",
+ "sp-weights 31.0.0",
+ "staging-xcm 14.2.0",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -23754,12 +26641,44 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
+<<<<<<< HEAD
  "sp-io",
  "sp-runtime",
  "sp-std",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+=======
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
+name = "xcm-simulator"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "058e21bfc3e1180bbd83cad3690d0e63f34f43ab309e338afe988160aa776fcf"
+dependencies = [
+ "frame-support 38.0.0",
+ "frame-system 38.0.0",
+ "parity-scale-codec",
+ "paste",
+ "polkadot-core-primitives 15.0.0",
+ "polkadot-parachain-primitives 14.0.0",
+ "polkadot-primitives 16.0.0",
+ "polkadot-runtime-parachains 17.0.1",
+ "scale-info",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.2",
+ "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "staging-xcm 14.2.0",
+ "staging-xcm-builder 17.0.1",
+ "staging-xcm-executor 17.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -23778,6 +26697,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -23787,6 +26707,17 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "xcm-simulator",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "xcm-simulator 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]
@@ -23807,6 +26738,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -23815,6 +26747,16 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "xcm-simulator",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.1",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "xcm-simulator 7.0.0",
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 ]
 
 [[package]]

@@ -1,7 +1,11 @@
 [package]
 name = "polkadot-service"
 rust-version = "1.60"
+<<<<<<< HEAD
 version = "18.0.1"
+=======
+version = "7.0.1"
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
