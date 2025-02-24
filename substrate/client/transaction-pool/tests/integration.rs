@@ -17,108 +17,107 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 // Testsuite of fatp integration tests.
-
+#[cfg(feature = "zombienet-tests")]
 pub mod zombienet;
 
-use txtesttool::execution_log::ExecutionLog;
-use zombienet::{default_zn_scenario_builder, NetworkSpawner};
+#[cfg(feature = "zombienet-tests")]
+mod zn_test {
+	use crate::zombienet::{
+		asset_hub_based_network_spec_paths::HIGH_POOL_LIMIT_FATP, default_zn_scenario_builder,
+		NetworkSpawner,
+	};
+	use txtesttool::execution_log::ExecutionLog;
 
-// Test which sends future and ready txs from many accounts
-// to an unlimited pool of a parachain collator based on the asset-hub-rococo runtime.
-#[tokio::test(flavor = "multi_thread")]
-async fn send_future_and_ready_from_many_accounts_to_parachain() {
-	let net = NetworkSpawner::from_toml_with_env_logger(
-		zombienet::asset_hub_based_network_spec_paths::HIGH_POOL_LIMIT_FATP,
-	)
-	.await
-	.unwrap();
+	// Test which sends future and ready txs from many accounts
+	// to an unlimited pool of a parachain collator based on the asset-hub-rococo runtime.
+	#[tokio::test(flavor = "multi_thread")]
+	async fn send_future_and_ready_from_many_accounts_to_parachain() {
+		let net = NetworkSpawner::from_toml_with_env_logger(HIGH_POOL_LIMIT_FATP).await.unwrap();
 
-	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("charlie").await.unwrap();
+		// Wait for the parachain collator to start block production.
+		net.wait_for_block_production("charlie").await.unwrap();
 
-	// Create future & ready txs executors.
-	let ws = net.node_rpc_uri("charlie").unwrap();
-	let future_scenario_executor = default_zn_scenario_builder(&net)
-		.with_rpc_uri(ws.clone())
-		.with_start_id(0)
-		.with_last_id(99)
-		.with_nonce_from(Some(100))
-		.with_txs_count(100)
-		.with_executor_id("future-txs-executor".to_string())
-		.build()
-		.await;
-	let ready_scenario_executor = default_zn_scenario_builder(&net)
-		.with_rpc_uri(ws)
-		.with_start_id(0)
-		.with_last_id(99)
-		.with_nonce_from(Some(0))
-		.with_txs_count(100)
-		.with_executor_id("ready-txs-executor".to_string())
-		.build()
-		.await;
+		// Create future & ready txs executors.
+		let ws = net.node_rpc_uri("charlie").unwrap();
+		let future_scenario_executor = default_zn_scenario_builder(&net)
+			.with_rpc_uri(ws.clone())
+			.with_start_id(0)
+			.with_last_id(99)
+			.with_nonce_from(Some(100))
+			.with_txs_count(100)
+			.with_executor_id("future-txs-executor".to_string())
+			.build()
+			.await;
+		let ready_scenario_executor = default_zn_scenario_builder(&net)
+			.with_rpc_uri(ws)
+			.with_start_id(0)
+			.with_last_id(99)
+			.with_nonce_from(Some(0))
+			.with_txs_count(100)
+			.with_executor_id("ready-txs-executor".to_string())
+			.build()
+			.await;
 
-	// Execute transactions and fetch the execution logs.
-	let (future_logs, ready_logs) = futures::future::join(
-		future_scenario_executor.execute(),
-		ready_scenario_executor.execute(),
-	)
-	.await;
-
-	let finalized_future =
-		future_logs.values().filter_map(|default_log| default_log.finalized()).count();
-	let finalized_ready =
-		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
-
-	assert_eq!(finalized_future, 10_000);
-	assert_eq!(finalized_ready, 10_000);
-}
-
-// Test which sends future and ready txs from many accounts
-// to an unlimited pool of a relaychain node based on `rococo-local` runtime.
-#[tokio::test(flavor = "multi_thread")]
-async fn send_future_and_ready_from_many_accounts_to_relaychain() {
-	let net = NetworkSpawner::from_toml_with_env_logger(
-		zombienet::asset_hub_based_network_spec_paths::HIGH_POOL_LIMIT_FATP,
-	)
-	.await
-	.unwrap();
-
-	// Wait for the paracha validator to start block production & have its genesis block finalized.
-	net.wait_for_block_production("alice").await.unwrap();
-
-	// Create future & ready txs executors.
-	let ws = net.node_rpc_uri("alice").unwrap();
-	let future_scenario_executor = default_zn_scenario_builder(&net)
-		.with_rpc_uri(ws.clone())
-		.with_start_id(0)
-		.with_last_id(99)
-		.with_nonce_from(Some(100))
-		.with_txs_count(100)
-		.with_executor_id("future-txs-executor".to_string())
-		.build()
-		.await;
-	let ready_scenario_executor = default_zn_scenario_builder(&net)
-		.with_rpc_uri(ws)
-		.with_start_id(0)
-		.with_last_id(99)
-		.with_nonce_from(Some(0))
-		.with_txs_count(100)
-		.with_executor_id("ready-txs-executor".to_string())
-		.build()
+		// Execute transactions and fetch the execution logs.
+		let (future_logs, ready_logs) = futures::future::join(
+			future_scenario_executor.execute(),
+			ready_scenario_executor.execute(),
+		)
 		.await;
 
-	// Execute transactions and fetch the execution logs.
-	let (future_logs, ready_logs) = futures::future::join(
-		future_scenario_executor.execute(),
-		ready_scenario_executor.execute(),
-	)
-	.await;
+		let finalized_future =
+			future_logs.values().filter_map(|default_log| default_log.finalized()).count();
+		let finalized_ready =
+			ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
 
-	let finalized_future =
-		future_logs.values().filter_map(|default_log| default_log.finalized()).count();
-	let finalized_ready =
-		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
+		assert_eq!(finalized_future, 10_000);
+		assert_eq!(finalized_ready, 10_000);
+	}
 
-	assert_eq!(finalized_future, 10_000);
-	assert_eq!(finalized_ready, 10_000);
+	// Test which sends future and ready txs from many accounts
+	// to an unlimited pool of a relaychain node based on `rococo-local` runtime.
+	#[tokio::test(flavor = "multi_thread")]
+	async fn send_future_and_ready_from_many_accounts_to_relaychain() {
+		let net = NetworkSpawner::from_toml_with_env_logger(HIGH_POOL_LIMIT_FATP).await.unwrap();
+
+		// Wait for the paracha validator to start block production & have its genesis block
+		// finalized.
+		net.wait_for_block_production("alice").await.unwrap();
+
+		// Create future & ready txs executors.
+		let ws = net.node_rpc_uri("alice").unwrap();
+		let future_scenario_executor = default_zn_scenario_builder(&net)
+			.with_rpc_uri(ws.clone())
+			.with_start_id(0)
+			.with_last_id(99)
+			.with_nonce_from(Some(100))
+			.with_txs_count(100)
+			.with_executor_id("future-txs-executor".to_string())
+			.build()
+			.await;
+		let ready_scenario_executor = default_zn_scenario_builder(&net)
+			.with_rpc_uri(ws)
+			.with_start_id(0)
+			.with_last_id(99)
+			.with_nonce_from(Some(0))
+			.with_txs_count(100)
+			.with_executor_id("ready-txs-executor".to_string())
+			.build()
+			.await;
+
+		// Execute transactions and fetch the execution logs.
+		let (future_logs, ready_logs) = futures::future::join(
+			future_scenario_executor.execute(),
+			ready_scenario_executor.execute(),
+		)
+		.await;
+
+		let finalized_future =
+			future_logs.values().filter_map(|default_log| default_log.finalized()).count();
+		let finalized_ready =
+			ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
+
+		assert_eq!(finalized_future, 10_000);
+		assert_eq!(finalized_ready, 10_000);
+	}
 }

@@ -62,3 +62,6 @@ zombienet-sdk = { workspace = true }
 [[bench]]
 name = "basics"
 harness = false
+
+[features]
+zombienet-tests = []
