@@ -21,8 +21,7 @@
 
 use super::*;
 use alloc::vec;
-use frame_benchmarking::v2::*;
-use frame_system::{EventRecord, Pallet as System, RawOrigin};
+use frame::benchmarking::prelude::*;
 
 #[cfg(test)]
 use crate::Pallet as Remark;
