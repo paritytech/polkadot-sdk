@@ -361,20 +361,20 @@ pub mod test_log_capture {
 	///
 	/// # Examples
 	/// ```
-	/// use sp_tracing::capture;
+	/// use sp_tracing::capture_test_logs;
 	/// use sp_tracing::tracing::info;
 	///
-	/// let log_capture = capture!({
+	/// let log_capture = capture_test_logs!({
 	///     info!("Captured log message");
 	/// });
 	///
 	/// assert!(log_capture.contains("Captured log message"));
 	/// ```
 	#[macro_export]
-	macro_rules! capture {
+	macro_rules! capture_test_logs {
 		// Case when max_level is provided
 		($max_level:expr, $test:block) => {{
-			let log_capture = $crate::test_log_capture::LogCapture::new();
+			let log_capture = $crate:test_log_capturee::LogCapture::new();
 			let subscriber = sp_tracing::tracing_subscriber::fmt()
 				.with_max_level($max_level)
 				.with_writer(log_capture.writer())
@@ -387,7 +387,7 @@ pub mod test_log_capture {
 
 		// Case when max_level is omitted (defaults to DEBUG)
 		($test:block) => {{
-			capture!(sp_tracing::tracing::Level::DEBUG, $test)
+			capture_test_logs!(sp_tracing::tracing::Level::DEBUG, $test)
 		}};
 	}
 }

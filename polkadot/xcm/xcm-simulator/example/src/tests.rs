@@ -162,13 +162,13 @@ fn reserve_transfer() {
 
 #[test]
 fn reserve_transfer_with_error() {
-	use sp_tracing::{capture, tracing::Level};
+	use sp_tracing::{capture_test_logs, tracing::Level};
 
 	// Reset the test network
 	MockNet::reset();
 
 	// Execute XCM Transfer and Capture Logs
-	let log_capture = capture!(Level::ERROR, {
+	let log_capture = capture_test_logs!(Level::ERROR, {
 		let invalid_dest = Box::new(Parachain(9999).into());
 		let withdraw_amount = 123;
 
