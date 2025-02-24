@@ -273,8 +273,11 @@ impl<
 	}
 }
 
-impl<T: SigningTypes + CreateBare<LocalCall>, C: AppCrypto<T::Public, T::Signature>, LocalCall>
-	SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAny>
+impl<
+		T: SigningTypes + CreateInherent<LocalCall>,
+		C: AppCrypto<T::Public, T::Signature>,
+		LocalCall,
+	> SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAny>
 {
 	type Result = Option<(Account<T>, Result<(), ()>)>;
 
@@ -296,8 +299,11 @@ impl<T: SigningTypes + CreateBare<LocalCall>, C: AppCrypto<T::Public, T::Signatu
 	}
 }
 
-impl<T: SigningTypes + CreateBare<LocalCall>, C: AppCrypto<T::Public, T::Signature>, LocalCall>
-	SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAll>
+impl<
+		T: SigningTypes + CreateInherent<LocalCall>,
+		C: AppCrypto<T::Public, T::Signature>,
+		LocalCall,
+	> SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAll>
 {
 	type Result = Vec<(Account<T>, Result<(), ()>)>;
 
@@ -483,10 +489,23 @@ pub trait CreateSignedTransaction<LocalCall>:
 }
 
 /// Interface for creating an inherent.
-#[deprecated(note = "Use `CreateBare` instead")]
+///
+/// This trait is also used to create a bare extrinsic. In runtime primitives, an inherent and an
+/// unsigned transaction are encoded to the same type: A `Bare` extrinsic, so by default the method
+/// `create_bare` is implemented to call `create_inherent`. For other specific usages the default
+/// implementation can be overridden.
 pub trait CreateInherent<LocalCall>: CreateTransactionBase<LocalCall> {
 	/// Create an inherent.
 	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic;
+
+	/// Create a bare extrinsic.
+	///
+	/// Use `CreateBare::create_bare` instead. This method is defined in `CreateInherent` to avoid a
+	/// breaking change but it is preferable to use `CreateBare::create_bare` instead, `CreateBare`
+	/// trait is automatically implemented for `CreateInherent`.
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Self::create_inherent(call)
+	}
 }
 
 /// Interface for creating a bare extrinsic.
@@ -497,6 +516,12 @@ pub trait CreateBare<LocalCall>: CreateTransactionBase<LocalCall> {
 	///
 	/// Bare extrinsic are used for inherent extrinsic and unsigned transaction.
 	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic;
+}
+
+impl<LocalCall, T: CreateInherent<LocalCall>> CreateBare<LocalCall> for T {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		<Self as CreateInherent<LocalCall>>::create_bare(call)
+	}
 }
 
 /// A message signer.
@@ -576,7 +601,7 @@ pub trait SendSignedTransaction<
 }
 
 /// Submit an unsigned transaction onchain with a signed payload
-pub trait SendUnsignedTransaction<T: SigningTypes + CreateBare<LocalCall>, LocalCall> {
+pub trait SendUnsignedTransaction<T: SigningTypes + CreateInherent<LocalCall>, LocalCall> {
 	/// A submission result.
 	///
 	/// Should contain the submission result and the account(s) that signed the payload.
@@ -645,8 +670,8 @@ mod tests {
 		type RuntimeCall = RuntimeCall;
 	}
 
-	impl CreateBare<RuntimeCall> for TestRuntime {
-		fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+	impl CreateInherent<RuntimeCall> for TestRuntime {
+		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
 			Extrinsic::new_bare(call)
 		}
 	}
