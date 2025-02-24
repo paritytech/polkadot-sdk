@@ -270,13 +270,10 @@ where
 			let keys = client.storage_keys(storage_root, None, None)?.collect::<Vec<_>>();
 			let total_count = keys.len();
 			let chunks = (1..=10).map(|i| (i * total_count / 10, i * 10)).collect::<Vec<_>>();
-			let mut current_count = 0;
 
 			info!("Populating trie cache with {} keys started", total_count);
-
-			for key in keys {
-				current_count += 1;
-				if let Some((_, percentage)) = chunks.iter().find(|(i, _)| *i == current_count) {
+			for (index, key) in keys.into_iter().enumerate() {
+				if let Some((_, percentage)) = chunks.iter().find(|(i, _)| *i == index + 1) {
 					info!("Read {}% of keys", percentage);
 				}
 				match child_info(key.0.clone()) {
