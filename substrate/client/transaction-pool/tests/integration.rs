@@ -97,7 +97,6 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 		.with_executor_id("future-txs-executor".to_string())
 		.build()
 		.await;
-	let ws = net.node_rpc_uri("bob").unwrap();
 	let ready_scenario_executor = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws)
 		.with_start_id(0)
