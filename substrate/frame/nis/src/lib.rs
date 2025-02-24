@@ -328,16 +328,12 @@ pub mod pallet {
 		/// - Custom timekeeping mechanisms (e.g. mock timelines for testing)
 		/// - Composite block numbers (e.g. parachain blocks vs relay chain blocks)
 		///
-		/// # Example: Using Relay Chain Block Numbers
+		/// # Example: Using the local chain block numbers
 		/// ```rust,ignore
 		/// impl Config for Runtime {
 		///     type BlockNumberProvider = frame_system::Pallet<Runtime>;
 		/// }
 		/// ```
-		///
-		/// # Warning
-		/// Only implement custom providers if you need alternative timekeeping - most
-		/// pallets should use the system block number through `frame_system::Pallet<Runtime>`.
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber: Default>;
 
 		/// Setup the state for benchmarking.
@@ -435,6 +431,7 @@ pub mod pallet {
 	pub type Receipts<T> =
 		StorageMap<_, Blake2_128Concat, ReceiptIndex, ReceiptRecordOf<T>, OptionQuery>;
 
+	/// Get last processed intake block.
 	#[pallet::storage]
 	pub type LastProcessedBlock<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
@@ -553,9 +550,7 @@ pub mod pallet {
 				WeightCounter { used: Weight::zero(), limit: T::MaxIntakeWeight::get() };
 			let last_processed = LastProcessedBlock::<T>::get();
 			let intake_period = T::IntakePeriod::get();
-			if intake_period.is_zero() ||
-				block_number.saturating_sub(last_processed) >= intake_period
-			{
+			if block_number.saturating_sub(last_processed) >= intake_period {
 				if weight_counter.check_accrue(T::WeightInfo::process_queues()) {
 					LastProcessedBlock::<T>::put(block_number);
 					weight_counter.check_accrue(T::DbWeight::get().writes(1));

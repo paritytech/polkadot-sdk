@@ -1,3 +1,20 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use crate::*;
 use core::marker::PhantomData;
 use frame_support::{
@@ -38,15 +55,13 @@ pub mod switch_block_number_provider {
 	/// The log target.
 	const TARGET: &'static str = "runtime::nis::migration::change_block_number_provider";
 
-	pub trait BlockNumberConversion<Old, New> {
-		fn convert_block_number(block_number: Old) -> New;
+	pub trait BlockNumberConversion<T: Config> {
+		fn convert_block_number(block_number: SystemBlockNumberFor<T>) -> BlockNumberFor<T>;
 	}
 
 	pub struct MigrateBlockNumber<T, BlockConverter>(PhantomData<T>, PhantomData<BlockConverter>);
-	impl<
-			T: Config,
-			BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T>>,
-		> OnRuntimeUpgrade for MigrateBlockNumber<T, BlockConverter>
+	impl<T: Config, BlockConverter: BlockNumberConversion<T>> OnRuntimeUpgrade
+		for MigrateBlockNumber<T, BlockConverter>
 	{
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -104,49 +119,40 @@ pub mod switch_block_number_provider {
 
 	pub fn migrate_block_number<T, BlockConverter>() -> Weight
 	where
-		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T>>,
+		BlockConverter: BlockNumberConversion<T>,
 		T: Config,
 	{
-		let on_chain_version = Pallet::<T>::on_chain_storage_version();
-		let mut weight = T::DbWeight::get().reads(1);
-		log::info!(
-			target: TARGET,
-			"running migration with onchain storage version {:?}", on_chain_version
-		);
+		let mut weight = Weight::zero();
 
-		if on_chain_version == 0 {
-			Receipts::<T>::translate(|index, old_receipt: v0::OldReceiptRecordOf<T>| {
-				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-				log::info!(target: TARGET, "migrating reciept record expiry #{:?}", &index);
-				let new_expiry = BlockConverter::convert_block_number(old_receipt.expiry);
-				Some(ReceiptRecord {
-					proportion: old_receipt.proportion,
-					owner: old_receipt.owner,
-					expiry: new_expiry,
-				})
-			});
+		Receipts::<T>::translate(|index, old_receipt: v0::OldReceiptRecordOf<T>| {
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+			log::info!(target: TARGET, "migrating reciept record expiry #{:?}", &index);
+			let new_expiry = BlockConverter::convert_block_number(old_receipt.expiry);
+			Some(ReceiptRecord {
+				proportion: old_receipt.proportion,
+				owner: old_receipt.owner,
+				expiry: new_expiry,
+			})
+		});
 
-			// Read old value
-			let old_summary = v0::Summary::<T>::get();
+		// Read old value
+		let old_summary = v0::Summary::<T>::get();
 
-			let new_last_period = BlockConverter::convert_block_number(old_summary.last_period);
-			// Convert to new format
-			let new_summary = SummaryRecord {
-				proportion_owed: old_summary.proportion_owed,
-				index: old_summary.index,
-				thawed: old_summary.thawed,
-				last_period: new_last_period,
-				receipts_on_hold: old_summary.receipts_on_hold,
-			};
-			log::info!(target: TARGET, "migrating summary record, current thaw period's beginning.");
-			// Write new value
-			Summary::<T>::put(new_summary);
-			// Return weight (adjust based on operations)
-			weight.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-		} else {
-			log::info!(target: TARGET, "skipping migration from on-chain version {:?} to change_block_number_provider", on_chain_version);
-			weight
-		}
+		let new_last_period = BlockConverter::convert_block_number(old_summary.last_period);
+		// Convert to new format
+		let new_summary = SummaryRecord {
+			proportion_owed: old_summary.proportion_owed,
+			index: old_summary.index,
+			thawed: old_summary.thawed,
+			last_period: new_last_period,
+			receipts_on_hold: old_summary.receipts_on_hold,
+		};
+		log::info!(target: TARGET, "migrating summary record, current thaw period's beginning.");
+		// Write new value
+		Summary::<T>::put(new_summary);
+		// Return weight (adjust based on operations)
+		weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+		weight
 	}
 }
 
@@ -161,7 +167,7 @@ mod tests {
 
 	pub struct TestConverter;
 
-	impl BlockNumberConversion<SystemBlockNumberFor<Test>, BlockNumberFor<Test>> for TestConverter {
+	impl BlockNumberConversion<Test> for TestConverter {
 		fn convert_block_number(block_number: SystemBlockNumberFor<Test>) -> BlockNumberFor<Test> {
 			block_number
 		}
@@ -239,23 +245,6 @@ mod tests {
 			#[cfg(feature = "try-runtime")]
 			MigrateBlockNumber::<Test, TestConverter>::post_upgrade(pre_state)
 				.expect("Post-upgrade with empty state should validate");
-		});
-	}
-
-	#[test]
-	fn properly_upgrades_storage_version() {
-		ExtBuilder::default().build_and_execute(|| {
-			setup_old_state();
-
-			StorageVersion::new(0).put::<Pallet<Test>>();
-
-			MigrateBlockNumber::<Test, TestConverter>::on_runtime_upgrade();
-
-			assert_eq!(
-				Pallet::<Test>::on_chain_storage_version(),
-				StorageVersion::new(0),
-				"Storage version should be incremented"
-			);
 		});
 	}
 }
