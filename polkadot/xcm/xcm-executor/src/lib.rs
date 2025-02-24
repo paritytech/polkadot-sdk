@@ -85,7 +85,15 @@ pub struct XcmExecutor<Config: config::Config> {
 	fees_mode: FeesMode,
 	/// Asset provided in last `BuyExecution` instruction (if any) in current XCM program. Same
 	/// asset type will be used for paying any potential delivery fees incurred by the program.
+<<<<<<< HEAD
 	asset_used_for_fees: Option<AssetId>,
+=======
+	asset_used_in_buy_execution: Option<AssetId>,
+	/// Stores the current message's weight.
+	message_weight: Weight,
+	asset_claimer: Option<Location>,
+	already_paid_fees: bool,
+>>>>>>> 46139cd6 (XCM: Process PayFees only once (#7641))
 	_config: PhantomData<Config>,
 }
 
@@ -181,6 +189,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	pub fn set_topic(&mut self, v: Option<[u8; 32]>) {
 		self.context.topic = v;
 	}
+<<<<<<< HEAD
+=======
+	pub fn asset_claimer(&self) -> Option<Location> {
+		self.asset_claimer.clone()
+	}
+	pub fn set_message_weight(&mut self, weight: Weight) {
+		self.message_weight = weight;
+	}
+	pub fn already_paid_fees(&self) -> bool {
+		self.already_paid_fees
+	}
+>>>>>>> 46139cd6 (XCM: Process PayFees only once (#7641))
 }
 
 pub struct WeighedMessage<Call>(Weight, Xcm<Call>);
@@ -322,7 +342,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			appendix_weight: Weight::zero(),
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
+<<<<<<< HEAD
 			asset_used_for_fees: None,
+=======
+			fees: AssetsInHolding::new(),
+			asset_used_in_buy_execution: None,
+			message_weight: Weight::zero(),
+			asset_claimer: None,
+			already_paid_fees: false,
+>>>>>>> 46139cd6 (XCM: Process PayFees only once (#7641))
 			_config: PhantomData,
 		}
 	}
@@ -1102,6 +1130,42 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				}
 				result
 			},
+<<<<<<< HEAD
+=======
+			PayFees { asset } => {
+				// If we've already paid for fees, do nothing.
+				if self.already_paid_fees {
+					return Ok(());
+				}
+				// Make sure `PayFees` won't be processed again.
+				self.already_paid_fees = true;
+				// Record old holding in case we need to rollback.
+				let old_holding = self.holding.clone();
+				// The max we're willing to pay for fees is decided by the `asset` operand.
+				tracing::trace!(
+					target: "xcm::executor::PayFees",
+					asset_for_fees = ?asset,
+					message_weight = ?self.message_weight,
+				);
+				// Pay for execution fees.
+				let result = Config::TransactionalProcessor::process(|| {
+					let max_fee =
+						self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
+					let unspent =
+						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
+					// Move unspent to the `fees` register, it can later be moved to holding
+					// by calling `RefundSurplus`.
+					self.fees.subsume_assets(unspent);
+					Ok(())
+				});
+				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
+					// Rollback on error.
+					self.holding = old_holding;
+					self.already_paid_fees = false;
+				}
+				result
+			},
+>>>>>>> 46139cd6 (XCM: Process PayFees only once (#7641))
 			RefundSurplus => self.refund_surplus(),
 			SetErrorHandler(mut handler) => {
 				let handler_weight = Config::Weigher::weight(&mut handler)
