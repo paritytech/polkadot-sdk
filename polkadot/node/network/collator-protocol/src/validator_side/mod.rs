@@ -61,6 +61,7 @@ use polkadot_primitives::{
 	node_features,
 	vstaging::{
 		CandidateDescriptorV2, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2,
 	},
 	CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex,
@@ -242,6 +243,7 @@ const CONNECTED_PEERS_LIMIT: usize = 300;
 type DisconnectedPeers = Vec<PeerId>;
 #[derive(Default)]
 struct PeerManager {
+	// TODO: does it make more sense to add reputationdb here?
 	connected_peers: ConnectedPeers,
 }
 
@@ -365,7 +367,18 @@ impl PeerManager {
 				continue
 			};
 			let Some(score) = per_para.scores.get_mut(&bump.peer_id) else { continue };
-			*score += bump.value;
+
+			*score = score.saturating_add(bump.value);
+		}
+	}
+
+	fn process_decrease(&mut self, rep_bumps: Vec<ReputationBump>) {
+		for bump in rep_bumps {
+			let Some(per_para) = self.connected_peers.per_paraid.get_mut(&bump.para_id) else {
+				continue
+			};
+			let Some(score) = per_para.scores.get_mut(&bump.peer_id) else { continue };
+			*score = score.saturating_sub(bump.value);
 		}
 	}
 
@@ -399,20 +412,20 @@ struct Claim {
 
 enum ClaimState {
 	Waiting,
-	Fetching(Hash, CandidateHash),
-	Validating(Hash, CandidateHash),
-	BlockedByBacking(Hash, CandidateHash),
-	Fulfilled(Hash, CandidateHash),
+	Fetching(Advertisement),
+	Validating(Advertisement),
+	BlockedByParent(Advertisement),
+	Fulfilled(Advertisement),
 }
 
 impl ClaimState {
 	fn relay_parent(&self) -> Option<Hash> {
 		match self {
 			Self::Waiting => None,
-			Self::Fetching(hash, _) |
-			Self::Validating(hash, _) |
-			Self::Fulfilled(hash, _) |
-			Self::BlockedByBacking(hash, _) => Some(*hash),
+			Self::Fetching(a) |
+			Self::Validating(a) |
+			Self::Fulfilled(a) |
+			Self::BlockedByParent(a) => Some(a.relay_parent),
 		}
 	}
 }
@@ -530,6 +543,7 @@ impl PendingRequests {
 struct Collations {
 	advertisements: HashMap<PeerId, HashSet<Advertisement>>,
 	// Only kept to make sure that we don't re-request the same collations.
+	// TODO: rename to fetched collations
 	collations: HashSet<CandidateHash>,
 }
 
@@ -704,49 +718,72 @@ impl CollationManager {
 		self.claim_queue_state.insert(leaf, cq_state);
 	}
 
-	async fn try_launch_work<Sender: CollatorProtocolSenderTrait>(&mut self, sender: &mut Sender) {
+	async fn try_launch_fetch_requests<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		peer_manager: &PeerManager,
+	) {
+		let threshold = 30;
 		// Advertisements and collations are up to date.
 		// Claim queue states for leaves are also up to date.
 		// Launch requests when it makes sense.
 		let mut requests = vec![];
-		for (leaf, state) in self.claim_queue_state.iter_mut() {
+		for state in self.claim_queue_state.values_mut() {
 			for claim in state.claim_queue.iter_mut() {
 				if matches!(claim.state, ClaimState::Waiting) {
-					if let Some(advertisement) = self.pick_advertisement(claim.para) {
+					// Try picking an advertisement. I'd like this to be a separate method but
+					// compiler gets confused with ownership.
+					let mut over_threshold = None;
+					let mut has_some_advertisements = false;
+					'per_rp: for collations in self.collations.values() {
+						for (peer_id, advertisements) in collations.advertisements.iter() {
+							for advertisement in advertisements {
+								if advertisement.para_id == claim.para &&
+									!self.fetching.contains(
+										&advertisement.prospective_candidate.candidate_hash,
+									) && !collations
+									.collations
+									.contains(&advertisement.prospective_candidate.candidate_hash)
+								{
+									// TODO: add a method for this.
+									let peer_rep = peer_manager
+										.connected_peers
+										.per_paraid
+										.get(&claim.para)
+										.unwrap()
+										.scores
+										.get(peer_id)
+										.unwrap();
+									has_some_advertisements = true;
+
+									if *peer_rep >= threshold {
+										over_threshold = Some(*advertisement);
+										break 'per_rp;
+									}
+								}
+							}
+						}
+					}
+
+					if let Some(advertisement) = over_threshold {
 						let req = self.fetching.launch(&advertisement);
 						requests.push(Requests::CollationFetchingV2(req));
-						claim.state = ClaimState::Fetching(
-							advertisement.relay_parent,
-							advertisement.prospective_candidate.candidate_hash,
-						);
+						claim.state = ClaimState::Fetching(advertisement);
+					} else if has_some_advertisements {
+						// TODO: we need to arm some timer.
 					}
 				}
 			}
 		}
 
-		sender
-			.send_message(NetworkBridgeTxMessage::SendRequests(
-				requests,
-				IfDisconnected::ImmediateError,
-			))
-			.await;
-	}
-
-	fn pick_advertisement(&self, para: ParaId) -> Option<Advertisement> {
-		// TODO: we should take into account the peer's reputation.
-		for (rp, collations) in self.collations.iter() {
-			for (peer_id, advertisements) in collations.advertisements.iter() {
-				for advertisement in advertisements {
-					// TODO: check for duplicate in fetched also
-					if !self.fetching.contains(&advertisement.prospective_candidate.candidate_hash)
-					{
-						return Some(*advertisement)
-					}
-				}
-			}
+		if !requests.is_empty() {
+			sender
+				.send_message(NetworkBridgeTxMessage::SendRequests(
+					requests,
+					IfDisconnected::ImmediateError,
+				))
+				.await;
 		}
-
-		None
 	}
 
 	fn remove_peers(&mut self, peers_to_remove: Vec<PeerId>) {
@@ -761,12 +798,13 @@ impl CollationManager {
 		}
 	}
 
-	fn try_accept_advertisement(
+	async fn try_accept_advertisement<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
+		sender: &mut Sender,
 		advertisement: Advertisement,
-	) -> std::result::Result<(), InsertAdvertisementError> {
+	) -> std::result::Result<(), AdvertisementError> {
 		let Some(collations) = self.collations.get_mut(&advertisement.relay_parent) else {
-			return Err(InsertAdvertisementError::OutOfOurView)
+			return Err(AdvertisementError::Invalid(InsertAdvertisementError::OutOfOurView))
 		};
 
 		let advertisements = collations
@@ -774,13 +812,22 @@ impl CollationManager {
 			.entry(advertisement.peer_id)
 			.or_insert_with(|| Default::default());
 		// TODO: use claim queue len for the specific para
-		// TODO: use can_second
+
+		// Check if backing subsystem allows to second this candidate.
+		//
+		// This is also only important when async backing or elastic scaling is enabled.
+		let can_second = can_second(sender, &advertisement).await;
+
+		if !can_second {
+			return Err(AdvertisementError::BlockedByBacking)
+		}
+
 		if advertisements.len() >= 3 {
-			return Err(InsertAdvertisementError::PeerLimitReached)
+			return Err(AdvertisementError::Invalid(InsertAdvertisementError::PeerLimitReached))
 		}
 
 		if advertisements.contains(&advertisement) {
-			return Err(InsertAdvertisementError::Duplicate)
+			return Err(AdvertisementError::Invalid(InsertAdvertisementError::Duplicate))
 		}
 
 		advertisements.insert(advertisement);
@@ -913,6 +960,64 @@ impl CollationManager {
 			CollationFetchOutcome::TryNew(rep_change) => CollationFetchOutcome::TryNew(rep_change),
 		}
 	}
+
+	fn seconding_began(&mut self, relay_parent: Hash, candidate_hash: CandidateHash) {
+		for claim_queue_state in self.claim_queue_state.values_mut() {
+			for claim in claim_queue_state.claim_queue.iter_mut() {
+				if let ClaimState::Fetching(advertisement) = claim.state {
+					if relay_parent == advertisement.relay_parent &&
+						candidate_hash == advertisement.prospective_candidate.candidate_hash
+					{
+						claim.state = ClaimState::Validating(advertisement);
+						return
+					}
+				}
+			}
+		}
+
+		// TODO: log smth
+	}
+
+	// TODO: we can deduplicate common code with seconding_began and seconded
+	fn back_to_waiting(
+		&mut self,
+		relay_parent: Hash,
+		candidate_hash: CandidateHash,
+	) -> Option<PeerId> {
+		for claim_queue_state in self.claim_queue_state.values_mut() {
+			for claim in claim_queue_state.claim_queue.iter_mut() {
+				if let ClaimState::Fetching(advertisement) = claim.state {
+					if relay_parent == advertisement.relay_parent &&
+						candidate_hash == advertisement.prospective_candidate.candidate_hash
+					{
+						claim.state = ClaimState::Waiting;
+						return Some(advertisement.peer_id)
+					}
+				}
+			}
+		}
+
+		// TODO: log smth
+		None
+	}
+
+	fn seconded(&mut self, relay_parent: Hash, candidate_hash: CandidateHash) -> Option<PeerId> {
+		for claim_queue_state in self.claim_queue_state.values_mut() {
+			for claim in claim_queue_state.claim_queue.iter_mut() {
+				if let ClaimState::Validating(advertisement) = claim.state {
+					if relay_parent == advertisement.relay_parent &&
+						candidate_hash == advertisement.prospective_candidate.candidate_hash
+					{
+						claim.state = ClaimState::Fulfilled(advertisement);
+						return Some(advertisement.peer_id)
+					}
+				}
+			}
+		}
+
+		// TODO: log smth
+		None
+	}
 }
 
 /// Performs a sanity check between advertised and fetched collations.
@@ -933,11 +1038,21 @@ fn initial_fetched_collation_sanity_check(
 	Ok(())
 }
 
-fn persisted_validation_data_sanity_check() -> std::result::Result<(), SecondingError> {
+fn persisted_validation_data_sanity_check(
+	persisted_validation_data: &PersistedValidationData,
+	fetched: &CandidateReceipt,
+	maybe_parent_head_and_hash: Option<(&HeadData, &Hash)>,
+) -> std::result::Result<(), SecondingError> {
+	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash() {
+		return Err(SecondingError::PersistedValidationDataMismatch)
+	}
+
+	if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != *hash) {
+		return Err(SecondingError::ParentHeadDataMismatch)
+	}
+
 	Ok(())
 }
-
-// TODO: we need to implement some polling on the CollationManager.
 
 /// All state relevant for the validator side of the protocol lives here.
 struct State {
@@ -980,8 +1095,9 @@ impl State {
 		self.collation_manager.remove_peers(maybe_disconnected_peers);
 	}
 
-	fn handle_advertisement(
+	async fn handle_advertisement<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
+		sender: &mut Sender,
 		origin: PeerId,
 		relay_parent: Hash,
 		maybe_prospective_candidate: Option<ProspectiveCandidate>,
@@ -994,12 +1110,17 @@ impl State {
 		// TODO: We have a result here. we could use the old reputation system for a minor decrease.
 		// TODO: we'll later need to handle maybe_prospective_candidate being None.
 
-		self.collation_manager.try_accept_advertisement(Advertisement {
-			peer_id: origin,
-			para_id: *para_id,
-			relay_parent,
-			prospective_candidate: maybe_prospective_candidate.unwrap(),
-		});
+		self.collation_manager
+			.try_accept_advertisement(
+				sender,
+				Advertisement {
+					peer_id: origin,
+					para_id: *para_id,
+					relay_parent,
+					prospective_candidate: maybe_prospective_candidate.unwrap(),
+				},
+			)
+			.await;
 	}
 
 	fn handle_declare(&mut self, origin: PeerId, para_id: ParaId) {
@@ -1023,16 +1144,19 @@ impl State {
 		sender: &mut Sender,
 		res: <CollationFetchRequest as Future>::Output,
 	) {
+		let advertisement = res.0;
+		let relay_parent = advertisement.relay_parent;
+		let candidate_hash = advertisement.prospective_candidate.candidate_hash;
 		let outcome = self.collation_manager.completed_fetch(res);
 
 		match outcome {
 			CollationFetchOutcome::Success(fetched_collation) => {
 				let pvd = request_prospective_validation_data(
 					sender,
-					fetched_collation.candidate_receipt.descriptor.relay_parent(),
+					relay_parent,
 					fetched_collation.parent_head_data_hash,
 					fetched_collation.candidate_receipt.descriptor.para_id(),
-					fetched_collation.maybe_parent_head_data,
+					fetched_collation.maybe_parent_head_data.clone(),
 				)
 				.await
 				.unwrap();
@@ -1040,23 +1164,91 @@ impl State {
 				// TODO: handle collations whose parent we don't know yet.
 				let pvd = pvd.unwrap();
 
-				// persisted_validation_data_sanity_check();
+				persisted_validation_data_sanity_check(
+					&pvd,
+					&fetched_collation.candidate_receipt,
+					fetched_collation
+						.maybe_parent_head_data
+						.as_ref()
+						.and_then(|head| Some((head, &fetched_collation.parent_head_data_hash))),
+				);
 
-				// ctx.send_message(CandidateBackingMessage::Second(
-				// 	relay_parent,
-				// 	candidate_receipt,
-				// 	pvd,
-				// 	pov,
-				// ))
-				// .await;
-				// // There's always a single collation being fetched at any moment of time.
-				// // In case of a failure, we reset the status back to waiting.
-				// collations.status = CollationStatus::WaitingOnValidation;
+				sender
+					.send_message(CandidateBackingMessage::Second(
+						relay_parent,
+						fetched_collation.candidate_receipt,
+						pvd,
+						fetched_collation.pov,
+					))
+					.await;
+
+				self.collation_manager.seconding_began(relay_parent, candidate_hash);
 			},
 			CollationFetchOutcome::TryNew(maybe_rep_update) => {
-				// TODO: decrease reputation and reset collation status
+				if let Some(rep_update) = maybe_rep_update {
+					self.peer_manager.process_decrease(vec![ReputationBump {
+						peer_id: advertisement.peer_id,
+						para_id: advertisement.para_id,
+						value: rep_update,
+					}]);
+				}
+
+				// reset collation status
+				self.collation_manager.back_to_waiting(relay_parent, candidate_hash);
 			},
 		}
+	}
+
+	async fn collation_seconded<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: Hash,
+		statement: SignedFullStatement,
+	) {
+		let receipt = match statement.payload() {
+			Statement::Seconded(receipt) => receipt,
+			Statement::Valid(_) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?statement,
+					?relay_parent,
+					"Seconded message received with a `Valid` statement",
+				);
+				return
+			},
+		};
+
+		let Some(peer_id) = self.collation_manager.seconded(relay_parent, receipt.hash()) else {
+			return
+		};
+
+		notify_collation_seconded(sender, peer_id, CollationVersion::V2, relay_parent, statement)
+			.await;
+
+		// TODO: see if we've unblocked other collations here too.
+	}
+
+	async fn invalid_collation(&mut self, receipt: CandidateReceipt) {
+		let relay_parent = receipt.descriptor.relay_parent();
+		let candidate_hash = receipt.hash();
+
+		if let Some(peer_id) = self.collation_manager.back_to_waiting(relay_parent, candidate_hash)
+		{
+			self.peer_manager.process_decrease(vec![ReputationBump {
+				peer_id,
+				para_id: receipt.descriptor.para_id(),
+				value: 10,
+			}]);
+		}
+	}
+
+	async fn try_launch_fetch_requests<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+	) {
+		self.collation_manager
+			.try_launch_fetch_requests(sender, &self.peer_manager)
+			.await;
 	}
 }
 
@@ -1069,7 +1261,6 @@ async fn process_incoming_peer_message<Context>(
 ) {
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
-	use sp_runtime::traits::AppVerify;
 
 	match msg {
 		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
@@ -1090,7 +1281,7 @@ async fn process_incoming_peer_message<Context>(
 			// COST_UNEXPECTED_MESSAGE) 	.await;
 		},
 		Versioned::V1(V1::AdvertiseCollation(relay_parent)) =>
-			state.handle_advertisement(origin, relay_parent, None),
+			state.handle_advertisement(ctx.sender(), origin, relay_parent, None).await,
 		Versioned::V3(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
@@ -1100,11 +1291,15 @@ async fn process_incoming_peer_message<Context>(
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
-		}) => state.handle_advertisement(
-			origin,
-			relay_parent,
-			Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
-		),
+		}) =>
+			state
+				.handle_advertisement(
+					ctx.sender(),
+					origin,
+					relay_parent,
+					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+				)
+				.await,
 	}
 }
 
@@ -1143,21 +1338,15 @@ impl AdvertisementError {
 }
 
 // Requests backing to sanity check the advertisement.
-async fn can_second<Sender>(
-	sender: &mut Sender,
-	candidate_para_id: ParaId,
-	candidate_relay_parent: Hash,
-	candidate_hash: CandidateHash,
-	parent_head_data_hash: Hash,
-) -> bool
+async fn can_second<Sender>(sender: &mut Sender, advertisement: &Advertisement) -> bool
 where
 	Sender: CollatorProtocolSenderTrait,
 {
 	let request = CanSecondRequest {
-		candidate_para_id,
-		candidate_relay_parent,
-		candidate_hash,
-		parent_head_data_hash,
+		candidate_para_id: advertisement.para_id,
+		candidate_relay_parent: advertisement.relay_parent,
+		candidate_hash: advertisement.prospective_candidate.candidate_hash,
+		parent_head_data_hash: advertisement.prospective_candidate.parent_head_data_hash,
 	};
 	let (tx, rx) = oneshot::channel();
 	sender.send_message(CandidateBackingMessage::CanSecond(request, tx)).await;
@@ -1166,14 +1355,36 @@ where
 		gum::warn!(
 			target: LOG_TARGET,
 			?err,
-			?candidate_relay_parent,
-			?candidate_para_id,
-			?candidate_hash,
+			relay_parent = ?advertisement.relay_parent,
+			para_id = ?advertisement.para_id,
+			candidate_hash = ?advertisement.prospective_candidate.candidate_hash,
 			"CanSecond-request responder was dropped",
 		);
 
 		false
 	})
+}
+
+/// Notify a collator that its collation got seconded.
+async fn notify_collation_seconded(
+	sender: &mut impl overseer::CollatorProtocolSenderTrait,
+	peer_id: PeerId,
+	version: CollationVersion,
+	relay_parent: Hash,
+	statement: SignedFullStatement,
+) {
+	let statement = statement.into();
+	let wire_message = match version {
+		CollationVersion::V1 => Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(
+			protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
+		)),
+		CollationVersion::V2 => Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+			protocol_v2::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
+		)),
+	};
+	sender
+		.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![peer_id], wire_message))
+		.await;
 }
 
 async fn request_prospective_validation_data<Sender>(
@@ -1277,8 +1488,12 @@ async fn process_msg<Context>(ctx: &mut Context, msg: CollatorProtocolMessage, s
 					"Failed to handle incoming network message",
 				);
 			},
-		Seconded(parent, stmt) => {},
-		Invalid(parent, candidate_receipt) => {},
+		Seconded(parent, stmt) => {
+			state.collation_seconded(ctx.sender(), parent, stmt).await;
+		},
+		Invalid(_parent, candidate_receipt) => {
+			state.invalid_collation(candidate_receipt);
+		},
 	}
 }
 
@@ -1297,9 +1512,6 @@ async fn run_inner<Context>(
 	keystore: KeystorePtr,
 ) -> std::result::Result<(), crate::error::FatalError> {
 	let mut state = State::new(keystore);
-
-	let mut network_error_freq = gum::Freq::new();
-	let mut canceled_freq = gum::Freq::new();
 
 	loop {
 		select! {
@@ -1323,8 +1535,10 @@ async fn run_inner<Context>(
 		}
 
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
-		// (any of them are in Waiting state) Call some try_launch_work here.
-		state.collation_manager.try_launch_work(ctx.sender()).await;
+		// (any of them are in Waiting state).
+		// TODO: we could optimise to not always re-run this code. Have the other functions return
+		// whether or not we should attempt launching fetch requests.
+		state.try_launch_fetch_requests(ctx.sender()).await;
 	}
 
 	Ok(())
