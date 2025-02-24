@@ -124,7 +124,7 @@ pub const fn string_like_track_name<const N: usize>(name: &str) -> StringLike<N>
 	StringLike(s(name))
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, DecodeWithMemTracking, PartialEq, Debug)]
 pub struct StringLike<const N: usize>(pub [u8; N]);
 
 use codec::Input;
@@ -139,7 +139,7 @@ impl<const N: usize> TypeInfo for StringLike<N> {
 
 impl<const N: usize> MaxEncodedLen for StringLike<N> {
 	fn max_encoded_len() -> usize {
-		<Compact<u32> as MaxEncodedLen>::max_encoded_len() + N
+		<Compact<u32> as MaxEncodedLen>::max_encoded_len().saturating_add(N)
 	}
 }
 
@@ -161,8 +161,6 @@ impl<const N: usize> Decode for StringLike<N> {
 		Ok(Self(bytes))
 	}
 }
-
-impl<const N: usize> DecodeWithMemTracking for StringLike<N> {}
 
 /// Detailed information about the configuration of a referenda track
 #[derive(
