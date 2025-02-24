@@ -43,6 +43,7 @@ use sp_runtime::{
 };
 
 mod conviction;
+mod traits;
 mod types;
 mod vote;
 pub mod weights;
@@ -50,6 +51,7 @@ pub mod weights;
 pub use self::{
 	conviction::Conviction,
 	pallet::*,
+	traits::VotingHooks,
 	types::{Delegations, Tally, UnvoteScope},
 	vote::{AccountVote, Casting, Delegating, Vote, Voting},
 	weights::WeightInfo,
@@ -142,6 +144,8 @@ pub mod pallet {
 		type VoteLockingPeriod: Get<BlockNumberFor<Self, I>>;
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
+		/// Hooks are called when a new vote is registered or an existing vote is removed.
+		type VotingHooks: VotingHooks<Self::AccountId, PollIndexOf<Self, I>, BalanceOf<Self, I>>;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the

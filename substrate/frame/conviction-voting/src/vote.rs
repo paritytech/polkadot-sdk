@@ -92,6 +92,23 @@ pub enum AccountVote<Balance> {
 	SplitAbstain { aye: Balance, nay: Balance, abstain: Balance },
 }
 
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+enum LockedIf {  
+	Status(bool),  
+	Always,  
+}  
+
 impl<Balance: Saturating> AccountVote<Balance> {
 	/// Returns `Some` of the lock periods that the account is locked for, assuming that the
 	/// referendum passed iff `approved` is `true`.
