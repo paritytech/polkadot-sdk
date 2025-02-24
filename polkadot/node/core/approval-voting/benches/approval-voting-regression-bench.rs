@@ -61,7 +61,7 @@ fn main() -> Result<(), String> {
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let (mut env, state) = prepare_test(config.clone(), options.clone(), false);
+			let (mut env, state) = prepare_test(config.clone(), options.clone());
 			env.runtime().block_on(bench_approvals(&mut env, state))
 		})
 		.collect();
