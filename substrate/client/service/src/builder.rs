@@ -267,8 +267,18 @@ where
 		// Populate the trie cache to keep it in memory
 		if config.force_in_memory_trie_cache {
 			let storage_root = client.usage_info().chain.best_hash;
+			let keys = client.storage_keys(storage_root, None, None)?.collect::<Vec<_>>();
+			let total_count = keys.len();
+			let chunks = (1..=10).map(|i| (i * total_count / 10, i * 10)).collect::<Vec<_>>();
+			let mut current_count = 0;
 
-			for key in client.storage_keys(storage_root, None, None)? {
+			info!("Populating trie cache with {} keys started", total_count);
+
+			for key in keys {
+				current_count += 1;
+				if let Some((_, percentage)) = chunks.iter().find(|(i, _)| *i == current_count) {
+					info!("Read {}% of keys", percentage);
+				}
 				match child_info(key.0.clone()) {
 					Some(info) => {
 						for child_key in
