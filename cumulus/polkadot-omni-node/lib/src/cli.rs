@@ -72,6 +72,14 @@ pub enum Subcommand {
 	Key(sc_cli::KeySubcommand),
 
 	/// Build a chain specification.
+	///
+	/// The `build-spec` command is a standard Substrate utility that generates a
+	/// chain specification based on existing configurations. It produces a JSON
+	/// file that can be used to launch a blockchain network.
+	/// ## When to Use:
+	/// - When you need a **quick** default chain specification.
+	/// - Suitable for **standard setups** where no advanced modifications are required.
+	/// - If you want to **manually edit** the generated chain specification before use.
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Validate blocks.
@@ -91,10 +99,20 @@ pub enum Subcommand {
 
 	/// Subcommand for generating and managing chain specifications.
 	///
-	/// Unlike `build-spec`, which generates a chain specification based on existing
-	/// configurations, `chain-spec-builder` provides a more interactive and customizable approach
-	/// to defining a chain spec. It allows users to create specifications with additional
-	/// parameters and validation steps before finalizing the output.
+	/// The `chain-spec-builder` command provides a **more interactive and customizable**
+	/// way to generate and manage chain specifications. Unlike `build-spec`, it allows
+	/// you to modify parameters, validate configurations, and update existing specs.
+	/// ## When to Use:
+	/// - When you need **advanced customization** beyond default configurations.
+	/// - If you want **better validation** and interactive modification of the chain spec.
+	/// - When working with **parachains or complex network setups**.
+	///
+	/// # Choosing Between `build-spec` and `chain-spec-builder`
+	///
+	/// | Command               | Use Case |
+	/// |-----------------------|---------|
+	/// | `build-spec`         | Quick generation of a default chain spec. Best for standard setups and quick starts. |
+	/// | `chain-spec-builder` | Advanced customization, interactive chain spec creation, and validation. Ideal for parachains and tailored network configurations. |
 	ChainSpecBuilder(ChainSpecBuilder),
 
 	/// Remove the whole chain.
