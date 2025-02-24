@@ -1394,7 +1394,6 @@ where
 			);
 		});
 
-		self.transient_storage.start_transaction();
 		let mut do_transaction = || -> ExecResult {
 			if !is_delegate {
 				Self::transfer_from_origin(
@@ -1444,12 +1443,6 @@ where
 				(false, Err(error.into()))
 			},
 		};
-
-		if success {
-			self.transient_storage.commit_transaction();
-		} else {
-			self.transient_storage.rollback_transaction();
-		}
 
 		output.map(|output| {
 			self.top_frame_mut().last_frame_output = output;
