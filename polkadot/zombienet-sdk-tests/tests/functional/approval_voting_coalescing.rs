@@ -5,9 +5,7 @@
 
 use anyhow::anyhow;
 
-use crate::helpers::{
-	assert_finality_lag_less_than, assert_finalized_block_height, assert_para_throughput,
-};
+use crate::helpers::{assert_finality_lag_less_than, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -21,32 +19,41 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let no_show_slots = 4;
-	let config = NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			let r = r
-				.with_chain("rococo-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug,runtime=debug").into()])
-				.with_genesis_overrides(json!({
-					"configuration": {
-						"config": {
-							"needed_approvals": 4,
-							"relay_vrf_modulo_samples": 6,
-							"no_show_slots": no_show_slots,
-							"approval_voting_params": {
-								"max_approval_coalesce_count": 5
-							}
+	let mut config_builder = NetworkConfigBuilder::new().with_relaychain(|r| {
+		let r = r
+			.with_chain("rococo-local")
+			.with_default_command("polkadot")
+			.with_default_image(images.polkadot.as_str())
+			.with_default_args(vec![("-lparachain=debug,runtime=debug").into()])
+			.with_genesis_overrides(json!({
+				"configuration": {
+					"config": {
+						"needed_approvals": 4,
+						"relay_vrf_modulo_samples": 6,
+						"no_show_slots": no_show_slots,
+						"approval_voting_params": {
+							"max_approval_coalesce_count": 5
 						}
 					}
-				}))
-				.with_node(|node| node.with_name("validator-0"));
+				}
+			}))
+			.with_node(|node| node.with_name("validator-0"));
 
-			(1..12)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
-		})
-		.with_parachain(|p| {
-			p.with_id(2000)
+		(1..12).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+	});
+
+	for (para_id, collator_name) in [
+		(2000, "collator-name-2000"),
+		(2001, "collator-name-2001"),
+		(2002, "collator-name-2002"),
+		(2003, "collator-name-2003"),
+		(2004, "collator-name-2004"),
+		(2005, "collator-name-2005"),
+		(2006, "collator-name-2006"),
+		(2007, "collator-name-2007"),
+	] {
+		config_builder = config_builder.with_parachain(|p| {
+			p.with_id(para_id)
 				.with_default_command("undying-collator")
 				.with_default_image(
 					std::env::var("COL_IMAGE")
@@ -55,97 +62,14 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 				)
 				.cumulus_based(false)
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-undying-2000"))
-		})
-		.with_parachain(|p| {
-			p.with_id(2001)
-				.with_default_command("undying-collator")
-				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
-						.as_str(),
-				)
-				.cumulus_based(false)
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-undying-2001"))
-		})
-		.with_parachain(|p| {
-			p.with_id(2002)
-				.with_default_command("undying-collator")
-				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
-						.as_str(),
-				)
-				.cumulus_based(false)
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-undying-2002"))
-		})
-		.with_parachain(|p| {
-			p.with_id(2003)
-				.with_default_command("undying-collator")
-				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
-						.as_str(),
-				)
-				.cumulus_based(false)
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-undying-2003"))
-		})
-		.with_parachain(|p| {
-			p.with_id(2004)
-				.with_default_command("undying-collator")
-				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
-						.as_str(),
-				)
-				.cumulus_based(false)
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-undying-2004"))
-		})
-		.with_parachain(|p| {
-			p.with_id(2005)
-				.with_default_command("undying-collator")
-				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
-						.as_str(),
-				)
-				.cumulus_based(false)
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-undying-2005"))
-		})
-		.with_parachain(|p| {
-			p.with_id(2006)
-				.with_default_command("undying-collator")
-				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
-						.as_str(),
-				)
-				.cumulus_based(false)
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-undying-2006"))
-		})
-		.with_parachain(|p| {
-			p.with_id(2007)
-				.with_default_command("undying-collator")
-				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
-						.as_str(),
-				)
-				.cumulus_based(false)
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-undying-2007"))
-		})
-		.build()
-		.map_err(|e| {
-			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-			anyhow!("config errs: {errs}")
-		})?;
+				.with_collator(|n| n.with_name(collator_name))
+		});
+	}
+
+	let config = config_builder.build().map_err(|e| {
+		let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
+		anyhow!("config errs: {errs}")
+	})?;
 
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 
