@@ -19,15 +19,9 @@
 
 use super::*;
 use crate as pallet_scored_pool;
+use frame::testing_prelude::*;
 
-use frame_support::{
-	construct_runtime, derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use frame_system::EnsureSignedBy;
-use sp_runtime::{bounded_vec, BuildStorage};
-
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 construct_runtime!(
 	pub enum Test
@@ -99,7 +93,7 @@ impl Config for Test {
 	type MaximumMembers = ConstU32<10>;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut balances = vec![];
 	for i in 1..31 {

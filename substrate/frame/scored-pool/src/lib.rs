@@ -56,11 +56,10 @@
 //! ```
 //! use pallet_scored_pool::{self as scored_pool};
 //!
-//! #[frame_support::pallet]
+//! #[frame::pallet]
 //! pub mod pallet {
 //! 	use super::*;
-//! 	use frame_support::pallet_prelude::*;
-//! 	use frame_system::pallet_prelude::*;
+//! 	use frame::prelude::*;
 //!
 //! 	#[pallet::pallet]
 //! 	pub struct Pallet<T>(_);
@@ -105,13 +104,9 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{FullCodec, MaxEncodedLen};
 use core::{cmp::Reverse, fmt::Debug};
-use frame_support::{
-	ensure,
-	traits::{ChangeMembers, Currency, Get, InitializeMembers, ReservableCurrency},
-	BoundedVec,
-};
 pub use pallet::*;
-use sp_runtime::traits::{AtLeast32Bit, StaticLookup, Zero};
+use frame::runtime::prelude::*;
+use frame::traits::Currency;
 
 type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -133,11 +128,9 @@ enum ChangeReceiver {
 	MembershipChanged,
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
@@ -254,7 +247,7 @@ pub mod pallet {
 	pub(crate) type MemberCount<T, I = ()> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub pool: PoolT<T, I>,
 		pub member_count: u32,
