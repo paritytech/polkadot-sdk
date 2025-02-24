@@ -175,11 +175,13 @@ where
 	/// transactions/views are considered timed out and eligible for cleanup.
 	finality_timeout_threshold: usize,
 
-	/// Transactions included in blocks since recent finalization.
+	/// Transactions included in blocks since the most recently finalized block (including this
+	/// block).
 	///
 	/// Holds a mapping of block hash and number to their corresponding transaction hashes.
-	/// This structure enables efficient tracking and cleanup of transactions affected by finality
-	/// stalls.
+	///
+	/// Intended to be used in the finality stall cleanups and also as a cache for all in-block
+	/// transactions.
 	included_transacations: Mutex<BTreeMap<HashAndNumber<Block>, Vec<ExtrinsicHash<ChainApi>>>>,
 }
 
@@ -1108,7 +1110,6 @@ where
 
 		self.included_transacations.lock().retain(
 			|HashAndNumber { number: view_number, hash: view_hash }, tx_hashes| {
-				trace!(target:LOG_TARGET, "cleanup_xxx: {:?} {:?}", view_number, tx_hashes);
 				let diff = at.number.saturating_sub(*view_number);
 				if diff.into() > self.finality_timeout_threshold.into() {
 					finality_timedout_hashes.insert(*view_hash, std::mem::take(tx_hashes));
@@ -1133,6 +1134,13 @@ where
 		}
 
 		self.view_store.finality_stall_view_cleanup(at, self.finality_timeout_threshold);
+
+		trace!(
+			target: LOG_TARGET,
+			?at,
+			included_transacations_len = ?self.included_transacations.lock().len(),
+			"finality_stall_cleanup"
+		);
 	}
 
 	/// Builds a new view.
@@ -1230,48 +1238,75 @@ where
 		Some(view)
 	}
 
-	/// Returns the list of xts included in all block ancestors, including the block itself.
+	/// Retrieves transactions hashes from a `included_transacations` cache or, if not present,
+	/// fetches them from the blockchain API using the block's hash `at`.
 	///
-	/// Example: for the following chain `F<-B1<-B2<-B3` xts from `F,B1,B2,B3` will be returned.
-	async fn extrinsics_included_since_finalized(&self, at: Block::Hash) -> HashSet<TxHash<Self>> {
+	/// Returns a `Vec` of transactions hashes
+	async fn fetch_block_transactions(&self, at: &HashAndNumber<Block>) -> Vec<TxHash<Self>> {
+		if let Some(txs) = self.included_transacations.lock().get(at) {
+			return txs.clone()
+		};
+
+		trace!(
+			target: LOG_TARGET,
+			?at,
+			"fetch_block_transactions from api"
+		);
+
+		self.api
+			.block_body(at.hash)
+			.await
+			.unwrap_or_else(|error| {
+				warn!(
+					target: LOG_TARGET,
+					%error,
+					"fetch_block_transactions: error request"
+				);
+				None
+			})
+			.unwrap_or_default()
+			.into_iter()
+			.map(|t| self.hash_of(&t))
+			.collect::<Vec<_>>()
+	}
+
+	/// Returns the list of xts included in all block's ancestors up to recently finalized block (or
+	/// up finality timeout threshold), including the block itself.
+	///
+	/// Example: for the following chain `F<-B1<-B2<-B3` xts from `B1,B2,B3` will be returned.
+	async fn txs_included_since_finalized(
+		&self,
+		at: &HashAndNumber<Block>,
+	) -> HashSet<TxHash<Self>> {
 		let start = Instant::now();
 		let recent_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
-		let Ok(tree_route) = self.api.tree_route(recent_finalized_block, at) else {
+		let Ok(tree_route) = self.api.tree_route(recent_finalized_block, at.hash) else {
 			return Default::default()
 		};
 
-		let api = self.api.clone();
-		let mut all_extrinsics = HashSet::new();
+		let mut all_txs = HashSet::new();
 
-		for h in tree_route.enacted().iter().rev() {
-			api.block_body(h.hash)
-				.await
-				.unwrap_or_else(|error| {
-					warn!(
-						target: LOG_TARGET,
-						%error,
-						"Compute ready light transactions: error request"
-					);
-					None
-				})
-				.unwrap_or_default()
-				.into_iter()
-				.map(|t| self.hash_of(&t))
-				.for_each(|tx_hash| {
-					all_extrinsics.insert(tx_hash);
-				});
+		for block in tree_route.enacted().iter() {
+			// note: There is no point to fetch the transactions from blocks older than threshold.
+			// All transactions included in these blocks, were already removed from pool
+			// with FinalityTimeout event.
+			if at.number.saturating_sub(block.number).into() <=
+				self.finality_timeout_threshold.into()
+			{
+				all_txs.extend(self.fetch_block_transactions(block).await);
+			}
 		}
 
 		debug!(
 			target: LOG_TARGET,
 			?at,
 			?recent_finalized_block,
-			extrinsics_count = all_extrinsics.len(),
+			extrinsics_count = all_txs.len(),
 			duration = ?start.elapsed(),
-			"fatp::extrinsics_included_since_finalized"
+			"fatp::txs_included_since_finalized"
 		);
-		all_extrinsics
+		all_txs
 	}
 
 	/// Updates the given view with the transactions from the internal mempol.
@@ -1281,8 +1316,7 @@ where
 	/// view.
 	///
 	/// If there are no views, and mempool transaction is reported as invalid for the given view,
-	/// the transaction is reported as invalid and removed from the mempool. This does not apply to
-	/// stale and temporarily banned transactions.
+	/// the transaction is notified as invalid and removed from the mempool.
 	async fn update_view_with_mempool(&self, view: &View<ChainApi>) {
 		debug!(
 			target: LOG_TARGET,
@@ -1291,7 +1325,7 @@ where
 			active_views_count = self.active_views_count(),
 			"update_view_with_mempool"
 		);
-		let included_xts = self.extrinsics_included_since_finalized(view.at.hash).await;
+		let included_xts = self.txs_included_since_finalized(&view.at).await;
 
 		let (hashes, xts_filtered): (Vec<_>, Vec<_>) = self
 			.mempool
@@ -1482,12 +1516,20 @@ where
 		}
 
 		self.ready_poll.lock().remove_cancelled();
+		self.included_transacations.lock().retain(|cached_block, _| {
+			if cached_block.hash == finalized_hash {
+				true
+			} else {
+				false
+			}
+		});
+
 		trace!(
 			target: LOG_TARGET,
 			active_views_count = self.active_views_count(),
+			included_transacations_len = ?self.included_transacations.lock().len(),
 			"handle_finalized after"
 		);
-		self.included_transacations.lock().clear();
 	}
 
 	/// Computes a hash of the provided transaction
@@ -1687,7 +1729,8 @@ where
 		info!(
 			target: LOG_TARGET,
 			txs = ?self.mempool_len(),
-			active_views_count = self.active_views_count(),
+			a = self.active_views_count(),
+			i = self.inactive_views_count(),
 			views = ?self.views_stats(),
 			?event,
 			?duration,

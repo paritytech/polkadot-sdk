@@ -117,6 +117,7 @@ fn fatp_finalized_still_works_after_finality_stall() {
 
 	let header01 = api.push_block(1, vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header01.hash())));
 
 	let xt0 = uxt(Alice, 200);
 	let xt1 = uxt(Bob, 300);
@@ -162,7 +163,7 @@ fn fatp_finalized_still_works_after_finality_stall() {
 		}
 	}
 
-	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header03b.hash())));
+	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header03b.hash())));
 
 	for (i, watcher) in vec![xt0_watcher, xt1_watcher, xt2_watcher].into_iter().enumerate() {
 		assert_watcher_stream!(
