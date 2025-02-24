@@ -42,7 +42,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
+use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -265,9 +265,9 @@ impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]) |
-				(1, [Parachain(1001), PalletInstance(64)]) |
-				(1, [Parachain(1001), PalletInstance(65)])
+			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }])
+				| (1, [Parachain(1001), PalletInstance(64)])
+				| (1, [Parachain(1001), PalletInstance(65)])
 		)
 	}
 }
@@ -499,7 +499,10 @@ pub type XcmRouter = WithUniqueTopic<(
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
 	// GlobalConsensus
 	SovereignPaidRemoteExporter<
-		bridging::to_ethereum::EthereumNetworkExportTable,
+		(
+			bridging::to_ethereum::EthereumNetworkExportTableV2,
+			bridging::to_ethereum::EthereumNetworkExportTable,
+		),
 		XcmpQueue,
 		UniversalLocation,
 	>,
@@ -650,7 +653,7 @@ pub mod bridging {
 		use assets_common::matching::FromNetwork;
 		use sp_std::collections::btree_set::BTreeSet;
 		use testnet_parachains_constants::westend::snowbridge::{
-			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
 		};
 
 		parameter_types! {
@@ -659,12 +662,21 @@ pub mod bridging {
 			/// Needs to be more than fee calculated from DefaultFeeConfig FeeConfigRecord in snowbridge:parachain/pallets/outbound-queue/src/lib.rs
 			/// Polkadot uses 10 decimals, Kusama,Rococo,Westend 12 decimals.
 			pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
+			pub const DefaultBridgeHubEthereumBaseFeeV2: Balance = 100_000_000_000;
 			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
-			pub SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
+			pub storage BridgeHubEthereumBaseFeeV2: Balance = DefaultBridgeHubEthereumBaseFeeV2::get();
+			pub SiblingBridgeHubWithEthereumInboundQueueV1Instance: Location = Location::new(
 				1,
 				[
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(INBOUND_QUEUE_PALLET_INDEX)
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V1)
+				]
+			);
+			pub SiblingBridgeHubWithEthereumInboundQueueV2Instance: Location = Location::new(
+				1,
+				[
+					Parachain(SiblingBridgeHubParaId::get()),
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)
 				]
 			);
 
@@ -682,17 +694,40 @@ pub mod bridging {
 				),
 			];
 
+			pub BridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
+					EthereumNetwork::get(),
+					Some(sp_std::vec![Junctions::Here]),
+					SiblingBridgeHub::get(),
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						BridgeHubEthereumBaseFeeV2::get(),
+					).into())
+				),
+			];
+
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
-					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get().into())),
+					(SiblingBridgeHubWithEthereumInboundQueueV1Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
+					(SiblingBridgeHubWithEthereumInboundQueueV2Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
 				]
 			);
 
 			pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
 				.chain(BridgeTable::get())
 				.collect();
+
+			pub EthereumBridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
+				.chain(BridgeTableV2::get())
+				.collect();
 		}
+
+		pub type EthereumNetworkExportTableV2 =
+			snowbridge_outbound_queue_primitives::v2::XcmFilterExporter<
+				xcm_builder::NetworkExportTable<EthereumBridgeTableV2>,
+				snowbridge_outbound_queue_primitives::v2::XcmForSnowbridgeV2,
+			>;
 
 		pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
 
