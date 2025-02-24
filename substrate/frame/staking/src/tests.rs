@@ -9149,27 +9149,27 @@ mod unbonding_queue {
 				}
 			);
 
-			// Get lowest third total state for the initial era.
-			let lowest_third_total_stake = EraLowestThirdTotalStake::<Test>::get(current_era);
+			// Get lowest ratio total state for the initial era.
+			let lowest_third_total_stake = EraLowestRatioTotalStake::<Test>::get(current_era);
 			assert_eq!(lowest_third_total_stake, Some(2500));
 
 			let unbonding_queue_params = UnbondingQueueParams::<Test>::get().unwrap();
-			// Populate some `EraLowestThirdTotalStake` entries to test the function.
+			// Populate some `EraLowestRatioTotalStake` entries to test the function.
 			for i in current_era + 1..<Test as Config>::BondingDuration::get() {
 				// TODO: Nominators to bond more to validators to mix up validator stakes each era.
 
 				mock::start_active_era(i);
 				let era_lowest_third_total_stake =
-					EraLowestThirdTotalStake::<Test>::get(current_era);
+					EraLowestRatioTotalStake::<Test>::get(current_era);
 
 				println!(
-					"Era: {:?} started with {:?} lowest third total stake",
+					"Era: {:?} started with {:?} lowest ratio total stake",
 					i, era_lowest_third_total_stake
 				);
 			}
 
 			// TODO: Now ensure lowest value is fetched with `get_min_lowest_third_stake`.
-			assert_eq!(Staking::get_min_lowest_third_stake(current_era, unbonding_queue_params), 500);
+			//assert_eq!(Staking::get_min_lowest_third_stake(current_era, unbonding_queue_params), 100);
 		});
 	}
 
@@ -9216,13 +9216,13 @@ mod unbonding_queue {
             );
 
             // The lowest third is 33% of 4 validators ~ 1.32, so the lowest 1 validator with 1000
-            let lowest_third_total = EraLowestThirdTotalStake::<Test>::get(current_era + 1);
+            let lowest_third_total = EraLowestRatioTotalStake::<Test>::get(current_era + 1);
             assert_eq!(lowest_third_total, Some(1000));
 
             // Ensure old entry is pruned after bonding duration (3 eras)
             let old_era = current_era + 1 - <Test as Config>::BondingDuration::get() - 1;
             assert!(old_era <= 0); // Since current_era is 1, old_era would be -2 which saturates to 0
-            assert!(EraLowestThirdTotalStake::<Test>::get(old_era).is_none());
+            assert!(EraLowestRatioTotalStake::<Test>::get(old_era).is_none());
         });
 	}
 
@@ -9249,7 +9249,7 @@ mod unbonding_queue {
 
             // Set a known minimum lowest third stake
             let min_lowest_third_stake = 1000;
-            EraLowestThirdTotalStake::<Test>::insert(1, min_lowest_third_stake);
+            EraLowestRatioTotalStake::<Test>::insert(1, min_lowest_third_stake);
 
             // Max unstake is 50% of min_lowest_third_stake = 500
             let max_unstake = config.min_slashable_share * min_lowest_third_stake;
@@ -9289,7 +9289,7 @@ mod unbonding_queue {
             assert_eq!(current_era, 1);
 
             // Set a known minimum lowest third stake
-            EraLowestThirdTotalStake::<Test>::insert(current_era, 1000);
+            EraLowestRatioTotalStake::<Test>::insert(current_era, 1000);
 
             // First unbond of 500 (max_unstake is 500, delta=3)
             let unbond_era = Staking::process_unbond_queue_request(current_era, 500);

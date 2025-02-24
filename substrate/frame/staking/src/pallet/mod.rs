@@ -723,33 +723,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
-	/// Voter snapshot progress status.
-	///
-	/// If the status is `Ongoing`, it keeps a cursor of the last voter retrieved to proceed when
-	/// creating the next snapshot page.
-	#[pallet::storage]
-	pub(crate) type VoterSnapshotStatus<T: Config> =
-		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
-
-	/// Keeps track of an ongoing multi-page election solution request.
-	///
-	/// If `Some(_)``, it is the next page that we intend to elect. If `None`, we are not in the
-	/// election process.
-	///
-	/// This is only set in multi-block elections. Should always be `None` otherwise.
-	#[pallet::storage]
-	pub(crate) type NextElectionPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
-
-	/// A bounded list of the "electable" stashes that resulted from a successful election.
-	#[pallet::storage]
-	pub(crate) type ElectableStashes<T: Config> =
-		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
-
 	/// The total amount of stake backed by the lowest third of validators for the last
 	/// upper bound eras. This is used to determine the maximum amount of stake that
 	/// can be unbonded for a period potentially lower than upper bound eras.
 	#[pallet::storage]
-	pub(crate) type EraLowestThirdTotalStake<T: Config> =
+	pub(crate) type EraLowestRatioTotalStake<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
 	/// Parameters for the unbonding queue mechanism.
@@ -772,40 +750,6 @@ pub mod pallet {
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
-		/// Create the given number of validators and nominators.
-		///
-		/// These account need not be in the endowment list of balances, and are auto-topped up
-		/// here.
-		///
-		/// Useful for testing genesis config.
-		pub dev_stakers: Option<(u32, u32)>,
-	}
-
-
-	impl<T: Config> GenesisConfig<T> {
-		fn generate_endowed_bonded_account(
-			derivation: &str,
-			rng: &mut ChaChaRng,
-			min_validator_bond: BalanceOf<T>,
-		) -> T::AccountId {
-			let pair: SrPair = Pair::from_string(&derivation, None)
-				.expect(&format!("Failed to parse derivation string: {derivation}"));
-			let who = T::AccountId::decode(&mut &pair.public().encode()[..])
-				.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
-
-			let stake = BalanceOf::<T>::from(rng.next_u64())
-				.max(T::Currency::minimum_balance())
-				.max(min_validator_bond);
-			let two: BalanceOf<T> = 2u64.into();
-
-			assert_ok!(T::Currency::mint_into(&who, stake * two));
-			assert_ok!(<Pallet<T>>::bond(
-				T::RuntimeOrigin::from(Some(who.clone()).into()),
-				stake,
-				RewardDestination::Staked,
-			));
-			who
-		}
 	}
 
 	#[pallet::genesis_build]
@@ -813,10 +757,6 @@ pub mod pallet {
 		fn build(&self) {
 			ValidatorCount::<T>::put(self.validator_count);
 			MinimumValidatorCount::<T>::put(self.minimum_validator_count);
-			assert!(
-				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
-				"Too many invulnerable validators at genesis."
-			);
 			Invulnerables::<T>::put(&self.invulnerables);
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);

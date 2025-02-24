@@ -721,7 +721,7 @@ impl<T: Config> Pallet<T> {
 			elected_stashes.push(stash.clone());
 			// accumulate total stake
 			total_stake = total_stake.saturating_add(exposure.total);
-			// add this validator's total stake to the lowest third total stake
+			// add this validator's total stake to the lowest ratio total stake
 			exposures_total_stake.push((stash.clone(), exposure.total));
 			// store staker exposure for this era
 			EraInfo::<T>::set_exposure(new_planned_era, &stash, exposure);
@@ -756,7 +756,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the total stake of the lowest third validators and store it for the planned era.
 	///
-	/// Removes the stale entry from `EraLowestThirdTotalStake` if it exists.
+	/// Removes the stale entry from `EraLowestRatioTotalStake` if it exists.
 	fn calculate_lowest_third_total_stake(
 		new_planned_era: EraIndex,
 		mut exposures: Vec<(T::AccountId, BalanceOf<T>)>,
@@ -779,10 +779,10 @@ impl<T: Config> Pallet<T> {
 				.sum();
 
 			// Store the total stake of the lowest third validators for the planned era.
-			EraLowestThirdTotalStake::<T>::insert(new_planned_era, total_stake);
+			EraLowestRatioTotalStake::<T>::insert(new_planned_era, total_stake);
 
-			// Remove stale entry from `EraLowestThirdTotalStake`.
-			<EraLowestThirdTotalStake<T>>::remove(
+			// Remove stale entry from `EraLowestRatioTotalStake`.
+			<EraLowestRatioTotalStake<T>>::remove(
 				new_planned_era.saturating_sub(unbonding_period_upper_bound),
 			);
 		}
@@ -839,7 +839,7 @@ impl<T: Config> Pallet<T> {
 		let last_era = from_era.saturating_sub(T::BondingDuration::get());
 
 		while current_era >= last_era || eras_checked <= T::BondingDuration::get() {
-			if let Some(lowest_third_total_stake) = <EraLowestThirdTotalStake<T>>::get(current_era)
+			if let Some(lowest_third_total_stake) = <EraLowestRatioTotalStake<T>>::get(current_era)
 			{
 				if eras_checked == 0 || lowest_third_total_stake < lowest_stake {
 					lowest_stake = lowest_third_total_stake;
