@@ -117,10 +117,6 @@ pub struct StorageParams {
 	#[arg(long)]
 	pub include_child_trees: bool,
 
-	/// Batching keys on write.
-	#[arg(long, default_value_t = 1)]
-	pub batching: u32,
-
 	/// Unlimited local cache.
 	#[arg(long)]
 	pub unlimited_local_cache: bool,
