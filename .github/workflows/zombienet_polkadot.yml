@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: prepare-cumulus-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          name: prepare-polkadot-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
 
