@@ -16,18 +16,12 @@
 // limitations under the License.
 
 use core::str;
-use frame_support::{
-	storage::{generator::StorageValue, StoragePrefixedMap},
-	traits::{
-		Get, GetStorageVersion, PalletInfoAccess, StorageVersion,
-		STORAGE_VERSION_STORAGE_KEY_POSTFIX,
-	},
-	weights::Weight,
-};
-use sp_core::hexdisplay::HexDisplay;
-use sp_io::{hashing::twox_128, storage};
+use frame::testing_prelude::*;
+
 
 use crate as pallet_bounties;
+
+use frame::deps::sp_io::storage;
 
 /// Migrate the storage of the bounties pallet to a new prefix, leaving all other storage untouched
 ///
@@ -66,7 +60,7 @@ pub fn migrate<
 
 	if on_chain_storage_version < 4 {
 		let storage_prefix = pallet_bounties::BountyCount::<T>::storage_prefix();
-		frame_support::storage::migration::move_storage_from_pallet(
+		migration::move_storage_from_pallet(
 			storage_prefix,
 			old_pallet_name.as_bytes(),
 			new_pallet_name.as_bytes(),
@@ -74,7 +68,7 @@ pub fn migrate<
 		log_migration("migration", storage_prefix, old_pallet_name, new_pallet_name);
 
 		let storage_prefix = pallet_bounties::Bounties::<T>::storage_prefix();
-		frame_support::storage::migration::move_storage_from_pallet(
+		migration::move_storage_from_pallet(
 			storage_prefix,
 			old_pallet_name.as_bytes(),
 			new_pallet_name.as_bytes(),
@@ -82,7 +76,7 @@ pub fn migrate<
 		log_migration("migration", storage_prefix, old_pallet_name, new_pallet_name);
 
 		let storage_prefix = pallet_bounties::BountyDescriptions::<T>::storage_prefix();
-		frame_support::storage::migration::move_storage_from_pallet(
+		migration::move_storage_from_pallet(
 			storage_prefix,
 			old_pallet_name.as_bytes(),
 			new_pallet_name.as_bytes(),
@@ -90,7 +84,7 @@ pub fn migrate<
 		log_migration("migration", storage_prefix, old_pallet_name, new_pallet_name);
 
 		let storage_prefix = pallet_bounties::BountyApprovals::<T>::storage_prefix();
-		frame_support::storage::migration::move_storage_from_pallet(
+		migration::move_storage_from_pallet(
 			storage_prefix,
 			old_pallet_name.as_bytes(),
 			new_pallet_name.as_bytes(),
@@ -158,7 +152,7 @@ pub fn pre_migration<T: pallet_bounties::Config, P: GetStorageVersion + 'static,
 		),
 		"unexpected next_key({}) = {:?}",
 		new_pallet_name,
-		HexDisplay::from(&sp_io::storage::next_key(&new_pallet_prefix).unwrap()),
+		HexDisplay::from(&storage::next_key(&new_pallet_prefix).unwrap()),
 	);
 	assert!(<P as GetStorageVersion>::on_chain_storage_version() < 4);
 }

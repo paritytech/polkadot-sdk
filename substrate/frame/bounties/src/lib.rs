@@ -94,23 +94,14 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use frame_support::traits::{
-	Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced, ReservableCurrency,
-};
+use frame::prelude::*;
 
-use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
-	DispatchResult, Permill, RuntimeDebug,
-};
-
-use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
-
-use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::{
-	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
-};
+use frame::traits::ExistenceRequirement::AllowDeath;
 use scale_info::TypeInfo;
 pub use weights::WeightInfo;
+
+use frame::benchmarking::prelude::{BlockNumberFor as SystemBlockNumberFor, *};
+
 
 pub use pallet::*;
 
@@ -201,7 +192,7 @@ pub trait ChildBountyManager<Balance> {
 	fn bounty_removed(bounty_id: BountyIndex);
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
