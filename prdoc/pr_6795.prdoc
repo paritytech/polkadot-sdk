@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: ...
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Makes possible to split internals of `sp_api::impl_runtime_apis!` into multiple blocks.
+      to do this user is required to use `sp_api::impl_runtime_apis_ext` proc-macro attribute on a 
+      module that defines additional `impl` items that will be included in `impl_runtime_apis!` through `use <path>::*` declarations.
+
+
+crates: 
+- name: sp-api
+  bump: major
+- name: sp-api-proc-macro
+  bump: major
+- name: frame-support
+  bump: major
+
