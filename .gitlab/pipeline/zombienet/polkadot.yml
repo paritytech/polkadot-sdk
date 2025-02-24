@@ -441,7 +441,8 @@ zombienet-polkadot-functional-async-backing-6-seconds-rate:
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::async_backing_6_seconds_rate::async_backing_6_seconds_rate_test
 
-zombienet-polkadot-functional-approval-voting-coalescing::
+# moved to gha
+.zombienet-polkadot-functional-approval-voting-coalescing:
   extends:
     - .zombienet-polkadot-common
   needs:
