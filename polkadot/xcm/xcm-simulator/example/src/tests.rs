@@ -171,13 +171,13 @@ fn reserve_transfer() {
 
 #[test]
 fn reserve_transfer_with_error() {
-	use sp_tracing::{test_log_capture, tracing::Level};
+	use sp_tracing::{capture, tracing::Level};
 
 	// Reset the test network
 	MockNet::reset();
 
 	// Execute XCM Transfer and Capture Logs
-	test_log_capture::capture_with_max_level(Level::ERROR, || {
+	let log_capture = capture!(Level::ERROR, {
 		let invalid_dest = Box::new(Parachain(9999).into());
 		let withdraw_amount = 123;
 
@@ -218,7 +218,7 @@ fn reserve_transfer_with_error() {
 	});
 
 	// Assertions on Captured Logs
-	assert!(test_log_capture::logs_contain("XCM validate_send failed"));
+	assert!(log_capture.contains("XCM validate_send failed"));
 }
 
 #[test]

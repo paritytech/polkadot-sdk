@@ -25,7 +25,7 @@ sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-std = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }
 
 pallet-xcm = { workspace = true, default-features = true }
 polkadot-core-primitives = { workspace = true, default-features = true }

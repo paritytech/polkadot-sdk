@@ -256,28 +256,72 @@ macro_rules! enter_span {
 	};
 }
 
-#[cfg(test)]
+#[cfg(feature = "test-utils")]
 pub mod test_log_capture {
 	use std::{
 		io::Write,
 		sync::{Arc, Mutex},
 	};
 	use tracing_subscriber::fmt::MakeWriter;
-	use tracing_core::LevelFilter;
 
 	/// A reusable log capturing struct for unit tests.
 	/// Captures logs written during test execution for assertions.
+	///
+	/// # Examples
+	/// ```
+	/// use sp_tracing::test_log_capture::LogCapture;
+	/// use std::io::Write;
+	///
+	/// let mut log_capture = LogCapture::new();
+	/// writeln!(log_capture, "Test log message").unwrap();
+	/// assert!(log_capture.contains("Test log message"));
+	/// ```
 	pub struct LogCapture {
 		buffer: Arc<Mutex<Vec<u8>>>,
 	}
 
 	impl LogCapture {
 		/// Creates a new `LogCapture` instance with an internal buffer.
-		pub fn new(max_level: impl Into<LevelFilter>) -> Self {
+		///
+		/// # Examples
+		/// ```
+		/// use sp_tracing::test_log_capture::LogCapture;
+		///
+		/// let log_capture = LogCapture::new();
+		/// assert!(log_capture.get_logs().is_empty());
+		/// ```
+		pub fn new() -> Self {
 			LogCapture { buffer: Arc::new(Mutex::new(Vec::new())) }
 		}
 
+		/// Checks if the captured logs contain a specific substring.
+		///
+		/// # Examples
+		/// ```
+		/// use sp_tracing::test_log_capture::LogCapture;
+		/// use std::io::Write;
+		///
+		/// let mut log_capture = LogCapture::new();
+		/// writeln!(log_capture, "Hello, world!").unwrap();
+		/// assert!(log_capture.contains("Hello"));
+		/// assert!(!log_capture.contains("Goodbye"));
+		/// ```
+		pub fn contains(&self, expected: &str) -> bool {
+			let logs = self.get_logs();
+			logs.contains(expected)
+		}
+
 		/// Retrieves the captured logs as a `String`.
+		///
+		/// # Examples
+		/// ```
+		/// use sp_tracing::test_log_capture::LogCapture;
+		/// use std::io::Write;
+		///
+		/// let mut log_capture = LogCapture::new();
+		/// writeln!(log_capture, "Log entry").unwrap();
+		/// assert_eq!(log_capture.get_logs().trim(), "Log entry");
+		/// ```
 		pub fn get_logs(&self) -> String {
 			String::from_utf8(self.buffer.lock().unwrap().clone()).unwrap()
 		}
@@ -289,12 +333,14 @@ pub mod test_log_capture {
 	}
 
 	impl Write for LogCapture {
+		/// Writes log data into the internal buffer.
 		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
 			let mut logs = self.buffer.lock().unwrap();
 			logs.extend_from_slice(buf);
 			Ok(buf.len())
 		}
 
+		/// Flushes the internal buffer (no-op in this implementation).
 		fn flush(&mut self) -> std::io::Result<()> {
 			Ok(())
 		}
@@ -307,5 +353,41 @@ pub mod test_log_capture {
 		fn make_writer(&'a self) -> Self::Writer {
 			self.writer()
 		}
+	}
+
+	/// Macro for capturing logs during test execution.
+	///
+	/// It sets up a log subscriber with an optional maximum log level and captures the output.
+	///
+	/// # Examples
+	/// ```
+	/// use sp_tracing::capture;
+	/// use sp_tracing::tracing::info;
+	///
+	/// let log_capture = capture!({
+	///     info!("Captured log message");
+	/// });
+	///
+	/// assert!(log_capture.contains("Captured log message"));
+	/// ```
+	#[macro_export]
+	macro_rules! capture {
+		// Case when max_level is provided
+		($max_level:expr, $test:block) => {{
+			let log_capture = $crate::test_log_capture::LogCapture::new();
+			let subscriber = sp_tracing::tracing_subscriber::fmt()
+				.with_max_level($max_level)
+				.with_writer(log_capture.writer())
+				.finish();
+
+			sp_tracing::tracing::subscriber::with_default(subscriber, || $test);
+
+			log_capture
+		}};
+
+		// Case when max_level is omitted (defaults to DEBUG)
+		($test:block) => {{
+			capture!(sp_tracing::tracing::Level::DEBUG, $test)
+		}};
 	}
 }

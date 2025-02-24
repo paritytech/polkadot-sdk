@@ -29,7 +29,6 @@ tracing-subscriber = { workspace = true, optional = true, features = [
 	"time",
 	"tracing-log",
 ] }
-tracing-test = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
@@ -38,7 +37,7 @@ std = [
 	"codec/std",
 	"tracing-core/std",
 	"tracing-subscriber",
-	"tracing-test",
 	"tracing/std",
 	"with-tracing",
 ]
+test-utils = ["std"]
