@@ -1570,7 +1570,7 @@ where
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
 		if is_precompile(&address) {
-			return self.run_precompile(address, true, false, 0u32.into(), &input_data);
+			return self.run_precompile(address, true, self.is_read_only(), 0u32.into(), &input_data);
 		}
 
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
