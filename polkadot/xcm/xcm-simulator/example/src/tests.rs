@@ -138,24 +138,15 @@ fn reserve_transfer() {
 		);
 		// Ensure expected events were emitted
 		let events = relay_chain::System::events();
-		let attempted_count = events
-			.iter()
-			.filter(|e| {
-				matches!(
-					e.event,
-					relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
-				)
-			})
-			.count();
-		let sent_count = events
-			.iter()
-			.filter(|e| {
-				matches!(
-					e.event,
-					relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. })
-				)
-			})
-			.count();
+		let attempted_count = count_relay_chain_events(&events, |event| {
+			matches!(
+				event,
+				relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
+			)
+		});
+		let sent_count = count_relay_chain_events(&events, |event| {
+			matches!(event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }))
+		});
 		assert_eq!(attempted_count, 1, "Expected one XcmPallet::Attempted event");
 		assert_eq!(sent_count, 1, "Expected one XcmPallet::Sent event");
 	});
@@ -584,4 +575,14 @@ fn query_holding() {
 			}])],
 		);
 	});
+}
+
+fn count_relay_chain_events<F>(
+	events: &[frame_system::EventRecord<relay_chain::RuntimeEvent, sp_core::H256>],
+	predicate: F,
+) -> usize
+where
+	F: Fn(&relay_chain::RuntimeEvent) -> bool,
+{
+	events.iter().filter(|e| predicate(&e.event)).count()
 }
