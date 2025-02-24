@@ -1,4 +1,4 @@
-title: 'Effort towards getting chainspecbuilder into omni-node fix 5567'
+title: 'Add chain-spec-builder as a subcommand to the polkadot-omni-node'
 doc:
 - audience: Runtime Dev
 

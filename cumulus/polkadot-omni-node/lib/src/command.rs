@@ -148,10 +148,8 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
-		Some(Subcommand::ChainSpecBuilder(cmd)) => cmd.run().map_err(|err| {
-			eprintln!("Error executing chain-spec-builder: {}", err);
-			sc_cli::Error::Application(err.into())
-		}),
+		Some(Subcommand::ChainSpecBuilder(cmd)) =>
+			cmd.run().map_err(|err| sc_cli::Error::Application(err.into())),
 
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
