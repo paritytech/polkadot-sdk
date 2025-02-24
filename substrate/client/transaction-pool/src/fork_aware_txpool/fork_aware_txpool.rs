@@ -1516,13 +1516,9 @@ where
 		}
 
 		self.ready_poll.lock().remove_cancelled();
-		self.included_transacations.lock().retain(|cached_block, _| {
-			if cached_block.hash == finalized_hash {
-				true
-			} else {
-				false
-			}
-		});
+		self.included_transacations
+			.lock()
+			.retain(|cached_block, _| cached_block.hash == finalized_hash);
 
 		trace!(
 			target: LOG_TARGET,
