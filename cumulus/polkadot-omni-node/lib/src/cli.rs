@@ -90,6 +90,11 @@ pub enum Subcommand {
 	Revert(sc_cli::RevertCmd),
 
 	/// Subcommand for generating and managing chain specifications.
+	///
+	/// Unlike `build-spec`, which generates a chain specification based on existing configurations,
+	/// `chain-spec-builder` provides a more interactive and customizable approach to defining a
+	/// chain spec. It allows users to create specifications with additional parameters and
+	/// validation steps before finalizing the output.
 	ChainSpecBuilder(ChainSpecBuilder),
 
 	/// Remove the whole chain.
