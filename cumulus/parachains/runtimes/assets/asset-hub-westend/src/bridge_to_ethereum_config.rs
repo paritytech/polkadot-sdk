@@ -104,6 +104,7 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type BridgeHubLocation = BridgeHubLocation;
 	type UniversalLocation = UniversalLocation;
 	type PalletLocation = SystemFrontendPalletLocation;
+	type BackendWeightInfo = ();
 }
 
 /// `EnsureOriginWithArg` impl for `ForeignTokenCreator` that allows only XCM origins that are

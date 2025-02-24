@@ -174,6 +174,9 @@ pub mod pallet {
 
 		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
 		///
+		/// The system frontend pallet on AH proxies this call to BH.
+		///
+		/// - `sender`: The original sender initiating the call on AH
 		/// - `asset_id`: Location of the asset (relative to this chain)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
 		/// - `fee`: Ether to pay for the execution cost on Ethereum
@@ -181,12 +184,14 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_token())]
 		pub fn register_token(
 			origin: OriginFor<T>,
+			sender: Box<VersionedLocation>,
 			asset_id: Box<VersionedLocation>,
 			metadata: AssetMetadata,
 		) -> DispatchResult {
-			let origin_location = T::FrontendOrigin::ensure_origin(origin)?;
-			let message_origin = Self::location_to_message_origin(&origin_location)?;
+			T::FrontendOrigin::ensure_origin(origin)?;
 
+			let sender_location: Location =
+				(*sender).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
@@ -206,6 +211,8 @@ pub mod pallet {
 				symbol: metadata.symbol.into_inner(),
 				decimals: metadata.decimals,
 			};
+
+			let message_origin = Self::location_to_message_origin(&sender_location)?;
 			Self::send(message_origin, command, 0)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken {

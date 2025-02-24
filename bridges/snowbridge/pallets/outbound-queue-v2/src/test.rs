@@ -13,7 +13,7 @@ use frame_support::{
 use codec::Encode;
 use snowbridge_core::{ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{
-	v2::{abi::OutboundMessageWrapper, Command, SendMessage},
+	v2::{abi::OutboundMessageWrapper, Command, Initializer, SendMessage},
 	SendError,
 };
 use sp_core::{hexdisplay::HexDisplay, H256};
@@ -75,7 +75,10 @@ fn process_message_yields_on_max_messages_per_block() {
 			commands: BoundedVec::try_from(vec![Command::Upgrade {
 				impl_address: Default::default(),
 				impl_code_hash: Default::default(),
-				initializer: None,
+				initializer: Initializer {
+					params: (0..512).map(|_| 1u8).collect::<Vec<u8>>(),
+					maximum_required_gas: 0,
+				},
 			}])
 			.unwrap(),
 		};

@@ -13,6 +13,7 @@ fn register_tokens_succeeds() {
 
 		assert_ok!(EthereumSystemV2::register_token(
 			origin,
+			Box::new(versioned_location.clone()),
 			Box::new(versioned_location),
 			Default::default(),
 		));

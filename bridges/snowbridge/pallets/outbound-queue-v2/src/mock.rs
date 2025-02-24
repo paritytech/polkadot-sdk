@@ -158,7 +158,10 @@ where
 		commands: BoundedVec::try_from(vec![Command::Upgrade {
 			impl_address: Default::default(),
 			impl_code_hash: Default::default(),
-			initializer: None,
+			initializer: Initializer {
+				params: (0..512).map(|_| 1u8).collect::<Vec<u8>>(),
+				maximum_required_gas: 0,
+			},
 		}])
 		.unwrap(),
 	}
@@ -178,10 +181,10 @@ where
 		commands: BoundedVec::try_from(vec![Command::Upgrade {
 			impl_address: H160::zero(),
 			impl_code_hash: H256::zero(),
-			initializer: Some(Initializer {
+			initializer: Initializer {
 				params: (0..1000).map(|_| 1u8).collect::<Vec<u8>>(),
 				maximum_required_gas: 0,
-			}),
+			},
 		}])
 		.unwrap(),
 	}

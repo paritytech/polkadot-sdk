@@ -15,8 +15,8 @@ mod benchmarks {
 	#[benchmark]
 	fn register_token() -> Result<(), BenchmarkError> {
 		let origin_location = Location::new(1, [Parachain(1000)]);
-		let origin = <T as Config>::Helper::make_xcm_origin(origin_location);
-
+		let origin = <T as Config>::Helper::make_xcm_origin(origin_location.clone());
+		let creator = Box::new(VersionedLocation::from(origin_location.clone()));
 		let relay_token_asset_id: Location = Location::parent();
 		let asset = Box::new(VersionedLocation::from(relay_token_asset_id));
 		let asset_metadata = AssetMetadata {
@@ -26,7 +26,7 @@ mod benchmarks {
 		};
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, asset, asset_metadata);
+		_(origin as T::RuntimeOrigin, creator, asset, asset_metadata);
 
 		Ok(())
 	}
