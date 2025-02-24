@@ -186,11 +186,11 @@ fn reserve_transfer_with_error() {
 				Unlimited,
 			);
 
-			// Assertions on Captured Logs
-			assert!(log_capture.contains("XCM validate_send failed"));
-
 			// Ensure an error occurred
 			assert!(result.is_err(), "Expected an error due to invalid destination");
+
+			// Assert captured logs
+			assert!(log_capture.contains("XCM validate_send failed"));
 
 			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
 			let events = relay_chain::System::events();
