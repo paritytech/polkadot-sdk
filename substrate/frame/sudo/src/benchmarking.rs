@@ -20,12 +20,7 @@
 use super::*;
 use crate::Pallet;
 use alloc::{boxed::Box, vec};
-use frame_benchmarking::v2::*;
-use frame_support::dispatch::{DispatchInfo, GetDispatchInfo};
-use frame_system::RawOrigin;
-use sp_runtime::traits::{
-	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
-};
+use frame::benchmarking::prelude::*;
 
 fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 	let re: <T as Config>::RuntimeEvent = generic_event.into();
