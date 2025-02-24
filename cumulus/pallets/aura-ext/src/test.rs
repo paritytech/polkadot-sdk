@@ -120,6 +120,7 @@ mod test {
 		let mut ext = TestExternalities::new_empty();
 		ext.execute_with(|| {
 			set_ancestors();
+			pallet_aura::Slot
 			// Set initial parachain slot
 			pallet_aura::CurrentSlot::<Test>::put(Slot::from(para_slot));
 		});
@@ -185,12 +186,22 @@ mod test {
 		const VELOCITY: u32 = 2;
 		type Hook = FixedVelocityConsensusHook<Test, 3000, VELOCITY, 1>;
 
-		new_test_ext(6).execute_with(|| {
+		new_test_ext(5).execute_with(|| {
 			let state_proof = relay_chain_state_proof(10);
 			Hook::on_state_proof(&state_proof);
+		});
+	}
 
-			let para_slot = Slot::from(7);
-			pallet_aura::CurrentSlot::<Test>::put(para_slot);
+	#[should_panic(
+		expected = "Parachain slot is too far in the future: parachain_slot=Slot(6), derived_from_relay_slot=Slot(5) velocity=2"
+	)]
+	#[test]
+	fn test_para_slot_too_high() {
+		const VELOCITY: u32 = 2;
+		type Hook = FixedVelocityConsensusHook<Test, 3000, VELOCITY, 1>;
+
+		new_test_ext(6).execute_with(|| {
+			let state_proof = relay_chain_state_proof(10);
 			Hook::on_state_proof(&state_proof);
 		});
 	}

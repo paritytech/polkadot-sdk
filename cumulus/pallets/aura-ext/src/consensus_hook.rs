@@ -79,9 +79,7 @@ where
 		let para_slot_from_relay =
 			Slot::from_timestamp(relay_chain_timestamp.into(), para_slot_duration);
 
-		// Check that we are not too far in the future. Since we expect `V` parachain blocks
-		// during the relay chain slot, we can allow for `V` parachain slots into the future.
-		if *para_slot > *para_slot_from_relay + u64::from(velocity) {
+		if *para_slot > *para_slot_from_relay {
 			panic!(
 				"Parachain slot is too far in the future: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
 				para_slot,
