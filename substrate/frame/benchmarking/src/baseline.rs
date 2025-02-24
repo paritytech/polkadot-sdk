@@ -22,14 +22,10 @@
 
 use crate::benchmarks;
 use alloc::{vec, vec::Vec};
-use frame_system::Pallet as System;
-use sp_runtime::{
-	traits::{AppVerify, Hash},
-	RuntimeAppPublic,
-};
+use frame::testing_prelude::*;
 
 mod crypto {
-	use sp_application_crypto::{app_crypto, sr25519, KeyTypeId};
+	use frame::deps::sp_application_crypto::{app_crypto, sr25519, KeyTypeId};
 
 	pub const TEST_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 	app_crypto!(sr25519, TEST_KEY_TYPE_ID);
@@ -110,15 +106,14 @@ benchmarks! {
 
 #[cfg(test)]
 pub mod mock {
-	use frame_support::derive_impl;
 	use sp_runtime::{testing::H256, BuildStorage};
 
 	type AccountId = u64;
 	type Nonce = u32;
 
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = MockBlock<Test>;
 
-	frame_support::construct_runtime!(
+	construct_runtime!(
 		pub enum Test
 		{
 			System: frame_system,
@@ -149,12 +144,12 @@ pub mod mock {
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
 		type OnSetCode = ();
-		type MaxConsumers = frame_support::traits::ConstU32<16>;
+		type MaxConsumers = ConstU32<16>;
 	}
 
 	impl super::Config for Test {}
 
-	pub fn new_test_ext() -> sp_io::TestExternalities {
+	pub fn new_test_ext() -> TestState {
 		use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
