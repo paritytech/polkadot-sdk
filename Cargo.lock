@@ -4672,7 +4672,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
@@ -16259,7 +16259,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "7.0.0"
+version = "7.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -24073,7 +24073,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "7.0.0"
+version = "7.0.1"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -27683,7 +27683,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "frame-executive",
  "frame-support",

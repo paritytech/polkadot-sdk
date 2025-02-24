@@ -518,6 +518,9 @@ pub mod prelude {
 		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
 		VersionedResponse, VersionedXcm, WrapVersion,
 	};
+
+	/// The minimal supported XCM version
+	pub const MIN_XCM_VERSION: XcmVersion = 3;
 }
 
 pub mod opaque {
