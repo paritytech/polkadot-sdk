@@ -72,6 +72,16 @@ pub enum Subcommand {
 	Key(sc_cli::KeySubcommand),
 
 	/// Build a chain specification.
+	///
+	/// The `build-spec` command generates a chain specification from existing
+	/// configurations. It is typically used for quickly creating a chainspec for
+	/// predefined chains such as `dev`, `local`, or a custom specification.
+	/// ## When to Use:
+	/// - **Quick and simple** chainspec generation.
+	/// - Suitable for **standard setups** where manual edits are acceptable.
+	/// - When you need a **basic template** that you can modify later.
+	/// - You don’t require extensive modifications or validation.
+	/// - You need a **quick** chain spec for a predefined network.
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Validate blocks.
@@ -90,11 +100,23 @@ pub enum Subcommand {
 	Revert(sc_cli::RevertCmd),
 
 	/// Subcommand for generating and managing chain specifications.
+	/// The `chain-spec-builder` command provides a more **interactive and flexible**
+	/// approach to chainspec creation. It allows for direct modification, validation,
+	/// and advanced configuration.
+	/// ## When to Use:
+	/// - When you need **fine-grained control** over the chain specification.
+	/// - If you want to **validate and modify** chainspecs before using them.
+	/// - Ideal for **parachains** or advanced network configurations.
+	/// - You need to **customize, validate, or interactively configure** the chain spec.
 	///
-	/// Unlike `build-spec`, which generates a chain specification based on existing
-	/// configurations, `chain-spec-builder` provides a more interactive and customizable approach
-	/// to defining a chain spec. It allows users to create specifications with additional
-	/// parameters and validation steps before finalizing the output.
+	/// # Summary: Choosing Between `build-spec` and `chain-spec-builder`
+	///
+	/// | Command               | When to Use |
+	/// |-----------------------|-------------|
+	/// | `build-spec`         | If you need a quick, standard chain specification with minimal customization. |
+	/// | `chain-spec-builder` | If you need to interactively define, validate, or modify a chain spec with additional parameters. |
+	///
+	/// ---
 	ChainSpecBuilder(ChainSpecBuilder),
 
 	/// Remove the whole chain.
