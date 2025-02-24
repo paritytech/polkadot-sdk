@@ -164,6 +164,7 @@ impl pallet_nomination_pools::Config for Runtime {
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BlockNumberProvider = System;
+	type Filter = pallet_staking::AllStakers<Runtime>;
 }
 
 frame_support::construct_runtime!(
