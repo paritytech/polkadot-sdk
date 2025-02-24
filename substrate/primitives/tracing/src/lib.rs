@@ -378,13 +378,16 @@ pub mod test_log_capture {
 	/// # Examples
 	///
 	/// ```
-	/// use sp_tracing::test_log_capture::init_log_capture;
-	/// use tracing::{info, Level};
+	/// use sp_tracing::{
+	///     test_log_capture::init_log_capture,
+	///     tracing::{info, subscriber, Level},
+	/// };
 	///
-	/// let (log_capture, _subscriber) = init_log_capture(Level::INFO);
-	///
-	/// info!("This log will be captured");
-	/// assert!(log_capture.contains("This log will be captured"));
+	/// let (log_capture, subscriber) = init_log_capture(Level::INFO);
+	/// 	subscriber::with_default(subscriber, || {
+	/// 		info!("This log will be captured");
+	/// 		assert!(log_capture.contains("This log will be captured"));
+	/// });
 	/// ```
 	pub fn init_log_capture(
 		max_level: impl Into<LevelFilter>,
@@ -407,8 +410,10 @@ pub mod test_log_capture {
 	///
 	/// # Examples
 	/// ```
-	/// use sp_tracing::capture_test_logs;
-	/// use sp_tracing::tracing::{info, warn, Level};
+	/// use sp_tracing::{
+	///     capture_test_logs,
+	///     tracing::{info, warn, Level},
+	/// };
 	///
 	/// let log_capture = capture_test_logs!(Level::WARN, {
 	///     info!("Captured info message");
