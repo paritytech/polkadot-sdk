@@ -490,10 +490,8 @@ pub trait CreateSignedTransaction<LocalCall>:
 
 /// Interface for creating an inherent.
 ///
-/// This trait is also used to create a bare extrinsic. In runtime primitives, an inherent and an
-/// unsigned transaction are encoded to the same type: A `Bare` extrinsic, so by default the method
-/// `create_bare` is implemented to call `create_inherent`. For other specific usages the default
-/// implementation can be overridden.
+/// Implement this trait for the runtime but use `CreateBare` instead.
+/// This trait is defined to avoid a breaking change, and it automatically implements `CreateBare`.
 pub trait CreateInherent<LocalCall>: CreateTransactionBase<LocalCall> {
 	/// Create an inherent.
 	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic;
@@ -670,8 +668,8 @@ mod tests {
 		type RuntimeCall = RuntimeCall;
 	}
 
-	impl CreateBare<RuntimeCall> for TestRuntime {
-		fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+	impl CreateInherent<RuntimeCall> for TestRuntime {
+		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
 			Extrinsic::new_bare(call)
 		}
 	}

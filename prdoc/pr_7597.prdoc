@@ -2,11 +2,17 @@ title: 'Introduce CreateBare, deprecated CreateInherent'
 doc:
 - audience: Runtime Dev
   description: |
-    Introduce the trait `CreateBare` and remove the trait `CreateInherent`.
+    Introduce the trait `CreateBare` and implement it automatically for types implementing the trait `CreateInherent`.
+
     Both unsigned transaction and inherent use the extrinsic type `Bare`.
     Before this PR `CreateInherent` trait was use to generate unsigned transaction, now unsigned transaction can be generated using a proper trait `CreateBare`.
 
-    To update your code, replace every instance of `CreateInherent` by `CreateBare` and every call to `create_inherent` to `create_bare`.
+    How to upgrade: change usage of `CreateInherent` to `CreateBare` if you wish to, but keep implementing `CreateInherent` for the runtime.
+
+    Changes:
+    * `SendUnsignedTransaction`: bounds `T: CreateBare` instead of `T: CreateInherent`. This is not a breaking change because any type implementing `CreateInherent` defacto implements `CreateBare` through automatic implementation.
+    * `SendUnsignedTransaction` is implemented for `Signer` when `T: CreateBase` instead of `T: CreateInherent`. This is not a breaking change for the same reason.
+    That said there might be some type inference or trait resolution that can be breaking, as rustc isn't perfectly predictable in this regard. So this PR still bump `frame-system` as major.
 
 crates:
 - name: frame-system
@@ -14,24 +20,24 @@ crates:
 - name: polkadot-runtime-common
   bump: patch
 - name: polkadot-runtime-parachains
-  bump: major
+  bump: patch
 - name: rococo-runtime
-  bump: major
+  bump: patch
 - name: westend-runtime
-  bump: major
+  bump: patch
 - name: pallet-babe
-  bump: major
+  bump: patch
 - name: pallet-beefy
-  bump: major
+  bump: patch
 - name: pallet-election-provider-multi-block
-  bump: major
+  bump: patch
 - name: pallet-election-provider-multi-phase
-  bump: major
+  bump: patch
 - name: pallet-grandpa
-  bump: major
+  bump: patch
 - name: pallet-im-online
-  bump: major
+  bump: patch
 - name: pallet-mixnet
-  bump: major
+  bump: patch
 - name: pallet-offences-benchmarking
   bump: patch
