@@ -221,7 +221,7 @@ pub mod prelude {
 	pub use super::derive::*;
 
 	/// All hashing related things
-	pub use super::hashing::*;
+	pub use super::cryptography::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -232,12 +232,12 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+		BlockNumberProvider, Bounded, Convert, ConvertInto, DispatchInfoOf, Dispatchable, ReduceBy,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
-	pub use sp_runtime::{BoundedSlice, BoundedVec};
+	pub use sp_runtime::{BoundedSlice, BoundedVec, WeakBoundedVec};
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -530,6 +530,17 @@ pub mod traits {
 	pub use sp_runtime::traits::*;
 }
 
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, FindAuthor, InitializeMembers,
+	};
+	pub use sp_application_crypto::{KeyTypeId, Pair};
+	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
+}
+
 /// The arithmetic types used for safe math.
 ///
 /// This is already part of the [`prelude`].
@@ -551,19 +562,13 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
-}
-
-/// All account management related traits.
-///
-/// This is already part of the [`prelude`].
-pub mod account {
-	pub use frame_support::traits::{
-		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		H160, H256, H512, U256, U512,
 	};
-	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
+	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
@@ -591,6 +596,8 @@ pub mod deps {
 	pub use frame_executive;
 	#[cfg(feature = "runtime")]
 	pub use sp_api;
+	#[cfg(feature = "runtime")]
+	pub use sp_application_crypto;
 	#[cfg(feature = "runtime")]
 	pub use sp_block_builder;
 	#[cfg(feature = "runtime")]
