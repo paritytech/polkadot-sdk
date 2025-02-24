@@ -85,31 +85,33 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod migrations;
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+mod tests;
 pub mod weights;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
 extern crate alloc;
 use alloc::vec::Vec;
-use frame_support::traits::{
-	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
-	Get, OnUnbalanced, ReservableCurrency, Currency
+use frame_support::{
+	dispatch::DispatchResultWithPostInfo,
+	pallet_prelude::*,
+	traits::{
+		tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
+		Currency, EnsureOrigin, Get, OnUnbalanced, ReservableCurrency,
+	},
 };
-use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
-	DispatchResult, Permill, RuntimeDebug,
-};
-use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
-use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
 };
 use scale_info::TypeInfo;
+use sp_runtime::{
+	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
+	DispatchResult, Permill, RuntimeDebug,
+};
 
 type DepositBalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
 type BountyBalanceOf<T, I = ()> = pallet_treasury::AssetBalanceOf<T, I>;
@@ -735,10 +737,10 @@ pub mod pallet {
 						T::Currency::reserve(curator, deposit)?;
 
 						bounty.curator_deposit = deposit;
-						
+
 						let update_due =
 							Self::treasury_block_number() + T::BountyUpdatePeriod::get();
-						
+
 						bounty.status = BountyStatus::Active {
 							curator: curator.clone(),
 							curator_stash: stash,
@@ -828,7 +830,10 @@ pub mod pallet {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 				if let BountyStatus::PendingPayout {
-					curator, beneficiary, unlock_at, curator_stash
+					curator,
+					beneficiary,
+					unlock_at,
+					curator_stash,
 				} = &bounty.status
 				{
 					ensure!(Self::treasury_block_number() >= *unlock_at, Error::<T, I>::Premature);
@@ -1056,7 +1061,7 @@ pub mod pallet {
 					bounty.value,
 				)
 				.map_err(|_| Error::<T, I>::FundingError)?;
-				
+
 				bounty.status = BountyStatus::ApprovedWithCurator {
 					curator: curator.clone(),
 					payment_status: PaymentState::Attempted { id: payment_id },
@@ -1183,8 +1188,7 @@ pub mod pallet {
 					let mut new_bounty_status = None;
 
 					let result = match bounty.status {
-						BountyStatus::Approved { ref mut payment_status } =>
-						{
+						BountyStatus::Approved { ref mut payment_status } => {
 							let result = Self::check_payment_status_for_funding(
 								&mut new_bounty_status,
 								payment_status,
@@ -1193,11 +1197,14 @@ pub mod pallet {
 
 							// Unreserve the deposit when payment succeeds
 							if let PaymentState::Succeeded = payment_status {
-								let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
-								debug_assert!(err_amount.is_zero());  // Ensure nothing remains reserved
-								Self::deposit_event(Event::<T, I>::BountyBecameActive { index: bounty_id });
+								let err_amount =
+									T::Currency::unreserve(&bounty.proposer, bounty.bond);
+								debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
+								Self::deposit_event(Event::<T, I>::BountyBecameActive {
+									index: bounty_id,
+								});
 							}
-						
+
 							result
 						},
 						BountyStatus::ApprovedWithCurator {
@@ -1212,11 +1219,14 @@ pub mod pallet {
 
 							// Unreserve the deposit when payment succeeds
 							if let PaymentState::Succeeded = payment_status {
-								let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
-								debug_assert!(err_amount.is_zero());  // Ensure nothing remains reserved
-								Self::deposit_event(Event::<T, I>::BountyBecameActive { index: bounty_id });
+								let err_amount =
+									T::Currency::unreserve(&bounty.proposer, bounty.bond);
+								debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
+								Self::deposit_event(Event::<T, I>::BountyBecameActive {
+									index: bounty_id,
+								});
 							}
-						
+
 							result
 						},
 						BountyStatus::PayoutAttempted {
@@ -1248,15 +1258,17 @@ pub mod pallet {
 									bounty.fee,
 									bounty.value,
 								);
-								
-								// Tiago: Should I remove the bounty since it was being removed in claim_bounty
+
+								// Tiago: Should I remove the bounty since it was being removed in
+								// claim_bounty
 								Bounties::<T, I>::remove(bounty_id);
 								BountyDescriptions::<T, I>::remove(bounty_id);
 								T::ChildBountyManager::bounty_removed(bounty_id);
 								// Tiago: Unreserve here?
 								// Unreserve the curator deposit when payment succeeds
-								let err_amount = T::Currency::unreserve(&curator, bounty.curator_deposit);
-								debug_assert!(err_amount.is_zero());  // Ensure nothing remains reserved
+								let err_amount =
+									T::Currency::unreserve(&curator, bounty.curator_deposit);
+								debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
 								Self::deposit_event(Event::<T, I>::BountyClaimed {
 									index: bounty_id,
 									asset_kind: bounty.asset_kind.clone(),
@@ -1285,7 +1297,6 @@ pub mod pallet {
 								PaymentState::Attempted { id } => {
 									match T::Paymaster::check_payment(*id) {
 										PaymentStatus::Success => {
-
 											// Tiago: Do we need this?
 											// let res = T::Currency::transfer(
 											// 	&bounty_account,
@@ -1404,9 +1415,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		fee: &BountyBalanceOf<T, I>,
 		asset_kind: T::AssetKind,
 	) -> Result<DepositBalanceOf<T, I>, pallet_treasury::Error<T, I>> {
-		let fee =
-			<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(*fee, asset_kind)
-				.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
+		let fee = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+			*fee, asset_kind,
+		)
+		.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 
 		let mut deposit = T::CuratorDepositMultiplier::get() * fee;
 
@@ -1438,7 +1450,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Return the amount of money in the bounty.
 	pub fn bounty_balance(id: BountyIndex) -> DepositBalanceOf<T, I> {
-		// Tiago: Currency::free_balance accepts AccountId. Is this how I can get the balance of the bounty?
+		// Tiago: Currency::free_balance accepts AccountId. Is this how I can get the balance of the
+		// bounty?
 		let native_account_id = T::PalletId::get().into_sub_account_truncating(("bt", id));
 		T::Currency::free_balance(&native_account_id)
 			// Must never be less than 0 but better be safe.
@@ -1524,7 +1537,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		payment_status: &mut PaymentState<PaymentIdOf<T, I>>,
 		approved_curator: Option<&T::AccountId>,
 	) -> DispatchResultWithPostInfo {
-		
 		match payment_status {
 			PaymentState::Pending => {
 				// user should try processing payment again, not check its status
@@ -1587,7 +1599,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		payments_succeeded: &mut i32,
 		beneficiary: &mut (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
 	) -> Result<(), Error<T, I>> {
-
 		match beneficiary.1 {
 			PaymentState::Pending => {
 				// user should try processing payment again, not check its status
@@ -1633,8 +1644,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		value: BountyBalanceOf<T, I>,
 	) -> (BountyBalanceOf<T, I>, BountyBalanceOf<T, I>) {
 		// Tiago: The payout should be the balance of the bounty account of asset_kind.
-		// if a child bounty is added and claimed, and parent-bounty is claimed the bounty.amount is returned
-		// and not the balance of the bounty account.
+		// if a child bounty is added and claimed, and parent-bounty is claimed the bounty.amount is
+		// returned and not the balance of the bounty account.
 		// right? how to handle this?
 		let payout = value - fee;
 

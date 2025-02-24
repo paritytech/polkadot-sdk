@@ -31,7 +31,6 @@ fn minting_works() {
 	});
 }
 
-
 #[test]
 #[allow(deprecated)]
 fn genesis_config_works() {

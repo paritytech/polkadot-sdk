@@ -17,10 +17,8 @@
 
 //! bounties pallet tests.
 
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use crate::*;
-use crate::PaymentStatus;
+use crate::{PaymentStatus, *};
+use std::{cell::RefCell, collections::BTreeMap};
 
 thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());

@@ -18,12 +18,12 @@
 //! Tests for the bounties pallet.
 
 #[cfg(test)]
-pub(crate) mod mock;
-#[cfg(test)]
-pub(crate) mod unit;
+pub(crate) mod genesis;
 #[cfg(test)]
 pub(crate) mod migration;
 #[cfg(test)]
-pub(crate) mod genesis;
+pub(crate) mod mock;
+#[cfg(test)]
+pub(crate) mod unit;
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) mod utils;

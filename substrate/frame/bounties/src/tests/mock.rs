@@ -25,10 +25,9 @@ use core::cell::RefCell;
 
 use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
-	derive_impl, parameter_types,
+	assert_ok, derive_impl, parameter_types,
 	traits::{tokens::UnityAssetBalanceConversion, ConstU32, ConstU64, OnInitialize},
 	PalletId,
-	assert_ok
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
 
@@ -89,7 +88,13 @@ impl Pay for TestPay {
 		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
+	fn ensure_successful(
+		_: &Self::Beneficiary,
+		_: &Self::Beneficiary,
+		_: Self::AssetKind,
+		_: Self::Balance,
+	) {
+	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
 		set_status(id, PaymentStatus::Failure)
@@ -231,7 +236,6 @@ pub type TreasuryError1 = pallet_treasury::Error<Test, Instance1>;
 pub type TreasuryEvent = pallet_treasury::Event<Test>;
 pub type TreasuryEvent1 = pallet_treasury::Event<Test, Instance1>;
 
-
 pub struct ExtBuilder {}
 
 impl Default for ExtBuilder {
@@ -295,20 +299,26 @@ pub fn get_payment_id(i: BountyIndex, to: Option<u128>) -> Option<u64> {
 
 	match bounty.status {
 		BountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
-		BountyStatus::ApprovedWithCurator { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
-		BountyStatus::RefundAttempted { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
-		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } => to.and_then(|account| {
-			if account == curator_stash.0 {
-				if let PaymentState::Attempted { id } = curator_stash.1 {
-					return Some(id);
+		BountyStatus::ApprovedWithCurator {
+			payment_status: PaymentState::Attempted { id },
+			..
+		} => Some(id),
+		BountyStatus::RefundAttempted {
+			payment_status: PaymentState::Attempted { id }, ..
+		} => Some(id),
+		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } =>
+			to.and_then(|account| {
+				if account == curator_stash.0 {
+					if let PaymentState::Attempted { id } = curator_stash.1 {
+						return Some(id);
+					}
+				} else if account == beneficiary.0 {
+					if let PaymentState::Attempted { id } = beneficiary.1 {
+						return Some(id);
+					}
 				}
-			} else if account == beneficiary.0 {
-				if let PaymentState::Attempted { id } = beneficiary.1 {
-					return Some(id);
-				}
-			}
-			None
-		}),
+				None
+			}),
 		_ => None,
 	}
 }

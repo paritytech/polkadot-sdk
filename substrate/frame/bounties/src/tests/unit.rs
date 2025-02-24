@@ -336,8 +336,8 @@ fn approve_bounty_with_curator_works() {
 		// When
 		go_to_block(4); // block_number >= unlock_at
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(curator), 0));
-		approve_payment(7, 0, 1, 10);  // curator_stash fee
-		approve_payment(5, 0, 1, 40);  // beneficiary payout
+		approve_payment(7, 0, 1, 10); // curator_stash fee
+		approve_payment(5, 0, 1, 40); // beneficiary payout
 
 		// Then (final state)
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 0);
@@ -468,7 +468,7 @@ fn approve_bounty_with_curator_proposed_unassign_works() {
 				status: BountyStatus::CuratorProposed { curator },
 			}
 		);
-		
+
 		// When
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(curator), 0));
 
@@ -583,10 +583,13 @@ fn unassign_curator_works() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		
+
 		// When/Then
 		let fee = 4;
-		assert_noop!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, fee), Error::<Test>::UnexpectedStatus);
+		assert_noop!(
+			Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, fee),
+			Error::<Test>::UnexpectedStatus
+		);
 
 		// Given
 		approve_payment(Bounties::bounty_account_id(0), 0, 1, 50);
@@ -717,7 +720,7 @@ fn award_and_claim_bounty_works() {
 
 		// When (PaymentState::Success)
 		let (final_fee, payout) = Bounties::calculate_curator_fee_and_payout(0, fee, 50);
-		approve_payment(5, 0, 1, final_fee);  // pay curator_stash final_fe
+		approve_payment(5, 0, 1, final_fee); // pay curator_stash final_fe
 		approve_payment(3, 0, 1, payout); // pay beneficiary payout
 
 		// Then
@@ -726,7 +729,7 @@ fn award_and_claim_bounty_works() {
 			BountiesEvent::BountyClaimed {
 				index: 0,
 				asset_kind: 1,
-				asset_payout: 46,  // Tiago: shouldn't be 50 - 4 ?
+				asset_payout: 46, // Tiago: shouldn't be 50 - 4 ?
 				beneficiary: 3
 			}
 		);
@@ -744,7 +747,7 @@ fn claim_handles_high_fee() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		Balances::make_free_balance_be(&4, 30);  // curator
+		Balances::make_free_balance_be(&4, 30); // curator
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(0),
 			Box::new(1),
@@ -765,16 +768,16 @@ fn claim_handles_high_fee() {
 		go_to_block(5);
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(1), 0));
 		let (final_fee, payout) = Bounties::calculate_curator_fee_and_payout(0, 49, 50);
-		approve_payment(5, 0, 1, final_fee);   // pay curator_stash final_fee
-		approve_payment(3, 0, 1, payout);    // pay beneficiary payout
-		
+		approve_payment(5, 0, 1, final_fee); // pay curator_stash final_fee
+		approve_payment(3, 0, 1, payout); // pay beneficiary payout
+
 		// Then
 		assert_eq!(
 			last_event(),
 			BountiesEvent::BountyClaimed {
 				index: 0,
 				asset_kind: 1,
-				asset_payout: 1,  // Tiago: shouldn't be 50 - 49 ?
+				asset_payout: 1, // Tiago: shouldn't be 50 - 49 ?
 				beneficiary: 3
 			}
 		);
@@ -824,7 +827,6 @@ fn cancel_and_refund() {
 		// When/Then
 		assert_noop!(Bounties::close_bounty(RuntimeOrigin::signed(0), 0), BadOrigin);
 
-
 		// When
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
 		approve_payment(Bounties::account_id(), 0, 1, 50);
@@ -855,7 +857,7 @@ fn award_and_cancel() {
 		assert_eq!(Balances::free_balance(0), 95);
 		assert_eq!(Balances::reserved_balance(0), 5);
 		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(0), 0, 3));
-		
+
 		// When/Then (cannot close bounty directly when payout is happening)
 		assert_noop!(
 			Bounties::close_bounty(RuntimeOrigin::root(), 0),
@@ -1144,7 +1146,6 @@ fn accept_curator_handles_different_deposit_calculations() {
 #[test]
 fn approve_bounty_works_second_instance() {
 	ExtBuilder::default().build_and_execute(|| {
-
 		// Given
 		Burn::set(Permill::from_percent(0)); // Set burn to 0 to make tracking funds easier.
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);

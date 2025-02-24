@@ -17,12 +17,12 @@
 
 //! Bounties pallet tests.
 
-use crate::{Bounty, BountyStatus};
-use crate as pallet_bounties;
 use super::mock::*;
+use crate as pallet_bounties;
+use crate::{Bounty, BountyStatus};
 
-use sp_runtime::Storage;
 use frame_support::pallet_prelude::Encode;
+use sp_runtime::Storage;
 
 #[test]
 fn test_migration_v4() {
@@ -41,7 +41,10 @@ fn test_migration_v4() {
 	};
 
 	let data = vec![
-		(pallet_bounties::BountyCount::<Test>::hashed_key().to_vec(), (10 as u32).encode().to_vec()),
+		(
+			pallet_bounties::BountyCount::<Test>::hashed_key().to_vec(),
+			(10 as u32).encode().to_vec(),
+		),
 		(pallet_bounties::Bounties::<Test>::hashed_key_for(index), bounty.encode().to_vec()),
 		(pallet_bounties::BountyDescriptions::<Test>::hashed_key_for(index), vec![0, 0]),
 		(

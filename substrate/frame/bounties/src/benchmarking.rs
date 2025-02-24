@@ -20,20 +20,22 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::Pallet as Bounties;
 use crate as pallet_bounties;
-use crate::tests::utils::{LAST_ID, STATUS};
+use crate::{
+	tests::utils::{LAST_ID, STATUS},
+	Pallet as Bounties,
+};
 
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use core::cell::RefCell;
-use alloc::{vec, vec::Vec, collections::btree_map::BTreeMap};
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
 use frame_support::traits::Currency;
 use frame_system::{pallet_prelude::BlockNumberFor as SystemBlockNumberFor, RawOrigin};
-use sp_core::crypto::FromEntropy;
-use sp_runtime::traits::{BlockNumberProvider, UniqueSaturatedInto, SaturatedConversion};
 use pallet_treasury::Pallet as Treasury;
+use sp_core::crypto::FromEntropy;
+use sp_runtime::traits::{BlockNumberProvider, SaturatedConversion, UniqueSaturatedInto};
 
 /// Trait describing factory functions for dispatchables' parameters.
 pub trait ArgumentsFactory<AssetKind> {
@@ -62,7 +64,12 @@ fn create_approved_bounties<T: Config<I>, I: 'static>(n: u32) -> Result<(), Benc
 	for i in 0..n {
 		let (caller, _curator, asset_kind, _fee, value, _curator_stash, reason) =
 			setup_bounty::<T, I>(i, T::MaximumReasonLength::get());
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), Box::new(asset_kind), value, reason)?;
+		Bounties::<T, I>::propose_bounty(
+			RawOrigin::Signed(caller).into(),
+			Box::new(asset_kind),
+			value,
+			reason,
+		)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -100,10 +107,11 @@ fn setup_bounty<T: Config<I>, I: 'static>(
 	let _ = T::Currency::make_free_balance_be(&caller, deposit + T::Currency::minimum_balance());
 	let curator = account("curator", u, SEED);
 	let curator_stash = account("curator_stash", u, SEED);
-	let curator_deposit = Pallet::<T, I>::calculate_curator_deposit(&fee, asset_kind.clone()).expect("");
+	let curator_deposit =
+		Pallet::<T, I>::calculate_curator_deposit(&fee, asset_kind.clone()).expect("");
 	let _ = T::Currency::make_free_balance_be(
 		&curator,
-		curator_deposit + T::Currency::minimum_balance()
+		curator_deposit + T::Currency::minimum_balance(),
 	);
 	let reason = vec![0; d as usize];
 	(caller, curator, asset_kind, fee, asset_balance, curator_stash, reason)
@@ -226,7 +234,7 @@ benchmarks_instance_pallet! {
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let curator = T::Lookup::lookup(curator_lookup).map_err(<&str>::from)?;
-		
+
 		let beneficiary_account: T::Beneficiary = account("beneficiary", 0, SEED);
 		let beneficiary = T::BeneficiaryLookup::unlookup(beneficiary_account.clone());
 		Bounties::<T, I>::award_bounty(RawOrigin::Signed(curator.clone()).into(), bounty_id, beneficiary)?;
