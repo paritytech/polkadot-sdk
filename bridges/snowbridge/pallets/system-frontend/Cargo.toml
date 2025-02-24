@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = [
-    "derive",
+	"derive",
 ], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
@@ -29,9 +29,9 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
+tracing = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
-tracing = { workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
@@ -41,37 +41,37 @@ pallet-balances = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "frame-benchmarking?/std",
-    "frame-support/std",
-    "frame-system/std",
-    "log/std",
-    "pallet-xcm/std",
-    "scale-info/std",
-    "snowbridge-core/std",
-    "sp-core/std",
-    "sp-io/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "xcm-executor/std",
-    "xcm/std",
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-xcm/std",
+	"scale-info/std",
+	"snowbridge-core/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
 	"tracing/std",
+	"xcm-executor/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking/runtime-benchmarks",
-    "frame-support/runtime-benchmarks",
-    "frame-system/runtime-benchmarks",
-    "pallet-balances/runtime-benchmarks",
-    "pallet-xcm/runtime-benchmarks",
-    "snowbridge-core/runtime-benchmarks",
-    "sp-runtime/runtime-benchmarks",
-    "xcm-executor/runtime-benchmarks",
-    "xcm/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
-    "frame-support/try-runtime",
-    "frame-system/try-runtime",
-    "pallet-balances/try-runtime",
-    "pallet-xcm/try-runtime",
-    "sp-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-xcm/try-runtime",
+	"sp-runtime/try-runtime",
 ]

@@ -14,8 +14,8 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
-scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 polkadot-parachain-primitives = { workspace = true }
 xcm = { workspace = true }
@@ -26,9 +26,9 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
-sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 alloy-core = { workspace = true, features = ["sol-types"] }
 ethabi = { workspace = true }
@@ -48,17 +48,17 @@ std = [
 	"ethabi/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"snowbridge-core/std",
 	"snowbridge-verification-primitives/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
-	"sp-std/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"log/std"
 ]

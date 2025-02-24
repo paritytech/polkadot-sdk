@@ -111,6 +111,7 @@ pallet-xcm-bridge-hub = { workspace = true }
 # Ethereum Bridge (Snowbridge)
 snowbridge-beacon-primitives = { workspace = true }
 snowbridge-core = { workspace = true }
+snowbridge-inbound-queue-primitives = { workspace = true }
 snowbridge-merkle-tree = { workspace = true }
 snowbridge-outbound-queue-primitives = { workspace = true }
 snowbridge-outbound-queue-runtime-api = { workspace = true }
@@ -122,7 +123,6 @@ snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 snowbridge-pallet-system-v2 = { workspace = true }
-snowbridge-inbound-queue-primitives = { workspace = true }
 snowbridge-runtime-common = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
 snowbridge-system-runtime-api-v2 = { workspace = true }
@@ -200,17 +200,18 @@ std = [
 	"serde_json/std",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
+	"snowbridge-inbound-queue-primitives/std",
 	"snowbridge-merkle-tree/std",
 	"snowbridge-outbound-queue-primitives/std",
 	"snowbridge-outbound-queue-runtime-api-v2/std",
 	"snowbridge-outbound-queue-runtime-api/std",
 	"snowbridge-pallet-ethereum-client/std",
+	"snowbridge-pallet-inbound-queue-v2/std",
 	"snowbridge-pallet-inbound-queue/std",
 	"snowbridge-pallet-outbound-queue-v2/std",
 	"snowbridge-pallet-outbound-queue/std",
 	"snowbridge-pallet-system-v2/std",
 	"snowbridge-pallet-system/std",
-	"snowbridge-inbound-queue-primitives/std",
 	"snowbridge-runtime-common/std",
 	"snowbridge-system-runtime-api-v2/std",
 	"snowbridge-system-runtime-api/std",
@@ -236,7 +237,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"snowbridge-pallet-inbound-queue-v2/std"
 ]
 default = ["std"]
 
@@ -271,14 +271,14 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
-	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-v2/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-system-v2/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
-	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"snowbridge-runtime-common/runtime-benchmarks",
 	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -317,13 +317,13 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"snowbridge-pallet-ethereum-client/try-runtime",
+	"snowbridge-pallet-inbound-queue-v2/try-runtime",
 	"snowbridge-pallet-inbound-queue/try-runtime",
 	"snowbridge-pallet-outbound-queue-v2/try-runtime",
 	"snowbridge-pallet-outbound-queue/try-runtime",
 	"snowbridge-pallet-system-v2/try-runtime",
 	"snowbridge-pallet-system/try-runtime",
 	"sp-runtime/try-runtime",
-	"snowbridge-pallet-inbound-queue-v2/try-runtime"
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain

@@ -22,6 +22,7 @@ polkadot-parachain-primitives = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 
+ethabi = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-arithmetic = { workspace = true }
@@ -29,7 +30,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-ethabi = { workspace = true }
 xcm-executor = { workspace = true }
 
 [dev-dependencies]
@@ -42,6 +42,7 @@ std = [
 	"ethabi/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"serde/std",
@@ -53,15 +54,14 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"log/std"
 ]
 serde = ["dep:serde", "scale-info/serde"]
 runtime-benchmarks = [
-    "frame-support/runtime-benchmarks",
-    "frame-system/runtime-benchmarks",
-    "polkadot-parachain-primitives/runtime-benchmarks",
-    "sp-runtime/runtime-benchmarks",
-    "xcm-builder/runtime-benchmarks",
-    "xcm-executor/runtime-benchmarks",
-    "xcm/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

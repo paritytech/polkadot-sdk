@@ -26,11 +26,11 @@ sp-std = { workspace = true }
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "frame-support/std",
-    "snowbridge-core/std",
-    "snowbridge-merkle-tree/std",
-    "snowbridge-outbound-queue-primitives/std",
-    "sp-api/std",
-    "sp-std/std",
+	"codec/std",
+	"frame-support/std",
+	"snowbridge-core/std",
+	"snowbridge-merkle-tree/std",
+	"snowbridge-outbound-queue-primitives/std",
+	"sp-api/std",
+	"sp-std/std",
 ]

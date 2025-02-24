@@ -29,21 +29,21 @@ snowbridge-outbound-queue-primitives = { workspace = true }
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "frame-support/std",
-    "log/std",
-    "snowbridge-core/std",
-    "snowbridge-outbound-queue-primitives/std",
-    "sp-arithmetic/std",
-    "sp-std/std",
-    "xcm-builder/std",
-    "xcm-executor/std",
-    "xcm/std",
+	"codec/std",
+	"frame-support/std",
+	"log/std",
+	"snowbridge-core/std",
+	"snowbridge-outbound-queue-primitives/std",
+	"sp-arithmetic/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
-    "frame-support/runtime-benchmarks",
-    "snowbridge-core/runtime-benchmarks",
-    "xcm-builder/runtime-benchmarks",
-    "xcm-executor/runtime-benchmarks",
-    "xcm/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

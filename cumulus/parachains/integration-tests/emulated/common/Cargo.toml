@@ -12,8 +12,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-hex-literal = { workspace = true }
 codec = { workspace = true }
+hex-literal = { workspace = true }
 paste = { workspace = true, default-features = true }
 
 # Substrate
