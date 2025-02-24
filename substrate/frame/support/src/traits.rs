@@ -61,9 +61,10 @@ pub use misc::{
 	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, DefensiveMax, DefensiveMin,
 	DefensiveSaturating, DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly,
 	EstimateCallFee, ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime,
-	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
-	OnNewAccount, PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop,
-	TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
+	HasDecodeWithMemTrackingCompact, InherentBuilder, IsInherent, IsSubType, IsType, Len,
+	OffchainWorker, OnKilledAccount, OnNewAccount, PrivilegeCmp, SameOrOther,
+	SignedTransactionBuilder, Time, TryCollect, TryDrop, TypedGet, UnixTime, VariantCount,
+	VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};

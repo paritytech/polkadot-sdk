@@ -189,7 +189,8 @@ use frame_support::{
 			WithdrawConsequence,
 		},
 		BalanceStatus::Reserved,
-		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
+		Currency, EnsureOriginWithArg, HasDecodeWithMemTrackingCompact, Incrementable,
+		ReservableCurrency, StoredMap,
 	},
 };
 use frame_system::Config as SystemConfig;
@@ -316,6 +317,7 @@ pub mod pallet {
 		/// The units in which we record balances.
 		type Balance: Member
 			+ Parameter
+			+ HasDecodeWithMemTrackingCompact
 			+ AtLeast32BitUnsigned
 			+ Default
 			+ Copy

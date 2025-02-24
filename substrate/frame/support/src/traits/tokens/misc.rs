@@ -20,6 +20,7 @@
 use crate::{traits::Contains, TypeInfo};
 use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
 use core::fmt::Debug;
+use frame_support::traits::HasDecodeWithMemTrackingCompact;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
 use sp_runtime::{
@@ -262,6 +263,7 @@ pub trait Balance:
 	AtLeast32BitUnsigned
 	+ FullCodec
 	+ DecodeWithMemTracking
+	+ HasDecodeWithMemTrackingCompact
 	+ Copy
 	+ Default
 	+ Debug
@@ -277,6 +279,7 @@ impl<
 		T: AtLeast32BitUnsigned
 			+ FullCodec
 			+ DecodeWithMemTracking
+			+ HasDecodeWithMemTrackingCompact
 			+ Copy
 			+ Default
 			+ Debug

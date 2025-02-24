@@ -35,7 +35,6 @@ use sp_runtime::traits::{
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync + From<u64>,
-	<BalanceOf<T> as codec::HasCompact>::Type: DecodeWithMemTracking,
 	T::AssetId: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 )]

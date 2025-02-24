@@ -36,7 +36,6 @@ use sp_runtime::traits::{
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
 	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
-	<BalanceOf<T> as codec::HasCompact>::Type: DecodeWithMemTracking,
 	ChargeAssetIdOf<T>: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
     Credit<T::AccountId, T::Fungibles>: IsType<ChargeAssetLiquidityOf<T>>,

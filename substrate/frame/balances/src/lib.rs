@@ -170,7 +170,8 @@ use frame_support::{
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
-		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap,
+		Currency, Defensive, Get, HasDecodeWithMemTrackingCompact, OnUnbalanced,
+		ReservableCurrency, StoredMap,
 	},
 	BoundedSlice, WeakBoundedVec,
 };
@@ -270,6 +271,7 @@ pub mod pallet {
 			+ Member
 			+ AtLeast32BitUnsigned
 			+ Codec
+			+ HasDecodeWithMemTrackingCompact
 			+ Default
 			+ Copy
 			+ MaybeSerializeDeserialize

@@ -137,8 +137,8 @@ use frame_support::{
 	storage::{self, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
-		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
-		StoredMap, TypedGet,
+		HasDecodeWithMemTrackingCompact, OnKilledAccount, OnNewAccount, OnRuntimeUpgrade,
+		OriginTrait, PalletInfo, SortedMembers, StoredMap, TypedGet,
 	},
 	Parameter,
 };
@@ -530,6 +530,7 @@ pub mod pallet {
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter
+			+ HasDecodeWithMemTrackingCompact
 			+ Member
 			+ MaybeSerializeDeserialize
 			+ Debug

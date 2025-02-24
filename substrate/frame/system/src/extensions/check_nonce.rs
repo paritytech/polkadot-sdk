@@ -92,7 +92,6 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for CheckNonce<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
-	<T::Nonce as codec::HasCompact>::Type: DecodeWithMemTracking,
 {
 	const IDENTIFIER: &'static str = "CheckNonce";
 	type Implicit = ();

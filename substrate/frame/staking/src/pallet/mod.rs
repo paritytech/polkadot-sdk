@@ -29,7 +29,7 @@ use frame_support::{
 			Inspect, Mutate, Mutate as FunMutate,
 		},
 		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, OnUnbalanced, UnixTime,
+		HasDecodeWithMemTrackingCompact, InspectLockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedBTreeSet, BoundedVec,
@@ -121,6 +121,7 @@ pub mod pallet {
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
 			+ DecodeWithMemTracking
+			+ HasDecodeWithMemTrackingCompact
 			+ Copy
 			+ MaybeSerializeDeserialize
 			+ core::fmt::Debug
