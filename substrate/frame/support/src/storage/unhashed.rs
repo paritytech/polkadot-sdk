@@ -170,7 +170,7 @@ pub fn get_raw(key: &[u8]) -> Option<Vec<u8>> {
 }
 
 /// Put a raw byte slice into storage.
-///
+// TODO: this comment seems outdated
 /// **WARNING**: If you set the storage of the Substrate Wasm (`well_known_keys::CODE`),
 /// you should also call `frame_system::RuntimeUpgraded::put(true)` to trigger the
 /// `on_runtime_upgrade` logic.
