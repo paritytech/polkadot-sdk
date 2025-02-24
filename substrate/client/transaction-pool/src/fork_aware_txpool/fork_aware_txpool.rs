@@ -76,7 +76,7 @@ use tracing::{debug, info, trace, warn};
 /// The maximum block height difference before considering a view or transaction as timed-out
 /// due to a finality stall. When the difference exceeds this threshold, elements are treated
 /// as stale and are subject to cleanup.
-const FINALITY_TIMEOUT_THRESHOLD: usize = 20;
+const FINALITY_TIMEOUT_THRESHOLD: usize = 128;
 
 /// Fork aware transaction pool task, that needs to be polled.
 pub type ForkAwareTxPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -1097,10 +1097,10 @@ where
 
 	/// Cleans up transactions and views outdated by potential finality stalls.
 	///
-	/// This function identifies transactions included in blocks that have not achieved finality
-	/// and removes them from the transaction pool if they exceed a specified block height
-	/// threshold. Such transactions are notified as having finality timed out. The threshold is
-	/// determined based on the current block number 'at'.
+	/// This function removes transactions from the pool that were included in blocks but not
+	/// finalized within a pre-defined block height threshold. Transactions not meeting finality
+	/// within this threshold are notified with finality timed out event. The threshold is based on
+	/// the current block number, 'at'.
 	///
 	/// Additionally, this method triggers the view store to handle and remove stale views caused by
 	/// the finality stall.
@@ -1647,17 +1647,6 @@ where
 {
 	/// Executes the maintainance for the given chain event.
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		if std::path::Path::new("/tmp/skip-finalization").exists() {
-			let n = self
-				.api
-				.block_id_to_number(&BlockId::Hash(event.hash()))
-				.map_err(|e| format!("{}", e));
-			debug!("skipping: ChainEvent::Finalized {n:?}");
-			if matches!(event, ChainEvent::Finalized { .. }) {
-				return
-			}
-		}
-
 		let start = Instant::now();
 		debug!(
 			target: LOG_TARGET,
