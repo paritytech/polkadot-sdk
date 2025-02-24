@@ -30,6 +30,7 @@
 use log::{debug, trace};
 use std::{
 	fmt,
+	num::NonZeroUsize,
 	time::{Duration, Instant},
 };
 
@@ -98,6 +99,19 @@ pub struct IncomingBlock<B: BlockT> {
 /// Verify a justification of a block
 #[async_trait::async_trait]
 pub trait Verifier<B: BlockT>: Send + Sync {
+	/// How many blocks can be verified concurrently.
+	///
+	/// Defaults to 1, which means blocks are verified sequentially, one at a time.
+	///
+	/// Value higher than one means verification on blocks can be done in arbitrary order,
+	/// doesn't expect parent block to be imported first, etc. This significantly improves sync
+	/// speed by leveraging multiple CPU cores. Good value here is to make concurrency equal to
+	/// number of CPU cores available. Note that blocks will be verified concurrently, not in
+	/// parallel, so spawn blocking tasks internally as needed.
+	fn verification_concurrency(&self) -> NonZeroUsize {
+		NonZeroUsize::new(1).expect("Not zero; qed")
+	}
+
 	/// Verify the given block data and return the `BlockImportParams` to
 	/// continue the block import process.
 	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String>;
@@ -227,7 +241,9 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 	block: IncomingBlock<B>,
 	verifier: &V,
 ) -> BlockImportResult<B> {
-	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
+	match verify_single_block_metered(import_handle, block_origin, block, verifier, false, None)
+		.await?
+	{
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
 		SingleBlockVerificationOutcome::Verified(import_parameters) =>
 			import_single_block_metered(import_handle, import_parameters, None).await,
@@ -296,6 +312,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	block_origin: BlockOrigin,
 	block: IncomingBlock<B>,
 	verifier: &V,
+	allow_missing_parent: bool,
 	metrics: Option<&Metrics>,
 ) -> Result<SingleBlockVerificationOutcome<B>, BlockImportError> {
 	let peer = block.origin;
@@ -328,7 +345,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 				parent_hash,
 				allow_missing_state: block.allow_missing_state,
 				import_existing: block.import_existing,
-				allow_missing_parent: block.state.is_some(),
+				allow_missing_parent: allow_missing_parent || block.state.is_some(),
 			})
 			.await,
 	)? {
@@ -390,7 +407,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 }
 
 pub(crate) async fn import_single_block_metered<Block: BlockT>(
-	import_handle: &mut impl BlockImport<Block, Error = ConsensusError>,
+	import_handle: &impl BlockImport<Block, Error = ConsensusError>,
 	import_parameters: SingleBlockImportParameters<Block>,
 	metrics: Option<&Metrics>,
 ) -> BlockImportResult<Block> {
