@@ -1372,14 +1372,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				}
 				// Make sure `PayFees` won't be processed again.
 				self.already_paid_fees = true;
-				// Message was not weighed, there is nothing to pay.
-				if self.message_weight == Weight::zero() {
-					tracing::warn!(
-						target: "xcm::executor::PayFees",
-						"Message was not weighed or weight was 0. Nothing will be charged.",
-					);
-					return Ok(());
-				}
 				// Record old holding in case we need to rollback.
 				let old_holding = self.holding.clone();
 				// The max we're willing to pay for fees is decided by the `asset` operand.
