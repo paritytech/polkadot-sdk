@@ -22,8 +22,8 @@
 
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
-	fork_aware_txpool::stream_map_util::next_event,
-	graph::{self, BlockHash, ExtrinsicHash, TransactionStatusEvent},
+	fork_aware_txpool::{stream_map_util::next_event, view::TransactionStatusEvent},
+	graph::{self, BlockHash, ExtrinsicHash},
 	LOG_TARGET,
 };
 use futures::{Future, FutureExt, Stream, StreamExt};
