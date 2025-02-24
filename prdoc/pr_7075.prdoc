@@ -6,13 +6,13 @@ doc:
     Relayers should update to the latest binary to support sending Electra consensus updates.
 crates:
 - name: snowbridge-pallet-ethereum-client
-  bump: major
+  bump: patch
 - name: snowbridge-pallet-inbound-queue
-  bump: minor
+  bump: patch
 - name: snowbridge-beacon-primitives
-  bump: major
+  bump: patch
 - name: bridge-hub-westend-emulated-chain
-  bump: minor
+  bump: patch
 - name: bridge-hub-rococo-runtime
   bump: patch
 - name: bridge-hub-westend-runtime
