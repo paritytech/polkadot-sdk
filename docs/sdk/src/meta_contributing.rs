@@ -115,7 +115,7 @@
 //! 1. Try and create and they are going along.
 //! 2. Back-link to if they already exist.
 //!
-//! Of course, all of this is not set in stone as a either/or rule. Sometimes, it is necessary to
+//! Of course, all of this is not set in stone as an either/or rule. Sometimes, it is necessary to
 //! rephrase a concept in a new context.
 //!
 //! </details>
