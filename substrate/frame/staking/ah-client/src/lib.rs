@@ -62,6 +62,9 @@ enum StakingCalls {
 	/// Report one or more offences.
 	#[codec(index = 2)]
 	NewRelayChainOffences(SessionIndex, Vec<Offence>),
+	/// Report rewards from parachain blocks processing.
+	#[codec(index = 3)]
+	ParachainSessionPoints(Vec<(AccountId32, u32)>),
 }
 
 #[frame_support::pallet(dev_mode)]
@@ -124,7 +127,10 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: Into<AccountId32>,
+	{
 		#[pallet::call_index(0)]
 		// #[pallet::weight(T::WeightInfo::new_validators())] // TODO
 		pub fn new_validator_set(
@@ -279,7 +285,10 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: Into<AccountId32>,
+	{
 		/// Ensure the origin is one of Root or the `para` itself.
 		fn ensure_root_or_para(
 			origin: <T as frame_system::Config>::RuntimeOrigin,
@@ -299,8 +308,28 @@ pub mod pallet {
 
 		pub fn handle_parachain_rewards(
 			validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
-		) {
-			todo!()
+		) -> Weight {
+			let parachain_points = validators_points
+				.into_iter()
+				.map(|(id, points)| (id.into(), points))
+				.collect::<Vec<_>>();
+
+			let message = Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				mk_asset_hub_call(StakingCalls::ParachainSessionPoints(parachain_points)),
+			]);
+			if let Err(err) = send_xcm::<T::SendXcm>(
+				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
+				message,
+			) {
+				log::error!(target: LOG_TARGET, "Sending `ParachainSessionPoints` to AssetHub failed: {:?}",
+			err);
+			}
+
+			Weight::zero()
 		}
 	}
 

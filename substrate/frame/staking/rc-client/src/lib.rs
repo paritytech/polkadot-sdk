@@ -49,6 +49,8 @@ pub trait StakingApi {
 	fn on_relay_chain_session_end(end_index: SessionIndex, block_authors: Vec<(AccountId32, u32)>);
 	/// Report one or more offences on the relay chain.
 	fn on_new_offences(offences: Vec<Offence>);
+	/// Report validator rewards.
+	fn reward_by_ids(validators_points: Vec<(AccountId32, u32)>);
 }
 
 /// `pallet-staking-ah-client` pallet index on Relay chain. Used to construct remote calls.
@@ -137,7 +139,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Called to indicate the start of a new session on the relay chain.
 		#[pallet::call_index(0)]
-		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
+		// #[pallet::weight(T::WeightInfo::relay_chain_session_start())] // TODO
 		pub fn relay_chain_session_start(
 			origin: OriginFor<T>,
 			start_index: SessionIndex,
@@ -150,7 +152,7 @@ pub mod pallet {
 		/// Called to indicate the end of a session on the relay chain. Accepts the session id and
 		/// the block authors with their corresponding session points for the finished session.
 		#[pallet::call_index(1)]
-		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
+		// #[pallet::weight(T::WeightInfo::relay_chain_session_end())] // TODO
 		pub fn relay_chain_session_end(
 			origin: OriginFor<T>,
 			end_index: SessionIndex,
@@ -163,13 +165,24 @@ pub mod pallet {
 
 		/// Called to report one or more new offenses on the relay chain.
 		#[pallet::call_index(2)]
-		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
+		// #[pallet::weight(T::WeightInfo::new_relay_chain_offence())] // TODO
 		pub fn new_relay_chain_offence(
 			origin: OriginFor<T>,
 			offences: Vec<Offence>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			T::StakingApi::on_new_offences(offences);
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
+		pub fn parachain_session_points(
+			origin: OriginFor<T>,
+			session_points: Vec<(AccountId32, u32)>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			T::StakingApi::reward_by_ids(session_points);
 			Ok(())
 		}
 	}
