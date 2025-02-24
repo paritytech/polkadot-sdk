@@ -177,7 +177,7 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	log::info!("Checking finality does not log and no-shows are within range");
+	log::info!("Checking finality does not lag and no-shows are within range");
 	for node in network.nodes() {
 		assert_finality_lag_less_than(&node.wait_client().await?, no_show_slots).await?;
 		assert!(
