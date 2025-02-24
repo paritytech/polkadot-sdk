@@ -262,7 +262,11 @@ pub mod test_log_capture {
 		io::Write,
 		sync::{Arc, Mutex},
 	};
-	use tracing_subscriber::fmt::MakeWriter;
+	use tracing::level_filters::LevelFilter;
+	use tracing_subscriber::fmt::{
+		format::{DefaultFields, Format},
+		MakeWriter, Subscriber,
+	};
 
 	/// A reusable log capturing struct for unit tests.
 	/// Captures logs written during test execution for assertions.
@@ -355,6 +359,48 @@ pub mod test_log_capture {
 		}
 	}
 
+	/// Initializes a log capture utility for testing.
+	///
+	/// This function sets up a `LogCapture` instance to capture logs during test execution.
+	/// It also configures a `tracing_subscriber` with the specified maximum log level
+	/// and a writer that directs logs to `LogCapture`.
+	///
+	/// # Arguments
+	///
+	/// * `max_level` - The maximum log level to capture, which can be converted into `LevelFilter`.
+	///
+	/// # Returns
+	///
+	/// A tuple containing:
+	/// - `LogCapture`: The log capture instance.
+	/// - `Subscriber`: A configured `tracing_subscriber` that captures logs.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// use sp_tracing::test_log_capture::init_log_capture;
+	/// use tracing::{info, Level};
+	///
+	/// let (log_capture, _subscriber) = init_log_capture(Level::INFO);
+	///
+	/// info!("This log will be captured");
+	/// assert!(log_capture.contains("This log will be captured"));
+	/// ```
+	pub fn init_log_capture(
+		max_level: impl Into<LevelFilter>,
+	) -> (LogCapture, Subscriber<DefaultFields, Format, LevelFilter, LogCapture>) {
+		// Create a new log capture instance
+		let log_capture = LogCapture::new();
+
+		// Configure a tracing subscriber to use the log capture as the writer
+		let subscriber = tracing_subscriber::fmt()
+			.with_max_level(max_level) // Set the max log level
+			.with_writer(log_capture.writer()) // Use LogCapture as the writer
+			.finish();
+
+		(log_capture, subscriber)
+	}
+
 	/// Macro for capturing logs during test execution.
 	///
 	/// It sets up a log subscriber with an optional maximum log level and captures the output.
@@ -362,23 +408,22 @@ pub mod test_log_capture {
 	/// # Examples
 	/// ```
 	/// use sp_tracing::capture_test_logs;
-	/// use sp_tracing::tracing::info;
+	/// use sp_tracing::tracing::{info, warn, Level};
 	///
-	/// let log_capture = capture_test_logs!({
-	///     info!("Captured log message");
+	/// let log_capture = capture_test_logs!(Level::WARN, {
+	///     info!("Captured info message");
+	///     warn!("Captured warning");
 	/// });
 	///
-	/// assert!(log_capture.contains("Captured log message"));
+	/// assert!(!log_capture.contains("Captured log message"));
+	/// assert!(log_capture.contains("Captured warning"));
 	/// ```
 	#[macro_export]
 	macro_rules! capture_test_logs {
 		// Case when max_level is provided
 		($max_level:expr, $test:block) => {{
-			let log_capture = $crate:test_log_capturee::LogCapture::new();
-			let subscriber = sp_tracing::tracing_subscriber::fmt()
-				.with_max_level($max_level)
-				.with_writer(log_capture.writer())
-				.finish();
+			let (log_capture, subscriber) =
+				sp_tracing::test_log_capture::init_log_capture($max_level);
 
 			sp_tracing::tracing::subscriber::with_default(subscriber, || $test);
 
