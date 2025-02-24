@@ -1,8 +1,8 @@
-title: 'Fix sc-tracing to be derived from umbrella crate in parachain template'
+title: 'Enable importing sc-tracing macros through polkadot-sdk'
 doc:
-- audience: Runtime Dev
+- audience: Node Dev
   description: |-
-    Resolving sc-tracing not being resolved when imported through the polkadot sdk
+    This PR makes it possible to use the sc-tracing macros when they are imported through the umbrella crate.
 
 crates:
 - name: parachain-template-node
