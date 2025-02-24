@@ -1416,14 +1416,13 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
-					_ => TransactionOutcome::Rollback(Ok((false, output))),
+					Ok(result) if !result.did_revert() => TransactionOutcome::Commit(Ok(output)),
+					_ => TransactionOutcome::Rollback(Ok(output)),
 				}
 			});
 
-		let (success, output) = match transaction_outcome {
-			Ok((success, output)) => {
+		let output = match transaction_outcome {
+			Ok(output) => {
 				if_tracing(|tracer| {
 					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
 					match &output {
@@ -1432,7 +1431,7 @@ where
 					}
 				});
 
-				(success, output)
+				output
 			},
 			Err(error) => {
 				if_tracing(|tracer| {
@@ -1440,7 +1439,7 @@ where
 					tracer.exit_child_span_with_error(error.into(), gas_consumed);
 				});
 
-				(false, Err(error.into()))
+				Err(error.into())
 			},
 		};
 
@@ -1563,7 +1562,13 @@ where
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
 		if is_precompile(&address) {
-			return self.run_precompile(address, true, self.is_read_only(), 0u32.into(), &input_data);
+			return self.run_precompile(
+				address,
+				true,
+				self.is_read_only(),
+				0u32.into(),
+				&input_data,
+			);
 		}
 
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
