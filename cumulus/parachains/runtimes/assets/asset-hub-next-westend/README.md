@@ -4,10 +4,18 @@
 
 In any case, prepare a chain-spec.
 
+### Custom Polkadot Node
+
+Until https://github.com/paritytech/polkadot-sdk/issues/7664#issuecomment-2678983053 is resolved, we have to create a custom `polkadot`+`polkadot-execution-worker`+`polkadot-prepare-worker`. You can use this branch:
+https://github.com/paritytech/polkadot-sdk/pull/new/kiz-larger-PVF
+
+Build/install binaries from above.
+
+Then:
+
 ```
-VALIDATORS=1000 NOMINATORS=25000 cargo build --release -p asset-hub-next-westend-runtime -p staging-chain-spec-builder
-./target/release/chain-spec-builder create --runtime ./target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm --relay-chain westend-local --para-id 1100 named-preset genesis
-./target/release/chain-spec-builder convert-to-raw chain_spec.json
+cargo build --release -p asset-hub-next-westend-runtime -p staging-chain-spec-builder
+../../../../../target/release/chain-spec-builder create --runtime ../../../../../target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm --relay-chain rococo-local --para-id 1100 named-preset genesis
 ```
 
 Note that the para-id is set in the chain-spec too and must be 1100 to match.
@@ -23,6 +31,8 @@ Access it via localhost:8000 in [pjs apps](https://polkadot.js.org/apps/?rpc=ws:
 ```
 zombienet --provider native spawn zombienet-omni-node.toml
 ```
+
+> Or just use `build-and-run-zn.sh` .
 
 Single-node, single dev mode. This doesn't check things like PoV limits at all, be careful!
 
