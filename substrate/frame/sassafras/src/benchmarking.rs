@@ -20,9 +20,7 @@
 use crate::*;
 use sp_consensus_sassafras::{vrf::VrfSignature, EphemeralPublic, EpochConfiguration};
 
-use frame_benchmarking::v2::*;
-use frame_support::traits::Hooks;
-use frame_system::RawOrigin;
+use frame::benchmarking::prelude::{frame_system::Pallet as System, *};
 
 const LOG_TARGET: &str = "sassafras::benchmark";
 
@@ -60,7 +58,7 @@ mod benchmarks {
 			vrf_signature: make_dummy_vrf_signature(),
 			ticket_claim: None,
 		};
-		frame_system::Pallet::<T>::deposit_log((&slot_claim).into());
+		System::<T>::deposit_log((&slot_claim).into());
 
 		// We currently don't account for the potential weight added by the `on_finalize`
 		// incremental sorting of the tickets.
