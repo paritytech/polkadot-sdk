@@ -73,13 +73,12 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{
-		AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, MaybeSerializeDeserialize,
-		One, Saturating, StaticLookup, Zero,
-	},
-	DispatchError, RuntimeDebug,
-};
+use frame_support::traits::fungible::hold::DoneSlash;
+use frame_support::traits::OriginTrait;
+use sp_runtime::{traits::{
+	AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, MaybeSerializeDeserialize,
+	One, Saturating, StaticLookup, Zero,
+}, DispatchError, FixedPointNumber, FixedU128, RuntimeDebug};
 
 pub use pallet::*;
 pub use vesting_info::*;
@@ -829,5 +828,36 @@ where
 				_ => TransactionOutcome::Rollback(result),
 			}
 		})
+	}
+}
+
+/// An implementation that allows the Vesting Pallet to reduce the locked amount of a user if a slash was made to their balance.
+/// This is because locked amounts can actually be slashed through the `fungible` API
+impl<T, Reason> DoneSlash<Reason, T::AccountId, BalanceOf<T>> for Pallet<T>
+where
+	T: Config,
+{
+	fn done_slash(_reason: &Reason, who: &T::AccountId, amount: BalanceOf<T>) {
+		if let Some(vesting_schedules) = <Vesting<T>>::get(who) {
+			let mut new_vesting_schedules = BoundedVec::with_bounded_capacity(vesting_schedules.len());
+			let now = T::BlockNumberProvider::current_block_number();
+			// We remove the slashed amount from each schedule, recalculate the values and insert it back.
+			for schedule in vesting_schedules {
+				let total_locked = schedule.locked_at::<T::BlockNumberToBalance>(now).saturating_sub(amount);
+				let start_block = T::BlockNumberToBalance::convert(now);
+				let end_block = schedule.ending_block_as_balance::<T::BlockNumberToBalance>();
+				let duration = end_block.saturating_sub(start_block);
+				let per_block = FixedU128::from_rational(total_locked, duration).saturating_mul_int(1u128);
+				let new_schedule = VestingInfo::new(total_locked, per_block, now);
+				if new_schedule.is_valid() {
+					// The push should always succeed because we are iterating over a bounded vector.
+					let push_result = new_vesting_schedules.try_push(new_schedule);
+					debug_assert!(push_result.is_ok());
+				}
+			}
+			<Vesting<T>>::set(who, Some(new_vesting_schedules));
+			let vest_result = <Pallet<T>>::vest(T::RuntimeOrigin::signed(who.clone()));
+			debug_assert!(vest_result.is_ok());
+		}
 	}
 }
