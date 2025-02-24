@@ -54,7 +54,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::traits::Get;
 use frame_system::{
 	self as system,
@@ -355,7 +355,9 @@ pub mod pallet {
 
 /// Payload used by this example crate to hold price
 /// data required to submit a transaction.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo,
+)]
 pub struct PricePayload<Public, BlockNumber> {
 	block_number: BlockNumber,
 	price: u32,

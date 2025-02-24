@@ -481,16 +481,17 @@ macro_rules! generate_feature_enabled_macro {
 mod tests {
 	use super::*;
 
+	generate_feature_enabled_macro!(if_test, test, $);
+	generate_feature_enabled_macro!(if_not_test, not(test), $);
+
 	#[test]
 	#[should_panic]
 	fn generate_feature_enabled_macro_panics() {
-		generate_feature_enabled_macro!(if_test, test, $);
 		if_test!(panic!("This should panic"));
 	}
 
 	#[test]
 	fn generate_feature_enabled_macro_works() {
-		generate_feature_enabled_macro!(if_not_test, not(test), $);
 		if_not_test!(panic!("This should not panic"));
 	}
 }
