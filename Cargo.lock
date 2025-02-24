@@ -14688,16 +14688,11 @@ dependencies = [
 name = "pallet-offences"
 version = "27.0.0"
 dependencies = [
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "log",
  "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
  "serde",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-staking 26.0.0",
 ]
 
 [[package]]
@@ -14721,10 +14716,7 @@ dependencies = [
 name = "pallet-offences-benchmarking"
 version = "28.0.0"
 dependencies = [
- "frame-benchmarking 28.0.0",
  "frame-election-provider-support 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "log",
  "pallet-babe 28.0.0",
  "pallet-balances 28.0.0",
@@ -14736,11 +14728,8 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-timestamp 27.0.0",
  "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-staking 26.0.0",
 ]
 
 [[package]]
@@ -19700,6 +19689,7 @@ dependencies = [
  "sp-offchain 26.0.0",
  "sp-runtime 31.0.1",
  "sp-session 27.0.0",
+ "sp-staking 26.0.0",
  "sp-storage 19.0.0",
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",

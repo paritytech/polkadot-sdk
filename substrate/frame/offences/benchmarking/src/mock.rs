@@ -21,16 +21,9 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use frame_system as system;
+use frame::testing_prelude::*;
 use pallet_session::historical as pallet_session_historical;
-use sp_runtime::{
-	testing::{Header, UintAuthorityId},
-	BuildStorage, KeyTypeId, Perbill,
-};
+
 
 type AccountId = u64;
 
@@ -57,9 +50,9 @@ impl pallet_session::historical::Config for Test {
 	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
-sp_runtime::impl_opaque_keys! {
+impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub foo: sp_runtime::testing::UintAuthorityId,
+		pub foo: UintAuthorityId,
 	}
 }
 
@@ -68,9 +61,9 @@ impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
 	// corresponds to the opaque key id above
 	const KEY_TYPE_IDS: &'static [KeyTypeId] = &[KeyTypeId([100u8, 117u8, 109u8, 121u8])];
 
-	fn on_genesis_session<Ks: sp_runtime::traits::OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
+	fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
 
-	fn on_new_session<Ks: sp_runtime::traits::OpaqueKeys>(
+	fn on_new_session<Ks: OpaqueKeys>(
 		_: bool,
 		_: &[(AccountId, Ks)],
 		_: &[(AccountId, Ks)],
@@ -99,7 +92,7 @@ impl pallet_session::Config for Test {
 }
 
 pallet_staking_reward_curve::build! {
-	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
+	const I_NPOS: PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000,
 		max_inflation: 0_100_000,
 		ideal_stake: 0_500_000,
@@ -109,7 +102,7 @@ pallet_staking_reward_curve::build! {
 	);
 }
 parameter_types! {
-	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
+	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub const Sort: bool = true;
 }
@@ -179,10 +172,10 @@ where
 
 impl crate::Config for Test {}
 
-pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
+pub type Block = Block<Header, UncheckedExtrinsic>;
+pub type UncheckedExtrinsic = UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: system::{Pallet, Call, Event<T>},
@@ -195,7 +188,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	sp_io::TestExternalities::new(t)
+	TestState::new(t)
 }
