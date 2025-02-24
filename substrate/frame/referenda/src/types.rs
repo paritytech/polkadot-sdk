@@ -120,8 +120,7 @@ pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 
 #[inline]
 pub const fn string_like_track_name<const N: usize>(name: &str) -> StringLike<N> {
-	use sp_runtime::str_array as s;
-	StringLike(s(name))
+	StringLike(sp_runtime::str_array(name))
 }
 
 #[derive(Clone, Eq, DecodeWithMemTracking, PartialEq, Debug)]
@@ -628,7 +627,7 @@ impl Debug for Curve {
 mod tests {
 	use super::*;
 	use frame_support::traits::ConstU32;
-	use sp_runtime::{str_array as s, PerThing};
+	use sp_runtime::PerThing;
 
 	const fn percent(x: u128) -> FixedI64 {
 		FixedI64::from_rational(x, 100)
