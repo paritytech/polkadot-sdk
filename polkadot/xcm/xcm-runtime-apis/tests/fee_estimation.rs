@@ -441,6 +441,15 @@ fn dry_run_xcm_versions() {
 }
 
 #[test]
+fn dry_run_xcm_versions() {
+	let tested_versions = [XCM_VERSION, 5, 4, 3];
+
+	for version in tested_versions {
+		dry_run_xcm_common(version);
+	}
+}
+
+#[test]
 fn calling_payment_api_with_a_lower_version_works() {
 	let transfer_amount = 100u128;
 	let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
