@@ -3817,11 +3817,6 @@ dependencies = [
  "ark-std 0.4.0",
  "fflonk",
  "getrandom_or_panic",
-<<<<<<< HEAD
- "merlin",
- "rand_chacha",
-=======
->>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
 ]
 
 [[package]]
@@ -16512,13 +16507,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
-<<<<<<< HEAD
  "rand",
- "rand_core 0.6.4",
-=======
- "rand 0.8.5",
  "rand_core 0.5.1",
->>>>>>> 21f6f070 (Bandersnatch hot fix (#7670))
  "serde",
  "unicode-normalization",
 ]
