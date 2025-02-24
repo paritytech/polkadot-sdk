@@ -274,7 +274,7 @@ impl<
 }
 
 impl<
-		T: SigningTypes + CreateInherent<LocalCall>,
+		T: SigningTypes + CreateBare<LocalCall>,
 		C: AppCrypto<T::Public, T::Signature>,
 		LocalCall,
 	> SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAny>
@@ -300,7 +300,7 @@ impl<
 }
 
 impl<
-		T: SigningTypes + CreateInherent<LocalCall>,
+		T: SigningTypes + CreateBare<LocalCall>,
 		C: AppCrypto<T::Public, T::Signature>,
 		LocalCall,
 	> SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAll>
@@ -501,7 +501,7 @@ pub trait CreateInherent<LocalCall>: CreateTransactionBase<LocalCall> {
 	/// Create a bare extrinsic.
 	///
 	/// Use `CreateBare::create_bare` instead. This method is defined in `CreateInherent` to avoid a
-	/// breaking change but it is preferable to use `CreateBare::create_bare` instead, `CreateBare`
+	/// breaking change but it is preferable to use `CreateBare::create_bare` instead. `CreateBare`
 	/// trait is automatically implemented for `CreateInherent`.
 	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Self::create_inherent(call)
@@ -601,7 +601,7 @@ pub trait SendSignedTransaction<
 }
 
 /// Submit an unsigned transaction onchain with a signed payload
-pub trait SendUnsignedTransaction<T: SigningTypes + CreateInherent<LocalCall>, LocalCall> {
+pub trait SendUnsignedTransaction<T: SigningTypes + CreateBare<LocalCall>, LocalCall> {
 	/// A submission result.
 	///
 	/// Should contain the submission result and the account(s) that signed the payload.
@@ -670,8 +670,8 @@ mod tests {
 		type RuntimeCall = RuntimeCall;
 	}
 
-	impl CreateInherent<RuntimeCall> for TestRuntime {
-		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	impl CreateBare<RuntimeCall> for TestRuntime {
+		fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 			Extrinsic::new_bare(call)
 		}
 	}
