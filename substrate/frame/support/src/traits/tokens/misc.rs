@@ -246,6 +246,7 @@ impl<T: FullCodec + Clone + Eq + PartialEq + Debug + scale_info::TypeInfo + MaxE
 pub trait Balance:
 	AtLeast32BitUnsigned
 	+ FullCodec
+	+ DecodeWithMemTracking
 	+ Copy
 	+ Default
 	+ Debug
@@ -260,6 +261,7 @@ pub trait Balance:
 impl<
 		T: AtLeast32BitUnsigned
 			+ FullCodec
+			+ DecodeWithMemTracking
 			+ Copy
 			+ Default
 			+ Debug

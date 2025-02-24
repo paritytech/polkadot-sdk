@@ -120,6 +120,7 @@ pub mod pallet {
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
+			+ DecodeWithMemTracking
 			+ Copy
 			+ MaybeSerializeDeserialize
 			+ core::fmt::Debug

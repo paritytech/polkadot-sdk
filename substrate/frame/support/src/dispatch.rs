@@ -126,8 +126,14 @@ impl<AccountId> RawOrigin<AccountId> {
 /// A type that can be used as a parameter in a dispatchable function.
 ///
 /// When using `decl_module` all arguments for call functions must implement this trait.
-pub trait Parameter: Codec + EncodeLike + Clone + Eq + fmt::Debug + scale_info::TypeInfo {}
-impl<T> Parameter for T where T: Codec + EncodeLike + Clone + Eq + fmt::Debug + scale_info::TypeInfo {}
+pub trait Parameter:
+	Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + fmt::Debug + scale_info::TypeInfo
+{
+}
+impl<T> Parameter for T where
+	T: Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + fmt::Debug + scale_info::TypeInfo
+{
+}
 
 /// Means of classifying a dispatchable function.
 pub trait ClassifyDispatch<T> {

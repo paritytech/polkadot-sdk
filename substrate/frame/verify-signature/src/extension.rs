@@ -89,8 +89,6 @@ where
 impl<T> TransactionExtension<T::RuntimeCall> for VerifySignature<T>
 where
 	T: Config + Send + Sync,
-	T::Signature: DecodeWithMemTracking,
-	T::AccountId: DecodeWithMemTracking,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	const IDENTIFIER: &'static str = "VerifyMultiSignature";

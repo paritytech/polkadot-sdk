@@ -84,13 +84,8 @@ impl<T: Config, Signer, Signature> fmt::Debug for AuthorizeCoownership<T, Signer
 impl<T: Config + Send + Sync, Signer, Signature> TransactionExtension<T::RuntimeCall>
 	for AuthorizeCoownership<T, Signer, Signature>
 where
-	Signer: IdentifyAccount<AccountId = T::AccountId>
-		+ Parameter
-		+ DecodeWithMemTracking
-		+ Send
-		+ Sync
-		+ 'static,
-	Signature: Verify<Signer = Signer> + Parameter + DecodeWithMemTracking + Send + Sync + 'static,
+	Signer: IdentifyAccount<AccountId = T::AccountId> + Parameter + Send + Sync + 'static,
+	Signature: Verify<Signer = Signer> + Parameter + Send + Sync + 'static,
 {
 	const IDENTIFIER: &'static str = "AuthorizeCoownership";
 	type Implicit = ();

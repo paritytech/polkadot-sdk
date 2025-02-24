@@ -1181,6 +1181,7 @@ pub trait BlockNumber:
 	+ TypeInfo
 	+ MaxEncodedLen
 	+ FullCodec
+	+ DecodeWithMemTracking
 {
 }
 
@@ -1198,7 +1199,8 @@ impl<
 			+ Default
 			+ TypeInfo
 			+ MaxEncodedLen
-			+ FullCodec,
+			+ FullCodec
+			+ DecodeWithMemTracking,
 	> BlockNumber for T
 {
 }
@@ -2354,6 +2356,7 @@ pub trait BlockIdTo<Block: self::Block> {
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
 	type BlockNumber: Codec
+		+ DecodeWithMemTracking
 		+ Clone
 		+ Ord
 		+ Eq
