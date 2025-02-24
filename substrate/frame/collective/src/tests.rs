@@ -133,6 +133,7 @@ impl Config<Instance1> for Test {
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Consideration =
 		HoldConsideration<AccountId, Balances, ProposalHoldReason, CollectiveDeposit, u32>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 type CollectiveMajorityDeposit = deposit::Linear<ConstU32<2>, ProposalDepositBase>;
@@ -153,6 +154,7 @@ impl Config<Instance2> for Test {
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Consideration =
 		HoldConsideration<AccountId, Balances, ProposalHoldReason, CollectiveMajorityDeposit, u32>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 impl mock_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -181,6 +183,7 @@ impl Config for Test {
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Consideration =
 		HoldConsideration<AccountId, Balances, ProposalHoldReason, DefaultCollectiveDeposit, u32>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 pub struct ExtBuilder {
