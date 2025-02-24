@@ -2177,7 +2177,9 @@ impl<T: Config> Pallet<T> {
 	) {
 		use frame_system::offchain::SubmitTransaction;
 
-		let xt = <T as frame_system::offchain::CreateBare<_>>::create_bare(Call::include_pvf_check_statement { stmt, signature }.into());
+		let xt = <T as frame_system::offchain::CreateBare<_>>::create_bare(
+			Call::include_pvf_check_statement { stmt, signature }.into(),
+		);
 		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			log::error!(target: LOG_TARGET, "Error submitting pvf check statement: {:?}", e,);
 		}
