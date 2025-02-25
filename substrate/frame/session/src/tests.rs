@@ -520,6 +520,22 @@ mod disabling_byzantine_threshold {
 	}
 
 	#[test]
+	fn disable_when_below_custom_byzantine_threshold() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(1, MAX_OFFENDER_SEVERITY), (2, MAX_OFFENDER_SEVERITY)];
+			Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitDisablingStrategy<2> as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					&initially_disabled,
+				);
+
+			assert_eq!(disabling_decision.disable, Some(OFFENDER_VALIDATOR_IDX));
+		});
+	}
+	#[test]
 	fn dont_disable_beyond_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let initially_disabled = vec![(1, MIN_OFFENDER_SEVERITY), (2, MAX_OFFENDER_SEVERITY)];
