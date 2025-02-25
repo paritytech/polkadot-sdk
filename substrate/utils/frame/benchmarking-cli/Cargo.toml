@@ -39,13 +39,13 @@ rand = { features = ["small_rng"], workspace = true, default-features = true }
 rand_pcg = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true }
-sc-cli = { workspace = true }
+sc-cli = { workspace = true, default-features = false }
 sc-client-api = { workspace = true, default-features = true }
-sc-client-db = { workspace = true }
+sc-client-db = { workspace = true, default-features = false }
 sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
-sc-service = { workspace = true }
+sc-service = { workspace = true, default-features = false }
 sc-sysinfo = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -79,7 +79,7 @@ substrate-test-runtime = { workspace = true, default-features = true }
 westend-runtime = { workspace = true, default-features = true }
 
 [features]
-default = ["rocksdb"]
+default = []
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
