@@ -42,16 +42,8 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 		(1..12).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 	});
 
-	for (para_id, collator_name) in [
-		(2000, "collator-name-2000"),
-		(2001, "collator-name-2001"),
-		(2002, "collator-name-2002"),
-		(2003, "collator-name-2003"),
-		(2004, "collator-name-2004"),
-		(2005, "collator-name-2005"),
-		(2006, "collator-name-2006"),
-		(2007, "collator-name-2007"),
-	] {
+	for para_id in 2000..2008 {
+		let collator_name = format!("collator-undying-{para_id}");
 		config_builder = config_builder.with_parachain(|p| {
 			p.with_id(para_id)
 				.with_default_command("undying-collator")
@@ -62,7 +54,7 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 				)
 				.cumulus_based(false)
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name(collator_name))
+				.with_collator(|n| n.with_name(&collator_name))
 		});
 	}
 
