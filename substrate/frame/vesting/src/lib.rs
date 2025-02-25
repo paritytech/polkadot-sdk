@@ -61,18 +61,13 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
-use frame_support::{
-	dispatch::DispatchResult,
-	ensure,
-	storage::bounded_vec::BoundedVec,
-	traits::{
-		fungible::hold::DoneSlash, Currency, ExistenceRequirement, Get, LockIdentifier,
-		LockableCurrency, OriginTrait, VestedTransfer, VestingSchedule, WithdrawReasons,
-	},
-	weights::Weight,
-};
+use frame_support::{defensive, dispatch::DispatchResult, ensure, storage::bounded_vec::BoundedVec, traits::{
+	fungible::hold::DoneSlash, Currency, ExistenceRequirement, Get, LockIdentifier,
+	LockableCurrency, OriginTrait, VestedTransfer, VestingSchedule, WithdrawReasons,
+}, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
+use frame_support::traits::Defensive;
 use sp_runtime::{
 	traits::{
 		AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, MaybeSerializeDeserialize,
@@ -832,11 +827,12 @@ where
 	}
 }
 
-pub struct BalanceSlasher<T, FixedPointNum>(PhantomData<(T, FixedPointNum)>);
-
-/// An implementation that allows the Vesting Pallet to reduce the locked amount of a user if a
+/// Allows the Vesting Pallet to reduce the locked amount of a user if a
 /// slash was made to their balance. This is because locked amounts can actually be slashed through
 /// the `fungible` API
+pub struct BalanceSlasher<T, FixedPointNum>(PhantomData<(T, FixedPointNum)>);
+
+
 impl<T: Config, Reason, FixedPointNum> DoneSlash<Reason, T::AccountId, BalanceOf<T>>
 	for BalanceSlasher<T, FixedPointNum>
 where
@@ -864,8 +860,7 @@ where
 				if new_schedule.is_valid() {
 					// The push should always succeed because we are iterating over a bounded
 					// vector.
-					let push_result = new_vesting_schedules.try_push(new_schedule);
-					debug_assert!(push_result.is_ok());
+					let _ = new_vesting_schedules.try_push(new_schedule).defensive();
 				}
 			}
 			<Vesting<T>>::set(who, Some(new_vesting_schedules));
