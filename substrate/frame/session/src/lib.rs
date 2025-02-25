@@ -145,6 +145,9 @@ use sp_staking::{offence::OffenceSeverity, SessionIndex};
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+#[cfg(any(test, feature = "try-runtime"))]
+use sp_runtime::TryRuntimeError;
+
 pub(crate) const LOG_TARGET: &str = "runtime::session";
 
 // syntactic sugar for logging.
@@ -590,6 +593,11 @@ pub mod pallet {
 				Weight::zero()
 			}
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -979,6 +987,16 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 		});
+	}
+
+	#[cfg(any(test, feature = "try-runtime"))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		// Ensure that the validators are sorted
+		ensure!(
+			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),
+			"DisabledValidators is not sorted"
+		);
+		Ok(())
 	}
 }
 
