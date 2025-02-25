@@ -759,40 +759,6 @@ impl<T: Config> Pallet<T> {
 		T::SessionHandler::on_new_session::<T::Keys>(changed, &session_keys, &queued_amalgamated);
 	}
 
-	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
-	///
-	/// Note: This sets the OffenceSeverity to the lowest value.
-	pub fn disable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
-			return false
-		}
-
-		log!(trace, "disabling validator {:?}", i);
-
-		DisabledValidators::<T>::mutate(|disabled| {
-			if let Err(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
-				disabled.insert(index, (i, OffenceSeverity(Perbill::zero())));
-				T::SessionHandler::on_disabled(i);
-				return true
-			}
-
-			false
-		})
-	}
-
-	/// Disable the validator identified by `c`. (If using with the staking pallet,
-	/// this would be their *stash* account.)
-	///
-	/// Returns `false` either if the validator could not be found or it was already
-	/// disabled.
-	pub fn disable(c: &T::ValidatorId) -> bool {
-		Validators::<T>::get()
-			.iter()
-			.position(|i| i == c)
-			.map(|i| Self::disable_index(i as u32))
-			.unwrap_or(false)
-	}
-
 	/// Upgrade the key type from some old type to a new type. Supports adding
 	/// and removing key types.
 	///
@@ -944,49 +910,80 @@ impl<T: Config> Pallet<T> {
 		KeyOwner::<T>::remove((id, key_data));
 	}
 
+	/// Disable the validator of index `i` with a specified severity,
+	/// returns `false` if the validator is not found.
+	/// 
+	/// Note: If validator is already disabled, the severity will
+	/// be updated if the new one is higher.
+	pub fn disable_index_with_severity(i: u32, severity: OffenceSeverity) -> bool {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
+			return false;
+		}
+
+		DisabledValidators::<T>::mutate(|disabled| {
+			match disabled.binary_search_by_key(&i, |(index, _)| *index) {
+				// Validator is already disabled, update severity if the new one is higher
+				Ok(index) => {
+					let current_severity = &mut disabled[index].1;
+					if severity > *current_severity {
+						log!(trace, "updating disablement severity of validator {:?} from {:?} to {:?}", i, *current_severity, severity);
+						*current_severity = severity;
+					}
+					true
+				},
+				// Validator is not disabled, add to `DisabledValidators` and disable it
+				Err(index) => {
+					log!(trace, "disabling validator {:?}", i);
+					Self::deposit_event(Event::ValidatorDisabled { validator: Validators::<T>::get()[index as usize].clone() });
+					disabled.insert(index, (i, severity));
+					T::SessionHandler::on_disabled(i);
+					true
+				},
+			}
+		})
+	}
+
+	/// Disable the validator of index `i` with a default severity (defaults to most severe),
+	/// returns `false` if the validator is not found.
+	pub fn disable_index(i: u32) -> bool {
+		let default_severity = OffenceSeverity::default();
+		Self::disable_index_with_severity(i, default_severity)
+	}
+
+	/// Re-enable the validator of index `i`, returns `false` if the validator was not disabled.
+	pub fn reenable_index(i: u32) -> bool {
+		DisabledValidators::<T>::mutate(|disabled| {
+			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
+				log!(trace, "reenabling validator {:?}", i);
+				Self::deposit_event(Event::ValidatorReenabled { validator: Validators::<T>::get()[index as usize].clone() });
+				disabled.remove(index);
+				return true;
+			}
+			false
+		})
+	}
+
+	/// Convert a validator ID to an index.
+	/// (If using with the staking pallet, this would be their *stash* account.)
+	pub fn validator_id_to_index(id: &T::ValidatorId) -> Option<u32> {
+		Validators::<T>::get().iter().position(|i| i == id).map(|i| i as u32)
+	}
+
+	/// Report an offence for the given validator and let disabling strategy decide
+	/// what changes to disabled validators should be made.
 	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
 		log!(trace, "reporting offence for {:?} with {:?}", validator, severity);
-		DisabledValidators::<T>::mutate(|disabled| {
-			let decision = T::DisablingStrategy::decision(&validator, severity, &disabled);
-
-			if let Some(offender_idx) = decision.disable {
-				// Check if the offender is already disabled
-				match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-					// Offender is already disabled, update severity if the new one is higher
-					Ok(index) => {
-						let (_, old_severity) = &mut disabled[index];
-						log!(trace, "Offender was already disabled, updating severity from {:?} to {:?}", old_severity, severity);
-						if severity > *old_severity {
-							*old_severity = severity;
-						}
-					},
-					Err(index) => {
-						log!(trace, "Disabling validator {:?} with severity: {:?}", offender_idx, severity);
-						// Offender is not disabled, add to `DisabledValidators` and disable it
-						disabled.insert(index, (offender_idx, severity));
-						// let the session handlers know that a validator got disabled
-						T::SessionHandler::on_disabled(offender_idx);
-
-						// Emit event that a validator got disabled
-						Self::deposit_event(Event::ValidatorDisabled {
-							validator: validator.clone(),
-						});
-					},
-				}
-			}
-
-			if let Some(reenable_idx) = decision.reenable {
-				// Remove the validator from `DisabledValidators` and re-enable it.
-				if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index)
-				{
-					log!(trace, "Re-enabling validator {:?} to make space", reenable_idx);
-					disabled.remove(index);
-					// Emit event that a validator got re-enabled
-					let reenabled_stash = Validators::<T>::get()[reenable_idx as usize].clone();
-					Self::deposit_event(Event::ValidatorReenabled { validator: reenabled_stash });
-				}
-			}
-		});
+		let decision = T::DisablingStrategy::decision(&validator, severity, &DisabledValidators::<T>::get());
+	
+		// Disable
+		if let Some(offender_idx) = decision.disable {
+			Self::disable_index_with_severity(offender_idx, severity);
+		}
+	
+		// Re-enable
+		if let Some(reenable_idx) = decision.reenable {
+			Self::reenable_index(reenable_idx);
+		}
 	}
 
 	#[cfg(any(test, feature = "try-runtime"))]
