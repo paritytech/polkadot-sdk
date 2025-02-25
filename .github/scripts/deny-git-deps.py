@@ -42,9 +42,7 @@ for dep in workspace.dependencies:
 # And the dependencies of each crate:
 for crate in workspace.crates:
 	for dep in crate.dependencies:
-		# Allow git dependencies in `[dev-dependencies]` sections.
-		if dep.kind != "dev":
-			check_dep(dep, crate.name)
+        check_dep(dep, crate.name)
 
 if errors:
 	print('❌ Found errors:')
