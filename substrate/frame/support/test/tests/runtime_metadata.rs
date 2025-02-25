@@ -174,6 +174,12 @@ fn runtime_metadata() {
 				"",
 				" Documentation on multiline.",
 			]),
+<<<<<<< HEAD
+=======
+			deprecation_info: DeprecationStatusIR::DeprecatedWithoutNote,
+			version: codec::Compact(1),
+
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
 		},
 		RuntimeApiMetadataIR {
 			name: "Core",
@@ -206,6 +212,11 @@ fn runtime_metadata() {
 			docs: maybe_docs(vec![
 				" The `Core` runtime api that every Substrate runtime needs to implement.",
 			]),
+<<<<<<< HEAD
+=======
+			deprecation_info: DeprecationStatusIR::NotDeprecated,
+			version: codec::Compact(5),
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
 		},
 	];
 
