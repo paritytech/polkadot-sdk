@@ -104,31 +104,33 @@ pub enum AccountVote<Balance> {
 	TypeInfo,
 	MaxEncodedLen,
 )]
-pub enum LockedIf {  
-	Status(bool),  
-	Always,  
-}  
+pub enum LockedIf {
+	Status(bool),
+	Always,
+}
 
 impl<Balance: Saturating> AccountVote<Balance> {
 	/// Returns `Some` of the lock periods that the account is locked for, assuming that the
 	/// referendum passed iff `approved` is `true`.
 	pub fn locked_if(self, approved: LockedIf) -> Option<(u32, Balance)> {
 		// winning side: can only be removed after the lock period ends.
-        match (self, approved) {
-            // If the vote has no conviction, always return None
-            (AccountVote::Standard { vote: Vote { conviction: Conviction::None, .. }, .. }, _) => None,
+		match (self, approved) {
+			// If the vote has no conviction, always return None
+			(AccountVote::Standard { vote: Vote { conviction: Conviction::None, .. }, .. }, _) =>
+				None,
 
-            // For Standard votes, check the approval condition
-            (AccountVote::Standard { vote, balance }, LockedIf::Status(is_approved)) 
-                if vote.aye == is_approved => Some((vote.conviction.lock_periods(), balance)),
+			// For Standard votes, check the approval condition
+			(AccountVote::Standard { vote, balance }, LockedIf::Status(is_approved))
+				if vote.aye == is_approved =>
+				Some((vote.conviction.lock_periods(), balance)),
 
-            // If LockedIf::Always, return the lock period regardless of the vote
-            (AccountVote::Standard { vote, balance }, LockedIf::Always) => 
-                Some((vote.conviction.lock_periods(), balance)),
+			// If LockedIf::Always, return the lock period regardless of the vote
+			(AccountVote::Standard { vote, balance }, LockedIf::Always) =>
+				Some((vote.conviction.lock_periods(), balance)),
 
-            // All other cases return None
-            _ => None,
-        }
+			// All other cases return None
+			_ => None,
+		}
 	}
 
 	/// The total balance involved in this vote.

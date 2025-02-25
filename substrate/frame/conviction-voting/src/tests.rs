@@ -17,8 +17,7 @@
 
 //! The crate's tests.
 
-use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::{cell::RefCell, collections::BTreeMap};
 
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,

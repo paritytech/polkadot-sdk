@@ -51,7 +51,7 @@ pub mod weights;
 pub use self::{
 	conviction::Conviction,
 	pallet::*,
-	traits::{VotingHooks, Status},
+	traits::{Status, VotingHooks},
 	types::{Delegations, Tally, UnvoteScope},
 	vote::{AccountVote, Casting, Delegating, Vote, Voting},
 	weights::WeightInfo,
@@ -488,7 +488,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						Ok(())
 					},
 					PollStatus::Completed(end, approved) => {
-						if let Some((lock_periods, balance)) = v.1.locked_if(vote::LockedIf::Status(approved)) {
+						if let Some((lock_periods, balance)) =
+							v.1.locked_if(vote::LockedIf::Status(approved))
+						{
 							let unlock_at = end.saturating_add(
 								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
 							);
@@ -500,8 +502,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								);
 								prior.accumulate(unlock_at, balance)
 							}
-						}else if v.1.as_standard() == Some(!approved) {
-							// Unsuccessful vote, use special hook to lock the funds too in case of conviction.
+						} else if v.1.as_standard() == Some(!approved) {
+							// Unsuccessful vote, use special hook to lock the funds too in case of
+							// conviction.
 							if let Some(to_lock) =
 								T::VotingHooks::balance_locked_on_unsuccessful_vote(who, poll_index)
 							{

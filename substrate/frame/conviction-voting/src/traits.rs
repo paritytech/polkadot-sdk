@@ -18,8 +18,8 @@
 //! The Voting_hook traits
 
 use crate::AccountVote;
-use frame_support::dispatch::DispatchResult;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
@@ -35,7 +35,7 @@ use sp_runtime::RuntimeDebug;
 	TypeInfo,
 	MaxEncodedLen,
 )]
-pub enum Status{
+pub enum Status {
 	None,
 	Ongoing,
 	Completed,
@@ -45,11 +45,12 @@ pub trait VotingHooks<AccountId, Index, Balance> {
 	fn on_vote(who: &AccountId, ref_index: Index, vote: AccountVote<Balance>) -> DispatchResult;
 
 	// Called when removed vote is executed.
-	// is_finished indicates the state of the referendum = None if referendum is cancelled, Ongoing if referendum is ongoing and Completed when finished.
+	// is_finished indicates the state of the referendum = None if referendum is cancelled, Ongoing
+	// if referendum is ongoing and Completed when finished.
 	fn on_remove_vote(who: &AccountId, ref_index: Index, status: Status);
 
-	// Called when removed vote is executed and voter lost the direction to possibly lock some balance.
-	// Can return an amount that should be locked for the conviction time.
+	// Called when removed vote is executed and voter lost the direction to possibly lock some
+	// balance. Can return an amount that should be locked for the conviction time.
 	fn balance_locked_on_unsuccessful_vote(who: &AccountId, ref_index: Index) -> Option<Balance>;
 
 	#[cfg(feature = "runtime-benchmarks")]
