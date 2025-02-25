@@ -949,7 +949,7 @@ dependencies = [
  "rococo-emulated-chain",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "testnet-parachains-constants 1.0.0",
 ]
 
@@ -977,9 +977,9 @@ dependencies = [
  "rococo-system-emulated-network",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -997,7 +997,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -1060,12 +1060,12 @@ dependencies = [
  "sp-version 29.0.0",
  "sp-weights 27.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -1080,7 +1080,7 @@ dependencies = [
  "parachains-common 7.0.0",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "testnet-parachains-constants 1.0.0",
  "westend-emulated-chain",
 ]
@@ -1093,7 +1093,7 @@ dependencies = [
  "asset-test-utils 7.0.0",
  "assets-common 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "emulated-integration-tests-common",
  "frame-metadata-hash-extension 0.1.0",
  "frame-support 28.0.0",
@@ -1112,11 +1112,11 @@ dependencies = [
  "polkadot-runtime-common 7.0.0",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "westend-system-emulated-network",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -1134,7 +1134,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -1200,13 +1200,13 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -1214,7 +1214,7 @@ name = "asset-test-utils"
 version = "7.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-core 0.7.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -1233,11 +1233,11 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -1285,7 +1285,7 @@ dependencies = [
  "scale-info",
  "sp-api 26.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
@@ -2101,7 +2101,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -2113,7 +2113,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -2561,7 +2561,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -2590,7 +2590,7 @@ dependencies = [
  "scale-info",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -2619,7 +2619,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -2654,7 +2654,7 @@ dependencies = [
  "parachains-common 7.0.0",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "testnet-parachains-constants 1.0.0",
 ]
 
@@ -2662,7 +2662,7 @@ dependencies = [
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "emulated-integration-tests-common",
  "frame-support 28.0.0",
  "hex-literal",
@@ -2684,10 +2684,10 @@ dependencies = [
  "snowbridge-router-primitives 0.9.0",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -2716,7 +2716,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -2784,12 +2784,12 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -2805,7 +2805,7 @@ dependencies = [
  "bp-runtime 0.7.0",
  "bp-test-utils 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "impl-trait-for-tuples",
@@ -2828,7 +2828,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -2889,7 +2889,7 @@ dependencies = [
  "parachains-common 7.0.0",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "testnet-parachains-constants 1.0.0",
 ]
 
@@ -2900,7 +2900,7 @@ dependencies = [
  "asset-hub-westend-runtime",
  "bridge-hub-westend-runtime",
  "cumulus-pallet-parachain-system 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "emulated-integration-tests-common",
  "frame-support 28.0.0",
  "hex-literal",
@@ -2923,10 +2923,10 @@ dependencies = [
  "snowbridge-router-primitives 0.9.0",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -2954,7 +2954,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -3020,14 +3020,14 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "tracing",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -3059,7 +3059,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-trie 29.0.0",
  "sp-weights 27.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "static_assertions",
  "tuplex",
 ]
@@ -3498,9 +3498,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.30"
+version = "4.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92b7b18d71fad5313a1e320fa9897994228ce274b60faa4d694fe0ea89cd9e6d"
+checksum = "027bb0d98429ae334a8698531da7077bdf906419543a35a55c2cb1b66437d767"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -3517,9 +3517,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.30"
+version = "4.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a35db2071778a7344791a4fb4f95308b5673d219dee3ae348b86642574ecc90c"
+checksum = "5589e0cba072e0f3d23791efac0fd8627b49c829c196a492e88168e6a669d863"
 dependencies = [
  "anstream",
  "anstyle",
@@ -3530,11 +3530,11 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.45"
+version = "4.5.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e3040c8291884ddf39445dc033c70abc2bc44a42f0a3a00571a0f483a83f0cd"
+checksum = "f5c5508ea23c5366f77e53f5a0070e5a84e51687ec3ef9e0464c86dc8d13ce98"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
 ]
 
 [[package]]
@@ -3621,7 +3621,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "cumulus-pallet-parachain-system 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "emulated-integration-tests-common",
  "frame-support 28.0.0",
  "pallet-asset-rate 7.0.0",
@@ -3636,7 +3636,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-runtime-common 7.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
@@ -3652,7 +3652,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -3715,13 +3715,13 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -3958,7 +3958,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -4005,12 +4005,12 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -4098,7 +4098,7 @@ dependencies = [
  "rococo-runtime-constants 7.0.0",
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
 ]
 
@@ -4111,7 +4111,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -4164,12 +4164,12 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -4199,7 +4199,7 @@ dependencies = [
  "polkadot-runtime-common 7.0.0",
  "polkadot-runtime-parachains 7.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
  "westend-runtime-constants 7.0.0",
  "westend-system-emulated-network",
@@ -4214,7 +4214,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -4266,13 +4266,13 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -4443,7 +4443,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.5.30",
+ "clap 4.5.31",
  "criterion-plot",
  "futures",
  "is-terminal",
@@ -4593,7 +4593,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.7.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -4934,7 +4934,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -4996,7 +4996,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "trie-db",
  "trie-standardmap",
@@ -5147,7 +5147,7 @@ dependencies = [
  "scale-info",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -5168,7 +5168,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bounded-collections",
  "bp-xcm-bridge-hub-router 0.6.0",
@@ -5187,7 +5187,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -5229,7 +5229,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -5253,7 +5253,7 @@ name = "cumulus-pov-validator"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.30",
+ "clap 4.5.31",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-parachain-primitives 6.0.0",
@@ -5300,7 +5300,7 @@ dependencies = [
  "sp-api 26.0.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -5438,7 +5438,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-runtime-common 7.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -5691,7 +5691,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.5.30",
+ "clap 4.5.31",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -5882,7 +5882,7 @@ version = "1.0.141"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e43afb0e3b2ef293492a31ecd796af902112460d53e5f923f7804f348a769f9c"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "codespan-reporting",
  "proc-macro2 1.0.93",
  "quote 1.0.38",
@@ -6477,7 +6477,7 @@ dependencies = [
  "bp-messages 0.7.0",
  "bp-xcm-bridge-hub 0.2.0",
  "cumulus-pallet-parachain-system 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-core 0.7.0",
  "frame-support 28.0.0",
  "pallet-assets 29.1.0",
@@ -6499,7 +6499,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "xcm-emulator",
 ]
 
@@ -7244,7 +7244,7 @@ dependencies = [
  "Inflector",
  "array-bytes",
  "chrono",
- "clap 4.5.30",
+ "clap 4.5.31",
  "comfy-table",
  "cumulus-client-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction 0.2.0",
@@ -7425,7 +7425,7 @@ dependencies = [
 name = "frame-election-solution-type-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "frame-election-provider-solution-type 13.0.0",
  "frame-election-provider-support 28.0.0",
  "frame-support 28.0.0",
@@ -7517,9 +7517,9 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "19.0.0"
+version = "20.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "835a2e736d544b98dab966b4b9541f15af416288a86c3738fdd67bd9fbc4696e"
+checksum = "26de808fa6461f2485dc51811aefed108850064994fb4a62b3ac21ffa62ac8df"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -7534,7 +7534,7 @@ dependencies = [
  "array-bytes",
  "const-hex",
  "docify",
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "log",
@@ -7570,7 +7570,7 @@ name = "frame-omni-bencher"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
- "clap 4.5.30",
+ "clap 4.5.31",
  "cumulus-primitives-proof-size-hostfunction 0.2.0",
  "cumulus-test-runtime",
  "frame-benchmarking-cli",
@@ -7619,7 +7619,7 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "frame-support-procedural 23.0.0",
  "frame-system 28.0.0",
  "impl-trait-for-tuples",
@@ -7798,7 +7798,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "frame-support 28.0.0",
  "frame-support-test-pallet",
  "frame-system 28.0.0",
@@ -8418,7 +8418,7 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
@@ -11053,13 +11053,13 @@ dependencies = [
 
 [[package]]
 name = "merkleized-metadata"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e656ca4a152e892cbbf4b621c242b070136643b797709007d4861881d71ff4c9"
+checksum = "dc9b7ac0ce054412d9a85ff39bac27aec27483b06cef8756b57d9c29d448d081"
 dependencies = [
  "array-bytes",
  "blake3",
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "parity-scale-codec",
  "scale-decode 0.13.1",
  "scale-info",
@@ -11111,7 +11111,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 name = "minimal-template-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "docify",
  "futures",
  "futures-timer",
@@ -11611,7 +11611,7 @@ version = "0.9.0-dev"
 dependencies = [
  "array-bytes",
  "async-trait",
- "clap 4.5.30",
+ "clap 4.5.31",
  "derive_more 0.99.19",
  "fs_extra",
  "futures",
@@ -11688,7 +11688,7 @@ dependencies = [
 name = "node-runtime-generate-bags"
 version = "3.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "generate-bags",
  "kitchensink-runtime",
 ]
@@ -11697,7 +11697,7 @@ dependencies = [
 name = "node-template-release"
 version = "3.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "flate2",
  "fs_extra",
  "glob",
@@ -13285,7 +13285,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "wasm-instrument",
  "wasmi 0.32.3",
@@ -13364,7 +13364,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "xcm-simulator 7.0.0",
@@ -13941,7 +13941,7 @@ name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
  "frame-benchmarking 28.0.0",
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "log",
@@ -15182,7 +15182,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "subxt-signer 0.38.1",
 ]
@@ -15223,7 +15223,7 @@ name = "pallet-revive-eth-rpc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.30",
+ "clap 4.5.31",
  "env_logger 0.11.6",
  "futures",
  "git2",
@@ -15305,7 +15305,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "xcm-simulator 7.0.0",
@@ -15819,7 +15819,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -15834,7 +15834,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -16432,11 +16432,11 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "tracing",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -16482,7 +16482,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -16528,7 +16528,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -16571,7 +16571,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
 ]
 
@@ -16606,7 +16606,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "color-print",
  "docify",
  "futures",
@@ -16662,7 +16662,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
 ]
@@ -16718,7 +16718,7 @@ name = "parachains-runtimes-test-utils"
 version = "7.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-parachain-inherent 0.7.0",
  "cumulus-test-relay-sproof-builder 0.7.0",
@@ -16739,10 +16739,10 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -17013,7 +17013,7 @@ dependencies = [
  "penpal-runtime",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -17025,7 +17025,7 @@ dependencies = [
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
@@ -17073,11 +17073,11 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -17109,7 +17109,7 @@ dependencies = [
  "rococo-runtime-constants 7.0.0",
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
 ]
 
@@ -17122,7 +17122,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -17175,12 +17175,12 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -17211,7 +17211,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-runtime-common 7.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
  "westend-runtime",
  "westend-runtime-constants 7.0.0",
@@ -17227,7 +17227,7 @@ dependencies = [
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-utility 0.7.0",
@@ -17279,13 +17279,13 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "testnet-parachains-constants 1.0.0",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -17623,7 +17623,7 @@ name = "polkadot-cli"
 version = "7.0.0"
 dependencies = [
  "cfg-if",
- "clap 4.5.30",
+ "clap 4.5.31",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -18492,7 +18492,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "async-trait",
- "clap 4.5.30",
+ "clap 4.5.31",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -18627,7 +18627,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder 0.8.0",
  "sp-keyring 31.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "substrate-build-script-utils",
 ]
 
@@ -18840,7 +18840,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-session 27.0.0",
  "sp-staking 26.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "static_assertions",
@@ -18973,7 +18973,7 @@ dependencies = [
  "sp-staking 26.0.0",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
  "static_assertions",
  "thousands",
@@ -19066,7 +19066,7 @@ dependencies = [
  "cumulus-pallet-solo-to-para 0.7.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-ping 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
@@ -19395,7 +19395,7 @@ dependencies = [
  "staging-node-inspect",
  "staging-parachain-info 0.7.0",
  "staging-tracking-allocator",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "subkey",
@@ -19412,7 +19412,7 @@ dependencies = [
  "tracing-gum-proc-macro",
  "xcm-emulator",
  "xcm-procedural 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
  "xcm-simulator 7.0.0",
 ]
 
@@ -19741,7 +19741,7 @@ dependencies = [
  "staging-chain-spec-builder",
  "staging-node-cli",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "subkey",
@@ -19848,7 +19848,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "7.0.0"
+version = "7.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -19952,14 +19952,14 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "sp-weights 27.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror 1.0.69",
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -20016,7 +20016,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitvec",
- "clap 4.5.30",
+ "clap 4.5.31",
  "clap-num",
  "color-eyre",
  "colored",
@@ -20118,7 +20118,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.5.30",
+ "clap 4.5.31",
  "color-eyre",
  "futures",
  "futures-timer",
@@ -20196,7 +20196,7 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
@@ -20258,7 +20258,7 @@ dependencies = [
 name = "polkadot-voter-bags"
 version = "7.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "generate-bags",
  "sp-io 30.0.0",
  "westend-runtime",
@@ -20678,9 +20678,9 @@ dependencies = [
 
 [[package]]
 name = "portable-atomic"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "280dc24453071f1b63954171985a0b0d30058d287960968b9b2aca264c8d4ee6"
+checksum = "350e9b48cbc6b0e028b0473b114454c6316e57336ee184ceab6e53f72c178b3e"
 
 [[package]]
 name = "portpicker"
@@ -21669,7 +21669,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "thiserror 1.0.69",
  "tokio",
 ]
@@ -21703,7 +21703,7 @@ dependencies = [
 name = "remote-ext-tests-bags-list"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "frame-system 28.0.0",
  "log",
  "pallet-bags-list-remote-tests",
@@ -21934,7 +21934,7 @@ dependencies = [
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
- "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.1",
  "cumulus-ping 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
@@ -21970,7 +21970,7 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
@@ -22071,13 +22071,13 @@ dependencies = [
  "sp-transaction-pool 26.0.0",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "static_assertions",
  "substrate-wasm-builder 17.0.0",
  "tokio",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -22091,7 +22091,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
 ]
 
@@ -22733,7 +22733,7 @@ name = "sc-chain-spec"
 version = "28.0.0"
 dependencies = [
  "array-bytes",
- "clap 4.5.30",
+ "clap 4.5.31",
  "docify",
  "log",
  "memmap2 0.9.5",
@@ -22776,7 +22776,7 @@ version = "0.36.0"
 dependencies = [
  "array-bytes",
  "chrono",
- "clap 4.5.30",
+ "clap 4.5.31",
  "fdlimit",
  "futures",
  "futures-timer",
@@ -24117,7 +24117,7 @@ dependencies = [
 name = "sc-storage-monitor"
 version = "0.16.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "fs4",
  "log",
  "sp-core 28.0.0",
@@ -24554,9 +24554,9 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "0.8.21"
+version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09c024468a378b7e36765cd36702b7a90cc3cba11654f6685c8f233408e89e92"
+checksum = "3fbf2ae1b8bc8e02df939598064d22402220cd5bbcca1c76f7d6a310974d5615"
 dependencies = [
  "dyn-clone",
  "schemars_derive",
@@ -24566,9 +24566,9 @@ dependencies = [
 
 [[package]]
 name = "schemars_derive"
-version = "0.8.21"
+version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1eee588578aff73f856ab961cd2f79e36bc45d7ded33a7562adba4667aecc0e"
+checksum = "32e265784ad618884abaea0600a9adf15393368d840e0222d101a072f3f7534d"
 dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
@@ -25510,7 +25510,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -25748,7 +25748,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
 ]
 
@@ -25870,7 +25870,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
 ]
 
@@ -25909,7 +25909,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
 ]
 
@@ -25943,7 +25943,7 @@ dependencies = [
  "snowbridge-core 0.2.0",
  "sp-arithmetic 23.0.0",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -25991,7 +25991,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-runtime 31.0.1",
  "staging-parachain-info 0.7.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
 ]
 
@@ -26035,7 +26035,7 @@ dependencies = [
  "snowbridge-core 0.2.0",
  "sp-api 26.0.0",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
 ]
 
 [[package]]
@@ -26106,7 +26106,7 @@ dependencies = [
 name = "solochain-template-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension 0.1.0",
  "frame-system 28.0.0",
@@ -27017,7 +27017,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#21f6f0705e53c15aa2b8a5706b208200447774a9"
+source = "git+https://github.com/paritytech/polkadot-sdk#3dc3a11cd68762c2e5feb0beba0b61f448c4fc92"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -27134,7 +27134,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#21f6f0705e53c15aa2b8a5706b208200447774a9"
+source = "git+https://github.com/paritytech/polkadot-sdk#3dc3a11cd68762c2e5feb0beba0b61f448c4fc92"
 dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
@@ -27153,7 +27153,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.25.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#21f6f0705e53c15aa2b8a5706b208200447774a9"
+source = "git+https://github.com/paritytech/polkadot-sdk#3dc3a11cd68762c2e5feb0beba0b61f448c4fc92"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -27440,7 +27440,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -27545,7 +27545,7 @@ dependencies = [
 name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "honggfuzz",
  "rand 0.8.5",
  "sp-npos-elections 26.0.0",
@@ -27739,7 +27739,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "24.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#21f6f0705e53c15aa2b8a5706b208200447774a9"
+source = "git+https://github.com/paritytech/polkadot-sdk#3dc3a11cd68762c2e5feb0beba0b61f448c4fc92"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -27830,7 +27830,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#21f6f0705e53c15aa2b8a5706b208200447774a9"
+source = "git+https://github.com/paritytech/polkadot-sdk#3dc3a11cd68762c2e5feb0beba0b61f448c4fc92"
 dependencies = [
  "Inflector",
  "expander",
@@ -28107,7 +28107,7 @@ checksum = "12f8ee986414b0a9ad741776762f4083cd3a5128449b982a3919c4df36874834"
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#21f6f0705e53c15aa2b8a5706b208200447774a9"
+source = "git+https://github.com/paritytech/polkadot-sdk#3dc3a11cd68762c2e5feb0beba0b61f448c4fc92"
 
 [[package]]
 name = "sp-storage"
@@ -28123,7 +28123,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "19.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#21f6f0705e53c15aa2b8a5706b208200447774a9"
+source = "git+https://github.com/paritytech/polkadot-sdk#3dc3a11cd68762c2e5feb0beba0b61f448c4fc92"
 dependencies = [
  "impl-serde 0.5.0",
  "parity-scale-codec",
@@ -28207,7 +28207,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#21f6f0705e53c15aa2b8a5706b208200447774a9"
+source = "git+https://github.com/paritytech/polkadot-sdk#3dc3a11cd68762c2e5feb0beba0b61f448c4fc92"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -28461,7 +28461,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "20.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#21f6f0705e53c15aa2b8a5706b208200447774a9"
+source = "git+https://github.com/paritytech/polkadot-sdk#3dc3a11cd68762c2e5feb0beba0b61f448c4fc92"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
@@ -28791,7 +28791,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "staging-chain-spec-builder"
 version = "1.6.1"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "cmd_lib",
  "docify",
  "log",
@@ -28808,7 +28808,7 @@ version = "3.0.0-dev"
 dependencies = [
  "array-bytes",
  "assert_cmd",
- "clap 4.5.30",
+ "clap 4.5.31",
  "clap_complete",
  "criterion",
  "futures",
@@ -28844,7 +28844,7 @@ dependencies = [
 name = "staging-node-inspect"
 version = "0.12.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-api",
@@ -28889,7 +28889,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "7.0.0"
+version = "7.0.1"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -28956,7 +28956,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
  "tracing",
 ]
@@ -28999,7 +28999,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "tracing",
 ]
 
@@ -29164,7 +29164,7 @@ dependencies = [
 name = "subkey"
 version = "9.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "sc-cli",
 ]
 
@@ -29510,7 +29510,7 @@ dependencies = [
  "async-trait",
  "average",
  "chrono",
- "clap 4.5.30",
+ "clap 4.5.31",
  "clap_derive",
  "ctrlc",
  "futures",
@@ -29543,7 +29543,7 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
@@ -30351,7 +30351,7 @@ dependencies = [
 name = "test-parachain-adder-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "futures",
  "futures-timer",
  "log",
@@ -30398,7 +30398,7 @@ dependencies = [
 name = "test-parachain-undying-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.30",
+ "clap 4.5.31",
  "futures",
  "futures-timer",
  "log",
@@ -30452,7 +30452,7 @@ dependencies = [
  "rococo-runtime-constants 7.0.0",
  "smallvec",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "westend-runtime-constants 7.0.0",
 ]
 
@@ -32158,10 +32158,10 @@ dependencies = [
  "sp-consensus-beefy 13.0.0",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "westend-runtime",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -32266,14 +32266,14 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
  "tiny-keccak",
  "tokio",
  "westend-runtime-constants 7.0.0",
- "xcm-runtime-apis 0.1.0",
+ "xcm-runtime-apis 0.1.1",
 ]
 
 [[package]]
@@ -32287,7 +32287,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
 ]
 
@@ -32804,7 +32804,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "test-log",
@@ -32839,7 +32839,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
 ]
 
@@ -32864,7 +32864,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-executor 7.0.0",
 ]
 
@@ -32876,7 +32876,7 @@ dependencies = [
  "frame-support 28.0.0",
  "proc-macro2 1.0.93",
  "quote 1.0.38",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "syn 2.0.98",
  "trybuild",
 ]
@@ -32895,7 +32895,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "frame-executive 28.0.0",
  "frame-support 28.0.0",
@@ -32911,7 +32911,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-tracing 16.0.0",
  "sp-weights 27.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -32947,7 +32947,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
 ]
@@ -32996,7 +32996,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "xcm-simulator 7.0.0",
@@ -33024,7 +33024,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "staging-xcm 7.0.0",
+ "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "xcm-simulator 7.0.0",
