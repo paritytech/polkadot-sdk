@@ -228,7 +228,8 @@ pub mod pallet {
 		SenderInSignatories,
 		/// Multisig operation not found in storage.
 		NotFound,
-		/// Only the account that originally created the multisig is able to cancel it or update it's deposits.
+		/// Only the account that originally created the multisig is able to cancel it or update
+		/// it's deposits.
 		NotOwner,
 		/// No timepoint was given, yet the multisig operation is already underway.
 		NoTimepoint,
@@ -275,7 +276,7 @@ pub mod pallet {
 			call_hash: CallHash,
 			old_deposit: BalanceOf<T>,
 			new_deposit: BalanceOf<T>,
-		}
+		},
 	}
 
 	#[pallet::hooks]
@@ -527,12 +528,14 @@ pub mod pallet {
 
 		/// Poke the deposit reserved for an existing multisig operation.
 		///
-		/// The dispatch origin for this call must be _Signed_ and must be the original depositor of the multisig operation.
-		/// 
+		/// The dispatch origin for this call must be _Signed_ and must be the original depositor of
+		/// the multisig operation.
+		///
 		/// The transaction fee is waived if the deposit amount has changed.
-		/// 
+		///
 		/// - `threshold`: The total number of approvals needed for this multisig.
-		/// - `other_signatories`: The accounts (other than the sender) who are part of the multisig.
+		/// - `other_signatories`: The accounts (other than the sender) who are part of the
+		///   multisig.
 		/// - `call_hash`: The hash of the call this deposit is reserved for.
 		///
 		/// Emits `DepositPoked` if successful.
@@ -553,48 +556,53 @@ pub mod pallet {
 			let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
 			let id = Self::multi_account_id(&signatories, threshold);
 
-			Multisigs::<T>::try_mutate(&id, call_hash, |maybe_multisig| -> DispatchResultWithPostInfo {
-				let mut multisig = maybe_multisig.take().ok_or(Error::<T>::NotFound)?;
-				ensure!(multisig.depositor == who, Error::<T>::NotOwner);
+			Multisigs::<T>::try_mutate(
+				&id,
+				call_hash,
+				|maybe_multisig| -> DispatchResultWithPostInfo {
+					let mut multisig = maybe_multisig.take().ok_or(Error::<T>::NotFound)?;
+					ensure!(multisig.depositor == who, Error::<T>::NotOwner);
 
-				// Calculate the new deposit
-				let new_deposit = T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
-				let old_deposit = multisig.deposit;
+					// Calculate the new deposit
+					let new_deposit =
+						T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
+					let old_deposit = multisig.deposit;
 
-				if new_deposit == old_deposit {
-					*maybe_multisig = Some(multisig);
-					return Ok(Pays::Yes.into());
-				}
-		
-				// Update the reserved amount
-				if new_deposit > old_deposit {
-					let extra = new_deposit.saturating_sub(old_deposit);
-					T::Currency::reserve(&who, extra)?;
-				} else {
-					let excess = old_deposit.saturating_sub(new_deposit);
-					let remaining_unreserved = T::Currency::unreserve(&who, excess);
-					if !remaining_unreserved.is_zero() {
-						defensive!(
+					if new_deposit == old_deposit {
+						*maybe_multisig = Some(multisig);
+						return Ok(Pays::Yes.into());
+					}
+
+					// Update the reserved amount
+					if new_deposit > old_deposit {
+						let extra = new_deposit.saturating_sub(old_deposit);
+						T::Currency::reserve(&who, extra)?;
+					} else {
+						let excess = old_deposit.saturating_sub(new_deposit);
+						let remaining_unreserved = T::Currency::unreserve(&who, excess);
+						if !remaining_unreserved.is_zero() {
+							defensive!(
 							"Failed to unreserve for full amount for multisig. (Call Hash, Requested, Actual): ", 
 							(call_hash, excess, excess.saturating_sub(remaining_unreserved))
 						);
+						}
 					}
-				}
-		
-				// Update storage
-				multisig.deposit = new_deposit;
-				*maybe_multisig = Some(multisig);
-		
-				// Emit event
-				Self::deposit_event(Event::DepositPoked {
-					who: who.clone(),
-					call_hash,
-					old_deposit,
-					new_deposit,
-				});
-		
-				Ok(Pays::No.into())
-			})
+
+					// Update storage
+					multisig.deposit = new_deposit;
+					*maybe_multisig = Some(multisig);
+
+					// Emit event
+					Self::deposit_event(Event::DepositPoked {
+						who: who.clone(),
+						call_hash,
+						old_deposit,
+						new_deposit,
+					});
+
+					Ok(Pays::No.into())
+				},
+			)
 		}
 	}
 }

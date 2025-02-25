@@ -333,14 +333,13 @@ mod benchmarks {
 			&multi_account_id,
 			call_hash,
 			|maybe_multisig| -> DispatchResult {
-				let mut multisig = maybe_multisig
-					.take()
-					.ok_or(Error::<T>::NotFound)?;
+				let mut multisig = maybe_multisig.take().ok_or(Error::<T>::NotFound)?;
 				multisig.deposit = new_deposit;
 				*maybe_multisig = Some(multisig);
 				Ok(())
-			}
-		).map_err(|_| BenchmarkError::Stop("Mutating storage to change deposits failed"))?;
+			},
+		)
+		.map_err(|_| BenchmarkError::Stop("Mutating storage to change deposits failed"))?;
 		// Check that the deposit was updated in storage
 		let multisig = Multisigs::<T>::get(multi_account_id.clone(), call_hash)
 			.ok_or("Multisig not created")?;
