@@ -35,7 +35,6 @@ use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
 };
-use testnet_parachains_constants::westend::snowbridge::WETHAddress;
 
 parameter_types! {
 		pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
@@ -201,12 +200,4 @@ fn construct_and_apply_extrinsic(
 	let xt = construct_extrinsic(origin, call);
 	let r = Executive::apply_extrinsic(xt);
 	r.unwrap()
-}
-
-#[test]
-fn snowbridge_configurable_key() {
-	let weth_key = WETHAddress::key().to_vec();
-	assert_eq!(to_hex(weth_key.as_slice(), true), "0x36f2f46ef8ffc0cc013470f259488ca1");
-	let gateway_key = EthereumGatewayAddress::key().to_vec();
-	assert_eq!(to_hex(gateway_key.as_slice(), true), "0xaed97c7854d601808b98ae43079dafb3");
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+//! Types for representing inbound messages
 #![cfg_attr(not(feature = "std"), no_std)]
 use codec::{Encode, DecodeWithMemTracking, Decode};
 use snowbridge_beacon_primitives::ExecutionProof;

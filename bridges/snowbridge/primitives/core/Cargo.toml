@@ -32,12 +32,15 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 xcm-executor = { workspace = true }
 
+bp-relayers = { workspace = true }
+
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
+    "bp-relayers/std",
 	"codec/std",
 	"ethabi/std",
 	"frame-support/std",

@@ -21,6 +21,7 @@ use crate::{
 };
 use asset_hub_westend_runtime::ForeignAssets;
 use bridge_hub_westend_runtime::{
+	bridge_common_config::BridgeReward,
 	bridge_to_ethereum_config::{CreateAssetCall, CreateAssetDeposit, EthereumGatewayAddress},
 	EthereumInboundQueueV2,
 };
@@ -52,18 +53,16 @@ const CHAIN_ID: u64 = 11155111u64;
 
 #[test]
 fn register_token_v2() {
-	let relayer = BridgeHubWestendSender::get();
+	let relayer_account = BridgeHubWestendSender::get();
+	let relayer_reward = 1_500_000_000_000u128;
 	let receiver = AssetHubWestendReceiver::get();
-	BridgeHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
+	BridgeHubWestend::fund_accounts(vec![(relayer_account.clone(), INITIAL_FUND)]);
 	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 
 	set_up_eth_and_dot_pool();
 
 	let claimer = Location::new(0, AccountId32 { network: None, id: receiver.clone().into() });
 	let claimer_bytes = claimer.encode();
-
-	let relayer_location =
-		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
 
 	let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&CHAIN_ID);
 
@@ -121,14 +120,22 @@ fn register_token_v2() {
 			// Used to pay the asset creation deposit.
 			value: 9_000_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
-			relayer_fee: 1_500_000_000_000u128,
+			relayer_fee: relayer_reward,
 		};
 
-		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+				// Check that the relayer reward was registered.
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == relayer_reward,
+				},
+			]
 		);
 	});
 
@@ -169,9 +176,8 @@ fn register_token_v2() {
 
 #[test]
 fn send_token_v2() {
-	let relayer = BridgeHubWestendSender::get();
-	let relayer_location =
-		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+	let relayer_account = BridgeHubWestendSender::get();
+	let relayer_reward = 1_500_000_000_000u128;
 
 	let token: H160 = TOKEN_ID.into();
 	let token_location = erc20_token_location(token);
@@ -216,14 +222,22 @@ fn send_token_v2() {
 			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
-			relayer_fee: 1_500_000_000_000u128,
+			relayer_fee: relayer_reward,
 		};
 
-		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+				// Check that the relayer reward was registered.
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == relayer_reward,
+				},
+			]
 		);
 	});
 
@@ -272,9 +286,8 @@ fn send_token_v2() {
 
 #[test]
 fn send_weth_v2() {
-	let relayer = BridgeHubWestendSender::get();
-	let relayer_location =
-		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+	let relayer_account = BridgeHubWestendSender::get();
+	let relayer_reward = 1_500_000_000_000u128;
 
 	let beneficiary_acc_id: H256 = H256::random();
 	let beneficiary_acc_bytes: [u8; 32] = beneficiary_acc_id.into();
@@ -315,14 +328,22 @@ fn send_weth_v2() {
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
-			relayer_fee: 1_500_000_000_000u128,
+			relayer_fee: relayer_reward,
 		};
 
-		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+				// Check that the relayer reward was registered.
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == relayer_reward,
+				},
+			]
 		);
 	});
 
@@ -372,9 +393,8 @@ fn send_weth_v2() {
 
 #[test]
 fn register_and_send_multiple_tokens_v2() {
-	let relayer = BridgeHubWestendSender::get();
-	let relayer_location =
-		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+	let relayer_account = BridgeHubWestendSender::get();
+	let relayer_reward = 1_500_000_000_000u128;
 
 	let token: H160 = TOKEN_ID.into();
 	let token_location = erc20_token_location(token);
@@ -467,14 +487,22 @@ fn register_and_send_multiple_tokens_v2() {
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
-			relayer_fee: 1_500_000_000_000u128,
+			relayer_fee: relayer_reward,
 		};
 
-		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+				// Check that the relayer reward was registered.
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == relayer_reward,
+				},
+			]
 		);
 	});
 
@@ -535,9 +563,8 @@ fn register_and_send_multiple_tokens_v2() {
 
 #[test]
 fn send_token_to_penpal_v2() {
-	let relayer = BridgeHubWestendSender::get();
-	let relayer_location =
-		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+	let relayer_account = BridgeHubWestendSender::get();
+	let relayer_reward = 1_500_000_000_000u128;
 
 	let token: H160 = TOKEN_ID.into();
 	let token_location = erc20_token_location(token);
@@ -645,14 +672,22 @@ fn send_token_to_penpal_v2() {
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
-			relayer_fee: 1_500_000_000_000u128,
+			relayer_fee: relayer_reward,
 		};
 
-		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+				// Check that the relayer reward was registered.
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == relayer_reward,
+				},
+			]
 		);
 	});
 
@@ -729,9 +764,8 @@ fn send_token_to_penpal_v2() {
 
 #[test]
 fn send_foreign_erc20_token_back_to_polkadot() {
-	let relayer = BridgeHubWestendSender::get();
-	let relayer_location =
-		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+	let relayer_account = BridgeHubWestendSender::get();
+	let relayer_reward = 1_500_000_000_000u128;
 
 	let claimer = AccountId32 { network: None, id: H256::random().into() };
 	let claimer_bytes = claimer.encode();
@@ -815,14 +849,22 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 3_500_000_000_000u128,
-			relayer_fee: 1_500_000_000_000u128,
+			relayer_fee: relayer_reward,
 		};
 
-		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+				// Check that the relayer reward was registered.
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == relayer_reward,
+				},
+			]
 		);
 	});
 
@@ -866,9 +908,8 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 
 #[test]
 fn invalid_xcm_traps_funds_on_ah() {
-	let relayer = BridgeHubWestendSender::get();
-	let relayer_location =
-		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+	let relayer_account = BridgeHubWestendSender::get();
+	let relayer_reward = 1_500_000_000_000u128;
 
 	let token: H160 = TOKEN_ID.into();
 	let claimer = AccountId32 { network: None, id: H256::random().into() };
@@ -904,14 +945,22 @@ fn invalid_xcm_traps_funds_on_ah() {
 			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
-			relayer_fee: 1_500_000_000_000u128,
+			relayer_fee: relayer_reward,
 		};
 
-		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+				// Check that the relayer reward was registered.
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == relayer_reward,
+				},
+			]
 		);
 	});
 
@@ -928,9 +977,8 @@ fn invalid_xcm_traps_funds_on_ah() {
 
 #[test]
 fn invalid_claimer_does_not_fail_the_message() {
-	let relayer = BridgeHubWestendSender::get();
-	let relayer_location =
-		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+	let relayer_account = BridgeHubWestendSender::get();
+	let relayer_reward = 1_500_000_000_000u128;
 
 	let beneficiary_acc: [u8; 32] = H256::random().into();
 	let beneficiary = Location::new(0, AccountId32 { network: None, id: beneficiary_acc.into() });
@@ -966,14 +1014,22 @@ fn invalid_claimer_does_not_fail_the_message() {
 			claimer: Some(hex!("2b7ce7bc7e87e4d6619da21487c7a53f").to_vec()),
 			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
-			relayer_fee: 1_500_000_000_000u128,
+			relayer_fee: relayer_reward,
 		};
 
-		EthereumInboundQueueV2::process_message(relayer_location, message).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+				// Check that the relayer reward was registered.
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == relayer_reward,
+				},
+			]
 		);
 	});
 

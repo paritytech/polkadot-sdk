@@ -28,11 +28,22 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
 use scale_info::TypeInfo;
 use xcm::VersionedLocation;
+use snowbridge_core::reward::NoOpReward;
+use crate::bridge_to_ethereum_config::AssetHubXCMFee;
+use crate::xcm_config::XcmConfig;
+use xcm_executor::XcmExecutor;
+use crate::RuntimeCall;
+use crate::XcmRouter;
+use crate::bridge_to_ethereum_config::InboundQueueLocation;
+use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use crate::bridge_to_ethereum_config::AssetHubLocation;
+use xcm::opaque::latest::Location;
 
 parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
 	pub const RelayerStakeLease: u32 = 8;
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
+	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
 
 /// Showcasing that we can handle multiple different rewards with the same pallet.
@@ -106,8 +117,27 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewa
 					BridgeRewardBeneficiaries::AssetHubLocation(_) => Err(Self::Error::Other("`AssetHubLocation` beneficiary is not supported for `RococoWestend` rewards!")),
 				}
 			},
-			BridgeReward::Snowbridge =>
-				Err(sp_runtime::DispatchError::Other("Not implemented yet, check also `fn prepare_rewards_account` to return `alternative_beneficiary`!")),
+			BridgeReward::Snowbridge => {
+				match beneficiary {
+					BridgeRewardBeneficiaries::LocalAccount(_) => Err(Self::Error::Other("`LocalAccount` beneficiary is not supported for `Snowbridge` rewards!")),
+					BridgeRewardBeneficiaries::AssetHubLocation(account_location) => {
+						snowbridge_core::reward::PayAccountOnLocation::<
+							AccountId,
+							u128,
+							NoOpReward,
+							EthereumNetwork,
+							AssetHubLocation,
+							AssetHubXCMFee,
+							InboundQueueLocation,
+							XcmRouter,
+							XcmExecutor<XcmConfig>,
+							RuntimeCall
+						>::pay_reward(
+							relayer, NoOpReward, reward, Location::try_from(account_location).unwrap()
+						)
+					}
+				}
+			}
 		}
 	}
 }

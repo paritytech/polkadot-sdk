@@ -34,6 +34,7 @@ xcm-runtime-apis = { workspace = true }
 
 # Bridges
 pallet-bridge-messages = { workspace = true }
+pallet-bridge-relayers = { workspace = true }
 
 # Cumulus
 asset-hub-westend-runtime = { workspace = true }

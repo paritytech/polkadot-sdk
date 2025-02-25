@@ -38,8 +38,6 @@ pub use operating_mode::BasicOperatingMode;
 
 pub use pricing::{PricingParameters, Rewards};
 
-pub use reward::{PaymentProcedure, ether_asset};
-
 pub fn sibling_sovereign_account<T>(para_id: ParaId) -> T::AccountId
 where
 	T: frame_system::Config,

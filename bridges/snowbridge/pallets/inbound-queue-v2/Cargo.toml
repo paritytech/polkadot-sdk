@@ -41,6 +41,8 @@ snowbridge-core = { workspace = true }
 snowbridge-inbound-queue-primitives = { workspace = true }
 snowbridge-pallet-inbound-queue-fixtures-v2 = { optional = true, workspace = true }
 
+bp-relayers = { workspace = true }
+
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
@@ -52,6 +54,7 @@ sp-keyring = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"alloy-core/std",
+	"bp-relayers/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",

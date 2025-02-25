@@ -45,7 +45,6 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use snowbridge_core::{
-	reward::{ether_asset, PaymentProcedure},
 	sparse_bitmap::{SparseBitmap, SparseBitmapImpl},
 	BasicOperatingMode,
 };
@@ -56,6 +55,7 @@ use snowbridge_inbound_queue_primitives::{
 use sp_core::H160;
 use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
 
+use bp_relayers::RewardLedger;
 #[cfg(feature = "runtime-benchmarks")]
 use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
 
@@ -68,6 +68,7 @@ type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type Nonce<T> = SparseBitmapImpl<crate::NonceBitmap<T>>;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -93,8 +94,6 @@ pub mod pallet {
 		type XcmSender: SendXcm;
 		/// Handler for XCM fees.
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
-		/// Relayer Reward Payment
-		type RewardPayment: PaymentProcedure<Self::AccountId>;
 		/// Ethereum NetworkId
 		type EthereumNetwork: Get<NetworkId>;
 		/// Address of the Gateway contract.
@@ -108,6 +107,13 @@ pub mod pallet {
 		type Helper: BenchmarkHelper<Self>;
 		/// Used for the dry run API implementation.
 		type Balance: Balance + From<u128>;
+		/// Reward discriminator type.
+		type RewardKind: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
+		/// The default RewardKind discriminator for rewards allocated to relayers from this pallet.
+		#[pallet::constant]
+		type DefaultRewardKind: Get<Self::RewardKind>;
+		/// Relayer reward payment.
+		type RewardPayment: RewardLedger<Self::AccountId, Self::RewardKind, u128>;
 		type WeightInfo: WeightInfo;
 		/// Convert a weight value into deductible balance type.
 		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
@@ -164,8 +170,6 @@ pub mod pallet {
 		InvalidAsset,
 		/// Cannot reachor a foreign ERC-20 asset location.
 		CannotReanchor,
-		/// Reward payment Failure
-		RewardPaymentFailed,
 		/// Message verification error
 		Verification(VerificationError),
 	}
@@ -199,7 +203,10 @@ pub mod pallet {
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> where T::AccountId: Into<Location> {
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: Into<Location>,
+	{
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
@@ -232,7 +239,10 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> where T::AccountId: Into<Location> {
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: Into<Location>,
+	{
 		pub fn process_message(relayer: T::AccountId, message: Message) -> DispatchResult {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
@@ -252,9 +262,11 @@ pub mod pallet {
 				})?;
 
 			// Pay relayer reward
-			let ether = ether_asset(T::EthereumNetwork::get(), message.relayer_fee);
-			T::RewardPayment::pay_reward(relayer, ether)
-				.map_err(|_| Error::<T>::RewardPaymentFailed)?;
+			T::RewardPayment::register_reward(
+				&relayer,
+				T::DefaultRewardKind::get(),
+				message.relayer_fee,
+			);
 
 			// Mark message as received
 			Nonce::<T>::set(message.nonce.into());

@@ -2881,6 +2881,7 @@ dependencies = [
  "bridge-hub-westend-runtime",
  "emulated-integration-tests-common",
  "frame-support 28.0.0",
+ "pallet-bridge-relayers 0.7.0",
  "parachains-common 7.0.0",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
@@ -2905,6 +2906,7 @@ dependencies = [
  "pallet-assets 29.1.0",
  "pallet-balances 28.0.0",
  "pallet-bridge-messages 0.7.0",
+ "pallet-bridge-relayers 0.7.0",
  "pallet-message-queue 31.0.0",
  "pallet-xcm 7.0.0",
  "parachains-common 7.0.0",
@@ -25342,6 +25344,7 @@ dependencies = [
 name = "snowbridge-core"
 version = "0.2.0"
 dependencies = [
+ "bp-relayers 0.7.0",
  "ethabi-decode 2.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -25737,6 +25740,7 @@ name = "snowbridge-pallet-inbound-queue-v2"
 version = "0.2.0"
 dependencies = [
  "alloy-core",
+ "bp-relayers 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -25814,6 +25818,7 @@ name = "snowbridge-pallet-outbound-queue-v2"
 version = "0.2.0"
 dependencies = [
  "alloy-core",
+ "bp-relayers 0.7.0",
  "bridge-hub-common 0.1.0",
  "ethabi-decode 2.0.0",
  "frame-benchmarking 28.0.0",

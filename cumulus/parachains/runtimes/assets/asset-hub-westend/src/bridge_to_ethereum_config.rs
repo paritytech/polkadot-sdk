@@ -35,7 +35,6 @@ use frame_support::traits::{
 	ContainsPair, EitherOf, EnsureOrigin, EnsureOriginWithArg, OriginTrait,
 };
 use frame_system::EnsureRootWithSuccess;
-use xcm_builder::EnsureXcmOrigin;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
