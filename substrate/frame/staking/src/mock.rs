@@ -244,6 +244,7 @@ impl<
 			MaxWinnersPerPage = MaxWinnersPerPage,
 			MaxBackersPerWinner = MaxBackersPerWinner,
 			Error = onchain::Error,
+			BlockNumber = BlockNumber,
 		>,
 	> ElectionProvider for SingleOrMultipageElectionProvider<SP>
 {
@@ -283,6 +284,12 @@ impl<
 				Ok(to_bounded_supports(supports))
 			}
 		}
+	}
+	fn start() -> Result<(), Self::Error> {
+		SP::start()
+	}
+	fn duration() -> Self::BlockNumber {
+		SP::duration()
 	}
 	fn msp() -> PageIndex {
 		SP::msp()

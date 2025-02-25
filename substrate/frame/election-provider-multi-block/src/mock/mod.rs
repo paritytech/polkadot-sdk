@@ -52,9 +52,7 @@ use sp_core::{
 };
 use sp_npos_elections::EvaluateSupport;
 use sp_runtime::{
-	bounded_vec,
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, PerU16, Perbill,
+	bounded_vec, traits::{BlakeTwo256, IdentityLookup}, BuildStorage, PerU16, Perbill
 };
 pub use staking::*;
 use std::{sync::Arc, vec};
@@ -130,6 +128,12 @@ pub enum FallbackModes {
 }
 
 parameter_types! {
+	// The block at which we emit the start signal. This is used in `roll_next`, which is used all
+	// across tests. The number comes across as a bit weird, but this is mainly due to backwards
+	// compatibility with olds tests, when we used to have pull based election prediction.
+	pub static ElectionStart: BlockNumber = 11;
+
+
 	pub static Pages: PageIndex = 3;
 	pub static UnsignedPhase: BlockNumber = 5;
 	pub static SignedPhase: BlockNumber = 5;
@@ -146,7 +150,6 @@ parameter_types! {
 	pub static VoterSnapshotPerBlock: VoterIndex = 4;
 	// and 4 targets, whom we fetch all.
 	pub static TargetSnapshotPerBlock: TargetIndex = 4;
-	pub static Lookahead: BlockNumber = 0;
 
 	// we have 12 voters in the default setting, this should be enough to make sure they are not
 	// trimmed accidentally in any test.
@@ -200,7 +203,6 @@ impl crate::Config for Runtime {
 	type Fallback = MockFallback;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
-	type Lookahead = Lookahead;
 	type MinerConfig = Self;
 	type WeightInfo = weight_info::DualMockWeightInfo;
 	type Verifier = VerifierPallet;
@@ -235,6 +237,14 @@ impl ElectionProvider for MockFallback {
 
 	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		unreachable!()
+	}
+
+	fn duration() -> Self::BlockNumber {
+		0
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
 	}
 
 	fn ongoing() -> bool {
@@ -332,12 +342,12 @@ impl ExtBuilder {
 		SolutionImprovementThreshold::set(p);
 		self
 	}
-	pub(crate) fn pages(self, pages: PageIndex) -> Self {
-		Pages::set(pages);
+	pub(crate) fn election_start(self, at: BlockNumber) -> Self {
+		ElectionStart::set(at);
 		self
 	}
-	pub(crate) fn lookahead(self, lookahead: BlockNumber) -> Self {
-		Lookahead::set(lookahead);
+	pub(crate) fn pages(self, pages: PageIndex) -> Self {
+		Pages::set(pages);
 		self
 	}
 	pub(crate) fn voter_per_page(self, count: u32) -> Self {
@@ -553,6 +563,17 @@ pub fn multi_block_events() -> Vec<crate::Event<Runtime>> {
 		.collect::<Vec<_>>()
 }
 
+parameter_types! {
+	static MultiBlockEvents: u32 = 0;
+}
+
+pub fn multi_block_events_since_last_call() -> Vec<crate::Event<Runtime>> {
+	let events = multi_block_events();
+	let already_seen = MultiBlockEvents::get();
+	MultiBlockEvents::set(events.len() as u32);
+	events.into_iter().skip(already_seen as usize).collect()
+}
+
 /// get the events of the verifier pallet.
 pub fn verifier_events() -> Vec<crate::verifier::Event<Runtime>> {
 	System::events()
@@ -578,6 +599,7 @@ pub fn roll_to_snapshot_created() {
 	while !matches!(MultiBlock::current_phase(), Phase::Snapshot(0)) {
 		roll_next()
 	}
+	roll_next();
 	assert_full_snapshot();
 }
 
@@ -590,7 +612,7 @@ pub fn roll_to_unsigned_open() {
 
 /// proceed block number to whenever the signed phase is open (`Phase::Signed(_)`).
 pub fn roll_to_signed_open() {
-	while !matches!(MultiBlock::current_phase(), Phase::Signed) {
+	while !matches!(MultiBlock::current_phase(), Phase::Signed(_)) {
 		roll_next();
 	}
 }
@@ -605,7 +627,8 @@ pub fn roll_to_signed_validation_open() {
 
 /// Proceed one block.
 pub fn roll_next() {
-	roll_to(System::block_number() + 1);
+	let now = System::block_number();
+	roll_to(now + 1);
 }
 
 /// Proceed one block, and execute offchain workers as well.
@@ -613,11 +636,18 @@ pub fn roll_next_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>) {
 	roll_to_with_ocw(System::block_number() + 1, maybe_pool)
 }
 
+pub fn roll_to_unsigned_open_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>) {
+	while !matches!(MultiBlock::current_phase(), Phase::Unsigned(_)) {
+		roll_next_with_ocw(maybe_pool.clone());
+	}
+}
+
 /// proceed block number to `n`, while running all offchain workers as well.
 pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>>>) {
 	use sp_runtime::traits::Dispatchable;
 	let now = System::block_number();
 	for i in now + 1..=n {
+
 		// check the offchain transaction pool, and if anything's there, submit it.
 		if let Some(ref pool) = maybe_pool {
 			pool.read()

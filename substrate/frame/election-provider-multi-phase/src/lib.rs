@@ -1818,6 +1818,14 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		res
 	}
 
+	fn duration() -> Self::BlockNumber {
+		unimplemented!()
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		unimplemented!()
+	}
+
 	fn ongoing() -> bool {
 		match CurrentPhase::<T>::get() {
 			Phase::Off => false,

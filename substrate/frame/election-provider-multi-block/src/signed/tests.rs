@@ -23,7 +23,6 @@ pub type T = Runtime;
 
 mod calls {
 	use super::*;
-	use crate::Phase;
 	use sp_runtime::{DispatchError, TokenError::FundsUnavailable};
 
 	#[test]
@@ -52,7 +51,7 @@ mod calls {
 	#[test]
 	fn cannot_register_if_not_signed() {
 		ExtBuilder::signed().build_and_execute(|| {
-			assert!(crate::Pallet::<T>::current_phase() != Phase::Signed);
+			assert!(!crate::Pallet::<T>::current_phase().is_signed());
 			assert_noop!(
 				SignedPallet::register(RuntimeOrigin::signed(99), Default::default()),
 				Error::<T>::PhaseNotSigned

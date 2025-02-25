@@ -377,6 +377,7 @@ pub trait ElectionDataProvider {
 	/// [`ElectionProvider::elect`].
 	///
 	/// This is only useful for stateful election providers.
+	#[deprecated(note = "Use `ElectionProvider::start` instead.")]
 	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber;
 
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
@@ -489,6 +490,12 @@ pub trait ElectionProvider {
 		})
 	}
 
+	/// Return the duration of your election.
+	fn duration() -> Self::BlockNumber;
+
+	/// Signal that the election should start
+	fn start() -> Result<(), Self::Error>;
+
 	/// Indicate whether this election provider is currently ongoing an asynchronous election.
 	fn ongoing() -> bool;
 }
@@ -521,6 +528,7 @@ where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
 	MaxWinnersPerPage: Get<u32>,
 	MaxBackersPerWinner: Get<u32>,
+	BlockNumber: Zero,
 {
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
@@ -532,6 +540,14 @@ where
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("`NoElection` cannot do anything.")
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		Err("`NoElection` cannot do anything.")
+	}
+
+	fn duration() -> Self::BlockNumber {
+		Zero::zero()
 	}
 
 	fn ongoing() -> bool {
@@ -546,6 +562,7 @@ where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
 	MaxWinnersPerPage: Get<u32>,
 	MaxBackersPerWinner: Get<u32>,
+	BlockNumber: Zero,
 {
 	fn instant_elect(
 		_: Vec<VoterOf<Self::DataProvider>>,

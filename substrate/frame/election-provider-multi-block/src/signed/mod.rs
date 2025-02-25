@@ -808,12 +808,12 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			// this code is only called when at the boundary of phase transition, which is already
 			// captured by the parent pallet. No need for weight.
 			let weight_taken_into_account: Weight = Default::default();
 
-			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(now) {
+			if crate::Pallet::<T>::current_phase().is_signed_validation_opened_now() {
 				let maybe_leader = Submissions::<T>::leader(Self::current_round());
 				sublog!(
 					info,
@@ -830,7 +830,7 @@ pub mod pallet {
 				}
 			}
 
-			if crate::Pallet::<T>::current_phase().is_unsigned_open_at(now) {
+			if crate::Pallet::<T>::current_phase().is_unsigned_opened_now() {
 				// signed validation phase just ended, make sure you stop any ongoing operation.
 				sublog!(info, "signed", "signed validation ended, sending validation stop signal",);
 				<T::Verifier as AsynchronousVerifier>::stop();

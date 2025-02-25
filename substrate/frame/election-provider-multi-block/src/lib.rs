@@ -91,7 +91,6 @@
 //!   once `elect(0)` is called.
 //! * The pallet strives to be ready for the first call to `elect`, for example `elect(2)` if 3
 //!   pages.
-//! * This pallet can be commanded to to be ready sooner with [`Config::Lookahead`].
 //!
 //! > Given this, it is rather important for the user of this pallet to ensure it always terminates
 //! > election via `elect` before requesting a new one.
@@ -176,10 +175,7 @@ use sp_arithmetic::{
 	PerThing, UpperOf,
 };
 use sp_npos_elections::VoteWeight;
-use sp_runtime::{
-	traits::{Hash, Saturating},
-	SaturatedConversion,
-};
+use sp_runtime::{traits::Hash, SaturatedConversion};
 use sp_std::{borrow::ToOwned, boxed::Box, prelude::*};
 use verifier::Verifier;
 
@@ -234,6 +230,14 @@ impl<T: Config> ElectionProvider for InitiateEmergencyPhase<T> {
 	fn ongoing() -> bool {
 		false
 	}
+
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn duration() -> Self::BlockNumber {
+		Zero::zero()
+	}
 }
 
 impl<T: Config> InstantElectionProvider for InitiateEmergencyPhase<T> {
@@ -266,6 +270,14 @@ impl<T: Config> ElectionProvider for Continue<T> {
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		log!(warn, "'Continue' fallback will do nothing");
 		Err("'Continue' fallback will do nothing")
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn duration() -> Self::BlockNumber {
+		Zero::zero()
 	}
 
 	fn ongoing() -> bool {
@@ -306,6 +318,8 @@ pub enum ElectionError<T: Config> {
 	SupportPageNotAvailable,
 	/// The election is not ongoing and therefore no results may be queried.
 	NotOngoing,
+	/// The election is currently ongoing, and therefore we cannot start again.
+	Ongoing,
 	/// Other misc error
 	Other(&'static str),
 }
@@ -342,7 +356,7 @@ pub enum AdminOperation<T: Config> {
 	/// Force-set the phase to the given phase.
 	///
 	/// This can have many many combinations, use only with care and sufficient testing.
-	ForceSetPhase(Phase<BlockNumberFor<T>>),
+	ForceSetPhase(Phase<T>),
 	/// Set the given (single page) emergency solution.
 	///
 	/// Can only be called in emergency phase.
@@ -436,9 +450,6 @@ pub mod pallet {
 				AccountId = Self::AccountId,
 			> + verifier::AsynchronousVerifier;
 
-		/// The number of blocks ahead of time to try and have the election results ready by.
-		type Lookahead: Get<BlockNumberFor<Self>>;
-
 		/// The origin that can perform administration operations on this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -505,85 +516,47 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			// first, calculate the main phase switches thresholds.
-			let unsigned_deadline = T::UnsignedPhase::get();
-			let signed_validation_deadline =
-				T::SignedValidationPhase::get().saturating_add(unsigned_deadline);
-			let signed_deadline = T::SignedPhase::get().saturating_add(signed_validation_deadline);
-			// add one block to take the target snapshot a block ahead of time.
-			let snapshot_deadline = signed_deadline
-				.saturating_add(T::Pages::get().into())
-				.saturating_add(One::one());
-
-			let next_election = T::DataProvider::next_election_prediction(now)
-				.saturating_sub(T::Lookahead::get())
-				.max(now);
-			let remaining_blocks = next_election.saturating_sub(now);
-			let current_phase = Self::current_phase();
-
-			log!(
-				trace,
-				"current phase {:?}, next election {:?}, remaining: {:?}, deadlines: [snapshot {:?}, signed {:?}, signed_validation {:?}, unsigned {:?}]",
-				current_phase,
-				next_election,
-				remaining_blocks,
-				snapshot_deadline,
-				signed_deadline,
-				signed_validation_deadline,
-				unsigned_deadline,
-			);
-
-			match current_phase {
-				// start and continue snapshot.
-				Phase::Off if remaining_blocks <= snapshot_deadline => {
-					let remaining_pages = Self::msp() + 1;
+		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+			let current_phase = CurrentPhase::<T>::get();
+			let weight1 = match current_phase {
+				Phase::Snapshot(x) if x == T::Pages::get() => {
+					// create the target snapshot
 					Self::create_targets_snapshot().defensive_unwrap_or_default();
-					Self::phase_transition(Phase::Snapshot(remaining_pages));
 					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
-				Phase::Snapshot(x) if x > 0 => {
-					// we don't check block numbers here, snapshot creation is mandatory.
-					let remaining_pages = x.saturating_sub(1);
-					Self::create_voters_snapshot_paged(remaining_pages).unwrap();
-					Self::phase_transition(Phase::Snapshot(remaining_pages));
+				Phase::Snapshot(x) => {
+					// create voter snapshot
+					Self::create_voters_snapshot_paged(x).unwrap();
 					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},
-
-				// start signed.
-				Phase::Snapshot(0)
-					if remaining_blocks <= signed_deadline &&
-						remaining_blocks > signed_validation_deadline =>
-				{
-					// NOTE: if signed-phase length is zero, second part of the if-condition fails.
-					// TODO: even though we have the integrity test, what if we open the signed
-					// phase, and there's not enough blocks to finalize it? that can happen under
-					// any circumstance and we should deal with it.
-					Self::phase_transition(Phase::Signed);
-					T::WeightInfo::on_initialize_into_signed()
-				},
-
-				// start signed verification.
-				Phase::Signed
-					if remaining_blocks <= signed_validation_deadline &&
-						remaining_blocks > unsigned_deadline =>
-				{
-					// Start verification of the signed stuff.
-					Self::phase_transition(Phase::SignedValidation(now));
-					// we don't do anything else here. We expect the signed sub-pallet to handle
-					// whatever else needs to be done.
-					T::WeightInfo::on_initialize_into_signed_validation()
-				},
-
-				// start unsigned
-				Phase::Signed | Phase::SignedValidation(_) | Phase::Snapshot(0)
-					if remaining_blocks <= unsigned_deadline && remaining_blocks > Zero::zero() =>
-				{
-					Self::phase_transition(Phase::Unsigned(now));
-					T::WeightInfo::on_initialize_into_unsigned()
-				},
 				_ => T::WeightInfo::on_initialize_nothing(),
+			};
+
+			// in all cases, go to next phase
+			let next_phase = current_phase.clone().next();
+
+			let weight2 = match next_phase {
+				Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
+				Phase::SignedValidation(_) => T::WeightInfo::on_initialize_into_signed_validation(),
+				Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
+				_ => T::WeightInfo::on_initialize_nothing(),
+			};
+
+			log!(trace, "current phase {:?}, next phase: {:?}", current_phase, next_phase);
+			Self::phase_transition(next_phase);
+
+			// bit messy, but for now this works best.
+			#[cfg(test)]
+			{
+				let test_election_start: BlockNumberFor<T> =
+					(crate::mock::ElectionStart::get() as u32).into();
+				if _now == test_election_start {
+					crate::log!(info, "Starting election at block {}", _now);
+					crate::mock::MultiBlock::start().unwrap();
+				}
 			}
+
+			weight1 + weight2
 		}
 
 		fn integrity_test() {
@@ -598,15 +571,8 @@ pub mod pallet {
 			assert!(size_of::<SolutionVoterIndexOf<T::MinerConfig>>() <= size_of::<u32>());
 			assert!(size_of::<SolutionTargetIndexOf<T::MinerConfig>>() <= size_of::<u32>());
 
-			let pages_bn: BlockNumberFor<T> = T::Pages::get().into();
 			// pages must be at least 1.
 			assert!(T::Pages::get() > 0);
-
-			// pages + the amount of Lookahead that we expect shall not be more than the length of
-			// any phase.
-			let lookahead = T::Lookahead::get();
-			assert!(pages_bn + lookahead < T::SignedPhase::get());
-			assert!(pages_bn + lookahead < T::UnsignedPhase::get());
 
 			// Based on the requirements of [`sp_npos_elections::Assignment::try_normalize`].
 			let max_vote: usize = <SolutionOf<T::MinerConfig> as NposSolution>::LIMIT;
@@ -634,12 +600,21 @@ pub mod pallet {
 				<SolutionOf<T::MinerConfig> as NposSolution>::LIMIT as u32,
 			);
 
-			// The duration of the signed validation phase should be such that at least one solution
-			// can be verified.
+			// Either (signed + signed validation) is non-zero, or unsigned is non-zero
+			let has_signed = !T::SignedPhase::get().is_zero();
+			let signed_validation = T::SignedValidationPhase::get();
+			let has_signed_validation = !signed_validation.is_zero();
+			let has_unsigned = !T::UnsignedPhase::get().is_zero();
 			assert!(
-				T::SignedValidationPhase::get() >= T::Pages::get().into(),
+				has_signed == has_signed_validation,
+				"Signed phase not set correct -- both should be set or unset"
+			);
+			assert!(
+				signed_validation.is_zero() || signed_validation >= T::Pages::get().into(),
 				"signed validation phase should be at least as long as the number of pages."
 			);
+
+			assert!(has_signed || has_unsigned, "either signed or unsigned phase must be set");
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -655,9 +630,9 @@ pub mod pallet {
 		/// values.
 		PhaseTransitioned {
 			/// the source phase
-			from: Phase<BlockNumberFor<T>>,
+			from: Phase<T>,
 			/// The target phase
-			to: Phase<BlockNumberFor<T>>,
+			to: Phase<T>,
 		},
 	}
 
@@ -704,7 +679,7 @@ pub mod pallet {
 	/// Current phase.
 	#[pallet::storage]
 	#[pallet::getter(fn current_phase)]
-	pub type CurrentPhase<T: Config> = StorageValue<_, Phase<BlockNumberFor<T>>, ValueQuery>;
+	pub type CurrentPhase<T: Config> = StorageValue<_, Phase<T>, ValueQuery>;
 
 	/// Wrapper struct for working with snapshots.
 	///
@@ -823,13 +798,8 @@ pub mod pallet {
 	#[allow(unused)]
 	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 	impl<T: Config> Snapshot<T> {
-		pub(crate) fn ensure_snapshot(
-			exists: bool,
-			mut up_to_page: PageIndex,
-		) -> Result<(), &'static str> {
-			up_to_page = up_to_page.min(T::Pages::get());
-
-			// if any number of pages supposed to exist, these must also exist.
+		///Ensure target snapshot exists.
+		pub(crate) fn ensure_target_snapshot(exists: bool) -> Result<(), &'static str> {
 			ensure!(exists ^ Self::desired_targets().is_none(), "desired target mismatch");
 			ensure!(exists ^ Self::targets().is_none(), "targets mismatch");
 			ensure!(exists ^ Self::targets_hash().is_none(), "targets hash mismatch");
@@ -839,9 +809,17 @@ pub mod pallet {
 				let hash = Self::targets_hash().expect("must exist; qed");
 				ensure!(hash == T::Hashing::hash(&targets.encode()), "targets hash mismatch");
 			}
+			Ok(())
+		}
 
+		/// Ensure voters exists, from page `T::Pages::get()` for `up_to_page` subsequent pages.
+		pub(crate) fn ensure_voter_snapshot(
+			exists: bool,
+			mut up_to_page: PageIndex,
+		) -> Result<(), &'static str> {
+			up_to_page = up_to_page.min(T::Pages::get());
 			// ensure that voter pages that should exist, indeed to exist..
-			let mut sum_existing_voters = 0;
+			let mut sum_existing_voters: usize = 0;
 			for p in (crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp())
 				.rev()
 				.take(up_to_page as usize)
@@ -869,8 +847,15 @@ pub mod pallet {
 					"voter page non-existence mismatch"
 				);
 			}
-
 			Ok(())
+		}
+
+		pub(crate) fn ensure_snapshot(
+			exists: bool,
+			mut up_to_page: PageIndex,
+		) -> Result<(), &'static str> {
+			Self::ensure_target_snapshot(exists)
+				.and_then(|_| Self::ensure_voter_snapshot(exists, up_to_page))
 		}
 
 		pub(crate) fn ensure_full_snapshot() -> Result<(), &'static str> {
@@ -911,17 +896,28 @@ pub mod pallet {
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
 			// check the snapshot existence based on the phase. This checks all of the needed
 			// conditions except for the metadata values.
-			let _ = match Pallet::<T>::current_phase() {
+			let phase = Pallet::<T>::current_phase();
+			let _ = match phase {
 				// no page should exist in this phase.
 				Phase::Off => Self::ensure_snapshot(false, T::Pages::get()),
-				// exact number of pages must exist in this phase.
-				Phase::Snapshot(p) => Self::ensure_snapshot(true, T::Pages::get() - p),
+
+				// we will star the snapshot in the next phase.
+				Phase::Snapshot(p) if p == T::Pages::get() =>
+					Self::ensure_snapshot(false, T::Pages::get()),
+				// we are mid voter snapshot.
+				Phase::Snapshot(p) if p < T::Pages::get() && p > 0 =>
+					Self::ensure_snapshot(true, T::Pages::get() - p - 1),
+				// we cannot check anything in this block -- we take the last page of the snapshot.
+				Phase::Snapshot(_) => Ok(()),
+
 				// full snapshot must exist in these phases.
 				Phase::Emergency |
-				Phase::Signed |
+				Phase::Signed(_) |
 				Phase::SignedValidation(_) |
 				Phase::Export(_) |
+				Phase::Done |
 				Phase::Unsigned(_) => Self::ensure_snapshot(true, T::Pages::get()),
+
 				// cannot assume anything. We might halt at any point.
 				Phase::Halted => Ok(()),
 			}?;
@@ -1021,9 +1017,9 @@ impl<T: Config> Pallet<T> {
 		Zero::zero()
 	}
 
-	pub(crate) fn phase_transition(to: Phase<BlockNumberFor<T>>) {
-		log!(debug, "transitioning phase from {:?} to {:?}", Self::current_phase(), to);
+	pub(crate) fn phase_transition(to: Phase<T>) {
 		let from = Self::current_phase();
+		log!(debug, "transitioning phase from {:?} to {:?}", from, to);
 		use sp_std::mem::discriminant;
 		if discriminant(&from) != discriminant(&to) {
 			Self::deposit_event(Event::PhaseTransitioned { from, to });
@@ -1223,7 +1219,7 @@ where
 
 	pub(crate) fn roll_to_signed_and_mine_full_solution() -> PagedRawSolution<T::MinerConfig> {
 		use unsigned::miner::OffchainWorkerMiner;
-		Self::roll_until_matches(|| Self::current_phase() == Phase::Signed);
+		Self::roll_until_matches(|| Self::current_phase().is_signed());
 		// ensure snapshot is full.
 		crate::Snapshot::<T>::ensure_full_snapshot().expect("Snapshot is not full");
 		OffchainWorkerMiner::<T>::mine_solution(T::Pages::get(), false).unwrap()
@@ -1360,13 +1356,26 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		result
 	}
 
+	fn start() -> Result<(), Self::Error> {
+		if Self::ongoing() {
+			return Err(ElectionError::Ongoing);
+		}
+		Self::phase_transition(Phase::<T>::start_phase());
+		Ok(())
+	}
+
+	fn duration() -> Self::BlockNumber {
+		Self::average_election_duration().into()
+	}
+
 	fn ongoing() -> bool {
 		match <CurrentPhase<T>>::get() {
 			Phase::Off | Phase::Halted => false,
-			Phase::Signed |
+			Phase::Signed(_) |
 			Phase::SignedValidation(_) |
 			Phase::Unsigned(_) |
 			Phase::Snapshot(_) |
+			Phase::Done |
 			Phase::Emergency |
 			Phase::Export(_) => true,
 		}
@@ -1384,6 +1393,7 @@ mod phase_rotation {
 	fn single_page() {
 		ExtBuilder::full()
 			.pages(1)
+			.election_start(13)
 			.fallback_mode(FallbackModes::Onchain)
 			.build_and_execute(|| {
 				// 0 -------- 14 15 --------- 20 ------------- 25 ---------- 30
@@ -1401,75 +1411,77 @@ mod phase_rotation {
 
 				roll_to(13);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(false, 3));
 
 				roll_to(14);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
 
 				roll_to(15);
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
-				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
-					]
-				);
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 1));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 				assert_eq!(MultiBlock::round(), 0);
 
+				assert_eq!(
+					multi_block_events_since_last_call(),
+					vec![
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
+						Event::PhaseTransitioned {
+							from: Phase::Snapshot(0),
+							to: Phase::Signed(SignedPhase::get() - 1)
+						}
+					]
+				);
+
 				roll_to(19);
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(0));
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(20);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
 				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-						Event::PhaseTransitioned {
-							from: Phase::Signed,
-							to: Phase::SignedValidation(20)
-						}
-					],
+					MultiBlock::current_phase(),
+					Phase::SignedValidation(SignedValidationPhase::get() - 1)
 				);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
+				assert_eq!(MultiBlock::round(), 0);
+
+				assert_eq!(
+					multi_block_events_since_last_call(),
+					vec![Event::PhaseTransitioned {
+						from: Phase::Signed(0),
+						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					}],
+				);
 
 				roll_to(24);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
+				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(25);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-						Event::PhaseTransitioned {
-							from: Phase::Signed,
-							to: Phase::SignedValidation(20)
-						},
-						Event::PhaseTransitioned {
-							from: Phase::SignedValidation(20),
-							to: Phase::Unsigned(25)
-						}
-					],
+					multi_block_events_since_last_call(),
+					vec![Event::PhaseTransitioned {
+						from: Phase::SignedValidation(0),
+						to: Phase::Unsigned(UnsignedPhase::get() - 1)
+					}],
 				);
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 
+				roll_to(29);
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
+
+				// We stay in done otherwise
 				roll_to(30);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
+				assert!(MultiBlock::current_phase().is_done());
+
+				// We stay in done otherwise
+				roll_to(31);
+				assert!(MultiBlock::current_phase().is_done());
 
 				// We close when upstream tells us to elect.
 				roll_to(32);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 
 				MultiBlock::elect(0).unwrap();
@@ -1480,21 +1492,6 @@ mod phase_rotation {
 
 				roll_to(42);
 				assert_eq!(MultiBlock::current_phase(), Phase::Off);
-
-				roll_to(43);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-
-				roll_to(44);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-
-				roll_to(45);
-				assert!(MultiBlock::current_phase().is_signed());
-
-				roll_to(50);
-				assert!(MultiBlock::current_phase().is_signed_validation_open_at(50));
-
-				roll_to(55);
-				assert!(MultiBlock::current_phase().is_unsigned_open_at(55));
 			})
 	}
 
@@ -1503,6 +1500,7 @@ mod phase_rotation {
 		ExtBuilder::full()
 			.pages(2)
 			.fallback_mode(FallbackModes::Onchain)
+			.election_start(12)
 			.build_and_execute(|| {
 				// 0 -------13 14 15 ------- 20 ---- 25 ------- 30
 				//           |     |         |       |          |
@@ -1517,110 +1515,96 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Off);
 				assert_eq!(MultiBlock::round(), 0);
 
+				roll_to(11);
+				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert_eq!(MultiBlock::round(), 0);
+
 				roll_to(12);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(false, 2));
 
 				roll_to(13);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
 
 				roll_to(14);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 
 				roll_to(15);
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
-				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
-					]
-				);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 				assert_eq!(MultiBlock::round(), 0);
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 1));
+
+				assert_eq!(
+					multi_block_events_since_last_call(),
+					vec![
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
+						Event::PhaseTransitioned {
+							from: Phase::Snapshot(0),
+							to: Phase::Signed(SignedPhase::get() - 1)
+						}
+					]
+				);
 
 				roll_to(19);
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(20);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
-				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-						Event::PhaseTransitioned {
-							from: Phase::Signed,
-							to: Phase::SignedValidation(20)
-						}
-					],
-				);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
+				assert_eq!(MultiBlock::round(), 0);
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+				);
+
+				assert_eq!(
+					multi_block_events_since_last_call(),
+					vec![Event::PhaseTransitioned {
+						from: Phase::Signed(0),
+						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					}],
+				);
 
 				roll_to(24);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
+				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(25);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
-				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-						Event::PhaseTransitioned {
-							from: Phase::Signed,
-							to: Phase::SignedValidation(20)
-						},
-						Event::PhaseTransitioned {
-							from: Phase::SignedValidation(20),
-							to: Phase::Unsigned(25)
-						}
-					],
-				);
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
+				assert_eq!(MultiBlock::round(), 0);
+
+				assert_eq!(
+					multi_block_events_since_last_call(),
+					vec![Event::PhaseTransitioned {
+						from: Phase::SignedValidation(0),
+						to: Phase::Unsigned(UnsignedPhase::get() - 1)
+					}],
+				);
 
 				roll_to(29);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
 				roll_to(30);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
 				// We close when upstream tells us to elect.
 				roll_to(32);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
-				MultiBlock::elect(0).unwrap(); // and even this one's coming from the fallback.
+				// and even this one's coming from the fallback.
+				MultiBlock::elect(0).unwrap();
 				assert!(MultiBlock::current_phase().is_off());
 
 				// all snapshots are gone.
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(false, 2));
 				assert_eq!(MultiBlock::round(), 1);
-
-				roll_to(42);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
-
-				roll_to(43);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-
-				roll_to(44);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-
-				roll_to(45);
-				assert!(MultiBlock::current_phase().is_signed());
-
-				roll_to(50);
-				assert!(MultiBlock::current_phase().is_signed_validation_open_at(50));
-
-				roll_to(55);
-				assert!(MultiBlock::current_phase().is_unsigned_open_at(55));
 			})
 	}
 
@@ -1635,90 +1619,86 @@ mod phase_rotation {
 				//     Snapshot      Signed   SignedValidation  Unsigned   Elect
 
 				assert_eq!(System::block_number(), 0);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert!(MultiBlock::current_phase().is_off());
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(false, 3));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(4);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				roll_to(10);
+				assert!(MultiBlock::current_phase().is_off());
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(11);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
+				// no snapshot is take yet, we start at the next block
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(false, 3));
 
 				roll_to(12);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
 
 				roll_to(13);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 
 				roll_to(14);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 3));
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
 				roll_to(15);
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, Pages::get()));
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(4));
 				assert_eq!(
-					multi_block_events(),
+					multi_block_events_since_last_call(),
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
+						Event::PhaseTransitioned {
+							from: Phase::Snapshot(0),
+							to: Phase::Signed(SignedPhase::get() - 1)
+						}
 					]
 				);
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(19);
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(0));
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(20);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
 				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-						Event::PhaseTransitioned {
-							from: Phase::Signed,
-							to: Phase::SignedValidation(20)
-						}
-					]
+					MultiBlock::current_phase(),
+					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+				);
+				assert_eq!(
+					multi_block_events_since_last_call(),
+					vec![Event::PhaseTransitioned {
+						from: Phase::Signed(0),
+						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					}]
 				);
 
 				roll_to(24);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
+				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(25);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-						Event::PhaseTransitioned {
-							from: Phase::Signed,
-							to: Phase::SignedValidation(20)
-						},
-						Event::PhaseTransitioned {
-							from: Phase::SignedValidation(20),
-							to: Phase::Unsigned(25)
-						}
-					]
+					multi_block_events_since_last_call(),
+					vec![Event::PhaseTransitioned {
+						from: Phase::SignedValidation(0),
+						to: Phase::Unsigned(UnsignedPhase::get() - 1)
+					}]
 				);
 
 				roll_to(29);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 
 				roll_to(30);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				// We close when upstream tells us to elect.
 				roll_to(32);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				MultiBlock::elect(0).unwrap();
 				assert!(MultiBlock::current_phase().is_off());
@@ -1726,157 +1706,6 @@ mod phase_rotation {
 				// all snapshots are gone.
 				assert_none_snapshot();
 				assert_eq!(MultiBlock::round(), 1);
-
-				roll_to(41);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
-
-				roll_to(42);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
-
-				roll_to(43);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-
-				roll_to(44);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-
-				roll_to(45);
-				assert!(MultiBlock::current_phase().is_signed());
-
-				roll_to(50);
-				assert!(MultiBlock::current_phase().is_signed_validation_open_at(50));
-
-				roll_to(55);
-				assert!(MultiBlock::current_phase().is_unsigned_open_at(55));
-			})
-	}
-
-	#[test]
-	fn multi_with_lookahead() {
-		ExtBuilder::full()
-			.pages(3)
-			.lookahead(2)
-			.fallback_mode(FallbackModes::Onchain)
-			.build_and_execute(|| {
-				// 0 ------- 10 11 12 13 ----------- 17 ---------22 ------- 27
-				//            |       |              |            |          |
-				//     Snapshot      Signed   SignedValidation  Unsigned   Elect
-
-				assert_eq!(System::block_number(), 0);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
-				assert_none_snapshot();
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(4);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(9);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
-				// ensure only target snapshot has been taken, and no voter snapshot.
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 0));
-
-				roll_to(10);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
-
-				roll_to(11);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
-
-				roll_to(12);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 3));
-
-				roll_to(13);
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
-				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed }
-					]
-				);
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(17);
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
-				assert_full_snapshot();
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(18);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(18));
-				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-						Event::PhaseTransitioned {
-							from: Phase::Signed,
-							to: Phase::SignedValidation(18)
-						}
-					]
-				);
-
-				roll_to(22);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(18));
-				assert_full_snapshot();
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(23);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(23));
-				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-						Event::PhaseTransitioned {
-							from: Phase::Signed,
-							to: Phase::SignedValidation(18)
-						},
-						Event::PhaseTransitioned {
-							from: Phase::SignedValidation(18),
-							to: Phase::Unsigned(23)
-						}
-					]
-				);
-
-				roll_to(27);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(23));
-
-				roll_to(28);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(23));
-
-				// We close when upstream tells us to elect.
-				roll_to(30);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(23));
-
-				MultiBlock::elect(0).unwrap();
-				assert!(MultiBlock::current_phase().is_off());
-
-				// all snapshots are gone.
-				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(false, 3));
-				assert_eq!(MultiBlock::round(), 1);
-
-				roll_to(41 - 2);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
-
-				roll_to(42 - 2);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
-
-				roll_to(43 - 2);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-
-				roll_to(44 - 2);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-
-				roll_to(45 - 2);
-				assert!(MultiBlock::current_phase().is_signed());
-
-				roll_to(50 - 2);
-				assert!(MultiBlock::current_phase().is_signed_validation_open_at(50 - 2));
-
-				roll_to(55 - 2);
-				assert!(MultiBlock::current_phase().is_unsigned_open_at(55 - 2));
 			})
 	}
 
@@ -1885,6 +1714,7 @@ mod phase_rotation {
 		ExtBuilder::full()
 			.pages(3)
 			.unsigned_phase(0)
+			.election_start(16)
 			.fallback_mode(FallbackModes::Onchain)
 			.build_and_execute(|| {
 				// 0 --------------------- 17 ------ 20 ---------25 ------- 30
@@ -1912,31 +1742,43 @@ mod phase_rotation {
 				roll_to(19);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
 
+				roll_to(20);
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 1));
+
 				assert_full_snapshot();
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(20);
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed);
 				roll_to(25);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(25));
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+				);
 
 				assert_eq!(
-					multi_block_events(),
+					multi_block_events_since_last_call(),
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 						Event::PhaseTransitioned {
-							from: Phase::Signed,
-							to: Phase::SignedValidation(25)
+							from: Phase::Snapshot(0),
+							to: Phase::Signed(SignedPhase::get() - 1)
+						},
+						Event::PhaseTransitioned {
+							from: Phase::Signed(0),
+							to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
 						},
 					]
 				);
 
-				// Signed validation can now be expanded until a call to `elect` comes
-				roll_to(27);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(25));
-				roll_to(32);
-				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(25));
+				// last block of signed validation
+				roll_to(29);
+				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
+
+				// we are done now
+				roll_to(30);
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				roll_to(31);
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				MultiBlock::elect(0).unwrap();
 				assert!(MultiBlock::current_phase().is_off());
@@ -1954,6 +1796,7 @@ mod phase_rotation {
 		ExtBuilder::full()
 			.pages(3)
 			.signed_phase(0, 0)
+			.election_start(21)
 			.fallback_mode(FallbackModes::Onchain)
 			.build_and_execute(|| {
 				// 0 ------------------------- 22 ------ 25 ------- 30
@@ -1978,28 +1821,31 @@ mod phase_rotation {
 				roll_to(24);
 				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
 
+				roll_to(25);
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_full_snapshot();
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
 				assert_eq!(
 					multi_block_events(),
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned {
 							from: Phase::Snapshot(0),
-							to: Phase::Unsigned(25)
+							to: Phase::Unsigned(UnsignedPhase::get() - 1)
 						},
 					]
 				);
 
-				// Unsigned can now be expanded until a call to `elect` comes
-				roll_to(27);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
-				roll_to(32);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+				roll_to(29);
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 
+				roll_to(30);
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+				roll_to(31);
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				// eventually the call to elect comes, and we exit done phase.
 				MultiBlock::elect(0).unwrap();
 				assert!(MultiBlock::current_phase().is_off());
 
@@ -2009,12 +1855,6 @@ mod phase_rotation {
 				assert_ok!(signed::Submissions::<Runtime>::ensure_killed(0));
 				verifier::QueuedSolution::<Runtime>::assert_killed();
 			})
-	}
-
-	#[test]
-	#[should_panic]
-	fn no_any_phase() {
-		todo!()
 	}
 
 	#[test]
@@ -2045,7 +1885,7 @@ mod election_provider {
 	fn multi_page_elect_simple_works() {
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
-			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+			assert!(MultiBlock::current_phase().is_signed());
 
 			// load a solution into the verifier
 			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
@@ -2061,10 +1901,13 @@ mod election_provider {
 				multi_block_events(),
 				vec![
 					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
 					Event::PhaseTransitioned {
-						from: Phase::Signed,
-						to: Phase::SignedValidation(20)
+						from: Phase::Snapshot(0),
+						to: Phase::Signed(SignedPhase::get() - 1)
+					},
+					Event::PhaseTransitioned {
+						from: Phase::Signed(0),
+						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
 					}
 				]
 			);
@@ -2102,7 +1945,7 @@ mod election_provider {
 			roll_to_unsigned_open();
 
 			// pre-elect state
-			assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+			assert!(MultiBlock::current_phase().is_unsigned_opened_now());
 			assert_eq!(MultiBlock::round(), 0);
 			assert_full_snapshot();
 
@@ -2139,7 +1982,7 @@ mod election_provider {
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
 			let round = MultiBlock::round();
-			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+			assert!(MultiBlock::current_phase().is_signed());
 
 			// load a solution into the verifier
 			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
@@ -2170,7 +2013,7 @@ mod election_provider {
 			roll_to_unsigned_open();
 
 			// pre-elect state:
-			assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+			assert!(MultiBlock::current_phase().is_unsigned_opened_now());
 			assert_eq!(Round::<Runtime>::get(), 0);
 			assert_full_snapshot();
 
@@ -2196,7 +2039,7 @@ mod election_provider {
 	fn elect_does_not_finish_without_call_of_page_0() {
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
-			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+			assert!(MultiBlock::current_phase().is_signed());
 
 			// load a solution into the verifier
 			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
@@ -2227,7 +2070,7 @@ mod election_provider {
 			roll_to_unsigned_open();
 
 			// pre-elect state:
-			assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+			assert!(MultiBlock::current_phase().is_unsigned_opened_now());
 			assert_eq!(Round::<Runtime>::get(), 0);
 			assert_full_snapshot();
 
@@ -2249,23 +2092,10 @@ mod election_provider {
 	}
 
 	#[test]
-	fn when_passive_stay_in_phase_unsigned() {
-		ExtBuilder::full().build_and_execute(|| {
-			// once the unsigned phase starts, it will not be changed by on_initialize (something
-			// like `elect` must be called).
-			roll_to_unsigned_open();
-			for _ in 0..100 {
-				roll_next();
-				assert!(matches!(MultiBlock::current_phase(), Phase::Unsigned(_)));
-			}
-		});
-	}
-
-	#[test]
 	fn skip_unsigned_phase() {
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
-			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+			assert!(MultiBlock::current_phase().is_signed());
 			let round = MultiBlock::round();
 
 			// load a solution into the verifier
@@ -2275,7 +2105,7 @@ mod election_provider {
 
 			// and right here, in the middle of the signed verification phase, we close the round.
 			// Everything should work fine.
-			assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
+			assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
 			assert_eq!(Round::<Runtime>::get(), 0);
 			assert_full_snapshot();
 
@@ -2309,13 +2139,13 @@ mod election_provider {
 	fn call_to_elect_should_prevent_any_submission() {
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
-			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+			assert!(MultiBlock::current_phase().is_signed());
 
 			// load a solution into the verifier
 			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
 			load_signed_for_verification_and_start_and_roll_to_verified(99, paged, 0);
 
-			assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(20));
+			assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
 
 			// fetch one page.
 			assert!(MultiBlock::elect(MultiBlock::msp()).is_ok());
@@ -2381,9 +2211,18 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Export(2) },
+					Event::PhaseTransitioned {
+						from: Phase::Off,
+						to: Phase::Snapshot(Pages::get())
+					},
+					Event::PhaseTransitioned {
+						from: Phase::Snapshot(0),
+						to: Phase::Signed(SignedPhase::get() - 1)
+					},
+					Event::PhaseTransitioned {
+						from: Phase::Signed(SignedPhase::get() - 1),
+						to: Phase::Export(2)
+					},
 					Event::PhaseTransitioned { from: Phase::Export(1), to: Phase::Off }
 				]
 			);
@@ -2405,9 +2244,18 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Off }
+					Event::PhaseTransitioned {
+						from: Phase::Off,
+						to: Phase::Snapshot(Pages::get())
+					},
+					Event::PhaseTransitioned {
+						from: Phase::Snapshot(0),
+						to: Phase::Signed(SignedPhase::get() - 1)
+					},
+					Event::PhaseTransitioned {
+						from: Phase::Signed(SignedPhase::get() - 1),
+						to: Phase::Off
+					}
 				]
 			);
 
@@ -2464,8 +2312,14 @@ mod admin_ops {
 				multi_block_events(),
 				vec![
 					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-					Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Emergency },
+					Event::PhaseTransitioned {
+						from: Phase::Snapshot(0),
+						to: Phase::Signed(SignedPhase::get() - 1)
+					},
+					Event::PhaseTransitioned {
+						from: Phase::Signed(SignedPhase::get() - 1),
+						to: Phase::Emergency
+					},
 					Event::PhaseTransitioned { from: Phase::Emergency, to: Phase::Off }
 				]
 			);
@@ -2509,8 +2363,11 @@ mod admin_ops {
 					multi_block_events(),
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-						Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Emergency },
+						Event::PhaseTransitioned {
+							from: Phase::Snapshot(0),
+							to: Phase::Signed(SignedPhase::get() - 1)
+						},
+						Event::PhaseTransitioned { from: Phase::Signed(SignedPhase::get() - 1), to: Phase::Emergency },
 						Event::PhaseTransitioned { from: Phase::Emergency, to: Phase::Off }
 					]
 				);
