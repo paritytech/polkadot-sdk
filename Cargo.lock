@@ -7484,15 +7484,9 @@ dependencies = [
  "array-bytes",
  "const-hex",
  "docify",
-<<<<<<< HEAD
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
-=======
- "frame-metadata 20.0.0",
- "frame-support",
- "frame-system",
->>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "log",
  "merkleized-metadata",
  "parity-scale-codec",
@@ -7575,15 +7569,9 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
-<<<<<<< HEAD
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "frame-support-procedural 23.0.0",
  "frame-system 28.0.0",
-=======
- "frame-metadata 20.0.0",
- "frame-support-procedural",
- "frame-system",
->>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "impl-trait-for-tuples",
  "k256",
  "log",
@@ -7757,17 +7745,10 @@ dependencies = [
 name = "frame-support-test"
 version = "3.0.0"
 dependencies = [
-<<<<<<< HEAD
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
- "frame-metadata 19.0.0",
- "frame-support 28.0.0",
-=======
- "frame-benchmarking",
- "frame-executive",
  "frame-metadata 20.0.0",
- "frame-support",
->>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
+ "frame-support 28.0.0",
  "frame-support-test-pallet",
  "frame-system 28.0.0",
  "parity-scale-codec",
@@ -13892,17 +13873,10 @@ dependencies = [
 name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
-<<<<<<< HEAD
  "frame-benchmarking 28.0.0",
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
-=======
- "frame-benchmarking",
- "frame-metadata 20.0.0",
- "frame-support",
- "frame-system",
->>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "log",
  "parity-scale-codec",
  "pretty_assertions",
