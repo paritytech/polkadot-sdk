@@ -333,7 +333,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUMBER=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
+          PR_NUMBER=${{ github.event.issue.number }}
           gh workflow run cmd-run.yml \
             --ref cmd-bot \
             -f cmd="${CMD}" \

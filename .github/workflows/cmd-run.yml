@@ -39,13 +39,8 @@ permissions: # allow the action to comment on the PR
 
 jobs:
   cmd-preflight:
-    runs-on: ${{ github.event.inputs.runner }}
-    container:
-      image: ${{ github.event.inputs.image }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Run command
         run: |
           echo "Running command: ${{ github.event.inputs.cmd }}"
