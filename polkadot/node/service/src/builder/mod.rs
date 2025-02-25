@@ -19,6 +19,7 @@
 #![cfg(feature = "full-node")]
 
 mod partial;
+use partial::PolkadotPartialComponents;
 pub(crate) use partial::{new_partial, new_partial_basics};
 
 use crate::{
@@ -32,6 +33,7 @@ use crate::{
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use gum::info;
 use mmr_gadget::MmrGadget;
+use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
@@ -41,13 +43,16 @@ use polkadot_node_core_chain_selection::{
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
-	request_response::ReqProtocolNames,
+	request_response::{IncomingRequest, ReqProtocolNames},
 };
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use polkadot_overseer::{Handle, OverseerConnector};
 use polkadot_primitives::Block;
-use sc_client_api::{Backend, BlockBackend};
+use sc_client_api::Backend;
+use sc_network::config::FullNetworkConfiguration;
+use sc_network_sync::WarpSyncConfig;
 use sc_service::{Configuration, RpcHandlers, TaskManager};
+use sc_sysinfo::Metric;
 use sc_telemetry::TelemetryWorkerHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_beefy::ecdsa_crypto;
@@ -100,52 +105,114 @@ pub struct NewFull {
 	pub backend: Arc<FullBackend>,
 }
 
-pub struct PolkadotServiceBuilder;
+pub struct PolkadotServiceBuilder<OverseerGenerator, Network>
+where
+	OverseerGenerator: OverseerGen,
+	Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
+	config: Configuration,
+	params: NewFullParams<OverseerGenerator>,
+	overseer_connector: OverseerConnector,
+	partial_components: PolkadotPartialComponents<SelectRelayChain<FullBackend>>,
+	net_config: FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,
+}
 
-impl PolkadotServiceBuilder {
-	/// Create a new full node of arbitrary runtime and executor.
-	///
-	/// This is an advanced feature and not recommended for general use. Generally, `build_full` is
-	/// a better choice.
-	///
-	/// `workers_path` is used to get the path to the directory where auxiliary worker binaries
-	/// reside. If not specified, the main binary's directory is searched first, then
-	/// `/usr/lib/polkadot` is searched. If the path points to an executable rather then directory,
-	/// that executable is used both as preparation and execution worker (supposed to be used for
-	/// tests only).
-	pub fn new_full<
-		OverseerGenerator: OverseerGen,
-		Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
-	>(
+impl<OverseerGenerator, Network> PolkadotServiceBuilder<OverseerGenerator, Network>
+where
+	OverseerGenerator: OverseerGen,
+	Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
+	/// Create new polkadot service builder.
+	pub fn new(
 		mut config: Configuration,
-		NewFullParams {
-			is_parachain_node,
-			enable_beefy,
-			force_authoring_backoff,
-			telemetry_worker_handle,
-			node_version,
-			secure_validator_mode,
-			workers_path,
-			workers_names,
-			overseer_gen,
-			overseer_message_channel_capacity_override,
-			malus_finality_delay: _malus_finality_delay,
-			hwbench,
-			execute_workers_max_num,
-			prepare_workers_soft_max_num,
-			prepare_workers_hard_max_num,
-			keep_finalized_for,
-			enable_approval_voting_parallel,
-		}: NewFullParams<OverseerGenerator>,
-	) -> Result<NewFull, Error> {
-		use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
-		use polkadot_node_network_protocol::request_response::IncomingRequest;
-		use sc_network_sync::WarpSyncConfig;
-		use sc_sysinfo::Metric;
+		params: NewFullParams<OverseerGenerator>,
+	) -> Result<PolkadotServiceBuilder<OverseerGenerator, Network>, Error> {
+		let basics = new_partial_basics(&mut config, params.telemetry_worker_handle.clone())?;
 
-		let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
+		let prometheus_registry = config.prometheus_registry().cloned();
+		let overseer_connector = OverseerConnector::default();
+		let overseer_handle = Handle::new(overseer_connector.handle());
+		let auth_or_collator = config.role.is_authority() || params.is_parachain_node.is_collator();
+
+		let select_chain = if auth_or_collator {
+			let metrics = polkadot_node_subsystem_util::metrics::Metrics::register(
+				prometheus_registry.as_ref(),
+			)?;
+
+			SelectRelayChain::new_with_overseer(
+				basics.backend.clone(),
+				overseer_handle.clone(),
+				metrics,
+				Some(basics.task_manager.spawn_handle()),
+				params.enable_approval_voting_parallel,
+			)
+		} else {
+			SelectRelayChain::new_longest_chain(basics.backend.clone())
+		};
+
+		let partial_components =
+			new_partial::<SelectRelayChain<_>>(&mut config, basics, select_chain)?;
+
+		let net_config = sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(
+			&config.network,
+			config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
+		);
+
+		Ok(PolkadotServiceBuilder {
+			config,
+			params,
+			overseer_connector,
+			partial_components,
+			net_config,
+		})
+	}
+
+	/// Build polkadot service.
+	pub fn build(self) -> Result<NewFull, Error> {
+		let Self {
+			config,
+			params:
+				NewFullParams {
+					is_parachain_node,
+					enable_beefy,
+					force_authoring_backoff,
+					telemetry_worker_handle: _,
+					node_version,
+					secure_validator_mode,
+					workers_path,
+					workers_names,
+					overseer_gen,
+					overseer_message_channel_capacity_override,
+					malus_finality_delay: _malus_finality_delay,
+					hwbench,
+					execute_workers_max_num,
+					prepare_workers_soft_max_num,
+					prepare_workers_hard_max_num,
+					keep_finalized_for,
+					enable_approval_voting_parallel,
+				},
+			overseer_connector,
+			partial_components:
+				sc_service::PartialComponents::<_, _, SelectRelayChain<_>, _, _, _> {
+					client,
+					backend,
+					mut task_manager,
+					keystore_container,
+					select_chain,
+					import_queue,
+					transaction_pool,
+					other:
+						(rpc_extensions_builder, import_setup, rpc_setup, slot_duration, mut telemetry),
+				},
+			mut net_config,
+		} = self;
+
 		let role = config.role;
+		let auth_or_collator = config.role.is_authority() || is_parachain_node.is_collator();
+		let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 		let force_authoring = config.force_authoring;
+		let disable_grandpa = config.disable_grandpa;
+		let name = config.network.node_name.clone();
 		let backoff_authoring_blocks = if !force_authoring_backoff &&
 			(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
 		{
@@ -166,61 +233,17 @@ impl PolkadotServiceBuilder {
 
 			Some(backoff)
 		};
-
-		let disable_grandpa = config.disable_grandpa;
-		let name = config.network.node_name.clone();
-
-		let basics = new_partial_basics(&mut config, telemetry_worker_handle)?;
-
-		let prometheus_registry = config.prometheus_registry().cloned();
-
-		let overseer_connector = OverseerConnector::default();
-		let overseer_handle = Handle::new(overseer_connector.handle());
-
-		let keystore = basics.keystore_container.local_keystore();
-		let auth_or_collator = role.is_authority() || is_parachain_node.is_collator();
-
-		let select_chain = if auth_or_collator {
-			let metrics = polkadot_node_subsystem_util::metrics::Metrics::register(
-				prometheus_registry.as_ref(),
-			)?;
-
-			SelectRelayChain::new_with_overseer(
-				basics.backend.clone(),
-				overseer_handle.clone(),
-				metrics,
-				Some(basics.task_manager.spawn_handle()),
-				enable_approval_voting_parallel,
-			)
-		} else {
-			SelectRelayChain::new_longest_chain(basics.backend.clone())
-		};
-
-		let sc_service::PartialComponents::<_, _, SelectRelayChain<_>, _, _, _> {
-			client,
-			backend,
-			mut task_manager,
-			keystore_container,
-			select_chain,
-			import_queue,
-			transaction_pool,
-			other: (rpc_extensions_builder, import_setup, rpc_setup, slot_duration, mut telemetry),
-		} = new_partial::<SelectRelayChain<_>>(&mut config, basics, select_chain)?;
-
-		let metrics = Network::register_notification_metrics(
-			config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
-		);
 		let shared_voter_state = rpc_setup;
 		let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 		let auth_disc_public_addresses = config.network.public_addresses.clone();
 
-		let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(
-			&config.network,
-			config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
-		);
-
-		let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+		let genesis_hash = client.chain_info().genesis_hash;
 		let peer_store_handle = net_config.peer_store_handle();
+
+		let prometheus_registry = config.prometheus_registry().cloned();
+		let metrics = Network::register_notification_metrics(
+			config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
+		);
 
 		// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
 		// anything in terms of behaviour, but makes the logs more consistent with the other
@@ -398,7 +421,7 @@ impl PolkadotServiceBuilder {
 			};
 
 			Some(ExtendedOverseerGenArgs {
-				keystore,
+				keystore: keystore_container.local_keystore(),
 				parachains_db,
 				candidate_validation_config,
 				availability_config,
@@ -829,5 +852,5 @@ pub fn new_full<
 	config: Configuration,
 	params: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
-	PolkadotServiceBuilder::new_full::<OverseerGenerator, Network>(config, params)
+	PolkadotServiceBuilder::<OverseerGenerator, Network>::new(config, params)?.build()
 }

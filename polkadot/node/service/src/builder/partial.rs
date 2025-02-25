@@ -44,6 +44,37 @@ type FullBeefyBlockImport<InnerBlockImport, AuthorityId> =
 		AuthorityId,
 	>;
 
+pub(crate) type PolkadotPartialComponents<ChainSelection> = sc_service::PartialComponents<
+	FullClient,
+	FullBackend,
+	ChainSelection,
+	sc_consensus::DefaultImportQueue<Block>,
+	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+	(
+		Box<
+			dyn Fn(
+				polkadot_rpc::SubscriptionTaskExecutor,
+			) -> Result<polkadot_rpc::RpcExtension, SubstrateServiceError>,
+		>,
+		(
+			sc_consensus_babe::BabeBlockImport<
+				Block,
+				FullClient,
+				FullBeefyBlockImport<
+					FullGrandpaBlockImport<ChainSelection>,
+					ecdsa_crypto::AuthorityId,
+				>,
+			>,
+			sc_consensus_grandpa::LinkHalf<Block, FullClient, ChainSelection>,
+			sc_consensus_babe::BabeLink<Block>,
+			sc_consensus_beefy::BeefyVoterLinks<Block, ecdsa_crypto::AuthorityId>,
+		),
+		sc_consensus_grandpa::SharedVoterState,
+		sp_consensus_babe::SlotDuration,
+		Option<Telemetry>,
+	),
+>;
+
 pub(crate) struct Basics {
 	pub(crate) task_manager: TaskManager,
 	pub(crate) client: Arc<FullClient>,
@@ -112,37 +143,7 @@ pub(crate) fn new_partial<ChainSelection>(
 	config: &mut Configuration,
 	Basics { task_manager, backend, client, keystore_container, telemetry }: Basics,
 	select_chain: ChainSelection,
-) -> Result<
-	sc_service::PartialComponents<
-		FullClient,
-		FullBackend,
-		ChainSelection,
-		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
-		(
-			impl Fn(
-				polkadot_rpc::SubscriptionTaskExecutor,
-			) -> Result<polkadot_rpc::RpcExtension, SubstrateServiceError>,
-			(
-				sc_consensus_babe::BabeBlockImport<
-					Block,
-					FullClient,
-					FullBeefyBlockImport<
-						FullGrandpaBlockImport<ChainSelection>,
-						ecdsa_crypto::AuthorityId,
-					>,
-				>,
-				sc_consensus_grandpa::LinkHalf<Block, FullClient, ChainSelection>,
-				sc_consensus_babe::BabeLink<Block>,
-				sc_consensus_beefy::BeefyVoterLinks<Block, ecdsa_crypto::AuthorityId>,
-			),
-			sc_consensus_grandpa::SharedVoterState,
-			sp_consensus_babe::SlotDuration,
-			Option<Telemetry>,
-		),
-	>,
-	Error,
->
+) -> Result<PolkadotPartialComponents<ChainSelection>, Error>
 where
 	ChainSelection: 'static + SelectChain<Block>,
 {
@@ -167,7 +168,7 @@ where
 		sc_consensus_grandpa::block_import_with_authority_set_hard_forks(
 			client.clone(),
 			GRANDPA_JUSTIFICATION_PERIOD,
-			&(client.clone() as Arc<_>),
+			&client.clone(),
 			select_chain.clone(),
 			grandpa_hard_forks,
 			telemetry.as_ref().map(|x| x.handle()),
@@ -268,6 +269,12 @@ where
 		select_chain,
 		import_queue,
 		transaction_pool,
-		other: (rpc_extensions_builder, import_setup, rpc_setup, slot_duration, telemetry),
+		other: (
+			Box::new(rpc_extensions_builder),
+			import_setup,
+			rpc_setup,
+			slot_duration,
+			telemetry,
+		),
 	})
 }
