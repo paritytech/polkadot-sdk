@@ -29,6 +29,8 @@ log = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.21.0", default-features = false }
 polkavm-common = { version = "0.21.0", default-features = false, optional = true }
+rand = { workspace = true, optional = true }
+rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = [
@@ -125,6 +127,8 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"polkavm-common/alloc",
+	"rand",
+	"rand_pcg",
 	"sp-consensus-aura",
 	"sp-consensus-babe",
 	"sp-consensus-slots",
