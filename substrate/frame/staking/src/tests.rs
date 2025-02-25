@@ -8065,9 +8065,6 @@ mod byzantine_threshold_disabling_strategy {
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
 	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
 
-	// todo(ank4n): Ensure there is a test that for older eras, the disabling strategy does not
-	// disable the validator.
-
 	#[test]
 	fn dont_disable_beyond_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
@@ -8449,6 +8446,29 @@ fn clear_disabled_only_on_era_change(){
 			assert!(!is_disabled(11));
 			assert!(!is_disabled(21));
 		});
+}
+
+#[test]
+fn no_disablement_for_past_era_slashes(){
+	ExtBuilder::default()
+	.validator_count(7)
+	.set_status(41, StakerStatus::Validator)
+	.set_status(51, StakerStatus::Validator)
+	.set_status(201, StakerStatus::Validator)
+	.set_status(202, StakerStatus::Validator)
+	.build_and_execute(|| {
+		assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41, 51, 201, 202]);
+		start_active_era(1);
+
+		on_offence_in_era(
+			&[offence_from(11, None)],
+			&[Perbill::from_percent(50)],
+			0,
+			true
+		);
+
+		assert!(!is_disabled(11));
+	});
 }
 
 #[cfg(all(feature = "try-runtime", test))]
