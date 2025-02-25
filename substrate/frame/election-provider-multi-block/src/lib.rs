@@ -543,7 +543,6 @@ pub mod pallet {
 				_ => T::WeightInfo::on_initialize_nothing(),
 			};
 
-			log!(trace, "current phase {:?}, next phase: {:?}", current_phase, next_phase);
 			Self::phase_transition(next_phase);
 
 			// bit messy, but for now this works best.

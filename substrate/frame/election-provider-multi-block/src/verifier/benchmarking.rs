@@ -20,7 +20,7 @@ use crate::{
 	CurrentPhase, Phase,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::{NposSolution};
+use frame_election_provider_support::{ElectionProvider, NposSolution};
 use frame_support::pallet_prelude::*;
 use sp_std::prelude::*;
 
@@ -50,7 +50,8 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_valid_non_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// roll to signed validation, with a solution stored in the signed pallet
 
@@ -75,7 +76,8 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_valid_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// roll to signed validation, with a solution stored in the signed pallet
 		assert!(
@@ -125,7 +127,8 @@ mod benchmarks {
 		assert!(T::Pages::get() >= 2, "benchmark only works if we have more than 2 pages");
 
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// roll to signed validation, with a solution stored in the signed pallet
 
@@ -184,7 +187,8 @@ mod benchmarks {
 		assert!(T::Pages::get() >= 2, "benchmark only works if we have more than 2 pages");
 
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());(crate::Pallet::<T>::average_election_duration());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// roll to signed validation, with a solution stored in the signed pallet, but this solution
 		// is corrupt in its msp.

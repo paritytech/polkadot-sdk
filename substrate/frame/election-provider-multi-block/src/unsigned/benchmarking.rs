@@ -21,6 +21,7 @@ use crate::{
 	CurrentPhase, Phase,
 };
 use frame_benchmarking::v2::*;
+use frame_election_provider_support::ElectionProvider;
 use frame_support::{assert_ok, pallet_prelude::*};
 use frame_system::RawOrigin;
 use sp_std::boxed::Box;
@@ -31,7 +32,8 @@ mod benchmarks {
 	#[benchmark]
 	fn validate_unsigned() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
@@ -51,7 +53,8 @@ mod benchmarks {
 	#[benchmark]
 	fn submit_unsigned() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// roll to unsigned phase open
 		crate::Pallet::<T>::roll_until_matches(|| {

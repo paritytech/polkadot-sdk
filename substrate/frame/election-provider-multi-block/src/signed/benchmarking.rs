@@ -22,10 +22,11 @@ use crate::{
 	CurrentPhase, Phase, Round,
 };
 use frame_benchmarking::v2::*;
+use frame_election_provider_support::ElectionProvider;
 use frame_support::pallet_prelude::*;
-use sp_runtime::traits::One;
 use frame_system::RawOrigin;
 use sp_npos_elections::ElectionScore;
+use sp_runtime::traits::One;
 use sp_std::boxed::Box;
 
 #[benchmarks(where T: crate::Config + crate::verifier::Config + crate::unsigned::Config)]
@@ -92,7 +93,8 @@ mod benchmarks {
 	#[benchmark]
 	fn submit_page() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
@@ -118,7 +120,8 @@ mod benchmarks {
 	#[benchmark]
 	fn unset_page() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))

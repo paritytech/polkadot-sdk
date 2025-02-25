@@ -20,7 +20,7 @@ use crate::{
 	Config, CurrentPhase, Pallet, Phase, Snapshot,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::ElectionDataProvider;
+use frame_election_provider_support::{ElectionDataProvider, ElectionProvider};
 use frame_support::pallet_prelude::*;
 
 const SNAPSHOT_NOT_BIG_ENOUGH: &'static str = "Snapshot page is not full, you should run this \
@@ -50,14 +50,9 @@ mod benchmarks {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
 
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
-		// roll to next block until we are about to go into the snapshot.
-		crate::Pallet::<T>::roll_until_matches(|| {
-			CurrentPhase::<T>::get() == Phase::Snapshot(T::Pages::get())
-		});
-
-		// since we reverted the last page, we are still in phase Off.
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
 
 		#[block]
@@ -83,7 +78,8 @@ mod benchmarks {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
 
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// roll to the first block of the snapshot.
 		Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get() == Phase::Snapshot(T::Pages::get() - 1));
@@ -116,8 +112,10 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_into_signed() -> Result<(), BenchmarkError> {
+
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
@@ -138,7 +136,8 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_into_signed_validation() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
@@ -157,7 +156,8 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_into_unsigned() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
@@ -176,7 +176,8 @@ mod benchmarks {
 	#[benchmark]
 	fn export_non_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
@@ -207,7 +208,8 @@ mod benchmarks {
 	#[benchmark]
 	fn export_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();

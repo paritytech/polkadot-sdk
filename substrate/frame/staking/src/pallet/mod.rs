@@ -331,6 +331,16 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
+		/// A potential implementation to start the election process.
+		///
+		/// We check this upon each `on_initialize`, and if it returns `true`, we start the
+		/// election.
+		///
+		/// A runtime may either implement this, or make sure to call the start elsewhere.
+		fn maybe_start_election() -> bool {
+			false
+		}
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -1166,6 +1176,11 @@ pub mod pallet {
 			}
 
 			let fetch_weight = Self::on_initialize_maybe_fetch_election_results();
+			if T::maybe_start_election() {
+				// this is best effort, not much we can do if it fails.
+				let res = T::ElectionProvider::start().defensive();
+				log::info!("Election started with result: {:?}", res);
+			}
 
 			consumed_weight.saturating_add(fetch_weight)
 		}
@@ -1210,11 +1225,20 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub(crate) fn on_initialize_maybe_fetch_election_results() -> Weight {
 			if let Ok(true) = T::ElectionProvider::status() {
-				crate::log!(debug, "Election provider is ready, our status is {:?}", NextElectionPage::<T>::get());
+				crate::log!(
+					debug,
+					"Election provider is ready, our status is {:?}",
+					NextElectionPage::<T>::get()
+				);
 				match NextElectionPage::<T>::get() {
 					Some(current_page) => {
 						let next_page = current_page.checked_sub(1);
-						crate::log!(debug, "fetching page {:?}, next {:?}", current_page, next_page);
+						crate::log!(
+							debug,
+							"fetching page {:?}, next {:?}",
+							current_page,
+							next_page
+						);
 						Self::do_elect_paged(current_page);
 						NextElectionPage::<T>::set(next_page);
 					},
@@ -1222,7 +1246,12 @@ pub mod pallet {
 						let pages = Self::election_pages();
 						let current_page = pages.saturating_sub(1);
 						let next_page = current_page.checked_sub(1);
-						crate::log!(debug, "fetching page {:?}, next {:?}", current_page, next_page);
+						crate::log!(
+							debug,
+							"fetching page {:?}, next {:?}",
+							current_page,
+							next_page
+						);
 						Self::do_elect_paged(current_page);
 						NextElectionPage::<T>::set(next_page);
 					},
