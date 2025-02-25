@@ -20,8 +20,12 @@
 pub mod zombienet;
 
 use crate::zombienet::{
-	asset_hub_based_network_spec_paths::{HIGH_POOL_LIMIT_FATP, HIGH_POOL_LIMIT_FATP_RELAYCHAIN},
-	default_zn_scenario_builder, NetworkSpawner,
+	default_zn_scenario_builder,
+	relaychain_rococo_local_network_spec::{
+		parachain_asset_hub_network_spec::HIGH_POOL_LIMIT_FATP as PARACHAIN_HIGH_POOL_LIMIT_FATP,
+		HIGH_POOL_LIMIT_FATP as RELAYCHAIN_HIGH_POOL_LIMIT_FATP,
+	},
+	NetworkSpawner,
 };
 use txtesttool::execution_log::ExecutionLog;
 
@@ -30,7 +34,9 @@ use txtesttool::execution_log::ExecutionLog;
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn send_future_and_ready_from_many_accounts_to_parachain() {
-	let net = NetworkSpawner::from_toml_with_env_logger(HIGH_POOL_LIMIT_FATP).await.unwrap();
+	let net = NetworkSpawner::from_toml_with_env_logger(PARACHAIN_HIGH_POOL_LIMIT_FATP)
+		.await
+		.unwrap();
 
 	// Wait for the parachain collator to start block production.
 	net.wait_for_block_production("charlie").await.unwrap();
@@ -77,7 +83,7 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn send_future_and_ready_from_many_accounts_to_relaychain() {
-	let net = NetworkSpawner::from_toml_with_env_logger(HIGH_POOL_LIMIT_FATP_RELAYCHAIN)
+	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
 		.await
 		.unwrap();
 

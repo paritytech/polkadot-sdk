@@ -26,18 +26,23 @@ use zombienet_sdk::{
 	subxt::SubstrateConfig, LocalFileSystem, Network, NetworkConfig, NetworkConfigExt,
 };
 
-/// Gathers network TOML specifications file paths.
-pub mod asset_hub_based_network_spec_paths {
-	pub const LOW_POOL_LIMIT_FATP: &'static str =
-		"tests/zombienet/network-specs/asset-hub-low-pool-limit-fatp.toml";
+/// Gathers TOML files paths for relaychains and for parachains' (that use rococo-local based
+/// relaychains) zombienet network specs for testing in relation to fork aware transaction pool.
+pub mod relaychain_rococo_local_network_spec {
 	pub const HIGH_POOL_LIMIT_FATP: &'static str =
-		"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp.toml";
-	pub const HIGH_POOL_LIMIT_FATP_RELAYCHAIN: &'static str =
-		"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp-relaychain.toml";
-	pub const HIGH_POOL_LIMIT_SSTP_3_COLLATORS: &'static str =
-		"tests/zombienet/network-specs/asset-hub-high-pool-limit-sstp-3-collators.toml";
-	pub const HIGH_POOL_LIMIT_SSTP_4_COLLATORS: &'static str =
-		"tests/zombienet/network-specs/asset-hub-high-pool-limit-sstp-4-collators.toml";
+		"tests/zombienet/network-specs/rococo-local-high-pool-limit-fatp.toml";
+
+	/// Network specs used for fork-aware tx pool testing of parachains.
+	pub mod parachain_asset_hub_network_spec {
+		pub const LOW_POOL_LIMIT_FATP: &'static str =
+			"tests/zombienet/network-specs/asset-hub-low-pool-limit-fatp.toml";
+		pub const HIGH_POOL_LIMIT_FATP: &'static str =
+			"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp.toml";
+		pub const HIGH_POOL_LIMIT_SSTP_3_COLLATORS: &'static str =
+			"tests/zombienet/network-specs/asset-hub-high-pool-limit-sstp-3-collators.toml";
+		pub const HIGH_POOL_LIMIT_SSTP_4_COLLATORS: &'static str =
+			"tests/zombienet/network-specs/asset-hub-high-pool-limit-sstp-4-collators.toml";
+	}
 }
 
 #[derive(thiserror::Error, Debug)]
