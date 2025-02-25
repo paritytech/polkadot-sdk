@@ -56,14 +56,14 @@ jobs:
       - name: script
         run: |
           echo "RELAY_IMAGE: $RELAY_IMAGE"
-          echo "CUMULUS_IMAGE: $CUMULUS_IMAGE"
+          echo "COL_IMAGE: $COL_IMAGE"
           ls -ltr ./artifacts
           # use spot by default
           export X_INFRA_INSTANCE=spot
           # we want to use `--no-capture` in zombienet tests.
           unset NEXTEST_FAILURE_OUTPUT
           unset NEXTEST_SUCCESS_OUTPUT
-          cargo nextest run --archive-file ./artifacts/cumulus-zombienet-tests.tar.zst --no-capture -- functional::approval_voting_coalescing::approval_voting_coalescing_test
+          cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::approval_voting_coalescing::approval_voting_coalescing_test
 
       - name: upload logs
         uses: actions/upload-artifact@v4
