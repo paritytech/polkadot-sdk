@@ -864,8 +864,8 @@ where
 				}
 			}
 			<Vesting<T>>::set(who, Some(new_vesting_schedules));
-			let vest_result = <Pallet<T>>::vest(T::RuntimeOrigin::signed(who.clone()));
-			debug_assert!(vest_result.is_ok());
+
+			let _ = <Pallet<T>>::vest(T::RuntimeOrigin::signed(who.clone())).defensive();
 		}
 	}
 }
