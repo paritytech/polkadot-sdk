@@ -44,10 +44,10 @@ use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair,
-	Id as ParaId, OccupiedCoreAssumption,
+	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
 };
 
+use crate::{collator as collator_util, export_pov_to_path};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
@@ -59,13 +59,7 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
-use std::{
-	path::PathBuf,
-	sync::Arc,
-	time::Duration,
-};
-use crate::{collator as collator_util, export_pov_to_path};
-
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
 pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {

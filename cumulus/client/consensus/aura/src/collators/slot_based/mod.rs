@@ -54,8 +54,7 @@ use sp_core::{crypto::Pair, traits::SpawnNamed, U256};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member, NumberFor, One};
-use std::{sync::Arc, time::Duration};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 
@@ -105,10 +104,9 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub export_pov: Option<PathBuf>,
 }
 
-
 /// Run aura-based block building and collation task.
 pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
-	params: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>
+	params: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
@@ -152,7 +150,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		slot_drift,
 		block_import_handle,
 		spawner,
-		export_pov
+		export_pov,
 	} = params;
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
@@ -164,7 +162,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service: collator_service.clone(),
 		collator_receiver: rx,
 		block_import_handle,
-		export_pov
+		export_pov,
 	};
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);

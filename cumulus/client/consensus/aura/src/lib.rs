@@ -29,7 +29,9 @@ use cumulus_client_consensus_common::{
 };
 use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
 
+use cumulus_primitives_core::relay_chain::HeadData;
 use futures::lock::Mutex;
+use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash};
 use sc_client_api::{backend::AuxStore, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SlotInfo};
@@ -43,14 +45,17 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
-use std::{convert::TryFrom, fs, marker::PhantomData, sync::{
-	atomic::{AtomicU64, Ordering},
-	Arc,
-}};
-use std::fs::File;
-use std::path::PathBuf;
-use cumulus_primitives_core::relay_chain::HeadData;
-use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash};
+use std::{
+	convert::TryFrom,
+	fs,
+	fs::File,
+	marker::PhantomData,
+	path::PathBuf,
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc,
+	},
+};
 
 mod import_queue;
 
