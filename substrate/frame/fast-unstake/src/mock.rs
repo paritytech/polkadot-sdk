@@ -111,7 +111,11 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 	}
 
 	fn status() -> Result<bool, ()> {
-		Ok(true)
+		if Ongoing::get() {
+			Ok(false)
+		} else {
+			Err(())
+		}
 	}
 }
 

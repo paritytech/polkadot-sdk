@@ -22,7 +22,6 @@ use crate::{
 	CurrentPhase, Phase, Round,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::ElectionDataProvider;
 use frame_support::pallet_prelude::*;
 use sp_runtime::traits::One;
 use frame_system::RawOrigin;
@@ -92,7 +91,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn submit_page() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(crate::Pallet::<T>::average_election_duration());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
 		});
@@ -116,7 +117,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn unset_page() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(crate::Pallet::<T>::average_election_duration());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
+
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
 		});

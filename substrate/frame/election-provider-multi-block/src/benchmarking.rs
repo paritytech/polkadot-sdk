@@ -50,7 +50,7 @@ mod benchmarks {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
 
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
 
 		// roll to next block until we are about to go into the snapshot.
 		crate::Pallet::<T>::roll_until_matches(|| {
@@ -83,7 +83,7 @@ mod benchmarks {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
 
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
 
 		// roll to the first block of the snapshot.
 		Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get() == Phase::Snapshot(T::Pages::get() - 1));
@@ -117,7 +117,7 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_into_signed() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
 
 		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
@@ -138,7 +138,7 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_into_signed_validation() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
 
 		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
@@ -157,7 +157,7 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_into_unsigned() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
 
 		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
@@ -176,7 +176,7 @@ mod benchmarks {
 	#[benchmark]
 	fn export_non_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
@@ -207,7 +207,7 @@ mod benchmarks {
 	#[benchmark]
 	fn export_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
-		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+		crate::mock::ElectionStart::set(crate::Pallet::<T>::average_election_duration().into());
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
