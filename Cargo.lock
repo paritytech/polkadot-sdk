@@ -6338,7 +6338,23 @@ dependencies = [
 name = "frame-metadata"
 version = "18.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+<<<<<<< HEAD
 checksum = "daaf440c68eb2c3d88e5760fe8c7af3f9fee9181fab6c2f2c4e7cc48dcc40bb8"
+=======
+checksum = "701bac17e9b55e0f95067c428ebcb46496587f08e8cf4ccc0fe5903bea10dbb8"
+dependencies = [
+ "cfg-if",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+]
+
+[[package]]
+name = "frame-metadata"
+version = "20.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26de808fa6461f2485dc51811aefed108850064994fb4a62b3ac21ffa62ac8df"
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -6353,7 +6369,11 @@ dependencies = [
  "array-bytes",
  "const-hex",
  "docify",
+<<<<<<< HEAD
  "frame-metadata 18.0.0",
+=======
+ "frame-metadata 20.0.0",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "frame-support",
  "frame-system",
  "log",
@@ -6422,7 +6442,11 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
+<<<<<<< HEAD
  "frame-metadata 18.0.0",
+=======
+ "frame-metadata 20.0.0",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "frame-support-procedural",
  "frame-system",
  "impl-trait-for-tuples",
@@ -6514,7 +6538,11 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
+<<<<<<< HEAD
  "frame-metadata 18.0.0",
+=======
+ "frame-metadata 20.0.0",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "frame-support",
  "frame-support-test-pallet",
  "frame-system",
@@ -9768,6 +9796,7 @@ dependencies = [
 
 [[package]]
 name = "merkleized-metadata"
+<<<<<<< HEAD
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38c592efaf1b3250df14c8f3c2d952233f0302bb81d3586db2f303666c1cd607"
@@ -9775,6 +9804,15 @@ dependencies = [
  "array-bytes",
  "blake3",
  "frame-metadata 18.0.0",
+=======
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc9b7ac0ce054412d9a85ff39bac27aec27483b06cef8756b57d9c29d448d081"
+dependencies = [
+ "array-bytes",
+ "blake3",
+ "frame-metadata 20.0.0",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "parity-scale-codec",
  "scale-decode",
  "scale-info",
@@ -11877,9 +11915,33 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-core 35.0.0",
  "sp-io 39.0.0",
  "sp-runtime 40.1.0",
+=======
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "pallet-example-view-functions"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-metadata 20.0.0",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "pretty_assertions",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-metadata-ir 0.6.0",
+ "sp-runtime 31.0.1",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
 ]
 
 [[package]]
@@ -22520,6 +22582,18 @@ dependencies = [
 
 [[package]]
 name = "sp-metadata-ir"
+<<<<<<< HEAD
+=======
+version = "0.6.0"
+dependencies = [
+ "frame-metadata 20.0.0",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "sp-metadata-ir"
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a616fa51350b35326682a472ee8e6ba742fdacb18babac38ecd46b3e05ead869"
@@ -24125,7 +24199,11 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
+<<<<<<< HEAD
  "frame-metadata 18.0.0",
+=======
+ "frame-metadata 20.0.0",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
