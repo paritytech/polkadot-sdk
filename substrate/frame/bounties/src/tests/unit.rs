@@ -1267,3 +1267,6 @@ fn propose_curator_instance1_insufficient_spend_limit_errors() {
 		);
 	});
 }
+
+// TODO: test retry claim if the payment from prev claim attempt failed.
+// TODO: test check_payment

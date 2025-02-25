@@ -17,9 +17,8 @@
 
 //! bounties pallet tests.
 
-use super::utils::*;
 use crate as pallet_bounties;
-use crate::{Event as BountiesEvent, *};
+use crate::{tests::utils::*, Event as BountiesEvent, *};
 
 use core::cell::RefCell;
 

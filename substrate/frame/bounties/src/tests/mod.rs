@@ -25,5 +25,5 @@ pub(crate) mod migration;
 pub(crate) mod mock;
 #[cfg(test)]
 pub(crate) mod unit;
-#[cfg(feature = "runtime-benchmarks")]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 pub(crate) mod utils;
