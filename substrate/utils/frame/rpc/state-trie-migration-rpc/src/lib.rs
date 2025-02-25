@@ -73,7 +73,7 @@ fn count_migrate<'a, H: Hasher>(
 /// Check trie migration status.
 pub fn migration_status<H, B>(backend: &B) -> std::result::Result<MigrationStatusResult, String>
 where
-	H: Hasher,
+	H: Hasher + 'static,
 	H::Out: codec::Codec,
 	B: AsTrieBackend<H>,
 {

@@ -274,6 +274,27 @@ struct HitStats {
 	local_fetch_attempts: AtomicU64,
 }
 
+/// A snapshot of the hit/miss stats.
+#[derive(Default, Copy, Clone, Debug)]
+struct HitStatsSnapshot {
+	shared_hits: u64,
+	shared_fetch_attempts: u64,
+	local_hits: u64,
+	local_fetch_attempts: u64,
+}
+
+impl HitStats {
+	/// Returns a snapshot of the hit/miss stats.
+	fn snapshot(&self) -> HitStatsSnapshot {
+		HitStatsSnapshot {
+			shared_hits: self.shared_hits.load(Ordering::Relaxed),
+			shared_fetch_attempts: self.shared_fetch_attempts.load(Ordering::Relaxed),
+			local_hits: self.local_hits.load(Ordering::Relaxed),
+			local_fetch_attempts: self.local_fetch_attempts.load(Ordering::Relaxed),
+		}
+	}
+}
+
 impl std::fmt::Display for HitStats {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
 		let shared_hits = self.shared_hits.load(Ordering::Relaxed);
@@ -306,43 +327,55 @@ struct TrieHitStats {
 	value_cache: HitStats,
 }
 
+/// Snapshot of the hit/miss stats for the node cache and the value cache.
+#[derive(Default, Debug, Clone, Copy)]
+struct TrieHitStatsSnapshot {
+	node_cache: HitStatsSnapshot,
+	value_cache: HitStatsSnapshot,
+}
+
 impl TrieHitStats {
-	fn add(&self, other: &TrieHitStats) {
-		self.node_cache.local_fetch_attempts.fetch_add(
-			other.node_cache.local_fetch_attempts.load(Ordering::Relaxed),
-			Ordering::Relaxed,
-		);
+	/// Returns a snapshot of the hit/miss stats.
+	fn snapshot(&self) -> TrieHitStatsSnapshot {
+		TrieHitStatsSnapshot {
+			node_cache: self.node_cache.snapshot(),
+			value_cache: self.value_cache.snapshot(),
+		}
+	}
 
-		self.node_cache.shared_fetch_attempts.fetch_add(
-			other.node_cache.shared_fetch_attempts.load(Ordering::Relaxed),
-			Ordering::Relaxed,
-		);
+	/// Adds the stats from snapshot to this one.
+	fn add_snapshot(&self, other: &TrieHitStatsSnapshot) {
+		self.node_cache
+			.local_fetch_attempts
+			.fetch_add(other.node_cache.local_fetch_attempts, Ordering::Relaxed);
+
+		self.node_cache
+			.shared_fetch_attempts
+			.fetch_add(other.node_cache.shared_fetch_attempts, Ordering::Relaxed);
 
 		self.node_cache
 			.local_hits
-			.fetch_add(other.node_cache.local_hits.load(Ordering::Relaxed), Ordering::Relaxed);
+			.fetch_add(other.node_cache.local_hits, Ordering::Relaxed);
 
 		self.node_cache
 			.shared_hits
-			.fetch_add(other.node_cache.shared_hits.load(Ordering::Relaxed), Ordering::Relaxed);
+			.fetch_add(other.node_cache.shared_hits, Ordering::Relaxed);
 
-		self.value_cache.local_fetch_attempts.fetch_add(
-			other.value_cache.local_fetch_attempts.load(Ordering::Relaxed),
-			Ordering::Relaxed,
-		);
+		self.value_cache
+			.local_fetch_attempts
+			.fetch_add(other.value_cache.local_fetch_attempts, Ordering::Relaxed);
 
-		self.value_cache.shared_fetch_attempts.fetch_add(
-			other.value_cache.shared_fetch_attempts.load(Ordering::Relaxed),
-			Ordering::Relaxed,
-		);
+		self.value_cache
+			.shared_fetch_attempts
+			.fetch_add(other.value_cache.shared_fetch_attempts, Ordering::Relaxed);
 
 		self.value_cache
 			.local_hits
-			.fetch_add(other.value_cache.local_hits.load(Ordering::Relaxed), Ordering::Relaxed);
+			.fetch_add(other.value_cache.local_hits, Ordering::Relaxed);
 
 		self.value_cache
 			.shared_hits
-			.fetch_add(other.value_cache.shared_hits.load(Ordering::Relaxed), Ordering::Relaxed);
+			.fetch_add(other.value_cache.shared_hits, Ordering::Relaxed);
 	}
 }
 
@@ -443,15 +476,15 @@ impl LocalValueCacheConfig {
 /// When using [`Self::as_trie_db_cache`] or [`Self::as_trie_db_mut_cache`], it will lock Mutexes.
 /// So, it is important that these methods are not called multiple times, because they otherwise
 /// deadlock.
-pub struct LocalTrieCache<H: Hasher> {
+pub struct LocalTrieCache<H: Hasher + 'static> {
 	/// The shared trie cache that created this instance.
 	shared: SharedTrieCache<H>,
 
 	/// The local cache for the trie nodes.
-	node_cache: Mutex<NodeCacheMap<H::Out>>,
+	node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
 
 	/// The local cache for the values.
-	value_cache: Mutex<ValueCacheMap<H::Out>>,
+	value_cache: Arc<Mutex<ValueCacheMap<H::Out>>>,
 
 	/// Keeps track of all values accessed in the shared cache.
 	///
@@ -461,7 +494,7 @@ pub struct LocalTrieCache<H: Hasher> {
 	/// as we only use this set to update the lru position it is fine, even if we bring the wrong
 	/// value to the top. The important part is that we always get the correct value from the value
 	/// cache for a given key.
-	shared_value_cache_access: Mutex<ValueAccessSet>,
+	shared_value_cache_access: Arc<Mutex<ValueAccessSet>>,
 	value_cache_config: LocalValueCacheConfig,
 	node_cache_config: LocalNodeCacheConfig,
 	stats: TrieHitStats,
@@ -504,7 +537,7 @@ impl<H: Hasher> LocalTrieCache<H> {
 	}
 }
 
-impl<H: Hasher> Drop for LocalTrieCache<H> {
+impl<H: Hasher + 'static> Drop for LocalTrieCache<H> {
 	fn drop(&mut self) {
 		tracing::debug!(
 			target: LOG_TARGET,
@@ -517,28 +550,13 @@ impl<H: Hasher> Drop for LocalTrieCache<H> {
 			"Local value trie cache dropped: {}",
 			self.stats.value_cache
 		);
-
-		let mut shared_inner = match self.shared.write_lock_inner() {
-			Some(inner) => inner,
-			None => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					"Timeout while trying to acquire a write lock for the shared trie cache"
-				);
-				return
-			},
-		};
-
-		shared_inner.stats().add(&self.stats);
-
-		shared_inner
-			.node_cache_mut()
-			.update(self.node_cache.get_mut().drain(), &self.node_cache_config);
-
-		shared_inner.value_cache_mut().update(
-			self.value_cache.get_mut().drain(),
-			self.shared_value_cache_access.get_mut().drain().map(|(key, ())| key),
-			&self.value_cache_config,
+		self.shared.queue_local_cache_data(
+			Arc::clone(&self.node_cache),
+			Arc::clone(&self.value_cache),
+			Arc::clone(&self.shared_value_cache_access),
+			self.value_cache_config,
+			self.node_cache_config,
+			self.stats.snapshot(),
 		);
 	}
 }
@@ -634,7 +652,7 @@ impl<H: Hasher> ValueCache<'_, H> {
 /// If this instance was created for using it with a [`TrieDBMut`](trie_db::TrieDBMut), it needs to
 /// be merged back into the [`LocalTrieCache`] with [`Self::merge_into`] after all operations are
 /// done.
-pub struct TrieCache<'a, H: Hasher> {
+pub struct TrieCache<'a, H: Hasher + 'static> {
 	shared_cache: SharedTrieCache<H>,
 	local_cache: MutexGuard<'a, NodeCacheMap<H::Out>>,
 	value_cache: ValueCache<'a, H>,
