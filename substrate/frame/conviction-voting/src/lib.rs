@@ -51,7 +51,7 @@ pub mod weights;
 pub use self::{
 	conviction::Conviction,
 	pallet::*,
-	traits::VotingHooks,
+	traits::{VotingHooks, Status},
 	types::{Delegations, Tally, UnvoteScope},
 	vote::{AccountVote, Casting, Delegating, Vote, Voting},
 	weights::WeightInfo,
@@ -414,6 +414,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			vote.balance() <= T::Currency::total_balance(who),
 			Error::<T, I>::InsufficientFunds
 		);
+		// Call on_vote hook
+		T::VotingHooks::on_vote(who, poll_index, vote)?;
+
 		T::Polls::try_access_poll(poll_index, |poll_status| {
 			let (tally, class) = poll_status.ensure_ongoing().ok_or(Error::<T, I>::NotOngoing)?;
 			VotingFor::<T, I>::try_mutate(who, &class, |voting| {
@@ -481,10 +484,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							tally.reduce(approve, *delegations);
 						}
 						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: v.1 });
+						T::VotingHooks::on_remove_vote(who, poll_index, Status::Ongoing);
 						Ok(())
 					},
 					PollStatus::Completed(end, approved) => {
-						if let Some((lock_periods, balance)) = v.1.locked_if(approved) {
+						if let Some((lock_periods, balance)) = v.1.locked_if(vote::LockedIf::Status(approved)) {
 							let unlock_at = end.saturating_add(
 								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
 							);
@@ -496,10 +500,36 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								);
 								prior.accumulate(unlock_at, balance)
 							}
+						}else if v.1.as_standard() == Some(!approved) {
+							// Unsuccessful vote, use special hook to lock the funds too in case of conviction.
+							if let Some(to_lock) =
+								T::VotingHooks::balance_locked_on_unsuccessful_vote(who, poll_index)
+							{
+								if let AccountVote::Standard { vote, .. } = v.1 {
+									let unlock_at = end.saturating_add(
+										T::VoteLockingPeriod::get()
+											.saturating_mul(vote.conviction.lock_periods().into()),
+									);
+									let now = T::BlockNumberProvider::current_block_number();
+									if now < unlock_at {
+										ensure!(
+											matches!(scope, UnvoteScope::Any),
+											Error::<T, I>::NoPermissionYet
+										);
+										prior.accumulate(unlock_at, to_lock)
+									}
+								}
+							}
 						}
+						// Call on_remove_vote hook
+						T::VotingHooks::on_remove_vote(who, poll_index, Status::Completed);
 						Ok(())
 					},
-					PollStatus::None => Ok(()), // Poll was cancelled.
+					PollStatus::None => {
+						// Poll was cancelled.
+						T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
+						Ok(())
+					},
 				})
 			} else {
 				Ok(())
