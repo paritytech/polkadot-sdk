@@ -13,6 +13,8 @@ Build/install binaries from above.
 
 Then:
 
+From the `polkadot-sdk` project root dir:
+
 ```bash
 cargo build --release -p asset-hub-next-westend-runtime -p staging-chain-spec-builder
 ./target/release/chain-spec-builder create --runtime ./target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm --relay-chain westend-local --para-id 1100 named-preset development
