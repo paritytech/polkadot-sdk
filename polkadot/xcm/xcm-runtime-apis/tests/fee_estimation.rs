@@ -428,8 +428,6 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 		);
 	});
 }
-<<<<<<< HEAD
-=======
 
 #[test]
 fn dry_run_xcm_versions() {
@@ -471,4 +469,3 @@ fn calling_payment_api_with_a_lower_version_works() {
 		.unwrap();
 	assert!(execution_fees.is_ok());
 }
->>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
