@@ -15,8 +15,8 @@ Then:
 
 ```bash
 cargo build --release -p asset-hub-next-westend-runtime -p staging-chain-spec-builder
-../../../../../target/release/chain-spec-builder create --runtime ../../../../../target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm --relay-chain rococo-local --para-id 1100 named-preset genesis
-../../../../../target/release/chain-spec-builder convert-to-raw YOUR/CHOSEN/PATH/chain_spec.json
+./target/release/chain-spec-builder create --runtime ./target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm --relay-chain westend-local --para-id 1100 named-preset development
+./target/release/chain-spec-builder convert-to-raw ./chain_spec.json
 ```
 
 Note that the para-id is set in the chain-spec too and must be 1100 to match.
@@ -40,7 +40,7 @@ ZodError: [
 ]
 ```
 
-it is likely that the third setp above `chain-spec-builder convert-to-raw` was forgotten.
+it is likely that the third step above `chain-spec-builder convert-to-raw` was forgotten.
 
 ### Chopsticks quickstart
 ```bash
