@@ -1,0 +1,12 @@
+title: Bump VALIDATION_CODE_BOMB_LIMIT
+doc:
+- audience: Node Dev
+  description: |-
+    It used to be 16MiB some [time ago](https://github.com/paritytech/polkadot-sdk/commit/6b1baba49072aa99763b53b4ed1c2347e9b74339#diff-f0f67ea8902415829518ebc28ae8f60bdb286ebce3c4d141d31392983fa98ef7L52). Bumping to 32MiB sounds sensible to me, as we've seen some recent runtimes expanding close to the previous 16MiB.
+
+    This is just a short term fix for https://github.com/paritytech/polkadot-sdk/issues/7664 - needs to be backported and deployed ASAP.
+
+    While this unblocks assethub, I will create another PR to promote it into a HostConfiguration parameter and associated runtime api.
+crates:
+- name: polkadot-node-primitives
+  bump: minor
