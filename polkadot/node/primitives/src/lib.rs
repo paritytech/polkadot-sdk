@@ -69,7 +69,7 @@ const MERKLE_NODE_MAX_SIZE: usize = 512 + 100;
 const MERKLE_PROOF_MAX_DEPTH: usize = 8;
 
 /// The bomb limit for decompressing code blobs.
-pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;
+pub const VALIDATION_CODE_BOMB_LIMIT: usize = 32 * 1024 * 1024;
 
 /// The bomb limit for decompressing PoV blobs.
 pub const POV_BOMB_LIMIT: usize = (MAX_POV_SIZE * 4u32) as usize;
