@@ -38,6 +38,7 @@ mod test;
 pub mod utils;
 mod vanity;
 mod verify;
+mod export_chain_spec_cmd;
 
 pub use self::{
 	build_spec_cmd::BuildSpecCmd, chain_info_cmd::ChainInfoCmd, check_block_cmd::CheckBlockCmd,
@@ -45,5 +46,5 @@ pub use self::{
 	generate_node_key::GenerateKeyCmdCommon, import_blocks_cmd::ImportBlocksCmd,
 	insert_key::InsertKeyCmd, inspect_key::InspectKeyCmd, inspect_node_key::InspectNodeKeyCmd,
 	key::KeySubcommand, purge_chain_cmd::PurgeChainCmd, revert_cmd::RevertCmd, run_cmd::RunCmd,
-	sign::SignCmd, vanity::VanityCmd, verify::VerifyCmd,
+	sign::SignCmd, vanity::VanityCmd, verify::VerifyCmd, export_chain_spec_cmd::ExportChainSpecCmd,
 };
