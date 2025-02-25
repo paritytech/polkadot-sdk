@@ -1,0 +1,19 @@
+title: Snowbridge - Ethereum Electra Upgrade Support
+doc:
+- audience: Node Dev
+  description: |-
+    Adds support for the Ethereum Electra hard-fork in the Ethereum light client. Maintains backwards compatibility with the current Deneb hard-fork.
+    Relayers should update to the latest binary to support sending Electra consensus updates.
+crates:
+- name: snowbridge-pallet-ethereum-client
+  bump: patch
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+- name: snowbridge-beacon-primitives
+  bump: patch
+- name: bridge-hub-westend-emulated-chain
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
