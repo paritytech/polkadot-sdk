@@ -37,7 +37,7 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 	let alice = dev::alice();
 	assert_para_throughput(
 		&relay_client,
-		10,
+		12,
 		[(ParaId::from(PARA_ID), 8..11)].into_iter().collect(),
 	)
 	.await?;
@@ -55,7 +55,7 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 
 	assert_para_throughput(
 		&relay_client,
-		15,
+		18,
 		[(ParaId::from(PARA_ID), 39..46)].into_iter().collect(),
 	)
 	.await?;
@@ -73,7 +73,7 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 
 	assert_para_throughput(
 		&relay_client,
-		10,
+		13,
 		[(ParaId::from(PARA_ID), 55..61)].into_iter().collect(),
 	)
 	.await?;
@@ -96,11 +96,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						"config": {
 							"scheduler_params": {
 								"num_cores": 7,
-								"max_validators_per_core": 1
-							},
-							"async_backing_params": {
-								"max_candidate_depth": 6,
-								"allowed_ancestry_len": 2
+								"max_validators_per_core": 1,
+								"lookahead": 5
 							}
 						}
 					}

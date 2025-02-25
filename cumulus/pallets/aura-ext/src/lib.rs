@@ -41,13 +41,22 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub mod consensus_hook;
 pub mod migration;
+pub mod older_relay_parent_consensus_hook;
 mod test;
 
 pub use consensus_hook::FixedVelocityConsensusHook;
+pub use older_relay_parent_consensus_hook::OlderParentFixedVelocityConsensusHook;
 
 type Aura<T> = pallet_aura::Pallet<T>;
 
 pub use pallet::*;
+
+sp_api::decl_runtime_apis! {
+	pub trait RelayParentAgeApi {
+		/// Fetch the slot offset that is expected from the relay chain.
+		fn slot_offset() -> u64;
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
