@@ -1,7 +1,7 @@
 title: 'Expose extension weights from frame-system'
 
 doc:
-  - audience: Node Dev
+  - audience: Runtime Dev
     description: This PR exposes the Extension weights from the `frame-system`
 
 crates:
