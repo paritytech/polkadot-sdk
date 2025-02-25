@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TOOLCHAIN: nightly-2025-01-28
+  TOOLCHAIN: nightly-2024-11-19
 
 jobs:
   isdraft:
