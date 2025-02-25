@@ -24,6 +24,7 @@ use crate::{
 	gas::{ChargedAmount, Token},
 	limits,
 	primitives::ExecReturnValue,
+	pure_precompiles::is_precompile,
 	weights::WeightInfo,
 	Config, Error, LOG_TARGET, SENTINEL,
 };
@@ -1012,11 +1013,17 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		let callee = memory.read_h160(callee_ptr)?;
-
-		if !crate::pure_precompiles::is_precompile(&callee) {
-			self.charge_gas(call_type.cost())?;
-		}
+		let callee = match memory.read_h160(callee_ptr) {
+			Ok(callee) if is_precompile(&callee) => callee,
+			Ok(callee) => {
+				self.charge_gas(call_type.cost())?;
+				callee
+			},
+			Err(err) => {
+				self.charge_gas(call_type.cost())?;
+				return Err(err.into());
+			},
+		};
 
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
