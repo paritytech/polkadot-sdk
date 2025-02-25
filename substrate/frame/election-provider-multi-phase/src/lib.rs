@@ -1826,11 +1826,8 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		unimplemented!()
 	}
 
-	fn ongoing() -> bool {
-		match CurrentPhase::<T>::get() {
-			Phase::Off => false,
-			_ => true,
-		}
+	fn status() -> Result<bool, ()> {
+		unimplemented!()
 	}
 }
 

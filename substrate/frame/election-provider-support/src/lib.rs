@@ -156,7 +156,7 @@
 //!             unimplemented!()
 //!         }
 //!
-//!         fn ongoing() -> bool {
+//!         fn status() -> Result<bool, ()> {
 //!             unimplemented!()
 //!         }
 //!     }
@@ -497,7 +497,11 @@ pub trait ElectionProvider {
 	fn start() -> Result<(), Self::Error>;
 
 	/// Indicate whether this election provider is currently ongoing an asynchronous election.
-	fn ongoing() -> bool;
+	///
+	/// `Err(())` should signal that we are not doing anything, and `elect` should def. not be called.
+	/// `Ok(false)` means we are doing something, but work is still ongoing. `elect` should not be called.
+	/// `Ok(true)` means we are done and ready for a call to `elect`.
+	fn status() -> Result<bool, ()>;
 }
 
 /// A (almost) marker trait that signifies an election provider as working synchronously. i.e. being
@@ -550,8 +554,8 @@ where
 		Zero::zero()
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 

@@ -204,8 +204,8 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 		sp_runtime::traits::Zero::zero()
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 

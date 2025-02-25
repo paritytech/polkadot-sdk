@@ -297,8 +297,8 @@ impl<
 	fn lsp() -> PageIndex {
 		SP::lsp()
 	}
-	fn ongoing() -> bool {
-		SP::ongoing()
+	fn status() -> Result<bool, ()> {
+		SP::status()
 	}
 }
 

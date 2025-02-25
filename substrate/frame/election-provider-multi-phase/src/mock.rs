@@ -339,8 +339,8 @@ impl ElectionProvider for MockFallback {
 		Ok(())
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 

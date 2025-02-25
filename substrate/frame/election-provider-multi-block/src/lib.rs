@@ -227,8 +227,8 @@ impl<T: Config> ElectionProvider for InitiateEmergencyPhase<T> {
 		Err("Emergency phase started.")
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 
 	fn start() -> Result<(), Self::Error> {
@@ -280,9 +280,10 @@ impl<T: Config> ElectionProvider for Continue<T> {
 		Zero::zero()
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
+
 }
 
 impl<T: Config> InstantElectionProvider for Continue<T> {
@@ -1165,8 +1166,11 @@ impl<T: Config> Pallet<T> {
 		let unsigned: u32 = T::UnsignedPhase::get().saturated_into();
 		let signed_validation: u32 = T::SignedValidationPhase::get().saturated_into();
 		let snapshot = T::Pages::get();
-		let export = T::Pages::get();
-		snapshot + signed + unsigned + signed_validation + export
+
+		// we don't count the export.
+		let _export = T::Pages::get();
+
+		snapshot + signed + signed_validation + unsigned
 	}
 
 	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
@@ -1311,8 +1315,10 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 
 	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		if !Self::ongoing() {
-			return Err(ElectionError::NotOngoing);
+		match Self::status() {
+			// we allow `elect` to be called as long as we have received a start signal.
+			Ok(_) => (),
+			Err(_) => return Err(ElectionError::NotOngoing)
 		}
 
 		let result = T::Verifier::get_queued_solution_page(remaining)
@@ -1355,9 +1361,11 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	}
 
 	fn start() -> Result<(), Self::Error> {
-		if Self::ongoing() {
-			return Err(ElectionError::Ongoing);
+		match Self::status() {
+			Err(()) => (),
+			Ok(_) => return Err(ElectionError::Ongoing),
 		}
+
 		Self::phase_transition(Phase::<T>::start_phase());
 		Ok(())
 	}
@@ -1366,16 +1374,20 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		Self::average_election_duration().into()
 	}
 
-	fn ongoing() -> bool {
+	fn status() -> Result<bool, ()> {
 		match <CurrentPhase<T>>::get() {
-			Phase::Off | Phase::Halted => false,
+			// we're not doing anything.
+			Phase::Off | Phase::Halted => Err(()),
+
+			// we're doing sth but not read.
 			Phase::Signed(_) |
 			Phase::SignedValidation(_) |
 			Phase::Unsigned(_) |
 			Phase::Snapshot(_) |
-			Phase::Done |
-			Phase::Emergency |
-			Phase::Export(_) => true,
+			Phase::Emergency => Ok(false),
+
+			// we're ready
+			Phase::Done | Phase::Export(_) => Ok(true),
 		}
 	}
 }
@@ -2266,12 +2278,12 @@ mod election_provider {
 	fn elect_call_when_not_ongoing() {
 		ExtBuilder::full().fallback_mode(FallbackModes::Onchain).build_and_execute(|| {
 			roll_to_snapshot_created();
-			assert_eq!(MultiBlock::ongoing(), true);
+			assert_eq!(MultiBlock::status(), Ok(false));
 			assert!(MultiBlock::elect(0).is_ok());
 		});
 		ExtBuilder::full().fallback_mode(FallbackModes::Onchain).build_and_execute(|| {
 			roll_to(10);
-			assert_eq!(MultiBlock::ongoing(), false);
+			assert_eq!(MultiBlock::status(), Err(()));
 			assert_eq!(MultiBlock::elect(0), Err(ElectionError::NotOngoing));
 		});
 	}

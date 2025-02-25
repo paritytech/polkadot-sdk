@@ -110,8 +110,8 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 		0
 	}
 
-	fn ongoing() -> bool {
-		Ongoing::get()
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 
