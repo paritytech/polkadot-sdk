@@ -77,13 +77,12 @@ impl ProvisionerSubsystem {
 
 /// Per-session info we need for the provisioner subsystem.
 pub struct PerSession {
-	elastic_scaling_mvp: bool,
+	prospective_parachains_mode: ProspectiveParachainsMode,
 }
 
 /// A per-relay-parent state for the provisioning subsystem.
 pub struct PerRelayParent {
 	leaf: ActivatedLeaf,
-	elastic_scaling_mvp: bool,
 	signed_bitfields: Vec<SignedAvailabilityBitfield>,
 	is_inherent_ready: bool,
 	awaiting_inherent: Vec<oneshot::Sender<ProvisionerInherentData>>,
@@ -93,7 +92,6 @@ impl PerRelayParent {
 	fn new(leaf: ActivatedLeaf, per_session: &PerSession) -> Self {
 		Self {
 			leaf,
-			elastic_scaling_mvp: per_session.elastic_scaling_mvp,
 			signed_bitfields: Vec::new(),
 			is_inherent_ready: false,
 			awaiting_inherent: Vec::new(),
@@ -202,14 +200,13 @@ async fn handle_active_leaves_update(
 			.await
 			.map_err(Error::CanceledSessionIndex)??;
 		if per_session.get(&session_index).is_none() {
-			let elastic_scaling_mvp = request_node_features(leaf.hash, session_index, sender)
-				.await?
-				.unwrap_or(NodeFeatures::EMPTY)
-				.get(FeatureIndex::ElasticScalingMVP as usize)
-				.map(|b| *b)
-				.unwrap_or(false);
+			let prospective_parachains_mode =
+				prospective_parachains_mode(sender, leaf.hash).await?;
 
-			per_session.insert(session_index, PerSession { elastic_scaling_mvp });
+			per_session.insert(
+				session_index,
+				PerSession { prospective_parachains_mode },
+			);
 		}
 
 		let session_info = per_session.get(&session_index).expect("Just inserted");
@@ -272,8 +269,6 @@ async fn send_inherent_data_bg<Context>(
 ) -> Result<(), Error> {
 	let leaf = per_relay_parent.leaf.clone();
 	let signed_bitfields = per_relay_parent.signed_bitfields.clone();
-	let elastic_scaling_mvp = per_relay_parent.elastic_scaling_mvp;
-
 	let mut sender = ctx.sender().clone();
 
 	let bg = async move {
@@ -288,7 +283,6 @@ async fn send_inherent_data_bg<Context>(
 		let send_result = send_inherent_data(
 			&leaf,
 			&signed_bitfields,
-			elastic_scaling_mvp,
 			return_senders,
 			&mut sender,
 			&metrics,
@@ -383,7 +377,6 @@ type CoreAvailability = BitVec<u8, bitvec::order::Lsb0>;
 async fn send_inherent_data(
 	leaf: &ActivatedLeaf,
 	bitfields: &[SignedAvailabilityBitfield],
-	elastic_scaling_mvp: bool,
 	return_senders: Vec<oneshot::Sender<ProvisionerInherentData>>,
 	from_job: &mut impl overseer::ProvisionerSenderTrait,
 	metrics: &Metrics,
@@ -421,7 +414,7 @@ async fn send_inherent_data(
 	);
 
 	let candidates =
-		select_candidates(&availability_cores, &bitfields, elastic_scaling_mvp, leaf, from_job)
+		select_candidates(&availability_cores, &bitfields, leaf, from_job)
 			.await?;
 
 	gum::trace!(
@@ -533,7 +526,6 @@ fn select_availability_bitfields(
 /// based on core states.
 async fn request_backable_candidates(
 	availability_cores: &[CoreState],
-	elastic_scaling_mvp: bool,
 	bitfields: &[SignedAvailabilityBitfield],
 	relay_parent: &ActivatedLeaf,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
@@ -595,11 +587,6 @@ async fn request_backable_candidates(
 	for (para_id, core_count) in scheduled_cores_per_para {
 		let para_ancestors = ancestors.remove(&para_id).unwrap_or_default();
 
-		// If elastic scaling MVP is disabled, only allow one candidate per parachain.
-		if !elastic_scaling_mvp && core_count > 1 {
-			continue
-		}
-
 		let response = get_backable_candidates(
 			relay_parent.hash,
 			para_id,
@@ -630,7 +617,6 @@ async fn request_backable_candidates(
 async fn select_candidates(
 	availability_cores: &[CoreState],
 	bitfields: &[SignedAvailabilityBitfield],
-	elastic_scaling_mvp: bool,
 	leaf: &ActivatedLeaf,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
 ) -> Result<Vec<BackedCandidate>, Error> {
@@ -643,13 +629,11 @@ async fn select_candidates(
 
 	let selected_candidates = request_backable_candidates(
 		availability_cores,
-		elastic_scaling_mvp,
 		bitfields,
 		leaf,
 		sender,
 	)
 	.await?;
-
 	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
 
 	// now get the backed candidates corresponding to these candidate receipts
