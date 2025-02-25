@@ -34,7 +34,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_nothing() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
 
 		#[block]
@@ -49,15 +48,17 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_into_snapshot_msp() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
-		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
+
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
 
 		// roll to next block until we are about to go into the snapshot.
-		Pallet::<T>::run_until_before_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Snapshot(_))
+		crate::Pallet::<T>::roll_until_matches(|| {
+			CurrentPhase::<T>::get() == Phase::Snapshot(T::Pages::get())
 		});
 
 		// since we reverted the last page, we are still in phase Off.
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
 
 		#[block]
 		{
@@ -65,7 +66,7 @@ mod benchmarks {
 		}
 
 		// we have collected the target snapshot only
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 1));
 		assert_eq!(
 			Snapshot::<T>::targets_decode_len().unwrap() as u32,
 			T::TargetSnapshotPerBlock::get(),
@@ -80,12 +81,13 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_into_snapshot_rest() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
-		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
+
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
 
 		// roll to the first block of the snapshot.
-		Pallet::<T>::roll_until_matches(|| matches!(CurrentPhase::<T>::get(), Phase::Snapshot(_)));
+		Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get() == Phase::Snapshot(T::Pages::get() - 1));
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
 		// we have collected the target snapshot only
 		assert_eq!(
 			Snapshot::<T>::targets_decode_len().unwrap() as u32,
@@ -101,7 +103,7 @@ mod benchmarks {
 		}
 
 		// we have now collected the first page of voters.
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 1));
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 2));
 		// it must be full
 		assert_eq!(
 			Snapshot::<T>::voters_decode_len(T::Pages::get() - 1).unwrap() as u32,
@@ -114,8 +116,12 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_into_signed() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
-		Pallet::<T>::run_until_before_matches(|| matches!(CurrentPhase::<T>::get(), Phase::Signed));
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+
+		Pallet::<T>::roll_until_before_matches(|| {
+			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
+		});
 
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(0));
 
@@ -124,19 +130,21 @@ mod benchmarks {
 			Pallet::<T>::roll_next(true, false);
 		}
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Signed);
+		assert!(CurrentPhase::<T>::get().is_signed());
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn on_initialize_into_signed_validation() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
-		Pallet::<T>::run_until_before_matches(|| {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+
+		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Signed);
+		assert!(CurrentPhase::<T>::get().is_signed());
 
 		#[block]
 		{
@@ -148,8 +156,10 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_into_unsigned() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
-		Pallet::<T>::run_until_before_matches(|| {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
+
+		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
 		assert!(matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_)));
@@ -165,7 +175,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn export_non_terminal() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
@@ -195,7 +206,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn export_terminal() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::average_election_duration());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(Pallet::<T>::average_election_duration().into());
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();

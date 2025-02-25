@@ -24,6 +24,7 @@ use crate::{
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::ElectionDataProvider;
 use frame_support::pallet_prelude::*;
+use sp_runtime::traits::One;
 use frame_system::RawOrigin;
 use sp_npos_elections::ElectionScore;
 use sp_std::boxed::Box;
@@ -34,7 +35,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn register_not_full() -> Result<(), BenchmarkError> {
-		CurrentPhase::<T>::put(Phase::Signed);
+		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let round = Round::<T>::get();
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
 		let score = ElectionScore::default();
@@ -51,7 +52,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn register_eject() -> Result<(), BenchmarkError> {
-		CurrentPhase::<T>::put(Phase::Signed);
+		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let round = Round::<T>::get();
 
 		for i in 0..T::MaxSubmissions::get() {
@@ -93,7 +94,7 @@ mod benchmarks {
 	fn submit_page() -> Result<(), BenchmarkError> {
 		T::DataProvider::set_next_election(crate::Pallet::<T>::average_election_duration());
 		crate::Pallet::<T>::roll_until_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Signed)
+			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
 		});
 
 		// mine a full solution
@@ -117,7 +118,7 @@ mod benchmarks {
 	fn unset_page() -> Result<(), BenchmarkError> {
 		T::DataProvider::set_next_election(crate::Pallet::<T>::average_election_duration());
 		crate::Pallet::<T>::roll_until_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Signed)
+			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
 		});
 
 		// mine a full solution
@@ -142,7 +143,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn bail() -> Result<(), BenchmarkError> {
-		CurrentPhase::<T>::put(Phase::Signed);
+		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
 
 		// register alice

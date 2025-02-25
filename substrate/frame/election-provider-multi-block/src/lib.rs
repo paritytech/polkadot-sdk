@@ -1160,8 +1160,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// A reasonable next election block number.
-	///
-	/// This should be passed into `T::DataProvider::set_next_election` in benchmarking.
 	pub fn average_election_duration() -> u32 {
 		let signed: u32 = T::SignedPhase::get().saturated_into();
 		let unsigned: u32 = T::UnsignedPhase::get().saturated_into();
@@ -1196,7 +1194,7 @@ where
 	}
 
 	/// Progress blocks until one block before the criteria is met.
-	pub(crate) fn run_until_before_matches(criteria: impl FnOnce() -> bool + Copy) {
+	pub(crate) fn roll_until_before_matches(criteria: impl FnOnce() -> bool + Copy) {
 		use frame_support::storage::TransactionOutcome;
 		loop {
 			let should_break = frame_support::storage::with_transaction(
