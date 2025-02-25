@@ -34,6 +34,7 @@ def check_dep(dep, used_by):
 # Check the workspace dependencies that can be inherited:
 for dep in workspace.dependencies:
 	check_dep(dep, "workspace")
+
 	if workspace.crates.find_by_name(dep.name):
 		if dep.location != DependencyLocation.PATH:
 			errors.append(f'🚫 Workspace must use path to link local dependency {dep.name}')
