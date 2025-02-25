@@ -7467,9 +7467,9 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "19.0.0"
+version = "20.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "835a2e736d544b98dab966b4b9541f15af416288a86c3738fdd67bd9fbc4696e"
+checksum = "26de808fa6461f2485dc51811aefed108850064994fb4a62b3ac21ffa62ac8df"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -7484,9 +7484,15 @@ dependencies = [
  "array-bytes",
  "const-hex",
  "docify",
+<<<<<<< HEAD
  "frame-metadata 19.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
+=======
+ "frame-metadata 20.0.0",
+ "frame-support",
+ "frame-system",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "log",
  "merkleized-metadata",
  "parity-scale-codec",
@@ -7569,9 +7575,15 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
+<<<<<<< HEAD
  "frame-metadata 19.0.0",
  "frame-support-procedural 23.0.0",
  "frame-system 28.0.0",
+=======
+ "frame-metadata 20.0.0",
+ "frame-support-procedural",
+ "frame-system",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "impl-trait-for-tuples",
  "k256",
  "log",
@@ -7745,10 +7757,17 @@ dependencies = [
 name = "frame-support-test"
 version = "3.0.0"
 dependencies = [
+<<<<<<< HEAD
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
  "frame-metadata 19.0.0",
  "frame-support 28.0.0",
+=======
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-metadata 20.0.0",
+ "frame-support",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "frame-support-test-pallet",
  "frame-system 28.0.0",
  "parity-scale-codec",
@@ -10985,13 +11004,13 @@ dependencies = [
 
 [[package]]
 name = "merkleized-metadata"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e656ca4a152e892cbbf4b621c242b070136643b797709007d4861881d71ff4c9"
+checksum = "dc9b7ac0ce054412d9a85ff39bac27aec27483b06cef8756b57d9c29d448d081"
 dependencies = [
  "array-bytes",
  "blake3",
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "parity-scale-codec",
  "scale-decode 0.13.1",
  "scale-info",
@@ -13873,10 +13892,17 @@ dependencies = [
 name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
+<<<<<<< HEAD
  "frame-benchmarking 28.0.0",
  "frame-metadata 19.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
+=======
+ "frame-benchmarking",
+ "frame-metadata 20.0.0",
+ "frame-support",
+ "frame-system",
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
  "log",
  "parity-scale-codec",
  "pretty_assertions",
@@ -27244,7 +27270,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -29349,7 +29375,7 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 19.0.0",
+ "frame-metadata 20.0.0",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
