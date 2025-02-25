@@ -167,6 +167,19 @@ where
 		})
 	}
 
+	/// Get the genesis hash of the polkadot service being built.
+	pub fn genesis_hash(&self) -> <Block as BlockT>::Hash {
+		self.partial_components.client.chain_info().genesis_hash
+	}
+
+	/// Add extra request-response protocol to the polkadot service.
+	pub fn add_extra_request_response_protocol(
+		&mut self,
+		config: Network::RequestResponseProtocolConfig,
+	) {
+		self.net_config.add_request_response_protocol(config);
+	}
+
 	/// Build polkadot service.
 	pub fn build(self) -> Result<NewFull, Error> {
 		let Self {
