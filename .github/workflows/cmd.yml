@@ -8,7 +8,7 @@ permissions: # allow the action to run workflow and comment in PR
   contents: read
   issues: write
   pull-requests: write
-  actions: write
+  actions: read
 
 jobs:
   is-org-member:
@@ -311,6 +311,11 @@ jobs:
   run-cmd-workflow:
     needs: [before-cmd, set-image, get-pr-info, is-org-member]
     runs-on: ubuntu-latest
+    permissions: # run workflow
+      contents: read
+      issues: write
+      pull-requests: write
+      actions: write
     env:
       CMD: ${{ needs.get-pr-info.outputs.CMD }}
       PR_BRANCH: ${{ needs.get-pr-info.outputs.pr-branch }}
