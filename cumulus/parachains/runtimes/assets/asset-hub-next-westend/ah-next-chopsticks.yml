@@ -4,7 +4,7 @@ db: ./ah-next-westend.sqlite
 runtime-log-level: 5
 
 # Specify this on the command line with --genesis ./path/to/chain-spec.json or uncomment below
-genesis: ./chain_spec.json
+#genesis: ./chain_spec.json
 
 import-storage:
   Balances:
