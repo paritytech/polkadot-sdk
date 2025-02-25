@@ -92,8 +92,11 @@ jobs:
           . ./.github/scripts/release/release_lib.sh
 
           NODE_VERSION="${{ needs.prepare-tooling.outputs.node_version }}"
-          set_version "\(NODE_VERSION[^=]*= \)\".*\"" $NODE_VERSION "polkadot/node/primitives/src/lib.rs"
+          NODE_VERSION_PATTERN="\(NODE_VERSION[^=]*= \)\".*\""
+          set_version "$NODE_VERSION_PATTERN" $NODE_VERSION "polkadot/node/primitives/src/lib.rs"
           commit_with_message "Bump node version to $NODE_VERSION in polkadot-cli"
+          set_version "$NODE_VERSION_PATTERN" $NODE_VERSION "cumulus/polkadot-omni-node/lib/src/nodes/mod.rs"
+          commit_with_message "Bump node version to $NODE_VERSION in polkadot-omni-node-lib"
 
           SPEC_VERSION=$(get_spec_version $NODE_VERSION)
           runtimes_list=$(get_filtered_runtimes_list)

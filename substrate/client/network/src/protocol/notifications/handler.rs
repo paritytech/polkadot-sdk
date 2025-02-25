@@ -79,7 +79,7 @@ use libp2p::{
 	},
 	PeerId,
 };
-use log::{error, warn};
+
 use parking_lot::{Mutex, RwLock};
 use std::{
 	collections::VecDeque,
@@ -89,6 +89,9 @@ use std::{
 	task::{Context, Poll},
 	time::Duration,
 };
+
+/// Logging target for the file.
+const LOG_TARGET: &str = "sub-libp2p::notification::handler";
 
 /// Number of pending notifications in asynchronous contexts.
 /// See [`NotificationsSink::reserve_notification`] for context.
@@ -561,7 +564,7 @@ impl ConnectionHandler for NotifsHandler {
 						*pending_opening = false;
 					},
 					State::Open { .. } => {
-						error!(target: "sub-libp2p", "☎️ State mismatch in notifications handler");
+						log::error!(target: LOG_TARGET, "☎️ State mismatch in notifications handler");
 						debug_assert!(false);
 					},
 					State::Opening { ref mut in_substream, inbound } => {
@@ -622,7 +625,7 @@ impl ConnectionHandler for NotifsHandler {
 			},
 			ConnectionEvent::ListenUpgradeError(_listen_upgrade_error) => {},
 			event => {
-				warn!(target: "sub-libp2p", "New unknown `ConnectionEvent` libp2p event: {event:?}");
+				log::warn!(target: LOG_TARGET, "New unknown `ConnectionEvent` libp2p event: {event:?}");
 			},
 		}
 	}
@@ -686,7 +689,7 @@ impl ConnectionHandler for NotifsHandler {
 					State::Opening { .. } | State::Open { .. } => {
 						// As documented, it is forbidden to send an `Open` while there is already
 						// one in the fly.
-						error!(target: "sub-libp2p", "opening already-opened handler");
+						log::error!(target: LOG_TARGET, "opening already-opened handler");
 						debug_assert!(false);
 					},
 				}

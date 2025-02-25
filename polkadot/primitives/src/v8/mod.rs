@@ -20,7 +20,7 @@ use alloc::{
 	vec::{IntoIter, Vec},
 };
 use bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{
 	marker::PhantomData,
 	slice::{Iter, IterMut},
@@ -117,7 +117,19 @@ pub trait TypeIndex {
 
 /// Index of the validator is used as a lightweight replacement of the `ValidatorId` when
 /// appropriate.
-#[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(
+	Eq,
+	Ord,
+	PartialEq,
+	PartialOrd,
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	RuntimeDebug,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ValidatorIndex(pub u32);
 
@@ -444,6 +456,9 @@ pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 1_000_000_000;
 /// prior to v9 configuration migration.
 pub const LEGACY_MIN_BACKING_VOTES: u32 = 2;
 
+/// Default value for `SchedulerParams.lookahead`
+pub const DEFAULT_SCHEDULING_LOOKAHEAD: u32 = 3;
+
 // The public key of a keypair used by a validator for determining assignments
 /// to approve included parachain candidates.
 mod assignment_app {
@@ -658,7 +673,7 @@ impl Ord for CommittedCandidateReceipt {
 /// The `PersistedValidationData` should be relatively lightweight primarily because it is
 /// constructed during inclusion for each candidate and therefore lies on the critical path of
 /// inclusion.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Default))]
 pub struct PersistedValidationData<H = Hash, N = BlockNumber> {
 	/// The parent head-data.
@@ -679,7 +694,7 @@ impl<H: Encode, N: Encode> PersistedValidationData<H, N> {
 }
 
 /// Commitments made in a `CandidateReceipt`. Many of these are outputs of validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Default, Hash))]
 pub struct CandidateCommitments<N = BlockNumber> {
 	/// Messages destined to be interpreted by the Relay chain itself.
@@ -707,7 +722,7 @@ impl CandidateCommitments {
 /// A bitfield concerning availability of backed candidates.
 ///
 /// Every bit refers to an availability core index.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct AvailabilityBitfield(pub BitVec<u8, bitvec::order::Lsb0>);
 
 impl From<BitVec<u8, bitvec::order::Lsb0>> for AvailabilityBitfield {
@@ -916,7 +931,18 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 
 /// The unique (during session) index of a core.
 #[derive(
-	Encode, Decode, Default, PartialOrd, Ord, Eq, PartialEq, Clone, Copy, TypeInfo, RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	PartialOrd,
+	Ord,
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	TypeInfo,
+	RuntimeDebug,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CoreIndex(pub u32);
@@ -934,7 +960,20 @@ impl TypeIndex for CoreIndex {
 }
 
 /// The unique (during session) index of a validator group.
-#[derive(Encode, Decode, Default, Clone, Copy, Debug, PartialEq, Eq, TypeInfo, PartialOrd, Ord)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	Clone,
+	Copy,
+	Debug,
+	PartialEq,
+	Eq,
+	TypeInfo,
+	PartialOrd,
+	Ord,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct GroupIndex(pub u32);
 
@@ -1232,6 +1271,7 @@ impl<'a> ApprovalVoteMultipleCandidates<'a> {
 	PartialEq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	serde::Serialize,
 	serde::Deserialize,
@@ -1414,7 +1454,7 @@ impl From<ConsensusLog> for sp_runtime::DigestItem {
 /// A statement about a candidate, to be used within the dispute resolution process.
 ///
 /// Statements are either in favor of the candidate's validity or against it.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum DisputeStatement {
 	/// A valid statement, of the given kind.
 	#[codec(index = 0)]
@@ -1508,7 +1548,7 @@ impl DisputeStatement {
 }
 
 /// Different kinds of statements of validity on  a candidate.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum ValidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1544,7 +1584,7 @@ impl ValidDisputeStatementKind {
 }
 
 /// Different kinds of statements of invalidity on a candidate.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum InvalidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1572,7 +1612,7 @@ impl ExplicitDisputeStatement {
 }
 
 /// A set of statements about a specific candidate.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct DisputeStatementSet {
 	/// The candidate referenced by this set.
 	pub candidate_hash: CandidateHash,
@@ -1652,7 +1692,7 @@ pub struct InherentData<HDR: HeaderT = Header> {
 
 /// An either implicit or explicit attestation to the validity of a parachain
 /// candidate.
-#[derive(Clone, Eq, PartialEq, Decode, Encode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Decode, DecodeWithMemTracking, Encode, RuntimeDebug, TypeInfo)]
 pub enum ValidityAttestation {
 	/// Implicit validity attestation by issuing.
 	/// This corresponds to issuance of a `Candidate` statement.
@@ -1941,7 +1981,7 @@ pub struct SessionInfo {
 
 /// A statement from the specified validator whether the given validation code passes PVF
 /// pre-checking or not anchored to the given session index.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct PvfCheckStatement {
 	/// `true` if the subject passed pre-checking and `false` otherwise.
 	pub accept: bool,
@@ -2001,7 +2041,19 @@ impl<T: Encode> WellKnownKey<T> {
 }
 
 /// Type discriminator for PVF preparation.
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Clone,
+	Copy,
+	Debug,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
 pub enum PvfPrepKind {
 	/// For prechecking requests.
 	Precheck,
@@ -2011,7 +2063,19 @@ pub enum PvfPrepKind {
 }
 
 /// Type discriminator for PVF execution.
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Clone,
+	Copy,
+	Debug,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
 pub enum PvfExecKind {
 	/// For backing requests.
 	Backing,
@@ -2061,6 +2125,7 @@ pub mod node_features {
 	PartialEq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	serde::Serialize,
 	serde::Deserialize,
@@ -2132,11 +2197,13 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 #[cfg(test)]
+/// Test helpers
 pub mod tests {
 	use super::*;
 	use bitvec::bitvec;
 	use sp_core::sr25519;
 
+	/// Create a dummy committed candidate receipt
 	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
 		let zeros = Hash::zero();
 

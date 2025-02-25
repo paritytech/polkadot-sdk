@@ -110,6 +110,9 @@ pub(crate) mod out_events;
 pub mod signature;
 pub mod traits;
 
+/// Logging target for the file.
+const LOG_TARGET: &str = "sub-libp2p";
+
 struct Libp2pBandwidthSink {
 	#[allow(deprecated)]
 	sink: Arc<transport::BandwidthSinks>,
@@ -287,7 +290,7 @@ where
 			.filter(|reserved_node| {
 				if reserved_node.peer_id == local_peer_id.into() {
 					warn!(
-						target: "sub-libp2p",
+						target: LOG_TARGET,
 						"Local peer ID used in reserved node, ignoring: {}",
 						reserved_node,
 					);
@@ -329,11 +332,11 @@ where
 		}
 
 		info!(
-			target: "sub-libp2p",
+			target: LOG_TARGET,
 			"🏷  Local node identity is: {}",
 			local_peer_id.to_base58(),
 		);
-		info!(target: "sub-libp2p", "Running libp2p network backend");
+		info!(target: LOG_TARGET, "Running libp2p network backend");
 
 		let (transport, bandwidth) = {
 			let config_mem = match network_config.transport {
@@ -569,7 +572,7 @@ where
 		// Listen on multiaddresses.
 		for addr in &network_config.listen_addresses {
 			if let Err(err) = Swarm::<Behaviour<B>>::listen_on(&mut swarm, addr.clone().into()) {
-				warn!(target: "sub-libp2p", "Can't listen on {} because: {:?}", addr, err)
+				warn!(target: LOG_TARGET, "Can't listen on {} because: {:?}", addr, err)
 			}
 		}
 
@@ -681,7 +684,7 @@ where
 						) {
 						addrs.into_iter().collect()
 					} else {
-						error!(target: "sub-libp2p", "Was not able to get known addresses for {:?}", peer_id);
+						error!(target: LOG_TARGET, "Was not able to get known addresses for {:?}", peer_id);
 						return None
 					};
 
@@ -690,7 +693,7 @@ where
 					{
 						e.clone().into()
 					} else {
-						error!(target: "sub-libp2p", "Found state inconsistency between custom protocol \
+						error!(target: LOG_TARGET, "Found state inconsistency between custom protocol \
 						and debug information about {:?}", peer_id);
 						return None
 					};
@@ -732,7 +735,7 @@ where
 						) {
 						addrs.into_iter().collect()
 					} else {
-						error!(target: "sub-libp2p", "Was not able to get known addresses for {:?}", peer_id);
+						error!(target: LOG_TARGET, "Was not able to get known addresses for {:?}", peer_id);
 						Default::default()
 					};
 
@@ -1145,7 +1148,7 @@ where
 		match Roles::decode_all(&mut &handshake[..]) {
 			Ok(role) => Some(role.into()),
 			Err(_) => {
-				log::debug!(target: "sub-libp2p", "handshake doesn't contain peer role: {handshake:?}");
+				log::debug!(target: LOG_TARGET, "handshake doesn't contain peer role: {handshake:?}");
 				self.peer_store_handle.peer_role(&(peer_id.into()))
 			},
 		}
@@ -1278,11 +1281,11 @@ impl<'a> NotificationSenderReadyT for NotificationSenderReady<'a> {
 		}
 
 		trace!(
-			target: "sub-libp2p",
+			target: LOG_TARGET,
 			"External API => Notification({:?}, {}, {} bytes)",
 			self.peer_id, self.protocol_name, notification.len(),
 		);
-		trace!(target: "sub-libp2p", "Handler({:?}) <= Async notification", self.peer_id);
+		trace!(target: LOG_TARGET, "Handler({:?}) <= Async notification", self.peer_id);
 
 		self.ready
 			.take()
@@ -1570,7 +1573,7 @@ where
 			}) => {
 				if listen_addrs.len() > 30 {
 					debug!(
-						target: "sub-libp2p",
+						target: LOG_TARGET,
 						"Node {:?} has reported more than 30 addresses; it is identified by {:?} and {:?}",
 						peer_id, protocol_version, agent_version
 					);
@@ -1684,9 +1687,9 @@ where
 				..
 			} => {
 				if let Some(errors) = concurrent_dial_errors {
-					debug!(target: "sub-libp2p", "Libp2p => Connected({:?}) with errors: {:?}", peer_id, errors);
+					debug!(target: LOG_TARGET, "Libp2p => Connected({:?}) with errors: {:?}", peer_id, errors);
 				} else {
-					debug!(target: "sub-libp2p", "Libp2p => Connected({:?})", peer_id);
+					debug!(target: LOG_TARGET, "Libp2p => Connected({:?})", peer_id);
 				}
 
 				if let Some(metrics) = self.metrics.as_ref() {
@@ -1708,7 +1711,7 @@ where
 				endpoint,
 				num_established,
 			} => {
-				debug!(target: "sub-libp2p", "Libp2p => Disconnected({peer_id:?} via {connection_id:?}, {cause:?})");
+				debug!(target: LOG_TARGET, "Libp2p => Disconnected({peer_id:?} via {connection_id:?}, {cause:?})");
 				if let Some(metrics) = self.metrics.as_ref() {
 					let direction = match endpoint {
 						ConnectedPoint::Dialer { .. } => "out",
@@ -1728,14 +1731,14 @@ where
 				}
 			},
 			SwarmEvent::NewListenAddr { address, .. } => {
-				trace!(target: "sub-libp2p", "Libp2p => NewListenAddr({})", address);
+				trace!(target: LOG_TARGET, "Libp2p => NewListenAddr({})", address);
 				if let Some(metrics) = self.metrics.as_ref() {
 					metrics.listeners_local_addresses.inc();
 				}
 				self.listen_addresses.lock().insert(address.clone());
 			},
 			SwarmEvent::ExpiredListenAddr { address, .. } => {
-				info!(target: "sub-libp2p", "📪 No longer listening on {}", address);
+				info!(target: LOG_TARGET, "📪 No longer listening on {}", address);
 				if let Some(metrics) = self.metrics.as_ref() {
 					metrics.listeners_local_addresses.dec();
 				}
@@ -1744,7 +1747,7 @@ where
 			SwarmEvent::OutgoingConnectionError { connection_id, peer_id, error } => {
 				if let Some(peer_id) = peer_id {
 					trace!(
-						target: "sub-libp2p",
+						target: LOG_TARGET,
 						"Libp2p => Failed to reach {peer_id:?} via {connection_id:?}: {error}",
 					);
 
@@ -1800,10 +1803,10 @@ where
 				}
 			},
 			SwarmEvent::Dialing { connection_id, peer_id } => {
-				trace!(target: "sub-libp2p", "Libp2p => Dialing({peer_id:?}) via {connection_id:?}")
+				trace!(target: LOG_TARGET, "Libp2p => Dialing({peer_id:?}) via {connection_id:?}")
 			},
 			SwarmEvent::IncomingConnection { connection_id, local_addr, send_back_addr } => {
-				trace!(target: "sub-libp2p", "Libp2p => IncomingConnection({local_addr},{send_back_addr} via {connection_id:?}))");
+				trace!(target: LOG_TARGET, "Libp2p => IncomingConnection({local_addr},{send_back_addr} via {connection_id:?}))");
 				if let Some(metrics) = self.metrics.as_ref() {
 					metrics.incoming_connections_total.inc();
 				}
@@ -1815,7 +1818,7 @@ where
 				error,
 			} => {
 				debug!(
-					target: "sub-libp2p",
+					target: LOG_TARGET,
 					"Libp2p => IncomingConnectionError({local_addr},{send_back_addr} via {connection_id:?}): {error}"
 				);
 				if let Some(metrics) = self.metrics.as_ref() {
@@ -1854,37 +1857,37 @@ where
 					addresses.into_iter().map(|a| a.to_string()).collect::<Vec<_>>().join(", ");
 				match reason {
 					Ok(()) => error!(
-						target: "sub-libp2p",
+						target: LOG_TARGET,
 						"📪 Libp2p listener ({}) closed gracefully",
 						addrs
 					),
 					Err(e) => error!(
-						target: "sub-libp2p",
+						target: LOG_TARGET,
 						"📪 Libp2p listener ({}) closed: {}",
 						addrs, e
 					),
 				}
 			},
 			SwarmEvent::ListenerError { error, .. } => {
-				debug!(target: "sub-libp2p", "Libp2p => ListenerError: {}", error);
+				debug!(target: LOG_TARGET, "Libp2p => ListenerError: {}", error);
 				if let Some(metrics) = self.metrics.as_ref() {
 					metrics.listeners_errors_total.inc();
 				}
 			},
 			SwarmEvent::NewExternalAddrCandidate { address } => {
-				trace!(target: "sub-libp2p", "Libp2p => NewExternalAddrCandidate: {address:?}");
+				trace!(target: LOG_TARGET, "Libp2p => NewExternalAddrCandidate: {address:?}");
 			},
 			SwarmEvent::ExternalAddrConfirmed { address } => {
-				trace!(target: "sub-libp2p", "Libp2p => ExternalAddrConfirmed: {address:?}");
+				trace!(target: LOG_TARGET, "Libp2p => ExternalAddrConfirmed: {address:?}");
 			},
 			SwarmEvent::ExternalAddrExpired { address } => {
-				trace!(target: "sub-libp2p", "Libp2p => ExternalAddrExpired: {address:?}");
+				trace!(target: LOG_TARGET, "Libp2p => ExternalAddrExpired: {address:?}");
 			},
 			SwarmEvent::NewExternalAddrOfPeer { peer_id, address } => {
-				trace!(target: "sub-libp2p", "Libp2p => NewExternalAddrOfPeer({peer_id:?}): {address:?}")
+				trace!(target: LOG_TARGET, "Libp2p => NewExternalAddrOfPeer({peer_id:?}): {address:?}")
 			},
 			event => {
-				warn!(target: "sub-libp2p", "New unknown SwarmEvent libp2p event: {event:?}");
+				warn!(target: LOG_TARGET, "New unknown SwarmEvent libp2p event: {event:?}");
 			},
 		}
 	}
