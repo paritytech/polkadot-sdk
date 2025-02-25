@@ -617,6 +617,8 @@ mod disabling_with_reenabling {
 				);
 
 			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+
+			assert_ok!(Session::do_try_state());
 		});
 	}
 
@@ -637,6 +639,8 @@ mod disabling_with_reenabling {
 			// Disable 7 and enable 1
 			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
 			assert_eq!(disabling_decision.reenable.unwrap(), 0);
+
+			assert_ok!(Session::do_try_state());
 		});
 	}
 
