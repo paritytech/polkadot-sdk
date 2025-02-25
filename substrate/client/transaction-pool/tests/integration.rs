@@ -20,8 +20,8 @@
 pub mod zombienet;
 
 use crate::zombienet::{
-	asset_hub_based_network_spec_paths::HIGH_POOL_LIMIT_FATP, default_zn_scenario_builder,
-	NetworkSpawner,
+	asset_hub_based_network_spec_paths::{HIGH_POOL_LIMIT_FATP, HIGH_POOL_LIMIT_FATP_RELAYCHAIN},
+	default_zn_scenario_builder, NetworkSpawner,
 };
 use txtesttool::execution_log::ExecutionLog;
 
@@ -77,7 +77,9 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn send_future_and_ready_from_many_accounts_to_relaychain() {
-	let net = NetworkSpawner::from_toml_with_env_logger(HIGH_POOL_LIMIT_FATP).await.unwrap();
+	let net = NetworkSpawner::from_toml_with_env_logger(HIGH_POOL_LIMIT_FATP_RELAYCHAIN)
+		.await
+		.unwrap();
 
 	// Wait for the paracha validator to start block production & have its genesis block
 	// finalized.

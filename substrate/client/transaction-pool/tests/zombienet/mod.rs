@@ -32,6 +32,8 @@ pub mod asset_hub_based_network_spec_paths {
 		"tests/zombienet/network-specs/asset-hub-low-pool-limit-fatp.toml";
 	pub const HIGH_POOL_LIMIT_FATP: &'static str =
 		"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp.toml";
+	pub const HIGH_POOL_LIMIT_FATP_RELAYCHAIN: &'static str =
+		"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp-relaychain.toml";
 	pub const HIGH_POOL_LIMIT_SSTP_3_COLLATORS: &'static str =
 		"tests/zombienet/network-specs/asset-hub-high-pool-limit-sstp-3-collators.toml";
 	pub const HIGH_POOL_LIMIT_SSTP_4_COLLATORS: &'static str =
