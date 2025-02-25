@@ -197,6 +197,7 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 	}
 
 	fn start() -> Result<(), Self::Error> {
+		// noop, we are always ready!
 		Ok(())
 	}
 

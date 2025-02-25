@@ -426,7 +426,8 @@ impl<
 	fn status() -> Result<bool, ()> {
 		use frame_election_provider_support::ElectionDataProvider;
 		let now = frame_system::Pallet::<T>::block_number();
-		// TODO: reword this prediction as a standalone helper to use in other pallets.
+		// TODO: redo this prediction as a standalone helper to use in other pallets. Atm it forces
+		// us to keep this deprecated API in code.
 		let prediction = Pallet::<T>::next_election_prediction(now);
 		let pages_bn: frame_system::pallet_prelude::BlockNumberFor<T> = SP::Pages::get().into();
 		if now + pages_bn >= prediction {
