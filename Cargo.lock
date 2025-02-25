@@ -21361,13 +21361,8 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
-<<<<<<< HEAD
- "staging-xcm 7.0.0",
- "thiserror",
-=======
  "staging-xcm 7.0.1",
- "thiserror 1.0.65",
->>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
+ "thiserror",
  "tokio",
 ]
 
