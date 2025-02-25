@@ -13,15 +13,39 @@ Build/install binaries from above.
 
 Then:
 
-```
+From the `polkadot-sdk` project root dir:
+
+```bash
 cargo build --release -p asset-hub-next-westend-runtime -p staging-chain-spec-builder
-../../../../../target/release/chain-spec-builder create --runtime ../../../../../target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm --relay-chain rococo-local --para-id 1100 named-preset genesis
+./target/release/chain-spec-builder create --runtime ./target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm --relay-chain westend-local --para-id 1100 named-preset development
+./target/release/chain-spec-builder convert-to-raw ./chain_spec.json
 ```
 
 Note that the para-id is set in the chain-spec too and must be 1100 to match.
 
-### Chopsticks quickstart
+If errors like
+
+```bash
+$ npx @acala-network/chopsticks@latest -c ./cumulus/parachains/runtimes/assets/asset-hub-next-westend/ah-next-chopsticks.yml --genesis chain_spec.json
+
+ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "undefined",
+    "path": [
+      "genesis",
+      "raw"
+    ],
+    "message": "Required"
+  }
+]
 ```
+
+it is likely that the third step above `chain-spec-builder convert-to-raw` was forgotten.
+
+### Chopsticks quickstart
+```bash
 npx @acala-network/chopsticks@latest -c ./cumulus/parachains/runtimes/assets/asset-hub-next-westend/ah-next-chopsticks.yml --genesis chain_spec.json
 ```
 Access it via localhost:8000 in [pjs apps](https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8000) or programatically with PAPI etc.
