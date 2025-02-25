@@ -23,6 +23,7 @@ use crate::{
 		NodeExtraArgs,
 	},
 };
+use chain_spec_builder::ChainSpecBuilder;
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
@@ -31,7 +32,6 @@ use sc_cli::{
 };
 use sc_service::{config::PrometheusConfig, BasePath};
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
-
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
 ///
@@ -89,9 +89,16 @@ pub enum Subcommand {
 	/// Revert the chain to a previous state.
 	Revert(sc_cli::RevertCmd),
 
+	/// Subcommand for generating and managing chain specifications.
+	///
+	/// Unlike `build-spec`, which generates a chain specification based on existing
+	/// configurations, `chain-spec-builder` provides a more interactive and customizable approach
+	/// to defining a chain spec. It allows users to create specifications with additional
+	/// parameters and validation steps before finalizing the output.
+	ChainSpecBuilder(ChainSpecBuilder),
+
 	/// Remove the whole chain.
 	PurgeChain(cumulus_client_cli::PurgeChainCmd),
-
 	/// Export the genesis state of the parachain.
 	#[command(alias = "export-genesis-state")]
 	ExportGenesisHead(cumulus_client_cli::ExportGenesisHeadCommand),
