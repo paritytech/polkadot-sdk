@@ -20,9 +20,6 @@
 use crate as pallet_bounties;
 use crate::{tests::utils::*, Event as BountiesEvent, *};
 
-use core::cell::RefCell;
-
-use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{tokens::UnityAssetBalanceConversion, ConstU32, ConstU64, OnInitialize},
@@ -32,18 +29,6 @@ use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-/// paid balance for a given account and asset ids
-pub fn paid(who: u128, asset_id: u32) -> u64 {
-	PAID.with(|p| p.borrow().get(&(who, asset_id)).cloned().unwrap_or(0))
-}
-/// reduce paid balance for a given account and asset ids
-fn unpay(who: u128, asset_id: u32, amount: u64) {
-	PAID.with(|p| p.borrow_mut().entry((who, asset_id)).or_default().saturating_reduce(amount))
-}
-/// set status for a given payment id
-pub fn set_status(id: u64, s: PaymentStatus) {
-	STATUS.with(|m| m.borrow_mut().insert(id, s));
-}
 // This function directly jumps to a block number, and calls `on_initialize`.
 pub fn go_to_block(n: u64) {
 	<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
@@ -63,6 +48,7 @@ impl Pay for TestPay {
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
+		// Tiago: I'm not sure how to handle balances of asset_kind
 		let balance_from = Balances::free_balance(*from).saturating_sub(amount);
 		assert_ok!(Balances::force_set_balance(
 			frame_system::RawOrigin::Root.into(),

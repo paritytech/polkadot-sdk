@@ -622,6 +622,7 @@ pub mod pallet {
 					native_amount <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
 				);
+
 				// Tiago: maybe we should come up with a different error
 				if bounty.status != BountyStatus::Funded {
 					return Err(Error::<T, I>::UnexpectedStatus.into());
@@ -1322,6 +1323,7 @@ pub mod pallet {
 								)
 								.map_err(|_| Error::<T, I>::PayoutError),
 							];
+							// Tiago: process_payment does not change bounty.status state. Should it change?
 
 							let succeeded = statuses.iter().filter(|i| i.is_ok()).count();
 							if succeeded > 0 {

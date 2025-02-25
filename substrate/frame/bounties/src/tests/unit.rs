@@ -18,16 +18,17 @@
 //! bounties pallet tests.
 
 use super::mock::*;
+use super::utils::*;
 use crate as pallet_bounties;
 use crate::{
 	BadOrigin, Bounty, BountyStatus, Error, Event as BountiesEvent, PaymentState, PaymentStatus,
-	Permill,
+	Permill, Pays
 };
 
 use frame_support::{
 	assert_noop, assert_ok,
-	storage::unhashed::get,
-	traits::{Currency, Imbalance, OnInitialize},
+	traits::{Currency, Imbalance},
+	dispatch::PostDispatchInfo
 };
 
 #[test]
@@ -303,10 +304,8 @@ fn approve_bounty_with_curator_works() {
 			pallet_balances::Error::<Test, _>::InsufficientBalance
 		);
 
-		// Given
-		Balances::make_free_balance_be(&curator, 6);
-
 		// When
+		Balances::make_free_balance_be(&curator, 6);
 		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(curator), 0, 7));
 
 		// Then
@@ -1162,6 +1161,7 @@ fn approve_bounty_works_second_instance() {
 		// When
 		assert_ok!(Bounties1::approve_bounty(RuntimeOrigin::root(), 0));
 
+		// Then
 		// Bounties 1 is funded
 		assert_eq!(Balances::free_balance(Bounties1::bounty_account_id(0)), 10);
 		// Treasury 1 unchanged
@@ -1268,5 +1268,173 @@ fn propose_curator_instance1_insufficient_spend_limit_errors() {
 	});
 }
 
-// TODO: test retry claim if the payment from prev claim attempt failed.
-// TODO: test check_payment
+#[test]
+fn check_and_process_funding_and_payout_payment_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given (approve_bounty)
+		let user = 1;
+		let bounty_index = 0;
+		let value = 50;
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(1),
+			value,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+
+		// When/Then (check BountyStatus::Approved - PaymentState::Attempted - PaymentStatus::InProgress)
+		let payment_id = get_payment_id(bounty_index, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::InProgress);
+		assert_noop!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
+			Error::<Test>::FundingInconclusive
+		);
+
+		// When/Then (check BountyStatus::Approved - PaymentState::Attempted - PaymentStatus::Failure)
+		set_status(payment_id, PaymentStatus::Failure);
+		assert_eq!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
+			Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::No })
+		);
+
+		// When/Then (check BountyStatus::Approved - PaymentState::Failed)
+		assert_noop!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// When
+		assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_index));
+		let payment_id = get_payment_id(bounty_index, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::Success);
+		assert_ok!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index)
+		);
+
+		// Then
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee: 0,
+				asset_kind: 1,
+				value: 50,
+				curator_deposit: 0,
+				bond: 85,
+				status: BountyStatus::Funded 
+			}
+		);
+
+		// Given (claim_bounty)
+		let curator = 4;
+		let fee = 1;
+		let curator_stash = 7;
+		let beneficiary = 3;
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, curator, fee));
+		Balances::make_free_balance_be(&curator, 6);
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(curator), 0, curator_stash));
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(curator), 0, beneficiary));
+		go_to_block(5);
+		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(beneficiary), 0));
+		
+		// When (check BountyStatus::PayoutAttempted - PaymentState::Attempted - 2x PaymentStatus::InProgress)
+		let beneficiary_payment_id = get_payment_id(bounty_index, Some(beneficiary)).expect("no payment attempt");
+		set_status(beneficiary_payment_id, PaymentStatus::InProgress);
+		let curator_payment_id = get_payment_id(bounty_index, Some(curator_stash)).expect("no payment attempt");
+		set_status(curator_payment_id, PaymentStatus::InProgress);
+		assert_noop!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
+			Error::<Test>::PayoutInconclusive
+		);
+
+		// When/Then (check BountyStatus::PayoutAttempted - PaymentState::PayoutAttempted - 1x PaymentStatus::Failure)
+		set_status(beneficiary_payment_id, PaymentStatus::Failure);
+		assert_eq!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
+			Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes })
+		);
+
+		// When/Then (check BountyStatus::Approved - PaymentState::Failed)
+		assert_noop!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// When
+		// TODO: continue
+		// Tiago: process_payment does not change bounty.status state. Should it change?
+		// assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_index));
+		// let beneficiary_payment_id = get_payment_id(bounty_index, Some(beneficiary)).expect("no payment attempt");
+		// set_status(beneficiary_payment_id, PaymentStatus::Success);
+		// let curator_payment_id = get_payment_id(bounty_index, Some(curator_stash)).expect("no payment attempt");
+		// set_status(curator_payment_id, PaymentStatus::Success);
+		// assert_ok!(
+		// 	Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index)
+		// );
+
+
+
+
+
+
+	});
+}
+
+#[test]
+fn check_and_process_refund_payment_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given (approve_bounty)
+		let user = 1;
+		let bounty_index = 0;
+		let value = 50;
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(1),
+			value,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		let payment_id = get_payment_id(bounty_index, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::Success);
+		assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index));
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+
+		// When/Then (check BountyStatus::RefundAttempted - PaymentState::Attempted - PaymentStatus::InProgress)
+		let payment_id = get_payment_id(bounty_index, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::InProgress);
+		assert_noop!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
+			Error::<Test>::RefundInconclusive
+		);
+
+		// When/Then (check BountyStatus::RefundAttempted - PaymentState::Attempted - PaymentStatus::Failure)
+		set_status(payment_id, PaymentStatus::Failure);
+		assert_eq!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
+			Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes })
+		);
+
+		// When/Then (check BountyStatus::RefundAttempted - PaymentState::Failed)
+		assert_noop!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// When
+		assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_index));
+		let payment_id = get_payment_id(bounty_index, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::Success);
+		assert_ok!(
+			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index)
+		);
+
+		// Then
+		assert_eq!(last_event(), BountiesEvent::BountyCanceled { index: bounty_index });
+		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(bounty_index)), 0);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
+	});
+}

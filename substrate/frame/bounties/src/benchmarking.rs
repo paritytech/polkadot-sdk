@@ -20,14 +20,12 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate as pallet_bounties;
 use crate::{
 	tests::utils::{LAST_ID, STATUS},
 	Pallet as Bounties,
 };
 
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use core::cell::RefCell;
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
@@ -35,7 +33,7 @@ use frame_support::traits::Currency;
 use frame_system::{pallet_prelude::BlockNumberFor as SystemBlockNumberFor, RawOrigin};
 use pallet_treasury::Pallet as Treasury;
 use sp_core::crypto::FromEntropy;
-use sp_runtime::traits::{BlockNumberProvider, SaturatedConversion, UniqueSaturatedInto};
+use sp_runtime::traits::BlockNumberProvider;
 
 /// Trait describing factory functions for dispatchables' parameters.
 pub trait ArgumentsFactory<AssetKind> {
