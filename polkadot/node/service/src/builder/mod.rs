@@ -18,11 +18,13 @@
 
 #![cfg(feature = "full-node")]
 
+mod partial;
+pub(crate) use partial::{new_partial, new_partial_basics};
+
 use crate::{
 	grandpa_support, open_database,
 	overseer::{ExtendedOverseerGenArgs, OverseerGen, OverseerGenArgs},
 	parachains_db,
-	partial::{new_partial, new_partial_basics},
 	relay_chain_selection::SelectRelayChain,
 	workers, Chain, Error, FullBackend, FullClient, IdentifyVariant, IsParachainNode,
 	GRANDPA_JUSTIFICATION_PERIOD, KEEP_FINALIZED_FOR_LIVE_NETWORKS,

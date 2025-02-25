@@ -33,9 +33,6 @@ pub mod overseer;
 pub mod workers;
 
 #[cfg(feature = "full-node")]
-mod partial;
-
-#[cfg(feature = "full-node")]
 pub use crate::builder::{new_full, NewFull, NewFullParams};
 
 #[cfg(feature = "full-node")]
@@ -48,7 +45,7 @@ pub use self::overseer::{
 mod tests;
 
 #[cfg(feature = "full-node")]
-use crate::partial::{new_partial, new_partial_basics};
+use crate::builder::{new_partial, new_partial_basics};
 
 #[cfg(feature = "full-node")]
 use {
