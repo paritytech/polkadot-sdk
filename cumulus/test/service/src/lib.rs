@@ -863,6 +863,7 @@ pub fn node_config(
 		keystore: KeystoreConfig::InMemory,
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
+		force_in_memory_trie_cache: false,
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
@@ -901,7 +902,6 @@ pub fn node_config(
 		data_path: root,
 		base_path,
 		wasm_runtime_overrides: None,
-		force_in_memory_trie_cache: false,
 	})
 }
 

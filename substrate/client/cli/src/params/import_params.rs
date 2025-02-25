@@ -82,7 +82,7 @@ pub struct ImportParams {
 	pub trie_cache_size: usize,
 
 	/// Force the state cache to be in memory.
-	#[arg(long)]
+	#[arg(long, default_value_t = false)]
 	pub force_in_memory_trie_cache: bool,
 }
 
@@ -94,6 +94,11 @@ impl ImportParams {
 		} else {
 			Some(self.trie_cache_size)
 		}
+	}
+
+	/// Specify if the state cache should be in memory.
+	pub fn force_in_memory_trie_cache(&self) -> bool {
+		self.force_in_memory_trie_cache
 	}
 
 	/// Get the WASM execution method from the parameters
