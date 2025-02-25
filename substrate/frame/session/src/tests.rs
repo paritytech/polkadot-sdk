@@ -535,6 +535,7 @@ mod disabling_byzantine_threshold {
 			assert_eq!(disabling_decision.disable, Some(OFFENDER_VALIDATOR_IDX));
 		});
 	}
+	
 	#[test]
 	fn dont_disable_beyond_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
