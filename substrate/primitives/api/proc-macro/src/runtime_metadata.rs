@@ -174,6 +174,11 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 					name: #trait_name,
 					methods: #crate_::vec![ #( #methods, )* ],
 					docs: #docs,
+<<<<<<< HEAD
+=======
+					deprecation_info: #deprecation,
+					version: impl_version.into(),
+>>>>>>> 3dc3a11c (Add Runtime Api version to metadata (#7607))
 				}
 			}
 		}
