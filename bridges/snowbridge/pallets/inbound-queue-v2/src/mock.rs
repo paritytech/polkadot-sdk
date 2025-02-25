@@ -20,7 +20,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
 	BuildStorage, MultiSignature,
 };
-use sp_std::{convert::From, default::Default};
+use sp_std::{convert::From, default::Default, marker::PhantomData};
 use xcm::{latest::SendXcm, opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -170,6 +170,15 @@ impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 	}
 }
 
+pub struct MockAccountLocationConverter<AccountId>(PhantomData<AccountId>);
+impl<'a, AccountId: Clone + Clone> TryConvert<&'a AccountId, Location>
+	for MockAccountLocationConverter<AccountId>
+{
+	fn try_convert(_who: &AccountId) -> Result<Location, &AccountId> {
+		Ok(Location::here())
+	}
+}
+
 parameter_types! {
 	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
@@ -204,6 +213,7 @@ impl inbound_queue_v2::Config for Test {
 	type WeightInfo = ();
 	type WeightToFee = IdentityFee<u128>;
 	type Token = Balances;
+	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 }
 
 pub fn setup() {
@@ -345,6 +355,7 @@ pub mod mock_xcm_send_failure {
 		type WeightInfo = ();
 		type WeightToFee = IdentityFee<u128>;
 		type Token = Balances;
+		type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	}
 
 	impl snowbridge_pallet_ethereum_client::Config for TestXcmSendFailure {
@@ -389,6 +400,12 @@ pub mod mock_xcm_send_failure {
 
 pub mod mock_xcm_validate_failure {
 	use super::*;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
+		// not implemented since the MockVerifier is used for tests
+		fn initialize_storage(_: BeaconHeader, _: H256) {}
+	}
 
 	frame_support::construct_runtime!(
 		pub enum Test
@@ -438,6 +455,7 @@ pub mod mock_xcm_validate_failure {
 		type WeightInfo = ();
 		type WeightToFee = IdentityFee<u128>;
 		type Token = Balances;
+		type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	}
 
 	impl snowbridge_pallet_ethereum_client::Config for Test {
@@ -474,6 +492,12 @@ pub mod mock_xcm_validate_failure {
 
 pub mod mock_charge_fees_failure {
 	use super::*;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
+		// not implemented since the MockVerifier is used for tests
+		fn initialize_storage(_: BeaconHeader, _: H256) {}
+	}
 
 	frame_support::construct_runtime!(
 		pub enum Test
@@ -523,6 +547,7 @@ pub mod mock_charge_fees_failure {
 		type WeightInfo = ();
 		type WeightToFee = IdentityFee<u128>;
 		type Token = Balances;
+		type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	}
 
 	impl snowbridge_pallet_ethereum_client::Config for Test {

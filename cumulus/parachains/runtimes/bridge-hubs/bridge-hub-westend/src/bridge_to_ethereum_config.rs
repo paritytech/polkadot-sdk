@@ -154,8 +154,11 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 		EthereumUniversalLocation,
 		AssetHubFromEthereum,
 	>;
+	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
+		xcm_config::RelayNetwork,
+		<Runtime as frame_system::Config>::AccountId,
+	>;
 	type RewardKind = BridgeReward;
-
 	type DefaultRewardKind = DefaultMyRewardKind;
 	type RewardPayment = BridgeRelayers;
 }
