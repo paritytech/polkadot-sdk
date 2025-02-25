@@ -136,6 +136,19 @@ fn reserve_transfer() {
 			relay_chain::Balances::free_balance(&child_account_id(1)),
 			INITIAL_BALANCE + withdraw_amount
 		);
+		// Ensure expected events were emitted
+		let events = relay_chain::System::events();
+		let attempted_count = count_relay_chain_events(&events, |event| {
+			matches!(
+				event,
+				relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
+			)
+		});
+		let sent_count = count_relay_chain_events(&events, |event| {
+			matches!(event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }))
+		});
+		assert_eq!(attempted_count, 1, "Expected one XcmPallet::Attempted event");
+		assert_eq!(sent_count, 1, "Expected one XcmPallet::Sent event");
 	});
 
 	ParaA::execute_with(|| {
@@ -144,6 +157,62 @@ fn reserve_transfer() {
 			pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
 			INITIAL_BALANCE + withdraw_amount
 		);
+	});
+}
+
+#[test]
+fn reserve_transfer_with_error() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	// Reset the test network
+	MockNet::reset();
+
+	// Execute XCM Transfer and Capture Logs
+	let (log_capture, subscriber) = init_log_capture(Level::ERROR);
+	subscriber::with_default(subscriber, || {
+		let invalid_dest = Box::new(Parachain(9999).into());
+		let withdraw_amount = 123;
+
+		Relay::execute_with(|| {
+			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
+				relay_chain::RuntimeOrigin::signed(ALICE),
+				invalid_dest,
+				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
+				Box::new((Here, withdraw_amount).into()),
+				0,
+				Unlimited,
+			);
+
+			// Ensure an error occurred
+			assert!(result.is_err(), "Expected an error due to invalid destination");
+
+			// Assert captured logs
+			assert!(log_capture.contains("XCM validate_send failed"));
+
+			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
+			let events = relay_chain::System::events();
+			let xcm_attempted_emitted = events.iter().any(|e| {
+				matches!(
+					e.event,
+					relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
+				)
+			});
+			assert!(
+				!xcm_attempted_emitted,
+				"Expected no XcmPallet::Attempted event due to rollback, but it was emitted"
+			);
+		});
+
+		// Ensure no balance change due to the error
+		ParaA::execute_with(|| {
+			assert_eq!(
+				pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
+				INITIAL_BALANCE
+			);
+		});
 	});
 }
 
@@ -510,4 +579,14 @@ fn query_holding() {
 			}])],
 		);
 	});
+}
+
+fn count_relay_chain_events<F>(
+	events: &[frame_system::EventRecord<relay_chain::RuntimeEvent, sp_core::H256>],
+	predicate: F,
+) -> usize
+where
+	F: Fn(&relay_chain::RuntimeEvent) -> bool,
+{
+	events.iter().filter(|e| predicate(&e.event)).count()
 }

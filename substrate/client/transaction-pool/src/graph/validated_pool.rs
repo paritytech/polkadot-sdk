@@ -35,6 +35,7 @@ use std::time::Instant;
 
 use super::{
 	base_pool::{self as base, PruneStatus},
+	listener::EventHandler,
 	pool::{
 		BlockHash, ChainApi, EventStream, ExtrinsicFor, ExtrinsicHash, Options, TransactionFor,
 	},
@@ -91,8 +92,8 @@ impl<Hash, Ex, Error> ValidatedTransaction<Hash, Ex, Error> {
 pub type ValidatedTransactionFor<B> =
 	ValidatedTransaction<ExtrinsicHash<B>, ExtrinsicFor<B>, <B as ChainApi>::Error>;
 
-/// A type alias representing ValidatedPool listener for given ChainApi type.
-pub type Listener<B> = super::listener::Listener<ExtrinsicHash<B>, B>;
+/// A type alias representing ValidatedPool event dispatcher for given ChainApi type.
+pub type EventDispatcher<B, L> = super::listener::EventDispatcher<ExtrinsicHash<B>, B, L>;
 
 /// A closure that returns true if the local node is a validator that can author blocks.
 #[derive(Clone)]
@@ -155,23 +156,23 @@ impl<B: ChainApi, W> BaseSubmitOutcome<B, W> {
 }
 
 /// Pool that deals with validated transactions.
-pub struct ValidatedPool<B: ChainApi> {
+pub struct ValidatedPool<B: ChainApi, L: EventHandler<B>> {
 	api: Arc<B>,
 	is_validator: IsValidator,
 	options: Options,
-	listener: RwLock<Listener<B>>,
+	event_dispatcher: RwLock<EventDispatcher<B, L>>,
 	pub(crate) pool: RwLock<base::BasePool<ExtrinsicHash<B>, ExtrinsicFor<B>>>,
 	import_notification_sinks: Mutex<Vec<Sender<ExtrinsicHash<B>>>>,
 	rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
-impl<B: ChainApi> Clone for ValidatedPool<B> {
+impl<B: ChainApi, L: EventHandler<B>> Clone for ValidatedPool<B, L> {
 	fn clone(&self) -> Self {
 		Self {
 			api: self.api.clone(),
 			is_validator: self.is_validator.clone(),
 			options: self.options.clone(),
-			listener: Default::default(),
+			event_dispatcher: Default::default(),
 			pool: RwLock::from(self.pool.read().clone()),
 			import_notification_sinks: Default::default(),
 			rotator: self.rotator.clone(),
@@ -179,7 +180,16 @@ impl<B: ChainApi> Clone for ValidatedPool<B> {
 	}
 }
 
-impl<B: ChainApi> ValidatedPool<B> {
+impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
+	pub fn deep_clone_with_event_handler(&self, event_handler: L) -> Self {
+		Self {
+			event_dispatcher: RwLock::new(EventDispatcher::new_with_event_handler(Some(
+				event_handler,
+			))),
+			..self.clone()
+		}
+	}
+
 	/// Create a new transaction pool with statically sized rotator.
 	pub fn new_with_staticly_sized_rotator(
 		options: Options,
@@ -187,7 +197,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		api: Arc<B>,
 	) -> Self {
 		let ban_time = options.ban_time;
-		Self::new_with_rotator(options, is_validator, api, PoolRotator::new(ban_time))
+		Self::new_with_rotator(options, is_validator, api, PoolRotator::new(ban_time), None)
 	}
 
 	/// Create a new transaction pool.
@@ -199,6 +209,25 @@ impl<B: ChainApi> ValidatedPool<B> {
 			is_validator,
 			api,
 			PoolRotator::new_with_expected_size(ban_time, total_count),
+			None,
+		)
+	}
+
+	/// Create a new transaction pool with given event handler.
+	pub fn new_with_event_handler(
+		options: Options,
+		is_validator: IsValidator,
+		api: Arc<B>,
+		event_handler: L,
+	) -> Self {
+		let ban_time = options.ban_time;
+		let total_count = options.total_count();
+		Self::new_with_rotator(
+			options,
+			is_validator,
+			api,
+			PoolRotator::new_with_expected_size(ban_time, total_count),
+			Some(event_handler),
 		)
 	}
 
@@ -207,12 +236,13 @@ impl<B: ChainApi> ValidatedPool<B> {
 		is_validator: IsValidator,
 		api: Arc<B>,
 		rotator: PoolRotator<ExtrinsicHash<B>>,
+		event_handler: Option<L>,
 	) -> Self {
 		let base_pool = base::BasePool::new(options.reject_future_transactions);
 		Self {
 			is_validator,
 			options,
-			listener: Default::default(),
+			event_dispatcher: RwLock::new(EventDispatcher::new_with_event_handler(event_handler)),
 			api,
 			pool: RwLock::new(base_pool),
 			import_notification_sinks: Default::default(),
@@ -309,8 +339,8 @@ impl<B: ChainApi> ValidatedPool<B> {
 					});
 				}
 
-				let mut listener = self.listener.write();
-				fire_events(&mut *listener, &imported);
+				let mut event_dispatcher = self.event_dispatcher.write();
+				fire_events(&mut *event_dispatcher, &imported);
 				Ok(ValidatedPoolSubmitOutcome::new(*imported.hash(), Some(priority)))
 			},
 			ValidatedTransaction::Invalid(hash, err) => {
@@ -320,7 +350,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 			},
 			ValidatedTransaction::Unknown(hash, err) => {
 				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one unknown {:?}", hash, err);
-				self.listener.write().invalid(&hash);
+				self.event_dispatcher.write().invalid(&hash);
 				Err(err)
 			},
 		}
@@ -360,9 +390,9 @@ impl<B: ChainApi> ValidatedPool<B> {
 			}
 
 			// run notifications
-			let mut listener = self.listener.write();
+			let mut event_dispatcher = self.event_dispatcher.write();
 			for h in &removed {
-				listener.limits_enforced(h);
+				event_dispatcher.limits_enforced(h);
 			}
 
 			removed
@@ -398,12 +428,12 @@ impl<B: ChainApi> ValidatedPool<B> {
 		&self,
 		tx_hash: ExtrinsicHash<B>,
 	) -> Watcher<ExtrinsicHash<B>, ExtrinsicHash<B>> {
-		self.listener.write().create_watcher(tx_hash)
+		self.event_dispatcher.write().create_watcher(tx_hash)
 	}
 
 	/// Provides a list of hashes for all watched transactions in the pool.
 	pub fn watched_transactions(&self) -> Vec<ExtrinsicHash<B>> {
-		self.listener.read().watched_transactions().map(Clone::clone).collect()
+		self.event_dispatcher.read().watched_transactions().map(Clone::clone).collect()
 	}
 
 	/// Resubmits revalidated transactions back to the pool.
@@ -528,15 +558,15 @@ impl<B: ChainApi> ValidatedPool<B> {
 		};
 
 		// and now let's notify listeners about status changes
-		let mut listener = self.listener.write();
+		let mut event_dispatcher = self.event_dispatcher.write();
 		for (hash, final_status) in final_statuses {
 			let initial_status = initial_statuses.remove(&hash);
 			if initial_status.is_none() || Some(final_status) != initial_status {
 				match final_status {
-					Status::Future => listener.future(&hash),
-					Status::Ready => listener.ready(&hash, None),
-					Status::Dropped => listener.dropped(&hash),
-					Status::Failed => listener.invalid(&hash),
+					Status::Future => event_dispatcher.future(&hash),
+					Status::Ready => event_dispatcher.ready(&hash, None),
+					Status::Dropped => event_dispatcher.dropped(&hash),
+					Status::Failed => event_dispatcher.invalid(&hash),
 				}
 			}
 		}
@@ -569,12 +599,12 @@ impl<B: ChainApi> ValidatedPool<B> {
 		// Notify event listeners of all transactions
 		// that were promoted to `Ready` or were dropped.
 		{
-			let mut listener = self.listener.write();
+			let mut event_dispatcher = self.event_dispatcher.write();
 			for promoted in &status.promoted {
-				fire_events(&mut *listener, promoted);
+				fire_events(&mut *event_dispatcher, promoted);
 			}
 			for f in &status.failed {
-				listener.dropped(f);
+				event_dispatcher.dropped(f);
 			}
 		}
 
@@ -618,13 +648,13 @@ impl<B: ChainApi> ValidatedPool<B> {
 		at: &HashAndNumber<B::Block>,
 		hashes: impl Iterator<Item = ExtrinsicHash<B>>,
 	) {
-		let mut listener = self.listener.write();
+		let mut event_dispatcher = self.event_dispatcher.write();
 		let mut set = HashSet::with_capacity(hashes.size_hint().0);
 		for h in hashes {
 			// `hashes` has possibly duplicate hashes.
 			// we'd like to send out the `InBlock` notification only once.
 			if !set.contains(&h) {
-				listener.pruned(at.hash, &h);
+				event_dispatcher.pruned(at.hash, &h);
 				set.insert(h);
 			}
 		}
@@ -681,9 +711,9 @@ impl<B: ChainApi> ValidatedPool<B> {
 
 	/// Invoked when extrinsics are broadcasted.
 	pub fn on_broadcasted(&self, propagated: HashMap<ExtrinsicHash<B>, Vec<String>>) {
-		let mut listener = self.listener.write();
+		let mut event_dispatcher = self.event_dispatcher.write();
 		for (hash, peers) in propagated.into_iter() {
-			listener.broadcasted(&hash, peers);
+			event_dispatcher.broadcasted(&hash, peers);
 		}
 	}
 
@@ -736,27 +766,13 @@ impl<B: ChainApi> ValidatedPool<B> {
 			"Attempting to notify watchers of finalization for {}",
 			block_hash,
 		);
-		self.listener.write().finalized(block_hash);
+		self.event_dispatcher.write().finalized(block_hash);
 		Ok(())
 	}
 
-	/// Notify the listener of retracted blocks
+	/// Notify the event_dispatcher of retracted blocks
 	pub fn on_block_retracted(&self, block_hash: BlockHash<B>) {
-		self.listener.write().retracted(block_hash)
-	}
-
-	/// Refer to [`Listener::create_dropped_by_limits_stream`] for details.
-	pub fn create_dropped_by_limits_stream(
-		&self,
-	) -> super::listener::AggregatedStream<ExtrinsicHash<B>, BlockHash<B>> {
-		self.listener.write().create_dropped_by_limits_stream()
-	}
-
-	/// Refer to [`Listener::create_aggregated_stream`]
-	pub fn create_aggregated_stream(
-		&self,
-	) -> super::listener::AggregatedStream<ExtrinsicHash<B>, BlockHash<B>> {
-		self.listener.write().create_aggregated_stream()
+		self.event_dispatcher.write().retracted(block_hash)
 	}
 
 	/// Resends ready and future events for all the ready and future transactions that are already
@@ -765,12 +781,12 @@ impl<B: ChainApi> ValidatedPool<B> {
 	/// Intended to be called after cloning the instance of `ValidatedPool`.
 	pub fn retrigger_notifications(&self) {
 		let pool = self.pool.read();
-		let mut listener = self.listener.write();
+		let mut event_dispatcher = self.event_dispatcher.write();
 		pool.ready().for_each(|r| {
-			listener.ready(&r.hash, None);
+			event_dispatcher.ready(&r.hash, None);
 		});
 		pool.futures().for_each(|f| {
-			listener.future(&f.hash);
+			event_dispatcher.future(&f.hash);
 		});
 	}
 
@@ -782,21 +798,21 @@ impl<B: ChainApi> ValidatedPool<B> {
 	/// The root transaction will be banned from re-entrering the pool. Descendant transactions may
 	/// be re-submitted to the pool if required.
 	///
-	/// A `listener_action` callback function is invoked for every transaction that is removed,
-	/// providing a reference to the pool's listener and the hash of the removed transaction. This
-	/// allows to trigger the required events.
+	/// A `event_disaptcher_action` callback function is invoked for every transaction that is
+	/// removed, providing a reference to the pool's event dispatcher and the hash of the removed
+	/// transaction. This allows to trigger the required events.
 	///
 	/// Returns a vector containing the hashes of all removed transactions, including the root
 	/// transaction specified by `tx_hash`.
 	pub fn remove_subtree<F>(
 		&self,
 		hashes: &[ExtrinsicHash<B>],
-		listener_action: F,
+		event_dispatcher_action: F,
 	) -> Vec<TransactionFor<B>>
 	where
-		F: Fn(&mut Listener<B>, ExtrinsicHash<B>),
+		F: Fn(&mut EventDispatcher<B, L>, ExtrinsicHash<B>),
 	{
-		// temporarily ban invalid transactions
+		// temporarily ban removed transactions
 		self.rotator.ban(&Instant::now(), hashes.iter().cloned());
 		let removed = self.pool.write().remove_subtree(hashes);
 
@@ -804,25 +820,28 @@ impl<B: ChainApi> ValidatedPool<B> {
 			.into_iter()
 			.map(|tx| {
 				let removed_tx_hash = tx.hash;
-				let mut listener = self.listener.write();
-				listener_action(&mut *listener, removed_tx_hash);
+				let mut event_dispatcher = self.event_dispatcher.write();
+				event_dispatcher_action(&mut *event_dispatcher, removed_tx_hash);
 				tx.clone()
 			})
 			.collect::<Vec<_>>()
 	}
 }
 
-fn fire_events<B, Ex>(listener: &mut Listener<B>, imported: &base::Imported<ExtrinsicHash<B>, Ex>)
-where
+fn fire_events<B, L, Ex>(
+	event_dispatcher: &mut EventDispatcher<B, L>,
+	imported: &base::Imported<ExtrinsicHash<B>, Ex>,
+) where
 	B: ChainApi,
+	L: EventHandler<B>,
 {
 	match *imported {
 		base::Imported::Ready { ref promoted, ref failed, ref removed, ref hash } => {
-			listener.ready(hash, None);
-			failed.iter().for_each(|f| listener.invalid(f));
-			removed.iter().for_each(|r| listener.usurped(&r.hash, hash));
-			promoted.iter().for_each(|p| listener.ready(p, None));
+			event_dispatcher.ready(hash, None);
+			failed.iter().for_each(|f| event_dispatcher.invalid(f));
+			removed.iter().for_each(|r| event_dispatcher.usurped(&r.hash, hash));
+			promoted.iter().for_each(|p| event_dispatcher.ready(p, None));
 		},
-		base::Imported::Future { ref hash } => listener.future(hash),
+		base::Imported::Future { ref hash } => event_dispatcher.future(hash),
 	}
 }
