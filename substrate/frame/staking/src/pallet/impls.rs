@@ -1200,7 +1200,6 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
 		log!(info, "[bounds {:?}] generated {} npos targets", bounds, all_targets.len());
 
 		all_targets
