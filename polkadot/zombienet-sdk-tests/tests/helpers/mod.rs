@@ -90,7 +90,7 @@ pub async fn assert_finality_lag_less_than(
 		let height = best_block?.number();
 		assert_finalized_block_height(client, height - lag..height).await?;
 	} else {
-		assert!(false, "No best block received");
+		return Err(anyhow::anyhow!("No best block received"));
 	}
 	Ok(())
 }

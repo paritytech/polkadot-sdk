@@ -70,7 +70,6 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Waiting for network to initialize");
 	let relay_node = network.get_node("validator-0")?;
-	let para_node_2001 = network.get_node("collator-undying-2000")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
