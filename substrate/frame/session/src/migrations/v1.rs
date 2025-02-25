@@ -49,14 +49,14 @@ impl<T: Config> MigrateDisabledValidators for InitOffenceSeverity<T> {
 	fn peek_disabled() -> Vec<(u32, OffenceSeverity)> {
 		DisabledValidators::<T>::get()
 			.iter()
-			.map(|v| (*v, OffenceSeverity(Perbill::from_percent(100))))
+			.map(|v| (*v, OffenceSeverity::default()))
 			.collect::<Vec<_>>()
 	}
 
 	fn take_disabled() -> Vec<(u32, OffenceSeverity)> {
 		DisabledValidators::<T>::take()
 			.iter()
-			.map(|v| (*v, OffenceSeverity(Perbill::from_percent(100))))
+			.map(|v| (*v, OffenceSeverity::default()))
 			.collect::<Vec<_>>()
 	}
 }
