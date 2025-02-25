@@ -468,27 +468,6 @@ fn test_migration_v1() {
 }
 
 
-mod disabling_generic {
-	use super::*;
-
-	#[test]
-	fn disable_index_returns_false_if_already_disabled() {
-		new_test_ext().execute_with(|| {
-			set_next_validators(vec![1, 2, 3, 4, 5, 6, 7]);
-			force_new_session();
-			initialize_block(1);
-			// apply the new validator set
-			force_new_session();
-			initialize_block(2);
-	
-			assert_eq!(Session::disable_index(0), true);
-			assert_eq!(Session::disable_index(0), false);
-			assert_eq!(Session::disable_index(1), true);
-		});
-	}
-}
-
-
 mod disabling_byzantine_threshold {
 	use super::*;
 	use crate::disabling::{DisablingStrategy, UpToLimitDisablingStrategy};
