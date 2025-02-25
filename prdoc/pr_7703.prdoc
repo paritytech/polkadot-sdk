@@ -1,0 +1,12 @@
+title: 'Add voting hooks to Conviction_Voting'
+doc:
+  - audience: Runtime Dev
+    description: |
+      This change does not change the original behavior.
+      Anything that integrates conviction-voting pallet, 
+      can decide to implement the voting hooks 
+      and perform desirable action on events such as 
+      on_vote and on_remove_vote.
+crates: 
+- name: pallet-conviction-voting
+  bump: minor
