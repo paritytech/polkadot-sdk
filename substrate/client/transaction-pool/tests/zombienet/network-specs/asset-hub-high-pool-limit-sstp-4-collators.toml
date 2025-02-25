@@ -29,12 +29,18 @@ default_args = [
 	"--rpc-max-response-size 150",
 	"--rpc-max-subscriptions-per-connection=128000",
 	"--state-pruning=1024",
+	#	"-laura::cumulus=debug",
 	"-laura::cumulus=info",
+	#	"-lbasic-authorship=debug",
 	"-lbasic-authorship=info",
+	#	"-lpeerset=trace",
 	"-lpeerset=info",
+	#	"-lsub-libp2p=debug",
 	"-lsub-libp2p=info",
+	#	"-lsync=trace",
 	"-lsync=info",
-	"-ltxpool=info",
+	#	"-ltxpool=trace",
+	"-ltxpool=debug",
 ]
 [parachains.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
