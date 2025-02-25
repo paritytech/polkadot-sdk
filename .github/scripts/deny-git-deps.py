@@ -16,7 +16,6 @@ KNOWN_BAD_GIT_DEPS = {
 	# Fix in <https://github.com/paritytech/polkadot-sdk/issues/2922>
 	'bandersnatch_vrfs': ['sp-core'],
 	'subwasmlib': ['polkadot-zombienet-sdk-tests'],
-    'tx-test-tool': ['sc-transaction-pool']
 }
 
 root = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
@@ -42,7 +41,7 @@ for dep in workspace.dependencies:
 # And the dependencies of each crate:
 for crate in workspace.crates:
 	for dep in crate.dependencies:
-        check_dep(dep, crate.name)
+		check_dep(dep, crate.name)
 
 if errors:
 	print('❌ Found errors:')
