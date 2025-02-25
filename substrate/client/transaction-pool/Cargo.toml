@@ -52,10 +52,10 @@ sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
+txtesttool = { version = "0.1.0", package = "substrate-txtesttool" }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
-txtesttool = { git = "https://github.com/iulianbarbu/tx-test-tool.git", branch = "provide-a-ttxt-api" }
 zombienet-configuration = { workspace = true }
 zombienet-sdk = { workspace = true }
 

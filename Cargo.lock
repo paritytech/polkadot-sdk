@@ -24254,12 +24254,12 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
+ "substrate-txtesttool",
  "thiserror 1.0.69",
  "tokio",
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
- "txtesttool",
  "zombienet-configuration",
  "zombienet-sdk",
 ]
@@ -29502,6 +29502,39 @@ name = "substrate-test-utils"
 version = "4.0.0-dev"
 
 [[package]]
+name = "substrate-txtesttool"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53151b7169b0e695c2a326e566d04d21085dcd6f7f88984c1e0477b3053981e4"
+dependencies = [
+ "async-trait",
+ "average",
+ "chrono",
+ "clap 4.5.30",
+ "clap_derive",
+ "ctrlc",
+ "futures",
+ "futures-util",
+ "hex",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "rand 0.9.0",
+ "serde",
+ "serde_json",
+ "subxt 0.39.0",
+ "subxt-core 0.39.0",
+ "subxt-signer 0.39.0",
+ "termplot",
+ "thiserror 2.0.11",
+ "time",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "substrate-wasm-builder"
 version = "17.0.0"
 dependencies = [
@@ -31173,38 +31206,6 @@ dependencies = [
  "digest 0.10.7",
  "rand 0.8.5",
  "static_assertions",
-]
-
-[[package]]
-name = "txtesttool"
-version = "0.1.0"
-source = "git+https://github.com/iulianbarbu/tx-test-tool.git?branch=provide-a-ttxt-api#100ab7058b7d1405ab4809b6ca90f18d35f6359a"
-dependencies = [
- "async-trait",
- "average",
- "chrono",
- "clap 4.5.30",
- "clap_derive",
- "ctrlc",
- "futures",
- "futures-util",
- "hex",
- "jsonrpsee",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "rand 0.9.0",
- "serde",
- "serde_json",
- "subxt 0.39.0",
- "subxt-core 0.39.0",
- "subxt-signer 0.39.0",
- "termplot",
- "thiserror 2.0.11",
- "time",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
