@@ -44,7 +44,7 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;
 use sp_io::storage;
@@ -137,7 +137,17 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
 }
 
 /// Origin for the collective module.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(I))]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 pub enum RawOrigin<AccountId, I> {

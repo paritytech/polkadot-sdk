@@ -31,11 +31,11 @@ use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
-	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
-	MaxEncodedLen,
+	self, decode_vec_with_len, Compact, Decode, DecodeWithMemTracking, Encode, Error as CodecError,
+	Input as CodecInput, MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
-use derivative::Derivative;
+use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
@@ -65,8 +65,8 @@ pub const VERSION: super::Version = 4;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, TypeInfo)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive(Default, Encode, DecodeWithMemTracking, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
@@ -232,7 +232,9 @@ parameter_types! {
 	pub MaxPalletsInfo: u32 = 64;
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct PalletInfo {
 	#[codec(compact)]
 	pub index: u32,
@@ -295,7 +297,9 @@ impl PalletInfo {
 }
 
 /// Response data to a query.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
@@ -373,7 +377,7 @@ impl TryFrom<NewResponse> for Response {
 }
 
 /// Information regarding the composition of a query response.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
 	pub destination: Location,
@@ -437,16 +441,17 @@ impl XcmContext {
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
 #[derive(
-	Derivative,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	xcm_procedural::XcmWeightInfoTrait,
 	xcm_procedural::Builder,
 )]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
+#[codec(decode_with_mem_tracking_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
@@ -1314,8 +1319,22 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, mut call } => {
-				let require_weight_at_most = call.take_decoded()?.get_dispatch_info().call_weight;
+			Transact { origin_kind, mut call, fallback_max_weight } => {
+				// We first try to decode the call, if we can't, we use the fallback weight,
+				// if there's no fallback, we just return `Weight::MAX`.
+				let require_weight_at_most = match call.take_decoded() {
+					Ok(decoded) => decoded.get_dispatch_info().call_weight,
+					Err(error) => {
+						let fallback_weight = fallback_max_weight.unwrap_or(Weight::MAX);
+						log::debug!(
+							target: "xcm::versions::v5Tov4",
+							"Couldn't decode call in Transact: {:?}, using fallback weight: {:?}",
+							error,
+							fallback_weight,
+						);
+						fallback_weight
+					},
+				};
 				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
 			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
@@ -1423,7 +1442,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			},
 			InitiateTransfer { .. } |
 			PayFees { .. } |
-			SetAssetClaimer { .. } |
+			SetHints { .. } |
 			ExecuteWithOrigin { .. } => {
 				log::debug!(target: "xcm::versions::v5tov4", "`{new_instruction:?}` not supported by v4");
 				return Err(());

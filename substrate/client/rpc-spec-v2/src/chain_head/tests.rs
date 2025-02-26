@@ -506,8 +506,8 @@ async fn get_body() {
 		.unwrap();
 	builder
 		.push_transfer(runtime::Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 42,
 			nonce: 0,
 		})
@@ -580,7 +580,7 @@ async fn call_runtime() {
 	);
 
 	// Valid call.
-	let alice_id = AccountKeyring::Alice.to_account_id();
+	let alice_id = Sr25519Keyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
 	let response: MethodResponse = api
@@ -670,7 +670,7 @@ async fn call_runtime_without_flag() {
 	);
 
 	// Valid runtime call on a subscription started with `with_runtime` false.
-	let alice_id = AccountKeyring::Alice.to_account_id();
+	let alice_id = Sr25519Keyring::Alice.to_account_id();
 	let call_parameters = hex_string(&alice_id.encode());
 	let err = api
 		.call::<_, serde_json::Value>(
@@ -1256,7 +1256,7 @@ async fn unique_operation_ids() {
 		assert!(op_ids.insert(operation_id));
 
 		// Valid `chainHead_v1_call` call.
-		let alice_id = AccountKeyring::Alice.to_account_id();
+		let alice_id = Sr25519Keyring::Alice.to_account_id();
 		let call_parameters = hex_string(&alice_id.encode());
 		let response: MethodResponse = api
 			.call(
@@ -1423,8 +1423,8 @@ async fn follow_generates_initial_blocks() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2046,8 +2046,8 @@ async fn follow_prune_best_block() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2217,8 +2217,8 @@ async fn follow_forks_pruned_block() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2233,8 +2233,8 @@ async fn follow_forks_pruned_block() {
 		.unwrap();
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Bob.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Bob.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2379,8 +2379,8 @@ async fn follow_report_multiple_pruned_block() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2397,8 +2397,8 @@ async fn follow_report_multiple_pruned_block() {
 
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Bob.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Bob.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2871,7 +2871,7 @@ async fn ensure_operation_limits_works() {
 	let operation_id = match response {
 		MethodResponse::Started(started) => {
 			// Check discarded items.
-			assert!(started.discarded_items.is_none());
+			assert_eq!(started.discarded_items, Some(0));
 			started.operation_id
 		},
 		MethodResponse::LimitReached => panic!("Expected started response"),
@@ -2883,7 +2883,7 @@ async fn ensure_operation_limits_works() {
 	);
 
 	// The storage is finished and capacity must be released.
-	let alice_id = AccountKeyring::Alice.to_account_id();
+	let alice_id = Sr25519Keyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
 	let response: MethodResponse = api
@@ -3228,7 +3228,10 @@ async fn storage_closest_merkle_value() {
 			.await
 			.unwrap();
 		let operation_id = match response {
-			MethodResponse::Started(started) => started.operation_id,
+			MethodResponse::Started(started) => {
+				assert_eq!(started.discarded_items, Some(0));
+				started.operation_id
+			},
 			MethodResponse::LimitReached => panic!("Expected started response"),
 		};
 
@@ -3534,7 +3537,7 @@ async fn chain_head_single_connection_context() {
 	.unwrap();
 	assert_matches!(response, MethodResponse::LimitReached);
 
-	let alice_id = AccountKeyring::Alice.to_account_id();
+	let alice_id = Sr25519Keyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
 	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_call(
@@ -3660,8 +3663,8 @@ async fn follow_unique_pruned_blocks() {
 	let block_6_hash = import_block(client.clone(), block_2_f_hash, 2).await.hash();
 	// Import block 2 as best on the fork.
 	let mut tx_alice_ferdie = Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 41,
 		nonce: 0,
 	};
@@ -3843,8 +3846,8 @@ async fn follow_report_best_block_of_a_known_block() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})

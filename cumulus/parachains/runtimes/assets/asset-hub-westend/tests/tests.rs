@@ -21,23 +21,24 @@ use asset_hub_westend_runtime::{
 	xcm_config,
 	xcm_config::{
 		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
-		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
+		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, GovernanceLocation,
+		LocationToAccountId, StakingPot, TrustBackedAssetsPalletLocation, WestendLocation,
+		XcmConfig,
 	},
 	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
 	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	TrustBackedAssetsInstance, XcmpQueue,
+	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
-	ExtBuilder, SlotDurations,
+	ExtBuilder, GovernanceOrigin, SlotDurations,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err, assert_noop, assert_ok, parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
 		fungibles::{
@@ -49,7 +50,7 @@ use frame_support::{
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::{traits::MaybeEquivalence, Either};
 use std::{convert::Into, ops::Mul};
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::{
@@ -62,6 +63,10 @@ use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
+
+parameter_types! {
+	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Location(GovernanceLocation::get());
+}
 
 type AssetIdForTrustBackedAssetsConvert =
 	assets_common::AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>;
@@ -1251,6 +1256,56 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 }
 
 #[test]
+fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
+	asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		LocationToAccountId,
+		ToRococoXcmRouterInstance,
+	>(
+		collator_session_keys(),
+		bridging_to_asset_hub_rococo,
+		|| bp_asset_hub_westend::build_congestion_message(Default::default(), true).into(),
+		|| bp_asset_hub_westend::build_congestion_message(Default::default(), false).into(),
+	)
+}
+
+#[test]
+fn test_report_bridge_status_call_compatibility() {
+	// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
+	assert_eq!(
+		RuntimeCall::ToRococoXcmRouter(pallet_xcm_bridge_hub_router::Call::report_bridge_status {
+			bridge_id: Default::default(),
+			is_congested: true,
+		})
+		.encode(),
+		bp_asset_hub_westend::Call::ToRococoXcmRouter(
+			bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
+				bridge_id: Default::default(),
+				is_congested: true,
+			}
+		)
+		.encode()
+	)
+}
+
+#[test]
+fn check_sane_weight_report_bridge_status() {
+	use pallet_xcm_bridge_hub_router::WeightInfo;
+	let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
+		ToRococoXcmRouterInstance,
+	>>::WeightInfo::report_bridge_status();
+	let max_weight = bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get();
+	assert!(
+		actual.all_lte(max_weight),
+		"max_weight: {:?} should be adjusted to actual {:?}",
+		max_weight,
+		actual
+	);
+}
+
+#[test]
 fn change_xcm_bridge_hub_router_byte_fee_by_governance_works() {
 	asset_test_utils::test_cases::change_storage_constant_by_governance_works::<
 		Runtime,
@@ -1259,7 +1314,7 @@ fn change_xcm_bridge_hub_router_byte_fee_by_governance_works() {
 	>(
 		collator_session_keys(),
 		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| {
 			(
 				bridging::XcmBridgeHubRouterByteFee::key().to_vec(),
@@ -1285,7 +1340,7 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 	>(
 		collator_session_keys(),
 		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| {
 			log::error!(
 				target: "bridges::estimate",
@@ -1461,4 +1516,55 @@ fn xcm_payment_api_works() {
 		RuntimeOrigin,
 		Block,
 	>();
+}
+
+#[test]
+fn governance_authorize_upgrade_works() {
+	use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID};
+
+	// no - random para
+	assert_err!(
+		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+			Runtime,
+			RuntimeOrigin,
+		>(GovernanceOrigin::Location(Location::new(1, Parachain(12334)))),
+		Either::Right(XcmError::Barrier)
+	);
+	// no - AssetHub
+	assert_err!(
+		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+			Runtime,
+			RuntimeOrigin,
+		>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))),
+		Either::Right(XcmError::Barrier)
+	);
+	// no - Collectives
+	assert_err!(
+		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+			Runtime,
+			RuntimeOrigin,
+		>(GovernanceOrigin::Location(Location::new(1, Parachain(COLLECTIVES_ID)))),
+		Either::Right(XcmError::Barrier)
+	);
+	// no - Collectives Voice of Fellows plurality
+	assert_err!(
+		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+			Runtime,
+			RuntimeOrigin,
+		>(GovernanceOrigin::LocationAndDescendOrigin(
+			Location::new(1, Parachain(COLLECTIVES_ID)),
+			Plurality { id: BodyId::Technical, part: BodyPart::Voice }.into()
+		)),
+		Either::Right(XcmError::BadOrigin)
+	);
+
+	// ok - relaychain
+	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+		Runtime,
+		RuntimeOrigin,
+	>(GovernanceOrigin::Location(Location::parent())));
+	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+		Runtime,
+		RuntimeOrigin,
+	>(GovernanceOrigin::Location(GovernanceLocation::get())));
 }

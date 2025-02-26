@@ -21,23 +21,24 @@ use asset_hub_rococo_runtime::{
 	xcm_config,
 	xcm_config::{
 		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
-		TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
+		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, GovernanceLocation,
+		LocationToAccountId, StakingPot, TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
 	CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
 	MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, SessionKeys, TrustBackedAssetsInstance, XcmpQueue,
+	RuntimeEvent, RuntimeOrigin, SessionKeys, ToWestendXcmRouterInstance,
+	TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
-	ExtBuilder, SlotDurations,
+	ExtBuilder, GovernanceOrigin, SlotDurations,
 };
 use codec::{Decode, Encode};
 use core::ops::Mul;
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_noop, assert_ok, parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
 		fungibles::{
@@ -59,6 +60,10 @@ use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
+
+parameter_types! {
+	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Location(GovernanceLocation::get());
+}
 
 type AssetIdForTrustBackedAssetsConvert =
 	assets_common::AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>;
@@ -1243,6 +1248,58 @@ mod asset_hub_rococo_tests {
 	}
 
 	#[test]
+	fn report_bridge_status_from_xcm_bridge_router_for_westend_works() {
+		asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
+			Runtime,
+			AllPalletsWithoutSystem,
+			XcmConfig,
+			LocationToAccountId,
+			ToWestendXcmRouterInstance,
+		>(
+			collator_session_keys(),
+			bridging_to_asset_hub_westend,
+			|| bp_asset_hub_rococo::build_congestion_message(Default::default(), true).into(),
+			|| bp_asset_hub_rococo::build_congestion_message(Default::default(), false).into(),
+		)
+	}
+
+	#[test]
+	fn test_report_bridge_status_call_compatibility() {
+		// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
+		assert_eq!(
+			RuntimeCall::ToWestendXcmRouter(
+				pallet_xcm_bridge_hub_router::Call::report_bridge_status {
+					bridge_id: Default::default(),
+					is_congested: true,
+				}
+			)
+			.encode(),
+			bp_asset_hub_rococo::Call::ToWestendXcmRouter(
+				bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+					bridge_id: Default::default(),
+					is_congested: true,
+				}
+			)
+			.encode()
+		);
+	}
+
+	#[test]
+	fn check_sane_weight_report_bridge_status_for_westend() {
+		use pallet_xcm_bridge_hub_router::WeightInfo;
+		let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
+			ToWestendXcmRouterInstance,
+		>>::WeightInfo::report_bridge_status();
+		let max_weight = bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get();
+		assert!(
+			actual.all_lte(max_weight),
+			"max_weight: {:?} should be adjusted to actual {:?}",
+			max_weight,
+			actual
+		);
+	}
+
+	#[test]
 	fn reserve_transfer_native_asset_to_non_teleport_para_works() {
 		asset_test_utils::test_cases::reserve_transfer_native_asset_to_non_teleport_para_works::<
 			Runtime,
@@ -1282,7 +1339,7 @@ fn change_xcm_bridge_hub_router_byte_fee_by_governance_works() {
 	>(
 		collator_session_keys(),
 		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| {
 			(
 				bridging::XcmBridgeHubRouterByteFee::key().to_vec(),
@@ -1308,7 +1365,7 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 	>(
 		collator_session_keys(),
 		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| {
 			log::error!(
 				target: "bridges::estimate",
@@ -1340,7 +1397,7 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 	>(
 		collator_session_keys(),
 		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| {
 			log::error!(
 				target: "bridges::estimate",

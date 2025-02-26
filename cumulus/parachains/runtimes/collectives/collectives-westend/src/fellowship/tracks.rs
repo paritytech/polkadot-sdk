@@ -1,24 +1,25 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Track configurations for Fellowship.
 
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS, MINUTES};
 use pallet_ranked_collective::Rank;
-use sp_runtime::{traits::Convert, Perbill};
+use sp_runtime::{str_array as s, traits::Convert, Perbill};
+use sp_std::borrow::Cow;
 
 /// Referendum `TrackId` type.
 pub type TrackId = u16;
@@ -114,13 +115,16 @@ pub struct TracksInfo;
 impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 	type Id = TrackId;
 	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-	fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
+
+	fn tracks(
+	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
+	{
 		use constants as tracks;
-		static DATA: [(TrackId, pallet_referenda::TrackInfo<Balance, BlockNumber>); 21] = [
-			(
-				tracks::MEMBERS,
-				pallet_referenda::TrackInfo {
-					name: "members",
+		static DATA: [pallet_referenda::Track<TrackId, Balance, BlockNumber>; 21] = [
+			pallet_referenda::Track {
+				id: tracks::MEMBERS,
+				info: pallet_referenda::TrackInfo {
+					name: s("members"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -138,11 +142,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::PROFICIENTS,
-				pallet_referenda::TrackInfo {
-					name: "proficient members",
+			},
+			pallet_referenda::Track {
+				id: tracks::PROFICIENTS,
+				info: pallet_referenda::TrackInfo {
+					name: s("proficient members"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -160,11 +164,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::FELLOWS,
-				pallet_referenda::TrackInfo {
-					name: "fellows",
+			},
+			pallet_referenda::Track {
+				id: tracks::FELLOWS,
+				info: pallet_referenda::TrackInfo {
+					name: s("fellows"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -182,11 +186,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::ARCHITECTS,
-				pallet_referenda::TrackInfo {
-					name: "architects",
+			},
+			pallet_referenda::Track {
+				id: tracks::ARCHITECTS,
+				info: pallet_referenda::TrackInfo {
+					name: s("architects"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -204,11 +208,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::ARCHITECTS_ADEPT,
-				pallet_referenda::TrackInfo {
-					name: "architects adept",
+			},
+			pallet_referenda::Track {
+				id: tracks::ARCHITECTS_ADEPT,
+				info: pallet_referenda::TrackInfo {
+					name: s("architects adept"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -226,11 +230,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::GRAND_ARCHITECTS,
-				pallet_referenda::TrackInfo {
-					name: "grand architects",
+			},
+			pallet_referenda::Track {
+				id: tracks::GRAND_ARCHITECTS,
+				info: pallet_referenda::TrackInfo {
+					name: s("grand architects"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -248,11 +252,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::MASTERS,
-				pallet_referenda::TrackInfo {
-					name: "masters",
+			},
+			pallet_referenda::Track {
+				id: tracks::MASTERS,
+				info: pallet_referenda::TrackInfo {
+					name: s("masters"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -270,11 +274,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::MASTERS_CONSTANT,
-				pallet_referenda::TrackInfo {
-					name: "masters constant",
+			},
+			pallet_referenda::Track {
+				id: tracks::MASTERS_CONSTANT,
+				info: pallet_referenda::TrackInfo {
+					name: s("masters constant"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -292,11 +296,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::GRAND_MASTERS,
-				pallet_referenda::TrackInfo {
-					name: "grand masters",
+			},
+			pallet_referenda::Track {
+				id: tracks::GRAND_MASTERS,
+				info: pallet_referenda::TrackInfo {
+					name: s("grand masters"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
@@ -314,11 +318,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::RETAIN_AT_1DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at I Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::RETAIN_AT_1DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("retain at I Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -328,11 +332,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_2DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at II Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::RETAIN_AT_2DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("retain at II Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -342,11 +346,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_3DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at III Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::RETAIN_AT_3DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("retain at III Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -356,11 +360,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_4DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at IV Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::RETAIN_AT_4DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("retain at IV Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -370,11 +374,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_5DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at V Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::RETAIN_AT_5DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("retain at V Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -384,11 +388,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_6DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at VI Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::RETAIN_AT_6DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("retain at VI Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -398,11 +402,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_1DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to I Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::PROMOTE_TO_1DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("promote to I Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -412,11 +416,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_2DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to II Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::PROMOTE_TO_2DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("promote to II Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -426,11 +430,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_3DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to III Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::PROMOTE_TO_3DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("promote to III Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -440,11 +444,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_4DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to IV Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::PROMOTE_TO_4DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("promote to IV Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -454,11 +458,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_5DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to V Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::PROMOTE_TO_5DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("promote to V Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -468,11 +472,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_6DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to VI Dan",
+			},
+			pallet_referenda::Track {
+				id: tracks::PROMOTE_TO_6DAN,
+				info: pallet_referenda::TrackInfo {
+					name: s("promote to VI Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -482,9 +486,9 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
+			},
 		];
-		&DATA[..]
+		DATA.iter().map(Cow::Borrowed)
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
 		use super::origins::Origin;
@@ -529,4 +533,3 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 		}
 	}
 }
-pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);

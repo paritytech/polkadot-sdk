@@ -21,6 +21,7 @@
 //! This only handles members of non-zero rank.
 //!
 //! # Process Flow
+//!
 //! - Begin with a call to `induct`, where some privileged origin (perhaps a pre-existing member of
 //!   `rank > 1`) is able to make a candidate from an account and introduce it to be tracked in this
 //!   pallet in order to allow evidence to be submitted and promotion voted on.
@@ -36,8 +37,9 @@
 //!   `bump` to demote the candidate by one rank.
 //! - If a candidate fails to be promoted to a member within the `offboard_timeout` period, then
 //!   anyone may call `bump` to remove the account's candidacy.
-//! - Pre-existing members may call `import` to have their rank recognised and be inducted into this
-//!   pallet (to gain a salary and allow for eventual promotion).
+//! - Pre-existing members may call `import_member` on themselves (formerly `import`) to have their
+//!   rank recognised and be inducted into this pallet (to gain a salary and allow for eventual
+//!   promotion).
 //! - If, externally to this pallet, a member or candidate has their rank removed completely, then
 //!   `offboard` may be called to remove them entirely from this pallet.
 //!
@@ -60,7 +62,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
@@ -89,7 +91,18 @@ pub use pallet::*;
 pub use weights::*;
 
 /// The desired outcome for which evidence is presented.
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	Copy,
+	Clone,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebug,
+)]
 pub enum Wish {
 	/// Member wishes only to retain their current rank.
 	Retention,
@@ -107,6 +120,7 @@ pub type Evidence<T, I> = BoundedVec<u8, <T as Config<I>>::EvidenceSize>;
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	CloneNoBound,
 	EqNoBound,
 	PartialEqNoBound,
@@ -239,17 +253,16 @@ pub mod pallet {
 
 	/// The overall status of the system.
 	#[pallet::storage]
-	pub(super) type Params<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, ParamsOf<T, I>, ValueQuery>;
+	pub type Params<T: Config<I>, I: 'static = ()> = StorageValue<_, ParamsOf<T, I>, ValueQuery>;
 
 	/// The status of a claimant.
 	#[pallet::storage]
-	pub(super) type Member<T: Config<I>, I: 'static = ()> =
+	pub type Member<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, MemberStatusOf<T>, OptionQuery>;
 
 	/// Some evidence together with the desired outcome for which it was presented.
 	#[pallet::storage]
-	pub(super) type MemberEvidence<T: Config<I>, I: 'static = ()> =
+	pub type MemberEvidence<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, (Wish, Evidence<T, I>), OptionQuery>;
 
 	#[pallet::event]
@@ -585,28 +598,44 @@ pub mod pallet {
 			Ok(if replaced { Pays::Yes } else { Pays::No }.into())
 		}
 
-		/// Introduce an already-ranked individual of the collective into this pallet. The rank may
-		/// still be zero.
+		/// Introduce an already-ranked individual of the collective into this pallet.
+		///
+		/// The rank may still be zero. This resets `last_proof` to the current block and
+		/// `last_promotion` will be set to zero, thereby delaying any automatic demotion but
+		/// allowing immediate promotion.
+		///
+		/// - `origin`: A signed origin of a ranked, but not tracked, account.
+		#[pallet::weight(T::WeightInfo::import())]
+		#[pallet::call_index(8)]
+		#[deprecated = "Use `import_member` instead"]
+		#[allow(deprecated)] // Otherwise FRAME will complain about using something deprecated.
+		pub fn import(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			Self::do_import(who)?;
+
+			Ok(Pays::No.into()) // Successful imports are free
+		}
+
+		/// Introduce an already-ranked individual of the collective into this pallet.
+		///
+		/// The rank may still be zero. Can be called by anyone on any collective member - including
+		/// the sender.
 		///
 		/// This resets `last_proof` to the current block and `last_promotion` will be set to zero,
 		/// thereby delaying any automatic demotion but allowing immediate promotion.
 		///
 		/// - `origin`: A signed origin of a ranked, but not tracked, account.
-		#[pallet::weight(T::WeightInfo::import())]
-		#[pallet::call_index(8)]
-		pub fn import(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
-			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
+		/// - `who`: The account ID of the collective member to be inducted.
+		#[pallet::weight(T::WeightInfo::set_partial_params())]
+		#[pallet::call_index(11)]
+		pub fn import_member(
+			origin: OriginFor<T>,
+			who: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			Self::do_import(who)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
-			Member::<T, I>::insert(
-				&who,
-				MemberStatus { is_active: true, last_promotion: 0u32.into(), last_proof: now },
-			);
-			Self::deposit_event(Event::<T, I>::Imported { who, rank });
-
-			Ok(Pays::No.into())
+			Ok(Pays::No.into()) // Successful imports are free
 		}
 
 		/// Set the parameters partially.
@@ -661,6 +690,24 @@ pub mod pallet {
 				}
 			}
 		}
+
+		/// Import `who` into the core-fellowship pallet.
+		///
+		/// `who` must be a member of the collective but *not* already imported.
+		pub(crate) fn do_import(who: T::AccountId) -> DispatchResult {
+			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
+			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
+
+			let now = frame_system::Pallet::<T>::block_number();
+			Member::<T, I>::insert(
+				&who,
+				MemberStatus { is_active: true, last_promotion: 0u32.into(), last_proof: now },
+			);
+			Self::deposit_event(Event::<T, I>::Imported { who, rank });
+
+			Ok(())
+		}
+
 		/// Convert a rank into a `0..RANK_COUNT` index suitable for the arrays in Params.
 		///
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not
@@ -766,6 +813,7 @@ impl<T: Config<I>, I: 'static>
 	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
 {
 	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
+		#[allow(deprecated)]
 		Self::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
 	}
 }

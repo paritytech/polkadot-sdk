@@ -103,6 +103,7 @@
 #[cfg(test)]
 mod tests {
 	use assert_cmd::Command;
+	use cmd_lib::*;
 	use rand::Rng;
 	use sc_chain_spec::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 	use sp_genesis_builder::PresetId;
@@ -173,13 +174,10 @@ mod tests {
 			println!("Building polkadot-sdk-docs-first-runtime...");
 			#[docify::export_content]
 			fn build_runtime() {
-				Command::new("cargo")
-					.arg("build")
-					.arg("--release")
-					.arg("-p")
-					.arg(FIRST_RUNTIME)
-					.assert()
-					.success();
+				run_cmd!(
+					cargo build --release -p $FIRST_RUNTIME
+				)
+				.expect("Failed to run command");
 			}
 			build_runtime()
 		}
@@ -274,14 +272,10 @@ mod tests {
 			let chain_spec_builder = find_release_binary(&CHAIN_SPEC_BUILDER).unwrap();
 			let runtime_path = find_wasm(PARA_RUNTIME).unwrap();
 			let output = "/tmp/demo-chain-spec.json";
-			Command::new(chain_spec_builder)
-				.args(["-c", output])
-				.arg("create")
-				.args(["--para-id", "1000", "--relay-chain", "dontcare"])
-				.args(["-r", runtime_path.to_str().unwrap()])
-				.args(["named-preset", "development"])
-				.assert()
-				.success();
+			let runtime_str = runtime_path.to_str().unwrap();
+			run_cmd!(
+				$chain_spec_builder -c $output create --para-id 1000 --relay-chain dontcare -r $runtime_str named-preset development
+			).expect("Failed to run command");
 			std::fs::remove_file(output).unwrap();
 		}
 		build_para_chain_spec_works();
@@ -310,5 +304,34 @@ mod tests {
 		[Some(DEV_RUNTIME_PRESET.into())].into_iter().for_each(|preset| {
 			test_runtime_preset(FIRST_RUNTIME, 1000, preset);
 		});
+	}
+
+	#[test]
+	fn omni_node_dev_mode_works() {
+		//Omni Node in dev mode works with parachain's template `dev_chain_spec`
+		let dev_chain_spec = std::env::current_dir()
+			.unwrap()
+			.parent()
+			.unwrap()
+			.parent()
+			.unwrap()
+			.join("templates")
+			.join("parachain")
+			.join("dev_chain_spec.json");
+
+		maybe_build_omni_node();
+		let omni_node = find_release_binary(OMNI_NODE).unwrap();
+
+		let output = Command::new(omni_node)
+			.arg("--dev")
+			.args(["--chain", dev_chain_spec.to_str().unwrap()])
+			.timeout(std::time::Duration::from_secs(70))
+			.output()
+			.unwrap();
+
+		// atleast  blocks should be imported
+		assert!(String::from_utf8(output.stderr)
+			.unwrap()
+			.contains(format!("Imported #{}", 7).to_string().as_str()));
 	}
 }
