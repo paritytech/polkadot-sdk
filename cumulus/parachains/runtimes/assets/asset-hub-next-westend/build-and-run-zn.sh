@@ -7,10 +7,11 @@ RUST_LOG=${LOG} cargo build --release -p asset-hub-next-westend-runtime -p stagi
 echo "✅ creating chain spec"
 RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
     create \
+    -t development \
     --runtime ../../../../../target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm \
     --relay-chain rococo-local \
     --para-id 1100 \
-    named-preset genesis
+    named-preset development
 
 # ensure local file `chain_spec` is created in current directory
 if [ ! -f chain_spec.json ]; then

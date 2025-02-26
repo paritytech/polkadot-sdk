@@ -118,7 +118,9 @@ impl multi_block::Config for Runtime {
 	type SignedValidationPhase = SignedValidationPhase;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	// TODO: Donal/Kian revert this once we have sudo again.
+	// type AdminOrigin = EnsureRoot<AccountId>;
+	type AdminOrigin = EnsureSigned<AccountId>;
 	type DataProvider = Staking;
 	type Fallback = multi_block::Continue<Self>;
 	type MinerConfig = Self;
@@ -342,9 +344,6 @@ pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
-/// Unchecked signature payload type as expected by this runtime.
-pub type UncheckedSignaturePayload =
-	generic::UncheckedSignaturePayload<Address, Signature, TxExtension>;
 
 impl frame_system::offchain::SigningTypes for Runtime {
 	type Public = <Signature as Verify>::Signer;

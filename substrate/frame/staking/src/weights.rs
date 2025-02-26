@@ -90,7 +90,12 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// TODO CI-FAIL: run CI bench bot
 	fn on_initialize_noop() -> Weight {
-	    Default::default()
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `33487`
+		// Minimum execution time: 8_949_000 picoseconds.
+		Weight::from_parts(9_194_000, 33487)
+			.saturating_add(T::DbWeight::get().reads(13_u64))
 	}
 	/// Storage: `Staking::Bonded` (r:1 w:1)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)

@@ -1558,11 +1558,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn fetch_page(page: PageIndex) {
-		Self::do_elect_paged(page);
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
 	fn add_voter(
 		voter: T::AccountId,
 		weight: VoteWeight,

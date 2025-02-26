@@ -19,4 +19,4 @@ chain_spec_path = "./chain_spec.json"
 [parachains.collator]
 name = "charlie"
 ws_port = 9966
-env = ["RUST_LOG", "runtime::multiblock-election=debug,runtime::staking=debug"]
+args = [ "-lruntime::system=debug,runtime::multiblock-election=debug,runtime::staking=debug"]
