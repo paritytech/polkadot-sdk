@@ -19,10 +19,7 @@
 
 use crate::dispatch::{DispatchResult, Parameter};
 use alloc::{vec, vec::Vec};
-use codec::{
-	CompactLen, Decode, DecodeLimit, DecodeWithMemTracking, Encode, EncodeAsRef, EncodeLike,
-	HasCompact, Input, MaxEncodedLen,
-};
+use codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
@@ -40,22 +37,6 @@ use sp_runtime::{traits::Block as BlockT, DispatchError};
 pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
 #[doc(hidden)]
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
-
-pub trait HasDecodeWithMemTrackingCompact: HasCompact<Type = Self::BoundedType> {
-	type BoundedType: for<'a> EncodeAsRef<'a, Self>
-		+ Decode
-		+ From<Self>
-		+ Into<Self>
-		+ DecodeWithMemTracking;
-}
-
-impl<T> HasDecodeWithMemTrackingCompact for T
-where
-	T: HasCompact,
-	<T as HasCompact>::Type: DecodeWithMemTracking,
-{
-	type BoundedType = <T as HasCompact>::Type;
-}
 
 /// Trait to get the number of variants in any enum.
 pub trait VariantCount {

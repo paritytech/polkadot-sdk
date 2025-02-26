@@ -44,7 +44,6 @@ pub struct Pallet<T: Config>(System<T>);
 	T: Send + Sync,
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + AsTransactionAuthorizedOrigin + Clone,
-	<T::Nonce as codec::HasCompact>::Type: codec::DecodeWithMemTracking
 )]
 mod benchmarks {
 	use super::*;

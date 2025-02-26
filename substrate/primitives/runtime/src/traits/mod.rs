@@ -27,7 +27,9 @@ use crate::{
 	DispatchResult,
 };
 use alloc::vec::Vec;
-use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use codec::{
+	Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, HasCompact, MaxEncodedLen,
+};
 #[doc(hidden)]
 pub use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
@@ -58,6 +60,11 @@ pub use transaction_extension::{
 	DispatchTransaction, Implication, ImplicationParts, TransactionExtension,
 	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
 };
+
+/// A structure that has an associated compact type that implements `DecodeWithMemTracking`.
+pub trait HasDecodeWithMemTrackingCompact: HasCompact<Type: DecodeWithMemTracking> {}
+
+impl<T> HasDecodeWithMemTrackingCompact for T where T: HasCompact<Type: DecodeWithMemTracking> {}
 
 /// A lazy value.
 pub trait Lazy<T: ?Sized> {
@@ -1009,6 +1016,7 @@ pub trait HashOutput:
 	+ Default
 	+ Encode
 	+ Decode
+	+ DecodeWithMemTracking
 	+ EncodeLike
 	+ MaxEncodedLen
 	+ TypeInfo
@@ -1029,6 +1037,7 @@ impl<T> HashOutput for T where
 		+ Default
 		+ Encode
 		+ Decode
+		+ DecodeWithMemTracking
 		+ EncodeLike
 		+ MaxEncodedLen
 		+ TypeInfo
@@ -1182,6 +1191,7 @@ pub trait BlockNumber:
 	+ MaxEncodedLen
 	+ FullCodec
 	+ DecodeWithMemTracking
+	+ HasDecodeWithMemTrackingCompact
 {
 }
 
@@ -1200,7 +1210,8 @@ impl<
 			+ TypeInfo
 			+ MaxEncodedLen
 			+ FullCodec
-			+ DecodeWithMemTracking,
+			+ DecodeWithMemTracking
+			+ HasDecodeWithMemTrackingCompact,
 	> BlockNumber for T
 {
 }

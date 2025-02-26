@@ -137,15 +137,15 @@ use frame_support::{
 	storage::{self, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
-		HasDecodeWithMemTrackingCompact, OnKilledAccount, OnNewAccount, OnRuntimeUpgrade,
-		OriginTrait, PalletInfo, SortedMembers, StoredMap, TypedGet,
+		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
+		StoredMap, TypedGet,
 	},
 	Parameter,
 };
 use scale_info::TypeInfo;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{
-	traits::{DispatchInfoOf, PostDispatchInfoOf},
+	traits::{DispatchInfoOf, HasDecodeWithMemTrackingCompact, PostDispatchInfoOf},
 	transaction_validity::TransactionValidityError,
 };
 use sp_weights::{RuntimeDbWeight, Weight};

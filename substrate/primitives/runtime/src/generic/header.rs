@@ -77,9 +77,7 @@ where
 impl<Number, Hash> traits::Header for Header<Number, Hash>
 where
 	Number: BlockNumber,
-	<Number as codec::HasCompact>::Type: DecodeWithMemTracking,
 	Hash: HashT,
-	<Hash as HashT>::Output: DecodeWithMemTracking,
 {
 	type Number = Number;
 	type Hash = <Hash as HashT>::Output;

@@ -170,8 +170,7 @@ use frame_support::{
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
-		Currency, Defensive, Get, HasDecodeWithMemTrackingCompact, OnUnbalanced,
-		ReservableCurrency, StoredMap,
+		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap,
 	},
 	BoundedSlice, WeakBoundedVec,
 };
@@ -181,8 +180,8 @@ use scale_info::TypeInfo;
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
-		StaticLookup, Zero,
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, HasDecodeWithMemTrackingCompact,
+		MaybeSerializeDeserialize, Saturating, StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };

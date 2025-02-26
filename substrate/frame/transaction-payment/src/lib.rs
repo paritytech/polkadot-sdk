@@ -900,7 +900,6 @@ impl<T: Config> core::fmt::Debug for Pre<T> {
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	<BalanceOf<T> as codec::HasCompact>::Type: DecodeWithMemTracking,
 {
 	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
 	type Implicit = ();

@@ -171,7 +171,10 @@ extern crate alloc;
 
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
+	traits::{
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, HasDecodeWithMemTrackingCompact, Saturating,
+		StaticLookup, Zero,
+	},
 	ArithmeticError, DispatchError, TokenError,
 };
 
@@ -189,8 +192,7 @@ use frame_support::{
 			WithdrawConsequence,
 		},
 		BalanceStatus::Reserved,
-		Currency, EnsureOriginWithArg, HasDecodeWithMemTrackingCompact, Incrementable,
-		ReservableCurrency, StoredMap,
+		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
 	},
 };
 use frame_system::Config as SystemConfig;
