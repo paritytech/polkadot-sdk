@@ -224,7 +224,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self, I>>;
 
-		/// Bounty duration in blocks.
+		/// Optional bounty duration in blocks. If `None`, it is considered `BlockNumber::MAX`.
 		#[pallet::constant]
 		type BountyUpdatePeriod: Get<Option<BlockNumberFor<Self, I>>>;
 

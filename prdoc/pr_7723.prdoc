@@ -1,0 +1,7 @@
+title: '[pallet-bounties] Make BountyUpdatePeriod optional'
+doc:
+- audience: Runtime Dev
+  description: Refactored `BountyUpdatePeriod` to be optional and adjusted expiration handling to default to `BlockNumber::MAX` when `None`.
+crates:
+- name: pallet-bounties
+  bump: patch
