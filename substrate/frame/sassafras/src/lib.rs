@@ -354,7 +354,7 @@ pub mod pallet {
 					Self::sort_segments(
 						metadata
 							.unsorted_tickets_count
-							.div_ceil(SEGMENT_MAX_SIE * slots_left as u32),
+							.div_ceil(SEGMENT_MAX_SIZE * slots_left as u32),
 						next_epoch_tag,
 						&mut metadata,
 					);
