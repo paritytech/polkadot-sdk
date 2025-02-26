@@ -28,7 +28,7 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Inspect, Mutate, Mutate as FunMutate,
 		},
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		Nothing, Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
@@ -331,6 +331,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
+		#[pallet::no_default_bounds]
+		/// Filter some accounts from participating in staking.
+		///
+		/// This is useful for example to blacklist an account that is participating in staking in
+		/// another way (such as pools).
+		type Filter: Contains<Self::AccountId>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -390,6 +397,7 @@ pub mod pallet {
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxDisabledValidators = ConstU32<100>;
 			type EventListeners = ();
+			type Filter = Nothing;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -1145,6 +1153,9 @@ pub mod pallet {
 		AlreadyMigrated,
 		/// Era not yet started.
 		EraNotStarted,
+		/// Account is restricted from participation in staking. This may happen if the account is
+		/// staking in another way already, such as via pool.
+		Restricted,
 	}
 
 	#[pallet::hooks]
@@ -1402,6 +1413,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
@@ -1449,6 +1462,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -2032,6 +2046,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
+
+			ensure!(!T::Filter::contains(&ledger.stash), Error::<T>::Restricted);
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
