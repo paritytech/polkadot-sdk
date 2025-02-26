@@ -7,7 +7,7 @@ use frame_support::{pallet_prelude::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160, H256};
-use sp_std::{vec, vec::Vec};
+use sp_std::vec::Vec;
 
 use crate::{OperatingMode, SendError};
 use abi::{
@@ -142,8 +142,6 @@ pub enum Command {
 		/// Invoke an initializer in the implementation contract
 		initializer: Initializer,
 	},
-	/// Create an agent representing a consensus system on Polkadot
-	CreateAgent {},
 	/// Set the global operating mode of the Gateway contract
 	SetOperatingMode {
 		/// The new operating mode
@@ -200,21 +198,19 @@ impl Command {
 			Command::UnlockNativeToken { .. } => 2,
 			Command::RegisterForeignToken { .. } => 3,
 			Command::MintForeignToken { .. } => 4,
-			Command::CreateAgent { .. } => 5,
-			Command::CallContract { .. } => 6,
+			Command::CallContract { .. } => 5,
 		}
 	}
 
 	/// ABI-encode the Command.
 	pub fn abi_encode(&self) -> Vec<u8> {
 		match self {
-			Command::Upgrade { impl_address, impl_code_hash, initializer, .. } =>
-				UpgradeParams {
-					implAddress: Address::from(impl_address.as_fixed_bytes()),
-					implCodeHash: FixedBytes::from(impl_code_hash.as_fixed_bytes()),
-					initParams: Bytes::from(initializer.params.clone()),
-				}.abi_encode(),
-			Command::CreateAgent {} => vec![],
+			Command::Upgrade { impl_address, impl_code_hash, initializer, .. } => UpgradeParams {
+				implAddress: Address::from(impl_address.as_fixed_bytes()),
+				implCodeHash: FixedBytes::from(impl_code_hash.as_fixed_bytes()),
+				initParams: Bytes::from(initializer.params.clone()),
+			}
+			.abi_encode(),
 			Command::SetOperatingMode { mode } =>
 				SetOperatingModeParams { mode: (*mode) as u8 }.abi_encode(),
 			Command::UnlockNativeToken { token, recipient, amount, .. } =>
@@ -291,7 +287,6 @@ pub struct ConstantGasMeter;
 impl GasMeter for ConstantGasMeter {
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64 {
 		match command {
-			Command::CreateAgent { .. } => 275_000,
 			Command::SetOperatingMode { .. } => 40_000,
 			Command::Upgrade { initializer, .. } => {
 				// total maximum gas must also include the gas used for updating the proxy before

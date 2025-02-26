@@ -716,7 +716,6 @@ fn send_message_from_penpal_to_ethereum_with_user_origin() {
 #[test]
 fn invalid_nonce_for_delivery_receipt_fails() {
 	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		type Runtime = <BridgeHubWestend as Chain>::Runtime;
 
 		let relayer = BridgeHubWestendSender::get();
