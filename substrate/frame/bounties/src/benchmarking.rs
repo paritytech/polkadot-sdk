@@ -152,7 +152,7 @@ benchmarks_instance_pallet! {
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		set_block_number::<T, I>(T::SpendPeriod::get() + T::BountyUpdatePeriod::get() + 2u32.into());
+		set_block_number::<T, I>(T::SpendPeriod::get() + T::BountyUpdatePeriod::get().unwrap_or(BlockNumberFor::<T, I>::max_value())  + 2u32.into());
 		let caller = whitelisted_caller();
 	}: _(RawOrigin::Signed(caller), bounty_id)
 
