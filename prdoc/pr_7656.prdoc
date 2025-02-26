@@ -2,28 +2,15 @@ title: Authorize upgrade tests for testnet runtimes + `execute_as_governance` re
 doc:
 - audience: Runtime Dev
   description: |-
-    Relates to: https://github.com/paritytech/polkadot-sdk/issues/7541
-    Relates to: https://github.com/paritytech/polkadot-sdk/issues/7566
-
     This PR contains improved test cases that rely on the governance location as preparation for AHM to capture the state as it is.
     It introduces `execute_as_governance_call`, which can be configured with various governance location setups instead of the hard-coded `Location::parent()`.
-
-    Additionally, it adds a test for `authorize_upgrade` to all SP testnets.
-
-
-    ## TODO
-    - [x] rewrite all tests using `RuntimeHelper::<Runtime>::execute_as_governance` (because it is using hard-coded `Location::parent()`) to use `RuntimeHelper::<Runtime>::execute_as_governance_call`
-
-    ## Follow-up
-    - [ ] add similar test for westend-runtime
-    - [ ] add test that ensure xcm-executor adds `ClearOrigin` before all side-effect sent to different chain
 crates:
 - name: parachains-runtimes-test-utils
-  bump: patch
+  bump: major
 - name: asset-hub-westend-runtime
   bump: patch
 - name: bridge-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: collectives-westend-runtime
   bump: patch
 - name: coretime-westend-runtime
@@ -35,4 +22,4 @@ crates:
 - name: bridge-hub-rococo-runtime
   bump: patch
 - name: bridge-hub-test-utils
-  bump: patch
+  bump: major
