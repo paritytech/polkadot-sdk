@@ -5102,20 +5102,32 @@ fn restricted_accounts_can_only_withdraw() {
 #[test]
 fn permissionless_withdraw_overstake() {
 	ExtBuilder::default().build_and_execute(|| {
-		// Given Alice and Bob with some stake.
+		// Given Alice, Bob and Charlie with some stake.
 		let alice = 301;
 		let bob = 302;
+		let charlie = 303;
 		let _ = Balances::make_free_balance_be(&alice, 500);
 		let _ = Balances::make_free_balance_be(&bob, 500);
+		let _ = Balances::make_free_balance_be(&charlie, 500);
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 100, RewardDestination::Staked));
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(bob), 100, RewardDestination::Staked));
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(charlie), 100, RewardDestination::Staked));
 
-		// WHEN: alice ledger having higher value than actual stake.
-		let overstaked_ledger = StakingLedger::<Test>::new(alice, 200);
-		Ledger::<Test>::insert(alice, overstaked_ledger);
+		// WHEN: charlie is partially unbonding.
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(charlie), 90));
+		let charlie_ledger = StakingLedger::<Test>::get(StakingAccount::Stash(charlie)).unwrap();
+
+		// AND: alice and charlie ledger having higher value than actual stake.
+		Ledger::<Test>::insert(alice, StakingLedger::<Test>::new(alice, 200));
+		Ledger::<Test>::insert(
+			charlie,
+			StakingLedger { stash: charlie, total: 200, active: 200 - 90, ..charlie_ledger },
+		);
+
+		// THEN overstake can be permissionlessly withdrawn.
 		System::reset_events();
 
-		// THEN overstake in alice account can be permissionlessly withdrawn.
+		// Alice stake is corrected.
 		assert_eq!(
 			<Staking as StakingInterface>::stake(&alice).unwrap(),
 			Stake { total: 200, active: 200 }
@@ -5126,9 +5138,23 @@ fn permissionless_withdraw_overstake() {
 			Stake { total: 100, active: 100 }
 		);
 
+		// Charlie who is partially withdrawing also gets their stake corrected.
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&charlie).unwrap(),
+			Stake { total: 200, active: 110 }
+		);
+		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), charlie));
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&charlie).unwrap(),
+			Stake { total: 200 - 100, active: 110 - 100 }
+		);
+
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Withdrawn { stash: alice, amount: 200 - 100 }]
+			vec![
+				Event::Withdrawn { stash: alice, amount: 200 - 100 },
+				Event::Withdrawn { stash: charlie, amount: 200 - 100 }
+			]
 		);
 
 		// but Bob ledger is fine and that cannot be withdrawn.

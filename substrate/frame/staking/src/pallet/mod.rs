@@ -2613,10 +2613,7 @@ pub mod pallet {
 		/// and the actual stake.
 		#[pallet::call_index(32)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
-		pub fn withdraw_overstake(
-			origin: OriginFor<T>,
-			stash: T::AccountId,
-		) -> DispatchResult {
+		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
 			let ledger = Self::ledger(Stash(stash.clone()))?;
