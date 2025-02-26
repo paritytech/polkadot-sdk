@@ -49,7 +49,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	SessionIndex, StakingInterface,
+	SessionIndex, Stake, StakingInterface,
 };
 use substrate_test_utils::assert_eq_uvec;
 
@@ -5097,6 +5097,46 @@ fn restricted_accounts_can_only_withdraw() {
 		start_active_era(9);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(bob), 0));
 	})
+}
+
+#[test]
+fn permissionless_withdraw_overstake() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given Alice and Bob with some stake.
+		let alice = 301;
+		let bob = 302;
+		let _ = Balances::make_free_balance_be(&alice, 500);
+		let _ = Balances::make_free_balance_be(&bob, 500);
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 100, RewardDestination::Staked));
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(bob), 100, RewardDestination::Staked));
+
+		// WHEN: alice ledger having higher value than actual stake.
+		let overstaked_ledger = StakingLedger::<Test>::new(alice, 200);
+		Ledger::<Test>::insert(alice, overstaked_ledger);
+		System::reset_events();
+
+		// THEN overstake in alice account can be permissionlessly withdrawn.
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&alice).unwrap(),
+			Stake { total: 200, active: 200 }
+		);
+		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), alice));
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&alice).unwrap(),
+			Stake { total: 100, active: 100 }
+		);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::Withdrawn { stash: alice, amount: 200 - 100 }]
+		);
+
+		// but Bob ledger is fine and that cannot be withdrawn.
+		assert_noop!(
+			Staking::withdraw_overstake(RuntimeOrigin::signed(1), bob),
+			Error::<Test>::BoundNotMet
+		);
+	});
 }
 
 mod election_data_provider {
