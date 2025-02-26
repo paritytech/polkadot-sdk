@@ -294,9 +294,6 @@ pub mod pallet {
 			// Existing `agent` cannot register again and a delegator cannot become an `agent`.
 			ensure!(!Self::is_agent(&who) && !Self::is_delegator(&who), Error::<T>::NotAllowed);
 
-			// They cannot be already a direct staker in the staking pallet.
-			ensure!(!Self::is_direct_staker(&who), Error::<T>::AlreadyStaking);
-
 			// Reward account cannot be same as `agent` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
 
@@ -377,7 +374,6 @@ pub mod pallet {
 			// Ensure delegator is sane.
 			ensure!(!Self::is_agent(&delegator), Error::<T>::NotAllowed);
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
-			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
@@ -411,7 +407,10 @@ pub mod pallet {
 				Delegation::<T>::can_delegate(&delegator, &agent),
 				Error::<T>::InvalidDelegation
 			);
+<<<<<<< HEAD
 			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
+=======
+>>>>>>> f7e98b4 ([Nomination Pool] Make staking restrictions configurable (#7685))
 
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);

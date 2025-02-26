@@ -241,6 +241,7 @@ parameter_types! {
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
 	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
+	pub static RestrictedAccounts: Vec<AccountId> = Vec::new();
 }
 
 pub struct EventListenerMock;
@@ -258,7 +259,19 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	}
 }
 
+<<<<<<< HEAD
 // Disabling threshold for `UpToLimitDisablingStrategy`
+=======
+pub struct MockedRestrictList;
+impl Contains<AccountId> for MockedRestrictList {
+	fn contains(who: &AccountId) -> bool {
+		RestrictedAccounts::get().contains(who)
+	}
+}
+
+// Disabling threshold for `UpToLimitDisablingStrategy` and
+// `UpToLimitWithReEnablingDisablingStrategy``
+>>>>>>> f7e98b4 ([Nomination Pool] Make staking restrictions configurable (#7685))
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
@@ -284,7 +297,13 @@ impl crate::pallet::pallet::Config for Test {
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
+<<<<<<< HEAD
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
+=======
+	type MaxInvulnerables = ConstU32<20>;
+	type MaxDisabledValidators = ConstU32<100>;
+	type Filter = MockedRestrictList;
+>>>>>>> f7e98b4 ([Nomination Pool] Make staking restrictions configurable (#7685))
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -926,4 +945,14 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+pub(crate) fn restrict(who: &AccountId) {
+	if !RestrictedAccounts::get().contains(who) {
+		RestrictedAccounts::mutate(|l| l.push(*who));
+	}
+}
+
+pub(crate) fn remove_from_restrict_list(who: &AccountId) {
+	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
 }
