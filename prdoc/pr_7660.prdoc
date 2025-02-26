@@ -1,0 +1,8 @@
+title: '[pallet-revive] Remove js examples'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Remove JS examples, they now belongs to the evm-test-suite repo
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
