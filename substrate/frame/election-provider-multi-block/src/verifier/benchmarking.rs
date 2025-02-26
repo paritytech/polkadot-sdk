@@ -47,7 +47,7 @@ mod benchmarks {
 			.collect()
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_valid_non_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
@@ -73,7 +73,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_valid_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
@@ -119,7 +119,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_invalid_terminal() -> Result<(), BenchmarkError> {
 		// this is the verification of the current page + removing all of the previously valid
 		// pages. The worst case is therefore when the last page is invalid, for example the final
@@ -178,7 +178,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_invalid_non_terminal(
 		// number of valid pages that have been verified, before we verify the non-terminal invalid
 		// page.

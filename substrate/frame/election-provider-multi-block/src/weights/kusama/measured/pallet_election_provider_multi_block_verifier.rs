@@ -86,7 +86,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:0)
 	/// Proof: `MultiBlockVerifier::QueuedValidVariant` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `Measured`)
 	/// Storage: `MultiBlockVerifier::QueuedSolutionX` (r:0 w:1)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(6194014), added: 6196489, mode: `Measured`)
+	/// Proof: `MultiBlockVerifier:: ` (`max_values`: None, `max_size`: Some(6194014), added: 6196489, mode: `Measured`)
 	/// Storage: `MultiBlockVerifier::QueuedSolutionBackings` (r:0 w:1)
 	/// Proof: `MultiBlockVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52014), added: 54489, mode: `Measured`)
 	fn on_initialize_valid_non_terminal() -> Weight {

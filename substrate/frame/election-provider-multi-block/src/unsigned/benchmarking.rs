@@ -29,7 +29,7 @@ use sp_std::boxed::Box;
 mod benchmarks {
 	use super::*;
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn validate_unsigned() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
@@ -50,7 +50,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn submit_unsigned() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());

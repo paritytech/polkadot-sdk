@@ -33,7 +33,7 @@ use sp_std::boxed::Box;
 mod benchmarks {
 	use super::*;
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn register_not_full() -> Result<(), BenchmarkError> {
 		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let round = Round::<T>::get();
@@ -50,7 +50,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn register_eject() -> Result<(), BenchmarkError> {
 		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let round = Round::<T>::get();
@@ -90,7 +90,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn submit_page() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
@@ -117,7 +117,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn unset_page() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
@@ -147,7 +147,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn bail() -> Result<(), BenchmarkError> {
 		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
