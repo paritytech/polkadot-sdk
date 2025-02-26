@@ -309,6 +309,7 @@ where
 	}
 
 	/// The guest memory address at which the aux data is located.
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn aux_data_base(&self) -> u32 {
 		self.instance.module().memory_map().aux_data_address()
 	}
@@ -319,6 +320,7 @@ where
 	/// It sets `a1` to the value passed.
 	///
 	/// Only used in benchmarking so far.
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn setup_aux_data(&mut self, data: &[u8], offset: u32, a1: u64) -> DispatchResult {
 		let a0 = self.aux_data_base().saturating_add(offset);
 		self.instance.write_memory(a0, data).map_err(|err| {
@@ -332,6 +334,11 @@ where
 }
 
 impl<T: Config> WasmBlob<T> {
+	/// Compile and instantiate contract.
+	///
+	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
+	/// don't make use of this buffer. Hence this should not be set to anything
+	/// other than `0` when not used for benchmarking.
 	pub fn prepare_call<E: Ext<T = T>>(
 		self,
 		mut runtime: Runtime<E, polkavm::RawInstance>,
