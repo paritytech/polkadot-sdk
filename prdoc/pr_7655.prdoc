@@ -14,7 +14,7 @@ crates:
   - name: sp-runtime
     bump: major
   - name: sp-staking
-    bump: patch
+    bump: minor
   - name: bp-runtime
     bump: major
   - name: bridge-runtime-common
@@ -26,7 +26,7 @@ crates:
   - name: frame-system
     bump: minor
   - name: pallet-balances
-    bump: patch
+    bump: minor
   - name: pallet-verify-signature
     bump: minor
   - name: pallet-transaction-payment
@@ -44,25 +44,25 @@ crates:
   - name: frame-metadata-hash-extension
     bump: minor
   - name: pallet-assets
-    bump: major
+    bump: minor
   - name: pallet-assets-freezer
-    bump: patch
+    bump: minor
   - name: pallet-asset-tx-payment
     bump: minor
   - name: pallet-bridge-relayers
     bump: minor
   - name: pallet-bridge-messages
-    bump: patch
+    bump: minor
   - name: pallet-asset-conversion-tx-payment
     bump: minor
   - name: pallet-referenda
-    bump: patch
+    bump: minor
   - name: pallet-revive
     bump: minor
   - name: pallet-skip-feeless-payment
     bump: minor
   - name: pallet-staking
-    bump: major
+    bump: minor
   - name: staging-xcm-builder
     bump: patch
   - name: staging-xcm-executor
