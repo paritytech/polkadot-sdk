@@ -1,0 +1,17 @@
+title: Added logging for xcm filters/helpers/matchers/types
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds error logs to assist in debugging xcm.
+      Specifically, for filters, helpers, matchers.
+      Additionally, it replaces the usages of `log` with `tracing`.
+
+crates:
+  - name: staging-xcm-builder
+    bump: minor
+  - name: assets-common
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+    

@@ -4,7 +4,11 @@ on:
   # schedule:
     # - cron: '0 1 * * 0' # weekly on Sunday night 01:00 UTC
   workflow_dispatch:
-  # pull_request:
+    inputs:
+      draft:
+        type: boolean
+        default: false
+        description: "Whether to create a draft PR"
 
 permissions: # allow the action to create a PR
   contents: write
@@ -22,18 +26,38 @@ jobs:
     timeout-minutes: 30
     outputs:
       runtime: ${{ steps.runtime.outputs.runtime }}
+      branch: ${{ steps.branch.outputs.branch }}
+      date: ${{ steps.branch.outputs.date }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     name: Extract runtimes from matrix
     steps:
       - uses: actions/checkout@v4
-      - id: runtime
+        with:
+          ref: master
+
+      - name: Extract runtimes
+        id: runtime
         run: |
           RUNTIMES=$(jq '[.[] | select(.package != null)]' .github/workflows/runtimes-matrix.json)
 
           RUNTIMES=$(echo $RUNTIMES | jq -c .)
           echo "runtime=$RUNTIMES"
           echo "runtime=$RUNTIMES" >> $GITHUB_OUTPUT
+
+      - name: Create branch
+        id: branch
+        run: |
+          DATE=$(date +'%Y-%m-%d-%s')
+          BRANCH="update-weights-weekly-$DATE"
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+
+          git checkout -b $BRANCH
+          git push --set-upstream origin $BRANCH
+
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
   run-frame-omni-bencher:
     needs: [preflight, runtime-matrix]
@@ -58,11 +82,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: master
+          ref: ${{ needs.runtime-matrix.outputs.branch }} # checkout always from the initially created branch to avoid conflicts
 
       - name: script
         id: required
         run: |
+          git --version
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory $GITHUB_WORKSPACE
           git remote -v
@@ -94,21 +119,18 @@ jobs:
 
   apply-diff-commit:
     runs-on: ubuntu-latest
-    needs: [run-frame-omni-bencher]
+    needs: [runtime-matrix, run-frame-omni-bencher]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: master
+          ref: ${{ needs.runtime-matrix.outputs.branch }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: patches
-      
-      - name: Install subweight
-        run: cargo install subweight
+          path: patches      
 
       # needs to be able to trigger CI
       - uses: actions/create-github-app-token@v1
@@ -120,28 +142,65 @@ jobs:
       - name: Apply diff and create PR
         env:
           GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+          BRANCH: ${{ needs.runtime-matrix.outputs.branch }}
+          DATE: ${{ needs.runtime-matrix.outputs.date }}
         run: |
-          DATE=$(date +'%Y-%m-%d-%s')
-          BRANCH="update-weights-weekly-$DATE"
-          
+          git --version          
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git status
           
-          git switch -c "$BRANCH"
-          
+          # Apply all patches
           for file in patches/diff-*/diff-*.patch; do
             if [ -f "$file" ] && [ -s "$file" ]; then
               echo "Applying $file"
-              git apply "$file" --unidiff-zero --allow-empty || echo "Failed to apply $file"
+              # using --3way and --ours for conflicts resolution. Requires git 2.47+
+              git apply "$file" --unidiff-zero --allow-empty --3way --ours || echo "Failed to apply $file"
             else
               echo "Skipping empty or non-existent patch file: $file"
             fi
           done
+
           rm -rf patches
+
+          # Get release tags from 1 and 3 months ago
+          ONE_MONTH_AGO=$(date -d "1 month ago" +%Y-%m-%d)
+          THREE_MONTHS_AGO=$(date -d "3 months ago" +%Y-%m-%d)
+          
+          # Get tags with their dates
+          ONE_MONTH_INFO=$(git for-each-ref --sort=-creatordate --format '%(refname:short)|%(creatordate:iso-strict-local)' 'refs/tags/polkadot-v*' | awk -v date="$ONE_MONTH_AGO" -F'|' '$2 <= date {print $0; exit}')
+          THREE_MONTHS_INFO=$(git for-each-ref --sort=-creatordate --format '%(refname:short)|%(creatordate:iso-strict-local)' 'refs/tags/polkadot-v*' | awk -v date="$THREE_MONTHS_AGO" -F'|' '$2 <= date {print $0; exit}')
+          
+          # Split into tag and date
+          ONE_MONTH_TAG=$(echo "$ONE_MONTH_INFO" | cut -d'|' -f1)
+          ONE_MONTH_DATE=$(echo "$ONE_MONTH_INFO" | cut -d'|' -f2 | cut -d'T' -f1)
+          THREE_MONTHS_TAG=$(echo "$THREE_MONTHS_INFO" | cut -d'|' -f1)
+          THREE_MONTHS_DATE=$(echo "$THREE_MONTHS_INFO" | cut -d'|' -f2 | cut -d'T' -f1)
+
+          # Base URL for Subweight comparisons
+          BASE_URL="https://weights.tasty.limo/compare?repo=polkadot-sdk&threshold=5&path_pattern=.%2F**%2Fweights%2F**%2F*.rs%2C.%2F**%2Fweights.rs&method=asymptotic&ignore_errors=true&unit=time"
+          
+          # Generate comparison links
+          MASTER_LINK="${BASE_URL}&old=master&new=${BRANCH}"
+          ONE_MONTH_LINK="${BASE_URL}&old=${ONE_MONTH_TAG}&new=${BRANCH}"
+          THREE_MONTHS_LINK="${BASE_URL}&old=${THREE_MONTHS_TAG}&new=${BRANCH}"
+          
+          # Create PR body with all links in a temporary file
+          cat > /tmp/pr_body.md << EOF
+          Auto-update of all weights for ${DATE}.
+
+          Subweight results:
+          - [now vs master](${MASTER_LINK})
+          - [now vs ${ONE_MONTH_TAG} (${ONE_MONTH_DATE})](${ONE_MONTH_LINK})
+          - [now vs ${THREE_MONTHS_TAG} (${THREE_MONTHS_DATE})](${THREE_MONTHS_LINK})
+          EOF
           
           git add .
           git commit -m "Update all weights weekly for $DATE"
           git push --set-upstream origin "$BRANCH"
+
+          MAYBE_DRAFT=${{ inputs.draft && '--draft' || '' }}
           
           PR_TITLE="Auto-update of all weights for $DATE"
           gh pr create \
@@ -150,16 +209,6 @@ jobs:
             --base "master" \
             --reviewer paritytech/ci \
             --reviewer paritytech/release-engineering \
-            --draft \
+            $MAYBE_DRAFT \
             --label "R0-silent" \
-            --body "$PR_TITLE"
-
-          subweight compare commits \
-            --path-pattern "./**/weights/**/*.rs,./**/weights.rs" \
-            --method asymptotic \
-            --format markdown \
-            --no-color \
-            --change added changed \
-            --ignore-errors \
-            --threshold 2 \
-            origin/master $BRANCH
+            --body "$(cat /tmp/pr_body.md)"

@@ -31,11 +31,11 @@ use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
-	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
-	MaxEncodedLen,
+	self, decode_vec_with_len, Compact, Decode, DecodeWithMemTracking, Encode, Error as CodecError,
+	Input as CodecInput, MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
-use derivative::Derivative;
+use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
@@ -65,8 +65,8 @@ pub const VERSION: super::Version = 4;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, TypeInfo)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive(Default, Encode, DecodeWithMemTracking, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
@@ -232,7 +232,9 @@ parameter_types! {
 	pub MaxPalletsInfo: u32 = 64;
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct PalletInfo {
 	#[codec(compact)]
 	pub index: u32,
@@ -295,7 +297,9 @@ impl PalletInfo {
 }
 
 /// Response data to a query.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
@@ -373,7 +377,7 @@ impl TryFrom<NewResponse> for Response {
 }
 
 /// Information regarding the composition of a query response.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
 	pub destination: Location,
@@ -437,16 +441,17 @@ impl XcmContext {
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
 #[derive(
-	Derivative,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	xcm_procedural::XcmWeightInfoTrait,
 	xcm_procedural::Builder,
 )]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
+#[codec(decode_with_mem_tracking_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
