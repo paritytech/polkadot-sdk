@@ -3,8 +3,6 @@ doc:
 - audience: Runtime Dev
   description: |-
     A follow-up PR to simplify event assertions by introducing contains_event, reducing duplicated code.
-
-    Reference: [PR #7594 - Discussion](https://github.com/paritytech/polkadot-sdk/pull/7594#discussion_r1965566349)
 crates:
 - name: xcm-simulator-example
   bump: patch
