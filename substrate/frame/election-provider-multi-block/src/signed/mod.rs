@@ -212,6 +212,35 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 	}
 }
 
+/// Something that can compute the base deposit that is collected upon `register`.
+///
+/// A blanket impl allows for any `Get` to be used as-is, which will always return the said balance
+/// as deposit.
+pub trait CalculateBaseDeposit<Balance> {
+	fn calculate_base_deposit(existing_submitters: usize) -> Balance;
+}
+
+impl<Balance, G: Get<Balance>> CalculateBaseDeposit<Balance> for G {
+	fn calculate_base_deposit(_existing_submitters: usize) -> Balance {
+		G::get()
+	}
+}
+
+/// Something that can calculate the deposit per-page upon `submit`.
+///
+/// A blanket impl allows for any `Get` to be used as-is, which will always return the said balance
+/// as deposit **per page**.
+pub trait CalculatePageDeposit<Balance> {
+	fn calculate_page_deposit(existing_submitters: usize, page_size: usize) -> Balance;
+}
+
+impl<Balance: From<u32> + Saturating, G: Get<Balance>> CalculatePageDeposit<Balance> for G {
+	fn calculate_page_deposit(_existing_submitters: usize, page_size: usize) -> Balance {
+		let page_size: Balance = (page_size as u32).into();
+		G::get().saturating_mul(page_size)
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{WeightInfo, *};
@@ -230,10 +259,10 @@ pub mod pallet {
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// Base deposit amount for a submission.
-		type DepositBase: Get<BalanceOf<Self>>;
+		type DepositBase: CalculateBaseDeposit<BalanceOf<Self>>;
 
 		/// Extra deposit per-page.
-		type DepositPerPage: Get<BalanceOf<Self>>;
+		type DepositPerPage: CalculatePageDeposit<BalanceOf<Self>>;
 
 		/// Base reward that is given to the winner.
 		type RewardBase: Get<BalanceOf<Self>>;
@@ -490,6 +519,15 @@ pub mod pallet {
 			})
 		}
 
+		/// Get the deposit of a registration with the given number of pages.
+		fn deposit_for(pages: usize) -> BalanceOf<T> {
+			let round = Pallet::<T>::current_round();
+			let queue_size = Self::submitters_count(round);
+			let base = T::DepositBase::calculate_base_deposit(queue_size);
+			let pages = T::DepositPerPage::calculate_page_deposit(queue_size, pages);
+			base.saturating_add(pages)
+		}
+
 		fn try_mutate_page_inner(
 			round: u32,
 			who: &T::AccountId,
@@ -507,9 +545,8 @@ pub mod pallet {
 			}
 
 			// update deposit.
-			let new_pages: BalanceOf<T> =
-				(metadata.pages.iter().filter(|x| **x).count() as u32).into();
-			let new_deposit = T::DepositBase::get() + T::DepositPerPage::get() * new_pages;
+			let new_pages = metadata.pages.iter().filter(|x| **x).count();
+			let new_deposit = Self::deposit_for(new_pages);
 			let old_deposit = metadata.deposit;
 			if new_deposit > old_deposit {
 				let to_reserve = new_deposit - old_deposit;
@@ -551,6 +588,10 @@ pub mod pallet {
 
 		pub(crate) fn leader(round: u32) -> Option<(T::AccountId, ElectionScore)> {
 			SortedScores::<T>::get(round).last().cloned()
+		}
+
+		pub(crate) fn submitters_count(round: u32) -> usize {
+			SortedScores::<T>::get(round).len()
 		}
 
 		pub(crate) fn get_page_of(
@@ -707,7 +748,7 @@ pub mod pallet {
 			// note: we could already check if this is a duplicate here, but prefer keeping the code
 			// simple for now.
 
-			let deposit = T::DepositBase::get();
+			let deposit = Submissions::<T>::deposit_for(0);
 			let reward = T::RewardBase::get();
 			let fee = T::EstimateCallFee::estimate_call_fee(
 				&Call::register { claimed_score },
