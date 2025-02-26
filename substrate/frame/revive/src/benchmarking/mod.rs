@@ -2010,7 +2010,7 @@ mod benchmarks {
 	// It benchmarks the absolute worst case by allocating a lot of memory
 	// and then accessing it so that each instruction generates two cache misses.
 	#[benchmark(pov_mode = Ignored)]
-	fn instr(r: Linear<0, 1_000>) {
+	fn instr(r: Linear<0, 10_000>) {
 		use rand::{seq::SliceRandom, SeedableRng};
 		use rand_pcg::Pcg64;
 
@@ -2026,7 +2026,12 @@ mod benchmarks {
 		// We only need one address per cache line.
 		const NUM_ADDRESSES: u64 = (MEMORY_SIZE - MISALIGNMENT) / CACHE_LINE_SIZE;
 
-		let mut setup = CallSetup::<T>::new(WasmModule::instr());
+		assert!(
+			u64::from(r) <= NUM_ADDRESSES / 2,
+			"If we do too many iterations we run into the risk of loading from warm cache lines",
+		);
+
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(true));
 		let (mut ext, module) = setup.ext();
 		let mut prepared =
 			CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), MEMORY_SIZE as u32);
@@ -2061,6 +2066,19 @@ mod benchmarks {
 		prepared
 			.setup_aux_data(memory.as_slice(), MISALIGNMENT as u32, r.into())
 			.unwrap();
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_empty_loop(r: Linear<0, 100_000>) {
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(false));
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
+		prepared.setup_aux_data(&[], 0, r.into()).unwrap();
 
 		#[block]
 		{

@@ -96,19 +96,25 @@ impl WasmModule {
 	}
 
 	/// A contract code that does unaligned memory accessed in a loop.
-	pub fn instr() -> Self {
-		let text = "
+	pub fn instr(do_load: bool) -> Self {
+		let load = match do_load {
+			false => "",
+			true => "a0 = u64 [a0]",
+		};
+		let text = alloc::format!(
+			"
 		pub @deploy:
 		ret
 		pub @call:
 			@loop:
 				jump @done if t0 == a1
-				a0 = u64 [a0]
+				{load}
 				t0 = t0 + 1
 				jump @loop
 			@done:
 		ret
-		";
+		"
+		);
 		let code = polkavm_common::assembler::assemble(&text).unwrap();
 		Self::new(code)
 	}
