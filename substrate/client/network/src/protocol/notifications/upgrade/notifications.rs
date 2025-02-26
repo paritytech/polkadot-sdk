@@ -477,12 +477,25 @@ where
 		// even if we don't write anything into it.
 		match Stream::poll_next(this.socket.as_mut(), cx) {
 			Poll::Pending => {},
-			Poll::Ready(Some(data)) => {
-				error!(
-					target: "sub-libp2p",
-					"Unexpected incoming data in `NotificationsOutSubstream` peer={:?} data={data:?}",
-					this.peer_id
-				);
+			Poll::Ready(Some(result)) => match result {
+				Ok(bytes) => {
+					error!(
+						target: "sub-libp2p",
+						"Unexpected incoming data in `NotificationsOutSubstream` peer={:?} bytes={bytes:?}",
+						this.peer_id
+					);
+				},
+				Err(error) => {
+					warn!(
+						target: "sub-libp2p",
+						"Error while reading from `NotificationsOutSubstream` peer={:?} error={error:?}",
+						this.peer_id
+					);
+
+					// The expectation is that the remote has closed the substream.
+					// This is similar to the `Poll::Ready(None)` branch below.
+					return Poll::Ready(Err(NotificationsOutError::Terminated));
+				},
 			},
 			Poll::Ready(None) => return Poll::Ready(Err(NotificationsOutError::Terminated)),
 		}
