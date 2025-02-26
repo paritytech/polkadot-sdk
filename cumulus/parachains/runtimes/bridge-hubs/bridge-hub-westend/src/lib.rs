@@ -103,7 +103,7 @@ use snowbridge_core::{
 	AgentId, PricingParameters,
 };
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
-use xcm::VersionedLocation;
+use xcm::{Version as XcmVersion, VersionedLocation};
 
 use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
 
@@ -813,11 +813,11 @@ impl_runtime_apis! {
 					Ok(WeightToFee::weight_to_fee(&weight))
 				},
 				Ok(asset_id) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
+					tracing::trace!(target: "xcm::xcm_runtime_apis", ?asset_id, "query_weight_to_asset_fee - unhandled asset_id!");
 					Err(XcmPaymentApiError::AssetNotFound)
 				},
 				Err(_) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
+					tracing::trace!(target: "xcm::xcm_runtime_apis", ?asset, "query_weight_to_asset_fee - failed to convert asset!");
 					Err(XcmPaymentApiError::VersionedConversionFailed)
 				}
 			}
@@ -833,8 +833,8 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
@@ -985,6 +985,7 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
@@ -1162,12 +1163,15 @@ impl_runtime_apis! {
 						alloc::boxed::Box::new(bridge_to_rococo_config::BridgeHubRococoLocation::get()),
 						XCM_VERSION,
 					).map_err(|e| {
-						log::error!(
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
-							RuntimeOrigin::root(),
-							bridge_to_rococo_config::BridgeHubRococoLocation::get(),
-							XCM_VERSION,
-							e
+						let origin = RuntimeOrigin::root();
+						let bridge = bridge_to_rococo_config::BridgeHubRococoLocation::get();
+						tracing::error!(
+							target: "xcm::export_message_origin_and_destination",
+							?origin,
+							?bridge,
+							?XCM_VERSION,
+							?e,
+							"Failed to dispatch `force_xcm_version`",
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
@@ -1197,11 +1201,12 @@ impl_runtime_apis! {
 						bp_messages::LegacyLaneId([1, 2, 3, 4]),
 						true,
 					).map_err(|e| {
-						log::error!(
-							"Failed to `XcmOverBridgeHubRococo::open_bridge`({:?}, {:?})`, error: {:?}",
-							sibling_parachain_location,
-							bridge_destination_universal_location,
-							e
+						tracing::error!(
+							target: "xcm::export_message_origin_and_destination",
+							?sibling_parachain_location,
+							?bridge_destination_universal_location,
+							?e,
+							"Failed to `XcmOverBridgeHubRococo::open_bridge`",
 						);
 						BenchmarkError::Stop("Bridge was not opened!")
 					})?;

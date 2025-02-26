@@ -18,6 +18,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod genesis_config_presets;
 pub mod people;
 mod weights;
 pub mod xcm_config;
@@ -69,7 +70,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
-use xcm::prelude::*;
+use xcm::{prelude::*, Version as XcmVersion};
 use xcm_config::{
 	FellowshipLocation, GovernanceLocation, PriceForSiblingParachainDelivery, XcmConfig,
 	XcmOriginToTransactDispatchOrigin,
@@ -823,8 +824,8 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
@@ -900,6 +901,7 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
@@ -1087,11 +1089,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 

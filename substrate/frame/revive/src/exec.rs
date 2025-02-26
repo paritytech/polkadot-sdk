@@ -1015,9 +1015,20 @@ where
 	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
-		let is_delegate_call = frame.delegate.is_some();
 		let delegated_code_hash =
 			if frame.delegate.is_some() { Some(*executable.code_hash()) } else { None };
+
+		if_tracing(|tracer| {
+			tracer.enter_child_span(
+				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
+				T::AddressMapper::to_address(&frame.account_id),
+				frame.delegate.is_some(),
+				frame.read_only,
+				frame.value_transferred,
+				&input_data,
+				frame.nested_gas.gas_left(),
+			);
+		});
 
 		// The output of the caller frame will be replaced by the output of this run.
 		// It is also not accessible from nested frames.
@@ -1036,8 +1047,6 @@ where
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
 			let frame = top_frame_mut!(self);
-			let read_only = frame.read_only;
-			let value_transferred = frame.value_transferred;
 			let account_id = &frame.account_id.clone();
 
 			// We need to make sure that the contract's account exists before calling its
@@ -1081,35 +1090,10 @@ where
 				)?;
 			}
 
-			let contract_address = T::AddressMapper::to_address(account_id);
-			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
 			let code_deposit = executable.code_info().deposit();
-
-			if_tracing(|tracer| {
-				tracer.enter_child_span(
-					maybe_caller_address.unwrap_or_default(),
-					contract_address,
-					is_delegate_call,
-					read_only,
-					value_transferred,
-					&input_data,
-					frame.nested_gas.gas_left(),
-				);
-			});
-
-			let output = executable.execute(self, entry_point, input_data).map_err(|e| {
-				if_tracing(|tracer| {
-					tracer.exit_child_span_with_error(
-						e.error,
-						top_frame_mut!(self).nested_gas.gas_consumed(),
-					);
-				});
-				ExecError { error: e.error, origin: ErrorOrigin::Callee }
-			})?;
-
-			if_tracing(|tracer| {
-				tracer.exit_child_span(&output, top_frame_mut!(self).nested_gas.gas_consumed());
-			});
+			let output = executable
+				.execute(self, entry_point, input_data)
+				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
@@ -1157,10 +1141,27 @@ where
 
 		let (success, output) = match transaction_outcome {
 			// `with_transactional` executed successfully, and we have the expected output.
-			Ok((success, output)) => (success, output),
+			Ok((success, output)) => {
+				if_tracing(|tracer| {
+					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
+					match &output {
+						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
+						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
+					}
+				});
+
+				(success, output)
+			},
 			// `with_transactional` returned an error, and we propagate that error and note no state
 			// has changed.
-			Err(error) => (false, Err(error.into())),
+			Err(error) => {
+				if_tracing(|tracer| {
+					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
+					tracer.exit_child_span_with_error(error.into(), gas_consumed);
+				});
+
+				(false, Err(error.into()))
+			},
 		};
 
 		if success {
@@ -1373,6 +1374,13 @@ where
 	}
 }
 
+/// Determine if the given address is a precompile.
+/// For now, we consider that all addresses between 0x1 and 0xff are reserved for precompiles.
+fn is_precompile(address: &H160) -> bool {
+	let bytes = address.as_bytes();
+	bytes.starts_with(&[0u8; 19]) && bytes[19] != 0
+}
+
 impl<'a, T, E> Ext for Stack<'a, T, E>
 where
 	T: Config,
@@ -1403,6 +1411,11 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
+			if is_precompile(dest_addr) {
+				log::debug!(target: crate::LOG_TARGET, "Unsupported precompile address {dest_addr:?}");
+				return Err(Error::<T>::UnsupportedPrecompileAddress.into());
+			}
+
 			let dest = T::AddressMapper::to_account_id(dest_addr);
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
@@ -1420,28 +1433,38 @@ where
 					CachedContract::Cached(contract) => Some(contract.clone()),
 					_ => None,
 				});
+
+			// Enable read-only access if requested; cannot disable it if already set.
+			let is_read_only = read_only || self.is_read_only();
+
 			if let Some(executable) = self.push_frame(
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
 				gas_limit,
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
-				// Enable read-only access if requested; cannot disable it if already set.
-				read_only || self.is_read_only(),
+				is_read_only,
 			)? {
 				self.run(executable, input_data)
 			} else {
-				let result = Self::transfer_from_origin(
-					&self.origin,
-					&Origin::from_account_id(self.account_id().clone()),
-					&dest,
-					value,
-				);
+				let result = if is_read_only && value.is_zero() {
+					Ok(Default::default())
+				} else if is_read_only {
+					Err(Error::<T>::StateChangeDenied.into())
+				} else {
+					Self::transfer_from_origin(
+						&self.origin,
+						&Origin::from_account_id(self.account_id().clone()),
+						&dest,
+						value,
+					)
+				};
+
 				if_tracing(|t| {
 					t.enter_child_span(
 						T::AddressMapper::to_address(self.account_id()),
 						T::AddressMapper::to_address(&dest),
 						false,
-						false,
+						is_read_only,
 						value,
 						&input_data,
 						Weight::zero(),
