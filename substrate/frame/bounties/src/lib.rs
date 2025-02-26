@@ -99,7 +99,10 @@ use frame_support::traits::{
 };
 
 use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero, Bounded},
+	traits::{
+		AccountIdConversion, BadOrigin, BlockNumberProvider, Bounded, Saturating, StaticLookup,
+		Zero,
+	},
 	DispatchResult, Permill, RuntimeDebug,
 };
 
@@ -579,7 +582,8 @@ pub mod pallet {
 						bounty.curator_deposit = deposit;
 
 						let update_due = Self::treasury_block_number() +
-    						T::BountyUpdatePeriod::get().unwrap_or(BlockNumberFor::<T, I>::max_value());
+							T::BountyUpdatePeriod::get()
+								.unwrap_or(BlockNumberFor::<T, I>::max_value());
 						bounty.status =
 							BountyStatus::Active { curator: curator.clone(), update_due };
 
@@ -821,9 +825,10 @@ pub mod pallet {
 					BountyStatus::Active { ref curator, ref mut update_due } => {
 						ensure!(*curator == signer, Error::<T, I>::RequireCurator);
 						*update_due = (Self::treasury_block_number().saturating_add(
-							T::BountyUpdatePeriod::get().unwrap_or(BlockNumberFor::<T, I>::max_value()),
+							T::BountyUpdatePeriod::get()
+								.unwrap_or(BlockNumberFor::<T, I>::max_value()),
 						))
-						.max(*update_due);						
+						.max(*update_due);
 					},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 				}
