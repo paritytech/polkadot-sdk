@@ -11,7 +11,7 @@ doc:
 
 crates:
 - name: xcm-runtime-apis
-  bump: minor
+  bump: patch
 - name: staging-xcm
   bump: patch
 - name: pallet-xcm
