@@ -1027,7 +1027,7 @@ pub mod pallet {
 							return Err(Error::<T, I>::UnexpectedStatus.into())
 						},
 						BountyStatus::Funded | BountyStatus::CuratorProposed { .. } => {
-							// Nothing extra to do besides the removal of the bounty below.
+							// Nothing extra to do besides the refund payment below.
 						},
 						BountyStatus::Active { curator, .. } => {
 							// Tiago: I should only unreserve once payment succeeds right?
@@ -1035,7 +1035,7 @@ pub mod pallet {
 							let err_amount =
 								T::Currency::unreserve(curator, bounty.curator_deposit);
 							debug_assert!(err_amount.is_zero());
-							// Then execute removal of the bounty below.
+							// Then execute refund payment below.
 						},
 						BountyStatus::PendingPayout { .. } |
 						BountyStatus::PayoutAttempted { .. } => {
@@ -1067,7 +1067,7 @@ pub mod pallet {
 						payment_status: PaymentState::Attempted { id: payment_id },
 					};
 
-					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into())
+					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
 				},
 			)
 		}
@@ -1271,6 +1271,8 @@ pub mod pallet {
 							.map_err(|_| Error::<T, I>::FundingError)?;
 
 							*payment_status = PaymentState::Attempted { id };
+							// Tiago: should I be returning something like
+							// <T as Config<I>>::WeightInfo::process_payment_approved() in each arm?
 							Ok(Pays::Yes.into())
 						},
 						BountyStatus::RefundAttempted { ref mut payment_status } => {
@@ -1392,6 +1394,8 @@ pub mod pallet {
 									let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
 									debug_assert!(err_amount.is_zero());
 									Self::deposit_event(Event::<T, I>::BountyBecameActive { index: bounty_id });
+									// Tiago: should I be returning something like
+									// <T as Config<I>>::WeightInfo::check_payment_status_approved() in each arm?
 									Ok(Pays::No.into())
 								},
 								PaymentStatus::InProgress => return Err(Error::<T, I>::FundingInconclusive.into()),
