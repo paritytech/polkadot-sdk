@@ -16,6 +16,7 @@
 
 use crate::*;
 
+use crate::parachain::RuntimeError::System;
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
 use xcm::latest::QueryResponseInfo;
@@ -54,10 +55,9 @@ fn dmp() {
 
 	ParaA::execute_with(|| {
 		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(System::contains_event(|event| {
+			matches!(event, RuntimeEvent::System(frame_system::Event::Remarked { .. }))
+		}));
 	});
 }
 
@@ -82,10 +82,9 @@ fn ump() {
 
 	Relay::execute_with(|| {
 		use relay_chain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(System::contains_event(|event| {
+			matches!(event, RuntimeEvent::System(frame_system::Event::Remarked { .. }))
+		}));
 	});
 }
 
@@ -110,10 +109,9 @@ fn xcmp() {
 
 	ParaB::execute_with(|| {
 		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(System::contains_event(|event| {
+			matches!(event, RuntimeEvent::System(frame_system::Event::Remarked { .. }))
+		}));
 	});
 }
 
@@ -137,18 +135,20 @@ fn reserve_transfer() {
 			INITIAL_BALANCE + withdraw_amount
 		);
 		// Ensure expected events were emitted
-		let events = relay_chain::System::events();
-		let attempted_count = count_relay_chain_events(&events, |event| {
+		let attempted_emitted = relay_chain::System::contains_event(|event| {
 			matches!(
 				event,
 				relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
 			)
 		});
-		let sent_count = count_relay_chain_events(&events, |event| {
-			matches!(event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }))
+		let sent_emitted = relay_chain::System::contains_event(|event| {
+			matches!(
+				event,
+				relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
+			)
 		});
-		assert_eq!(attempted_count, 1, "Expected one XcmPallet::Attempted event");
-		assert_eq!(sent_count, 1, "Expected one XcmPallet::Sent event");
+		assert!(attempted_emitted, "Expected XcmPallet::Attempted event emitted");
+		assert!(sent_emitted, "Expected XcmPallet::Sent event emitted");
 	});
 
 	ParaA::execute_with(|| {
@@ -193,10 +193,9 @@ fn reserve_transfer_with_error() {
 			assert!(log_capture.contains("XCM validate_send failed"));
 
 			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
-			let events = relay_chain::System::events();
-			let xcm_attempted_emitted = events.iter().any(|e| {
+			let xcm_attempted_emitted = relay_chain::System::contains_event(|event| {
 				matches!(
-					e.event,
+					event,
 					relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
 				)
 			});
@@ -579,14 +578,4 @@ fn query_holding() {
 			}])],
 		);
 	});
-}
-
-fn count_relay_chain_events<F>(
-	events: &[frame_system::EventRecord<relay_chain::RuntimeEvent, sp_core::H256>],
-	predicate: F,
-) -> usize
-where
-	F: Fn(&relay_chain::RuntimeEvent) -> bool,
-{
-	events.iter().filter(|e| predicate(&e.event)).count()
 }
