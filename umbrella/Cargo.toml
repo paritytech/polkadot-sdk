@@ -454,7 +454,7 @@ try-runtime = [
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
 	"pallet-remark?/try-runtime",
-	"pallet-revive-mock-network?/try-runtime",
+	# "pallet-revive-mock-network?/try-runtime", # Failed https://github.com/paritytech/polkadot-sdk/actions/runs/13540909459/job/37841672173?pr=7690
 	"pallet-revive?/try-runtime",
 	"pallet-root-offences?/try-runtime",
 	"pallet-root-testing?/try-runtime",
