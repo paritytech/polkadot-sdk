@@ -466,21 +466,22 @@ pub mod ring_vrf {
 		}
 
 		/// Get ring prover for the key at index `public_idx` in the `public_keys` set.
-		pub fn prover(&self, public_keys: &[Public], public_idx: usize) -> Option<RingProver> {
-			let pks = Self::make_ring_vector(public_keys)?;
+		pub fn prover(&self, public_keys: &[Public], public_idx: usize) -> RingProver {
+			let pks = Self::make_ring_vector(public_keys);
 			let prover_key = self.0.prover_key(&pks);
-			Some(self.0.prover(prover_key, public_idx))
+			self.0.prover(prover_key, public_idx)
 		}
 
 		/// Get ring verifier for the `public_keys` set.
-		pub fn verifier(&self, public_keys: &[Public]) -> Option<RingVerifier> {
-			self.verifier_key(public_keys).map(|vk| self.0.verifier(vk.0))
+		pub fn verifier(&self, public_keys: &[Public]) -> RingVerifier {
+			let vk = self.verifier_key(public_keys);
+			self.0.verifier(vk.0)
 		}
 
-		/// Build ring commitment for `RingVerifier` lazy construction.
-		pub fn verifier_key(&self, public_keys: &[Public]) -> Option<RingVerifierKey> {
-			let pks = Self::make_ring_vector(public_keys)?;
-			Some(RingVerifierKey(self.0.verifier_key(&pks)))
+		/// Build `RingVerifierKey` for lazy `RingVerifier` construction.
+		pub fn verifier_key(&self, public_keys: &[Public]) -> RingVerifierKey {
+			let pks = Self::make_ring_vector(public_keys);
+			RingVerifierKey(self.0.verifier_key(&pks))
 		}
 
 		/// Constructs a `RingVerifier` from a `VerifierKey` without a `RingContext` instance.
@@ -494,14 +495,15 @@ pub mod ring_vrf {
 			RingContextImpl::verifier_no_context(verifier_key.0, R)
 		}
 
-		fn make_ring_vector(public_keys: &[Public]) -> Option<Vec<bandersnatch::AffinePoint>> {
-			use bandersnatch::Public as PublicImpl;
-			let mut pts = Vec::with_capacity(public_keys.len());
-			for pk in public_keys {
-				let pk = PublicImpl::deserialize_compressed_unchecked(pk.as_slice()).ok()?;
-				pts.push(pk.0);
-			}
-			Some(pts)
+		fn make_ring_vector(public_keys: &[Public]) -> Vec<bandersnatch::AffinePoint> {
+			use bandersnatch::AffinePoint;
+			public_keys
+				.iter()
+				.map(|pk| {
+					AffinePoint::deserialize_compressed_unchecked(pk.as_slice())
+						.unwrap_or(RingContextImpl::padding_point())
+				})
+				.collect()
 		}
 	}
 
@@ -756,12 +758,12 @@ mod tests {
 		// Just pick one index to patch with the actual public key
 		let prover_idx = 3;
 		pks[prover_idx] = pair.public();
-		let prover = ring_ctx.prover(&pks, prover_idx).unwrap();
+		let prover = ring_ctx.prover(&pks, prover_idx);
 
 		let data = VrfSignData::new(b"data", b"aux");
 		let signature = pair.ring_vrf_sign(&data, &prover);
 
-		let verifier = ring_ctx.verifier(&pks).unwrap();
+		let verifier = ring_ctx.verifier(&pks);
 		assert!(signature.ring_vrf_verify(&data, &verifier));
 	}
 
@@ -776,10 +778,10 @@ mod tests {
 		let data = VrfSignData::new(b"foo", b"aux");
 
 		// pair.public != pks[0]
-		let prover = ring_ctx.prover(&pks, 0).unwrap();
+		let prover = ring_ctx.prover(&pks, 0);
 		let signature = pair.ring_vrf_sign(&data, &prover);
 
-		let verifier = ring_ctx.verifier(&pks).unwrap();
+		let verifier = ring_ctx.verifier(&pks);
 		assert!(!signature.ring_vrf_verify(&data, &verifier));
 	}
 
@@ -799,7 +801,7 @@ mod tests {
 
 		let data = VrfSignData::new(b"data", b"aux");
 
-		let prover = ring_ctx.prover(&pks, prover_idx).unwrap();
+		let prover = ring_ctx.prover(&pks, prover_idx);
 		let signature = pair.ring_vrf_sign(&data, &prover);
 
 		let o0 = pair.make_bytes(&data.vrf_input);
@@ -823,7 +825,7 @@ mod tests {
 
 		let data = VrfSignData::new(b"foo", b"aux");
 
-		let prover = ring_ctx.prover(&pks, prover_idx).unwrap();
+		let prover = ring_ctx.prover(&pks, prover_idx);
 		let expected = pair.ring_vrf_sign(&data, &prover);
 
 		let bytes = expected.encode();
@@ -855,7 +857,7 @@ mod tests {
 			(0..TEST_RING_SIZE).map(|i| Pair::from_seed(&[i as u8; 32]).public()).collect();
 		assert!(pks.len() <= ring_ctx.max_keyset_size());
 
-		let verifier_key = ring_ctx.verifier_key(&pks).unwrap();
+		let verifier_key = ring_ctx.verifier_key(&pks);
 		let enc1 = verifier_key.encode();
 		assert_eq!(enc1.len(), RING_VERIFIER_KEY_SERIALIZED_SIZE);
 		assert_eq!(RingVerifierKey::max_encoded_len(), RING_VERIFIER_KEY_SERIALIZED_SIZE);
