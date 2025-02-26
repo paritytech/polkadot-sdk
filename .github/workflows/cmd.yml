@@ -4,7 +4,7 @@ on:
   issue_comment: # listen for comments on issues
     types: [created]
 
-permissions: # allow the action to comment on the PR
+permissions: # allow the action to comment in PR
   contents: read
   issues: write
   pull-requests: write
@@ -261,56 +261,11 @@ jobs:
           echo "RUNNER=${{ steps.set-image.outputs.RUNNER }}"
           echo "IMAGE=${{ steps.set-image.outputs.IMAGE }}"
 
-  before-cmd:
-    needs: [set-image, get-pr-info]
-    runs-on: ubuntu-latest
-    env:
-      JOB_NAME: "cmd"
-      CMD: ${{ needs.get-pr-info.outputs.CMD }}
-      PR_BRANCH: ${{ needs.get-pr-info.outputs.pr-branch }}
-    outputs:
-      job_url: ${{ steps.build-link.outputs.job_url }}
-      run_url: ${{ steps.build-link.outputs.run_url }}
-    steps:
-      - name: Build workflow link
-        if: ${{ !contains(github.event.comment.body, '--quiet') }}
-        id: build-link
-        run: |
-          # Get exactly the CMD job link, filtering out the other jobs
-          jobLink=$(curl -s \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs | jq '.jobs[] | select(.name | contains("${{ env.JOB_NAME }}")) | .html_url')
-
-          runLink=$(curl -s \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }} | jq '.html_url')
-
-          echo "job_url=${jobLink}"
-          echo "run_url=${runLink}"
-          echo "job_url=$jobLink" >> $GITHUB_OUTPUT
-          echo "run_url=$runLink" >> $GITHUB_OUTPUT
-
-      - name: Comment PR (Start)
-        # No need to comment on prdoc start or if --quiet
-        if: ${{ !contains(github.event.comment.body, '--quiet') && !startsWith(needs.get-pr-info.outputs.CMD, 'prdoc') && !startsWith(needs.get-pr-info.outputs.CMD, 'fmt')}}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            let job_url = ${{ steps.build-link.outputs.job_url }}
-            let cmd = process.env.CMD;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `Command "${cmd}" has started 🚀 [See logs here](${job_url})`
-            })
-
   run-cmd-workflow:
-    needs: [before-cmd, set-image, get-pr-info, is-org-member]
+    needs: [set-image, get-pr-info, is-org-member]
     runs-on: ubuntu-latest
+    # don't run on help and clean commands
+    if: ${{ startsWith(github.event.comment.body, '/cmd') && !contains(github.event.comment.body, '--help') && !contains(github.event.comment.body, '--clean') }}
     permissions: # run workflow
       contents: read
       issues: write
@@ -323,8 +278,8 @@ jobs:
       IMAGE: ${{ needs.set-image.outputs.IMAGE }}
       REPO: ${{ needs.get-pr-info.outputs.repo }}
       IS_ORG_MEMBER: ${{ needs.is-org-member.outputs.member }}
-      RUN_URL: ${{ needs.before-cmd.outputs.run_url }}
       COMMENT_ID: ${{ github.event.comment.id }}
+      PR_NUMBER: ${{ github.event.issue.number }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -333,7 +288,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUMBER=${{ github.event.issue.number }}
           gh workflow run cmd-run.yml \
             --ref cmd-bot \
             -f cmd="${CMD}" \
@@ -342,6 +296,6 @@ jobs:
             -f pr_num="${PR_NUMBER}" \
             -f runner="${RUNNER}" \
             -f is_org_member="${IS_ORG_MEMBER}" \
-            -f run_url="${RUN_URL}" \
             -f comment_id="${COMMENT_ID}" \
-            -f image="${IMAGE}"
+            -f image="${IMAGE}" \
+            -f is_quiet="${{ contains(github.event.comment.body, '--quiet') }}"

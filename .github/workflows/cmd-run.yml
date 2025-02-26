@@ -24,12 +24,13 @@ on:
       repo:
         description: "Repository to use"
         required: true
-      run_url:
-        description: "URL to the run"
-        required: true
       comment_id:
         description: "Comment ID"
         required: true
+      is_quiet:
+        description: "Quiet mode"
+        required: false
+        default: "false"
 
 permissions: # allow the action to comment on the PR
   contents: read
@@ -38,10 +39,53 @@ permissions: # allow the action to comment on the PR
   actions: read
 
 jobs:
-  cmd-preflight:
+  before-cmd:
     runs-on: ubuntu-latest
+    env:
+      JOB_NAME: "cmd"
+      CMD: ${{ github.event.inputs.cmd }}
+      PR_BRANCH: ${{ github.event.inputs.pr_branch }}
+    outputs:
+      job_url: ${{ steps.build-link.outputs.job_url }}
+      run_url: ${{ steps.build-link.outputs.run_url }}
     steps:
-      - name: Run command
+      - name: Build workflow link
+        if: ${{ github.event.inputs.is_quiet == 'false' }}
+        id: build-link
+        run: |
+          # Get exactly the CMD job link, filtering out the other jobs
+          jobLink=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs | jq '.jobs[] | select(.name | contains("${{ env.JOB_NAME }}")) | .html_url')
+
+          runLink=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }} | jq '.html_url')
+
+          echo "job_url=${jobLink}"
+          echo "run_url=${runLink}"
+          echo "job_url=$jobLink" >> $GITHUB_OUTPUT
+          echo "run_url=$runLink" >> $GITHUB_OUTPUT
+
+      - name: Comment PR (Start)
+        # No need to comment on prdoc start or if --quiet
+        if: ${{ github.event.inputs.is_quiet == 'false' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt')}}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let job_url = ${{ steps.build-link.outputs.job_url }}
+            let cmd = process.env.CMD;
+            github.rest.issues.createComment({
+              issue_number: ${{ github.event.inputs.pr_num }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Command "${cmd}" has started 🚀 [See logs here](${job_url})`
+            })
+
+      - name: Debug info
         run: |
           echo "Running command: ${{ github.event.inputs.cmd }}"
           echo "PR number: ${{ github.event.inputs.pr_num }}"
@@ -50,10 +94,12 @@ jobs:
           echo "Image: ${{ github.event.inputs.image }}"
           echo "Is org member: ${{ github.event.inputs.is_org_member }}"
           echo "Repo: ${{ github.event.inputs.repo }}"
-          echo "Run URL: ${{ github.event.inputs.run_url }}"
+          echo "Run URL: ${{ steps.build-link.outputs.job_url }}"
+          echo "Is quiet: ${{ github.event.inputs.is_quiet }}"
+          echo "Comment ID: ${{ github.event.inputs.comment_id }}"
 
   cmd:
-    needs: [cmd-preflight]
+    needs: [before-cmd]
     env:
       CMD: ${{ github.event.inputs.cmd }}
       PR_BRANCH: ${{ github.event.inputs.pr_branch }}
@@ -152,6 +198,7 @@ jobs:
         if: startsWith(github.event.inputs.cmd, 'bench')
         run: cargo install subweight
 
+      # TODO: fix for forks, refs/remotes/origin/master should be replaced with master branch from paritytech/polkadot-sdk
       - name: Run Subweight for bench
         id: subweight
         if: startsWith(github.event.inputs.cmd, 'bench')
@@ -178,7 +225,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
   after-cmd:
-    needs: [cmd]
+    needs: [cmd, before-cmd]
     env:
       CMD: ${{ github.event.inputs.cmd }}
       PR_BRANCH: ${{ github.event.inputs.pr_branch }}
@@ -247,7 +294,7 @@ jobs:
       - name: Comment PR (End)
         # No need to comment on prdoc success or --quiet
         #TODO: return "&& !contains(github.event.comment.body, '--quiet')"
-        if: ${{ needs.cmd.result == 'success' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt') }}
+        if: ${{ github.event.inputs.is_quiet == 'false' && needs.cmd.result == 'success' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt') }}
         uses: actions/github-script@v7
         env:
           SUBWEIGHT: "${{ needs.cmd.outputs.subweight }}"
@@ -255,7 +302,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            let runUrl = ${{ github.event.inputs.run_url }}
+            let runUrl = ${{ needs.before-cmd.outputs.run_url }};
             let subweight = process.env.SUBWEIGHT || '';
             let cmdOutput = process.env.CMD_OUTPUT || '';
             let cmd = process.env.CMD;
@@ -270,14 +317,14 @@ jobs:
               : '';
 
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: ${{ github.event.inputs.pr_num }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `Command "${cmd}" has finished ✅ [See logs here](${runUrl})${subweightCollapsed}${cmdOutputCollapsed}`
             })
 
   finish:
-    needs: [cmd, after-cmd]
+    needs: [before-cmd, cmd, after-cmd]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     env:
@@ -285,12 +332,12 @@ jobs:
       CMD: ${{ github.event.inputs.cmd }}
     steps:
       - name: Comment PR (Failure)
-        if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' }}
+        if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' || needs.before-cmd.result == 'failure' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            let jobUrl = ${{ github.event.inputs.run_url }}
+            let jobUrl = ${{ needs.before-cmd.outputs.job_url }};
             let cmdOutput = process.env.CMD_OUTPUT;
             let cmd = process.env.CMD;
             let cmdOutputCollapsed = '';
@@ -299,14 +346,14 @@ jobs:
             }
 
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: ${{ github.event.inputs.pr_num }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `Command "${cmd}" has failed ❌! [See logs here](${jobUrl})${cmdOutputCollapsed}`
             })
 
       - name: Add 😕 reaction on failure
-        if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' }}
+        if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' || needs.before-cmd.result == 'failure' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -319,7 +366,7 @@ jobs:
             })
 
       - name: Add 👍 reaction on success
-        if: ${{ needs.cmd.result == 'success' && needs.after-cmd.result == 'success' }}
+        if: ${{ needs.cmd.result == 'success' && needs.after-cmd.result == 'success' && needs.before-cmd.result == 'success' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
