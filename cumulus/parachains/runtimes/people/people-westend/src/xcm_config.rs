@@ -34,7 +34,12 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::AccountIdConversion;
+<<<<<<< HEAD
 use xcm::latest::prelude::*;
+=======
+use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID};
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
+>>>>>>> e9be92d6 (Authorize upgrade tests for testnet runtimes + `execute_as_governance` refactor (#7656))
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -50,13 +55,18 @@ use xcm_executor::XcmExecutor;
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const RelayLocation: Location = Location::parent();
+<<<<<<< HEAD
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
+=======
+	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
+>>>>>>> e9be92d6 (Authorize upgrade tests for testnet runtimes + `execute_as_governance` refactor (#7656))
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub FellowshipLocation: Location = Location::new(1, Parachain(1001));
+	pub FellowshipLocation: Location = Location::new(1, Parachain(COLLECTIVES_ID));
 	pub const GovernanceLocation: Location = Location::parent();
 	/// The asset ID for the asset that we use to pay for message delivery fees. Just WND.
 	pub FeeAssetId: AssetId = AssetId(RelayLocation::get());
@@ -151,7 +161,10 @@ impl Contains<Location> for ParentOrParentsPlurality {
 pub struct FellowsPlurality;
 impl Contains<Location> for FellowsPlurality {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]))
+		matches!(
+			location.unpack(),
+			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+		)
 	}
 }
 

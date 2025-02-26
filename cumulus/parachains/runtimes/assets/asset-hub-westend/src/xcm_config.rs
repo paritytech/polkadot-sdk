@@ -42,8 +42,15 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+<<<<<<< HEAD
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
+=======
+use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
+use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
+use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+>>>>>>> e9be92d6 (Authorize upgrade tests for testnet runtimes + `execute_as_governance` refactor (#7656))
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -261,9 +268,9 @@ impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]) |
-				(1, [Parachain(1001), PalletInstance(64)]) |
-				(1, [Parachain(1001), PalletInstance(65)])
+			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]) |
+				(1, [Parachain(COLLECTIVES_ID), PalletInstance(64)]) |
+				(1, [Parachain(COLLECTIVES_ID), PalletInstance(65)])
 		)
 	}
 }
@@ -271,7 +278,7 @@ impl Contains<Location> for FellowshipEntities {
 pub struct AmbassadorEntities;
 impl Contains<Location> for AmbassadorEntities {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(74)]))
+		matches!(location.unpack(), (1, [Parachain(COLLECTIVES_ID), PalletInstance(74)]))
 	}
 }
 

@@ -24,7 +24,7 @@ use bridge_hub_rococo_runtime::{
 	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
-use bridge_hub_test_utils::SlotDurations;
+use bridge_hub_test_utils::{GovernanceOrigin, SlotDurations};
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{AccountId, AuraId, Balance};
@@ -41,6 +41,7 @@ use xcm::latest::prelude::*;
 
 parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Location(Location::parent());
 }
 
 fn construct_extrinsic(
@@ -169,7 +170,11 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::initialize_bridge_by_governance_works::<
 			Runtime,
 			BridgeGrandpaWestendInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -178,7 +183,11 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_grandpa_pallet_mode_by_governance_works::<
 			Runtime,
 			BridgeGrandpaWestendInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -187,7 +196,11 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_parachains_pallet_mode_by_governance_works::<
 			Runtime,
 			BridgeParachainWestendInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -196,7 +209,11 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_messages_pallet_mode_by_governance_works::<
 			Runtime,
 			WithBridgeHubWestendMessagesInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -208,7 +225,7 @@ mod bridge_hub_westend_tests {
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::System(call).encode()),
+			Governance::get(),
 			|| (EthereumGatewayAddress::key().to_vec(), EthereumGatewayAddress::get()),
 			|_| [1; 20].into(),
 		)
@@ -224,7 +241,7 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::set_storage_keys_by_governance_works::<Runtime>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::System(call).encode()),
+			Governance::get(),
 			vec![
 				(snowbridge_pallet_outbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
 					channel_id_one,
@@ -289,7 +306,7 @@ mod bridge_hub_westend_tests {
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::System(call).encode()),
+			Governance::get(),
 			|| (DeliveryRewardInBalance::key().to_vec(), DeliveryRewardInBalance::get()),
 			|old_value| old_value.checked_mul(2).unwrap(),
 		)
@@ -476,7 +493,11 @@ mod bridge_hub_bulletin_tests {
 		bridge_hub_test_utils::test_cases::initialize_bridge_by_governance_works::<
 			Runtime,
 			BridgeGrandpaRococoBulletinInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -485,7 +506,11 @@ mod bridge_hub_bulletin_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_grandpa_pallet_mode_by_governance_works::<
 			Runtime,
 			BridgeGrandpaRococoBulletinInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -494,7 +519,11 @@ mod bridge_hub_bulletin_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_messages_pallet_mode_by_governance_works::<
 			Runtime,
 			WithRococoBulletinMessagesInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -594,6 +623,140 @@ mod bridge_hub_bulletin_tests {
 }
 
 #[test]
+<<<<<<< HEAD
+=======
+fn change_required_stake_by_governance_works() {
+	bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
+		Runtime,
+		bridge_common_config::RequiredStakeForStakeAndSlash,
+		Balance,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+		Governance::get(),
+		|| {
+			(
+				bridge_common_config::RequiredStakeForStakeAndSlash::key().to_vec(),
+				bridge_common_config::RequiredStakeForStakeAndSlash::get(),
+			)
+		},
+		|old_value| old_value.checked_mul(2).unwrap(),
+	)
+}
+
+#[test]
+fn location_conversion_works() {
+	// the purpose of hardcoded values is to catch an unintended location conversion logic
+	// change.
+	struct TestCase {
+		description: &'static str,
+		location: Location,
+		expected_account_id_str: &'static str,
+	}
+
+	let test_cases = vec![
+		// DescribeTerminus
+		TestCase {
+			description: "DescribeTerminus Parent",
+			location: Location::new(1, Here),
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+		},
+		TestCase {
+			description: "DescribeTerminus Sibling",
+			location: Location::new(1, [Parachain(1111)]),
+			expected_account_id_str: "5Eg2fnssmmJnF3z1iZ1NouAuzciDaaDQH7qURAy3w15jULDk",
+		},
+		// DescribePalletTerminal
+		TestCase {
+			description: "DescribePalletTerminal Parent",
+			location: Location::new(1, [PalletInstance(50)]),
+			expected_account_id_str: "5CnwemvaAXkWFVwibiCvf2EjqwiqBi29S5cLLydZLEaEw6jZ",
+		},
+		TestCase {
+			description: "DescribePalletTerminal Sibling",
+			location: Location::new(1, [Parachain(1111), PalletInstance(50)]),
+			expected_account_id_str: "5GFBgPjpEQPdaxEnFirUoa51u5erVx84twYxJVuBRAT2UP2g",
+		},
+		// DescribeAccountId32Terminal
+		TestCase {
+			description: "DescribeAccountId32Terminal Parent",
+			location: Location::new(
+				1,
+				[Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() }],
+			),
+			expected_account_id_str: "5EueAXd4h8u75nSbFdDJbC29cmi4Uo1YJssqEL9idvindxFL",
+		},
+		TestCase {
+			description: "DescribeAccountId32Terminal Sibling",
+			location: Location::new(
+				1,
+				[
+					Parachain(1111),
+					Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() },
+				],
+			),
+			expected_account_id_str: "5Dmbuiq48fU4iW58FKYqoGbbfxFHjbAeGLMtjFg6NNCw3ssr",
+		},
+		// DescribeAccountKey20Terminal
+		TestCase {
+			description: "DescribeAccountKey20Terminal Parent",
+			location: Location::new(1, [AccountKey20 { network: None, key: [0u8; 20] }]),
+			expected_account_id_str: "5F5Ec11567pa919wJkX6VHtv2ZXS5W698YCW35EdEbrg14cg",
+		},
+		TestCase {
+			description: "DescribeAccountKey20Terminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
+			),
+			expected_account_id_str: "5CB2FbUds2qvcJNhDiTbRZwiS3trAy6ydFGMSVutmYijpPAg",
+		},
+		// DescribeTreasuryVoiceTerminal
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Parent",
+			location: Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]),
+			expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
+		},
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5G6TDwaVgbWmhqRUKjBhRRnH4ry9L9cjRymUEmiRsLbSE4gB",
+		},
+		// DescribeBodyTerminal
+		TestCase {
+			description: "DescribeBodyTerminal Parent",
+			location: Location::new(1, [Plurality { id: BodyId::Unit, part: BodyPart::Voice }]),
+			expected_account_id_str: "5EBRMTBkDisEXsaN283SRbzx9Xf2PXwUxxFCJohSGo4jYe6B",
+		},
+		TestCase {
+			description: "DescribeBodyTerminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
+		},
+	];
+
+	for tc in test_cases {
+		let expected =
+			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+
+		let got = LocationToAccountHelper::<
+			AccountId,
+			bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
+		>::convert_location(tc.location.into())
+		.unwrap();
+
+		assert_eq!(got, expected, "{}", tc.description);
+	}
+}
+
+#[test]
+>>>>>>> e9be92d6 (Authorize upgrade tests for testnet runtimes + `execute_as_governance` refactor (#7656))
 fn xcm_payment_api_works() {
 	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
 		Runtime,
