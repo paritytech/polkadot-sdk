@@ -75,11 +75,17 @@ def main(path, version):
 
 		# No search for a no_std attribute:
 		with open(lib_path, "r") as f:
-			content = f.read()
-			if "#![no_std]" in content or '#![cfg_attr(not(feature = "std"), no_std)]' in content:
+			nostd_crate = False
+			for line in f:
+				line = line.strip() 
+				if line == "#![no_std]" or line == '#![cfg_attr(not(feature = "std"), no_std)]':
+					nostd_crate = True
+					break
+				elif "no_std" in line:
+					print(line)
+
+			if nostd_crate:
 				nostd_crates.append((crate, path))
-			elif 'no_std' in content:
-				raise Exception(f"Found 'no_std' in {lib_path} without knowing how to handle it")
 			else:
 				std_crates.append((crate, path))
 
@@ -120,6 +126,8 @@ def main(path, version):
 			"edition": { "workspace": True },
 			"authors": { "workspace": True },
 			"description": "Polkadot SDK umbrella crate.",
+			"homepage": { "workspace": True },
+			"repository": { "workspace": True },
 			"license": "Apache-2.0",
 			"metadata": { "docs": { "rs": {
 				"features": ["runtime-full", "node"],

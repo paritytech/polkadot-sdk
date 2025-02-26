@@ -20,10 +20,14 @@
 #![cfg(test)]
 
 use crate::{self as pallet_indices, Config};
-use frame_support::{derive_impl, traits::ConstU64};
+use frame_support::{derive_impl, parameter_types};
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
+
+parameter_types! {
+	pub static IndexDeposit: u64 = 1;
+}
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -50,7 +54,7 @@ impl pallet_balances::Config for Test {
 impl Config for Test {
 	type AccountIndex = u64;
 	type Currency = Balances;
-	type Deposit = ConstU64<1>;
+	type Deposit = IndexDeposit;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
@@ -59,8 +63,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	// Initialize the block number to 1 for event registration
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

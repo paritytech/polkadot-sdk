@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof."
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true

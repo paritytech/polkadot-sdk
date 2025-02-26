@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! # Bridge Hub Rococo Runtime
 //!
@@ -95,7 +95,7 @@ use snowbridge_core::{
 	outbound::{Command, Fee},
 	AgentId, PricingParameters,
 };
-use xcm::{latest::prelude::*, prelude::*};
+use xcm::{latest::prelude::*, prelude::*, Version as XcmVersion};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -124,20 +124,22 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// The TransactionExtension to the basic transaction logic.
-pub type TxExtension = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	BridgeRejectObsoleteHeadersAndMessages,
-	(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
-	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
-);
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+	Runtime,
+	(
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckTxVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckEra<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		BridgeRejectObsoleteHeadersAndMessages,
+		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	),
+>;
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -169,7 +171,6 @@ pub type Migrations = (
 		bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 	>,
 	bridge_to_westend_config::migration::StaticToDynamicLanes,
-	bridge_to_bulletin_config::migration::StaticToDynamicLanes,
 	frame_support::migrations::RemoveStorage<
 		BridgeWestendMessagesPalletName,
 		OutboundLanesCongestedSignalsKey,
@@ -180,9 +181,18 @@ pub type Migrations = (
 		OutboundLanesCongestedSignalsKey,
 		RocksDbWeight,
 	>,
-	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
+	pallet_bridge_relayers::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance,
+		bp_messages::LegacyLaneId,
+	>,
+	pallet_session::migrations::v1::MigrateV0ToV1<
+		Runtime,
+		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 );
 
 parameter_types! {
@@ -241,7 +251,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_016_001,
+	spec_version: 1_017_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -312,6 +322,10 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+}
+
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
+	type WeightInfo = weights::cumulus_pallet_weight_reclaim::WeightInfo<Runtime>;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -488,6 +502,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
@@ -537,6 +552,7 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -555,6 +571,7 @@ construct_runtime!(
 		ParachainSystem: cumulus_pallet_parachain_system = 1,
 		Timestamp: pallet_timestamp = 2,
 		ParachainInfo: parachain_info = 3,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 4,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -667,6 +684,7 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
@@ -846,7 +864,8 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			match asset.try_as::<AssetId>() {
+			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
+			match latest_asset_id {
 				Ok(asset_id) if asset_id.0 == xcm_config::TokenLocation::get() => {
 					// for native token
 					Ok(WeightToFee::weight_to_fee(&weight))
@@ -872,8 +891,8 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
@@ -1042,7 +1061,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
@@ -1071,10 +1090,11 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
+			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -1334,7 +1354,7 @@ impl_runtime_apis! {
 					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>::bench_lane_id();
 					use bp_runtime::Chain;
 					let bridged_chain_id =<Self as pallet_bridge_messages::Config<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>::BridgedChain::ID;
-					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+					pallet_bridge_relayers::Pallet::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>::relayer_reward(
 						relayer,
 						bp_relayers::RewardsAccountParams::new(
 							bench_lane_id,
@@ -1460,16 +1480,27 @@ impl_runtime_apis! {
 			}
 
 			impl BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
+				fn bench_reward() -> Self::Reward {
+					bp_relayers::RewardsAccountParams::new(
+						bp_messages::LegacyLaneId::default(),
+						*b"test",
+						bp_relayers::RewardsAccountOwner::ThisChain
+					)
+				}
+
 				fn prepare_rewards_account(
-					account_params: bp_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId>,
+					reward_kind: Self::Reward,
 					reward: Balance,
-				) {
+				) -> Option<AccountId> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
-						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId,
-					>::rewards_account(account_params);
+						bp_messages::LegacyLaneId,
+						Balance,
+					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::deposit_account(rewards_account, reward);
+
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1479,16 +1510,27 @@ impl_runtime_apis! {
 			}
 
 			impl BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance> for Runtime {
+				fn bench_reward() -> Self::Reward {
+					bp_relayers::RewardsAccountParams::new(
+						bp_messages::HashedLaneId::default(),
+						*b"test",
+						bp_relayers::RewardsAccountOwner::ThisChain
+					)
+				}
+
 				fn prepare_rewards_account(
-					account_params: bp_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForPermissionlessLanesInstance>>::LaneId>,
+					reward_kind: Self::Reward,
 					reward: Balance,
-				) {
+				) -> Option<AccountId> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
-						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForPermissionlessLanesInstance>>::LaneId,
-					>::rewards_account(account_params);
+						bp_messages::HashedLaneId,
+						Balance,
+					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance>>::deposit_account(rewards_account, reward);
+
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1497,18 +1539,8 @@ impl_runtime_apis! {
 				}
 			}
 
-			let whitelist: Vec<TrackedStorageKey> = vec![
-				// Block Number
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
-				// Total Issuance
-				hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
-				// Execution Phase
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
-				// Event Count
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
-				// System Events
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
-			];
+			use frame_support::traits::WhitelistedStorageKeys;
+			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
@@ -1556,41 +1588,44 @@ mod tests {
 		use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
-            frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
-            let payload: TxExtension = (
-                frame_system::CheckNonZeroSender::new(),
-                frame_system::CheckSpecVersion::new(),
-                frame_system::CheckTxVersion::new(),
-                frame_system::CheckGenesis::new(),
-                frame_system::CheckEra::from(Era::Immortal),
-                frame_system::CheckNonce::from(10),
-                frame_system::CheckWeight::new(),
-                pallet_transaction_payment::ChargeTransactionPayment::from(10),
-                BridgeRejectObsoleteHeadersAndMessages,
-                (
-                    bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-                ),
-                frame_metadata_hash_extension::CheckMetadataHash::new(false),
-				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
-            );
+			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
+			let payload: TxExtension = (
+				frame_system::CheckNonZeroSender::new(),
+				frame_system::CheckSpecVersion::new(),
+				frame_system::CheckTxVersion::new(),
+				frame_system::CheckGenesis::new(),
+				frame_system::CheckEra::from(Era::Immortal),
+				frame_system::CheckNonce::from(10),
+				frame_system::CheckWeight::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::from(10),
+				BridgeRejectObsoleteHeadersAndMessages,
+				(
+					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
+				),
+				frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			).into();
 
-            // for BridgeHubRococo
-            {
-                let bhr_indirect_payload = bp_bridge_hub_rococo::TransactionExtension::from_params(
-                    VERSION.spec_version,
-                    VERSION.transaction_version,
-                    bp_runtime::TransactionEra::Immortal,
-                    System::block_hash(BlockNumber::zero()),
-                    10,
-                    10,
-                    (((), ()), ((), ())),
-                );
-                assert_eq!(payload.encode().split_last().unwrap().1, bhr_indirect_payload.encode());
-                assert_eq!(
-                    TxExtension::implicit(&payload).unwrap().encode().split_last().unwrap().1,
-                    sp_runtime::traits::TransactionExtension::<RuntimeCall>::implicit(&bhr_indirect_payload).unwrap().encode()
-                )
-            }
-        });
+			// for BridgeHubRococo
+			{
+				let bhr_indirect_payload = bp_bridge_hub_rococo::TransactionExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode().split_last().unwrap().1, bhr_indirect_payload.encode());
+				assert_eq!(
+					TxExtension::implicit(&payload).unwrap().encode().split_last().unwrap().1,
+					sp_runtime::traits::TransactionExtension::<RuntimeCall>::implicit(
+						&bhr_indirect_payload
+					)
+					.unwrap()
+					.encode()
+				)
+			}
+		});
 	}
 }

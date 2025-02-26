@@ -37,7 +37,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec};
 use frame::{
 	prelude::*,
-	traits::{Currency, ReservableCurrency},
+	traits::{Currency, InstanceFilter, ReservableCurrency},
 };
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -46,6 +46,9 @@ type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -163,6 +166,30 @@ pub mod pallet {
 		/// into a pre-existing storage value.
 		#[pallet::constant]
 		type AnnouncementDepositFactor: Get<BalanceOf<Self>>;
+
+		/// Query the current block number.
+		///
+		/// Must return monotonically increasing values when called from consecutive blocks.
+		/// Can be configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// There is currently no migration provided to "hot-swap" block number providers and it may
+		/// result in undefined behavior when doing so. Parachains are therefore best off setting
+		/// this to their local block number provider if they have the pallet already deployed.
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains: `frame_system::Pallet`
+		/// - Parachains that may produce blocks sparingly or only when needed (on-demand):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: `RelaychainDataProvider`
+		/// - Parachains with a reliably block production rate (PLO or bulk-coretime):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
+		///     providers can be used. Relay provider can be a bit better in cases where the
+		///     parachain is lagging its block production to avoid clock skew.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	#[pallet::call]
@@ -379,7 +406,7 @@ pub mod pallet {
 			let announcement = Announcement {
 				real: real.clone(),
 				call_hash,
-				height: frame_system::Pallet::<T>::block_number(),
+				height: T::BlockNumberProvider::current_block_number(),
 			};
 
 			Announcements::<T>::try_mutate(&who, |(ref mut pending, ref mut deposit)| {
@@ -490,7 +517,7 @@ pub mod pallet {
 			let def = Self::find_proxy(&real, &delegate, force_proxy_type)?;
 
 			let call_hash = T::CallHasher::hash_of(&call);
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			Self::edit_announcements(&delegate, |ann| {
 				ann.real != real ||
 					ann.call_hash != call_hash ||
@@ -584,6 +611,22 @@ pub mod pallet {
 		),
 		ValueQuery,
 	>;
+
+	#[pallet::view_functions_experimental]
+	impl<T: Config> Pallet<T> {
+		/// Check if a `RuntimeCall` is allowed for a given `ProxyType`.
+		pub fn check_permissions(
+			call: <T as Config>::RuntimeCall,
+			proxy_type: T::ProxyType,
+		) -> bool {
+			proxy_type.filter(&call)
+		}
+
+		/// Check if one `ProxyType` is a subset of another `ProxyType`.
+		pub fn is_superset(to_check: T::ProxyType, against: T::ProxyType) -> bool {
+			to_check.is_superset(&against)
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -626,7 +669,7 @@ impl<T: Config> Pallet<T> {
 	) -> T::AccountId {
 		let (height, ext_index) = maybe_when.unwrap_or_else(|| {
 			(
-				frame_system::Pallet::<T>::block_number(),
+				T::BlockNumberProvider::current_block_number(),
 				frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
 			)
 		});
