@@ -20,6 +20,7 @@ use crate::{
 	gas::GasMeter,
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
+	pure_precompiles::{self, is_precompile},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
@@ -1372,13 +1373,80 @@ where
 		}
 		Some(System::<T>::block_hash(&block_number).into())
 	}
-}
 
-/// Determine if the given address is a precompile.
-/// For now, we consider that all addresses between 0x1 and 0xff are reserved for precompiles.
-fn is_precompile(address: &H160) -> bool {
-	let bytes = address.as_bytes();
-	bytes.starts_with(&[0u8; 19]) && bytes[19] != 0
+	fn run_precompile(
+		&mut self,
+		precompile_address: H160,
+		is_delegate: bool,
+		is_read_only: bool,
+		value_transferred: U256,
+		input_data: &[u8],
+	) -> Result<(), ExecError> {
+		if_tracing(|tracer| {
+			tracer.enter_child_span(
+				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
+				precompile_address,
+				is_delegate,
+				is_read_only,
+				value_transferred,
+				&input_data,
+				self.gas_meter().gas_left(),
+			);
+		});
+
+		let mut do_transaction = || -> ExecResult {
+			if !is_delegate {
+				Self::transfer_from_origin(
+					&self.origin,
+					&self.caller(),
+					&T::AddressMapper::to_fallback_account_id(&precompile_address),
+					value_transferred,
+				)?;
+			}
+
+			pure_precompiles::Precompiles::<T>::execute(
+				precompile_address,
+				self.gas_meter_mut(),
+				input_data,
+			)
+			.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
+		};
+
+		let transaction_outcome =
+			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let output = do_transaction();
+				match &output {
+					Ok(result) if !result.did_revert() => TransactionOutcome::Commit(Ok(output)),
+					_ => TransactionOutcome::Rollback(Ok(output)),
+				}
+			});
+
+		let output = match transaction_outcome {
+			Ok(output) => {
+				if_tracing(|tracer| {
+					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
+					match &output {
+						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
+						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
+					}
+				});
+
+				output
+			},
+			Err(error) => {
+				if_tracing(|tracer| {
+					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
+					tracer.exit_child_span_with_error(error.into(), gas_consumed);
+				});
+
+				Err(error.into())
+			},
+		};
+
+		output.map(|output| {
+			self.top_frame_mut().last_frame_output = output;
+		})
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -1411,9 +1479,11 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
+			// Enable read-only access if requested; cannot disable it if already set.
+			let is_read_only = read_only || self.is_read_only();
+
 			if is_precompile(dest_addr) {
-				log::debug!(target: crate::LOG_TARGET, "Unsupported precompile address {dest_addr:?}");
-				return Err(Error::<T>::UnsupportedPrecompileAddress.into());
+				return self.run_precompile(*dest_addr, false, is_read_only, value, &input_data);
 			}
 
 			let dest = T::AddressMapper::to_account_id(dest_addr);
@@ -1433,9 +1503,6 @@ where
 					CachedContract::Cached(contract) => Some(contract.clone()),
 					_ => None,
 				});
-
-			// Enable read-only access if requested; cannot disable it if already set.
-			let is_read_only = read_only || self.is_read_only();
 
 			if let Some(executable) = self.push_frame(
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
@@ -1494,6 +1561,16 @@ where
 		address: H160,
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
+		if is_precompile(&address) {
+			return self.run_precompile(
+				address,
+				true,
+				self.is_read_only(),
+				0u32.into(),
+				&input_data,
+			);
+		}
+
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for unknown code hashes or creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
