@@ -4517,6 +4517,7 @@ dependencies = [
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "cumulus-test-runtime",
+ "docify",
  "environmental",
  "frame-benchmarking",
  "frame-support",
