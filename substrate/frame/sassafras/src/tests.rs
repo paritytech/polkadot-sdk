@@ -261,7 +261,7 @@ fn on_first_block_after_genesis() {
 
 		// Post-initialization status
 
-		assert!(ClaimTemporaryData::<Test>::exists());
+		assert!(SlotRandomness::<Test>::exists());
 		common_assertions();
 		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
@@ -273,7 +273,7 @@ fn on_first_block_after_genesis() {
 
 		// Post-finalization status
 
-		assert!(!ClaimTemporaryData::<Test>::exists());
+		assert!(!SlotRandomness::<Test>::exists());
 		common_assertions();
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
@@ -331,7 +331,7 @@ fn on_normal_block() {
 
 		// Post-initialization status
 
-		assert!(ClaimTemporaryData::<Test>::exists());
+		assert!(SlotRandomness::<Test>::exists());
 		common_assertions();
 		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
@@ -343,7 +343,7 @@ fn on_normal_block() {
 
 		// Post-finalization status
 
-		assert!(!ClaimTemporaryData::<Test>::exists());
+		assert!(!SlotRandomness::<Test>::exists());
 		common_assertions();
 		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
@@ -389,7 +389,7 @@ fn produce_epoch_change_digest_no_config() {
 
 		// Post-initialization status
 
-		assert!(ClaimTemporaryData::<Test>::exists());
+		assert!(SlotRandomness::<Test>::exists());
 		common_assertions();
 		println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 		assert_eq!(
@@ -406,7 +406,7 @@ fn produce_epoch_change_digest_no_config() {
 
 		// Post-finalization status
 
-		assert!(!ClaimTemporaryData::<Test>::exists());
+		assert!(!SlotRandomness::<Test>::exists());
 		common_assertions();
 		println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 		assert_eq!(
@@ -670,7 +670,7 @@ fn block_allowed_to_skip_epochs() {
 
 		// Post-initialization status
 
-		assert!(ClaimTemporaryData::<Test>::exists());
+		assert!(SlotRandomness::<Test>::exists());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot + offset);
 		assert_eq!(Sassafras::epoch_index(), 4);

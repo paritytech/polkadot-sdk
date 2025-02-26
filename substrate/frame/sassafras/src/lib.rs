@@ -199,6 +199,12 @@ pub mod pallet {
 	#[pallet::getter(fn randomness_accumulator)]
 	pub(crate) type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
+	/// Per slot randomness used to feed the randomness accumulator.
+	///
+	/// The value is ephemeral and is cleared on block finalization.
+	#[pallet::storage]
+	pub(crate) type SlotRandomness<T> = StorageValue<_, Randomness>;
+
 	/// The configuration for the current epoch.
 	#[pallet::storage]
 	#[pallet::getter(fn config)]
@@ -271,12 +277,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierKey>;
 
-	/// Slot claim VRF pre-output used to generate per-slot randomness.
-	///
-	/// The value is ephemeral and is cleared on block finalization.
-	#[pallet::storage]
-	pub(crate) type ClaimTemporaryData<T> = StorageValue<_, vrf::VrfPreOutput>;
-
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -323,8 +323,8 @@ pub mod pallet {
 				Self::post_genesis_initialize(claim.slot);
 			}
 
-			let randomness_pre_output = claim.vrf_signature.pre_output;
-			ClaimTemporaryData::<T>::put(randomness_pre_output);
+			let randomness = claim.vrf_signature.pre_output.make_bytes();
+			SlotRandomness::<T>::put(randomness);
 
 			let trigger_weight = T::EpochChangeTrigger::trigger::<T>(block_num);
 
@@ -336,9 +336,8 @@ pub mod pallet {
 			// to the accumulator. If we've determined that this block was the first in
 			// a new epoch, the changeover logic has already occurred at this point
 			// (i.e. `enact_epoch_change` has already been called).
-			let randomness_pre_output = ClaimTemporaryData::<T>::take()
+			let randomness = SlotRandomness::<T>::take()
 				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed");
-			let randomness = randomness_pre_output.make_bytes();
 			Self::deposit_slot_randomness(&randomness);
 
 			// Check if we are in the epoch's second half.
