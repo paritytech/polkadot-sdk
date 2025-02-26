@@ -34,7 +34,7 @@ use ark_ec_vrfs::{
 	ring::RingSuite,
 	suites::bandersnatch::te as bandersnatch,
 };
-use bandersnatch::Secret;
+use bandersnatch::{BandersnatchSha512Ell2 as BandersnatchSuite, Secret};
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -198,6 +198,10 @@ pub mod vrf {
 	use crate::crypto::VrfCrypto;
 	use ark_ec_vrfs::ietf::{Prover, Verifier};
 
+	/// [`VrfSignature`] serialized size.
+	pub const VRF_SIGNATURE_SERIALIZED_SIZE: usize =
+		PREOUT_SERIALIZED_SIZE + SIGNATURE_SERIALIZED_SIZE;
+
 	/// VRF input to construct a [`VrfPreOutput`] instance and embeddable in [`VrfSignData`].
 	#[derive(Clone, Debug)]
 	pub struct VrfInput(pub(super) bandersnatch::Input);
@@ -317,7 +321,7 @@ pub mod vrf {
 
 	#[cfg(feature = "full_crypto")]
 	impl VrfSecret for Pair {
-		fn vrf_sign(&self, data: &Self::VrfSignData) -> Self::VrfSignature {
+		fn vrf_sign(&self, data: &VrfSignData) -> VrfSignature {
 			let pre_output_impl = self.secret.output(data.vrf_input.0);
 			let pre_output = VrfPreOutput(pre_output_impl);
 			let proof_impl = self.secret.prove(data.vrf_input.0, pre_output.0, &data.aux_data);
@@ -342,7 +346,7 @@ pub mod vrf {
 	}
 
 	impl VrfPublic for Public {
-		fn vrf_verify(&self, data: &Self::VrfSignData, signature: &Self::VrfSignature) -> bool {
+		fn vrf_verify(&self, data: &VrfSignData, signature: &VrfSignature) -> bool {
 			let Ok(public) =
 				bandersnatch::Public::deserialize_compressed_unchecked(self.as_slice())
 			else {
@@ -381,68 +385,70 @@ pub mod vrf {
 pub mod ring_vrf {
 	use super::{vrf::*, *};
 	use ark_ec_vrfs::ring::{Prover, Verifier};
-	use bandersnatch::{RingContext as RingContextImpl, RingProver, RingVerifier, VerifierKey};
+	use bandersnatch::{
+		RingContext as RingContextImpl, RingProver, RingVerifier, VerifierKey as VerifierKeyImpl,
+	};
 
 	// Max size of serialized ring-vrf context given `domain_len`.
 	// TODO @davxy: test this
-	fn ring_context_serialized_size(ring_size: usize) -> usize {
-		use ark_ec_vrfs::prelude::ark_ff::PrimeField;
+	pub(crate) fn ring_context_serialized_size(ring_size: usize) -> usize {
 		// const G1_POINT_COMPRESSED_SIZE: usize = 48;
 		// const G2_POINT_COMPRESSED_SIZE: usize = 96;
 		const G1_POINT_UNCOMPRESSED_SIZE: usize = 96;
 		const G2_POINT_UNCOMPRESSED_SIZE: usize = 192;
-		const OVERHEAD_SIZE: usize = 20;
+		const OVERHEAD_SIZE: usize = 16;
 		const G2_POINTS_NUM: usize = 2;
-		let w = 4 + ring_size + bandersnatch::ScalarField::MODULUS_BIT_SIZE as usize;
-		let domain_size = ark_ec_vrfs::prelude::ark_std::log2(w);
+		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSuite>(ring_size);
 		let g1_points_num = 3 * domain_size as usize + 1;
 		OVERHEAD_SIZE +
 			g1_points_num * G1_POINT_UNCOMPRESSED_SIZE +
 			G2_POINTS_NUM * G2_POINT_UNCOMPRESSED_SIZE
 	}
 
-	pub(crate) const RING_COMMITMENT_SERIALIZED_SIZE: usize = 388;
-	pub(crate) const RING_SIGNATURE_SERIALIZED_SIZE: usize = 755;
+	/// [`RingVerifierKey`] serialized size.
+	pub const RING_VERIFIER_KEY_SERIALIZED_SIZE: usize = 384;
+	/// [`RingProof`] serialized size.
+	pub(crate) const RING_PROOF_SERIALIZED_SIZE: usize = 752;
+	/// [`RingVrrfSignature`] serialized size.
+	pub const RING_SIGNATURE_SERIALIZED_SIZE: usize =
+		RING_PROOF_SERIALIZED_SIZE + PREOUT_SERIALIZED_SIZE;
 
-	// 	impl Encode for RingVerifierData {
-	// 		fn encode(&self) -> Vec<u8> {
-	// 			const ERR_STR: &str = "serialization length is constant and checked by test; qed";
-	// 			let mut buf = [0; RING_VERIFIER_DATA_SERIALIZED_SIZE];
-	// 			self.domain_size.serialize_compressed(&mut buf[..4]).expect(ERR_STR);
-	// 			self.verifier_key.serialize_compressed(&mut buf[4..]).expect(ERR_STR);
-	// 			buf.encode()
-	// 		}
-	// 	}
+	/// Ring verifier key
+	pub struct RingVerifierKey(VerifierKeyImpl);
 
-	// 	impl Decode for RingVerifierData {
-	// 		fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
-	// 			const ERR_STR: &str = "serialization length is constant and checked by test; qed";
-	// 			let buf = <[u8; RING_VERIFIER_DATA_SERIALIZED_SIZE]>::decode(i)?;
-	// 			let domain_size =
-	// 				<u32 as CanonicalDeserialize>::deserialize_compressed_unchecked(&mut &buf[..4])
-	// 					.expect(ERR_STR);
-	// 			let verifier_key = <bandersnatch_vrfs::ring::VerifierKey as
-	// CanonicalDeserialize>::deserialize_compressed_unchecked(&mut &buf[4..]).expect(ERR_STR);
+	impl Encode for RingVerifierKey {
+		fn encode(&self) -> Vec<u8> {
+			const ERR_STR: &str = "serialization length is constant and checked by test; qed";
+			let mut buf = Vec::with_capacity(RING_VERIFIER_KEY_SERIALIZED_SIZE);
+			self.0.serialize_compressed(&mut buf).expect(ERR_STR);
+			buf
+		}
+	}
 
-	// 			Ok(RingVerifierData { domain_size, verifier_key })
-	// 		}
-	// 	}
+	impl Decode for RingVerifierKey {
+		fn decode<R: codec::Input>(input: &mut R) -> Result<Self, codec::Error> {
+			let mut buf = vec![0; RING_VERIFIER_KEY_SERIALIZED_SIZE];
+			input.read(&mut buf[..])?;
+			let vk = VerifierKeyImpl::deserialize_compressed_unchecked(buf.as_slice())
+				.map_err(|_| "RingVerifierKey decode error")?;
+			Ok(RingVerifierKey(vk))
+		}
+	}
 
-	// 	impl EncodeLike for RingVerifierData {}
+	impl EncodeLike for RingVerifierKey {}
 
-	// 	impl MaxEncodedLen for RingVerifierData {
-	// 		fn max_encoded_len() -> usize {
-	// 			<[u8; RING_VERIFIER_DATA_SERIALIZED_SIZE]>::max_encoded_len()
-	// 		}
-	// 	}
+	impl MaxEncodedLen for RingVerifierKey {
+		fn max_encoded_len() -> usize {
+			RING_VERIFIER_KEY_SERIALIZED_SIZE
+		}
+	}
 
-	// 	impl TypeInfo for RingVerifierData {
-	// 		type Identity = [u8; RING_VERIFIER_DATA_SERIALIZED_SIZE];
-
-	// 		fn type_info() -> scale_info::Type {
-	// 			Self::Identity::type_info()
-	// 		}
-	// 	}
+	impl TypeInfo for RingVerifierKey {
+		type Identity = [u8; RING_VERIFIER_KEY_SERIALIZED_SIZE];
+		fn type_info() -> scale_info::Type {
+			Self::Identity::type_info()
+		}
+	}
 
 	/// Context used to construct ring prover and verifier.
 	///
@@ -464,19 +470,19 @@ pub mod ring_vrf {
 		/// Get ring prover for the key at index `public_idx` in the `public_keys` set.
 		pub fn prover(&self, public_keys: &[Public], public_idx: usize) -> Option<RingProver> {
 			let pks = Self::make_ring_vector(public_keys)?;
-			let prover_key = self.0.prover_key(&pks[..]);
+			let prover_key = self.0.prover_key(&pks);
 			Some(self.0.prover(prover_key, public_idx))
 		}
 
 		/// Get ring verifier for the `public_keys` set.
 		pub fn verifier(&self, public_keys: &[Public]) -> Option<RingVerifier> {
-			self.verifier_key(public_keys).map(|vk| self.0.verifier(vk))
+			self.verifier_key(public_keys).map(|vk| self.0.verifier(vk.0))
 		}
 
 		/// Build ring commitment for `RingVerifier` lazy construction.
-		pub fn verifier_key(&self, public_keys: &[Public]) -> Option<VerifierKey> {
+		pub fn verifier_key(&self, public_keys: &[Public]) -> Option<RingVerifierKey> {
 			let pks = Self::make_ring_vector(public_keys)?;
-			Some(self.0.verifier_key(&pks[..]))
+			Some(RingVerifierKey(self.0.verifier_key(&pks)))
 		}
 
 		/// Constructs a `RingVerifier` from a `VerifierKey` without a `RingContext` instance.
@@ -486,8 +492,8 @@ pub mod ring_vrf {
 		/// is beneficial in memory or storage constrained environments. This avoids the need to
 		/// retain the full `RingContext` for ring signature verification. Instead, the
 		/// `VerifierKey` contains only the essential information needed to verify ring proofs.
-		pub fn verifier_no_context(verifier_key: VerifierKey) -> RingVerifier {
-			RingContextImpl::verifier_no_context(verifier_key, R)
+		pub fn verifier_no_context(verifier_key: RingVerifierKey) -> RingVerifier {
+			RingContextImpl::verifier_no_context(verifier_key.0, R)
 		}
 
 		fn make_ring_vector(public_keys: &[Public]) -> Option<Vec<bandersnatch::AffinePoint>> {
@@ -531,7 +537,6 @@ pub mod ring_vrf {
 
 	impl<const R: usize> TypeInfo for RingContext<R> {
 		type Identity = Self;
-
 		fn type_info() -> scale_info::Type {
 			let path = scale_info::Path::new("RingContext", module_path!());
 			let array_type_def = scale_info::TypeDefArray {
@@ -551,7 +556,7 @@ pub mod ring_vrf {
 		/// VRF pre-output.
 		pub pre_output: VrfPreOutput,
 		/// Ring signature.
-		pub proof: [u8; RING_SIGNATURE_SERIALIZED_SIZE],
+		pub proof: [u8; RING_PROOF_SERIALIZED_SIZE],
 	}
 
 	#[cfg(feature = "full_crypto")]
@@ -561,16 +566,16 @@ pub mod ring_vrf {
 		/// The ring signature is verifiable if the public key corresponding to the
 		/// signing [`Pair`] is part of the ring from which the [`RingProver`] has
 		/// been constructed. If not, the produced signature is just useless.
-		pub fn ring_vrf_sign(&self, data: &VrfSignData, prover: &RingProver) -> VrfSignature {
+		pub fn ring_vrf_sign(&self, data: &VrfSignData, prover: &RingProver) -> RingVrfSignature {
 			let pre_output_impl = self.secret.output(data.vrf_input.0);
 			let pre_output = VrfPreOutput(pre_output_impl);
 			let proof_impl =
 				self.secret.prove(data.vrf_input.0, pre_output.0, &data.aux_data, prover);
-			let mut proof = Signature::default();
+			let mut proof = [0; RING_PROOF_SERIALIZED_SIZE];
 			proof_impl
-				.serialize_compressed(proof.0.as_mut_slice())
+				.serialize_compressed(proof.as_mut_slice())
 				.expect("serialization length is constant and checked by test; qed");
-			VrfSignature { pre_output, proof }
+			RingVrfSignature { pre_output, proof }
 		}
 	}
 
@@ -579,7 +584,7 @@ pub mod ring_vrf {
 		///
 		/// The signature is verifiable if it has been produced by a member of the ring
 		/// from which the [`RingVerifier`] has been constructed.
-		fn ring_vrf_verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
+		pub fn ring_vrf_verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
 			let Ok(proof) =
 				bandersnatch::RingProof::deserialize_compressed_unchecked(self.proof.as_slice())
 			else {
@@ -599,11 +604,13 @@ pub mod ring_vrf {
 
 #[cfg(test)]
 mod tests {
-	use super::{vrf::*, *};
+	use super::{ring_vrf::*, vrf::*, *};
 	use crate::crypto::{VrfPublic, VrfSecret, DEV_PHRASE};
 
 	const TEST_SEED: &[u8; SEED_SERIALIZED_SIZE] = &[0xcb; SEED_SERIALIZED_SIZE];
-	const TEST_DOMAIN_SIZE: u32 = 1024;
+	const TEST_RING_SIZE: usize = 16;
+
+	type TestRingContext = RingContext<TEST_RING_SIZE>;
 
 	#[allow(unused)]
 	fn b2h(bytes: &[u8]) -> String {
@@ -615,12 +622,248 @@ mod tests {
 	}
 
 	#[test]
+	fn backend_assumptions_sanity_check() {
+		use bandersnatch::{Input, RingContext as RingContextImpl, Secret};
+		const OVERHEAD_SIZE: usize = 257;
+
+		let ctx = RingContextImpl::from_seed(TEST_RING_SIZE, [0_u8; 32]);
+
+		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSuite>(TEST_RING_SIZE);
+		assert_eq!(ctx.max_ring_size(), domain_size - OVERHEAD_SIZE);
+
+		assert_eq!(ctx.uncompressed_size(), ring_context_serialized_size(TEST_RING_SIZE));
+
+		let prover_key_index = 3;
+		let secret = Secret::from_seed(&[prover_key_index as u8; 32]);
+		let public = secret.public();
+		assert_eq!(public.compressed_size(), PUBLIC_SERIALIZED_SIZE);
+
+		let input = Input::new(b"foo").unwrap();
+		let preout = secret.output(input);
+		assert_eq!(preout.compressed_size(), PREOUT_SERIALIZED_SIZE);
+
+		let ring_keys: Vec<_> = (0..TEST_RING_SIZE)
+			.map(|i| Secret::from_seed(&[i as u8; 32]).public().0.into())
+			.collect();
+
+		let verifier_key = ctx.verifier_key(&ring_keys[..]);
+		assert_eq!(verifier_key.compressed_size(), RING_VERIFIER_KEY_SERIALIZED_SIZE);
+
+		let prover_key = ctx.prover_key(&ring_keys);
+		let ring_prover = ctx.prover(prover_key, prover_key_index);
+
+		{
+			use ark_ec_vrfs::ietf::Prover;
+			let proof = secret.prove(input, preout, &[]);
+			assert_eq!(proof.compressed_size(), SIGNATURE_SERIALIZED_SIZE);
+		}
+
+		{
+			use ark_ec_vrfs::ring::Prover;
+			let proof = secret.prove(input, preout, &[], &ring_prover);
+			assert_eq!(proof.compressed_size(), RING_PROOF_SERIALIZED_SIZE);
+		}
+	}
+
+	#[test]
+	fn derive_works() {
+		let pair = Pair::from_string(&format!("{}//Alice//Hard", DEV_PHRASE), None).unwrap();
+		let known = h2b("f706ea7ee4eef553428a768dbf3a1ede0b389a9f75867ade317a61cbb4efeb01");
+		assert_eq!(pair.public().as_ref(), known);
+
+		// Soft derivation not supported
+		let res = Pair::from_string(&format!("{}//Alice/Soft", DEV_PHRASE), None);
+		assert!(res.is_err());
+	}
+
+	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
+		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_seed.public());
+		let (repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
+		assert_eq!(seed, reseed);
+		assert_eq!(pair.public(), repair_phrase.public());
+		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_string.public());
+	}
+
+	#[test]
 	fn sign_verify() {
 		let pair = Pair::from_seed(TEST_SEED);
 		let public = pair.public();
-		let msg = b"hello";
-
+		let msg = b"foo";
 		let signature = pair.sign(msg);
 		assert!(Pair::verify(&signature, msg, &public));
+	}
+
+	#[test]
+	fn vrf_sign_verify() {
+		let pair = Pair::from_seed(TEST_SEED);
+		let public = pair.public();
+		let data = VrfSignData::new(b"foo", b"aux");
+		let signature = pair.vrf_sign(&data);
+		assert!(public.vrf_verify(&data, &signature));
+	}
+
+	#[test]
+	fn vrf_sign_verify_with_bad_input() {
+		let pair = Pair::from_seed(TEST_SEED);
+		let public = pair.public();
+		let data = VrfSignData::new(b"foo", b"aux");
+		let signature = pair.vrf_sign(&data);
+		let data = VrfSignData::new(b"foo", b"bad");
+		assert!(!public.vrf_verify(&data, &signature));
+		let data = VrfSignData::new(b"bar", b"aux");
+		assert!(!public.vrf_verify(&data, &signature));
+	}
+
+	#[test]
+	fn vrf_output_bytes_match() {
+		let pair = Pair::from_seed(TEST_SEED);
+		let data = VrfSignData::new(b"foo", b"aux");
+		let signature = pair.vrf_sign(&data);
+		let o0 = pair.make_bytes(&data.vrf_input);
+		let o1 = signature.pre_output.make_bytes();
+		assert_eq!(o0, o1);
+	}
+
+	#[test]
+	fn vrf_signature_encode_decode() {
+		let pair = Pair::from_seed(TEST_SEED);
+
+		let data = VrfSignData::new(b"data", b"aux");
+		let expected = pair.vrf_sign(&data);
+
+		let bytes = expected.encode();
+
+		let expected_len = PREOUT_SERIALIZED_SIZE + SIGNATURE_SERIALIZED_SIZE;
+		assert_eq!(bytes.len(), expected_len);
+
+		let decoded = VrfSignature::decode(&mut bytes.as_slice()).unwrap();
+		assert_eq!(expected, decoded);
+	}
+
+	#[test]
+	fn ring_vrf_sign_verify() {
+		let ring_ctx = TestRingContext::new_testing();
+
+		let mut pks: Vec<_> =
+			(0..TEST_RING_SIZE).map(|i| Pair::from_seed(&[i as u8; 32]).public()).collect();
+		assert!(pks.len() <= ring_ctx.max_keyset_size());
+
+		let pair = Pair::from_seed(TEST_SEED);
+
+		// Just pick one index to patch with the actual public key
+		let prover_idx = 3;
+		pks[prover_idx] = pair.public();
+		let prover = ring_ctx.prover(&pks, prover_idx).unwrap();
+
+		let data = VrfSignData::new(b"data", b"aux");
+		let signature = pair.ring_vrf_sign(&data, &prover);
+
+		let verifier = ring_ctx.verifier(&pks).unwrap();
+		assert!(signature.ring_vrf_verify(&data, &verifier));
+	}
+
+	#[test]
+	fn ring_vrf_sign_verify_with_out_of_ring_key() {
+		let ring_ctx = TestRingContext::new_testing();
+
+		let pks: Vec<_> =
+			(0..TEST_RING_SIZE).map(|i| Pair::from_seed(&[i as u8; 32]).public()).collect();
+		let pair = Pair::from_seed(TEST_SEED);
+
+		let data = VrfSignData::new(b"foo", b"aux");
+
+		// pair.public != pks[0]
+		let prover = ring_ctx.prover(&pks, 0).unwrap();
+		let signature = pair.ring_vrf_sign(&data, &prover);
+
+		let verifier = ring_ctx.verifier(&pks).unwrap();
+		assert!(!signature.ring_vrf_verify(&data, &verifier));
+	}
+
+	#[test]
+	fn ring_vrf_make_bytes_matches() {
+		let ring_ctx = TestRingContext::new_testing();
+
+		let mut pks: Vec<_> =
+			(0..TEST_RING_SIZE).map(|i| Pair::from_seed(&[i as u8; 32]).public()).collect();
+		assert!(pks.len() <= ring_ctx.max_keyset_size());
+
+		let pair = Pair::from_seed(TEST_SEED);
+
+		// Just pick one index to patch with the actual public key
+		let prover_idx = 3;
+		pks[prover_idx] = pair.public();
+
+		let data = VrfSignData::new(b"data", b"aux");
+
+		let prover = ring_ctx.prover(&pks, prover_idx).unwrap();
+		let signature = pair.ring_vrf_sign(&data, &prover);
+
+		let o0 = pair.make_bytes(&data.vrf_input);
+		let o1 = signature.pre_output.make_bytes();
+		assert_eq!(o0, o1);
+	}
+
+	#[test]
+	fn ring_vrf_signature_encode_decode() {
+		let ring_ctx = TestRingContext::new_testing();
+
+		let mut pks: Vec<_> =
+			(0..TEST_RING_SIZE).map(|i| Pair::from_seed(&[i as u8; 32]).public()).collect();
+		assert!(pks.len() <= ring_ctx.max_keyset_size());
+
+		let pair = Pair::from_seed(TEST_SEED);
+
+		// Just pick one index to patch with the actual public key
+		let prover_idx = 3;
+		pks[prover_idx] = pair.public();
+
+		let data = VrfSignData::new(b"foo", b"aux");
+
+		let prover = ring_ctx.prover(&pks, prover_idx).unwrap();
+		let expected = pair.ring_vrf_sign(&data, &prover);
+
+		let bytes = expected.encode();
+		assert_eq!(bytes.len(), RING_SIGNATURE_SERIALIZED_SIZE);
+
+		let decoded = RingVrfSignature::decode(&mut bytes.as_slice()).unwrap();
+		assert_eq!(expected, decoded);
+	}
+
+	#[test]
+	fn ring_vrf_context_encode_decode() {
+		let ctx1 = TestRingContext::new_testing();
+		let enc1 = ctx1.encode();
+
+		assert_eq!(enc1.len(), ring_context_serialized_size(TEST_RING_SIZE));
+		assert_eq!(enc1.len(), TestRingContext::max_encoded_len());
+
+		let ctx2 = TestRingContext::decode(&mut enc1.as_slice()).unwrap();
+		let enc2 = ctx2.encode();
+
+		assert_eq!(enc1, enc2);
+	}
+
+	#[test]
+	fn verifier_key_encode_decode() {
+		let ring_ctx = TestRingContext::new_testing();
+
+		let pks: Vec<_> =
+			(0..TEST_RING_SIZE).map(|i| Pair::from_seed(&[i as u8; 32]).public()).collect();
+		assert!(pks.len() <= ring_ctx.max_keyset_size());
+
+		let verifier_key = ring_ctx.verifier_key(&pks).unwrap();
+		let enc1 = verifier_key.encode();
+		assert_eq!(enc1.len(), RING_VERIFIER_KEY_SERIALIZED_SIZE);
+		assert_eq!(RingVerifierKey::max_encoded_len(), RING_VERIFIER_KEY_SERIALIZED_SIZE);
+
+		let vd2 = RingVerifierKey::decode(&mut enc1.as_slice()).unwrap();
+		let enc2 = vd2.encode();
+		assert_eq!(enc1, enc2);
 	}
 }
