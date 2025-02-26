@@ -30,8 +30,8 @@ use xcm::prelude::*;
 
 use crate::{
 	traits::{
-		DropAssets, FeeManager, Properties, ShouldExecute, TransactAsset, WeightBounds,
-		WeightTrader,
+		DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute, TransactAsset,
+		WeightBounds, WeightTrader,
 	},
 	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
@@ -267,6 +267,20 @@ impl FeeManager for TestFeeManager {
 	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
 }
 
+/// Dummy transactional processor that doesn't rollback storage changes, just
+/// aims to rollback executor state.
+pub struct TestTransactionalProcessor;
+impl ProcessTransaction for TestTransactionalProcessor {
+	const IS_TRANSACTIONAL: bool = true;
+
+	fn process<F>(f: F) -> Result<(), XcmError>
+	where
+		F: FnOnce() -> Result<(), XcmError>,
+	{
+		f()
+	}
+}
+
 /// Test XcmConfig that uses all the test implementations in this file.
 pub struct XcmConfig;
 impl Config for XcmConfig {
@@ -294,7 +308,7 @@ impl Config for XcmConfig {
 	type CallDispatcher = Self::RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
-	type TransactionalProcessor = ();
+	type TransactionalProcessor = TestTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
