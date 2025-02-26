@@ -2,7 +2,7 @@ title: Simplify event assertion with predicate-based check
 doc:
 - audience: Runtime Dev
   description: |-
-    A follow-up PR to simplify event assertions by introducing contains_event, reducing duplicated code.
+    Simplify event assertions by introducing contains_event, reducing duplicated code.
 crates:
 - name: xcm-simulator-example
   bump: patch
