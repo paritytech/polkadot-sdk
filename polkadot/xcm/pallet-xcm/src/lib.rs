@@ -24,6 +24,8 @@ pub mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
+mod errors;
+use errors::ExecutionError;
 
 pub mod migration;
 
@@ -333,7 +335,7 @@ pub mod pallet {
 			let weight_used = outcome.weight_used();
 			outcome.ensure_complete().map_err(|error| {
 				tracing::error!(target: "xcm::pallet_xcm::execute", ?error, "XCM execution failed with error");
-				Error::<T>::LocalExecutionIncomplete.with_weight(
+				Error::<T>::LocalExecutionIncomplete(error.into()).with_weight(
 					weight_used.saturating_add(
 						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
 					),
@@ -587,7 +589,7 @@ pub mod pallet {
 		TooManyReserves,
 		/// Local XCM execution incomplete.
 		#[codec(index = 24)]
-		LocalExecutionIncomplete,
+		LocalExecutionIncomplete(ExecutionError),
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -1345,7 +1347,7 @@ pub mod pallet {
 			);
 			outcome.ensure_complete().map_err(|error| {
 				tracing::error!(target: "xcm::pallet_xcm::claim_assets", ?error, "XCM execution failed with error");
-				Error::<T>::LocalExecutionIncomplete
+				Error::<T>::LocalExecutionIncomplete(error.into())
 			})?;
 			Ok(())
 		}
@@ -1808,7 +1810,7 @@ impl<T: Config> Pallet<T> {
 				target: "xcm::pallet_xcm::execute_xcm_transfer",
 				?error, "XCM execution failed with error with outcome: {:?}", outcome
 			);
-			Error::<T>::LocalExecutionIncomplete
+			Error::<T>::LocalExecutionIncomplete(error.into())
 		})?;
 
 		if let Some(remote_xcm) = remote_xcm {
