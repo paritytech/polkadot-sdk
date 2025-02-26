@@ -480,7 +480,8 @@ where
 			Poll::Ready(Some(data)) => {
 				error!(
 					target: "sub-libp2p",
-					"Unexpected incoming data in `NotificationsOutSubstream` data={data:?}",
+					"Unexpected incoming data in `NotificationsOutSubstream` peer={:?} data={data:?}",
+					this.peer_id
 				);
 			},
 			Poll::Ready(None) => return Poll::Ready(Err(NotificationsOutError::Terminated)),
