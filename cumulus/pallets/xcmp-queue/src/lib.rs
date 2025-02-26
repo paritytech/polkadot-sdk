@@ -1011,6 +1011,12 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 	fn clear_messages() {
 		// Best effort.
 		let _ = OutboundXcmpMessages::<T>::clear(u32::MAX, None);
+		OutboundXcmpStatus::<T>::mutate(|details_vec| {
+			for details in details_vec {
+				details.first_index = 0;
+				details.last_index = 0;
+			}
+		});
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {

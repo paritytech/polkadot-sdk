@@ -39,7 +39,6 @@ use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForTrustBackedAssetsConvert,
 };
-use codec::Encode;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
@@ -73,8 +72,13 @@ use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
+<<<<<<< HEAD
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Dispatchable},
+=======
+	generic, impl_opaque_keys,
+	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT},
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -92,7 +96,12 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::{AssetId as AssetLocationId, BodyId},
+<<<<<<< HEAD
 	VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+=======
+	Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation,
+	VersionedXcm,
+>>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 };
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
@@ -993,61 +1002,12 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			use xcm_builder::InspectMessageQueues;
-			use xcm_executor::RecordXcm;
-			use xcm::prelude::*;
-			pallet_xcm::Pallet::<Runtime>::set_record_xcm(true);
-			frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
-			let result = call.dispatch(origin.into());
-			pallet_xcm::Pallet::<Runtime>::set_record_xcm(false);
-			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
-			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(CallDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
-		fn dry_run_xcm(origin_location: VersionedLocation, program: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			use xcm_builder::InspectMessageQueues;
-			use xcm::prelude::*;
-
-			let origin_location: Location = origin_location.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::DryRunApi::dry_run_xcm",
-					"Location version conversion failed with error: {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let program: Xcm<RuntimeCall> = program.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::DryRunApi::dry_run_xcm",
-					"Xcm version conversion failed with error {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let mut hash = program.using_encoded(sp_core::hashing::blake2_256);
-			frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
-			let result = xcm_executor::XcmExecutor::<xcm_config::XcmConfig>::prepare_and_execute(
-				origin_location,
-				program,
-				&mut hash,
-				Weight::MAX, // Max limit.
-				Weight::zero(),
-			);
-			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(XcmDryRunEffects {
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
 		}
 	}
 
