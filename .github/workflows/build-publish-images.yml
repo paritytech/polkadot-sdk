@@ -6,7 +6,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -18,9 +18,10 @@ jobs:
   #
   #
   #
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    ## TODO: remove when ready
-    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   ### Build ########################
@@ -236,10 +237,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
-          # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
-          ref: ${{ github.head_ref || github.ref_name }}
       - name: build
         run: |
           mkdir -p ./artifacts/substrate/

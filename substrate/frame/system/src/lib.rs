@@ -122,7 +122,7 @@ use sp_runtime::{
 };
 use sp_version::RuntimeVersion;
 
-use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 #[cfg(feature = "std")]
 use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
@@ -172,7 +172,8 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, weight_reclaim::WeightReclaim, WeightInfo as ExtensionsWeightInfo,
+	check_weight::CheckWeight, weight_reclaim::WeightReclaim,
+	weights::SubstrateWeight as SubstrateExtensionsWeight, WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
@@ -267,7 +268,18 @@ where
 /// Information about the dispatch of a call, to be displayed in the
 /// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
 /// events.
-#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Default,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+)]
 pub struct DispatchEventInfo {
 	/// Weight of this transaction.
 	pub weight: Weight,
@@ -2062,11 +2074,18 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[track_caller]
 	pub fn assert_has_event(event: T::RuntimeEvent) {
+		let warn = if Self::block_number().is_zero() {
+			"WARNING: block number is zero, and events are not registered at block number zero.\n"
+		} else {
+			""
+		};
+
 		let events = Self::events();
 		assert!(
 			events.iter().any(|record| record.event == event),
-			"expected event {event:?} not found in events {events:?}",
+			"{warn}expected event {event:?} not found in events {events:?}",
 		);
 	}
 
@@ -2074,11 +2093,22 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[track_caller]
 	pub fn assert_last_event(event: T::RuntimeEvent) {
-		let last_event = Self::events().last().expect("events expected").event.clone();
+		let warn = if Self::block_number().is_zero() {
+			"WARNING: block number is zero, and events are not registered at block number zero.\n"
+		} else {
+			""
+		};
+
+		let last_event = Self::events()
+			.last()
+			.expect(&alloc::format!("{warn}events expected"))
+			.event
+			.clone();
 		assert_eq!(
 			last_event, event,
-			"expected event {event:?} is not equal to the last event {last_event:?}",
+			"{warn}expected event {event:?} is not equal to the last event {last_event:?}",
 		);
 	}
 

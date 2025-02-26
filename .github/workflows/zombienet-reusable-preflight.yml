@@ -20,6 +20,28 @@ on:
     outputs:
       changes_substrate:
         value: ${{ jobs.preflight.outputs.changes_substrate }}
+        description: |
+          True iff there are changes in substrate directory or the current workflow
+
+      changes_cumulus:
+        value: ${{ jobs.preflight.outputs.changes_cumulus }}
+        description: |
+          True iff there are changes in cumulus directory or the current workflow
+
+      changes_polkadot:
+        value: ${{ jobs.preflight.outputs.changes_polkadot }}
+        description: |
+          True iff there are changes in polkadot directory or the current workflow
+
+      changes_bridges:
+        value: ${{ jobs.preflight.outputs.changes_bridges }}
+        description: |
+          True iff there are changes in bridges directory or the current workflow
+
+      changes_templates:
+        value: ${{ jobs.preflight.outputs.changes_templates }}
+        description: |
+          True iff there are changes in templates directory or the current workflow
 
       ZOMBIENET_IMAGE:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -30,14 +52,23 @@ on:
         description: |
           Main runner for zombienet tests.
 
+      TEMP_IMAGES_BASE:
+        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
+        description: |
+          Base location for 'temp' images used in tests.
+
       DOCKER_IMAGES_VERSION:
         value: ${{ jobs.preflight.outputs.DOCKER_IMAGES_VERSION }}
         description: |
           Version for temp docker images.
 
-      # Global vars (from global preflight)
       SOURCE_REF_SLUG:
-        value: ${{ jobs.global_preflight.outputs.SOURCE_REF_SLUG }}
+        value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
+
+      BUILD_RUN_ID:
+        value: ${{ jobs.wait_build_images.outputs.BUILD_RUN_ID }}
+        description: |
+          Id of the build run, needed to download the artifacts.
 
       # Zombie vars
       PUSHGATEWAY_URL:
@@ -65,9 +96,6 @@ on:
         description: "Base memory (request) for pod runner."
 
 jobs:
-  global_preflight:
-    uses: ./.github/workflows/reusable-preflight.yml
-
   #
   #
   #
@@ -75,14 +103,22 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_cumulus: ${{ steps.set_changes.outputs.cumulus_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_polkadot: ${{ steps.set_changes.outputs.polkadot_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_bridges: ${{ steps.set_changes.outputs.bridges_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_templates: ${{ steps.set_changes.outputs.templates_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
 
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
       ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
 
-      DOCKER_IMAGES_VERSION: ${{ steps.set_images_version.outputs.ZOMBIENET_RUNNER }}
+      TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
+
+      # images versions
+      DOCKER_IMAGES_VERSION: ${{ steps.set_images_version.outputs.DOCKER_IMAGES_VERSION }}
 
       # common vars
       PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
+      SOURCE_REF_SLUG: ${{ steps.set_vars.outputs.SOURCE_REF_SLUG }}
       DEBUG: ${{ steps.set_vars.outputs.DEBUG }}
       ZOMBIE_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIE_PROVIDER }}
       RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
@@ -91,7 +127,6 @@ jobs:
       KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
 
     steps:
-
       - uses: actions/checkout@v4
 
       #
@@ -111,11 +146,18 @@ jobs:
           files_yaml: |
             substrate:
               - 'substrate/**/*'
+            cumulus:
+              - 'cumulus/**/*'
+            polkadot:
+              - 'polkadot/**/*'
+            bridges:
+              - 'bridges/**/*'
+            templates:
+              - 'templates/**/*'
             currentWorkflow:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/zombienet-reusable-preflight.yml'
               - '.github/zombienet-env'
-
 
       #
       # Set environment vars (including runner/image)
@@ -123,8 +165,12 @@ jobs:
       - name: Set vars
         id: set_vars
         shell: bash
-        run: cat .github/env >> $GITHUB_OUTPUT
-
+        run: |
+          export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
+          echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}" >> $GITHUB_OUTPUT
+          #
+          cat .github/zombienet-env >> $GITHUB_OUTPUT
+          cat .github/zombienet-env
 
       #
       #
@@ -133,8 +179,7 @@ jobs:
         id: set_images_version
         shell: bash
         run: |
-          export BRANCH_NAME=${{ github.head_ref || github.ref_name }}
-          export DOCKER_IMAGES_VERSION=${BRANCH_NAME/\//-}
+          export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
           if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
           echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
 
@@ -143,3 +188,74 @@ jobs:
         run: |
           echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
           echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"
+          echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
+
+  #
+  #
+  #
+  ci-env:
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Info vars
+        run: |
+          echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
+          echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
+          echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+          echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
+          echo "PUSHGATEWAY_URL: ${{ needs.preflight.outputs.PUSHGATEWAY_URL }}"
+          echo "DEBUG: ${{ needs.preflight.outputs.DEBUG }}"
+          echo "ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}"
+          echo "RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}"
+          echo "RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}"
+          echo "KUBERNETES_CPU_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_CPU_REQUEST }}"
+          echo "KUBERNETES_MEMORY_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}"
+          #
+          echo "github.ref: ${{ github.ref }}"
+          echo "github.ref_name: ${{ github.ref_name }}"
+          echo "github.sha: ${{ github.sha }}"
+  #
+  #
+  # Wait until the 'build and push' image workflow success
+  wait_build_images:
+    needs: [ci-env]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      BUILD_RUN_ID: ${{ steps.wait_build.outputs.BUILD_RUN_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Wait until "Build and push images" workflow is done
+        id: wait_build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh --version
+          export SHA=${{ github.event.pull_request.head.sha }}
+          if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+          while true; do
+            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
+            echo "CI workflow status: $STATUS"
+            if [[ $STATUS == "completed" ]]; then
+              echo "CI workflow is done."
+              break
+            fi
+            if [[ -z "$STATUS" ]]; then
+              echo "::warning::No CI workflow runs found for this commit"
+              exit 1
+            fi
+            sleep 10
+          done
+
+          #check if the build succeeded
+          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json name,conclusion,databaseId --jq '.[] | select(.name == "Build and push images") | .conclusion, .databaseId'))
+          CONCLUSION=${RUN_INFO[@]:0:1}
+          BUILD_RUN_ID=${RUN_INFO[@]:1:1}
+          if [[ $CONCLUSION == "success" ]]; then
+            echo "CI workflow succeeded. (build run_id: ${BUILD_RUN_ID})"
+            echo "BUILD_RUN_ID=${BUILD_RUN_ID}" >> $GITHUB_OUTPUT
+          else
+            echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLUSION"
+            exit 1
+          fi;
