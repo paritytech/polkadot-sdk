@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+async-channel = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }

@@ -4504,6 +4504,7 @@ dependencies = [
 name = "cumulus-client-service"
 version = "0.7.0"
 dependencies = [
+ "async-channel 1.9.0",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
@@ -4846,6 +4847,7 @@ dependencies = [
 name = "cumulus-relay-chain-inprocess-interface"
 version = "0.7.0"
 dependencies = [
+ "async-channel 1.9.0",
  "async-trait",
  "cumulus-client-bootnodes",
  "cumulus-primitives-core",
@@ -4895,7 +4897,9 @@ name = "cumulus-relay-chain-minimal-node"
 version = "0.7.0"
 dependencies = [
  "array-bytes",
+ "async-channel 1.9.0",
  "async-trait",
+ "cumulus-client-bootnodes",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-rpc-interface",

@@ -275,7 +275,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let client = params.client.clone();
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
-			let (relay_chain_interface, collator_key) = build_relay_chain_interface(
+			let (relay_chain_interface, collator_key, paranode_rx) = build_relay_chain_interface(
 				polkadot_config,
 				&parachain_config,
 				telemetry_worker_handle,
@@ -403,15 +403,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				sync_service,
 			})?;
 
-			// TODO: initialize request-response protocol properly.
-			let (bootnode_request_response_config, request_receiver) =
-				bootnode_request_response_config::<_, Self::Block, Net>([], None);
-
 			start_bootnode_tasks(StartBootnodeTasksParams {
 				para_id,
 				task_manager: &mut task_manager,
 				relay_chain_interface: relay_chain_interface.clone(),
-				request_receiver,
+				request_receiver: paranode_rx,
 			});
 
 			if validator {
