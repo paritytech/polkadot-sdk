@@ -1498,10 +1498,9 @@ where
 		// This is for example the case for unknown code hashes or creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
-		let code_hash = ContractInfoOf::<T>::get(&address)
-			.ok_or(Error::<T>::CodeNotFound)
-			.map(|c| c.code_hash)?;
-		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
+		// Delegate-calls to non-contract accounts are considered success.
+		let Some(info) = ContractInfoOf::<T>::get(&address) else { return Ok(()) };
+		let executable = E::from_storage(info.code_hash, self.gas_meter_mut())?;
 		let top_frame = self.top_frame_mut();
 		let contract_info = top_frame.contract_info().clone();
 		let account_id = top_frame.account_id.clone();
