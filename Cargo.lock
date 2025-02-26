@@ -15553,7 +15553,6 @@ dependencies = [
  "pallet-remark",
  "pallet-revive",
  "pallet-revive-eth-rpc",
- "pallet-revive-mock-network",
  "pallet-revive-proc-macro",
  "pallet-revive-uapi",
  "pallet-root-offences",
