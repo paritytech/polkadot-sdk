@@ -11879,6 +11879,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-staking",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rand 0.8.5",

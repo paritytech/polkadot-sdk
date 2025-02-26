@@ -43,7 +43,7 @@ use rand_chacha::{
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{SaturatedConversion, StaticLookup, Zero},
-	ArithmeticError, Perbill, Percent, Saturating,
+	ArithmeticError, Perbill, Percent,
 };
 
 use sp_staking::{
@@ -330,6 +330,16 @@ pub mod pallet {
 		/// Maximum number of disabled validators.
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
+
+		/// A potential implementation to start the election process.
+		///
+		/// We check this upon each `on_initialize`, and if it returns `true`, we start the
+		/// election.
+		///
+		/// A runtime may either implement this, or make sure to call the start elsewhere.
+		fn maybe_start_election() -> bool {
+			false
+		}
 
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
@@ -1149,10 +1159,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Start fetching the election pages `Pages` blocks before the election prediction, so
-		/// that the `ElectableStashes` has been populated with all validators from all pages at
-		/// the time of the election.
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// todo(ank4n): Hacky bench. Do it properly.
 			let mut consumed_weight = slashing::process_offence::<T>();
 
@@ -1168,36 +1175,14 @@ pub mod pallet {
 				Self::apply_unapplied_slashes(active_era.index);
 			}
 
-			let pages = Self::election_pages();
+			let fetch_weight = Self::on_initialize_maybe_fetch_election_results();
+			if T::maybe_start_election() {
+				// this is best effort, not much we can do if it fails.
+				let res = T::ElectionProvider::start().defensive();
+				log::info!("Election started with result: {:?}", res);
+			}
 
-			// election ongoing, fetch the next page.
-			let inner_weight = if let Some(next_page) = NextElectionPage::<T>::get() {
-				let next_next_page = next_page.checked_sub(1);
-				NextElectionPage::<T>::set(next_next_page);
-				Self::do_elect_paged(next_page)
-			} else {
-				// election isn't ongoing yet, check if it should start.
-				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
-
-				if now == (next_election.saturating_sub(pages.into())) {
-					crate::log!(
-						debug,
-						"elect(): start fetching solution pages. expected pages: {:?}",
-						pages
-					);
-
-					let current_page = pages.saturating_sub(1);
-					let next_page = current_page.checked_sub(1);
-					NextElectionPage::<T>::set(next_page);
-					Self::do_elect_paged(current_page)
-				} else {
-					Weight::default()
-				}
-			};
-
-			consumed_weight.saturating_accrue(inner_weight);
-
-			consumed_weight
+			consumed_weight.saturating_add(fetch_weight)
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
@@ -1238,6 +1223,45 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub(crate) fn on_initialize_maybe_fetch_election_results() -> Weight {
+			if let Ok(true) = T::ElectionProvider::status() {
+				crate::log!(
+					debug,
+					"Election provider is ready, our status is {:?}",
+					NextElectionPage::<T>::get()
+				);
+				match NextElectionPage::<T>::get() {
+					Some(current_page) => {
+						let next_page = current_page.checked_sub(1);
+						crate::log!(
+							debug,
+							"fetching page {:?}, next {:?}",
+							current_page,
+							next_page
+						);
+						Self::do_elect_paged(current_page);
+						NextElectionPage::<T>::set(next_page);
+					},
+					None => {
+						let pages = Self::election_pages();
+						let current_page = pages.saturating_sub(1);
+						let next_page = current_page.checked_sub(1);
+						crate::log!(
+							debug,
+							"fetching page {:?}, next {:?}",
+							current_page,
+							next_page
+						);
+						Self::do_elect_paged(current_page);
+						NextElectionPage::<T>::set(next_page);
+					},
+				};
+				T::DbWeight::get().reads_writes(1, 1)
+			} else {
+				T::DbWeight::get().reads(1)
+			}
+		}
+
 		/// Get the ideal number of active validators.
 		pub fn validator_count() -> u32 {
 			ValidatorCount::<T>::get()

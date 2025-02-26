@@ -125,13 +125,16 @@ pub(crate) mod pallet {
 		/// Maximum number of backers, per winner, among all pages of an election.
 		///
 		/// This can only be checked at the very final step of verification.
+		#[pallet::constant]
 		type MaxBackersPerWinnerFinal: Get<u32>;
 
 		/// Maximum number of backers, per winner, per page.
+		#[pallet::constant]
 		type MaxBackersPerWinner: Get<u32>;
 
 		/// Maximum number of supports (aka. winners/validators/targets) that can be represented in
 		/// a page of results.
+		#[pallet::constant]
 		type MaxWinnersPerPage: Get<u32>;
 
 		/// Something that can provide the solution data to the verifier.
@@ -610,6 +613,7 @@ impl<T: Config> Pallet<T> {
 						match Self::finalize_async_verification(claimed_score) {
 							Ok(_) => {
 								T::SolutionDataProvider::report_result(VerificationResult::Queued);
+								VerifierWeightsOf::<T>::on_initialize_valid_terminal()
 							},
 							Err(_) => {
 								T::SolutionDataProvider::report_result(
@@ -617,9 +621,9 @@ impl<T: Config> Pallet<T> {
 								);
 								// In case of any of the errors, kill the solution.
 								QueuedSolution::<T>::clear_invalid_and_backings();
+								VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
 							},
 						}
-						VerifierWeightsOf::<T>::on_initialize_valid_terminal()
 					}
 				},
 				Err(err) => {
@@ -628,13 +632,12 @@ impl<T: Config> Pallet<T> {
 					StatusStorage::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
 					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
-					// TODO: use lower weight if non-terminal.
-					VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
+					let wasted_pages = T::Pages::get() - current_page;
+					VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages)
 				},
 			}
 		} else {
-			// TODO: weight for when nothing happens
-			Default::default()
+			T::DbWeight::get().reads(1)
 		}
 	}
 

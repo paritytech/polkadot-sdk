@@ -331,8 +331,16 @@ impl ElectionProvider for MockFallback {
 		unimplemented!()
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn duration() -> Self::BlockNumber {
+		0
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 
