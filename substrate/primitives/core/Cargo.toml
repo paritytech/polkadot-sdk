@@ -85,7 +85,7 @@ harness = false
 bench = false
 
 [features]
-default = ["std", "bandersnatch-experimental"]
+default = ["std"]
 
 std = [
 	"ark-ec-vrfs?/std",
