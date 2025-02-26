@@ -119,12 +119,15 @@ pub struct NotificationsOutSubstream<TSubstream> {
 	/// Substream where to send messages.
 	#[pin]
 	socket: Framed<TSubstream, UviBytes<io::Cursor<Vec<u8>>>>,
+
+	/// The remote peer.
+	peer_id: PeerId,
 }
 
 #[cfg(test)]
 impl<TSubstream> NotificationsOutSubstream<TSubstream> {
 	pub fn new(socket: Framed<TSubstream, UviBytes<io::Cursor<Vec<u8>>>>) -> Self {
-		Self { socket }
+		Self { socket, peer_id: PeerId::random() }
 	}
 }
 
@@ -420,7 +423,10 @@ where
 				} else {
 					Some(negotiated_name)
 				},
-				substream: NotificationsOutSubstream { socket: Framed::new(socket, codec) },
+				substream: NotificationsOutSubstream {
+					socket: Framed::new(socket, codec),
+					peer_id: self.peer_id,
+				},
 			})
 		})
 	}
@@ -736,7 +742,13 @@ mod tests {
 		let client = tokio::spawn(async move {
 			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
 			let NotificationsOutOpen { handshake, .. } = OutboundUpgrade::upgrade_outbound(
-				NotificationsOut::new(PROTO_NAME, Vec::new(), &b"initial message"[..], 1024 * 1024),
+				NotificationsOut::new(
+					PROTO_NAME,
+					Vec::new(),
+					&b"initial message"[..],
+					1024 * 1024,
+					PeerId::random(),
+				),
 				socket.compat(),
 				ProtocolName::Static(PROTO_NAME),
 			)
