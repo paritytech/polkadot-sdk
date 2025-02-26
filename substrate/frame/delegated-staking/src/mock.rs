@@ -114,6 +114,7 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
+	type Filter = pallet_nomination_pools::AllPoolMembers<Self>;
 }
 
 parameter_types! {

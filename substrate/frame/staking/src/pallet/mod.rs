@@ -2606,11 +2606,3 @@ pub mod pallet {
 		}
 	}
 }
-
-/// A utility struct that provides a way to check if a given account is a pool member.
-pub struct AllPoolMembers<T: Config>(PhantomData<T>);
-impl<T: Config> Contains<T::AccountId> for AllPoolMembers<T> {
-	fn contains(t: &T::AccountId) -> bool {
-		PoolMembers::<T>::contains_key(t)
-	}
-}
