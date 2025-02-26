@@ -63,3 +63,17 @@ Single-node, single dev mode. This doesn't check things like PoV limits at all, 
 ```
 polkadot-omni-node --chain ./chain_spec.json --dev-block-time 12000 --tmp
 ```
+
+
+### Starting the Election
+
+As it stands now, the election process is dormant. In the future, it will be kickstarted by the rc-client pallet.
+For local testing, do the following:
+
+Start the chain. When ready, submit the following extrinsic:
+
+```
+Multiblock::manage(ForceSetPhase(Phase::Snapshot(64)))
+```
+
+This extrinsic is gated by Sudo, or `EnsureSigned`. See `impl multiblock::Config for Runtime { type AdminOrigin = .. }` in `staking.rs`.
