@@ -21,7 +21,7 @@ use frame_support::{
 	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, VariantCountOf},
+	traits::{ConstU64, Nothing, VariantCountOf},
 	PalletId,
 };
 use sp_runtime::{
@@ -139,6 +139,11 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+<<<<<<< HEAD
+=======
+	type BlockNumberProvider = System;
+	type Filter = Nothing;
+>>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 }
 
 parameter_types! {
