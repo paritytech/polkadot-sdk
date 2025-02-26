@@ -4916,6 +4916,7 @@ dependencies = [
  "pallet-aura 27.0.0",
  "pallet-timestamp 27.0.0",
  "parity-scale-codec",
+ "rstest",
  "scale-info",
  "sp-application-crypto 30.0.0",
  "sp-consensus-aura 0.32.0",
