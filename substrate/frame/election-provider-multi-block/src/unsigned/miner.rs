@@ -147,10 +147,16 @@ pub trait MinerConfig {
 	/// The solver type.
 	type Solver: NposSolver<AccountId = Self::AccountId>;
 	/// The maximum length that the miner should use for a solution, per page.
+	///
+	/// This value is not set in stone, and it is up to an individual miner to configure. A good
+	/// value is something like 75% of the total block length, which can be fetched from the system
+	/// pallet.
 	type MaxLength: Get<u32>;
 	/// Maximum number of votes per voter.
 	///
 	/// Must be the same as configured in the [`crate::Config::DataProvider`].
+	///
+	/// For simplicity, this is 16 in Polkadot and 24 in Kusama.
 	type MaxVotesPerVoter: Get<u32>;
 	/// Maximum number of winners to select per page.
 	///
@@ -1929,7 +1935,10 @@ mod offchain_worker_miner {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					crate::Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) },
+					crate::Event::PhaseTransitioned {
+						from: Phase::Off,
+						to: Phase::Snapshot(Pages::get())
+					},
 					crate::Event::PhaseTransitioned {
 						from: Phase::Snapshot(0),
 						to: Phase::Unsigned(UnsignedPhase::get() - 1)

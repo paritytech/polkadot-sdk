@@ -125,13 +125,16 @@ pub(crate) mod pallet {
 		/// Maximum number of backers, per winner, among all pages of an election.
 		///
 		/// This can only be checked at the very final step of verification.
+		#[pallet::constant]
 		type MaxBackersPerWinnerFinal: Get<u32>;
 
 		/// Maximum number of backers, per winner, per page.
+		#[pallet::constant]
 		type MaxBackersPerWinner: Get<u32>;
 
 		/// Maximum number of supports (aka. winners/validators/targets) that can be represented in
 		/// a page of results.
+		#[pallet::constant]
 		type MaxWinnersPerPage: Get<u32>;
 
 		/// Something that can provide the solution data to the verifier.
