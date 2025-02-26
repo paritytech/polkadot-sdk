@@ -2605,18 +2605,18 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Permissionlessly fixes the over-stake.
+		/// Adjusts the staking ledger by withdrawing any excess staked amount.
 		///
-		/// If a user has lower fund than their stake in the ledger, this function will fix the
-		/// over-stake to their actual staked funds.
-		///
-		/// This might be caused because of slashing of funds by another pallet.
+		/// This function corrects cases where a user's recorded stake in the ledger
+		/// exceeds their actual staked funds. This situation can arise due to cases such as
+		/// external slashing by another pallet, leading to an inconsistency between the ledger
+		/// and the actual stake.
 		#[pallet::call_index(32)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
 		pub fn withdraw_overstake(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
 			let ledger = Self::ledger(Stash(stash.clone()))?;
@@ -2637,7 +2637,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
 
-			Ok(Pays::No.into())
+			Ok(())
 		}
 	}
 }
