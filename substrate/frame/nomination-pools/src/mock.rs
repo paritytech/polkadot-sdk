@@ -56,6 +56,7 @@ parameter_types! {
 	pub static MaxUnbonding: u32 = 8;
 	pub static StakingMinBond: Balance = 10;
 	pub storage Nominations: Option<Vec<AccountId>> = None;
+	pub static RestrictedAccounts: Vec<AccountId> = Vec::new();
 }
 pub struct StakingMock;
 
@@ -276,6 +277,13 @@ impl Convert<U256, Balance> for U256ToBalance {
 	}
 }
 
+pub struct RestrictMock;
+impl Contains<AccountId> for RestrictMock {
+	fn contains(who: &AccountId) -> bool {
+		RestrictedAccounts::get().contains(who)
+	}
+}
+
 parameter_types! {
 	pub static PostUnbondingPoolsWindow: u32 = 2;
 	pub static MaxMetadataLen: u32 = 2;
@@ -302,6 +310,11 @@ impl pools::Config for Runtime {
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = EnsureSignedBy<Admin, AccountId>;
+<<<<<<< HEAD
+=======
+	type BlockNumberProvider = System;
+	type Filter = RestrictMock;
+>>>>>>> f7e98b4 ([Nomination Pool] Make staking restrictions configurable (#7685))
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -533,6 +546,34 @@ pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
 	}
 }
 
+<<<<<<< HEAD
+=======
+pub fn set_pool_balance(who: AccountId, amount: Balance) {
+	StakingMock::set_bonded_balance(who, amount);
+	DelegateMock::set_agent_balance(who, amount);
+}
+
+pub fn member_delegation(who: AccountId) -> Balance {
+	<T as Config>::StakeAdapter::member_delegation_balance(Member::from(who))
+		.expect("who must be a pool member")
+}
+
+pub fn pool_balance(id: PoolId) -> Balance {
+	<T as Config>::StakeAdapter::total_balance(Pool::from(Pools::generate_bonded_account(id)))
+		.expect("who must be a bonded pool account")
+}
+
+pub fn add_to_restrict_list(who: &AccountId) {
+	if !RestrictedAccounts::get().contains(who) {
+		RestrictedAccounts::mutate(|l| l.push(*who));
+	}
+}
+
+pub fn remove_from_restrict_list(who: &AccountId) {
+	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
+}
+
+>>>>>>> f7e98b4 ([Nomination Pool] Make staking restrictions configurable (#7685))
 #[cfg(test)]
 mod test {
 	use super::*;
