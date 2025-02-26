@@ -2192,9 +2192,6 @@ pub mod pallet {
 				Error::<T>::NotMigrated
 			);
 
-			// ensure account is not restricted from joining the pool.
-			ensure!(!T::Filter::contains(&who), Error::<T>::Restricted);
-
 			Self::do_bond_extra(who.clone(), who, extra)
 		}
 
@@ -2583,8 +2580,6 @@ pub mod pallet {
 			bouncer: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			let depositor = ensure_signed(origin)?;
-			// ensure depositor is not restricted from joining the pool.
-			ensure!(!T::Filter::contains(&depositor), Error::<T>::Restricted);
 
 			let pool_id = LastPoolId::<T>::try_mutate::<_, Error<T>, _>(|id| {
 				*id = id.checked_add(1).ok_or(Error::<T>::OverflowRisk)?;
@@ -2899,9 +2894,6 @@ pub mod pallet {
 				!Self::api_member_needs_delegate_migration(member_account.clone()),
 				Error::<T>::NotMigrated
 			);
-
-			// ensure the member is not restricted from joining the pool.
-			ensure!(!T::Filter::contains(&member_account), Error::<T>::Restricted);
 
 			Self::do_bond_extra(who, member_account, extra)
 		}
@@ -3504,6 +3496,9 @@ impl<T: Config> Pallet<T> {
 		bouncer: AccountIdLookupOf<T>,
 		pool_id: PoolId,
 	) -> DispatchResult {
+		// ensure depositor is not restricted from joining the pool.
+		ensure!(!T::Filter::contains(&who), Error::<T>::Restricted);
+
 		let root = T::Lookup::lookup(root)?;
 		let nominator = T::Lookup::lookup(nominator)?;
 		let bouncer = T::Lookup::lookup(bouncer)?;
@@ -3577,6 +3572,9 @@ impl<T: Config> Pallet<T> {
 		member_account: T::AccountId,
 		extra: BondExtra<BalanceOf<T>>,
 	) -> DispatchResult {
+		// ensure account is not restricted from joining the pool.
+		ensure!(!T::Filter::contains(&member_account), Error::<T>::Restricted);
+
 		if signer != member_account {
 			ensure!(
 				ClaimPermissions::<T>::get(&member_account).can_bond_extra(),
