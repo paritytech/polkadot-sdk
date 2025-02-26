@@ -31,9 +31,9 @@ use ark_ec_vrfs::{
 		ark_ec::CurveGroup,
 		ark_serialize::{CanonicalDeserialize, CanonicalSerialize},
 	},
-	suites::bandersnatch::te as bandersnatch,
+	suites::bandersnatch::{self, BandersnatchSha512Ell2, Secret},
+	Suite,
 };
-use bandersnatch::{BandersnatchSha512Ell2 as BandersnatchSuite, Secret};
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -146,9 +146,8 @@ impl TraitPair for Pair {
 
 	#[cfg(feature = "full_crypto")]
 	fn sign(&self, data: &[u8]) -> Signature {
-		use ark_ec_vrfs::Suite;
-		use bandersnatch::BandersnatchSha512Ell2;
-		let input = bandersnatch::Input::new(data).unwrap();
+		let input = bandersnatch::Input::new(data).expect("Hash to curve can't fail; qed");
+
 		let k = BandersnatchSha512Ell2::nonce(&self.secret.scalar, input);
 		let gk = BandersnatchSha512Ell2::generator() * k;
 		let c = BandersnatchSha512Ell2::challenge(
@@ -159,13 +158,11 @@ impl TraitPair for Pair {
 		let mut raw_signature = [0_u8; SIGNATURE_SERIALIZED_SIZE];
 		bandersnatch::IetfProof { c, s }
 			.serialize_compressed(&mut raw_signature.as_mut_slice())
-			.unwrap();
+			.expect("serialization length is constant and checked by test; qed");
 		Signature::from_raw(raw_signature)
 	}
 
 	fn verify<M: AsRef<[u8]>>(signature: &Signature, data: M, public: &Public) -> bool {
-		use ark_ec_vrfs::Suite;
-		use bandersnatch::BandersnatchSha512Ell2;
 		let Ok(signature) = bandersnatch::IetfProof::deserialize_compressed(&signature.0[..])
 		else {
 			return false
@@ -217,16 +214,8 @@ pub mod vrf {
 	/// This object is used to produce an arbitrary number of verifiable pseudo random
 	/// bytes and is often called pre-output to emphasize that this is not the actual
 	/// output of the VRF but an object capable of generating the output.
-	#[derive(Clone, Debug)]
+	#[derive(Clone, Debug, PartialEq, Eq)]
 	pub struct VrfPreOutput(pub(super) bandersnatch::Output);
-
-	// Workaround until traits are not implemented for newtypes https://github.com/davxy/ark-ec-vrfs/issues/41
-	impl PartialEq for VrfPreOutput {
-		fn eq(&self, other: &Self) -> bool {
-			self.0 .0 == other.0 .0
-		}
-	}
-	impl Eq for VrfPreOutput {}
 
 	impl Encode for VrfPreOutput {
 		fn encode(&self) -> Vec<u8> {
@@ -384,11 +373,10 @@ pub mod vrf {
 pub mod ring_vrf {
 	use super::{vrf::*, *};
 	use ark_ec_vrfs::ring::{Prover, Verifier};
-	use bandersnatch::{RingContext as RingContextImpl, VerifierKey as VerifierKeyImpl};
+	use bandersnatch::{RingContext as RingContextImpl, RingVerifierKey as RingVerifierKeyImpl};
 	pub use bandersnatch::{RingProver, RingVerifier};
 
 	// Max size of serialized ring-vrf context given `domain_len`.
-	// TODO @davxy: test this
 	pub(crate) fn ring_context_serialized_size(ring_size: usize) -> usize {
 		// const G1_POINT_COMPRESSED_SIZE: usize = 48;
 		// const G2_POINT_COMPRESSED_SIZE: usize = 96;
@@ -396,7 +384,7 @@ pub mod ring_vrf {
 		const G2_POINT_UNCOMPRESSED_SIZE: usize = 192;
 		const OVERHEAD_SIZE: usize = 16;
 		const G2_POINTS_NUM: usize = 2;
-		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSuite>(ring_size);
+		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSha512Ell2>(ring_size);
 		let g1_points_num = 3 * domain_size as usize + 1;
 		OVERHEAD_SIZE +
 			g1_points_num * G1_POINT_UNCOMPRESSED_SIZE +
@@ -412,7 +400,7 @@ pub mod ring_vrf {
 		RING_PROOF_SERIALIZED_SIZE + PREOUT_SERIALIZED_SIZE;
 
 	/// Ring verifier key
-	pub struct RingVerifierKey(VerifierKeyImpl);
+	pub struct RingVerifierKey(RingVerifierKeyImpl);
 
 	impl Encode for RingVerifierKey {
 		fn encode(&self) -> Vec<u8> {
@@ -427,7 +415,7 @@ pub mod ring_vrf {
 		fn decode<R: codec::Input>(input: &mut R) -> Result<Self, codec::Error> {
 			let mut buf = vec![0; RING_VERIFIER_KEY_SERIALIZED_SIZE];
 			input.read(&mut buf[..])?;
-			let vk = VerifierKeyImpl::deserialize_compressed_unchecked(buf.as_slice())
+			let vk = RingVerifierKeyImpl::deserialize_compressed_unchecked(buf.as_slice())
 				.map_err(|_| "RingVerifierKey decode error")?;
 			Ok(RingVerifierKey(vk))
 		}
@@ -623,12 +611,12 @@ mod tests {
 
 	#[test]
 	fn backend_assumptions_sanity_check() {
-		use bandersnatch::{Input, RingContext as RingContextImpl, Secret};
+		use bandersnatch::{Input, RingContext as RingContextImpl};
 		const OVERHEAD_SIZE: usize = 257;
 
 		let ctx = RingContextImpl::from_seed(TEST_RING_SIZE, [0_u8; 32]);
 
-		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSuite>(TEST_RING_SIZE);
+		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSha512Ell2>(TEST_RING_SIZE);
 		assert_eq!(ctx.max_ring_size(), domain_size - OVERHEAD_SIZE);
 
 		assert_eq!(ctx.uncompressed_size(), ring_context_serialized_size(TEST_RING_SIZE));
