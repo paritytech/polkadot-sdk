@@ -27,6 +27,7 @@ mod exec;
 mod gas;
 mod limits;
 mod primitives;
+mod pure_precompiles;
 mod storage;
 mod transient_storage;
 mod wasm;
