@@ -22,7 +22,7 @@ use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::{
-		traits::{Dispatchable, Get, IdentityLookup, MaybeEquivalence, TryConvert},
+		traits::{Get, IdentityLookup, MaybeEquivalence, TryConvert},
 		BuildStorage, SaturatedConversion,
 	},
 	traits::{
@@ -36,8 +36,8 @@ use pallet_xcm::TestWeightInfo;
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,
-	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, IsConcrete, MintLocation, NoChecking,
-	TakeWeightCredit,
+	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, InspectMessageQueues, IsConcrete,
+	MintLocation, NoChecking, TakeWeightCredit,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -112,10 +112,6 @@ thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = const { RefCell::new(Vec::new()) };
 }
 
-pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
-	SENT_XCM.with(|q| (*q.borrow()).clone())
-}
-
 pub struct TestXcmSender;
 impl SendXcm for TestXcmSender {
 	type Ticket = (Location, Xcm<()>);
@@ -131,6 +127,26 @@ impl SendXcm for TestXcmSender {
 		let hash = fake_message_hash(&ticket.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(ticket));
 		Ok(hash)
+	}
+}
+impl InspectMessageQueues for TestXcmSender {
+	fn clear_messages() {
+		SENT_XCM.with(|q| q.borrow_mut().clear());
+	}
+
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		SENT_XCM.with(|q| {
+			(*q.borrow())
+				.clone()
+				.iter()
+				.map(|(location, message)| {
+					(
+						VersionedLocation::from(location.clone()),
+						vec![VersionedXcm::from(message.clone())],
+					)
+				})
+				.collect()
+		})
 	}
 }
 
@@ -483,64 +499,23 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for RuntimeApi {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			use xcm_executor::RecordXcm;
-			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(true);
-			let result = call.dispatch(origin.into());
-			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(false);
-			let local_xcm = pallet_xcm::Pallet::<TestRuntime>::recorded_xcm();
-			let forwarded_xcms = sent_xcm()
-							   .into_iter()
-							   .map(|(location, message)| (
-									   VersionedLocation::from(location),
-									   vec![VersionedXcm::from(message)],
-							   )).collect();
-			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(CallDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+		fn dry_run_call(
+			origin: OriginCaller,
+			call: RuntimeCall,
+			result_xcms_version: XcmVersion,
+		) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			pallet_xcm::Pallet::<TestRuntime>::dry_run_call::<TestRuntime, XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
+		}
+
+		fn dry_run_call_before_version_2(
+			origin: OriginCaller,
+			call: RuntimeCall,
+		) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			pallet_xcm::Pallet::<TestRuntime>::dry_run_call::<TestRuntime, XcmRouter, OriginCaller, RuntimeCall>(origin, call, xcm::latest::VERSION)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			let origin_location: Location = origin_location.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::DryRunApi::dry_run_xcm",
-					"Location version conversion failed with error: {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::DryRunApi::dry_run_xcm",
-					"Xcm version conversion failed with error {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let mut hash = fake_message_hash(&xcm);
-			let result = XcmExecutor::<XcmConfig>::prepare_and_execute(
-				origin_location,
-				xcm,
-				&mut hash,
-				Weight::MAX, // Max limit available for execution.
-				Weight::zero(),
-			);
-			let forwarded_xcms = sent_xcm()
-				.into_iter()
-				.map(|(location, message)| (
-					VersionedLocation::from(location),
-					vec![VersionedXcm::from(message)],
-				)).collect();
-			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
-			Ok(XcmDryRunEffects {
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+			pallet_xcm::Pallet::<TestRuntime>::dry_run_xcm::<TestRuntime, XcmRouter, RuntimeCall, XcmConfig>(origin_location, xcm)
 		}
 	}
 }
