@@ -445,8 +445,10 @@ impl<
 		AllPalletsWithoutSystem,
 	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 {
-	#[deprecated(note = "Will be removed after Aug 2025; It uses hard-coded `Location::parent()`, \
-		use `execute_as_governance_call` instead.")]
+	#[deprecated(
+		note = "Will be removed after Aug 2025; It uses hard-coded `Location::parent()`, \
+		use `execute_as_governance_call` instead."
+	)]
 	pub fn execute_as_governance(call: Vec<u8>) -> Outcome {
 		// prepare xcm as governance will do
 		let xcm = Xcm(vec![
@@ -473,8 +475,7 @@ impl<
 	pub fn execute_as_governance_call<Call: Dispatchable + Encode>(
 		call: Call,
 		governance_origin: GovernanceOrigin<Call::RuntimeOrigin>,
-	) -> Result<(), Either<DispatchError, XcmError>>
-	{
+	) -> Result<(), Either<DispatchError, XcmError>> {
 		// execute xcm as governance would send
 		let execute_xcm = |call: Call, governance_location, descend_origin| {
 			// prepare xcm
@@ -501,21 +502,14 @@ impl<
 		};
 
 		match governance_origin {
-			GovernanceOrigin::Location(location) => {
-				execute_xcm(call, location, None)
-					.ensure_complete()
-					.map_err(Either::Right)
-			},
-			GovernanceOrigin::LocationAndDescendOrigin(location, descend_origin) => {
+			GovernanceOrigin::Location(location) =>
+				execute_xcm(call, location, None).ensure_complete().map_err(Either::Right),
+			GovernanceOrigin::LocationAndDescendOrigin(location, descend_origin) =>
 				execute_xcm(call, location, Some(descend_origin))
 					.ensure_complete()
-					.map_err(Either::Right)
-			},
-			GovernanceOrigin::Origin(origin) => {
-				call.dispatch(origin)
-					.map(|_| ())
-					.map_err(|e| Either::Left(e.error))
-			},
+					.map_err(Either::Right),
+			GovernanceOrigin::Origin(origin) =>
+				call.dispatch(origin).map(|_| ()).map_err(|e| Either::Left(e.error)),
 		}
 	}
 
@@ -623,9 +617,8 @@ impl<
 			.into_iter()
 			.filter_map(|e| unwrap_xcmp_queue_event(e.event.encode()))
 			.find_map(|e| match e {
-				cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } => {
-					Some(message_hash)
-				},
+				cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } =>
+					Some(message_hash),
 				_ => None,
 			})
 	}

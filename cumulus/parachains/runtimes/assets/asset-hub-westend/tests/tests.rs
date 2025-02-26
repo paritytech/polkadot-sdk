@@ -20,9 +20,10 @@
 use asset_hub_westend_runtime::{
 	xcm_config,
 	xcm_config::{
-		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, GovernanceLocation, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
-		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
+		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
+		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, GovernanceLocation,
+		LocationToAccountId, StakingPot, TrustBackedAssetsPalletLocation, WestendLocation,
+		XcmConfig,
 	},
 	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
@@ -49,8 +50,7 @@ use frame_support::{
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::traits::MaybeEquivalence;
-use sp_runtime::Either;
+use sp_runtime::{traits::MaybeEquivalence, Either};
 use std::{convert::Into, ops::Mul};
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::{

@@ -17,7 +17,8 @@
 #![cfg(test)]
 
 use coretime_westend_runtime::{
-	xcm_config::{GovernanceLocation, LocationToAccountId}, Block, Runtime, RuntimeCall, RuntimeOrigin,
+	xcm_config::{GovernanceLocation, LocationToAccountId},
+	Block, Runtime, RuntimeCall, RuntimeOrigin,
 };
 use frame_support::{assert_err, assert_ok};
 use parachains_common::AccountId;

@@ -26,8 +26,10 @@ use frame_support::{
 	traits::{Get, OriginTrait},
 };
 use parachains_common::AccountId;
-use sp_runtime::traits::{Block as BlockT, StaticLookup};
-use sp_runtime::{DispatchError, Either};
+use sp_runtime::{
+	traits::{Block as BlockT, StaticLookup},
+	DispatchError, Either,
+};
 use xcm::prelude::XcmError;
 use xcm_runtime_apis::fees::{
 	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
@@ -86,7 +88,10 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 				});
 
 			// execute XCM with Transact to `set_storage` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(set_storage_call, governance_origin));
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+				set_storage_call,
+				governance_origin
+			));
 
 			// check delivery reward constant after (stored)
 			assert_eq!(StorageConstant::get(), new_storage_constant_value);
@@ -127,12 +132,16 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 	});
 	runtime.execute_with(|| {
 		// encode `kill_storage` call
-		let kill_storage_call = RuntimeCallOf::<Runtime>::from(frame_system::Call::<Runtime>::set_storage {
-			items: storage_items.clone(),
-		});
+		let kill_storage_call =
+			RuntimeCallOf::<Runtime>::from(frame_system::Call::<Runtime>::set_storage {
+				items: storage_items.clone(),
+			});
 
 		// execute XCM with Transact to `set_storage` as governance does
-		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(kill_storage_call, governance_origin));
+		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+			kill_storage_call,
+			governance_origin
+		));
 	});
 	runtime.execute_with(|| {
 		assert_storage();
@@ -196,7 +205,8 @@ where
 	});
 }
 
-/// Generic test case for Cumulus-based parachain that verifies if runtime can process `frame_system::Call::authorize_upgrade` from governance system.
+/// Generic test case for Cumulus-based parachain that verifies if runtime can process
+/// `frame_system::Call::authorize_upgrade` from governance system.
 pub fn can_governance_authorize_upgrade<Runtime, RuntimeOrigin>(
 	governance_origin: GovernanceOrigin<RuntimeOrigin>,
 ) -> Result<(), Either<DispatchError, XcmError>>

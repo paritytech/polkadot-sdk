@@ -20,9 +20,9 @@
 use asset_hub_rococo_runtime::{
 	xcm_config,
 	xcm_config::{
-		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount, GovernanceLocation,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
-		TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
+		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
+		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, GovernanceLocation,
+		LocationToAccountId, StakingPot, TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
 	CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,

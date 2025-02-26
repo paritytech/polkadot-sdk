@@ -40,7 +40,10 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::AccountId;
-use parachains_runtimes_test_utils::{mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, GovernanceOrigin, RuntimeCallOf, RuntimeOriginOf, SlotDurations, XcmReceivedFrom};
+use parachains_runtimes_test_utils::{
+	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder,
+	GovernanceOrigin, RuntimeCallOf, RuntimeOriginOf, SlotDurations, XcmReceivedFrom,
+};
 use sp_runtime::{traits::Zero, AccountId32};
 use xcm::{latest::prelude::*, AlwaysLatest};
 use xcm_builder::DispatchBlobError;
@@ -124,7 +127,10 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 		});
 
 		// execute XCM with Transacts to `initialize bridge` as governance does
-		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(initialize_call, governance_origin));
+		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+			initialize_call,
+			governance_origin
+		));
 
 		// check mode after
 		assert_eq!(
@@ -162,7 +168,10 @@ pub fn change_bridge_grandpa_pallet_mode_by_governance_works<Runtime, GrandpaPal
 			);
 
 			// execute XCM with Transacts to `initialize bridge` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(set_operating_mode_call, governance_origin.clone()));
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+				set_operating_mode_call,
+				governance_origin.clone()
+			));
 
 			// check mode after
 			assert_eq!(
@@ -212,7 +221,10 @@ pub fn change_bridge_parachains_pallet_mode_by_governance_works<Runtime, Paracha
 				});
 
 			// execute XCM with Transacts to `initialize bridge` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(set_operating_mode_call, governance_origin.clone()));
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+				set_operating_mode_call,
+				governance_origin.clone()
+			));
 
 			// check mode after
 			assert_eq!(
@@ -262,7 +274,10 @@ pub fn change_bridge_messages_pallet_mode_by_governance_works<Runtime, MessagesP
 			});
 
 			// execute XCM with Transacts to `initialize bridge` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(set_operating_mode_call, governance_origin.clone()));
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+				set_operating_mode_call,
+				governance_origin.clone()
+			));
 
 			// check mode after
 			assert_eq!(
