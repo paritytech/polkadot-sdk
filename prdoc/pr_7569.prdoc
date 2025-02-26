@@ -8,4 +8,5 @@ crates:
 - name: polkadot-omni-node-lib
   bump: major
 - name: polkadot
-  bump: major
+  bump: none
+  validate: false

@@ -174,7 +174,7 @@ where
 
 		loop {
 			// We wait here until the next slot arrives.
-			let Ok(para_slot) = slot_timer.wait_until_next_slot().await else {
+			let Some(para_slot) = slot_timer.wait_until_next_slot().await else {
 				return;
 			};
 

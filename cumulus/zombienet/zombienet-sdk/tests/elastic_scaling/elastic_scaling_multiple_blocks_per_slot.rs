@@ -97,10 +97,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 							"scheduler_params": {
 								"num_cores": 7,
 								"max_validators_per_core": 1
-							},
-							"async_backing_params": {
-								"max_candidate_depth": 6,
-								"allowed_ancestry_len": 2
 							}
 						}
 					}
