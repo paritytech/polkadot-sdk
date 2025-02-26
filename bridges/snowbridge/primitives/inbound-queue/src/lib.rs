@@ -5,12 +5,11 @@
 pub mod v1;
 pub mod v2;
 use codec::Encode;
-use sp_core::blake2_256;
+use snowbridge_beacon_primitives::BeaconHeader;
+use sp_core::{blake2_256, RuntimeDebug, H256};
 use sp_std::marker::PhantomData;
 use xcm::prelude::{AccountKey20, Ethereum, GlobalConsensus, Location};
 use xcm_executor::traits::ConvertLocation;
-use snowbridge_beacon_primitives::BeaconHeader;
-use sp_core::{RuntimeDebug, H256};
 
 pub use snowbridge_verification_primitives::*;
 

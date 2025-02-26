@@ -159,6 +159,8 @@ pub mod pallet {
 		MaxNonceReached,
 		/// Cannot convert location
 		InvalidAccountConversion,
+		/// Invalid network specified
+		InvalidNetwork,
 		/// Pallet is halted
 		Halted,
 		/// The operation required fees to be paid which the initiator could not meet.
@@ -192,6 +194,7 @@ pub mod pallet {
 			match e {
 				ConvertMessageError::InvalidAsset => Error::<T>::InvalidAsset,
 				ConvertMessageError::CannotReanchor => Error::<T>::CannotReanchor,
+				ConvertMessageError::InvalidNetwork => Error::<T>::InvalidNetwork,
 			}
 		}
 	}

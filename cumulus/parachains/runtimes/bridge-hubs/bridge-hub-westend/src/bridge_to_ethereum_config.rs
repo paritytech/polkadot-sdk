@@ -147,6 +147,8 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
+		CreateAssetCall,
+		CreateAssetDeposit,
 		EthereumNetwork,
 		InboundQueueLocation,
 		EthereumSystem,

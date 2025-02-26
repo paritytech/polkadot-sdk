@@ -33,7 +33,7 @@ use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::{
 	v2::{
 		EthereumAsset::{ForeignTokenERC20, NativeTokenERC20},
-		Message,
+		Message, XcmPayload,
 	},
 	EthereumLocationsConverterFor,
 };
@@ -67,55 +67,20 @@ fn register_token_v2() {
 	let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&CHAIN_ID);
 
 	let token: H160 = TOKEN_ID.into();
-	let asset_id = erc20_token_location(token.into());
-
-	let dot_asset = Location::new(1, Here);
-	let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
-
-	let eth_asset_value = 9_000_000_000_000u128;
-	let asset_deposit: xcm::prelude::Asset = (eth_location(), eth_asset_value).into();
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		let instructions = vec![
-			// Exchange eth for dot to pay the asset creation deposit
-			ExchangeAsset {
-				give: asset_deposit.clone().into(),
-				want: dot_fee.clone().into(),
-				maximal: false,
-			},
-			// Deposit the dot deposit into the bridge sovereign account (where the asset creation
-			// fee will be deducted from)
-			DepositAsset { assets: dot_fee.into(), beneficiary: bridge_owner.into() },
-			// Call to create the asset.
-			Transact {
-				origin_kind: OriginKind::Xcm,
-				fallback_max_weight: None,
-				call: (
-					CreateAssetCall::get(),
-					asset_id,
-					MultiAddress::<[u8; 32], ()>::Id(bridge_owner.into()),
-					1u128,
-				)
-					.encode()
-					.into(),
-			},
-			ExpectTransactStatus(MaybeErrorCode::Success),
-			RefundSurplus,
-			DepositAsset { assets: Wild(All), beneficiary: claimer.into() },
-		];
-		let xcm: Xcm<()> = instructions.into();
-		let versioned_message_xcm = VersionedXcm::V5(xcm);
 		let origin = EthereumGatewayAddress::get();
-
-		let encoded_xcm = versioned_message_xcm.encode();
 
 		let message = Message {
 			gateway: origin,
 			nonce: 1,
 			origin,
 			assets: vec![],
-			xcm: encoded_xcm,
+			xcm: XcmPayload::CreateAsset {
+				token,
+				network: 0,
+			},
 			claimer: Some(claimer_bytes),
 			// Used to pay the asset creation deposit.
 			value: 9_000_000_000_000u128,
@@ -218,7 +183,7 @@ fn send_token_v2() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: versioned_message_xcm.encode(),
+			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -324,7 +289,7 @@ fn send_weth_v2() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: versioned_message_xcm.encode(),
+			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -483,7 +448,7 @@ fn register_and_send_multiple_tokens_v2() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: versioned_message_xcm.encode(),
+			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -668,7 +633,7 @@ fn send_token_to_penpal_v2() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: versioned_message_xcm.encode(),
+			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -845,7 +810,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: versioned_message_xcm.encode(),
+			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 3_500_000_000_000u128,
@@ -941,7 +906,7 @@ fn invalid_xcm_traps_funds_on_ah() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: instructions.to_vec(),
+			xcm: XcmPayload::Raw(instructions.to_vec()),
 			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -1009,7 +974,7 @@ fn invalid_claimer_does_not_fail_the_message() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: versioned_message_xcm.encode(),
+			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
 			// Set an invalid claimer
 			claimer: Some(hex!("2b7ce7bc7e87e4d6619da21487c7a53f").to_vec()),
 			value: 1_500_000_000_000u128,
