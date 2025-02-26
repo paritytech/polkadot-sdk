@@ -28,6 +28,7 @@ use crate::zombienet::{
 	NetworkSpawner,
 };
 use txtesttool::execution_log::ExecutionLog;
+use zombienet::DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS;
 
 // Test which sends future and ready txs from many accounts
 // to an unlimited pool of a parachain collator based on the asset-hub-rococo runtime.
@@ -50,6 +51,7 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 		.with_nonce_from(Some(100))
 		.with_txs_count(100)
 		.with_executor_id("future-txs-executor".to_string())
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
 	let ready_scenario_executor = default_zn_scenario_builder(&net)
@@ -59,6 +61,7 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 		.with_nonce_from(Some(0))
 		.with_txs_count(100)
 		.with_executor_id("ready-txs-executor".to_string())
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
 
@@ -100,6 +103,7 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 		.with_nonce_from(Some(100))
 		.with_txs_count(100)
 		.with_executor_id("future-txs-executor".to_string())
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
 	let ready_scenario_executor = default_zn_scenario_builder(&net)
@@ -109,9 +113,11 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 		.with_nonce_from(Some(0))
 		.with_txs_count(100)
 		.with_executor_id("ready-txs-executor".to_string())
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
 
+	// Execute transactions and fetch the execution logs.
 	// Execute transactions and fetch the execution logs.
 	let (future_logs, ready_logs) = futures::future::join(
 		future_scenario_executor.execute(),

@@ -45,6 +45,10 @@ pub mod relaychain_rococo_local_network_spec {
 	}
 }
 
+/// Default time that we expect to need for a full run of current tests that send future and ready
+/// txs to parachain or relaychain networks.
+pub const DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS: u64 = 1500;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
 	#[error("Network initialization failure: {0}")]
