@@ -120,11 +120,11 @@ impl cumulus_pallet_parachain_system::Config for Test {
 #[cfg(test)]
 mod test {
 	use crate::test::*;
-	use rstest::rstest;
-	use sp_core::H256;
 	use cumulus_pallet_parachain_system::{
 		Ancestor, ConsensusHook, RelayChainStateProof, UsedBandwidth,
 	};
+	use rstest::rstest;
+	use sp_core::H256;
 
 	fn set_ancestors() {
 		let mut ancestors = Vec::new();
@@ -278,7 +278,6 @@ mod test {
 		expected = "Parachain slot is too far in the future: parachain_slot=Slot(8), derived_from_relay_slot=Slot(5) velocity=2"
 	)]
 	fn test_para_slot_calculated_from_slot_duration_2() {
-
 		// Note: In contrast to tests below, relay chain slot duration is 3000 here.
 		type Hook = FixedVelocityConsensusHook<Test, 3000, DEFAULT_TEST_VELOCITY, 1>;
 
@@ -341,7 +340,12 @@ mod test {
 	#[case::velocity_small_ok(10, 10, DEFAULT_TEST_VELOCITY - 1 , true)]
 	#[case::velocity_small_ok(10, 10, DEFAULT_TEST_VELOCITY - 2 , true)]
 	#[case::velocity_too_high_illegal(10, 10, DEFAULT_TEST_VELOCITY + 1 , false)]
-	fn test_can_build_upon_slot_can_not_decrease(#[case] state_relay_slot: u64, #[case] test_relay_slot: u64, #[case] authored_in_slot: u32, #[case] expected_result: bool) {
+	fn test_can_build_upon_slot_can_not_decrease(
+		#[case] state_relay_slot: u64,
+		#[case] test_relay_slot: u64,
+		#[case] authored_in_slot: u32,
+		#[case] expected_result: bool,
+	) {
 		type Hook = FixedVelocityConsensusHook<Test, 6000, DEFAULT_TEST_VELOCITY, 10>;
 
 		new_test_ext(1).execute_with(|| {

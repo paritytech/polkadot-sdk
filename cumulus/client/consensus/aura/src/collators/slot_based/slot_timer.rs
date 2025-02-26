@@ -157,10 +157,10 @@ where
 	}
 
 	/// Returns a future that resolves when the next block production should be attempted.
-	pub async fn wait_until_next_slot(&self) -> Result<SlotInfo, ()> {
+	pub async fn wait_until_next_slot(&self) -> Option<SlotInfo> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return Err(())
+			return None
 		};
 
 		let (time_until_next_attempt, timestamp, aura_slot) = compute_next_wake_up_time(
@@ -180,7 +180,7 @@ where
 			?aura_slot,
 			"New block production opportunity."
 		);
-		Ok(SlotInfo { slot: aura_slot, timestamp })
+		Some(SlotInfo { slot: aura_slot, timestamp })
 	}
 }
 

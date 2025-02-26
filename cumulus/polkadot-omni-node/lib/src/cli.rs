@@ -191,7 +191,8 @@ pub enum AuthoringPolicy {
 	/// on relay chain forks. Default for asynchronous backing chains.
 	Lookahead,
 	/// Use the slot-based collator. Builds a block based on time. Can utilize multiple cores,
-	/// always builds on the best relay chain block available. Use this
+	/// always builds on the best relay chain block available. Should be used with elastic-scaling
+	/// chains.
 	SlotBased,
 }
 
