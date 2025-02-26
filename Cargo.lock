@@ -9807,7 +9807,7 @@ dependencies = [
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
@@ -11049,7 +11049,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk",
  "serde_json",
 ]
 
@@ -11059,7 +11059,7 @@ version = "0.0.0"
 dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk",
  "scale-info",
  "serde_json",
 ]
@@ -14318,7 +14318,7 @@ name = "pallet-minimal-template"
 version = "0.0.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk",
  "scale-info",
 ]
 
@@ -16547,7 +16547,7 @@ dependencies = [
  "log",
  "parachain-template-runtime",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk",
  "sc-tracing",
  "serde",
  "serde_json",
@@ -16564,7 +16564,7 @@ dependencies = [
  "log",
  "pallet-parachain-template",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk",
  "scale-info",
  "serde_json",
  "smallvec",
@@ -19605,7 +19605,7 @@ dependencies = [
  "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk",
  "polkadot-sdk-docs-first-pallet",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame 0.1.0",
@@ -28635,7 +28635,7 @@ dependencies = [
  "node-rpc",
  "node-testing",
  "parity-scale-codec",
- "polkadot-sdk 0.1.0",
+ "polkadot-sdk",
  "pretty_assertions",
  "rand 0.8.5",
  "regex",
@@ -29450,7 +29450,7 @@ dependencies = [
  "impl-serde 0.5.0",
  "jsonrpsee",
  "parity-scale-codec",
- "polkadot-sdk 0.7.0",
+ "polkadot-sdk",
  "primitive-types 0.13.1",
  "scale-bits",
  "scale-decode 0.14.0",
@@ -29505,7 +29505,7 @@ dependencies = [
  "impl-serde 0.5.0",
  "keccak-hash",
  "parity-scale-codec",
- "polkadot-sdk 0.7.0",
+ "polkadot-sdk",
  "primitive-types 0.13.1",
  "scale-bits",
  "scale-decode 0.14.0",
@@ -29561,7 +29561,7 @@ dependencies = [
  "frame-metadata 17.0.0",
  "hashbrown 0.14.5",
  "parity-scale-codec",
- "polkadot-sdk 0.7.0",
+ "polkadot-sdk",
  "scale-info",
 ]
 
@@ -29581,7 +29581,7 @@ dependencies = [
  "keccak-hash",
  "parity-scale-codec",
  "pbkdf2",
- "polkadot-sdk 0.7.0",
+ "polkadot-sdk",
  "regex",
  "schnorrkel 0.11.4",
  "scrypt",
