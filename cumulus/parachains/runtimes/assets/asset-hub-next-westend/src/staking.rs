@@ -172,7 +172,8 @@ impl multi_block::unsigned::Config for Runtime {
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
-	type WeightInfo = measured::pallet_election_provider_multi_block_unsigned::SubstrateWeight<Self>;
+	type WeightInfo =
+		measured::pallet_election_provider_multi_block_unsigned::SubstrateWeight<Self>;
 }
 
 parameter_types! {
@@ -428,6 +429,6 @@ where
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }

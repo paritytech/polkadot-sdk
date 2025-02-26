@@ -1156,9 +1156,9 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-// impl pallet_root_offences::Config for Runtime {
-// 	type RuntimeEvent = RuntimeEvent;
-// }
+impl pallet_root_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1245,7 +1245,7 @@ construct_runtime!(
 
 		// AHN specific.
 		Sudo: pallet_sudo = 110,
-		// RootOffences: pallet_root_offences = 111,
+		RootOffences: pallet_root_offences = 111,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
