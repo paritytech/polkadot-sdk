@@ -25,15 +25,16 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
+		Contains, Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession,
+		Get, InspectLockableCurrency, LockableCurrency, Nothing, OnUnbalanced, UnixTime,
+		WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{SaturatedConversion, StaticLookup, Zero},
+	traits::{SaturatedConversion, Saturating, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 
@@ -296,6 +297,13 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type DisablingStrategy: DisablingStrategy<Self>;
 
+		#[pallet::no_default_bounds]
+		/// Filter some accounts from participating in staking.
+		///
+		/// This is useful for example to blacklist an account that is participating in staking in
+		/// another way (such as pools).
+		type Filter: Contains<Self::AccountId>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -343,6 +351,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
+			type Filter = Nothing;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -934,6 +943,9 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Operation not allowed for virtual stakers.
 		VirtualStakerNotAllowed,
+		/// Account is restricted from participation in staking. This may happen if the account is
+		/// staking in another way already, such as via pool.
+		Restricted,
 	}
 
 	#[pallet::hooks]
@@ -1013,6 +1025,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
@@ -1062,6 +1076,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -1648,6 +1663,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
+
+			ensure!(!T::Filter::contains(&ledger.stash), Error::<T>::Restricted);
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
@@ -2150,6 +2167,38 @@ pub mod pallet {
 				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
 				Error::<T>::BadState
 			);
+			Ok(())
+		}
+
+		/// Adjusts the staking ledger by withdrawing any excess staked amount.
+		///
+		/// This function corrects cases where a user's recorded stake in the ledger
+		/// exceeds their actual staked funds. This situation can arise due to cases such as
+		/// external slashing by another pallet, leading to an inconsistency between the ledger
+		/// and the actual stake.
+		#[pallet::call_index(32)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+
+			let ledger = Self::ledger(Stash(stash.clone()))?;
+			let actual_stake = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
+
+			// ensure there is something to force unstake.
+			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
+
+			// we ignore if active is 0. It implies the locked amount is not actively staked. The
+			// account can still get away from potential slash, but we can't do much better here.
+			StakingLedger {
+				total: actual_stake,
+				active: ledger.active.saturating_sub(force_withdraw_amount),
+				..ledger
+			}
+			.update()?;
+
+			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
+
 			Ok(())
 		}
 	}

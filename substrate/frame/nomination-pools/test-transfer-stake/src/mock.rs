@@ -20,7 +20,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, ConstU8, VariantCountOf},
+	traits::{ConstU64, ConstU8, Nothing, VariantCountOf},
 	PalletId,
 };
 use sp_runtime::{
@@ -145,6 +145,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Filter = Nothing;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

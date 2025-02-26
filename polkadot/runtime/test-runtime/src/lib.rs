@@ -370,6 +370,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type Filter = frame_support::traits::Nothing;
 }
 
 parameter_types! {
