@@ -4231,15 +4231,17 @@ dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
  "cumulus-client-network",
- "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
  "futures",
  "hex",
  "log",
  "parity-scale-codec",
+ "prost 0.12.6",
+ "prost-build",
  "sc-network",
  "sc-service",
- "sp-consensus-babe 0.32.0",
+ "sp-consensus-babe",
  "sp-runtime 31.0.1",
  "tokio",
 ]
@@ -4845,6 +4847,7 @@ name = "cumulus-relay-chain-inprocess-interface"
 version = "0.7.0"
 dependencies = [
  "async-trait",
+ "cumulus-client-bootnodes",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
  "futures",

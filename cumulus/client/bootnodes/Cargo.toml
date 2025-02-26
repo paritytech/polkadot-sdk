@@ -7,9 +7,13 @@ description = "Parachain bootnodes registration and discovery."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage.workspace = true
 repository.workspace = true
+build = "build.rs"
 
 [lints]
 workspace = true
+
+[build-dependencies]
+prost-build = { workspace = true }
 
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -18,6 +22,7 @@ codec = { workspace = true, default-features = true }
 futures = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
+prost = { workspace = true }
 tokio = { workspace = true, default-features = true }
 
 # Substrate
