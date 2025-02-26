@@ -18,7 +18,7 @@
 //! Miscellaneous types.
 
 use crate::{traits::Contains, TypeInfo};
-use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
 use core::fmt::Debug;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
@@ -178,7 +178,16 @@ pub enum ExistenceRequirement {
 
 /// Status of funds.
 #[derive(
-	PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
 )]
 pub enum BalanceStatus {
 	/// Funds are free, as corresponding to `free` item in Balances.

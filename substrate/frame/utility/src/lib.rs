@@ -141,9 +141,9 @@ pub mod pallet {
 		/// The limit on the number of batched calls.
 		fn batched_calls_limit() -> u32 {
 			let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
-			let call_size = ((core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
-				CALL_ALIGN - 1) /
-				CALL_ALIGN) * CALL_ALIGN;
+			let call_size = (core::mem::size_of::<<T as Config>::RuntimeCall>() as u32)
+				.div_ceil(CALL_ALIGN) *
+				CALL_ALIGN;
 			// The margin to take into account vec doubling capacity.
 			let margin_factor = 3;
 
@@ -553,6 +553,34 @@ pub mod pallet {
 				error: fallback_error.error,
 				post_info: Some(weight).into(),
 			})
+		}
+
+		/// Dispatches a function call with a provided origin.
+		///
+		/// Almost the same as [`Pallet::dispatch_as`] but forwards any error of the inner call.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		#[pallet::call_index(7)]
+		#[pallet::weight({
+			let dispatch_info = call.get_dispatch_info();
+			(
+				T::WeightInfo::dispatch_as_fallible()
+					.saturating_add(dispatch_info.call_weight),
+				dispatch_info.class,
+			)
+		})]
+		pub fn dispatch_as_fallible(
+			origin: OriginFor<T>,
+			as_origin: Box<T::PalletsOrigin>,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			call.dispatch_bypass_filter((*as_origin).into()).map_err(|e| e.error)?;
+
+			Self::deposit_event(Event::DispatchedAs { result: Ok(()) });
+
+			Ok(())
 		}
 	}
 
