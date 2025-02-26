@@ -40,7 +40,7 @@ use asynchronous_codec::Framed;
 use bytes::BytesMut;
 use futures::prelude::*;
 use libp2p::{
-	core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
+	core::{InboundUpgrade, OutboundUpgrade, UpgradeInfo},
 	PeerId,
 };
 use log::{error, warn};
