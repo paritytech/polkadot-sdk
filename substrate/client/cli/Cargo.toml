@@ -35,11 +35,11 @@ thiserror = { workspace = true }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
 sc-client-api = { workspace = true, default-features = true }
-sc-client-db = { workspace = true }
+sc-client-db = { workspace = true, default-features = false }
 sc-keystore = { workspace = true, default-features = true }
 sc-mixnet = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
-sc-service = { workspace = true }
+sc-service = { workspace = true, default-features = false }
 sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }

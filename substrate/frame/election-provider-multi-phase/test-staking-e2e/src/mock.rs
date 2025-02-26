@@ -142,11 +142,14 @@ impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<Runtime>;
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<
+		SLASHING_DISABLING_FACTOR,
+	>;
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -335,8 +338,6 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type EventListeners = (Pools, DelegatedStaking);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
-	type DisablingStrategy =
-		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<SLASHING_DISABLING_FACTOR>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
 
@@ -908,10 +909,7 @@ pub(crate) fn on_offence_now(
 // Add offence to validator, slash it.
 pub(crate) fn add_slash(who: &AccountId) {
 	on_offence_now(
-		&[OffenceDetails {
-			offender: (*who, Staking::eras_stakers(active_era(), who)),
-			reporters: vec![],
-		}],
+		&[OffenceDetails { offender: (*who, ()), reporters: vec![] }],
 		&[Perbill::from_percent(10)],
 	);
 }
