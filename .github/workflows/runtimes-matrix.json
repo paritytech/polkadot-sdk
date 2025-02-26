@@ -116,7 +116,7 @@
     "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "bench_features": "runtime-benchmarks",
-    "bench_flags": "--genesis-builder-policy=none",
+    "bench_flags": "",
     "uri": null,
     "is_relay": false
   },
