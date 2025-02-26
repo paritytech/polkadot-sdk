@@ -100,7 +100,7 @@ pub use self::{
 		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf,
 		Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex,
 		ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf,
-		TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
+		TallyOf, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -116,6 +116,27 @@ mod tests;
 pub mod benchmarking;
 
 pub use frame_support::traits::Get;
+
+#[macro_export]
+macro_rules! impl_tracksinfo_get {
+	($tracksinfo:ty, $balance:ty, $blocknumber:ty) => {
+		impl
+			$crate::Get<
+				$crate::Vec<(
+					<$tracksinfo as $crate::TracksInfo<$balance, $blocknumber>>::Id,
+					$crate::TrackInfo<$balance, $blocknumber>,
+				)>,
+			> for $tracksinfo
+		{
+			fn get() -> $crate::Vec<(
+				<$tracksinfo as $crate::TracksInfo<$balance, $blocknumber>>::Id,
+				$crate::TrackInfo<$balance, $blocknumber>,
+			)> {
+				<$tracksinfo as $crate::TracksInfo<$balance, $blocknumber>>::tracks().to_vec()
+			}
+		}
+	};
+}
 
 const ASSEMBLY_ID: LockIdentifier = *b"assembly";
 
@@ -207,11 +228,17 @@ pub mod pallet {
 
 		// The other stuff.
 		/// Information concerning the different referendum tracks.
-		type Tracks: TracksInfo<
-			BalanceOf<Self, I>,
-			BlockNumberFor<Self, I>,
-			RuntimeOrigin = <Self::RuntimeOrigin as OriginTrait>::PalletsOrigin,
-		>;
+		#[pallet::constant]
+		type Tracks: Get<
+				Vec<(
+					<Self::Tracks as TracksInfo<BalanceOf<Self, I>, BlockNumberFor<Self, I>>>::Id,
+					TrackInfo<BalanceOf<Self, I>, BlockNumberFor<Self, I>>,
+				)>,
+			> + TracksInfo<
+				BalanceOf<Self, I>,
+				BlockNumberFor<Self, I>,
+				RuntimeOrigin = <Self::RuntimeOrigin as OriginTrait>::PalletsOrigin,
+			>;
 
 		/// The preimage provider.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
@@ -220,14 +247,6 @@ pub mod pallet {
 		///
 		/// Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
-	}
-
-	#[pallet::extra_constants]
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		#[pallet::constant_name(Tracks)]
-		fn tracks() -> Vec<Track<TrackIdOf<T, I>, BalanceOf<T, I>, BlockNumberFor<T, I>>> {
-			T::Tracks::tracks().map(|t| t.into_owned()).collect()
-		}
 	}
 
 	/// The next free referendum index, aka the number of referenda started so far.
@@ -513,7 +532,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut status = Self::ensure_ongoing(index)?;
 			ensure!(status.decision_deposit.is_none(), Error::<T, I>::HasDeposit);
-			let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
+			let track = Self::track(status.track).ok_or(Error::<T, I>::NoTrack)?;
 			status.decision_deposit =
 				Some(Self::take_deposit(who.clone(), track.decision_deposit)?);
 			let now = T::BlockNumberProvider::current_block_number();
@@ -649,7 +668,7 @@ pub mod pallet {
 				if let Some((index, mut status)) = Self::next_for_deciding(&mut track_queue) {
 					let now = T::BlockNumberProvider::current_block_number();
 					let (maybe_alarm, branch) =
-						Self::begin_deciding(&mut status, index, now, &track_info);
+						Self::begin_deciding(&mut status, index, now, track_info);
 					if let Some(set_alarm) = maybe_alarm {
 						Self::ensure_alarm_at(&mut status, index, set_alarm);
 					}
@@ -737,7 +756,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 	type Class = TrackIdOf<T, I>;
 
 	fn classes() -> Vec<Self::Class> {
-		T::Tracks::track_ids().collect()
+		T::Tracks::tracks().iter().map(|x| x.0).collect()
 	}
 
 	fn access_poll<R>(
@@ -830,9 +849,10 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_ongoing() -> (Self::Class, u32) {
 		let r = T::Tracks::tracks()
-			.max_by_key(|t| t.info.max_deciding)
+			.iter()
+			.max_by_key(|(_, info)| info.max_deciding)
 			.expect("Always one class");
-		(r.id, r.info.max_deciding)
+		(r.0, r.1.max_deciding)
 	}
 }
 
@@ -854,7 +874,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let info = ReferendumInfoFor::<T, I>::get(ref_index).ok_or(Error::<T, I>::BadReferendum)?;
 		match info {
 			ReferendumInfo::Ongoing(status) => {
-				let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
+				let track = Self::track(status.track).ok_or(Error::<T, I>::NoTrack)?;
 				let elapsed = if let Some(deciding) = status.deciding {
 					T::BlockNumberProvider::current_block_number().saturating_sub(deciding.since)
 				} else {
@@ -1084,7 +1104,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> (ReferendumInfoOf<T, I>, bool, ServiceBranch) {
 		let mut dirty = false;
 		// Should it begin being decided?
-		let track = match T::Tracks::info(status.track) {
+		let track = match Self::track(status.track) {
 			Some(x) => x,
 			None => return (ReferendumInfo::Ongoing(status), false, ServiceBranch::Fail),
 		};
@@ -1120,7 +1140,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						let prepare_end = status.submitted.saturating_add(track.prepare_period);
 						if now >= prepare_end {
 							let (maybe_alarm, branch) =
-								Self::ready_for_deciding(now, &track, index, &mut status);
+								Self::ready_for_deciding(now, track, index, &mut status);
 							if let Some(set_alarm) = maybe_alarm {
 								alarm = alarm.min(set_alarm);
 							}
@@ -1167,7 +1187,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							Self::ensure_no_alarm(&mut status);
 							Self::note_one_fewer_deciding(status.track);
 							let (desired, call) = (status.enactment, status.proposal);
-							Self::schedule_enactment(index, &track, desired, status.origin, call);
+							Self::schedule_enactment(index, track, desired, status.origin, call);
 							Self::deposit_event(Event::<T, I>::Confirmed {
 								index,
 								tally: status.tally,
@@ -1217,7 +1237,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						ServiceBranch::ContinueNotConfirming
 					}
 				};
-				alarm = Self::decision_time(deciding, &status.tally, status.track, &track);
+				alarm = Self::decision_time(deciding, &status.tally, status.track, track);
 			},
 		}
 
@@ -1281,6 +1301,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
 			Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
 		}
+	}
+
+	/// Get the track info value for the track `id`.
+	fn track(id: TrackIdOf<T, I>) -> Option<&'static TrackInfoOf<T, I>> {
+		let tracks = T::Tracks::tracks();
+		let index = tracks.binary_search_by_key(&id, |x| x.0).unwrap_or_else(|x| x);
+		Some(&tracks[index].1)
 	}
 
 	/// Determine whether the given `tally` would result in a referendum passing at `elapsed` blocks
@@ -1351,7 +1378,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			match referendum {
 				ReferendumInfo::Ongoing(status) => {
 					ensure!(
-						T::Tracks::info(status.track).is_some(),
+						Self::track(status.track).is_some(),
 						"No track info for the track of the referendum."
 					);
 
@@ -1377,8 +1404,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///  [`ReferendumInfoFor`] storage map.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_tracks() -> Result<(), sp_runtime::TryRuntimeError> {
-		T::Tracks::tracks().try_for_each(|track| {
-			TrackQueue::<T, I>::get(track.id).iter().try_for_each(
+		T::Tracks::tracks().iter().try_for_each(|track| {
+			TrackQueue::<T, I>::get(track.0).iter().try_for_each(
 				|(referendum_index, _)| -> Result<(), sp_runtime::TryRuntimeError> {
 					ensure!(
 					ReferendumInfoFor::<T, I>::contains_key(referendum_index),
