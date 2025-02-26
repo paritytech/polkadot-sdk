@@ -465,10 +465,10 @@ where
 		// even if we don't write anything into it.
 		match Stream::poll_next(this.socket.as_mut(), cx) {
 			Poll::Pending => {},
-			Poll::Ready(Some(_)) => {
+			Poll::Ready(Some(data)) => {
 				error!(
-					target: LOG_TARGET,
-					"Unexpected incoming data in `NotificationsOutSubstream`",
+					target: "sub-libp2p",
+					"Unexpected incoming data in `NotificationsOutSubstream` data={data:?}",
 				);
 			},
 			Poll::Ready(None) => return Poll::Ready(Err(NotificationsOutError::Terminated)),
