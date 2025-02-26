@@ -264,6 +264,9 @@ pub enum NotifsHandlerIn {
 	Open {
 		/// Index of the protocol in the list of protocols passed at initialization.
 		protocol_index: usize,
+
+		/// The peer id of the remote.
+		peer_id: PeerId,
 	},
 
 	/// Instruct the handler to close the notification substreams, or reject any pending incoming
@@ -632,7 +635,7 @@ impl ConnectionHandler for NotifsHandler {
 
 	fn on_behaviour_event(&mut self, message: NotifsHandlerIn) {
 		match message {
-			NotifsHandlerIn::Open { protocol_index } => {
+			NotifsHandlerIn::Open { protocol_index, peer_id } => {
 				let protocol_info = &mut self.protocols[protocol_index];
 				match &mut protocol_info.state {
 					State::Closed { pending_opening } => {
