@@ -13900,6 +13900,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-revive",
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
