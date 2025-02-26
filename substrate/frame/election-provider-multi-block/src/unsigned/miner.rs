@@ -1673,8 +1673,7 @@ mod offchain_worker_miner {
 			let last_block =
 				StorageValueRef::persistent(&OffchainWorkerMiner::<Runtime>::OFFCHAIN_LAST_BLOCK);
 
-			roll_to(25);
-			assert!(MultiBlock::current_phase().is_unsigned());
+			roll_to_unsigned_open();
 
 			// initially, the lock is not set.
 			assert!(guard.get::<bool>().unwrap().is_none());
@@ -1694,8 +1693,7 @@ mod offchain_worker_miner {
 		// ensure that if the guard is in hold, a new execution is not allowed.
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
-			roll_to(25);
-			assert!(MultiBlock::current_phase().is_unsigned());
+			roll_to_unsigned_open();
 
 			// artificially set the value, as if another thread is mid-way.
 			let mut lock = StorageLock::<BlockAndTime<System>>::with_block_deadline(
@@ -1722,8 +1720,7 @@ mod offchain_worker_miner {
 	fn initial_ocw_runs_and_saves_new_cache() {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
-			roll_to(25);
-			assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+			roll_to_unsigned_open();
 
 			let last_block =
 				StorageValueRef::persistent(&OffchainWorkerMiner::<Runtime>::OFFCHAIN_LAST_BLOCK);
@@ -1746,8 +1743,9 @@ mod offchain_worker_miner {
 	fn ocw_pool_submission_works() {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
-			roll_to_with_ocw(25, None);
-			assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+			roll_to_unsigned_open();
+
+			roll_next_with_ocw(Some(pool.clone()));
 			// OCW must have submitted now
 
 			let encoded = pool.read().transactions[0].clone();
@@ -1767,8 +1765,7 @@ mod offchain_worker_miner {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
 			let offchain_repeat = <Runtime as crate::unsigned::Config>::OffchainRepeat::get();
-			roll_to(25);
-			assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(25));
+			roll_to_unsigned_open();
 
 			assert!(OffchainWorkerMiner::<Runtime>::cached_solution().is_none());
 			// creates, caches, submits without expecting previous cache value
@@ -1793,7 +1790,7 @@ mod offchain_worker_miner {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
 			let offchain_repeat = <Runtime as crate::unsigned::Config>::OffchainRepeat::get();
-			roll_to(25);
+			roll_to_unsigned_open();
 
 			assert!(OffchainWorkerMiner::<Runtime>::cached_solution().is_none());
 			// creates, caches, submits without expecting previous cache value.
@@ -1824,10 +1821,11 @@ mod offchain_worker_miner {
 	#[test]
 	fn altering_snapshot_invalidates_solution_cache() {
 		// by infeasible, we mean here that if the snapshot fingerprint has changed.
-		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
+		let (mut ext, pool) = ExtBuilder::unsigned().unsigned_phase(999).build_offchainify();
 		ext.execute_with_sanity_checks(|| {
 			let offchain_repeat = <Runtime as crate::unsigned::Config>::OffchainRepeat::get();
-			roll_to_with_ocw(25, None);
+			roll_to_unsigned_open();
+			roll_next_with_ocw(None);
 
 			// something is submitted..
 			assert_eq!(pool.read().transactions.len(), 1);
@@ -1848,14 +1846,15 @@ mod offchain_worker_miner {
 			assert_ne!(pre_fingerprint, post_fingerprint);
 
 			// now run ocw again
-			roll_to_with_ocw(25 + offchain_repeat + 1, None);
+			let now = System::block_number();
+			roll_to_with_ocw(now + offchain_repeat + 1, None);
 			// nothing is submitted this time..
 			assert_eq!(pool.read().transactions.len(), 0);
 			// .. and the cache is gone.
 			assert_eq!(call_cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
 
 			// upon the next run, we re-generate and submit something fresh again.
-			roll_to_with_ocw(25 + offchain_repeat + offchain_repeat + 2, None);
+			roll_to_with_ocw(now + offchain_repeat + offchain_repeat + 2, None);
 			assert_eq!(pool.read().transactions.len(), 1);
 			assert!(matches!(call_cache.get::<crate::unsigned::Call<Runtime>>(), Ok(Some(_))));
 		})
@@ -1865,13 +1864,13 @@ mod offchain_worker_miner {
 	fn wont_resubmit_if_weak_score() {
 		// common case, if the score is weak, don't bother with anything, ideally check from the
 		// logs that we don't run feasibility in this call path. Score check must come before.
-		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
+		let (mut ext, pool) = ExtBuilder::unsigned().unsigned_phase(999).build_offchainify();
 		ext.execute_with_sanity_checks(|| {
 			let offchain_repeat = <Runtime as crate::unsigned::Config>::OffchainRepeat::get();
 			// unfortunately there's no pretty way to run the ocw code such that it generates a
 			// weak, but correct solution. We just write it to cache directly.
-
-			roll_to_with_ocw(25, Some(pool.clone()));
+			roll_to_unsigned_open();
+			roll_next_with_ocw(None);
 
 			// something is submitted..
 			assert_eq!(pool.read().transactions.len(), 1);
@@ -1892,7 +1891,7 @@ mod offchain_worker_miner {
 			call_cache.set(&weak_call);
 
 			// run again
-			roll_to_with_ocw(25 + offchain_repeat + 1, Some(pool.clone()));
+			roll_to_with_ocw(System::block_number() + offchain_repeat + 1, Some(pool.clone()));
 			// nothing is submitted this time..
 			assert_eq!(pool.read().transactions.len(), 0);
 			// .. and the cache IS STILL THERE!
@@ -1922,17 +1921,18 @@ mod offchain_worker_miner {
 	fn multi_page_ocw_e2e_submits_and_queued_msp_only() {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
-			assert!(VerifierPallet::queued_score().is_none());
-
-			roll_to_with_ocw(25 + 1, Some(pool.clone()));
+			// roll to mine
+			roll_to_unsigned_open_with_ocw(None);
+			// one block to verify and submit.
+			roll_next_with_ocw(Some(pool.clone()));
 
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					crate::Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
+					crate::Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) },
 					crate::Event::PhaseTransitioned {
 						from: Phase::Snapshot(0),
-						to: Phase::Unsigned(25)
+						to: Phase::Unsigned(UnsignedPhase::get() - 1)
 					}
 				]
 			);
@@ -1946,7 +1946,6 @@ mod offchain_worker_miner {
 					)
 				]
 			);
-
 			assert!(VerifierPallet::queued_score().is_some());
 
 			// pool is empty

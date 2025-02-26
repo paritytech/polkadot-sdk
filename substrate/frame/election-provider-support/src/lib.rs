@@ -156,7 +156,7 @@
 //!             unimplemented!()
 //!         }
 //!
-//!         fn ongoing() -> bool {
+//!         fn status() -> Result<bool, ()> {
 //!             unimplemented!()
 //!         }
 //!     }
@@ -377,6 +377,7 @@ pub trait ElectionDataProvider {
 	/// [`ElectionProvider::elect`].
 	///
 	/// This is only useful for stateful election providers.
+	#[deprecated(note = "Use `ElectionProvider::start` instead.")]
 	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber;
 
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
@@ -390,7 +391,7 @@ pub trait ElectionDataProvider {
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn set_next_election(_to: u32) {}
+	fn fetch_page(_page: PageIndex) {}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn fetch_page(_page: PageIndex) {}
@@ -489,8 +490,18 @@ pub trait ElectionProvider {
 		})
 	}
 
+	/// Return the duration of your election.
+	fn duration() -> Self::BlockNumber;
+
+	/// Signal that the election should start
+	fn start() -> Result<(), Self::Error>;
+
 	/// Indicate whether this election provider is currently ongoing an asynchronous election.
-	fn ongoing() -> bool;
+	///
+	/// `Err(())` should signal that we are not doing anything, and `elect` should def. not be called.
+	/// `Ok(false)` means we are doing something, but work is still ongoing. `elect` should not be called.
+	/// `Ok(true)` means we are done and ready for a call to `elect`.
+	fn status() -> Result<bool, ()>;
 }
 
 /// A (almost) marker trait that signifies an election provider as working synchronously. i.e. being
@@ -521,6 +532,7 @@ where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
 	MaxWinnersPerPage: Get<u32>,
 	MaxBackersPerWinner: Get<u32>,
+	BlockNumber: Zero,
 {
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
@@ -534,8 +546,16 @@ where
 		Err("`NoElection` cannot do anything.")
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn start() -> Result<(), Self::Error> {
+		Err("`NoElection` cannot do anything.")
+	}
+
+	fn duration() -> Self::BlockNumber {
+		Zero::zero()
+	}
+
+	fn status() -> Result<bool, ()> {
+		Err(())
 	}
 }
 
@@ -546,6 +566,7 @@ where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
 	MaxWinnersPerPage: Get<u32>,
 	MaxBackersPerWinner: Get<u32>,
+	BlockNumber: Zero,
 {
 	fn instant_elect(
 		_: Vec<VoterOf<Self::DataProvider>>,

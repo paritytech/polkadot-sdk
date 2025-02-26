@@ -358,11 +358,13 @@ mod paged_on_initialize {
 
 				// electing started at cursor is set once the election starts to be prepared.
 				assert_eq!(NextElectionPage::<Test>::get(), Some(1));
+
 				// now the electable stashes started to be fetched and stored.
 				assert_eq_uvec!(
 					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
 					expected_elected
 				);
+
 				// exposures have been collected for all validators in the page.
 				// note that the mock election provider adds one exposures per winner for
 				// each page.

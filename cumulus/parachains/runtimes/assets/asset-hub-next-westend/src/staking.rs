@@ -121,7 +121,6 @@ impl multi_block::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	type Fallback = multi_block::Continue<Self>;
-	type Lookahead = ConstU32<5>;
 	type MinerConfig = Self;
 	type Verifier = MultiBlockVerifier;
 	type WeightInfo = measured::pallet_election_provider_multi_block::SubstrateWeight<Self>;

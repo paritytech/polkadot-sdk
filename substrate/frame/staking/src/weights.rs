@@ -50,8 +50,6 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_staking`.
 pub trait WeightInfo {
 	fn on_initialize_noop() -> Weight;
-	fn do_elect_paged_inner(v: u32,) -> Weight;
-	fn clear_election_metadata() -> Weight;
 	fn bond() -> Weight;
 	fn bond_extra() -> Weight;
 	fn unbond() -> Weight;
@@ -94,13 +92,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn on_initialize_noop() -> Weight {
 	    Default::default()
 	}
-	fn do_elect_paged_inner(_v: u32,) -> Weight {
-	    Default::default()
-	}
-	fn clear_election_metadata() -> Weight {
-	    Default::default()
-	}
-
 	/// Storage: `Staking::Bonded` (r:1 w:1)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Ledger` (r:1 w:1)
@@ -826,15 +817,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// TODO: run CI bench bot
 	fn on_initialize_noop() -> Weight {
-	    RocksDbWeight::get().reads(1)
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `33487`
+		// Minimum execution time: 8_949_000 picoseconds.
+		Weight::from_parts(9_194_000, 33487)
+			.saturating_add(RocksDbWeight::get().reads(13_u64))
 	}
-	fn do_elect_paged_inner(_v: u32,) -> Weight {
-	    RocksDbWeight::get().reads(1)
-	}
-	fn clear_election_metadata() -> Weight {
-	    RocksDbWeight::get().reads(1)
-	}
-
 	/// Storage: `Staking::Bonded` (r:1 w:1)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Ledger` (r:1 w:1)

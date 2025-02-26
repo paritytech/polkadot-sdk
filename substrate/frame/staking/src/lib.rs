@@ -345,7 +345,7 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
-use frame_election_provider_support::ElectionProvider;
+use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
@@ -384,6 +384,60 @@ macro_rules! log {
 		)
 	};
 }
+
+/// A test adapter for this other pallets to remain backwards compatible, and readily do an election
+/// right before the election.
+#[cfg(feature = "std")]
+pub struct TestElectionProviderAtEraBoundary<T, SP>(core::marker::PhantomData<(T, SP)>);
+
+#[cfg(feature = "std")]
+impl<
+	T: Config,
+	// single page EP.
+	SP: ElectionProvider,
+> ElectionProvider for TestElectionProviderAtEraBoundary<T, SP> {
+	type AccountId = SP::AccountId;
+	type BlockNumber = SP::BlockNumber;
+	type MaxWinnersPerPage = SP::MaxWinnersPerPage;
+	type MaxBackersPerWinner = SP::MaxBackersPerWinner;
+	type Pages = SP::Pages;
+	type DataProvider = SP::DataProvider;
+	type Error = SP::Error;
+
+	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		SP::elect(page)
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		unreachable!()
+	}
+
+	fn duration() -> Self::BlockNumber {
+		SP::duration()
+	}
+
+	fn msp() -> PageIndex {
+		SP::msp()
+	}
+	fn lsp() -> PageIndex {
+		SP::lsp()
+	}
+
+	fn status() -> Result<bool, ()> {
+		use frame_election_provider_support::ElectionDataProvider;
+		let now = frame_system::Pallet::<T>::block_number();
+		// TODO: redo this prediction as a standalone helper to use in other pallets. Atm it forces
+		// us to keep this deprecated API in code.
+		let prediction = Pallet::<T>::next_election_prediction(now);
+		let pages_bn: frame_system::pallet_prelude::BlockNumberFor<T> = SP::Pages::get().into();
+		if now + pages_bn >= prediction {
+			Ok(true)
+		} else {
+			Err(())
+		}
+	}
+}
+
 
 /// Alias for a bounded set of exposures behind a validator, parameterized by this pallet's
 /// election provider.

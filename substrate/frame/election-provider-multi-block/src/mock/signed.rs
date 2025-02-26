@@ -17,10 +17,7 @@
 
 use super::{Balance, Balances, Pages, Runtime, RuntimeEvent, SignedPallet, System};
 use crate::{
-	mock::{
-		balances, multi_block_events, roll_next, roll_to_signed_validation_open, verifier_events,
-		AccountId, RuntimeHoldReason, RuntimeOrigin, VerifierPallet,
-	},
+	mock::*,
 	signed::{self as signed_pallet, Event as SignedEvent, Submissions},
 	unsigned::miner::MinerConfig,
 	verifier::{self, AsynchronousVerifier, SolutionDataProvider, VerificationResult, Verifier},
@@ -177,8 +174,11 @@ pub fn load_signed_for_verification_and_start(
 		multi_block_events(),
 		vec![
 			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
+			Event::PhaseTransitioned {
+				from: Phase::Snapshot(0),
+				to: Phase::Signed(SignedPhase::get() - 1)
+			},
+			Event::PhaseTransitioned { from: Phase::Signed(0), to: Phase::SignedValidation(SignedValidationPhase::get() - 1) }
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);
@@ -200,9 +200,15 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(
 		multi_block_events(),
 		vec![
-			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
+			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) },
+			Event::PhaseTransitioned {
+				from: Phase::Snapshot(0),
+				to: Phase::Signed(SignedPhase::get() - 1)
+			},
+			Event::PhaseTransitioned {
+				from: Phase::Signed(0),
+				to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+			}
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);
