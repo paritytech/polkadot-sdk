@@ -411,7 +411,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::InsufficientFunds
 		);
 		T::Polls::try_access_poll(poll_index, |poll_status| {
-			let (tally, class) = poll_status.ensure_ongoing().ok_or(Error::<T, I>::NotOngoing)?;
+			let (tally, class, _) =
+				poll_status.ensure_ongoing().ok_or(Error::<T, I>::NotOngoing)?;
 			VotingFor::<T, I>::try_mutate(who, &class, |voting| {
 				if let Voting::Casting(Casting { ref mut votes, delegations, .. }) = voting {
 					match votes.binary_search_by_key(&poll_index, |i| i.0) {
@@ -469,7 +470,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let v = votes.remove(i);
 
 				T::Polls::try_access_poll(poll_index, |poll_status| match poll_status {
-					PollStatus::Ongoing(tally, _) => {
+					PollStatus::Ongoing(tally, _, _) => {
 						ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermission);
 						// Shouldn't be possible to fail, but we handle it gracefully.
 						tally.remove(v.1).ok_or(ArithmeticError::Underflow)?;
@@ -520,7 +521,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				for &(poll_index, account_vote) in votes.iter() {
 					if let AccountVote::Standard { vote, .. } = account_vote {
 						T::Polls::access_poll(poll_index, |poll_status| {
-							if let PollStatus::Ongoing(tally, _) = poll_status {
+							if let PollStatus::Ongoing(tally, _, _) = poll_status {
 								tally.increase(vote.aye, amount);
 							}
 						});
@@ -548,7 +549,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				for &(poll_index, account_vote) in votes.iter() {
 					if let AccountVote::Standard { vote, .. } = account_vote {
 						T::Polls::access_poll(poll_index, |poll_status| {
-							if let PollStatus::Ongoing(tally, _) = poll_status {
+							if let PollStatus::Ongoing(tally, _, _) = poll_status {
 								tally.reduce(vote.aye, amount);
 							}
 						});
