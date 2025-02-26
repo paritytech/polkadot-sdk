@@ -16,7 +16,6 @@
 
 use crate::*;
 
-use crate::parachain::RuntimeError::System;
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
 use xcm::latest::QueryResponseInfo;
