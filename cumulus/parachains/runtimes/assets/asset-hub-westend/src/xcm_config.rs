@@ -43,6 +43,7 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
+use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -265,9 +266,9 @@ impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }])
-				| (1, [Parachain(1001), PalletInstance(64)])
-				| (1, [Parachain(1001), PalletInstance(65)])
+			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]) |
+				(1, [Parachain(1001), PalletInstance(64)]) |
+				(1, [Parachain(1001), PalletInstance(65)])
 		)
 	}
 }
@@ -497,14 +498,17 @@ pub type XcmRouter = WithUniqueTopic<(
 	// GlobalConsensus
 	ToRococoXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
-	// GlobalConsensus
-	SovereignPaidRemoteExporter<
-		(
-			bridging::to_ethereum::EthereumNetworkExportTableV2,
-			bridging::to_ethereum::EthereumNetworkExportTable,
-		),
-		XcmpQueue,
-		UniversalLocation,
+	// GlobalConsensus with a pausable flag, if the flag is set true then the Router is paused
+	PausableExporter<
+		crate::SnowbridgeSystemFrontend,
+		SovereignPaidRemoteExporter<
+			(
+				bridging::to_ethereum::EthereumNetworkExportTableV2,
+				bridging::to_ethereum::EthereumNetworkExportTable,
+			),
+			XcmpQueue,
+			UniversalLocation,
+		>,
 	>,
 )>;
 

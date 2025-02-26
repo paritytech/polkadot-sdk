@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 pub mod converter;
 pub mod delivery_receipt;
+pub mod exporter;
 pub mod message;
 
 pub use converter::*;

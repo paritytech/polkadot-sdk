@@ -18,9 +18,9 @@ use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumOutboundQueueV2,
 };
 use emulated_integration_tests_common::{impls::Decode, PenpalBTeleportableAssetLocation};
-use frame_support::pallet_prelude::TypeInfo;
+use frame_support::{assert_err_ignore_postinfo, pallet_prelude::TypeInfo};
 use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
-use snowbridge_core::AssetMetadata;
+use snowbridge_core::{AssetMetadata, BasicOperatingMode};
 use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
 use snowbridge_pallet_outbound_queue_v2::Error;
@@ -365,50 +365,6 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 }
 
 #[test]
-fn register_agent_from_asset_hub() {
-	fund_on_bh();
-	register_assets_on_ah();
-	fund_on_ah();
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(
-			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::create_agent(
-				RuntimeOrigin::signed(AssetHubWestendSender::get()),
-				REMOTE_FEE_AMOUNT_IN_ETHER
-			)
-		);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
-		);
-
-		let relayer = BridgeHubWestendSender::get();
-		let reward_account = AssetHubWestendReceiver::get();
-		let receipt = DeliveryReceipt {
-			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
-			reward_address: reward_account,
-			success: true,
-		};
-
-		// Submit a delivery receipt
-		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt));
-
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { .. }) => {},
-			]
-		);
-	});
-}
-
-#[test]
 fn transact_with_agent_from_asset_hub() {
 	let weth_asset_location: Location = weth_location();
 
@@ -486,7 +442,7 @@ fn transact_with_agent_from_asset_hub() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 1,
+			nonce: 0,
 			reward_address: reward_account,
 			success: true,
 		};
@@ -613,115 +569,7 @@ fn register_token_from_penpal() {
 		assert_expected_events!(
 			BridgeHubWestend,
 			vec![
-				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { .. }) => {},
-			]
-		);
-	});
-}
-
-#[test]
-fn register_user_agent_from_penpal() {
-	fund_on_bh();
-	register_assets_on_ah();
-	fund_on_ah();
-	create_pools_on_ah();
-	set_trust_reserve_on_penpal();
-	register_assets_on_penpal();
-	fund_on_penpal();
-	let penpal_user_location = Location::new(
-		1,
-		[
-			Parachain(PenpalB::para_id().into()),
-			AccountId32 {
-				network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
-				id: PenpalBSender::get().into(),
-			},
-		],
-	);
-	PenpalB::execute_with(|| {
-		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
-
-		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
-
-		let remote_fee_asset_on_ah =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
-
-		let remote_fee_asset_on_ethereum =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
-
-		let call = EthereumSystemFrontend::EthereumSystemFrontend(
-			EthereumSystemFrontendCall::CreateAgent { fee: REMOTE_FEE_AMOUNT_IN_ETHER },
-		);
-
-		let assets = vec![
-			local_fee_asset_on_penpal.clone(),
-			remote_fee_asset_on_ah.clone(),
-			remote_fee_asset_on_ethereum.clone(),
-		];
-
-		let xcm = VersionedXcm::from(Xcm(vec![
-			WithdrawAsset(assets.clone().into()),
-			PayFees { asset: local_fee_asset_on_penpal.clone() },
-			InitiateTransfer {
-				destination: asset_hub(),
-				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset_on_ah.clone().into(),
-				))),
-				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset_on_ethereum.clone().into(),
-				))],
-				remote_xcm: Xcm(vec![
-					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
-					Transact {
-						origin_kind: OriginKind::Xcm,
-						call: call.encode().into(),
-						fallback_max_weight: None,
-					},
-					ExpectTransactStatus(MaybeErrorCode::Success),
-				]),
-			},
-		]));
-
-		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(PenpalBSender::get()),
-			bx!(xcm.clone()),
-			Weight::from(EXECUTION_WEIGHT),
-		));
-	});
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { .. }) => {},]
-		);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
-		);
-
-		let relayer = BridgeHubWestendSender::get();
-		let reward_account = AssetHubWestendReceiver::get();
-		let receipt = DeliveryReceipt {
-			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
-			reward_address: reward_account,
-			success: true,
-		};
-
-		// Submit a delivery receipt
-		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt));
-
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { .. }) => {},
+				RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageDeliveryProofReceived { .. }) => {},
 			]
 		);
 	});
@@ -883,6 +731,68 @@ fn invalid_nonce_for_delivery_receipt_fails() {
 		assert_err!(
 			EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt),
 			Error::<Runtime>::InvalidPendingNonce
+		);
+	});
+}
+
+#[test]
+fn export_message_from_asset_hub_to_ethereum_is_banned_when_set_operating_mode() {
+	fund_on_bh();
+
+	register_assets_on_ah();
+
+	fund_on_ah();
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::set_operating_mode(
+				RuntimeOrigin::root(),
+				BasicOperatingMode::Halted));
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		type Runtime = <AssetHubWestend as Chain>::Runtime;
+
+		let local_fee_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+
+		let remote_fee_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
+		let reserve_asset = Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT) };
+
+		let assets = vec![reserve_asset.clone(), remote_fee_asset.clone(), local_fee_asset.clone()];
+
+		let xcm = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset.clone() },
+			InitiateTransfer {
+				destination: ethereum(),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into(),
+				))),
+				preserve_origin: true,
+				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+					reserve_asset.clone().into(),
+				))],
+				remote_xcm: Xcm(vec![DepositAsset {
+					assets: Wild(AllCounted(2)),
+					beneficiary: beneficiary(),
+				}]),
+			},
+		]));
+
+		// Send the Weth back to Ethereum
+		assert_err_ignore_postinfo!(
+			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+				RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+				bx!(xcm),
+				Weight::from(EXECUTION_WEIGHT),
+			),
+			pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
 		);
 	});
 }

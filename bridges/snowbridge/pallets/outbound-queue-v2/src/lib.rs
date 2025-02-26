@@ -229,11 +229,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-	/// The current operating mode of the pallet.
-	#[pallet::storage]
-	#[pallet::getter(fn operating_mode)]
-	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
-
 	/// Pending orders to relay
 	#[pallet::storage]
 	pub type PendingOrders<T: Config> =
@@ -262,19 +257,6 @@ pub mod pallet {
 	where
 		T::AccountId: From<[u8; 32]>,
 	{
-		/// Halt or resume all pallet operations. May only be called by root.
-		#[pallet::call_index(0)]
-		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
-		pub fn set_operating_mode(
-			origin: OriginFor<T>,
-			mode: BasicOperatingMode,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			OperatingMode::<T>::put(mode);
-			Self::deposit_event(Event::OperatingModeChanged { mode });
-			Ok(())
-		}
-
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
 		pub fn submit_delivery_receipt(
@@ -282,7 +264,6 @@ pub mod pallet {
 			event: Box<EventProof>,
 		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
-			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
 			T::Verifier::verify(&event.event_log, &event.proof)
