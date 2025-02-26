@@ -683,7 +683,7 @@ mod legacy {
 		Extra: Encode,
 	{
 		fn encode(&self) -> Vec<u8> {
-			let mut tmp = Vec::with_capacity(sp_std::mem::size_of::<Self>());
+			let mut tmp = Vec::with_capacity(core::mem::size_of::<Self>());
 
 			// 1 byte version id.
 			match self.signature.as_ref() {

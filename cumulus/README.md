@@ -4,7 +4,7 @@
 
 This repository contains both the Cumulus SDK and also specific chains implemented on top of this SDK.
 
-If you only want to run a **Polkadot Parachain Node**, check out our [container section](./docs/contributor/container.md).
+If you only want to run a **Polkadot Parachain Node**, check out our [container section](../docs/contributor/container.md).
 
 ## Cumulus SDK
 
@@ -34,7 +34,7 @@ A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for 
 `polkadot-parachain` binary (previously called `polkadot-collator`).
 
 You may run `polkadot-parachain` locally after building it or using one of the container option described
-[here](./docs/contributor/container.md).
+[here](../docs/contributor/container.md).
 
 ### Relay Chain Interaction
 To operate a parachain node, a connection to the corresponding relay chain is necessary. This can be achieved in one of
@@ -60,7 +60,7 @@ polkadot-parachain \
 ```
 
 #### External Relay Chain Node
-An external relay chain node is connected via WebsSocket RPC by using the `--relay-chain-rpc-urls` command line
+An external relay chain node is connected via WebSocket RPC by using the `--relay-chain-rpc-urls` command line
 argument. This option accepts one or more space-separated WebSocket URLs to a full relay chain node. By default, only
 the first URL will be used, with the rest as a backup in case the connection to the first node is lost.
 
@@ -206,10 +206,6 @@ CHAIN=asset-hub-westend # or asset-hub-kusama
 ```
 
 Refer to the [setup instructions](#manual-setup) to run a local network for development.
-
-## Contracts 📝
-
-See [the `contracts-rococo` readme](parachains/runtimes/contracts/contracts-rococo/README.md) for details.
 
 ## Bridge-hub 📝
 

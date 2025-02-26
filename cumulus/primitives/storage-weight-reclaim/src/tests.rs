@@ -74,6 +74,7 @@ fn get_storage_weight() -> PerDispatchClass<Weight> {
 }
 
 #[test]
+#[allow(deprecated)]
 fn basic_refund() {
 	// The real cost will be 100 bytes of storage size
 	let mut test_ext = setup_test_externalities(&[0, 100]);
@@ -109,6 +110,7 @@ fn basic_refund() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn underestimating_refund() {
 	// We fixed a bug where `pre dispatch info weight > consumed weight > post info weight`
 	// resulted in error.
@@ -149,6 +151,7 @@ fn underestimating_refund() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn sets_to_node_storage_proof_if_higher() {
 	// The storage proof reported by the proof recorder is higher than what is stored on
 	// the runtime side.
@@ -240,6 +243,7 @@ fn sets_to_node_storage_proof_if_higher() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn does_nothing_without_extension() {
 	let mut test_ext = new_test_ext();
 
@@ -274,6 +278,7 @@ fn does_nothing_without_extension() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn negative_refund_is_added_to_weight() {
 	let mut test_ext = setup_test_externalities(&[100, 300]);
 
@@ -310,6 +315,7 @@ fn negative_refund_is_added_to_weight() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_zero_proof_size() {
 	let mut test_ext = setup_test_externalities(&[0, 0]);
 
@@ -340,6 +346,7 @@ fn test_zero_proof_size() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_larger_pre_dispatch_proof_size() {
 	let mut test_ext = setup_test_externalities(&[300, 100]);
 
@@ -374,6 +381,7 @@ fn test_larger_pre_dispatch_proof_size() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_incorporates_check_weight_unspent_weight() {
 	let mut test_ext = setup_test_externalities(&[100, 300]);
 
@@ -415,6 +423,7 @@ fn test_incorporates_check_weight_unspent_weight() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_incorporates_check_weight_unspent_weight_on_negative() {
 	let mut test_ext = setup_test_externalities(&[100, 300]);
 
@@ -456,6 +465,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_nothing_relcaimed() {
 	let mut test_ext = setup_test_externalities(&[0, 100]);
 
@@ -505,6 +515,7 @@ fn test_nothing_relcaimed() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_incorporates_check_weight_unspent_weight_reverse_order() {
 	let mut test_ext = setup_test_externalities(&[100, 300]);
 
@@ -548,6 +559,7 @@ fn test_incorporates_check_weight_unspent_weight_reverse_order() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_incorporates_check_weight_unspent_weight_on_negative_reverse_order() {
 	let mut test_ext = setup_test_externalities(&[100, 300]);
 
@@ -616,6 +628,7 @@ fn storage_size_disabled_reported_correctly() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_reclaim_helper() {
 	let mut test_ext = setup_test_externalities(&[1000, 1300, 1800]);
 
@@ -635,6 +648,7 @@ fn test_reclaim_helper() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_reclaim_helper_does_not_reclaim_negative() {
 	// Benchmarked weight does not change at all
 	let mut test_ext = setup_test_externalities(&[1000, 1300]);
@@ -669,6 +683,7 @@ fn get_benched_weight() -> Weight {
 /// Just here for doc purposes
 fn do_work() {}
 
+#[allow(deprecated)]
 #[docify::export_content(simple_reclaimer_example)]
 fn reclaim_with_weight_meter() {
 	let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(10, 10));

@@ -25,7 +25,10 @@ const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+pub extern "C" fn deploy() {
+	// make sure that the deposit for the immutable data is refunded
+	api::set_immutable_data(&[1, 2, 3, 4, 5])
+}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -42,10 +45,10 @@ pub extern "C" fn call() {
 		api::call(
 			uapi::CallFlags::ALLOW_REENTRY,
 			&addr,
-			0u64,       // How much ref_time to devote for the execution. 0 = all.
-			0u64,       // How much proof_size to devote for the execution. 0 = all.
-			None,       // No deposit limit.
-			&[0u8; 32], // Value to transfer.
+			u64::MAX,                 // How much ref_time to devote for the execution. u64 = all.
+			u64::MAX,                 // How much proof_size to devote for the execution. u64 = all.
+			&[u8::MAX; 32],           // No deposit limit.
+			&[0u8; 32],               // Value to transfer.
 			&[0u8; 0],
 			None,
 		)

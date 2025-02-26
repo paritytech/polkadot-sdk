@@ -24,6 +24,7 @@ pub mod matching;
 pub mod runtime_api;
 
 extern crate alloc;
+extern crate core;
 
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use alloc::vec::Vec;
@@ -123,10 +124,11 @@ pub type ForeignAssetsConvertedConcreteId<
 	BalanceConverter,
 >;
 
-type AssetIdForPoolAssets = u32;
+pub type AssetIdForPoolAssets = u32;
+
 /// `Location` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
-pub type AssetIdForPoolAssetsConvert<PoolAssetsPalletLocation> =
-	AsPrefixedGeneralIndex<PoolAssetsPalletLocation, AssetIdForPoolAssets, TryConvertInto>;
+pub type AssetIdForPoolAssetsConvert<PoolAssetsPalletLocation, L = Location> =
+	AsPrefixedGeneralIndex<PoolAssetsPalletLocation, AssetIdForPoolAssets, TryConvertInto, L>;
 /// [`MatchedConvertedConcreteId`] converter dedicated for `PoolAssets`
 pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 	MatchedConvertedConcreteId<

@@ -21,6 +21,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+extern crate core;
 
 #[cfg(test)]
 mod tests;
@@ -42,9 +43,9 @@ mod barriers;
 pub use barriers::{
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, IsChildSystemParachain,
-	IsParentsOnly, IsSiblingSystemParachain, RespectSuspension, TakeWeightCredit,
-	TrailingSetTopicAsId, WithComputedOrigin,
+	AllowUnpaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain, RespectSuspension,
+	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;
@@ -132,11 +133,13 @@ pub use routing::{
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;
 
+#[allow(deprecated)]
+pub use universal_exports::UnpaidLocalExporter;
 mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
-	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, NetworkExportTable,
-	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidLocalExporter, UnpaidRemoteExporter,
+	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, LocalExporter, NetworkExportTable,
+	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidRemoteExporter,
 };
 
 mod weight;

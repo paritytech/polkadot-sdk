@@ -49,7 +49,7 @@ use crate::{
 	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -106,7 +106,16 @@ pub struct CodeInfo<T: Config> {
 
 /// Defines the required determinism level of a wasm blob when either running or uploading code.
 #[derive(
-	Clone, Copy, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen, RuntimeDebug, PartialEq, Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebug,
+	PartialEq,
+	Eq,
 )]
 pub enum Determinism {
 	/// The execution should be deterministic and hence no indeterministic instructions are

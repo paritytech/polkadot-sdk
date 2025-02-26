@@ -39,16 +39,19 @@ use crate::types::ProtocolName;
 use asynchronous_codec::Framed;
 use bytes::BytesMut;
 use futures::prelude::*;
-use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
+use libp2p::core::{InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::{error, warn};
 use unsigned_varint::codec::UviBytes;
 
 use std::{
-	io, mem,
+	fmt, io, mem,
 	pin::Pin,
 	task::{Context, Poll},
 	vec,
 };
+
+/// Logging target for the file.
+const LOG_TARGET: &str = "sub-libp2p::notification::upgrade";
 
 /// Maximum allowed size of the two handshake messages, in bytes.
 const MAX_HANDSHAKE_SIZE: usize = 1024;
@@ -187,6 +190,14 @@ pub struct NotificationsInOpen<TSubstream> {
 	pub substream: NotificationsInSubstream<TSubstream>,
 }
 
+impl<TSubstream> fmt::Debug for NotificationsInOpen<TSubstream> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("NotificationsInOpen")
+			.field("handshake", &self.handshake)
+			.finish_non_exhaustive()
+	}
+}
+
 impl<TSubstream> NotificationsInSubstream<TSubstream>
 where
 	TSubstream: AsyncRead + AsyncWrite + Unpin,
@@ -202,7 +213,7 @@ where
 	/// Sends the handshake in order to inform the remote that we accept the substream.
 	pub fn send_handshake(&mut self, message: impl Into<Vec<u8>>) {
 		if !matches!(self.handshake, NotificationsInSubstreamHandshake::NotSent) {
-			error!(target: "sub-libp2p", "Tried to send handshake twice");
+			error!(target: LOG_TARGET, "Tried to send handshake twice");
 			return
 		}
 
@@ -341,7 +352,7 @@ impl NotificationsOut {
 	) -> Self {
 		let initial_message = initial_message.into();
 		if initial_message.len() > MAX_HANDSHAKE_SIZE {
-			error!(target: "sub-libp2p", "Outbound networking handshake is above allowed protocol limit");
+			error!(target: LOG_TARGET, "Outbound networking handshake is above allowed protocol limit");
 		}
 
 		let mut protocol_names = fallback_names;
@@ -370,7 +381,14 @@ where
 
 	fn upgrade_outbound(self, mut socket: TSubstream, negotiated_name: Self::Info) -> Self::Future {
 		Box::pin(async move {
-			upgrade::write_length_prefixed(&mut socket, &self.initial_message).await?;
+			{
+				let mut len_data = unsigned_varint::encode::usize_buffer();
+				let encoded_len =
+					unsigned_varint::encode::usize(self.initial_message.len(), &mut len_data).len();
+				socket.write_all(&len_data[..encoded_len]).await?;
+			}
+			socket.write_all(&self.initial_message).await?;
+			socket.flush().await?;
 
 			// Reading handshake.
 			let handshake_len = unsigned_varint::aio::read_usize(&mut socket).await?;
@@ -413,6 +431,15 @@ pub struct NotificationsOutOpen<TSubstream> {
 	pub substream: NotificationsOutSubstream<TSubstream>,
 }
 
+impl<TSubstream> fmt::Debug for NotificationsOutOpen<TSubstream> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("NotificationsOutOpen")
+			.field("handshake", &self.handshake)
+			.field("negotiated_fallback", &self.negotiated_fallback)
+			.finish_non_exhaustive()
+	}
+}
+
 impl<TSubstream> Sink<Vec<u8>> for NotificationsOutSubstream<TSubstream>
 where
 	TSubstream: AsyncRead + AsyncWrite + Unpin,
@@ -440,7 +467,7 @@ where
 			Poll::Pending => {},
 			Poll::Ready(Some(_)) => {
 				error!(
-					target: "sub-libp2p",
+					target: LOG_TARGET,
 					"Unexpected incoming data in `NotificationsOutSubstream`",
 				);
 			},
