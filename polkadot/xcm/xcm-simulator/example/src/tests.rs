@@ -143,7 +143,7 @@ fn reserve_transfer() {
 		let sent_emitted = relay_chain::System::contains_event(|event| {
 			matches!(
 				event,
-				relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
+				relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. })
 			)
 		});
 		assert!(attempted_emitted, "Expected XcmPallet::Attempted event emitted");
