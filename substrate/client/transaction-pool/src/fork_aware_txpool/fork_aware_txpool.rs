@@ -1105,14 +1105,17 @@ where
 	/// Additionally, this method triggers the view store to handle and remove stale views caused by
 	/// the finality stall.
 	fn finality_stall_cleanup(&self, at: &HashAndNumber<Block>) {
-		let mut finality_timedout_hashes =
+		let mut finality_timedout_blocks =
 			indexmap::IndexMap::<BlockHash<ChainApi>, Vec<ExtrinsicHash<ChainApi>>>::default();
+		let mut oldest_block_number: Option<NumberFor<Block>> = None;
 
 		self.included_transacations.lock().retain(
 			|HashAndNumber { number: view_number, hash: view_hash }, tx_hashes| {
 				let diff = at.number.saturating_sub(*view_number);
+				oldest_block_number =
+					Some(oldest_block_number.unwrap_or(*view_number).min(*view_number));
 				if diff.into() > self.finality_timeout_threshold.into() {
-					finality_timedout_hashes.insert(*view_hash, std::mem::take(tx_hashes));
+					finality_timedout_blocks.insert(*view_hash, std::mem::take(tx_hashes));
 					false
 				} else {
 					true
@@ -1120,12 +1123,14 @@ where
 			},
 		);
 
-		if !finality_timedout_hashes.is_empty() {
+		if !finality_timedout_blocks.is_empty() {
 			self.ready_poll.lock().remove_cancelled();
 			self.view_store.listener.remove_stale_controllers();
 		}
 
-		for (block_hash, tx_hashes) in finality_timedout_hashes {
+		let finality_timedout_blocks_len = finality_timedout_blocks.len();
+
+		for (block_hash, tx_hashes) in finality_timedout_blocks {
 			self.view_store.listener.transactions_finality_timeout(&tx_hashes, block_hash);
 
 			self.mempool.remove_transactions(&tx_hashes);
@@ -1135,10 +1140,12 @@ where
 
 		self.view_store.finality_stall_view_cleanup(at, self.finality_timeout_threshold);
 
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?at,
 			included_transacations_len = ?self.included_transacations.lock().len(),
+			finality_timedout_blocks_len,
+			?oldest_block_number,
 			"finality_stall_cleanup"
 		);
 	}
@@ -1500,6 +1507,9 @@ where
 			.report(|metrics| metrics.finalized_txs.inc_by(finalized_xts.len() as _));
 
 		if let Ok(Some(finalized_number)) = finalized_number {
+			self.included_transacations
+				.lock()
+				.retain(|cached_block, _| finalized_number < cached_block.number);
 			self.revalidation_queue
 				.revalidate_mempool(
 					self.mempool.clone(),
@@ -1511,16 +1521,13 @@ where
 			trace!(
 				target: LOG_TARGET,
 				?finalized_number,
-				"purge_transactions_later skipped, cannot find block number"
+				"handle_finalized: revalidation/cleanup skipped: could not resolve finalized block number"
 			);
 		}
 
 		self.ready_poll.lock().remove_cancelled();
-		self.included_transacations
-			.lock()
-			.retain(|cached_block, _| cached_block.hash == finalized_hash);
 
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			active_views_count = self.active_views_count(),
 			included_transacations_len = ?self.included_transacations.lock().len(),
