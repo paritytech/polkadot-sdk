@@ -35,6 +35,7 @@ fn asset_hub_next_westend_genesis(
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
 	dev_stakers: Option<(u32, u32)>,
+	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
@@ -59,6 +60,7 @@ fn asset_hub_next_westend_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+		sudo: SudoConfig { key: Some(root) },
 		staking: StakingConfig {
 			// we wish to elect 500 validators, maximum is set to 1000 in the runtime configs.
 			validator_count: 500,
@@ -85,29 +87,21 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			// initial collators.
 			vec![
 				(
-					hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325").into(),
-					hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325")
+					hex!("d2a4117d7f47cce89f84230a8d4003f42d615261a0854d1bb69da410b4561c07").into(),
+					hex!("d2a4117d7f47cce89f84230a8d4003f42d615261a0854d1bb69da410b4561c07")
 						.unchecked_into(),
 				),
 				(
-					hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876").into(),
-					hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876")
-						.unchecked_into(),
-				),
-				(
-					hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f").into(),
-					hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f")
-						.unchecked_into(),
-				),
-				(
-					hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322").into(),
-					hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322")
+					hex!("0ca6cf3fb25cc2dfe510eb1b55c36839ba9cb80dee22de1278f9b48898919563").into(),
+					hex!("0ca6cf3fb25cc2dfe510eb1b55c36839ba9cb80dee22de1278f9b48898919563")
 						.unchecked_into(),
 				),
 			],
 			Vec::new(),
 			ASSET_HUB_NEXT_WESTEND_ED * 4096,
 			dev_stakers,
+			// Ask Dónal for access, or overwrite from Relay via XCM.
+			hex!("b662f28c3beb0d03e6f4cc9a5d6eb158c609d4ac909a746a2a8dc6b40634be65").into(),
 			1100.into(),
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_next_westend_genesis(
@@ -119,6 +113,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			WND * 1_000_000,
 			dev_stakers,
+			Sr25519Keyring::Alice.to_account_id(),
 			1100.into(),
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_next_westend_genesis(
@@ -132,6 +127,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			WND * 1_000_000,
 			dev_stakers,
+			Sr25519Keyring::Alice.to_account_id(),
 			1100.into(),
 		),
 		_ => return None,
