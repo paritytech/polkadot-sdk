@@ -1478,3 +1478,6 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+ark-ec-vrfs = { path = "/mnt/ssd/develop/personal/ark-ec-vrfs" }
