@@ -15,10 +15,8 @@ crates:
 - name: staging-xcm
   bump: patch
 - name: pallet-xcm
-  bump: major
+  bump: minor
 - name: polkadot-service
-  bump: patch
-- name: polkadot-overseer
   bump: patch
 - name: cumulus-pallet-xcmp-queue
   bump: patch
