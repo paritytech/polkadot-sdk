@@ -48,7 +48,7 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 
 	"cumulus-pallet-aura-ext",
 	"cumulus-pallet-session-benchmarking",
-	"cumulus-pallet-weight-reclaim",
+	# "cumulus-pallet-weight-reclaim", # Failed https://github.com/paritytech/polkadot-sdk/actions/runs/13540338131/job/37839929211?pr=7690
 	"cumulus-pallet-xcm",
 	"cumulus-pallet-xcmp-queue",
 	"cumulus-primitives-aura",
