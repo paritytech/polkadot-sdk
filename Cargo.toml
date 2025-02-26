@@ -125,7 +125,6 @@ members = [
 	"cumulus/parachains/runtimes/bridge-hubs/test-utils",
 	"cumulus/parachains/runtimes/collectives/collectives-westend",
 	"cumulus/parachains/runtimes/constants",
-	"cumulus/parachains/runtimes/contracts/contracts-rococo",
 	"cumulus/parachains/runtimes/coretime/coretime-rococo",
 	"cumulus/parachains/runtimes/coretime/coretime-westend",
 	"cumulus/parachains/runtimes/glutton/glutton-westend",
@@ -701,7 +700,6 @@ colored = { version = "2.0.4" }
 comfy-table = { version = "7.1.0", default-features = false }
 console = { version = "0.15.8" }
 const-hex = { version = "1.10.0", default-features = false }
-contracts-rococo-runtime = { path = "cumulus/parachains/runtimes/contracts/contracts-rococo" }
 coretime-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo" }
 coretime-rococo-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-rococo" }
 coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
