@@ -22,13 +22,12 @@ use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParam
 use bridge_common_config::{BridgeRelayersInstance, BridgeReward, RequiredStakeForStakeAndSlash};
 use bridge_hub_test_utils::{
 	test_cases::{from_parachain, run_test},
-	SlotDurations,
+	GovernanceOrigin, SlotDurations,
 };
-use bridge_hub_westend_runtime::xcm_config::GovernanceLocation;
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	bridge_to_rococo_config::RococoGlobalConsensusNetwork,
-	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
+	xcm_config::{GovernanceLocation, LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
 	AllPalletsWithoutSystem, Balances, Block, BridgeRejectObsoleteHeadersAndMessages,
 	BridgeRelayers, Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension,
@@ -49,7 +48,6 @@ use frame_support::{
 	},
 };
 use parachains_common::{AccountId, AuraId, Balance};
-use parachains_runtimes_test_utils::GovernanceOrigin;
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_keyring::Sr25519Keyring::{Alice, Bob};
@@ -72,6 +70,8 @@ parameter_types! {
 	pub SiblingParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PARACHAIN_ID)]);
 	pub SiblingSystemParachainLocation: Location = Location::new(1, [Parachain(SIBLING_SYSTEM_PARACHAIN_ID)]);
 	pub BridgedUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(BRIDGED_LOCATION_PARACHAIN_ID)].into();
+	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Location(GovernanceLocation::get());
 }
 
 // Runtime from tests PoV
@@ -83,10 +83,6 @@ type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
 	WithBridgeHubRococoMessagesInstance,
 	BridgeRelayersInstance,
 >;
-
-parameter_types! {
-	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-}
 
 fn construct_extrinsic(
 	sender: sp_keyring::Sr25519Keyring,
@@ -168,7 +164,7 @@ fn initialize_bridge_by_governance_works() {
 	bridge_hub_test_utils::test_cases::initialize_bridge_by_governance_works::<
 		Runtime,
 		BridgeGrandpaRococoInstance,
-	>(collator_session_keys(), bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID)
+	>(collator_session_keys(), bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID, Governance::get())
 }
 
 #[test]
@@ -176,7 +172,7 @@ fn change_bridge_grandpa_pallet_mode_by_governance_works() {
 	bridge_hub_test_utils::test_cases::change_bridge_grandpa_pallet_mode_by_governance_works::<
 		Runtime,
 		BridgeGrandpaRococoInstance,
-	>(collator_session_keys(), bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID)
+	>(collator_session_keys(), bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID, Governance::get())
 }
 
 #[test]
@@ -184,7 +180,7 @@ fn change_bridge_parachains_pallet_mode_by_governance_works() {
 	bridge_hub_test_utils::test_cases::change_bridge_parachains_pallet_mode_by_governance_works::<
 		Runtime,
 		BridgeParachainRococoInstance,
-	>(collator_session_keys(), bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID)
+	>(collator_session_keys(), bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID, Governance::get())
 }
 
 #[test]
@@ -192,7 +188,7 @@ fn change_bridge_messages_pallet_mode_by_governance_works() {
 	bridge_hub_test_utils::test_cases::change_bridge_messages_pallet_mode_by_governance_works::<
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
-	>(collator_session_keys(), bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID)
+	>(collator_session_keys(), bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID, Governance::get())
 }
 
 #[test]
@@ -204,7 +200,7 @@ fn change_delivery_reward_by_governance_works() {
 	>(
 		collator_session_keys(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| (DeliveryRewardInBalance::key().to_vec(), DeliveryRewardInBalance::get()),
 		|old_value| old_value.checked_mul(2).unwrap(),
 	)
@@ -219,7 +215,7 @@ fn change_required_stake_by_governance_works() {
 	>(
 		collator_session_keys(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| (RequiredStakeForStakeAndSlash::key().to_vec(), RequiredStakeForStakeAndSlash::get()),
 		|old_value| old_value.checked_mul(2).unwrap(),
 	)
@@ -675,5 +671,5 @@ fn governance_authorize_upgrade_works() {
 	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 		Runtime,
 		RuntimeOrigin,
-	>(GovernanceOrigin::Location(GovernanceLocation::get())));
+	>(Governance::get()));
 }

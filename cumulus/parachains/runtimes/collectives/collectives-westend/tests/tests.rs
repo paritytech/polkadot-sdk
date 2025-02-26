@@ -17,9 +17,8 @@
 #![cfg(test)]
 
 use collectives_westend_runtime::{
-	xcm_config::LocationToAccountId, Block, Runtime, RuntimeCall, RuntimeOrigin,
+	xcm_config::{GovernanceLocation, LocationToAccountId}, Block, Runtime, RuntimeCall, RuntimeOrigin,
 };
-use collectives_westend_runtime::xcm_config::GovernanceLocation;
 use frame_support::{assert_err, assert_ok};
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::GovernanceOrigin;

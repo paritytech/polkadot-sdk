@@ -50,6 +50,7 @@ pub mod test_cases;
 pub type BalanceOf<Runtime> = <Runtime as pallet_balances::Config>::Balance;
 pub type AccountIdOf<Runtime> = <Runtime as frame_system::Config>::AccountId;
 pub type RuntimeCallOf<Runtime> = <Runtime as frame_system::Config>::RuntimeCall;
+pub type RuntimeOriginOf<Runtime> = <Runtime as frame_system::Config>::RuntimeOrigin;
 pub type ValidatorIdOf<Runtime> = <Runtime as pallet_session::Config>::ValidatorId;
 pub type SessionKeysOf<Runtime> = <Runtime as pallet_session::Config>::Keys;
 
@@ -444,6 +445,8 @@ impl<
 		AllPalletsWithoutSystem,
 	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 {
+	#[deprecated(note = "Will be removed after Aug 2025; It uses hard-coded `Location::parent()`, \
+		use `execute_as_governance_call` instead.")]
 	pub fn execute_as_governance(call: Vec<u8>) -> Outcome {
 		// prepare xcm as governance will do
 		let xcm = Xcm(vec![
@@ -551,6 +554,7 @@ impl<
 }
 
 /// Enum representing governance origin/location.
+#[derive(Clone)]
 pub enum GovernanceOrigin<RuntimeOrigin> {
 	Location(Location),
 	LocationAndDescendOrigin(Location, InteriorLocation),

@@ -18,7 +18,7 @@
 
 use crate::{
 	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, ExtBuilder, GovernanceOrigin,
-	ValidatorIdOf,
+	RuntimeCallOf, RuntimeOriginOf, ValidatorIdOf,
 };
 use codec::Encode;
 use frame_support::{
@@ -40,7 +40,7 @@ type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, StorageConstantType>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
-	runtime_call_encode: Box<dyn Fn(frame_system::Call<Runtime>) -> Vec<u8>>,
+	governance_origin: GovernanceOrigin<RuntimeOriginOf<Runtime>>,
 	storage_constant_key_value: fn() -> (Vec<u8>, StorageConstantType),
 	new_storage_constant_value: fn(&StorageConstantType) -> StorageConstantType,
 ) where
@@ -78,7 +78,7 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 
 			// encode `set_storage` call
 			let set_storage_call =
-				runtime_call_encode(frame_system::Call::<Runtime>::set_storage {
+				RuntimeCallOf::<Runtime>::from(frame_system::Call::<Runtime>::set_storage {
 					items: vec![(
 						storage_constant_key.clone(),
 						new_storage_constant_value.encode(),
@@ -86,8 +86,7 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 				});
 
 			// execute XCM with Transact to `set_storage` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(set_storage_call,)
-				.ensure_complete());
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(set_storage_call, governance_origin));
 
 			// check delivery reward constant after (stored)
 			assert_eq!(StorageConstant::get(), new_storage_constant_value);
@@ -102,7 +101,7 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 pub fn set_storage_keys_by_governance_works<Runtime>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
-	runtime_call_encode: Box<dyn Fn(frame_system::Call<Runtime>) -> Vec<u8>>,
+	governance_origin: GovernanceOrigin<RuntimeOriginOf<Runtime>>,
 	storage_items: Vec<(Vec<u8>, Vec<u8>)>,
 	initialize_storage: impl FnOnce() -> (),
 	assert_storage: impl FnOnce() -> (),
@@ -128,14 +127,12 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 	});
 	runtime.execute_with(|| {
 		// encode `kill_storage` call
-		let kill_storage_call = runtime_call_encode(frame_system::Call::<Runtime>::set_storage {
+		let kill_storage_call = RuntimeCallOf::<Runtime>::from(frame_system::Call::<Runtime>::set_storage {
 			items: storage_items.clone(),
 		});
 
 		// execute XCM with Transact to `set_storage` as governance does
-		assert_ok!(
-			RuntimeHelper::<Runtime>::execute_as_governance(kill_storage_call,).ensure_complete()
-		);
+		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(kill_storage_call, governance_origin));
 	});
 	runtime.execute_with(|| {
 		assert_storage();
