@@ -48,7 +48,7 @@ pub trait StakingApi {
 	/// corresponding session points are reported.
 	fn on_relay_chain_session_end(end_index: SessionIndex, block_authors: Vec<(AccountId32, u32)>);
 	/// Report one or more offences on the relay chain.
-	fn on_new_offences(offences: Vec<Offence>);
+	fn on_new_offences(slash_session: SessionIndex, offences: Vec<Offence>) -> Weight;
 	/// Report validator rewards.
 	fn reward_by_ids(validators_points: Vec<(AccountId32, u32)>);
 }
@@ -73,9 +73,9 @@ enum SessionCalls {
 // An offence on the relay chain. Based on [`sp_staking::offence::OffenceDetails`].
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
 pub struct Offence {
-	offender: AccountId32,
-	reporters: Vec<AccountId32>,
-	slash_fraction: Perbill,
+	pub offender: AccountId32,
+	pub reporters: Vec<AccountId32>,
+	pub slash_fraction: Perbill,
 }
 
 impl Offence {
@@ -168,10 +168,11 @@ pub mod pallet {
 		// #[pallet::weight(T::WeightInfo::new_relay_chain_offence())] // TODO
 		pub fn new_relay_chain_offence(
 			origin: OriginFor<T>,
+			slash_session: SessionIndex,
 			offences: Vec<Offence>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			T::StakingApi::on_new_offences(offences);
+			T::StakingApi::on_new_offences(slash_session, offences);
 			Ok(())
 		}
 

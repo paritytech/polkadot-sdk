@@ -24,9 +24,12 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 pallet-authorship = { workspace = true }
+# Should be removed after `pallet_session::migrations::v1::MigrateDisabledValidators` and
+# `MigrateV14ToV15` are executed
 pallet-session = { features = [
 	"historical",
 ], workspace = true }
+pallet-staking-rc-client = { workspace = true }
 rand = { features = ["alloc"], workspace = true }
 rand_chacha = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
@@ -66,6 +69,7 @@ std = [
 	"pallet-bags-list/std",
 	"pallet-balances/std",
 	"pallet-session/std",
+	"pallet-staking-rc-client/std",
 	"pallet-timestamp/std",
 	"rand/std",
 	"rand_chacha/std",
@@ -87,6 +91,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-staking-rc-client/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -99,6 +104,7 @@ try-runtime = [
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-staking-rc-client/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

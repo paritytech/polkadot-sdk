@@ -988,33 +988,7 @@ pub trait SessionInterface<AccountId> {
 	fn prune_historical_up_to(up_to: SessionIndex);
 }
 
-impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
-where
-	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-	T: pallet_session::historical::Config,
-	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
-	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
-	T::ValidatorIdOf: Convert<
-		<T as frame_system::Config>::AccountId,
-		Option<<T as frame_system::Config>::AccountId>,
-	>,
-{
-	fn report_offence(
-		validator: <T as frame_system::Config>::AccountId,
-		severity: OffenceSeverity,
-	) {
-		<pallet_session::Pallet<T>>::report_offence(validator, severity)
-	}
-
-	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
-		<pallet_session::Pallet<T>>::validators()
-	}
-
-	fn prune_historical_up_to(up_to: SessionIndex) {
-		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
-	}
-}
-
+// TODO: Why we need this?
 impl<AccountId> SessionInterface<AccountId> for () {
 	fn report_offence(_validator: AccountId, _severity: OffenceSeverity) {
 		()

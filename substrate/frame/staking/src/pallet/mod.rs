@@ -43,7 +43,7 @@ use rand_chacha::{
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{SaturatedConversion, StaticLookup, Zero},
-	ArithmeticError, Perbill, Percent,
+	AccountId32, ArithmeticError, Perbill, Percent,
 };
 
 use sp_staking::{
@@ -94,7 +94,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config(with_default)]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId32> {
 		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
 		#[pallet::no_default]
 		type OldCurrency: InspectLockableCurrency<
