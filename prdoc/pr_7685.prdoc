@@ -12,3 +12,9 @@ crates:
     bump: minor
   - name: pallet-nomination-pools
     bump: minor
+  - name: westend-runtime
+    bump: patch
+  - name: pallet-delegated-staking
+    bump: patch
+  - name: pallet-nomination-pools-benchmarking
+    bump: patch
