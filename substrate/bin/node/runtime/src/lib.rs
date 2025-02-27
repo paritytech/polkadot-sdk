@@ -151,7 +151,7 @@ mod voter_bags;
 pub mod assets_api;
 
 /// Genesis presets used by this runtime.
-pub mod genesis_presets;
+pub mod genesis_config_presets;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -4115,11 +4115,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 }
