@@ -34,10 +34,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{
-	crypto::{get_public_from_string_or_panic, UncheckedInto},
-	sr25519,
-};
+use sp_core::crypto::UncheckedInto;
 use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
 
@@ -236,7 +233,7 @@ pub fn staging_testnet_config() -> ChainSpec {
 /// Configure the accounts for the testnet.
 ///
 /// * Adds `initial_authorities` and `initial_nominators` to endowed accounts if missing.
-/// * Sets up the stakes consisting of the `initial_authorities` and `initial_nominators`.
+/// * Sets up the stakers consisting of the `initial_authorities` and `initial_nominators`.
 fn configure_accounts(
 	initial_authorities: Vec<(
 		AccountId,

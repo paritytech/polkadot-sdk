@@ -165,6 +165,7 @@ pub fn preset_names() -> Vec<PresetId> {
 /// Sets up the `account` to be a staker of validator variant as supplied to the
 /// staking config.
 pub fn validator(account: AccountId) -> Staker {
+	// validator, controller, stash, staker status
 	(account.clone(), account, STASH, StakerStatus::Validator)
 }
 
