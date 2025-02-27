@@ -64,10 +64,6 @@ pub fn testnet_genesis(
 	stakers: Vec<Staker>,
 	staking_playground_config: Option<StakingPlaygroundConfig>,
 ) -> serde_json::Value {
-	const MAX_COLLECTIVE_SIZE: usize = 50;
-
-	let endowed_accounts_count = endowed_accounts.len();
-
 	let (validator_count, min_validator_count) = match staking_playground_config {
 		Some(ref c) => (c.validator_count, c.minimum_validator_count),
 		None => {
@@ -75,6 +71,8 @@ pub fn testnet_genesis(
 			(authorities_count, authorities_count)
 		},
 	};
+
+	let collective = collective(&endowed_accounts);
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
@@ -110,24 +108,13 @@ pub fn testnet_genesis(
 				.try_into()
 				.expect("too many authorities"),
 			slash_reward_fraction: Perbill::from_percent(10),
-			stakers: stakers.clone(),
+			stakers,
 			dev_stakers: staking_playground_config.map(|c| c.dev_stakers).unwrap_or(None)
 		},
 		elections: ElectionsConfig {
-			members: endowed_accounts
-				.iter()
-				.take(((endowed_accounts_count + 1) / 2).min(MAX_COLLECTIVE_SIZE))
-				.cloned()
-				.map(|member| (member, STASH))
-				.collect::<Vec<_>>(),
+			members: collective.iter().cloned().map(|member| (member, STASH)).collect::<Vec<_>>(),
 		},
-		technical_committee: TechnicalCommitteeConfig {
-			members: endowed_accounts
-				.iter()
-				.take(((endowed_accounts_count + 1) / 2).min(MAX_COLLECTIVE_SIZE))
-				.cloned()
-				.collect::<Vec<_>>(),
-		},
+		technical_committee: TechnicalCommitteeConfig { members: collective },
 		sudo: SudoConfig { key: Some(root_key.clone()) },
 		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		society: SocietyConfig { pot: 0 },
@@ -141,6 +128,17 @@ pub fn testnet_genesis(
 			min_join_bond: 1 * DOLLARS,
 		},
 	})
+}
+
+/// Extract some accounts from endowed to be put into the collective.
+fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
+	const MAX_COLLECTIVE_SIZE: usize = 50;
+	let endowed_accounts_count = endowed.len();
+	endowed
+		.iter()
+		.take(((endowed_accounts_count + 1) / 2).min(MAX_COLLECTIVE_SIZE))
+		.cloned()
+		.collect()
 }
 
 fn session_keys(
