@@ -478,10 +478,10 @@ where
 		match Stream::poll_next(this.socket.as_mut(), cx) {
 			Poll::Pending => {},
 			Poll::Ready(Some(result)) => match result {
-				Ok(bytes) => {
+				Ok(_) => {
 					error!(
 						target: "sub-libp2p",
-						"Unexpected incoming data in `NotificationsOutSubstream` peer={:?} bytes={bytes:?}",
+						"Unexpected incoming data in `NotificationsOutSubstream` peer={:?}",
 						this.peer_id
 					);
 				},
