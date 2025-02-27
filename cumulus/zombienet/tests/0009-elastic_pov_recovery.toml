@@ -34,7 +34,7 @@ args = [
 ]
 count = 8
 
-# Slot based authoring with 3 cores and 2s slot duration
+# Slot based authoring with 3 cores and 6s slot duration
 [[parachains]]
 id = 2100
 chain = "elastic-scaling"
