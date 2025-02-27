@@ -6,5 +6,3 @@ doc:
 crates:
 - name: xcm-simulator-example
   bump: patch
-- name: frame-system
-  bump: minor

@@ -2112,18 +2112,6 @@ impl<T: Config> Pallet<T> {
 		);
 	}
 
-	/// Check if an event matching the given predicate exists in the event list.
-	///
-	/// Similar to `System::assert_has_event`, but allows checking for an event without needing to
-	/// specify the exact details of its inner fields.
-	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
-	pub fn contains_event<F>(predicate: F) -> bool
-	where
-		F: Fn(&T::RuntimeEvent) -> bool,
-	{
-		Self::events().iter().any(|r| predicate(&r.event))
-	}
-
 	/// Return the chain's current runtime version.
 	pub fn runtime_version() -> RuntimeVersion {
 		T::Version::get()
