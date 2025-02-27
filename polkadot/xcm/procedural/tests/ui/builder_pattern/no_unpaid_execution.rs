@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Test error when there's no `UnpaidExecution` instruction.
 
@@ -22,8 +22,8 @@ struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
 #[derive(Builder)]
 enum Instruction<Call> {
-    BuyExecution { fees: u128 },
-    Transact { call: Call },
+	BuyExecution { fees: u128 },
+	Transact { call: Call },
 }
 
 fn main() {}

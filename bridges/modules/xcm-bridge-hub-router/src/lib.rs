@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Pallet that may be used instead of `SovereignPaidRemoteExporter` in the XCM router
 //! configuration. The main thing that the pallet offers is the dynamic message fee,

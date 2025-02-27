@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Display implementations and helper methods for parsing prometheus metrics
 //! to a format that can be displayed in the CLI.

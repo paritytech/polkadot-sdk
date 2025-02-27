@@ -10,7 +10,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Large statement responding background task logic.
 

@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Test error when using a badly formatted attribute.
 
@@ -22,11 +22,17 @@ struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
 #[derive(Builder)]
 enum Instruction<Call> {
-    #[builder(funds_holding = 2)]
-    WithdrawAsset(u128),
-    BuyExecution { fees: u128 },
-    UnpaidExecution { weight_limit: (u32, u32) },
-    Transact { call: Call },
+	#[builder(funds_holding = 2)]
+	WithdrawAsset(u128),
+	BuyExecution {
+		fees: u128,
+	},
+	UnpaidExecution {
+		weight_limit: (u32, u32),
+	},
+	Transact {
+		call: Call,
+	},
 }
 
 fn main() {}

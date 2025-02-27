@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <https://www.gnu.org/licenses/>.
 
 //! This crate has single entrypoint to run synchronization loop that is built around finality
 //! proofs, as opposed to headers synchronization loop, which is built around headers. The headers

@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Parathread and parachains leasing system. Allows para IDs to be claimed, the code and data to be
 //! initialized and parachain slots (i.e. continuous scheduling) to be leased. Also allows for

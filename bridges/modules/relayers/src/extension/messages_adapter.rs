@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Adapter that allows using `pallet-bridge-relayers` as a signed extension in the
 //! bridge with any remote chain. This adapter does not refund any finality transactions.

@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <https://www.gnu.org/licenses/>.
 
 // The parachain-template crate helps with keeping the README.md in sync
 // with code sections across the components under the template: node,

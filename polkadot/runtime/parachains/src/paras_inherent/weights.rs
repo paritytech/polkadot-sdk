@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! We use benchmarks to get time weights, for proof_size we manually use the size of the input
 //! data, which will be part of the block. This is because we don't care about the storage proof on

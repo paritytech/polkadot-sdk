@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 // NOTE: System chains, identified by ParaId < 2000, are treated as special in HRMP channel
 // initialization. Namely, they do not require a deposit if even one ParaId is a system para. If

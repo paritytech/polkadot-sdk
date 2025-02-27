@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
 
@@ -20,7 +20,7 @@ use polkadot_node_subsystem_test_helpers::*;
 
 use polkadot_node_subsystem::{
 	messages::AvailabilityStoreMessage,
-	overseer::{dummy::DummySubsystem, gen::TimeoutExt, Subsystem, AssociateOutgoing},
+	overseer::{dummy::DummySubsystem, gen::TimeoutExt, AssociateOutgoing, Subsystem},
 	SubsystemError,
 };
 
@@ -29,9 +29,7 @@ struct BlackHoleInterceptor;
 
 impl<Sender> MessageInterceptor<Sender> for BlackHoleInterceptor
 where
-	Sender: overseer::AvailabilityStoreSenderTrait
-		+ Clone
-		+ 'static,
+	Sender: overseer::AvailabilityStoreSenderTrait + Clone + 'static,
 {
 	type Message = AvailabilityStoreMessage;
 	fn intercept_incoming(
@@ -52,9 +50,7 @@ struct PassInterceptor;
 
 impl<Sender> MessageInterceptor<Sender> for PassInterceptor
 where
-	Sender: overseer::AvailabilityStoreSenderTrait
-		+ Clone
-		+ 'static,
+	Sender: overseer::AvailabilityStoreSenderTrait + Clone + 'static,
 {
 	type Message = AvailabilityStoreMessage;
 }

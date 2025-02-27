@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Client implementation that connects to the Substrate node over `ws`/`wss` connection
 //! and is using RPC methods to get required data and submit transactions.

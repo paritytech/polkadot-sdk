@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <https://www.gnu.org/licenses/>.
 
 //! The loop basically reads all missing headers and their finality proofs from the source client.
 //! The proof for the best possible header is then submitted to the target node. The only exception

@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! This test is when we're sending an XCM from a relay-chain which hosts a bridge to another
 //! relay-chain. The destination of the XCM is within the global consensus of the

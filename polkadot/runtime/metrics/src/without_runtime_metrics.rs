@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Runtime metrics are usable from the wasm runtime only. The purpose of this module is to
 //! provide a dummy implementation for the native runtime to avoid cluttering the runtime code

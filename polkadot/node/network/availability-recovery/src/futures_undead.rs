@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! FuturesUndead: A `FuturesUnordered` with support for semi canceled futures. Those undead
 //! futures will still get polled, but will not count towards length. So length will only count

@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 use polkadot_erasure_coding::systematic_recovery_threshold;
 use polkadot_primitives::{node_features, ChunkIndex, CoreIndex, NodeFeatures, ValidatorIndex};

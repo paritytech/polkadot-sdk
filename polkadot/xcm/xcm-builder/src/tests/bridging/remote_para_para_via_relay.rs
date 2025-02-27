@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 
 //! This test is when we're sending an XCM from a relay-chain whose child parachain hosts a
 //! bridge to a parachain from another global consensus. The destination of the XCM is within

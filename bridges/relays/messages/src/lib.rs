@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Relaying [`pallet-bridge-messages`](../pallet_bridge_messages/index.html) application specific
 //! data. Message lane allows sending arbitrary messages between bridged chains. This

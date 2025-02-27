@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
+// along with Parity Bridges Common.  If not, see <https://www.gnu.org/licenses/>.
 
 //! The code that allows to use the pallet (`pallet-xcm-bridge-hub`) as inbound
 //! bridge messages dispatcher. Internally, it just forwards inbound blob to the

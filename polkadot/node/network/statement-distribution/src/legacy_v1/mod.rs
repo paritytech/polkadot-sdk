@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <https://www.gnu.org/licenses/>.
 #![allow(dead_code)]
 use codec::Encode;
 use net_protocol::{filter_by_peer_version, peer_set::ProtocolVersion};
