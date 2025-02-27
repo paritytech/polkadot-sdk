@@ -20,11 +20,11 @@
 
 use crate::keyring::*;
 use kitchensink_runtime::{
-	constants::currency::*, AccountId, AssetsConfig, BalancesConfig, IndicesConfig,
-	RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig,
+	genesis_config_presets::{kitchen_sink_genesis, validator},
+	AccountId, AssetsConfig, BalancesConfig, IndicesConfig, RuntimeGenesisConfig, SessionConfig,
+	SocietyConfig, StakingConfig,
 };
-use sp_keyring::Ed25519Keyring;
-use sp_runtime::{BoundedVec, Perbill};
+use sp_keyring::Sr25519Keyring::Alice;
 
 /// Create genesis runtime configuration for tests.
 pub fn config() -> RuntimeGenesisConfig {
@@ -34,43 +34,20 @@ pub fn config() -> RuntimeGenesisConfig {
 /// Create genesis runtime configuration for tests with some extra
 /// endowed accounts.
 pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
-	let mut endowed = vec![
-		(alice(), 111 * DOLLARS),
-		(bob(), 100 * DOLLARS),
-		(charlie(), 100_000_000 * DOLLARS),
-		(dave(), 112 * DOLLARS),
-		(eve(), 101 * DOLLARS),
-		(ferdie(), 101 * DOLLARS),
+	let initial_authorities = vec![
+		(alice(), dave(), session_keys_from_seed(Alice.into())),
+		(bob(), eve(), session_keys_from_seed(Alice.into())),
+		(alice(), ferdie(), session_keys_from_seed(Alice.into())),
 	];
 
-	endowed.extend(extra_endowed.into_iter().map(|endowed| (endowed, 100 * DOLLARS)));
+	let mut endowed = vec![alice(), bob(), charlie(), dave(), eve(), ferdie()];
+	endowed.extend(extra_endowed);
 
-	RuntimeGenesisConfig {
-		indices: IndicesConfig { indices: vec![] },
-		balances: BalancesConfig { balances: endowed, ..Default::default() },
-		session: SessionConfig {
-			keys: vec![
-				(alice(), dave(), session_keys_from_seed(Ed25519Keyring::Alice.into())),
-				(bob(), eve(), session_keys_from_seed(Ed25519Keyring::Bob.into())),
-				(charlie(), ferdie(), session_keys_from_seed(Ed25519Keyring::Charlie.into())),
-			],
-			..Default::default()
-		},
-		staking: StakingConfig {
-			stakers: vec![
-				(dave(), dave(), 111 * DOLLARS, StakerStatus::Validator),
-				(eve(), eve(), 100 * DOLLARS, StakerStatus::Validator),
-				(ferdie(), ferdie(), 100 * DOLLARS, StakerStatus::Validator),
-			],
-			validator_count: 3,
-			minimum_validator_count: 0,
-			slash_reward_fraction: Perbill::from_percent(10),
-			invulnerables: BoundedVec::try_from(vec![alice(), bob(), charlie()])
-				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
-			..Default::default()
-		},
-		society: SocietyConfig { pot: 0 },
-		assets: AssetsConfig { assets: vec![(9, alice(), true, 1)], ..Default::default() },
-		..Default::default()
-	}
+	kitchen_sink_genesis(
+		initial_authorities,
+		alice(),
+		endowed,
+		vec![validator(dave()), validator(eve()), validator(ferdie())],
+		None,
+	)
 }
