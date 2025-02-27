@@ -308,30 +308,46 @@ fn build_peer<B, N>(
 		}
 	});
 	let peer_requests_name = Box::leak(format!("Peer {} requests", index).into_boxed_str());
-	spawn_handle.spawn(peer_requests_name, "test-environment", async move {
-		loop {
-			tokio::select! {
-				req = collation_req_receiver.recv(Vec::new) => {
-					let req = req.unwrap();
-					let payload = req.payload;
-					gum::debug!(target: LOG_TARGET, "Peer {} received AvailableDataFetchingRequest", index);
-				},
-				// req = pov_req_receiver.recv(Vec::new) => {
-				// 	let req = req.unwrap();
-				// 	let payload = req.payload;
-				// 	gum::debug!(target: LOG_TARGET, "Peer {} received PoVFetchingRequest", index);
-				// },
-				// req = chunk_req_v1_receiver.recv(Vec::new) => {
-				// 	let req = req.unwrap();
-				// 	let payload = req.payload;
-				// 	gum::debug!(target: LOG_TARGET, "Peer {} received ChunkFetchingRequest", index);
-				// },
-				// req = chunk_req_v2_receiver.recv(Vec::new) => {
-				// 	let req = req.unwrap();
-				// 	let payload = req.payload;
-				// 	gum::debug!(target: LOG_TARGET, "Peer {} received ChunkFetchingRequest", index);
-				// },
+	spawn_handle.spawn(peer_requests_name, "test-environment", {
+		let state = state.clone();
+		async move {
+			loop {
+				tokio::select! {
+					req = collation_req_receiver.recv(Vec::new) => {
+						let req = req.unwrap();
+						let payload = req.payload;
+						gum::debug!(target: LOG_TARGET, "Peer {} received AvailableDataFetchingRequest", index);
 
+						let candidate_hash = payload.candidate_hash;
+						let candidate_index = state.candidate_hash_to_core_index
+							.get(&candidate_hash)
+							.expect("candidate was generated previously; qed");
+						gum::debug!(target: LOG_TARGET, ?candidate_hash, ?candidate_index, "Candidate mapped to index");
+
+						let available_data = state.available_data.get(candidate_index.0 as usize).unwrap().clone();
+						req
+							.pending_response
+							.send_response(v1::AvailableDataFetchingResponse::from(Some(available_data)))
+							.expect("Response is always sent successfully");
+
+					},
+					// req = pov_req_receiver.recv(Vec::new) => {
+					// 	let req = req.unwrap();
+					// 	let payload = req.payload;
+					// 	gum::debug!(target: LOG_TARGET, "Peer {} received PoVFetchingRequest", index);
+					// },
+					// req = chunk_req_v1_receiver.recv(Vec::new) => {
+					// 	let req = req.unwrap();
+					// 	let payload = req.payload;
+					// 	gum::debug!(target: LOG_TARGET, "Peer {} received ChunkFetchingRequest", index);
+					// },
+					// req = chunk_req_v2_receiver.recv(Vec::new) => {
+					// 	let req = req.unwrap();
+					// 	let payload = req.payload;
+					// 	gum::debug!(target: LOG_TARGET, "Peer {} received ChunkFetchingRequest", index);
+					// },
+
+				}
 			}
 		}
 	});

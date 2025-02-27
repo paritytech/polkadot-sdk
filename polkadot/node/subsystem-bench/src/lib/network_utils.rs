@@ -104,8 +104,8 @@ where
 	N: NetworkBackend<B, B::Hash>,
 {
 	let mut net_conf = NetworkConfiguration::new_local();
-	// net_conf.transport = TransportConfig::MemoryOnly;
-	// net_conf.listen_addresses = vec![listen_addr];
+	net_conf.transport = TransportConfig::MemoryOnly;
+	net_conf.listen_addresses = vec![listen_addr];
 	net_conf.node_key = node_key;
 
 	FullNetworkConfiguration::<B, B::Hash, N>::new(&net_conf, metrics_registry)

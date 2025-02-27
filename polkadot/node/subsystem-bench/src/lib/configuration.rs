@@ -248,7 +248,9 @@ impl TestConfiguration {
 			.map(|(index, authority_id)| {
 				(
 					authority_id.clone(),
-					multiaddr::Protocol::Memory(index.saturating_add(1) as u64).into(),
+					multiaddr::Multiaddr::empty()
+						.with(multiaddr::Protocol::Memory(index.saturating_add(1) as u64))
+						.with(multiaddr::Protocol::P2p(peer_ids[index].into())),
 				)
 			})
 			.collect();
