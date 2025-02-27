@@ -27,10 +27,12 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use polkadot_sdk::sp_application_crypto::{Pair, Public};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
+use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
 use sp_runtime::Perbill;
@@ -49,16 +51,7 @@ pub type Staker = (AccountId, AccountId, Balance, StakerStatus<AccountId>);
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
 pub fn kitchen_sink_genesis(
-	initial_authorities: Vec<(
-		AccountId,
-		AccountId,
-		GrandpaId,
-		BabeId,
-		ImOnlineId,
-		AuthorityDiscoveryId,
-		MixnetId,
-		BeefyId,
-	)>,
+	initial_authorities: Vec<(AccountId, AccountId, SessionKeys)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	stakers: Vec<Staker>,
@@ -82,20 +75,7 @@ pub fn kitchen_sink_genesis(
 		session: SessionConfig {
 			keys: initial_authorities
 				.iter()
-				.map(|x| {
-					(
-						x.0.clone(),
-						x.0.clone(),
-						session_keys(
-							x.2.clone(),
-							x.3.clone(),
-							x.4.clone(),
-							x.5.clone(),
-							x.6.clone(),
-							x.7.clone(),
-						),
-					)
-				})
+				.map(|x| { (x.0.clone(), x.1.clone(), x.2.clone()) })
 				.collect(),
 		},
 		staking: StakingConfig {
@@ -129,6 +109,57 @@ pub fn kitchen_sink_genesis(
 		},
 	})
 }
+// /// Provides the JSON representation of predefined genesis config for given `id`.
+pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
+	let alice = Sr25519Keyring::Alice;
+	let bob = Sr25519Keyring::Bob;
+
+	// alice to ferdie
+	let endowed = Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect::<Vec<_>>();
+
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchen_sink_genesis(
+			vec![
+				(
+					alice.to_account_id(),
+					alice.to_account_id(),
+					session_keys_from_seed(&alice.to_seed()),
+				),
+				(bob.to_account_id(), bob.to_account_id(), session_keys_from_seed(&bob.to_seed())),
+			],
+			alice.to_account_id(),
+			endowed.clone(),
+			vec![],
+			None,
+		),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchen_sink_genesis(
+			vec![(
+				alice.to_account_id(),
+				alice.to_account_id(),
+				session_keys_from_seed(&alice.to_seed()),
+			)],
+			alice.to_account_id(),
+			endowed,
+			vec![],
+			None,
+		),
+		_ => return None,
+	};
+
+	Some(
+		serde_json::to_string(&patch)
+			.expect("serialization to json is expected to work. qed.")
+			.into_bytes(),
+	)
+}
+
+/// List of supported presets.
+pub fn preset_names() -> Vec<PresetId> {
+	vec![
+		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
+		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+	]
+}
 
 /// Extract some accounts from endowed to be put into the collective.
 fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
@@ -150,4 +181,23 @@ fn session_keys(
 	beefy: BeefyId,
 ) -> SessionKeys {
 	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet, beefy }
+}
+
+fn session_keys_from_seed(seed: &str) -> SessionKeys {
+	session_keys(
+		get_public_from_string_or_panic::<GrandpaId>(seed),
+		get_public_from_string_or_panic::<BabeId>(seed),
+		get_public_from_string_or_panic::<ImOnlineId>(seed),
+		get_public_from_string_or_panic::<AuthorityDiscoveryId>(seed),
+		get_public_from_string_or_panic::<MixnetId>(seed),
+		get_public_from_string_or_panic::<BeefyId>(seed),
+	)
+}
+
+pub fn get_public_from_string_or_panic<TPublic: Public>(
+	s: &str,
+) -> <TPublic::Pair as Pair>::Public {
+	TPublic::Pair::from_string(s, None)
+		.expect("Function expects valid argument; qed")
+		.public()
 }

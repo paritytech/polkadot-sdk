@@ -41,7 +41,6 @@ use sp_core::{
 };
 use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
-use sp_runtime::Perbill;
 
 pub use kitchensink_runtime::RuntimeGenesisConfig;
 pub use node_primitives::{AccountId, Balance, Signature};
@@ -347,9 +346,8 @@ pub fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
 ) -> serde_json::Value {
-	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
+	let (initial_authorities, endowed_accounts, _num_endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
-	const MAX_COLLECTIVE_SIZE: usize = 50;
 
 	let staking_playground_config = if cfg!(feature = "staking-playground") {
 		Some(get_staking_play_ground_config())
@@ -358,7 +356,23 @@ pub fn testnet_genesis(
 	};
 
 	kitchensink_runtime::genesis_presets::kitchen_sink_genesis(
-		initial_authorities,
+		initial_authorities
+			.iter()
+			.map(|x| {
+				(
+					x.0.clone(),
+					x.0.clone(),
+					session_keys(
+						x.2.clone(),
+						x.3.clone(),
+						x.4.clone(),
+						x.5.clone(),
+						x.6.clone(),
+						x.7.clone(),
+					),
+				)
+			})
+			.collect(),
 		root_key,
 		endowed_accounts,
 		stakers,
