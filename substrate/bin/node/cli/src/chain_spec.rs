@@ -22,7 +22,7 @@ use polkadot_sdk::*;
 
 use crate::chain_spec::{sc_service::Properties, sp_runtime::AccountId32};
 use kitchensink_runtime::{
-	genesis_presets::{session_keys, Staker, StakingPlaygroundConfig, STASH},
+	genesis_config_presets::{session_keys, Staker, StakingPlaygroundConfig, STASH},
 	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -233,23 +233,6 @@ pub fn staging_testnet_config() -> ChainSpec {
 		.build()
 }
 
-/// Helper function to generate stash, controller and session key from seed.
-pub fn authority_keys_from_seed(
-	seed: &str,
-) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId, BeefyId)
-{
-	(
-		get_public_from_string_or_panic::<sr25519::Public>(&format!("{}//stash", seed)).into(),
-		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
-		get_public_from_string_or_panic::<GrandpaId>(seed),
-		get_public_from_string_or_panic::<BabeId>(seed),
-		get_public_from_string_or_panic::<ImOnlineId>(seed),
-		get_public_from_string_or_panic::<AuthorityDiscoveryId>(seed),
-		get_public_from_string_or_panic::<MixnetId>(seed),
-		get_public_from_string_or_panic::<BeefyId>(seed),
-	)
-}
-
 /// Configure the accounts for the testnet.
 ///
 /// * Adds `initial_authorities` and `initial_nominators` to endowed accounts if missing.
@@ -342,7 +325,7 @@ pub fn testnet_genesis(
 		None
 	};
 
-	kitchensink_runtime::genesis_presets::kitchen_sink_genesis(
+	kitchensink_runtime::genesis_config_presets::kitchen_sink_genesis(
 		initial_authorities
 			.iter()
 			.map(|x| {
