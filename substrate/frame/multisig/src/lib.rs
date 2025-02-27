@@ -777,7 +777,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Calculate the deposit for a multisig operation.
-	/// 
+	///
 	/// The deposit is calculated as `DepositBase + DepositFactor * threshold`.
 	pub fn deposit(threshold: u16) -> BalanceOf<T> {
 		T::DepositBase::get() + T::DepositFactor::get() * threshold.into()
