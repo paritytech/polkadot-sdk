@@ -229,7 +229,7 @@ pub mod pallet {
 		/// Multisig operation not found in storage.
 		NotFound,
 		/// Only the account that originally created the multisig is able to cancel it or update
-		/// it's deposits.
+		/// its deposits.
 		NotOwner,
 		/// No timepoint was given, yet the multisig operation is already underway.
 		NoTimepoint,
