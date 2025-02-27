@@ -452,7 +452,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			Err(e) => {
 				tracing::error!(target: "xcm::send", ?e, "XCM failed to deliver with error");
-				Config::XcmEventEmitter::emit_sent_failure_event(
+				Config::XcmEventEmitter::emit_send_failure_event(
 					self.original_origin.clone(),
 					dest,
 					e.clone(),

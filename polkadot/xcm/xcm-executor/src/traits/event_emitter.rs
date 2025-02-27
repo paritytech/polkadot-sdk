@@ -38,7 +38,7 @@ impl EventEmitter for () {
 	) {
 	}
 
-	fn emit_sent_failure_event(
+	fn emit_send_failure_event(
 		_origin: Location,
 		_destination: Location,
 		_error: SendError,
