@@ -2117,7 +2117,6 @@ impl<T: Config> Pallet<T> {
 	/// Similar to `System::assert_has_event`, but allows checking for an event without needing to
 	/// specify the exact details of its inner fields.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
-	#[track_caller]
 	pub fn contains_event<F>(predicate: F) -> bool
 	where
 		F: Fn(&T::RuntimeEvent) -> bool,
