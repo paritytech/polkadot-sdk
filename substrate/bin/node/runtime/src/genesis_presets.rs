@@ -21,51 +21,31 @@ use polkadot_sdk::*;
 
 use crate::{
 	constants::currency::*, frame_support::build_struct_json_patch, AccountId, AssetsConfig,
-	Balance, BalancesConfig, IndicesConfig, NominationPoolsConfig, RuntimeGenesisConfig,
-	SessionConfig, SocietyConfig, StakerStatus, StakingConfig, BABE_GENESIS_EPOCH_CONFIG,
+	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig,
+	RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
+	SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 use alloc::{vec, vec::Vec};
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
-use sp_runtime::{BoundedVec, Perbill};
+use sp_keyring::Sr25519Keyring;
+use sp_mixnet::types::AuthorityId as MixnetId;
+use sp_runtime::Perbill;
 
-fn kitchensink_genesis(
-	invulnerables: Vec<(AccountId, BabeId)>,
-	endowed_accounts: Vec<AccountId>,
-	endowment: Balance,
-) -> serde_json::Value {
-	build_struct_json_patch!(RuntimeGenesisConfig {
-		indices: IndicesConfig { indices: vec![] },
-		balances: BalancesConfig { balances: endowed, ..Default::default() },
-		session: SessionConfig {
-			keys: vec![
-				(alice(), dave(), session_keys_from_seed(Ed25519Keyring::Alice.into())),
-				(bob(), eve(), session_keys_from_seed(Ed25519Keyring::Bob.into())),
-				(charlie(), ferdie(), session_keys_from_seed(Ed25519Keyring::Charlie.into())),
-			],
-			..Default::default()
-		},
-		staking: StakingConfig {
-			stakers: vec![
-				(dave(), dave(), 111 * DOLLARS, StakerStatus::Validator),
-				(eve(), eve(), 100 * DOLLARS, StakerStatus::Validator),
-				(ferdie(), ferdie(), 100 * DOLLARS, StakerStatus::Validator),
-			],
-			validator_count: 3,
-			minimum_validator_count: 0,
-			slash_reward_fraction: Perbill::from_percent(10),
-			invulnerables: BoundedVec::try_from(vec![alice(), bob(), charlie()])
-				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
-			..Default::default()
-		},
-		society: SocietyConfig { pot: 0 },
-		assets: AssetsConfig { assets: vec![(9, alice(), true, 1)], ..Default::default() },
-		..Default::default()
-	})
+const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
+const STASH: Balance = ENDOWMENT / 1000;
+
+pub struct StakingPlaygroundConfig {
+	/// (Validators, Nominators)
+	dev_stakers: Option<(u32, u32)>,
+	validator_count: u32,
+	minimum_validator_count: u32,
 }
+
+pub type Staker = (AccountId, AccountId, Balance, StakerStatus<AccountId>);
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
 pub fn testnet_genesis(
@@ -79,18 +59,22 @@ pub fn testnet_genesis(
 		MixnetId,
 		BeefyId,
 	)>,
-	initial_nominators: Vec<AccountId>,
 	root_key: AccountId,
-	endowed_accounts: Option<Vec<AccountId>>,
-	dev_stakers: Option<(u32, u32)>,
-	minimum_validator_count: Option<u32>,
+	endowed_accounts: Vec<AccountId>,
+	stakers: Vec<Staker>,
+	staking_playground_config: Option<StakingPlaygroundConfig>,
 ) -> serde_json::Value {
-	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
-		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 	const MAX_COLLECTIVE_SIZE: usize = 50;
 
-	let min_validator_count =
-		minimum_validator_count.unwrap_or_else(|| initial_authorities.len() as u32);
+	let endowed_accounts_count = endowed_accounts.len();
+
+	let (validator_count, min_validator_count) = match staking_playground_config {
+		Some(ref c) => (c.validator_count, c.minimum_validator_count),
+		None => {
+			let authorities_count = initial_authorities.len() as u32;
+			(authorities_count, authorities_count)
+		},
+	};
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
@@ -119,15 +103,20 @@ pub fn testnet_genesis(
 		staking: StakingConfig {
 			validator_count,
 			minimum_validator_count: min_validator_count,
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			invulnerables: initial_authorities
+				.iter()
+				.map(|x| x.0.clone())
+				.collect::<Vec<_>>()
+				.try_into()
+				.expect("too many authorities"),
 			slash_reward_fraction: Perbill::from_percent(10),
 			stakers: stakers.clone(),
-			dev_stakers
+			dev_stakers: staking_playground_config.map(|c| c.dev_stakers).unwrap_or(None)
 		},
 		elections: ElectionsConfig {
 			members: endowed_accounts
 				.iter()
-				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
+				.take(((endowed_accounts_count + 1) / 2).min(MAX_COLLECTIVE_SIZE))
 				.cloned()
 				.map(|member| (member, STASH))
 				.collect::<Vec<_>>(),
@@ -135,12 +124,12 @@ pub fn testnet_genesis(
 		technical_committee: TechnicalCommitteeConfig {
 			members: endowed_accounts
 				.iter()
-				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
+				.take(((endowed_accounts_count + 1) / 2).min(MAX_COLLECTIVE_SIZE))
 				.cloned()
 				.collect::<Vec<_>>(),
 		},
 		sudo: SudoConfig { key: Some(root_key.clone()) },
-		babe: BabeConfig { epochConfig: Some(BABE_GENESIS_EPOCH_CONFIG) },
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		society: SocietyConfig { pot: 0 },
 		assets: AssetsConfig {
 			// This asset is used by the NIS pallet as counterpart currency.
@@ -152,4 +141,15 @@ pub fn testnet_genesis(
 			min_join_bond: 1 * DOLLARS,
 		},
 	})
+}
+
+fn session_keys(
+	grandpa: GrandpaId,
+	babe: BabeId,
+	im_online: ImOnlineId,
+	authority_discovery: AuthorityDiscoveryId,
+	mixnet: MixnetId,
+	beefy: BeefyId,
+) -> SessionKeys {
+	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet, beefy }
 }
