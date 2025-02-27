@@ -409,7 +409,7 @@ pub mod pallet {
 		message: Xcm<()>,
 		message_id: XcmHash,
 		) {
-			Self::deposit_event(Event::Sent { origin, destination, message, message_id });
+			Self::deposit_event(Event::XcmExecutorSent { origin, destination, message_id });
 		}
 
 		fn emit_sent_failure_event(
