@@ -2,25 +2,13 @@ title: Add `Paras` authorize code_hash for `(force_)set_current_code` feature
 doc:
 - audience: Runtime Dev
   description: |-
-    Closes: https://github.com/paritytech/polkadot-sdk/issues/7574
-    Relates to: https://github.com/paritytech/polkadot-sdk/issues/7591
-
     This feature can be useful when we want to trigger for example `Paras::force_set_current_code(para, code)` from a different chain than the one where the `Paras` pallet is deployed.
 
     The main reason is to avoid transferring the entire `new_code` wasm blob between chains.
     Instead, we authorize `code_hash` with `root`, which can later be applied by `Paras::apply_authorized_code(para, authorization)` by anyone.
-
-    ## TODO
-    - [x] cover also `add_trusted_validation_code` or `force_schedule_code_upgrade` - see comment bellow: https://github.com/paritytech/polkadot-sdk/pull/7592#issuecomment-2678092104
-
-
-    ## Open questions
-
-    - [ ] ~Do we need something like `poke_authorized_code_hash`? E.g. in case that we authorize code hash, but nobody would apply it and the parachain starts working with old/other_new code? Is this possible?~
-    - [ ] do we need something similar for `frame_system` pallet and `set_code` / `set_code_without_checks`?
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
 - name: rococo-runtime
   bump: patch
 - name: westend-runtime
