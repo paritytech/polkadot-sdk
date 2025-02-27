@@ -412,7 +412,7 @@ pub mod pallet {
 			Self::deposit_event(Event::XcmExecutorSent { origin, destination, message_id });
 		}
 
-		fn emit_sent_failure_event(
+		fn emit_send_failure_event(
 			origin: Location,
 			destination: Location,
 			error: SendError,
