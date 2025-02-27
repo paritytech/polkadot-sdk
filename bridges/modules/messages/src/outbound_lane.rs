@@ -22,7 +22,7 @@ use bp_messages::{
 	ChainWithMessages, DeliveredMessages, LaneState, MessageNonce, OutboundLaneData,
 	UnrewardedRelayer,
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{traits::Get, BoundedVec, PalletError};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;

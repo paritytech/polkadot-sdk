@@ -24,7 +24,7 @@ use bp_messages::{
 	ChainWithMessages, HashedLaneId, LaneIdType, MessageNonce,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
-use bp_relayers::PayRewardFromAccount;
+use bp_relayers::{PayRewardFromAccount, RewardsAccountParams};
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, Parachain};
 use codec::Encode;
 use frame_support::{
