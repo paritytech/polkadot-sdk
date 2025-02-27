@@ -66,6 +66,8 @@ for arg, config in common_args.items():
 parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
 parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
 parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
+parser_bench.add_argument('--env-vars', help='Environmental variables used to run the frame-omni-bencher command', nargs='*', default=[])
+parser_bench.add_argument('extra_args', help='Extra arguments for the frame-omni-bencher command')
 
 
 """
@@ -131,7 +133,9 @@ def main():
 
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
-            list_command = f"frame-omni-bencher v1 benchmark pallet " \
+            env_vars = " ".join(args.env_vars + [runtime['bench_env_vars']])
+            extra_args = " ".join(args.extra_args + [runtime['bench_flags']])
+            list_command = f"{env_vars} frame-omni-bencher v1 benchmark pallet " \
                 f"--no-csv-header " \
                 f"--no-storage-info " \
                 f"--no-min-squares " \
@@ -139,7 +143,7 @@ def main():
                 f"--all " \
                 f"--list " \
                 f"--runtime={wasm_file} " \
-                f"{runtime['bench_flags']}"
+                f"{extra_args}"
             print(f'-- running: {list_command}')
             output = os.popen(list_command).read()
             raw_pallets = output.strip().split('\n')
