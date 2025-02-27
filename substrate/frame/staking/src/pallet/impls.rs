@@ -1646,7 +1646,14 @@ where
 
 	fn on_relay_chain_session_end(end_index: SessionIndex, block_authors: Vec<(AccountId32, u32)>) {
 		log!(trace, "ending session {}", end_index);
-		// TODO: process rewards for `block_authors`
+
+		// reward block authors
+		for (author, block_count) in block_authors {
+			let author: T::AccountId = author.into();
+			let block_count: u32 = block_count;
+			Self::reward_by_ids(vec![(author, 20 * block_count)])
+		}
+
 		Self::end_session(end_index)
 	}
 
@@ -1707,7 +1714,7 @@ where
 
 			add_db_reads_writes(1, 0);
 			let Some(exposure_overview) =
-				<ErasStakersOverview<T>>::get(&offence_era, validator.clone())
+				<ErasStakersOverview<T>>::get(&offence_era, &validator)
 			else {
 				// defensive: this implies offence is for a discarded era, and should already be
 				// filtered out.
@@ -1737,16 +1744,16 @@ where
 			}
 			add_db_reads_writes(1, 0);
 			let prior_slash_fraction =
-				ValidatorSlashInEra::<T>::get(offence_era, validator.clone())
+				ValidatorSlashInEra::<T>::get(offence_era, &validator)
 					.map_or(Zero::zero(), |(f, _)| f);
 
 			add_db_reads_writes(1, 0);
-			if let Some(existing) = OffenceQueue::<T>::get(offence_era, validator.clone()) {
+			if let Some(existing) = OffenceQueue::<T>::get(offence_era, &validator) {
 				if slash_fraction.deconstruct() > existing.slash_fraction.deconstruct() {
 					add_db_reads_writes(0, 2);
 					OffenceQueue::<T>::insert(
 						offence_era,
-						validator.clone(),
+						&validator,
 						OffenceRecord {
 							reporter: o.reporters.first().cloned(),
 							reported_era: active_era.index,
@@ -1758,7 +1765,7 @@ where
 					// update the slash fraction in the `ValidatorSlashInEra` storage.
 					ValidatorSlashInEra::<T>::insert(
 						offence_era,
-						validator.clone(),
+						&validator,
 						(slash_fraction, exposure_overview.own),
 					);
 
@@ -1782,13 +1789,13 @@ where
 				add_db_reads_writes(0, 3);
 				ValidatorSlashInEra::<T>::insert(
 					offence_era,
-					validator.clone(),
+					&validator,
 					(slash_fraction, exposure_overview.own),
 				);
 
 				OffenceQueue::<T>::insert(
 					offence_era,
-					validator.clone(),
+					&validator,
 					OffenceRecord {
 						reporter: o.reporters.first().cloned(),
 						reported_era: active_era.index,
@@ -1866,222 +1873,7 @@ where
 // 	}
 // }
 
-/// Add reward points to block authors:
-/// * 20 points to the block producer for producing a (non-uncle) block,
-impl<T> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T>
-where
-	T: Config + pallet_authorship::Config,
-{
-	fn note_author(author: T::AccountId) {
-		Self::reward_by_ids(vec![(author, 20)])
-	}
-}
 
-/// This is intended to be used with `FilterHistoricalOffences`.
-// impl<T: Config>
-// 	OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight>
-// 	for Pallet<T>
-// where
-// 	T::ValidatorIdOf: Convert<
-// 		<T as frame_system::Config>::AccountId,
-// 		Option<<T as frame_system::Config>::AccountId>,
-// 	>,
-// {
-// 	/// When an offence is reported, it is split into pages and put in the offence queue.
-// 	/// As offence queue is processed, computed slashes are queued to be applied after the
-// 	/// `SlashDeferDuration`.
-// 	fn on_offence(
-// 		offenders: &[OffenceDetails<T::AccountId, historical::IdentificationTuple<T>>],
-// 		slash_fractions: &[Perbill],
-// 		slash_session: SessionIndex,
-// 	) -> Weight {
-// 		log!(
-// 			debug,
-// 			"🦹 on_offence: offenders={:?}, slash_fractions={:?}, slash_session={}",
-// 			offenders,
-// 			slash_fractions,
-// 			slash_session,
-// 		);
-
-// 		// todo(ank4n): Needs to be properly benched.
-// 		let mut consumed_weight = Weight::zero();
-// 		let mut add_db_reads_writes = |reads, writes| {
-// 			consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
-// 		};
-
-// 		// Find the era to which offence belongs.
-// 		add_db_reads_writes(1, 0);
-// 		let Some(active_era) = ActiveEra::<T>::get() else {
-// 			log!(warn, "🦹 on_offence: no active era; ignoring offence");
-// 			return consumed_weight
-// 		};
-
-// 		add_db_reads_writes(1, 0);
-// 		let active_era_start_session =
-// 			ErasStartSessionIndex::<T>::get(active_era.index).unwrap_or(0);
-
-// 		// Fast path for active-era report - most likely.
-// 		// `slash_session` cannot be in a future active era. It must be in `active_era` or before.
-// 		let offence_era = if slash_session >= active_era_start_session {
-// 			active_era.index
-// 		} else {
-// 			add_db_reads_writes(1, 0);
-// 			match BondedEras::<T>::get()
-// 				.iter()
-// 				// Reverse because it's more likely to find reports from recent eras.
-// 				.rev()
-// 				.find(|&(_, sesh)| sesh <= &slash_session)
-// 				.map(|(era, _)| *era)
-// 			{
-// 				Some(era) => era,
-// 				None => {
-// 					// defensive: this implies offence is for a discarded era, and should already be
-// 					// filtered out.
-// 					log!(warn, "🦹 on_offence: no era found for slash_session; ignoring offence");
-// 					return Weight::default()
-// 				},
-// 			}
-// 		};
-
-// 		add_db_reads_writes(1, 0);
-// 		let invulnerables = Invulnerables::<T>::get();
-
-// 		for (details, slash_fraction) in offenders.iter().zip(slash_fractions) {
-// 			let (validator, _) = &details.offender;
-// 			// Skip if the validator is invulnerable.
-// 			if invulnerables.contains(&validator) {
-// 				log!(debug, "🦹 on_offence: {:?} is invulnerable; ignoring offence", validator);
-// 				continue
-// 			}
-
-// 			add_db_reads_writes(1, 0);
-// 			let Some(exposure_overview) = <ErasStakersOverview<T>>::get(&offence_era, validator)
-// 			else {
-// 				// defensive: this implies offence is for a discarded era, and should already be
-// 				// filtered out.
-// 				log!(
-// 					warn,
-// 					"🦹 on_offence: no exposure found for {:?} in era {}; ignoring offence",
-// 					validator,
-// 					offence_era
-// 				);
-// 				continue;
-// 			};
-
-// 			Self::deposit_event(Event::<T>::OffenceReported {
-// 				validator: validator.clone(),
-// 				fraction: *slash_fraction,
-// 				offence_era,
-// 			});
-
-// 			if offence_era == active_era.index {
-// 				// offence is in the current active era. Report it to session to maybe disable the
-// 				// validator.
-// 				add_db_reads_writes(2, 2);
-// 				T::SessionInterface::report_offence(
-// 					validator.clone(),
-// 					OffenceSeverity(*slash_fraction),
-// 				);
-// 			}
-// 			add_db_reads_writes(1, 0);
-// 			let prior_slash_fraction = ValidatorSlashInEra::<T>::get(offence_era, validator)
-// 				.map_or(Zero::zero(), |(f, _)| f);
-
-// 			add_db_reads_writes(1, 0);
-// 			if let Some(existing) = OffenceQueue::<T>::get(offence_era, validator) {
-// 				if slash_fraction.deconstruct() > existing.slash_fraction.deconstruct() {
-// 					add_db_reads_writes(0, 2);
-// 					OffenceQueue::<T>::insert(
-// 						offence_era,
-// 						validator,
-// 						OffenceRecord {
-// 							reporter: details.reporters.first().cloned(),
-// 							reported_era: active_era.index,
-// 							slash_fraction: *slash_fraction,
-// 							..existing
-// 						},
-// 					);
-
-// 					// update the slash fraction in the `ValidatorSlashInEra` storage.
-// 					ValidatorSlashInEra::<T>::insert(
-// 						offence_era,
-// 						validator,
-// 						(slash_fraction, exposure_overview.own),
-// 					);
-
-// 					log!(
-// 						debug,
-// 						"🦹 updated slash for {:?}: {:?} (prior: {:?})",
-// 						validator,
-// 						slash_fraction,
-// 						prior_slash_fraction,
-// 					);
-// 				} else {
-// 					log!(
-// 						debug,
-// 						"🦹 ignored slash for {:?}: {:?} (existing prior is larger: {:?})",
-// 						validator,
-// 						slash_fraction,
-// 						prior_slash_fraction,
-// 					);
-// 				}
-// 			} else if slash_fraction.deconstruct() > prior_slash_fraction.deconstruct() {
-// 				add_db_reads_writes(0, 3);
-// 				ValidatorSlashInEra::<T>::insert(
-// 					offence_era,
-// 					validator,
-// 					(slash_fraction, exposure_overview.own),
-// 				);
-
-// 				OffenceQueue::<T>::insert(
-// 					offence_era,
-// 					validator,
-// 					OffenceRecord {
-// 						reporter: details.reporters.first().cloned(),
-// 						reported_era: active_era.index,
-// 						// there are cases of validator with no exposure, hence 0 page, so we
-// 						// saturate to avoid underflow.
-// 						exposure_page: exposure_overview.page_count.saturating_sub(1),
-// 						slash_fraction: *slash_fraction,
-// 						prior_slash_fraction,
-// 					},
-// 				);
-
-// 				OffenceQueueEras::<T>::mutate(|q| {
-// 					if let Some(eras) = q {
-// 						log!(debug, "🦹 inserting offence era {} into existing queue", offence_era);
-// 						eras.binary_search(&offence_era)
-// 							.err()
-// 							.map(|idx| eras.try_insert(idx, offence_era).defensive());
-// 					} else {
-// 						let mut eras = BoundedVec::default();
-// 						log!(debug, "🦹 inserting offence era {} into empty queue", offence_era);
-// 						let _ = eras.try_push(offence_era).defensive();
-// 						*q = Some(eras);
-// 					}
-// 				});
-
-// 				log!(
-// 					debug,
-// 					"🦹 queued slash for {:?}: {:?} (prior: {:?})",
-// 					validator,
-// 					slash_fraction,
-// 					prior_slash_fraction,
-// 				);
-// 			} else {
-// 				log!(
-// 					debug,
-// 					"🦹 ignored slash for {:?}: {:?} (already slashed in era with prior: {:?})",
-// 					validator,
-// 					slash_fraction,
-// 					prior_slash_fraction,
-// 				);
-// 			}
-// 		}
-
-// 		consumed_weight
-// 	}
-// }
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
