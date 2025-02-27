@@ -26,6 +26,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
+	hypothetically,
 	pallet_prelude::*,
 	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
 };
@@ -5153,68 +5154,134 @@ fn restricted_accounts_can_only_withdraw() {
 	})
 }
 
+pub mod overstake {}
 #[test]
 fn permissionless_withdraw_overstake() {
 	ExtBuilder::default().build_and_execute(|| {
-		// Given Alice, Bob and Charlie with some stake.
+		// Given Alice, Bob, Charlie and Dave with some funds.
 		let alice = 301;
 		let bob = 302;
 		let charlie = 303;
-		let _ = Balances::make_free_balance_be(&alice, 500);
-		let _ = Balances::make_free_balance_be(&bob, 500);
-		let _ = Balances::make_free_balance_be(&charlie, 500);
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 100, RewardDestination::Staked));
+		let dave = 304;
+		let _ = Balances::make_free_balance_be(&alice, 200);
+		let _ = Balances::make_free_balance_be(&bob, 200);
+		let _ = Balances::make_free_balance_be(&charlie, 200);
+		let _ = Balances::make_free_balance_be(&dave, 200);
+
+		// AND: except Alice, all of them have some funds reserved by another pallet.
+		assert_ok!(Balances::reserve(&bob, 100));
+		assert_ok!(Balances::reserve(&charlie, 100));
+		assert_ok!(Balances::reserve(&dave, 100));
+
+		// WHEN: they are fully staked with rest of their funds.
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 200, RewardDestination::Staked));
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(bob), 100, RewardDestination::Staked));
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(charlie), 100, RewardDestination::Staked));
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(dave), 100, RewardDestination::Staked));
 
-		// WHEN: charlie is partially unbonding.
+		// AND: charlie & dave are partially unbonding.
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(charlie), 90));
-		let charlie_ledger = StakingLedger::<Test>::get(StakingAccount::Stash(charlie)).unwrap();
-
-		// AND: alice and charlie ledger having higher value than actual stake.
-		Ledger::<Test>::insert(alice, StakingLedger::<Test>::new(alice, 200));
-		Ledger::<Test>::insert(
-			charlie,
-			StakingLedger { stash: charlie, total: 200, active: 200 - 90, ..charlie_ledger },
-		);
-
-		// THEN overstake can be permissionlessly withdrawn.
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(dave), 10));
 		System::reset_events();
 
-		// Alice stake is corrected.
+		// THEN Alice cannot transfer any funds out of her account.
+		assert_noop!(
+			Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 1, 1),
+			TokenError::Frozen,
+		);
+
+		// Bob can transfer out all their staked funds aside from ED.
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(bob), 1, 99));
+
+		// hypothetically Dave & Charlie also can transfer out all their staked funds aside from ED.
+		hypothetically!({
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(charlie), 1, 99));
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(dave), 1, 99));
+		});
+
+		// We withdraw only a part of it for the test.
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(charlie), 1, 50));
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(dave), 1, 50));
+
+		// ---
+		// GIVEN: Now Alice has no over-stake.
+		let alice_free_bal = Balances::free_balance(&alice);
+		assert_eq!(alice_free_bal, 200);
 		assert_eq!(
 			<Staking as StakingInterface>::stake(&alice).unwrap(),
 			Stake { total: 200, active: 200 }
 		);
-		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), alice));
+
+		// THEN: permissionlessly withdrawing overstake fails.
+		assert_noop!(
+			Staking::withdraw_overstake(RuntimeOrigin::signed(1), alice),
+			Error::<Test>::BoundNotMet
+		);
+
+		// ---
+		// GIVEN: Bob is overstaked with no partial unbonding chunks.
+		let bob_free_bal = Balances::free_balance(&bob);
+		assert_eq!(bob_free_bal, 1);
 		assert_eq!(
-			<Staking as StakingInterface>::stake(&alice).unwrap(),
+			<Staking as StakingInterface>::stake(&bob).unwrap(),
 			Stake { total: 100, active: 100 }
 		);
 
-		// Charlie who is partially withdrawing also gets their stake corrected.
+		// WHEN: permissionlessly withdrawing overstake.
+		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), bob));
+
+		// THEN: Bob's stake is corrected.
 		assert_eq!(
-			<Staking as StakingInterface>::stake(&charlie).unwrap(),
-			Stake { total: 200, active: 110 }
+			<Staking as StakingInterface>::stake(&bob).unwrap(),
+			Stake { total: 100 - 99, active: 100 - 99 }
 		);
-		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), charlie));
+
+		// ---
+		// GIVEN: Charlie is overstaked with partial unbonding chunks.
+		let charlie_free_bal = Balances::free_balance(&charlie);
+		assert_eq!(charlie_free_bal, 50);
 		assert_eq!(
 			<Staking as StakingInterface>::stake(&charlie).unwrap(),
-			Stake { total: 200 - 100, active: 110 - 100 }
+			Stake { total: 100, active: 100 - 90 }
+		);
+
+		// WHEN: permissionlessly withdrawing overstake.
+		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), charlie));
+
+		// THEN: Charlie's stake is corrected and overstake is taken from both active stake and
+		// unbonding chunks.
+		// (Note: Unlocking chunks are not explicitly checked here but the consistency is checked
+		// as try state check at the end of the test.)
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&charlie).unwrap(),
+			Stake { total: 100 - 50, active: 0 }
+		);
+
+		// ---
+		// GIVEN: Dave is overstaked with partial unbonding chunks.
+		let dave_free_bal = Balances::free_balance(&dave);
+		assert_eq!(dave_free_bal, 50);
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&dave).unwrap(),
+			Stake { total: 100, active: 100 - 10 }
+		);
+
+		// WHEN: permissionlessly withdrawing overstake.
+		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), dave));
+
+		// THEN: Dave's stake is corrected and overstake is taken from active stake.
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&dave).unwrap(),
+			Stake { total: 100 - 50, active: 90 - 50 }
 		);
 
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				Event::Withdrawn { stash: alice, amount: 200 - 100 },
-				Event::Withdrawn { stash: charlie, amount: 200 - 100 }
+				Event::Withdrawn { stash: bob, amount: 99 },
+				Event::Withdrawn { stash: charlie, amount: 50 },
+				Event::Withdrawn { stash: dave, amount: 50 }
 			]
-		);
-
-		// but Bob ledger is fine and that cannot be withdrawn.
-		assert_noop!(
-			Staking::withdraw_overstake(RuntimeOrigin::signed(1), bob),
-			Error::<Test>::BoundNotMet
 		);
 	});
 }
