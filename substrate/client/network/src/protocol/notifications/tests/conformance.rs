@@ -371,7 +371,7 @@ async fn libp2p_disconnects_libp2p_substream() {
 
 	libp2p_rhs.dial(libp2p_lhs_address).unwrap();
 
-	// Disarm first timer interval.
+	// Disarm first timer interval that fires immediately.
 	let mut timer = tokio::time::interval(std::time::Duration::from_secs(5));
 	timer.tick().await;
 
