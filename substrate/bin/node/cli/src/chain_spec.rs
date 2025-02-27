@@ -22,7 +22,9 @@ use polkadot_sdk::*;
 
 use crate::chain_spec::{sc_service::Properties, sp_runtime::AccountId32};
 use kitchensink_runtime::{
-	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
+	constants::currency::*,
+	genesis_presets::{Staker, StakingPlaygroundConfig},
+	wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -290,7 +292,7 @@ fn configure_accounts(
 	)>,
 	Vec<AccountId>,
 	usize,
-	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
+	Vec<Staker>,
 ) {
 	let mut endowed_accounts: Vec<AccountId> =
 		endowed_accounts.unwrap_or_else(default_endowed_accounts);
@@ -349,88 +351,37 @@ pub fn testnet_genesis(
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 	const MAX_COLLECTIVE_SIZE: usize = 50;
 
-	let dev_stakers = if cfg!(feature = "staking-playground") {
-		let random_validators =
-			std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
-		let random_nominators = std::option_env!("NOMINATORS")
-			.map(|s| s.parse::<u32>().unwrap())
-			.unwrap_or(3000);
-		Some((random_validators, random_nominators))
+	let staking_playground_config = if cfg!(feature = "staking-playground") {
+		Some(get_staking_play_ground_config())
 	} else {
 		None
 	};
 
-	let validator_count = if cfg!(feature = "staking-playground") {
-		std::option_env!("VALIDATOR_COUNT")
-			.map(|v| v.parse::<u32>().unwrap())
-			.unwrap_or(100)
-	} else {
-		initial_authorities.len() as u32
-	};
+	kitchensink_runtime::genesis_presets::kitchen_sink_genesis(
+		initial_authorities,
+		root_key,
+		endowed_accounts,
+		stakers,
+		staking_playground_config,
+	)
+}
 
-	let minimum_validator_count =
-		if cfg!(feature = "staking-playground") { 10 } else { initial_authorities.len() as u32 };
+fn get_staking_play_ground_config() -> StakingPlaygroundConfig {
+	let random_validators =
+		std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
+	let random_nominators = std::option_env!("NOMINATORS")
+		.map(|s| s.parse::<u32>().unwrap())
+		.unwrap_or(3000);
 
-	serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::<Vec<_>>(),
-		},
-		"session": {
-			"keys": initial_authorities
-				.iter()
-				.map(|x| {
-					(
-						x.0.clone(),
-						x.0.clone(),
-						session_keys(
-							x.2.clone(),
-							x.3.clone(),
-							x.4.clone(),
-							x.5.clone(),
-							x.6.clone(),
-							x.7.clone(),
-						),
-					)
-				})
-				.collect::<Vec<_>>(),
-		},
-		"staking": {
-			"validatorCount": validator_count,
-			"minimumValidatorCount": minimum_validator_count,
-			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
-			"slashRewardFraction": Perbill::from_percent(10),
-			"stakers": stakers.clone(),
-			"devStakers": dev_stakers
-		},
-		"elections": {
-			"members": endowed_accounts
-				.iter()
-				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
-				.cloned()
-				.map(|member| (member, STASH))
-				.collect::<Vec<_>>(),
-		},
-		"technicalCommittee": {
-			"members": endowed_accounts
-				.iter()
-				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
-				.cloned()
-				.collect::<Vec<_>>(),
-		},
-		"sudo": { "key": Some(root_key.clone()) },
-		"babe": {
-			"epochConfig": Some(kitchensink_runtime::BABE_GENESIS_EPOCH_CONFIG),
-		},
-		"society": { "pot": 0 },
-		"assets": {
-			// This asset is used by the NIS pallet as counterpart currency.
-			"assets": vec![(9, Sr25519Keyring::Alice.to_account_id(), true, 1)],
-		},
-		"nominationPools": {
-			"minCreateBond": 10 * DOLLARS,
-			"minJoinBond": 1 * DOLLARS,
-		},
-	})
+	let validator_count = std::option_env!("VALIDATOR_COUNT")
+		.map(|v| v.parse::<u32>().unwrap())
+		.unwrap_or(100);
+
+	StakingPlaygroundConfig {
+		dev_stakers: (random_validators, random_nominators),
+		validator_count,
+		minimum_validator_count: 10,
+	}
 }
 
 fn development_config_genesis_json() -> serde_json::Value {

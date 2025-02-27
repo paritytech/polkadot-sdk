@@ -40,15 +40,15 @@ const STASH: Balance = ENDOWMENT / 1000;
 
 pub struct StakingPlaygroundConfig {
 	/// (Validators, Nominators)
-	dev_stakers: Option<(u32, u32)>,
-	validator_count: u32,
-	minimum_validator_count: u32,
+	pub dev_stakers: (u32, u32),
+	pub validator_count: u32,
+	pub minimum_validator_count: u32,
 }
 
 pub type Staker = (AccountId, AccountId, Balance, StakerStatus<AccountId>);
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
-pub fn testnet_genesis(
+pub fn kitchen_sink_genesis(
 	initial_authorities: Vec<(
 		AccountId,
 		AccountId,
@@ -65,7 +65,7 @@ pub fn testnet_genesis(
 	staking_playground_config: Option<StakingPlaygroundConfig>,
 ) -> serde_json::Value {
 	let (validator_count, min_validator_count, dev_stakers) = match staking_playground_config {
-		Some(c) => (c.validator_count, c.minimum_validator_count, c.dev_stakers),
+		Some(c) => (c.validator_count, c.minimum_validator_count, Some(c.dev_stakers)),
 		None => {
 			let authorities_count = initial_authorities.len() as u32;
 			(authorities_count, authorities_count, None)
