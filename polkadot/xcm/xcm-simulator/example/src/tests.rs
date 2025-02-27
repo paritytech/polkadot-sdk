@@ -26,19 +26,17 @@ fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
-// Helper function to check if the relay chain's system events contain an XCM event matching the
-// given predicate.
-fn relay_chain_has_xcm_event<F>(predicate: F) -> bool
-where
-	F: Fn(&pallet_xcm::Event<relay_chain::Runtime>) -> bool,
-{
-	relay_chain::System::events().iter().any(|record| {
-		if let relay_chain::RuntimeEvent::XcmPallet(inner_event) = &record.event {
-			predicate(&inner_event)
-		} else {
-			false
-		}
-	})
+/// Helper macro to check if a system event exists in the event list.
+///
+/// Example usage:
+/// ```ignore
+/// assert!(system_contains_event!(parachain, parachain::RuntimeEvent::System(frame_system::Event::Remarked { .. })));
+/// assert!(system_contains_event!(relay_chain, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })));
+/// ```
+macro_rules! system_contains_event {
+	($module:ident, $expected_event:pat) => {
+		$module::System::events().iter().any(|e| matches!(e.event, $expected_event))
+	};
 }
 
 #[test]
@@ -68,11 +66,10 @@ fn dmp() {
 	});
 
 	ParaA::execute_with(|| {
-		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(
+			parachain,
+			parachain::RuntimeEvent::System(frame_system::Event::Remarked { .. })
+		));
 	});
 }
 
@@ -96,11 +93,10 @@ fn ump() {
 	});
 
 	Relay::execute_with(|| {
-		use relay_chain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(
+			relay_chain,
+			relay_chain::RuntimeEvent::System(frame_system::Event::Remarked { .. })
+		));
 	});
 }
 
@@ -124,11 +120,10 @@ fn xcmp() {
 	});
 
 	ParaB::execute_with(|| {
-		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(
+			parachain,
+			parachain::RuntimeEvent::System(frame_system::Event::Remarked { .. })
+		));
 	});
 }
 
@@ -152,10 +147,14 @@ fn reserve_transfer() {
 			INITIAL_BALANCE + withdraw_amount
 		);
 		// Ensure expected events were emitted
-		let attempted_emitted =
-			relay_chain_has_xcm_event(|event| matches!(event, pallet_xcm::Event::Attempted { .. }));
-		let sent_emitted =
-			relay_chain_has_xcm_event(|event| matches!(event, pallet_xcm::Event::Sent { .. }));
+		let attempted_emitted = system_contains_event!(
+			relay_chain,
+			relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
+		);
+		let sent_emitted = system_contains_event!(
+			relay_chain,
+			relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. })
+		);
 		assert!(attempted_emitted, "Expected XcmPallet::Attempted event emitted");
 		assert!(sent_emitted, "Expected XcmPallet::Sent event emitted");
 	});
@@ -202,9 +201,10 @@ fn reserve_transfer_with_error() {
 			assert!(log_capture.contains("XCM validate_send failed"));
 
 			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
-			let xcm_attempted_emitted = relay_chain_has_xcm_event(|event| {
-				matches!(event, pallet_xcm::Event::Attempted { .. })
-			});
+			let xcm_attempted_emitted = system_contains_event!(
+				relay_chain,
+				relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
+			);
 			assert!(
 				!xcm_attempted_emitted,
 				"Expected no XcmPallet::Attempted event due to rollback, but it was emitted"
