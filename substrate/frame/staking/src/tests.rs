@@ -5154,7 +5154,6 @@ fn restricted_accounts_can_only_withdraw() {
 	})
 }
 
-pub mod overstake {}
 #[test]
 fn permissionless_withdraw_overstake() {
 	ExtBuilder::default().build_and_execute(|| {
