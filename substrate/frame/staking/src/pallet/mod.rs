@@ -2181,6 +2181,9 @@ pub mod pallet {
 		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
+			// Virtual stakers are controlled by some other pallet.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
+
 			let ledger = Self::ledger(Stash(stash.clone()))?;
 			let stash_balance = T::Currency::free_balance(&stash);
 
@@ -2193,7 +2196,7 @@ pub mod pallet {
 			ledger.update_total_stake(stash_balance).update()?;
 
 			// Ensure lock is updated.
-			debug_assert!(T::Currency::balance_locked(crate::STAKING_ID, &stash) == stash_balance);
+			debug_assert_eq!(T::Currency::balance_locked(crate::STAKING_ID, &stash), stash_balance);
 
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
 

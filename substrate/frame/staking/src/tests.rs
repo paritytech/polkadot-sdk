@@ -40,7 +40,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	SessionIndex, Stake, StakingInterface,
+	SessionIndex, Stake, StakingInterface, StakingUnchecked,
 };
 use substrate_test_utils::assert_eq_uvec;
 
@@ -5162,15 +5162,18 @@ fn permissionless_withdraw_overstake() {
 		let bob = 302;
 		let charlie = 303;
 		let dave = 304;
+		let eve = 305;
 		let _ = Balances::make_free_balance_be(&alice, 200);
 		let _ = Balances::make_free_balance_be(&bob, 200);
 		let _ = Balances::make_free_balance_be(&charlie, 200);
 		let _ = Balances::make_free_balance_be(&dave, 200);
+		let _ = Balances::make_free_balance_be(&eve, 200);
 
 		// AND: except Alice, all of them have some funds reserved by another pallet.
 		assert_ok!(Balances::reserve(&bob, 100));
 		assert_ok!(Balances::reserve(&charlie, 100));
 		assert_ok!(Balances::reserve(&dave, 100));
+		assert_ok!(Balances::reserve(&eve, 199));
 
 		// WHEN: they are fully staked with rest of their funds.
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 200, RewardDestination::Staked));
@@ -5181,7 +5184,17 @@ fn permissionless_withdraw_overstake() {
 		// AND: charlie & dave are partially unbonding.
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(charlie), 90));
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(dave), 10));
+
+		// AND: eve joins as a virtual staker
+		assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&eve, 200, &alice));
+
 		System::reset_events();
+
+		// Eve can not withdraw, because it is a virtual staker
+		assert_noop!(
+			Staking::withdraw_overstake(RuntimeOrigin::signed(1), eve),
+			Error::<Test>::VirtualStakerNotAllowed
+		);
 
 		// THEN Alice cannot transfer any funds out of her account.
 		assert_noop!(
