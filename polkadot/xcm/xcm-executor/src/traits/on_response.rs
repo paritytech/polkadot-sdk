@@ -118,6 +118,7 @@ pub trait QueryHandler {
 	/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	fn new_query(
 		responder: impl Into<Location>,
+		maybe_notify: Option<(u8, u8)>,
 		timeout: Self::BlockNumber,
 		match_querier: impl Into<Location>,
 	) -> QueryId;
@@ -162,6 +163,7 @@ impl QueryHandler for () {
 	}
 	fn new_query(
 		_responder: impl Into<Location>,
+		_maybe_notify: Option<(u8, u8)>,
 		_timeout: Self::BlockNumber,
 		_match_querier: impl Into<Location>,
 	) -> QueryId {

@@ -95,6 +95,7 @@ pub mod pallet_test_notifier {
 				.map_err(|_| Error::<T>::BadAccountFormat)?;
 			let qid = <crate::Pallet<T> as QueryHandler>::new_query(
 				Junction::AccountId32 { network: None, id },
+				None,
 				100u32.into(),
 				querier,
 			);

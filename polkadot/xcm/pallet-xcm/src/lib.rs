@@ -393,6 +393,7 @@ pub mod pallet {
 			let responder = <T as Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let query_id = <Self as QueryHandler>::new_query(
 				responder,
+				None,
 				timeout,
 				Location::try_from(match_querier)
 					.map_err(|_| Into::<DispatchError>::into(Error::<T>::BadVersion))?,
@@ -1475,10 +1476,11 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	fn new_query(
 		responder: impl Into<Location>,
+		maybe_notify: Option<(u8, u8)>,
 		timeout: BlockNumberFor<T>,
 		match_querier: impl Into<Location>,
 	) -> QueryId {
-		Self::do_new_query(responder, None, timeout, match_querier)
+		Self::do_new_query(responder, maybe_notify, timeout, match_querier)
 	}
 
 	/// To check the status of the query, use `fn query()` passing the resultant `QueryId`
@@ -1492,7 +1494,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		let destination = Self::UniversalLocation::get()
 			.invert_target(&responder)
 			.map_err(|()| XcmError::LocationNotInvertible)?;
-		let query_id = Self::new_query(responder, timeout, Here);
+		let query_id = Self::new_query(responder, None, timeout, Here);
 		let response_info = QueryResponseInfo { destination, query_id, max_weight: Weight::zero() };
 		let report_error = Xcm(vec![ReportError(response_info)]);
 		message.0.insert(0, SetAppendix(report_error));
