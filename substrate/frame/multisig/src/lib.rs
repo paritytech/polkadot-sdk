@@ -564,8 +564,7 @@ pub mod pallet {
 					ensure!(multisig.depositor == who, Error::<T>::NotOwner);
 
 					// Calculate the new deposit
-					let new_deposit =
-						T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
+					let new_deposit = Self::deposit(threshold);
 					let old_deposit = multisig.deposit;
 
 					if new_deposit == old_deposit {
@@ -582,9 +581,9 @@ pub mod pallet {
 						let remaining_unreserved = T::Currency::unreserve(&who, excess);
 						if !remaining_unreserved.is_zero() {
 							defensive!(
-							"Failed to unreserve for full amount for multisig. (Call Hash, Requested, Actual): ", 
-							(call_hash, excess, excess.saturating_sub(remaining_unreserved))
-						);
+								"Failed to unreserve for full amount for multisig. (Call Hash, Requested, Actual): ", 
+								(call_hash, excess, excess.saturating_sub(remaining_unreserved))
+							);
 						}
 					}
 
@@ -721,7 +720,7 @@ impl<T: Config> Pallet<T> {
 			ensure!(maybe_timepoint.is_none(), Error::<T>::UnexpectedTimepoint);
 
 			// Just start the operation by recording it in storage.
-			let deposit = T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
+			let deposit = Self::deposit(threshold);
 
 			T::Currency::reserve(&who, deposit)?;
 
@@ -775,6 +774,13 @@ impl<T: Config> Pallet<T> {
 		}
 		signatories.insert(index, who);
 		Ok(signatories)
+	}
+
+	/// Calculate the deposit for a multisig operation.
+	/// 
+	/// The deposit is calculated as `DepositBase + DepositFactor * threshold`.
+	pub fn deposit(threshold: u16) -> BalanceOf<T> {
+		T::DepositBase::get() + T::DepositFactor::get() * threshold.into()
 	}
 }
 
