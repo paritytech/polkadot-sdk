@@ -799,7 +799,7 @@ async fn litep2p_disconnects_litep2p_substream() {
 
 				match event.unwrap() {
 					Litep2pEvent::ConnectionEstablished { .. } => {
-						handle_lhs.open_substream(litep2p_lhs_peer).await.unwrap();
+						handle_lhs.open_substream(litep2p_rhs_peer).await.unwrap();
 					}
 					Litep2pEvent::ConnectionClosed { .. } => {
 						num_closed += 1;
