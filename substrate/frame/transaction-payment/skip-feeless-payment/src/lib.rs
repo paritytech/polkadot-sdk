@@ -81,7 +81,7 @@ pub mod pallet {
 }
 
 /// A [`TransactionExtension`] that skips the wrapped extension if the dispatchable is feeless.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DecodeWithMemTracking)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, DecodeWithMemTracking)]
 pub struct SkipCheckIfFeeless<T, S>(pub S, core::marker::PhantomData<T>);
 
 // Make this extension "invisible" from the outside (ie metadata type information)
