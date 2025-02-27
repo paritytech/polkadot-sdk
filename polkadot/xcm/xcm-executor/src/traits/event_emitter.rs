@@ -21,7 +21,6 @@ pub trait EventEmitter {
     fn emit_sent_event(
         origin: Location,
         destination: Location,
-        message: Xcm<()>,
         message_id: XcmHash,
     );
 
