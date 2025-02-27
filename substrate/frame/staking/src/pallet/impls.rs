@@ -1352,17 +1352,13 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// if we are here, it means we cannot hold all user stake. We will do a force withdraw
 			// from ledger, but that's okay since anyways user do not have funds for it.
-			let force_withdraw = staked.saturating_sub(max_hold);
+			let updated_ledger = ledger.update_total_stake(max_hold);
+			let old_total = staked;
+			let force_withdraw = old_total.defensive_saturating_sub(updated_ledger.total);
 
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash but we can't do much better here.
-			StakingLedger {
-				total: max_hold,
-				active: ledger.active.saturating_sub(force_withdraw),
-				// we are not changing the stash, so we can keep the stash.
-				..ledger
-			}
-			.update()?;
+			// update ledger
+			updated_ledger.update()?;
+
 			force_withdraw
 		};
 

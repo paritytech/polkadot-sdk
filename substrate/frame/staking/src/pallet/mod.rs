@@ -28,7 +28,7 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Inspect, Mutate, Mutate as FunMutate,
 		},
-		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		Currency, Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
@@ -2617,20 +2617,18 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 
 			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let actual_stake = asset::staked::<T>(&stash);
-			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
+			let stash_balance = T::OldCurrency::free_balance(&stash);
 
-			// ensure there is something to force unstake.
-			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
+			// Ensure there is an overstake.
+			ensure!(ledger.total > stash_balance, Error::<T>::BoundNotMet);
 
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash, but we can't do much better here.
-			StakingLedger {
-				total: actual_stake,
-				active: ledger.active.saturating_sub(force_withdraw_amount),
-				..ledger
-			}
-			.update()?;
+			let force_withdraw_amount = ledger.total.defensive_saturating_sub(stash_balance);
+
+			// Update the ledger by withdrawing excess stake.
+			ledger.update_total_stake(stash_balance).update()?;
+
+			// Ensure lock is updated.
+			debug_assert!(T::OldCurrency::balance_locked(crate::STAKING_ID, &stash) == stash_balance);
 
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
 
