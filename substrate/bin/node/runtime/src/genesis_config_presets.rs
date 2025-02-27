@@ -193,7 +193,7 @@ pub fn session_keys(
 
 /// We have this method as there is no straight forward way to convert the
 /// account keyring into these ids.
-fn session_keys_from_seed(seed: &str) -> SessionKeys {
+pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	session_keys(
 		get_public_from_string_or_panic::<GrandpaId>(seed),
 		get_public_from_string_or_panic::<BabeId>(seed),
