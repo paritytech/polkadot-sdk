@@ -53,13 +53,14 @@ mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+mod migration;
 
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{DispatchResult, GetDispatchInfo},
+	dispatch::{DispatchResult, GetDispatchInfo, VersionedCall},
 	ensure,
 	pallet_prelude::MaxEncodedLen,
 	storage::bounded_vec::BoundedVec,
@@ -98,23 +99,23 @@ pub struct LotteryConfig<BlockNumber, Balance> {
 }
 
 pub trait ValidateCall<T: Config> {
-	fn validate_call(call: &<T as Config>::RuntimeCall) -> bool;
+	fn validate_call(call: &VersionedCall<<T as Config>::RuntimeCall>) -> bool;
 }
 
 impl<T: Config> ValidateCall<T> for () {
-	fn validate_call(_: &<T as Config>::RuntimeCall) -> bool {
+	fn validate_call(_: &VersionedCall<<T as Config>::RuntimeCall>) -> bool {
 		false
 	}
 }
 
 impl<T: Config> ValidateCall<T> for Pallet<T> {
-	fn validate_call(call: &<T as Config>::RuntimeCall) -> bool {
+	fn validate_call(call: &VersionedCall<<T as Config>::RuntimeCall>) -> bool {
 		let valid_calls = CallIndices::<T>::get();
-		let call_index = match Self::call_to_index(call) {
+		let call_index = match Self::call_to_index(&VersionedCall::new(call.clone(), 0)) {
 			Ok(call_index) => call_index,
 			Err(_) => return false,
 		};
-		valid_calls.iter().any(|c| call_index == *c)
+		valid_calls.iter().any(|c| call_index == *c.call())
 	}
 }
 
@@ -218,7 +219,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		(u32, BoundedVec<CallIndex, T::MaxCalls>),
+		(u32, BoundedVec<VersionedCall<CallIndex>, T::MaxCalls>),
 		ValueQuery,
 	>;
 
@@ -237,7 +238,7 @@ pub mod pallet {
 	/// by `Config::ValidateCall`.
 	#[pallet::storage]
 	pub(crate) type CallIndices<T: Config> =
-		StorageValue<_, BoundedVec<CallIndex, T::MaxCalls>, ValueQuery>;
+		StorageValue<_, BoundedVec<VersionedCall<CallIndex>, T::MaxCalls>, ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -304,7 +305,7 @@ pub mod pallet {
 		)]
 		pub fn buy_ticket(
 			origin: OriginFor<T>,
-			call: Box<<T as Config>::RuntimeCall>,
+			call: Box<VersionedCall<<T as Config>::RuntimeCall>>,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin.clone())?;
 			call.clone().dispatch(origin).map_err(|e| e.error)?;
@@ -323,7 +324,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_calls(calls.len() as u32))]
 		pub fn set_calls(
 			origin: OriginFor<T>,
-			calls: Vec<<T as Config>::RuntimeCall>,
+			calls: Vec<VersionedCall<<T as Config>::RuntimeCall>>,
 		) -> DispatchResult {
 			T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(calls.len() <= T::MaxCalls::get() as usize, Error::<T>::TooManyCalls);
@@ -416,19 +417,20 @@ impl<T: Config> Pallet<T> {
 
 	/// Converts a vector of calls into a vector of call indices.
 	fn calls_to_indices(
-		calls: &[<T as Config>::RuntimeCall],
-	) -> Result<BoundedVec<CallIndex, T::MaxCalls>, DispatchError> {
-		let mut indices = BoundedVec::<CallIndex, T::MaxCalls>::with_bounded_capacity(calls.len());
+		calls: &[VersionedCall<<T as Config>::RuntimeCall>],
+	) -> Result<BoundedVec<VersionedCall<CallIndex>, T::MaxCalls>, DispatchError> {
+		let mut indices = BoundedVec::<VersionedCall<CallIndex>, T::MaxCalls>::with_bounded_capacity(calls.len());
 		for c in calls.iter() {
 			let index = Self::call_to_index(c)?;
-			indices.try_push(index).map_err(|_| Error::<T>::TooManyCalls)?;
+			let versioned_index = VersionedCall::new(index, c.transaction_version());
+			indices.try_push(versioned_index).map_err(|_| Error::<T>::TooManyCalls)?;
 		}
 		Ok(indices)
 	}
 
 	/// Convert a call to it's call index by encoding the call and taking the first two bytes.
-	fn call_to_index(call: &<T as Config>::RuntimeCall) -> Result<CallIndex, DispatchError> {
-		let encoded_call = call.encode();
+	fn call_to_index(call: &VersionedCall<<T as Config>::RuntimeCall>) -> Result<CallIndex, DispatchError> {
+		let encoded_call = call.call().encode();
 		if encoded_call.len() < 2 {
 			return Err(Error::<T>::EncodingFailed.into())
 		}
@@ -436,7 +438,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Logic for buying a ticket.
-	fn do_buy_ticket(caller: &T::AccountId, call: &<T as Config>::RuntimeCall) -> DispatchResult {
+	fn do_buy_ticket(caller: &T::AccountId, call: &VersionedCall<<T as Config>::RuntimeCall>) -> DispatchResult {
 		// Check the call is valid lottery
 		let config = Lottery::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 		let block_number = frame_system::Pallet::<T>::block_number();
@@ -464,7 +466,7 @@ impl<T: Config> Pallet<T> {
 						Error::<T>::AlreadyParticipating
 					);
 				}
-				participating_calls.try_push(call_index).map_err(|_| Error::<T>::TooManyCalls)?;
+				participating_calls.try_push(VersionedCall::new(call_index, call.transaction_version())).map_err(|_| Error::<T>::TooManyCalls)?;
 				// Check user has enough funds and send it to the Lottery account.
 				T::Currency::transfer(caller, &Self::account_id(), config.price, KeepAlive)?;
 				// Create a new ticket.

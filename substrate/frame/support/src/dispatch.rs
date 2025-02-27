@@ -712,6 +712,54 @@ impl<T> PaysFee<T> for (u64, Pays) {
 	}
 }
 
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo)]
+pub struct VersionedCall<Call> {
+    call: Call,
+    transaction_version: u32,
+}
+
+impl<Call> VersionedCall<Call> {
+	pub fn new(call: Call, transaction_version: u32) -> Self {
+		Self {
+			call,
+			transaction_version,
+		}
+	}
+
+	 /// Get a reference to the inner call.
+	 pub fn call(&self) -> &Call {
+        &self.call
+    }
+
+    /// Get the transaction version.
+    pub fn transaction_version(&self) -> u32 {
+        self.transaction_version
+    }
+	
+    pub fn validate(&self, current_transaction_version: u32) -> Result<&Call, DispatchError> {
+        if self.transaction_version != current_transaction_version {
+            Err(DispatchError::TransactionVersionMismatch)
+        } else {
+            Ok(&self.call)
+        }
+    }
+	/// Bypass validation and return the inner `call`.
+    /// This should be used with caution and only in cases where validation is explicitly not required.
+    pub fn bypass_validation(self) -> Call {
+        self.call
+    }
+}
+
+// impl<Call: Dispatchable> VersionedCall<Call> {
+//     pub fn dispatch(self, origin: OriginFor<T>) -> DispatchResult {
+//         self.call.dispatch(origin)
+//     }
+
+//     pub fn get_dispatch_info(&self) -> DispatchInfo {
+//         self.call.get_dispatch_info()
+//     }
+// }
+
 // END TODO
 
 #[cfg(test)]

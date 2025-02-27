@@ -59,6 +59,7 @@ sp-std = { workspace = true }
 sp-tracing = { workspace = true }
 sp-trie = { workspace = true }
 sp-weights = { workspace = true }
+sp-version = { workspace = true, default-features = true }
 static_assertions = { workspace = true, default-features = true }
 tt-call = { workspace = true }
 

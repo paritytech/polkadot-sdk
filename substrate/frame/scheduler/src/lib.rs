@@ -91,7 +91,7 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
 use frame_support::{
-	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
+	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin, VersionedCall},
 	ensure,
 	traits::{
 		schedule::{self, DispatchTime, MaybeHashed},
@@ -153,7 +153,7 @@ pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// This task's priority.
 	pub priority: schedule::Priority,
 	/// The call to be dispatched.
-	pub call: Call,
+	pub call: VersionedCall<Call>,
 	/// If the call is periodic, then this points to the information concerning that.
 	pub maybe_periodic: Option<schedule::Period<BlockNumber>>,
 	/// The origin with which to dispatch the call.
@@ -1001,10 +1001,13 @@ impl<T: Config> Pallet<T> {
 			.filter(|p| p.1 > 1 && !p.0.is_zero())
 			// Remove one from the number of repetitions since we will schedule one now.
 			.map(|(p, c)| (p, c - 1));
+
+		let versioned_call = VersionedCall::new(call, <T as frame_system::Config>::Version::get().transaction_version);
+
 		let task = Scheduled {
 			maybe_id: None,
 			priority,
-			call,
+			versioned_call,
 			maybe_periodic,
 			origin,
 			_phantom: PhantomData,
@@ -1015,6 +1018,13 @@ impl<T: Config> Pallet<T> {
 			// Request the call to be made available.
 			T::Preimages::request(&hash);
 		}
+
+		        // // Add the scheduled task to the agenda
+				// Agenda::<T>::mutate(when, |agenda| {
+				// 	agenda.try_push(Some(task)).map_err(|_| DispatchError::Overflow)?;
+				// 	Ok(())
+				// })
+		
 
 		Ok(res)
 	}
@@ -1091,6 +1101,9 @@ impl<T: Config> Pallet<T> {
 			.filter(|p| p.1 > 1 && !p.0.is_zero())
 			// Remove one from the number of repetitions since we will schedule one now.
 			.map(|(p, c)| (p, c - 1));
+
+			 // Wrap the call in a VersionedCall
+			 let versioned_call = VersionedCall::new(call, <T as frame_system::Config>::Version::get().transaction_version);
 
 		let task = Scheduled {
 			maybe_id: Some(id),
@@ -1387,8 +1400,10 @@ impl<T: Config> Pallet<T> {
 	fn execute_dispatch(
 		weight: &mut WeightMeter,
 		origin: T::PalletsOrigin,
-		call: <T as Config>::RuntimeCall,
+		versioned_call: VersionedCall<<T as Config>::RuntimeCall>,
 	) -> Result<DispatchResult, ()> {
+
+		let call = versioned_call.validate(<T as frame_system::Config>::Version::get().transaction_version).map_err(|_| ())?;
 		let base_weight = match origin.as_system_ref() {
 			Some(&RawOrigin::Signed(_)) => T::WeightInfo::execute_dispatch_signed(),
 			_ => T::WeightInfo::execute_dispatch_unsigned(),
@@ -1402,7 +1417,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let dispatch_origin = origin.into();
-		let (maybe_actual_call_weight, result) = match call.dispatch(dispatch_origin) {
+		let (maybe_actual_call_weight, result) = match call.clone().dispatch(dispatch_origin) {
 			Ok(post_info) => (post_info.actual_weight, Ok(())),
 			Err(error_and_info) =>
 				(error_and_info.post_info.actual_weight, Err(error_and_info.error)),
