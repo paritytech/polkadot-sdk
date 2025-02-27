@@ -789,12 +789,9 @@ where
 	pub fn synced_headers_grandpa_info() -> Vec<StoredHeaderGrandpaInfo<BridgedHeader<T, I>>> {
 		frame_system::Pallet::<T>::read_events_no_consensus()
 			.filter_map(|event| {
-				if let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
-					event.event.try_into().ok()?
-				{
-					return Some(grandpa_info)
-				}
-				None
+				let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
+					event.event.try_into().ok()?;
+				Some(grandpa_info)
 			})
 			.collect()
 	}
