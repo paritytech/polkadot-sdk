@@ -446,7 +446,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					self.original_origin.clone(),
 					dest,
 					message_id.clone(),
-					Xcm::default(), // Avoid logging the full XCM message to prevent inconsistencies and reduce storage usage.
+					Xcm::default(), /* Avoid logging the full XCM message to prevent
+					                 * inconsistencies and reduce storage usage. */
 				);
 				Ok(message_id)
 			},
