@@ -406,10 +406,15 @@ pub mod pallet {
 		fn emit_sent_event(
 			origin: Location,
 			destination: Location,
-			message: Xcm<()>,
 			message_id: XcmHash,
+			message: Option<Xcm<()>>,
 		) {
-			Self::deposit_event(Event::Sent { origin, destination, message, message_id });
+			Self::deposit_event(Event::Sent {
+				origin,
+				destination,
+				message: message.unwrap_or_default(),
+				message_id,
+			});
 		}
 
 		fn emit_send_failure_event(

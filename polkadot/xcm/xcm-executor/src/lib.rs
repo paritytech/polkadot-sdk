@@ -438,16 +438,16 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
-		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg.clone())?;
+		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
 		match Config::XcmSender::deliver(ticket) {
 			Ok(message_id) => {
 				Config::XcmEventEmitter::emit_sent_event(
 					self.original_origin.clone(),
 					dest,
-					Xcm::default(), /* Avoid logging the full XCM message to prevent
-					                 * inconsistencies and reduce storage usage. */
 					message_id.clone(),
+					None, /* Avoid logging the full XCM message to prevent inconsistencies and
+					       * reduce storage usage. */
 				);
 				Ok(message_id)
 			},
