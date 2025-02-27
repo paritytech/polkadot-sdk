@@ -24,7 +24,7 @@ pub trait EventEmitter {
         message_id: XcmHash,
     );
 
-    fn emit_sent_failure_event(
+    fn emit_send_failure_event(
         origin: Location,
         destination: Location,
         error: SendError,
