@@ -26,8 +26,9 @@ fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
-// Helper function for checking if an XCM event matching the given predicate exists.
-fn contains_event<F>(predicate: F) -> bool
+// Helper function to check if the relay chain's system events contain an XCM event matching the
+// given predicate.
+fn relay_chain_has_xcm_event<F>(predicate: F) -> bool
 where
 	F: Fn(&pallet_xcm::Event<relay_chain::Runtime>) -> bool,
 {
@@ -152,8 +153,9 @@ fn reserve_transfer() {
 		);
 		// Ensure expected events were emitted
 		let attempted_emitted =
-			contains_event(|event| matches!(event, pallet_xcm::Event::Attempted { .. }));
-		let sent_emitted = contains_event(|event| matches!(event, pallet_xcm::Event::Sent { .. }));
+			relay_chain_has_xcm_event(|event| matches!(event, pallet_xcm::Event::Attempted { .. }));
+		let sent_emitted =
+			relay_chain_has_xcm_event(|event| matches!(event, pallet_xcm::Event::Sent { .. }));
 		assert!(attempted_emitted, "Expected XcmPallet::Attempted event emitted");
 		assert!(sent_emitted, "Expected XcmPallet::Sent event emitted");
 	});
@@ -200,8 +202,9 @@ fn reserve_transfer_with_error() {
 			assert!(log_capture.contains("XCM validate_send failed"));
 
 			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
-			let xcm_attempted_emitted =
-				contains_event(|event| matches!(event, pallet_xcm::Event::Attempted { .. }));
+			let xcm_attempted_emitted = relay_chain_has_xcm_event(|event| {
+				matches!(event, pallet_xcm::Event::Attempted { .. })
+			});
 			assert!(
 				!xcm_attempted_emitted,
 				"Expected no XcmPallet::Attempted event due to rollback, but it was emitted"
