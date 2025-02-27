@@ -69,17 +69,6 @@ pub fn flaming_fir_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_json_bytes(&include_bytes!("../res/flaming-fir.json")[..])
 }
 
-fn session_keys(
-	grandpa: GrandpaId,
-	babe: BabeId,
-	im_online: ImOnlineId,
-	authority_discovery: AuthorityDiscoveryId,
-	mixnet: MixnetId,
-	beefy: BeefyId,
-) -> SessionKeys {
-	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet, beefy }
-}
-
 fn configure_accounts_for_staging_testnet() -> (
 	Vec<(
 		AccountId,
@@ -262,6 +251,10 @@ pub fn authority_keys_from_seed(
 	)
 }
 
+/// Configure the accounts for the testnet.
+///
+/// * Adds `initial_authorities` and `initial_nominators` to endowed accounts if missing.
+/// * Sets up the stakes consisting of the `initial_authorities` and `initial_nominators`.
 fn configure_accounts(
 	initial_authorities: Vec<(
 		AccountId,
@@ -393,15 +386,6 @@ fn get_staking_play_ground_config() -> StakingPlaygroundConfig {
 	}
 }
 
-fn development_config_genesis_json() -> serde_json::Value {
-	testnet_genesis(
-		vec![authority_keys_from_seed("Alice")],
-		vec![],
-		Sr25519Keyring::Alice.to_account_id(),
-		None,
-	)
-}
-
 fn props() -> Properties {
 	let mut properties = Properties::new();
 	properties.insert("tokenDecimals".to_string(), 12.into());
@@ -432,17 +416,8 @@ pub fn development_config() -> ChainSpec {
 		.with_id("dev")
 		.with_chain_type(ChainType::Development)
 		.with_properties(props())
-		.with_genesis_config_patch(development_config_genesis_json())
+		.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
 		.build()
-}
-
-fn local_testnet_genesis() -> serde_json::Value {
-	testnet_genesis(
-		vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
-		vec![],
-		Sr25519Keyring::Alice.to_account_id(),
-		None,
-	)
 }
 
 /// Local testnet config (multivalidator Alice + Bob).
@@ -451,7 +426,7 @@ pub fn local_testnet_config() -> ChainSpec {
 		.with_name("Local Testnet")
 		.with_id("local_testnet")
 		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(local_testnet_genesis())
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 		.build()
 }
 
@@ -482,8 +457,8 @@ pub(crate) mod tests {
 		ChainSpec::builder(wasm_binary_unwrap(), Default::default())
 			.with_name("Integration Test")
 			.with_id("test")
-			.with_chain_type(ChainType::Development)
-			.with_genesis_config_patch(local_testnet_genesis())
+			.with_chain_type(ChainType::Local)
+			.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 			.build()
 	}
 

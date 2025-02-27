@@ -118,6 +118,17 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let endowed = Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect::<Vec<_>>();
 
 	let patch = match id.as_ref() {
+		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchen_sink_genesis(
+			vec![(
+				alice.to_account_id(),
+				alice.to_account_id(),
+				session_keys_from_seed(&alice.to_seed()),
+			)],
+			alice.to_account_id(),
+			endowed,
+			vec![validator_staker(alice.to_account_id())],
+			None,
+		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchen_sink_genesis(
 			vec![
 				(
@@ -130,17 +141,6 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			alice.to_account_id(),
 			endowed.clone(),
 			vec![validator_staker(alice.to_account_id()), validator_staker(bob.to_account_id())],
-			None,
-		),
-		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchen_sink_genesis(
-			vec![(
-				alice.to_account_id(),
-				alice.to_account_id(),
-				session_keys_from_seed(&alice.to_seed()),
-			)],
-			alice.to_account_id(),
-			endowed,
-			vec![validator_staker(alice.to_account_id())],
 			None,
 		),
 		_ => return None,
