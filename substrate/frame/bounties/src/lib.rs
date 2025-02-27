@@ -224,7 +224,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self, I>>;
 
-		/// Optional bounty duration in blocks. If `None`, it is considered `BlockNumber::MAX`.
+		/// Optional bounty duration in blocks.
+		///
+		/// If `None`, bounties stay active indefinitely, removing the need for
+		/// `extend_bounty_expiry` and restricting curator slashing to OpenGov.
 		#[pallet::constant]
 		type BountyUpdatePeriod: Get<Option<BlockNumberFor<Self, I>>>;
 

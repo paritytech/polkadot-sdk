@@ -1,7 +1,14 @@
 title: '[pallet-bounties] Make BountyUpdatePeriod optional'
 doc:
 - audience: Runtime Dev
-  description: Refactored `BountyUpdatePeriod` to be optional and adjusted expiration handling to default to `BlockNumber::MAX` when `None`.
+  description: |
+    Refactored `BountyUpdatePeriod` to be an optional configuration parameter.
+    If set to `None`, bounties remain active indefinitely, removing the need for
+    `extend_bounty_expiry` and preventing automatic curator slashing for inactivity.
+    If slashing of curators is necessary, it can be handled through OpenGov.
+    This reduces friction in curator management. 
 crates:
 - name: pallet-bounties
+  bump: patch
+- name: pallet-child-bounties
   bump: patch
