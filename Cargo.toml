@@ -615,7 +615,7 @@ ark-bls12-381-ext = { version = "0.4.1", default-features = false }
 ark-bw6-761 = { version = "0.4.0", default-features = false }
 ark-bw6-761-ext = { version = "0.4.1", default-features = false }
 ark-ec = { version = "0.4.2", default-features = false }
-ark-ec-vrfs = { version = "0.1.0", default-features = false }
+ark-ec-vrfs = { git = "https://github.com/davxy/ark-ec-vrfs", rev = "526bf7c", default-features = false }
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-377-ext = { version = "0.4.1", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
@@ -1434,6 +1434,7 @@ overflow-checks = true
 #
 # This list is ordered alphabetically.
 [profile.dev.package]
+ark-ec-vrfs = { opt-level = 3 }
 blake2 = { opt-level = 3 }
 blake2b_simd = { opt-level = 3 }
 chacha20poly1305 = { opt-level = 3 }
@@ -1478,6 +1479,3 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
-
-[patch.crates-io]
-ark-ec-vrfs = { path = "/mnt/ssd/develop/personal/ark-ec-vrfs" }

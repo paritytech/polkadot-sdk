@@ -574,7 +574,7 @@ pub mod ring_vrf {
 		/// from which the [`RingVerifier`] has been constructed.
 		pub fn ring_vrf_verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
 			let Ok(proof) =
-				bandersnatch::RingProof::deserialize_compressed_unchecked(self.proof.as_slice())
+				bandersnatch::Proof::deserialize_compressed_unchecked(self.proof.as_slice())
 			else {
 				return false
 			};
