@@ -23,7 +23,7 @@ use polkadot_sdk::*;
 use crate::chain_spec::{sc_service::Properties, sp_runtime::AccountId32};
 use kitchensink_runtime::{
 	constants::currency::*,
-	genesis_presets::{Staker, StakingPlaygroundConfig},
+	genesis_presets::{Staker, StakingPlaygroundConfig, STASH},
 	wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -46,8 +46,6 @@ pub use kitchensink_runtime::RuntimeGenesisConfig;
 pub use node_primitives::{AccountId, Balance, Signature};
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
-const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
-const STASH: Balance = ENDOWMENT / 1000;
 
 /// Node `ChainSpec` extensions.
 ///
@@ -290,7 +288,6 @@ fn configure_accounts(
 		BeefyId,
 	)>,
 	Vec<AccountId>,
-	usize,
 	Vec<Staker>,
 ) {
 	let mut endowed_accounts: Vec<AccountId> =
@@ -325,9 +322,7 @@ fn configure_accounts(
 		}))
 		.collect::<Vec<_>>();
 
-	let num_endowed_accounts = endowed_accounts.len();
-
-	(initial_authorities, endowed_accounts, num_endowed_accounts, stakers)
+	(initial_authorities, endowed_accounts, stakers)
 }
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
@@ -346,7 +341,7 @@ pub fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
 ) -> serde_json::Value {
-	let (initial_authorities, endowed_accounts, _num_endowed_accounts, stakers) =
+	let (initial_authorities, endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
 	let staking_playground_config = if cfg!(feature = "staking-playground") {

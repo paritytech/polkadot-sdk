@@ -37,8 +37,8 @@ use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
 use sp_runtime::Perbill;
 
-const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
-const STASH: Balance = ENDOWMENT / 1000;
+pub const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
+pub const STASH: Balance = ENDOWMENT / 1000;
 
 pub struct StakingPlaygroundConfig {
 	/// (Validators, Nominators)
@@ -129,7 +129,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			alice.to_account_id(),
 			endowed.clone(),
-			vec![],
+			vec![validator_staker(alice.to_account_id()), validator_staker(bob.to_account_id())],
 			None,
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchen_sink_genesis(
@@ -140,7 +140,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			)],
 			alice.to_account_id(),
 			endowed,
-			vec![],
+			vec![validator_staker(alice.to_account_id())],
 			None,
 		),
 		_ => return None,
@@ -151,6 +151,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			.expect("serialization to json is expected to work. qed.")
 			.into_bytes(),
 	)
+}
+
+pub fn validator_staker(account: AccountId) -> Staker {
+	(account.clone(), account, STASH, StakerStatus::Validator)
 }
 
 /// List of supported presets.
