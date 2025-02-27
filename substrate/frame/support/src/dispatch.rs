@@ -1215,7 +1215,7 @@ mod per_dispatch_class_tests {
 
 #[cfg(test)]
 mod test_extensions {
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use scale_info::TypeInfo;
 	use sp_runtime::{
 		impl_tx_ext_default,
