@@ -9,6 +9,7 @@ use subxt::{
 	blocks::Block, events::Events, ext::scale_value::value, tx::DynamicPayload, utils::H256,
 	OnlineClient, PolkadotConfig,
 };
+use tokio::join;
 
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
@@ -154,20 +155,17 @@ async fn wait_for_first_session_change(
 	Ok(())
 }
 
-// Helper function for retrieving the latest finalized block height and asserting it's within a
-// range.
-pub async fn assert_finalized_block_height(
+// Helper function that asserts the maximum finality lag.
+pub async fn assert_finality_lag(
 	client: &OnlineClient<PolkadotConfig>,
-	expected_range: Range<u32>,
+	maximum_lag: u32,
 ) -> Result<(), anyhow::Error> {
-	if let Some(block) = client.blocks().subscribe_finalized().await?.next().await {
-		let height = block?.number();
-		log::info!("Finalized block number {height}");
-
-		assert!(
-			expected_range.contains(&height),
-			"Finalized block number {height} not within range {expected_range:?}"
-		);
-	}
+	let mut best_stream = client.blocks().subscribe_best().await?;
+	let mut fut_stream = client.blocks().subscribe_finalized().await?;
+	let (Some(Ok(best)), Some(Ok(finalized))) = join!(best_stream.next(), fut_stream.next()) else {
+		return Err(anyhow::format_err!("Unable to fetch best an finalized block!"));
+	};
+	let finality_lag = best.number() - finalized.number();
+	assert!(finality_lag <= maximum_lag, "Expected finality to lag by a maximum of {maximum_lag} blocks, but was lagging by {finality_lag} blocks.");
 	Ok(())
 }

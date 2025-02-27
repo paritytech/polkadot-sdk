@@ -3,9 +3,7 @@
 
 use anyhow::anyhow;
 
-use crate::helpers::{
-	assert_finalized_block_height, assert_para_throughput, create_assign_core_call,
-};
+use crate::helpers::{assert_finality_lag, assert_para_throughput, create_assign_core_call};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -41,6 +39,7 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 		[(ParaId::from(PARA_ID), 8..11)].into_iter().collect(),
 	)
 	.await?;
+	assert_finality_lag(&para_node_elastic.wait_client().await?, 5).await?;
 
 	let assign_cores_call = create_assign_core_call(&[2, 3], PARA_ID);
 
@@ -59,7 +58,7 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 		[(ParaId::from(PARA_ID), 39..46)].into_iter().collect(),
 	)
 	.await?;
-	assert_finalized_block_height(&para_node_elastic.wait_client().await?, 60..80).await?;
+	assert_finality_lag(&para_node_elastic.wait_client().await?, 20).await?;
 
 	let assign_cores_call = create_assign_core_call(&[4, 5, 6], PARA_ID);
 	// Assign two extra cores to each parachain.
@@ -77,7 +76,7 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 		[(ParaId::from(PARA_ID), 55..61)].into_iter().collect(),
 	)
 	.await?;
-	assert_finalized_block_height(&para_node_elastic.wait_client().await?, 120..140).await?;
+	assert_finality_lag(&para_node_elastic.wait_client().await?, 30).await?;
 	log::info!("Test finished successfully");
 	Ok(())
 }
