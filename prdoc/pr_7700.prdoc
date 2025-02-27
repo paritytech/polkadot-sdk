@@ -1,23 +1,7 @@
 title: '[AHM] Poke deposits: Multisig pallet'
 doc:
-- audience: Todo
-  description: |-
-    # Description
-
-    * This PR adds a new extrinsic `poke_deposit` to `pallet-multisig`. This extrinsic will be used to re-adjust the deposits made in the pallet to create a multisig operation after AHM.
-    * Part of #5591
-
-    ## Review Notes
-
-    * Added a new extrinsic `poke_deposit` in `pallet-multisig`.
-    * Added a new event `DepositPoked` to be emitted upon a successful call of the extrinsic.
-    * Although the immediate use of the extrinsic will be to give back some of the deposit after the AH-migration, the extrinsic is written such that it can work if the deposit decreases or increases (both).
-    * The call to the extrinsic would be `free` if an actual adjustment is made to the deposit and `paid` otherwise.
-    * Added tests to test all scenarios.
-
-    ## TO-DOs
-    * [x] Add Benchmark
-    * [x] Run CI cmd bot to benchmark
+- audience: Runtime Dev
+  description: This PR adds a new extrinsic `poke_deposit` to `pallet-multisig`. This extrinsic will be used to re-adjust the deposits made in the pallet to create a multisig operation.
 crates:
 - name: asset-hub-rococo-runtime
   bump: major
