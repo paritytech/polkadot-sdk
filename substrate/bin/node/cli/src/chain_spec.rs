@@ -22,9 +22,8 @@ use polkadot_sdk::*;
 
 use crate::chain_spec::{sc_service::Properties, sp_runtime::AccountId32};
 use kitchensink_runtime::{
-	constants::currency::*,
-	genesis_presets::{Staker, StakingPlaygroundConfig, STASH},
-	wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
+	genesis_presets::{session_keys, Staker, StakingPlaygroundConfig, STASH},
+	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -443,12 +442,7 @@ pub(crate) mod tests {
 			.with_name("Integration Test")
 			.with_id("test")
 			.with_chain_type(ChainType::Development)
-			.with_genesis_config_patch(testnet_genesis(
-				vec![authority_keys_from_seed("Alice")],
-				vec![],
-				Sr25519Keyring::Alice.to_account_id(),
-				None,
-			))
+			.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
 			.build()
 	}
 

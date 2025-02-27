@@ -47,6 +47,7 @@ pub struct StakingPlaygroundConfig {
 	pub minimum_validator_count: u32,
 }
 
+/// The staker type as supplied ot the Staking config.
 pub type Staker = (AccountId, AccountId, Balance, StakerStatus<AccountId>);
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
@@ -126,7 +127,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			)],
 			alice.to_account_id(),
 			endowed,
-			vec![validator_staker(alice.to_account_id())],
+			vec![validator(alice.to_account_id())],
 			None,
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchen_sink_genesis(
@@ -140,7 +141,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			alice.to_account_id(),
 			endowed.clone(),
-			vec![validator_staker(alice.to_account_id()), validator_staker(bob.to_account_id())],
+			vec![validator(alice.to_account_id()), validator(bob.to_account_id())],
 			None,
 		),
 		_ => return None,
@@ -153,16 +154,18 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	)
 }
 
-pub fn validator_staker(account: AccountId) -> Staker {
-	(account.clone(), account, STASH, StakerStatus::Validator)
-}
-
 /// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
 	vec![
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
 	]
+}
+
+/// Sets up the `account` to be a staker of validator variant as supplied to the
+/// staking config.
+pub fn validator(account: AccountId) -> Staker {
+	(account.clone(), account, STASH, StakerStatus::Validator)
 }
 
 /// Extract some accounts from endowed to be put into the collective.
@@ -176,7 +179,7 @@ fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
 		.collect()
 }
 
-fn session_keys(
+pub fn session_keys(
 	grandpa: GrandpaId,
 	babe: BabeId,
 	im_online: ImOnlineId,
@@ -187,6 +190,8 @@ fn session_keys(
 	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet, beefy }
 }
 
+/// We have this method as there is no straight forward way to convert the
+/// account keyring into these ids.
 fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	session_keys(
 		get_public_from_string_or_panic::<GrandpaId>(seed),
@@ -198,9 +203,7 @@ fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	)
 }
 
-pub fn get_public_from_string_or_panic<TPublic: Public>(
-	s: &str,
-) -> <TPublic::Pair as Pair>::Public {
+fn get_public_from_string_or_panic<TPublic: Public>(s: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(s, None)
 		.expect("Function expects valid argument; qed")
 		.public()
