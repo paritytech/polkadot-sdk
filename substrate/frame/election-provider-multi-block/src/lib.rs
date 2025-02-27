@@ -2416,31 +2416,3 @@ mod admin_ops {
 		});
 	}
 }
-
-#[cfg(test)]
-mod snapshot {
-
-	#[test]
-	#[should_panic]
-	fn fetches_exact_voters() {
-		todo!("fetches correct number of voters, based on T::VoterSnapshotPerBlock");
-	}
-
-	#[test]
-	#[should_panic]
-	fn fetches_exact_targets() {
-		todo!("fetches correct number of targets, based on T::TargetSnapshotPerBlock");
-	}
-
-	#[test]
-	#[should_panic]
-	fn fingerprint_works() {
-		todo!("one hardcoded test of the fingerprint value.");
-	}
-
-	#[test]
-	#[should_panic]
-	fn snapshot_size_2second_weight() {
-		todo!()
-	}
-}

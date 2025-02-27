@@ -408,7 +408,6 @@ impl<T: MinerConfig> BaseMiner<T> {
 		paged_voters: &AllVoterPagesOf<T>,
 		snapshot_targets: &BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
 		desired_targets: u32,
-		solution_type: &str,
 	) -> Result<Vec<SupportsOfMiner<T>>, MinerError<T>> {
 		// check every solution page for feasibility.
 		let padded_voters = paged_voters.clone().pad_solution_pages(T::Pages::get());
@@ -427,14 +426,13 @@ impl<T: MinerConfig> BaseMiner<T> {
 			.map_err(|err| {
 				miner_log!(
 					warn,
-					"feasibility check failed for {} solution at: {:?}",
-					solution_type,
+					"feasibility check failed for solution at: {:?}",
 					err
 				);
 				MinerError::from(err)
 			})
 			.and_then(|supports| {
-				// TODO: Check `MaxBackersPerWinnerFinal`
+				// If we someday want to check `MaxBackersPerWinnerFinal`, it would be here.
 				Ok(supports)
 			})
 	}
@@ -453,7 +451,6 @@ impl<T: MinerConfig> BaseMiner<T> {
 			paged_voters,
 			all_targets,
 			desired_targets,
-			"mined",
 		)?;
 		let mut total_backings: BTreeMap<T::AccountId, ExtendedBalance> = BTreeMap::new();
 		all_supports.into_iter().flat_map(|x| x.0).for_each(|(who, support)| {
@@ -696,7 +693,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		let paged_solution = Self::mine_solution(Self::MINING_PAGES, reduce)
 			.map_err::<OffchainMinerError<T>, _>(Into::into)?;
 		// check the call fully, no fingerprinting.
-		let _ = Self::check_solution(&paged_solution, None, true, "mined")?;
+		let _ = Self::check_solution(&paged_solution, None, true)?;
 
 		let call: Call<T> =
 			Call::<T>::submit_unsigned { paged_solution: Box::new(paged_solution) }.into();
@@ -724,7 +721,6 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		paged_solution: &PagedRawSolution<T::MinerConfig>,
 		maybe_snapshot_fingerprint: Option<T::Hash>,
 		do_feasibility: bool,
-		solution_type: &str,
 	) -> Result<(), OffchainMinerError<T>> {
 		// NOTE: we prefer cheap checks first, so first run unsigned checks.
 		Pallet::<T>::unsigned_specific_checks(paged_solution)?;
@@ -732,7 +728,6 @@ impl<T: Config> OffchainWorkerMiner<T> {
 			paged_solution,
 			maybe_snapshot_fingerprint,
 			do_feasibility,
-			solution_type,
 		)
 	}
 
@@ -771,7 +766,6 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		paged_solution: &PagedRawSolution<T::MinerConfig>,
 		maybe_snapshot_fingerprint: Option<T::Hash>,
 		do_feasibility: bool,
-		solution_type: &str, // TODO: remove
 	) -> Result<(), OffchainMinerError<T>> {
 		let _ = crate::Pallet::<T>::snapshot_independent_checks(
 			paged_solution,
@@ -786,7 +780,6 @@ impl<T: Config> OffchainWorkerMiner<T> {
 				&voter_pages,
 				&all_targets,
 				desired_targets,
-				solution_type,
 			)?;
 		}
 
@@ -811,7 +804,6 @@ impl<T: Config> OffchainWorkerMiner<T> {
 						paged_solution,
 						Some(snapshot_fingerprint),
 						false,
-						"restored"
 					).map_err::<OffchainMinerError<T>, _>(Into::into)?;
 					Ok(call)
 				} else {
@@ -1112,7 +1104,7 @@ mod base_miner {
 			assert_eq!(paged.solution_pages.len(), 1);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true, "mined")
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
 				.unwrap();
 
 			// now do a realistic full verification
@@ -1199,7 +1191,7 @@ mod base_miner {
 			);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, false, "mined")
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, false)
 				.unwrap();
 
 			// it must also be verified in the verifier
@@ -1287,7 +1279,7 @@ mod base_miner {
 			);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true, "mined")
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
 				.unwrap();
 			// now do a realistic full verification
 			load_mock_signed_and_start(paged.clone());
@@ -1367,7 +1359,7 @@ mod base_miner {
 			);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true, "mined")
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
 				.unwrap();
 			// now do a realistic full verification.
 			load_mock_signed_and_start(paged.clone());
@@ -1432,7 +1424,7 @@ mod base_miner {
 			let paged = mine_solution(2).unwrap();
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true, "mined")
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
 				.unwrap();
 
 			assert_eq!(
@@ -1463,7 +1455,7 @@ mod base_miner {
 			);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true, "mined")
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
 				.unwrap();
 			// now do a realistic full verification.
 			load_mock_signed_and_start(paged.clone());
@@ -1564,63 +1556,6 @@ mod base_miner {
 					.unwrap()
 				);
 			})
-	}
-
-	#[test]
-	#[should_panic]
-	fn trim_backers_final_works() {
-		ExtBuilder::unsigned()
-			.max_backers_per_winner_final(3)
-			.pages(3)
-			.build_and_execute(|| {
-				roll_to_snapshot_created();
-
-				let paged = mine_full_solution().unwrap();
-				load_mock_signed_and_start(paged.clone());
-
-				// this must be correct
-				let _supports = roll_to_full_verification();
-
-				assert_eq!(
-					verifier_events(),
-					vec![
-						verifier::Event::Verified(2, 2),
-						verifier::Event::Verified(1, 2),
-						verifier::Event::Verified(0, 2),
-						verifier::Event::VerificationFailed(
-							0,
-							verifier::FeasibilityError::FailedToBoundSupport
-						)
-					]
-				);
-				todo!("miner should trim max backers final, maybe");
-
-				// assert_eq!(
-				// 	supports,
-				// 	vec![
-				// 		// 1 backing for 10
-				// 		vec![(10, Support { total: 8, voters: vec![(104, 8)] })],
-				// 		// 2 backings for 10
-				// 		vec![
-				// 			(10, Support { total: 17, voters: vec![(10, 10), (103, 7)] }),
-				// 			(40, Support { total: 40, voters: vec![(40, 40)] })
-				// 		],
-				// 		// 20 backings for 10
-				// 		vec![
-				// 			(10, Support { total: 20, voters: vec![(1, 10), (8, 10)] }),
-				// 			(
-				// 				40,
-				// 				Support {
-				// 					total: 40,
-				// 					voters: vec![(2, 10), (3, 10), (4, 10), (6, 10)]
-				// 				}
-				// 			)
-				// 		]
-				// 	]
-				// 	.try_from_unbounded_paged()
-				// 	.unwrap()
-				// );
-			});
 	}
 }
 

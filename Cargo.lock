@@ -11020,6 +11020,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
+name = "pallet-ahm-test"
+version = "1.0.0"
+dependencies = [
+ "frame-election-provider-support",
+ "frame-support",
+ "log",
+ "pallet-balances",
+ "pallet-election-provider-multi-block",
+ "pallet-session",
+ "pallet-staking",
+ "pallet-staking-ah-client",
+ "pallet-staking-rc-client",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "staging-xcm",
+]
+
+[[package]]
 name = "pallet-alliance"
 version = "27.0.0"
 dependencies = [
@@ -13119,6 +13139,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
  "scale-info",

@@ -215,26 +215,6 @@ pub struct SolutionOrSnapshotSize {
 	pub targets: u32,
 }
 
-// TODO: we are not using this anywhere.
-/// The type of `Computation` that provided this election data.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-pub enum ElectionCompute {
-	/// Election was computed on-chain.
-	OnChain,
-	/// Election was computed with a signed submission.
-	Signed,
-	/// Election was computed with an unsigned submission.
-	Unsigned,
-	/// Election was computed with emergency status.
-	Emergency,
-}
-
-impl Default for ElectionCompute {
-	fn default() -> Self {
-		ElectionCompute::OnChain
-	}
-}
-
 /// Current phase of the pallet.
 #[derive(
 	PartialEqNoBound,
