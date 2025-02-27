@@ -16,14 +16,21 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with common functionality.
 
-use crate::{AccountIdOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf};
+use crate::{
+	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, ExtBuilder, GovernanceOrigin,
+	RuntimeCallOf, RuntimeOriginOf, ValidatorIdOf,
+};
 use codec::Encode;
 use frame_support::{
 	assert_ok,
 	traits::{Get, OriginTrait},
 };
 use parachains_common::AccountId;
-use sp_runtime::traits::{Block as BlockT, StaticLookup};
+use sp_runtime::{
+	traits::{Block as BlockT, StaticLookup},
+	DispatchError, Either,
+};
+use xcm::prelude::XcmError;
 use xcm_runtime_apis::fees::{
 	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
 };
@@ -35,7 +42,7 @@ type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, StorageConstantType>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
-	runtime_call_encode: Box<dyn Fn(frame_system::Call<Runtime>) -> Vec<u8>>,
+	governance_origin: GovernanceOrigin<RuntimeOriginOf<Runtime>>,
 	storage_constant_key_value: fn() -> (Vec<u8>, StorageConstantType),
 	new_storage_constant_value: fn(&StorageConstantType) -> StorageConstantType,
 ) where
@@ -73,7 +80,7 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 
 			// encode `set_storage` call
 			let set_storage_call =
-				runtime_call_encode(frame_system::Call::<Runtime>::set_storage {
+				RuntimeCallOf::<Runtime>::from(frame_system::Call::<Runtime>::set_storage {
 					items: vec![(
 						storage_constant_key.clone(),
 						new_storage_constant_value.encode(),
@@ -81,8 +88,10 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 				});
 
 			// execute XCM with Transact to `set_storage` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(set_storage_call,)
-				.ensure_complete());
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+				set_storage_call,
+				governance_origin
+			));
 
 			// check delivery reward constant after (stored)
 			assert_eq!(StorageConstant::get(), new_storage_constant_value);
@@ -97,7 +106,7 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 pub fn set_storage_keys_by_governance_works<Runtime>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
-	runtime_call_encode: Box<dyn Fn(frame_system::Call<Runtime>) -> Vec<u8>>,
+	governance_origin: GovernanceOrigin<RuntimeOriginOf<Runtime>>,
 	storage_items: Vec<(Vec<u8>, Vec<u8>)>,
 	initialize_storage: impl FnOnce() -> (),
 	assert_storage: impl FnOnce() -> (),
@@ -123,14 +132,16 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 	});
 	runtime.execute_with(|| {
 		// encode `kill_storage` call
-		let kill_storage_call = runtime_call_encode(frame_system::Call::<Runtime>::set_storage {
-			items: storage_items.clone(),
-		});
+		let kill_storage_call =
+			RuntimeCallOf::<Runtime>::from(frame_system::Call::<Runtime>::set_storage {
+				items: storage_items.clone(),
+			});
 
 		// execute XCM with Transact to `set_storage` as governance does
-		assert_ok!(
-			RuntimeHelper::<Runtime>::execute_as_governance(kill_storage_call,).ensure_complete()
-		);
+		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+			kill_storage_call,
+			governance_origin
+		));
 	});
 	runtime.execute_with(|| {
 		assert_storage();
@@ -192,4 +203,34 @@ where
 			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), non_existent_token_versioned);
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 	});
+}
+
+/// Generic test case for Cumulus-based parachain that verifies if runtime can process
+/// `frame_system::Call::authorize_upgrade` from governance system.
+pub fn can_governance_authorize_upgrade<Runtime, RuntimeOrigin>(
+	governance_origin: GovernanceOrigin<RuntimeOrigin>,
+) -> Result<(), Either<DispatchError, XcmError>>
+where
+	Runtime: BasicParachainRuntime
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>,
+{
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// check before
+		assert!(frame_system::Pallet::<Runtime>::authorized_upgrade().is_none());
+
+		// execute call as governance does
+		let code_hash = Runtime::Hash::default();
+		let authorize_upgrade_call: <Runtime as frame_system::Config>::RuntimeCall =
+			frame_system::Call::<Runtime>::authorize_upgrade { code_hash }.into();
+		RuntimeHelper::<Runtime>::execute_as_governance_call(
+			authorize_upgrade_call,
+			governance_origin,
+		)?;
+
+		// check after
+		match frame_system::Pallet::<Runtime>::authorized_upgrade() {
+			None => Err(Either::Left(frame_system::Error::<Runtime>::NothingAuthorized.into())),
+			Some(_) => Ok(()),
+		}
+	})
 }

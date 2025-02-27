@@ -24,7 +24,7 @@ use bridge_hub_rococo_runtime::{
 	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
-use bridge_hub_test_utils::SlotDurations;
+use bridge_hub_test_utils::{GovernanceOrigin, SlotDurations};
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{AccountId, AuraId, Balance};
@@ -42,6 +42,7 @@ use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Location(Location::parent());
 }
 
 fn construct_extrinsic(
@@ -164,7 +165,11 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::initialize_bridge_by_governance_works::<
 			Runtime,
 			BridgeGrandpaWestendInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -173,7 +178,11 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_grandpa_pallet_mode_by_governance_works::<
 			Runtime,
 			BridgeGrandpaWestendInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -182,7 +191,11 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_parachains_pallet_mode_by_governance_works::<
 			Runtime,
 			BridgeParachainWestendInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -191,7 +204,11 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_messages_pallet_mode_by_governance_works::<
 			Runtime,
 			WithBridgeHubWestendMessagesInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -203,7 +220,7 @@ mod bridge_hub_westend_tests {
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::System(call).encode()),
+			Governance::get(),
 			|| (EthereumGatewayAddress::key().to_vec(), EthereumGatewayAddress::get()),
 			|_| [1; 20].into(),
 		)
@@ -219,7 +236,7 @@ mod bridge_hub_westend_tests {
 		bridge_hub_test_utils::test_cases::set_storage_keys_by_governance_works::<Runtime>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::System(call).encode()),
+			Governance::get(),
 			vec![
 				(snowbridge_pallet_outbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
 					channel_id_one,
@@ -284,7 +301,7 @@ mod bridge_hub_westend_tests {
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::System(call).encode()),
+			Governance::get(),
 			|| (DeliveryRewardInBalance::key().to_vec(), DeliveryRewardInBalance::get()),
 			|old_value| old_value.checked_mul(2).unwrap(),
 		)
@@ -536,7 +553,11 @@ mod bridge_hub_bulletin_tests {
 		bridge_hub_test_utils::test_cases::initialize_bridge_by_governance_works::<
 			Runtime,
 			BridgeGrandpaRococoBulletinInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -545,7 +566,11 @@ mod bridge_hub_bulletin_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_grandpa_pallet_mode_by_governance_works::<
 			Runtime,
 			BridgeGrandpaRococoBulletinInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -554,7 +579,11 @@ mod bridge_hub_bulletin_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_messages_pallet_mode_by_governance_works::<
 			Runtime,
 			WithRococoBulletinMessagesInstance,
-		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Governance::get(),
+		)
 	}
 
 	#[test]
@@ -716,7 +745,7 @@ fn change_required_stake_by_governance_works() {
 	>(
 		collator_session_keys(),
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| {
 			(
 				bridge_common_config::RequiredStakeForStakeAndSlash::key().to_vec(),
