@@ -590,12 +590,16 @@ impl<N> CodeHashAuthorization<N> {
 		use CodeHashAuthorization::*;
 
 		match (self, other) {
-			(ForceSetCurrentCode { para_id: a, .. }, ForceSetCurrentCode { para_id: b, .. })
-			| (ForceScheduleCodeUpgrade { para_id: a, .. }, ForceScheduleCodeUpgrade { para_id: b, .. })
-			if a == b => true,
+			(ForceSetCurrentCode { para_id: a, .. }, ForceSetCurrentCode { para_id: b, .. }) |
+			(
+				ForceScheduleCodeUpgrade { para_id: a, .. },
+				ForceScheduleCodeUpgrade { para_id: b, .. },
+			) if a == b => true,
 
-			(AddTrustedValidationCode { code_hash: a }, AddTrustedValidationCode { code_hash: b })
-			if a == b => true,
+			(
+				AddTrustedValidationCode { code_hash: a },
+				AddTrustedValidationCode { code_hash: b },
+			) if a == b => true,
 
 			_ => false,
 		}
@@ -604,9 +608,9 @@ impl<N> CodeHashAuthorization<N> {
 	/// Compares the stored `code_hash` with the hash of the provided validation code.
 	fn code_matches(&self, code: &ValidationCode) -> bool {
 		let code_hash = match self {
-			CodeHashAuthorization::ForceSetCurrentCode { code_hash, .. }
-			| CodeHashAuthorization::ForceScheduleCodeUpgrade { code_hash, .. }
-			| CodeHashAuthorization::AddTrustedValidationCode { code_hash } => code_hash,
+			CodeHashAuthorization::ForceSetCurrentCode { code_hash, .. } |
+			CodeHashAuthorization::ForceScheduleCodeUpgrade { code_hash, .. } |
+			CodeHashAuthorization::AddTrustedValidationCode { code_hash } => code_hash,
 		};
 
 		code_hash == &code.hash()
@@ -891,8 +895,11 @@ pub mod pallet {
 
 	/// The code hash authorizations which will expire `expire_at` `BlockNumberFor<T>`.
 	#[pallet::storage]
-	pub(super) type AuthorizedCodeHash<T: Config> =
-		StorageValue<_, Vec<(CodeHashAuthorization<BlockNumberFor<T>>, BlockNumberFor<T>)>, ValueQuery>;
+	pub(super) type AuthorizedCodeHash<T: Config> = StorageValue<
+		_,
+		Vec<(CodeHashAuthorization<BlockNumberFor<T>>, BlockNumberFor<T>)>,
+		ValueQuery,
+	>;
 
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
@@ -1212,8 +1219,8 @@ pub mod pallet {
 		/// Sets the storage for the authorized current code hash of the parachain.
 		/// If not applied, it will be removed at the `expire_at` block.
 		///
-		/// This can be useful, for example, when triggering `Paras::force_set_current_code(para, code)`
-		/// from a different chain than the one where the `Paras` pallet is deployed.
+		/// This can be useful, for example, when triggering `Paras::force_set_current_code(para,
+		/// code)` from a different chain than the one where the `Paras` pallet is deployed.
 		///
 		/// The main purpose is to avoid transferring the entire `code` Wasm blob between chains.
 		/// Instead, we authorize `code_hash` with `root`, which can later be applied by
@@ -1229,14 +1236,23 @@ pub mod pallet {
 			expire_at: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(expire_at > frame_system::Pallet::<T>::block_number(), Error::<T>::InvalidBlockNumber);
+			ensure!(
+				expire_at > frame_system::Pallet::<T>::block_number(),
+				Error::<T>::InvalidBlockNumber
+			);
 
-			// insert authorized code hash and make sure to overwrite existing variant `CodeHashAuthorization` for `para_id`.
+			// insert authorized code hash and make sure to overwrite existing variant
+			// `CodeHashAuthorization` for `para_id`.
 			AuthorizedCodeHash::<T>::mutate(|authorizations| {
-				authorizations.retain(|(authorization, _)| !authorization.should_be_replaced_by(&new_authorization));
+				authorizations.retain(|(authorization, _)| {
+					!authorization.should_be_replaced_by(&new_authorization)
+				});
 				authorizations.push((new_authorization.clone(), expire_at));
 			});
-			Self::deposit_event(Event::CodeAuthorized { authorization: new_authorization, expire_at });
+			Self::deposit_event(Event::CodeAuthorized {
+				authorization: new_authorization,
+				expire_at,
+			});
 
 			Ok(())
 		}
@@ -1264,9 +1280,15 @@ pub mod pallet {
 
 			// apply/dispatch
 			match authorized_code_hash {
-				CodeHashAuthorization::ForceSetCurrentCode { para_id, .. } => Self::do_force_set_current_code_update(para_id, code),
-				CodeHashAuthorization::AddTrustedValidationCode { .. } => Self::do_add_trusted_validation_code(code),
-				CodeHashAuthorization::ForceScheduleCodeUpgrade { para_id, relay_parent_number, .. } => Self::do_force_schedule_code_upgrade(para_id, code, relay_parent_number),
+				CodeHashAuthorization::ForceSetCurrentCode { para_id, .. } =>
+					Self::do_force_set_current_code_update(para_id, code),
+				CodeHashAuthorization::AddTrustedValidationCode { .. } =>
+					Self::do_add_trusted_validation_code(code),
+				CodeHashAuthorization::ForceScheduleCodeUpgrade {
+					para_id,
+					relay_parent_number,
+					..
+				} => Self::do_force_schedule_code_upgrade(para_id, code, relay_parent_number),
 			}
 
 			// if ok, then allows "for free"

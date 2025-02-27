@@ -2048,10 +2048,14 @@ fn authorize_code_hash_works() {
 		let code_2 = ValidationCode(vec![2]);
 		let code_1_hash = code_1.hash();
 		let code_2_hash = code_2.hash();
-		let authorize_force_set_current_code_1_for_para_a = CodeHashAuthorization::ForceSetCurrentCode {para_id: para_a, code_hash: code_1_hash };
-		let authorize_force_set_current_code_1_for_para_b = CodeHashAuthorization::ForceSetCurrentCode {para_id: para_b, code_hash: code_1_hash };
-		let authorize_force_set_current_code_2_for_para_a = CodeHashAuthorization::ForceSetCurrentCode {para_id: para_a, code_hash: code_2_hash };
-		let add_trusted_validation_code_1 = CodeHashAuthorization::AddTrustedValidationCode {code_hash: code_1_hash};
+		let authorize_force_set_current_code_1_for_para_a =
+			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_a, code_hash: code_1_hash };
+		let authorize_force_set_current_code_1_for_para_b =
+			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_b, code_hash: code_1_hash };
+		let authorize_force_set_current_code_2_for_para_a =
+			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_a, code_hash: code_2_hash };
+		let add_trusted_validation_code_1 =
+			CodeHashAuthorization::AddTrustedValidationCode { code_hash: code_1_hash };
 		let expire_at = 143;
 
 		// check before
@@ -2070,15 +2074,31 @@ fn authorize_code_hash_works() {
 		// cannot authorize when `expire_at` is in the past
 		System::set_block_number(expire_at + 1);
 		assert_err!(
-			Paras::authorize_code_hash(RuntimeOrigin::root(), authorize_force_set_current_code_1_for_para_a.clone(), expire_at),
+			Paras::authorize_code_hash(
+				RuntimeOrigin::root(),
+				authorize_force_set_current_code_1_for_para_a.clone(),
+				expire_at
+			),
 			Error::<Test>::InvalidBlockNumber,
 		);
 		let expire_at = expire_at + 2;
 
 		// root can authorize
-		assert_ok!(Paras::authorize_code_hash(RuntimeOrigin::root(), authorize_force_set_current_code_1_for_para_a.clone(), expire_at));
-		assert_ok!(Paras::authorize_code_hash(RuntimeOrigin::root(), authorize_force_set_current_code_1_for_para_b.clone(), expire_at));
-		assert_ok!(Paras::authorize_code_hash(RuntimeOrigin::root(), add_trusted_validation_code_1.clone(), expire_at));
+		assert_ok!(Paras::authorize_code_hash(
+			RuntimeOrigin::root(),
+			authorize_force_set_current_code_1_for_para_a.clone(),
+			expire_at
+		));
+		assert_ok!(Paras::authorize_code_hash(
+			RuntimeOrigin::root(),
+			authorize_force_set_current_code_1_for_para_b.clone(),
+			expire_at
+		));
+		assert_ok!(Paras::authorize_code_hash(
+			RuntimeOrigin::root(),
+			add_trusted_validation_code_1.clone(),
+			expire_at
+		));
 		assert_eq!(
 			AuthorizedCodeHash::<Test>::get(),
 			vec![
@@ -2089,8 +2109,16 @@ fn authorize_code_hash_works() {
 		);
 
 		// the same authorization variant is overwritten
-		assert_ok!(Paras::authorize_code_hash(RuntimeOrigin::root(), authorize_force_set_current_code_2_for_para_a.clone(), expire_at));
-		assert_ok!(Paras::authorize_code_hash(RuntimeOrigin::root(), add_trusted_validation_code_1.clone(), expire_at + 5));
+		assert_ok!(Paras::authorize_code_hash(
+			RuntimeOrigin::root(),
+			authorize_force_set_current_code_2_for_para_a.clone(),
+			expire_at
+		));
+		assert_ok!(Paras::authorize_code_hash(
+			RuntimeOrigin::root(),
+			add_trusted_validation_code_1.clone(),
+			expire_at + 5
+		));
 		assert_eq!(
 			{
 				let mut sorted = AuthorizedCodeHash::<Test>::get();
@@ -2101,7 +2129,7 @@ fn authorize_code_hash_works() {
 				let mut sorted = vec![
 					(authorize_force_set_current_code_2_for_para_a, expire_at), // changed code
 					(authorize_force_set_current_code_1_for_para_b, expire_at), // no change
-					(add_trusted_validation_code_1, expire_at + 5), // changed expire_at
+					(add_trusted_validation_code_1, expire_at + 5),             /* changed expire_at */
 				];
 				sorted.sort();
 				sorted
@@ -2118,8 +2146,10 @@ fn apply_authorized_code_works() {
 		let code_2 = ValidationCode(vec![2]);
 		let code_1_hash = code_1.hash();
 		let code_2_hash = code_2.hash();
-		let authorize_force_set_current_code_1_for_para_a = CodeHashAuthorization::ForceSetCurrentCode {para_id: para_a, code_hash: code_1_hash };
-		let add_trusted_validation_code_2 = CodeHashAuthorization::AddTrustedValidationCode {code_hash: code_2_hash};
+		let authorize_force_set_current_code_1_for_para_a =
+			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_a, code_hash: code_1_hash };
+		let add_trusted_validation_code_2 =
+			CodeHashAuthorization::AddTrustedValidationCode { code_hash: code_2_hash };
 		let expire_at = 143;
 
 		// check before
@@ -2144,12 +2174,10 @@ fn apply_authorized_code_works() {
 		);
 
 		// authorize
-		AuthorizedCodeHash::<Test>::set(
-			vec![
-				(authorize_force_set_current_code_1_for_para_a.clone(), expire_at),
-				(add_trusted_validation_code_2.clone(), expire_at),
-			]
-		);
+		AuthorizedCodeHash::<Test>::set(vec![
+			(authorize_force_set_current_code_1_for_para_a.clone(), expire_at),
+			(add_trusted_validation_code_2.clone(), expire_at),
+		]);
 
 		// cannot apply unauthorized code_2
 		assert_err!(
@@ -2169,9 +2197,7 @@ fn apply_authorized_code_works() {
 		));
 		assert_eq!(
 			AuthorizedCodeHash::<Test>::get(),
-			vec![
-				(add_trusted_validation_code_2.clone(), expire_at),
-			]
+			vec![(add_trusted_validation_code_2.clone(), expire_at),]
 		);
 
 		// cannot apply previously authorized code again
@@ -2192,16 +2218,16 @@ fn prune_expired_authorizations_works() {
 		let para_a = ParaId::from(111);
 		let code_1 = ValidationCode(vec![1]);
 		let code_1_hash = code_1.hash();
-		let authorize_force_set_current_code_1_for_para_a = CodeHashAuthorization::ForceSetCurrentCode {para_id: para_a, code_hash: code_1_hash };
-		let add_trusted_validation_code_1 = CodeHashAuthorization::AddTrustedValidationCode {code_hash: code_1_hash};
+		let authorize_force_set_current_code_1_for_para_a =
+			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_a, code_hash: code_1_hash };
+		let add_trusted_validation_code_1 =
+			CodeHashAuthorization::AddTrustedValidationCode { code_hash: code_1_hash };
 
 		// add authorizations
-		AuthorizedCodeHash::<Test>::set(
-			vec![
-				(authorize_force_set_current_code_1_for_para_a.clone(), 201),
-				(add_trusted_validation_code_1.clone(), 202),
-			]
-		);
+		AuthorizedCodeHash::<Test>::set(vec![
+			(authorize_force_set_current_code_1_for_para_a.clone(), 201),
+			(add_trusted_validation_code_1.clone(), 202),
+		]);
 
 		// nothing
 		let _ = Paras::prune_expired_authorizations(200);
@@ -2217,9 +2243,7 @@ fn prune_expired_authorizations_works() {
 		let _ = Paras::prune_expired_authorizations(201);
 		assert_eq!(
 			AuthorizedCodeHash::<Test>::get(),
-			vec![
-				(add_trusted_validation_code_1.clone(), 202),
-			]
+			vec![(add_trusted_validation_code_1.clone(), 202),]
 		);
 
 		// pruned 202
