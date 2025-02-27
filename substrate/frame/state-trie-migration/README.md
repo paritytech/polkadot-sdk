@@ -1,5 +1,8 @@
 # Substrate State Trie Migration Guide
 
+See
+docs.rs: [pallet_state_trie_migration](https://docs.rs/pallet-state-trie-migration/latest/pallet_state_trie_migration/)
+
 ### Context
 
 The [trie](https://github.com/paritytech/trie) is an abstraction that sits between the Runtime (and
@@ -130,7 +133,8 @@ runtime::state-trie-migration: [53] 🤖 migrated 9 top keys, 0 child keys, and 
 At this point, you should remove the pallet from the runtime, and you are done 🎉.
 
 > The `MigrationTask` struct that is being printed in `debug` mode contains a lot of interesting information.
-> See [the Rustdocs](https://github.com/paritytech/substrate/blob/77c15d2546276a865b6e8f1c5d4b1d0ec1961e72/frame/state-trie-migration/src/lib.rs#L143)
+>
+See [the Rustdocs](https://github.com/paritytech/substrate/blob/77c15d2546276a865b6e8f1c5d4b1d0ec1961e72/frame/state-trie-migration/src/lib.rs#L143)
 > for more info.
 
 #### 2.2 Running the signed migration.
