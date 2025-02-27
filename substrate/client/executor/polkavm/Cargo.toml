@@ -19,5 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true }
 polkavm = { workspace = true }
 
+sc-allocator = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
 sp-wasm-interface = { workspace = true, default-features = true }

@@ -58,4 +58,18 @@ pub trait Memory {
 	///
 	/// If `None` is returned, there is no maximum (besides the maximum defined in the wasm spec).
 	fn max_pages(&self) -> Option<u32>;
+
+	fn read_memory_into(&self, index: u32, buffer: &mut [u8]) -> Result<(), ()> {
+		self.with_access(|memory| {
+			buffer.copy_from_slice(&memory[index as usize..index as usize + buffer.len()]);
+			Ok(())
+		})
+	}
+
+	fn write_memory_from(&mut self, index: u32, buffer: &[u8]) -> Result<(), ()> {
+		self.with_access_mut(|memory| {
+			memory[index as usize..index as usize + buffer.len()].copy_from_slice(buffer);
+			Ok(())
+		})
+	}
 }

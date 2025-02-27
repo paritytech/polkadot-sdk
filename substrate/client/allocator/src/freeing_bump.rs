@@ -585,26 +585,18 @@ trait MemoryExt: Memory {
 	/// Read a u64 from the heap in LE form. Returns an error if any of the bytes read are out of
 	/// bounds.
 	fn read_le_u64(&self, ptr: u32) -> Result<u64, Error> {
-		self.with_access(|memory| {
-			let range =
-				heap_range(ptr, 8, memory.len()).ok_or_else(|| error("read out of heap bounds"))?;
-			let bytes = memory[range]
-				.try_into()
-				.expect("[u8] slice of length 8 must be convertible to [u8; 8]");
-			Ok(u64::from_le_bytes(bytes))
-		})
+		let mut bytes = [0u8; 8];
+		self.read_memory_into(ptr, &mut bytes)
+			.map_err(|_| error("read out of heap bounds"))?;
+		Ok(u64::from_le_bytes(bytes))
 	}
 
 	/// Write a u64 to the heap in LE form. Returns an error if any of the bytes written are out of
 	/// bounds.
 	fn write_le_u64(&mut self, ptr: u32, val: u64) -> Result<(), Error> {
-		self.with_access_mut(|memory| {
-			let range = heap_range(ptr, 8, memory.len())
-				.ok_or_else(|| error("write out of heap bounds"))?;
-			let bytes = val.to_le_bytes();
-			memory[range].copy_from_slice(&bytes[..]);
-			Ok(())
-		})
+		let bytes = val.to_le_bytes();
+		self.write_memory_from(ptr, &bytes)
+			.map_err(|_| error("write out of heap bounds"))
 	}
 
 	/// Returns the full size of the memory in bytes.

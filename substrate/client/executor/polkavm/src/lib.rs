@@ -24,6 +24,7 @@ use sc_executor_common::{
 use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
 };
+use sc_allocator::{FreeingBumpHeapAllocator, Memory};
 
 #[repr(transparent)]
 pub struct InstancePre(polkavm::InstancePre<(), String>);
@@ -34,6 +35,41 @@ pub struct Instance(polkavm::Instance<(), String>);
 impl WasmModule for InstancePre {
 	fn new_instance(&self) -> Result<Box<dyn WasmInstance>, Error> {
 		Ok(Box::new(Instance(self.0.instantiate()?)))
+	}
+}
+
+const WASM_PAGE_SIZE: u32 = 65536;
+
+impl Memory for Instance {
+	fn with_access_mut<R>(&mut self, _run: impl FnOnce(&mut [u8]) -> R) -> R {
+		unimplemented!("Raw memory access is not supported for PolkaVM");
+	}
+
+	fn with_access<R>(&self, _run: impl FnOnce(&[u8]) -> R) -> R {
+		unimplemented!("Raw memory access is not supported for PolkaVM");
+	}
+
+	fn grow(&mut self, additional: u32) -> Result<(), ()> {
+		self.0.sbrk(additional * WASM_PAGE_SIZE).map_err(|_| ())?;
+		Ok(())
+	}
+
+	fn pages(&self) -> u32 {
+		self.0.heap_size() / WASM_PAGE_SIZE
+	}
+
+	fn max_pages(&self) -> Option<u32> {
+		None
+	}
+
+	fn read_memory_into(&self, index: u32, buffer: &mut [u8]) -> Result<(), ()> {
+		self.0.read_memory_into(index, buffer).map_err(|_| ())?;
+		Ok(())
+	}
+
+	fn write_memory_from(&mut self, index: u32, buffer: &[u8]) -> Result<(), ()> {
+		self.0.write_memory(index, buffer).map_err(|_| ())?;
+		Ok(())
 	}
 }
 
