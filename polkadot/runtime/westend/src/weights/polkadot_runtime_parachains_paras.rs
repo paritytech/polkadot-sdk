@@ -294,7 +294,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 	}
 	/// Storage: `Paras::AuthorizedCodeHash` (r:1 w:1)
 	/// Proof: `Paras::AuthorizedCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn authorize_force_set_current_code_hash() -> Weight {
+	fn authorize_code_hash() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `28`
 		//  Estimated: `3493`
@@ -313,7 +313,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 	/// Storage: `Paras::CodeByHash` (r:0 w:1)
 	/// Proof: `Paras::CodeByHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `c` is `[9, 3145728]`.
-	fn apply_authorized_force_set_current_code(c: u32, ) -> Weight {
+	fn apply_authorized_code(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `126`
 		//  Estimated: `3591`

@@ -250,25 +250,28 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn authorize_force_set_current_code_hash() {
+	fn authorize_code_hash() {
 		let para_id = ParaId::from(1000);
-		let code_hash = [0; 32].into();
+		let authorization = CodeHashAuthorization::ForceSetCurrentCode {para_id, code_hash: [0; 32].into() };
+		let expire_at = frame_system::Pallet::<T>::block_number().saturating_add(BlockNumberFor::<T>::from(1_000_000_u32));
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, para_id, code_hash);
+		_(RawOrigin::Root, authorization.clone(), expire_at);
 
-		assert_last_event::<T>(Event::CodeAuthorized { para_id, code_hash }.into());
+		assert_last_event::<T>(Event::CodeAuthorized { authorization, expire_at }.into());
 	}
 
 	#[benchmark]
-	fn apply_authorized_force_set_current_code(c: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>) {
-		let new_code = ValidationCode(vec![0; c as usize]);
-		let para_id = ParaId::from(c as u32);
-		AuthorizedCodeHash::<T>::insert(&para_id, new_code.hash());
+	fn apply_authorized_code(c: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>) {
+		let code = ValidationCode(vec![0; c as usize]);
+		let para_id = ParaId::from(1000);
+		let authorization = CodeHashAuthorization::ForceSetCurrentCode {para_id, code_hash: code.hash() };
+		let expire_at = frame_system::Pallet::<T>::block_number().saturating_add(BlockNumberFor::<T>::from(c));
+		AuthorizedCodeHash::<T>::set(vec![(authorization.clone(), expire_at)]);
 		generate_disordered_pruning::<T>();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, para_id, new_code);
+		_(RawOrigin::Root, authorization, code);
 
 		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into());
 	}
