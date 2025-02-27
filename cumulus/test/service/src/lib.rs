@@ -507,6 +507,7 @@ where
 					slot_offset: Duration::from_secs(1),
 					block_import_handle: slot_based_handle,
 					spawner: task_manager.spawn_handle(),
+					export_pov: None,
 				};
 
 				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
