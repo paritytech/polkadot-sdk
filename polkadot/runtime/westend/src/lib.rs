@@ -27,7 +27,7 @@ use alloc::{
 	vec,
 	vec::Vec,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 use frame_support::{
 	derive_impl,
@@ -37,7 +37,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
 		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
+		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
 		VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
@@ -111,8 +111,8 @@ use sp_staking::SessionIndex;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
-	latest::prelude::*, VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation,
-	VersionedXcm,
+	latest::prelude::*, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
+	VersionedLocation, VersionedXcm,
 };
 use xcm_builder::PayOverXcm;
 
@@ -532,6 +532,7 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
@@ -769,9 +770,9 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
-	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
+	type Filter = Nothing;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1087,6 +1088,7 @@ parameter_types! {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	MaxEncodedLen,
 	TypeInfo,
@@ -1546,6 +1548,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type BlockNumberProvider = System;
+	type Filter = Nothing;
 }
 
 parameter_types! {
@@ -1871,6 +1874,11 @@ pub mod migrations {
 		parachains_shared::migration::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
 		pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
+		pallet_staking::migrations::v17::MigrateV16ToV17<Runtime>,
+		pallet_session::migrations::v1::MigrateV0ToV1<
+			Runtime,
+			pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
+		>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
@@ -2515,8 +2523,8 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			XcmPallet::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			XcmPallet::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
@@ -2643,6 +2651,7 @@ sp_api::impl_runtime_apis! {
 			return (list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig,
 		) -> Result<

@@ -29,7 +29,7 @@ use crate::{
 		error,
 		log_xt::log_xt_trace,
 	},
-	graph::{self, base_pool::TimedTransactionSource, ExtrinsicHash, IsValidator},
+	graph::{self, base_pool::TimedTransactionSource, EventHandler, ExtrinsicHash, IsValidator},
 	ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
@@ -64,7 +64,7 @@ where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block>,
 {
-	pool: Arc<graph::Pool<PoolApi>>,
+	pool: Arc<graph::Pool<PoolApi, ()>>,
 	api: Arc<PoolApi>,
 	revalidation_strategy: Arc<Mutex<RevalidationStrategy<NumberFor<Block>>>>,
 	revalidation_queue: Arc<revalidation::RevalidationQueue<PoolApi>>,
@@ -225,7 +225,7 @@ where
 	}
 
 	/// Gets shared reference to the underlying pool.
-	pub fn pool(&self) -> &Arc<graph::Pool<PoolApi>> {
+	pub fn pool(&self) -> &Arc<graph::Pool<PoolApi, ()>> {
 		&self.pool
 	}
 
@@ -583,10 +583,14 @@ impl<N: Clone + Copy + AtLeast32Bit> RevalidationStatus<N> {
 }
 
 /// Prune the known txs for the given block.
-pub async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block = Block>>(
+pub async fn prune_known_txs_for_block<
+	Block: BlockT,
+	Api: graph::ChainApi<Block = Block>,
+	L: EventHandler<Api>,
+>(
 	at: &HashAndNumber<Block>,
 	api: &Api,
-	pool: &graph::Pool<Api>,
+	pool: &graph::Pool<Api, L>,
 ) -> Vec<ExtrinsicHash<Api>> {
 	let extrinsics = api
 		.block_body(at.hash)

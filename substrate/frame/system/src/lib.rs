@@ -122,7 +122,7 @@ use sp_runtime::{
 };
 use sp_version::RuntimeVersion;
 
-use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 #[cfg(feature = "std")]
 use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
@@ -172,7 +172,8 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, weight_reclaim::WeightReclaim, WeightInfo as ExtensionsWeightInfo,
+	check_weight::CheckWeight, weight_reclaim::WeightReclaim,
+	weights::SubstrateWeight as SubstrateExtensionsWeight, WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
@@ -267,7 +268,18 @@ where
 /// Information about the dispatch of a call, to be displayed in the
 /// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
 /// events.
-#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Default,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+)]
 pub struct DispatchEventInfo {
 	/// Weight of this transaction.
 	pub weight: Weight,

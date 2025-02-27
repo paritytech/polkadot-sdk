@@ -80,7 +80,7 @@ use sp_core::{
 };
 
 use alloc::vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 pub mod curve;
@@ -272,7 +272,17 @@ pub type ConsensusEngineId = [u8; 4];
 
 /// Signature verify that can work with any known signature types.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Eq, PartialEq, Clone, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub enum MultiSignature {
 	/// An Ed25519 signature.
 	Ed25519(ed25519::Signature),
@@ -334,7 +344,18 @@ impl TryFrom<MultiSignature> for ecdsa::Signature {
 }
 
 /// Public key for any known crypto algorithm.
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum MultiSigner {
 	/// An Ed25519 identity.
@@ -511,7 +532,9 @@ pub type DispatchResult = core::result::Result<(), DispatchError>;
 pub type DispatchResultWithInfo<T> = core::result::Result<T, DispatchErrorWithPostInfo<T>>;
 
 /// Reason why a pallet call failed.
-#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ModuleError {
 	/// Module index, matching the metadata module index.
@@ -531,7 +554,18 @@ impl PartialEq for ModuleError {
 }
 
 /// Errors related to transactional storage layers.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TransactionalError {
 	/// Too many transactional layers have been spawned.
@@ -556,7 +590,18 @@ impl From<TransactionalError> for DispatchError {
 }
 
 /// Reason why a dispatch call failed.
-#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, PartialEq, MaxEncodedLen)]
+#[derive(
+	Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	PartialEq,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum DispatchError {
 	/// Some error occurred.
@@ -598,7 +643,9 @@ pub enum DispatchError {
 
 /// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
 /// the `Dispatchable` that is only known post dispatch.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo,
+)]
 pub struct DispatchErrorWithPostInfo<Info>
 where
 	Info: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
@@ -643,7 +690,18 @@ impl From<crate::traits::BadOrigin> for DispatchError {
 }
 
 /// Description of what went wrong when trying to complete an operation on a token.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TokenError {
 	/// Funds are unavailable.
@@ -1190,16 +1248,17 @@ mod tests {
 mod sp_core_tests {
 	use super::*;
 
+	sp_core::generate_feature_enabled_macro!(if_test, test, $);
+	sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
+
 	#[test]
 	#[should_panic]
 	fn generate_feature_enabled_macro_panics() {
-		sp_core::generate_feature_enabled_macro!(if_test, test, $);
 		if_test!(panic!("This should panic"));
 	}
 
 	#[test]
 	fn generate_feature_enabled_macro_works() {
-		sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
 		if_not_test!(panic!("This should not panic"));
 	}
 }
