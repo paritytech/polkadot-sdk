@@ -133,11 +133,14 @@ pub struct ParamsType<
 	Balance: Clone + Eq + PartialEq + Debug,
 	BlockNumber: Clone + Eq + PartialEq + Debug,
 	Ranks: Get<u32>,
+	PayoutPeriodDuration: Get<BlockNumber>,
 > {
-	/// The amounts to be paid when a member of a given rank (-1) is active.
-	pub active_salary: BoundedVec<Balance, Ranks>,
-	/// The amounts to be paid when a member of a given rank (-1) is passive.
-	pub passive_salary: BoundedVec<Balance, Ranks>,
+	/// The amounts to be paid per `PayoutPeriod` when a member of a given rank (-1) is active.
+	pub active_salary_per_period: BoundedVec<Balance, Ranks>,
+	/// The amounts to be paid per `PayoutPeriod` when a member of a given rank (-1) is passive.
+	pub passive_salary_per_period: BoundedVec<Balance, Ranks>,
+	/// The number of blocks between two payout periods.
+	pub payout_period_duration: PayoutPeriodDuration,
 	/// The period between which unproven members become demoted.
 	pub demotion_period: BoundedVec<BlockNumber, Ranks>,
 	/// The period between which members must wait before they may proceed to this rank.
@@ -154,8 +157,9 @@ impl<
 {
 	fn default() -> Self {
 		Self {
-			active_salary: Default::default(),
-			passive_salary: Default::default(),
+			active_salary_per_period: Default::default(),
+			passive_salary_per_period: Default::default(),
+			payout_period_duration: Default::default(),
 			demotion_period: Default::default(),
 			min_promotion_period: Default::default(),
 			offboard_timeout: BlockNumber::default(),
@@ -239,6 +243,12 @@ pub mod pallet {
 		/// Increasing this value is supported, but decreasing it may lead to a broken state.
 		#[pallet::constant]
 		type MaxRank: Get<u32>;
+
+		/// The number of blocks between two payout periods.
+		///
+		/// This is used to calculate the payout amount for each period.
+		#[pallet::constant]
+		type PayoutPeriodDuration: Get<BlockNumberFor<Self>>;
 	}
 
 	pub type ParamsOf<T, I> =
@@ -658,6 +668,9 @@ pub mod pallet {
 					&mut p.passive_salary,
 					partial_params.passive_salary,
 				);
+				if let Some(new_payout_period) = partial_params.payout_period_duration {
+					p.payout_period = new_payout_period;
+				}
 				Self::set_partial_params_slice(
 					&mut p.demotion_period,
 					partial_params.demotion_period,
@@ -738,9 +751,12 @@ pub mod pallet {
 				None => return Zero::zero(),
 			};
 			let params = Params::<T, I>::get();
-			let salary =
-				if member.is_active { params.active_salary } else { params.passive_salary };
-			salary[index]
+			let salary_per_period = if member.is_active {
+				params.active_salary_per_period
+			} else {
+				params.passive_salary_per_period
+			};
+			salary_per_period[index]
 		}
 	}
 }
