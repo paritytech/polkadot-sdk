@@ -72,8 +72,8 @@ use frame_support::traits::{
 
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, BadOrigin, BlockNumberProvider, CheckedSub, Saturating, StaticLookup,
-		Zero,
+		AccountIdConversion, BadOrigin, BlockNumberProvider, Bounded, CheckedSub, Saturating,
+		StaticLookup, Zero,
 	},
 	DispatchResult, RuntimeDebug,
 };
