@@ -1,14 +1,8 @@
-title: Add EventEmitter to XCM executor.
+title: Add EventEmitter to XCM Executor
 doc:
 - audience: Runtime Dev
   description: |-
-    Closes #6851
-
-    @franciscoaguirre I added the `EventEmitter` trait to the config. I have two questions on this:
-    1. I created a new file to put the trait in, is this ok?
-    2. For `EventEmitter` trait I've created a sent event function instead a generic one that emits any event, do you prefer a generic one?
-
-    Kusama address: FkB6QEo8VnV3oifugNj5NeVG3Mvq1zFbrUu4P5YwRoe5mQN
+    This PR introduces the `EventEmitter` trait to the XCM executor, allowing configurable event emission.
 crates:
 - name: pallet-xcm-bridge-hub
   bump: patch
