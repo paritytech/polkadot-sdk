@@ -21,7 +21,7 @@ use sp_runtime::impl_tx_ext_default;
 /// This type serves as a marker extension to differentiate meta-transactions from regular
 /// transactions. It implements the `TransactionExtension` trait and carries constant implicit data
 /// ("_meta_tx").
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DebugNoBound)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DebugNoBound, DecodeWithMemTracking)]
 #[scale_info(skip_type_params(T))]
 pub struct MetaTxMarker<T> {
 	_phantom: core::marker::PhantomData<T>,

@@ -1230,7 +1230,7 @@ mod test_extensions {
 	use super::{DispatchResult, PostDispatchInfo};
 
 	/// Test extension that refunds half its cost if the preset inner flag is set.
-	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo, DecodeWithMemTracking)]
 	pub struct HalfCostIf(pub bool);
 
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for HalfCostIf {
@@ -1272,7 +1272,7 @@ mod test_extensions {
 
 	/// Test extension that refunds its cost if the actual post dispatch weight up until this point
 	/// in the extension pipeline is less than the preset inner `ref_time` amount.
-	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo, DecodeWithMemTracking)]
 	pub struct FreeIfUnder(pub u64);
 
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for FreeIfUnder
@@ -1318,7 +1318,7 @@ mod test_extensions {
 
 	/// Test extension that sets its actual post dispatch `ref_time` weight to the preset inner
 	/// amount.
-	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo, DecodeWithMemTracking)]
 	pub struct ActualWeightIs(pub u64);
 
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for ActualWeightIs {

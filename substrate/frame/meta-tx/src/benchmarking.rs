@@ -30,7 +30,7 @@ pub mod types {
 	type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 	/// A weightless extension to facilitate the bare dispatch benchmark.
-	#[derive(TypeInfo, Eq, PartialEq, Clone, Encode, Decode)]
+	#[derive(TypeInfo, Eq, PartialEq, Clone, Encode, Decode, DecodeWithMemTracking)]
 	#[scale_info(skip_type_params(T))]
 	pub struct WeightlessExtension<T>(core::marker::PhantomData<T>);
 	impl<T: Config + Send + Sync> core::fmt::Debug for WeightlessExtension<T> {
