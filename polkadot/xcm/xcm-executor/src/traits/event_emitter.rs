@@ -18,43 +18,33 @@ use xcm::latest::prelude::*;
 
 /// Defines the event emitter for the XCM executor.
 pub trait EventEmitter {
-    fn emit_sent_event(
-        origin: Location,
-        destination: Location,
-        message_id: XcmHash,
-    );
+	fn emit_sent_event(origin: Location, destination: Location, message_id: XcmHash);
 
-    fn emit_send_failure_event(
-        origin: Location,
-        destination: Location,
-        error: SendError,
-        message_id: XcmHash,
-    );
-    fn emit_process_failure_event(
-        origin: Location,
-        error: XcmError,
-        message_id: XcmHash,
-    );
+	fn emit_send_failure_event(
+		origin: Location,
+		destination: Location,
+		error: SendError,
+		message_id: XcmHash,
+	);
+	fn emit_process_failure_event(origin: Location, error: XcmError, message_id: XcmHash);
 }
 
 impl EventEmitter for () {
-    fn emit_sent_event(
-        _origin: Location,
-        _destination: Location,
-        _message: Xcm<()>,
-        _message_id: XcmHash,
-    ) {}
+	fn emit_sent_event(
+		_origin: Location,
+		_destination: Location,
+		_message: Xcm<()>,
+		_message_id: XcmHash,
+	) {
+	}
 
-    fn emit_sent_failure_event(
-        _origin: Location,
-        _destination: Location,
-        _error: SendError,
-        _message_id: XcmHash,
-    ) {}
+	fn emit_sent_failure_event(
+		_origin: Location,
+		_destination: Location,
+		_error: SendError,
+		_message_id: XcmHash,
+	) {
+	}
 
-    fn emit_process_failure_event(
-        _origin: Location,
-        _error: XcmError,
-        _message_id: XcmHash
-    ) {}
+	fn emit_process_failure_event(_origin: Location, _error: XcmError, _message_id: XcmHash) {}
 }

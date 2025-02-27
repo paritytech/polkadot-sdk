@@ -61,9 +61,9 @@ use xcm_builder::{
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
-		DropAssets, EventEmitter, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
-		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
-		XcmAssetTransfers,
+		DropAssets, EventEmitter, MatchesFungible, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, RecordXcm, TransactAsset, TransferType, VersionChangeNotifier,
+		WeightBounds, XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
@@ -404,10 +404,10 @@ pub mod pallet {
 
 	impl<T: Config> EventEmitter for Pallet<T> {
 		fn emit_sent_event(
-		origin: Location,
-		destination: Location,
-		message: Xcm<()>,
-		message_id: XcmHash,
+			origin: Location,
+			destination: Location,
+			message: Xcm<()>,
+			message_id: XcmHash,
 		) {
 			Self::deposit_event(Event::XcmExecutorSent { origin, destination, message_id });
 		}
@@ -418,14 +418,10 @@ pub mod pallet {
 			error: SendError,
 			message_id: XcmHash,
 		) {
-            Self::deposit_event(Event::SentFailed { origin, destination, error, message_id });
-        }
+			Self::deposit_event(Event::SentFailed { origin, destination, error, message_id });
+		}
 
-		fn emit_process_failure_event(
-			origin: Location,
-			error: XcmError,
-			message_id: XcmHash,
-		) {
+		fn emit_process_failure_event(origin: Location, error: XcmError, message_id: XcmHash) {
 			Self::deposit_event(Event::ProcessXcmError { origin, error, message_id });
 		}
 	}
@@ -438,7 +434,12 @@ pub mod pallet {
 		/// A XCM message was sent.
 		Sent { origin: Location, destination: Location, message: Xcm<()>, message_id: XcmHash },
 		/// A XCM message failed to be sent.
-		SentFailed { origin: Location, destination: Location, error: SendError, message_id: XcmHash },
+		SentFailed {
+			origin: Location,
+			destination: Location,
+			error: SendError,
+			message_id: XcmHash,
+		},
 		/// Process XCM message failed.
 		ProcessXcmError { origin: Location, error: XcmError, message_id: XcmHash },
 		/// Query response received which does not match a registered query. This may be because a

@@ -34,7 +34,7 @@ use xcm::latest::{prelude::*, AssetTransferFilter};
 pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, ExportXcm, EventEmitter, FeeManager, FeeReason, HandleHrmpChannelAccepted,
+	DropAssets, Enact, EventEmitter, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
@@ -845,7 +845,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					});
 					if let Err(e) = inst_res {
 						tracing::trace!(target: "xcm::execute", "!!! ERROR: {:?}", e);
-						Config::XcmEventEmitter::emit_process_failure_event(self.original_origin.clone(), e.clone(), self.context.message_id);
+						Config::XcmEventEmitter::emit_process_failure_event(
+							self.original_origin.clone(),
+							e.clone(),
+							self.context.message_id,
+						);
 						*r = Err(ExecutorError {
 							index: i as u32,
 							xcm_error: e,

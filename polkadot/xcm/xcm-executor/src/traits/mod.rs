@@ -49,9 +49,9 @@ mod hrmp;
 pub use hrmp::{
 	HandleHrmpChannelAccepted, HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest,
 };
+mod event_emitter;
 mod record_xcm;
 mod weight;
-mod event_emitter;
 pub use event_emitter::EventEmitter;
 
 pub use record_xcm::RecordXcm;
@@ -62,10 +62,10 @@ pub use weight::{WeightBounds, WeightTrader};
 pub mod prelude {
 	pub use super::{
 		export_xcm, validate_export, AssetExchange, AssetLock, ClaimAssets, ConvertOrigin,
-		DropAssets, Enact, Error, EventEmitter, ExportXcm, FeeManager, FeeReason, LockError, MatchesFungible,
-		MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse, ProcessTransaction,
-		ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
-		WithOriginFilter,
+		DropAssets, Enact, Error, EventEmitter, ExportXcm, FeeManager, FeeReason, LockError,
+		MatchesFungible, MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse,
+		ProcessTransaction, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds,
+		WeightTrader, WithOriginFilter,
 	};
 	#[allow(deprecated)]
 	pub use super::{Identity, JustTry};
