@@ -1,0 +1,64 @@
+title: Add EventEmitter to XCM executor.
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes #6851
+
+    @franciscoaguirre I added the `EventEmitter` trait to the config. I have two questions on this:
+    1. I created a new file to put the trait in, is this ok?
+    2. For `EventEmitter` trait I've created a sent event function instead a generic one that emits any event, do you prefer a generic one?
+
+    Kusama address: FkB6QEo8VnV3oifugNj5NeVG3Mvq1zFbrUu4P5YwRoe5mQN
+crates:
+- name: pallet-xcm-bridge-hub
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: rococo-parachain-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: pallet-xcm-benchmarks
+  bump: patch
+- name: pallet-xcm
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
+- name: xcm-runtime-apis
+  bump: patch
+- name: xcm-simulator-example
+  bump: patch
+- name: pallet-contracts-mock-network
+  bump: patch
+- name: pallet-revive-mock-network
+  bump: patch
+- name: bridge-runtime-common
+  bump: patch
+- name: pallet-bridge-grandpa
+  bump: patch
+- name: pallet-bridge-messages
+  bump: patch
