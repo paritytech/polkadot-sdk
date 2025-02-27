@@ -1,35 +1,54 @@
 # Substrate State Trie Migration Guide
 
-> Contact @cheme or @kianenigma for questions and support.
-
 ### Context
 
-The [trie](https://github.com/paritytech/trie) is an abstraction that sits between the Runtime (and its [Overlays](https://paritytech.github.io/substrate/master/sp_state_machine/struct.OverlayedChanges.html)) and the actual database, providing an important abstraction to the blockchain, namely storage proofs and state roots.
+The [trie](https://github.com/paritytech/trie) is an abstraction that sits between the Runtime (and
+its [Overlays](https://paritytech.github.io/substrate/master/sp_state_machine/struct.OverlayedChanges.html)) and the
+actual database, providing an important abstraction to the blockchain, namely storage proofs and state roots.
 
-The trie format has changed since [this pull request](https://github.com/paritytech/substrate/pull/9732)(#9732) in substrate. The main new difference is, that nodes that contain values larger than 256 bits will **not** storage the value itself, but rather store the **hash of that value**. The value itself, is consequently stored in the node that lives in the path traversed by this new hash.
+The trie format has changed since [this pull request](https://github.com/paritytech/substrate/pull/9732)(#9732) in
+substrate. The main new difference is, that nodes that contain values larger than 256 bits will **not** storage the
+value itself, but rather store the **hash of that value**. The value itself, is consequently stored in the node that
+lives in the path traversed by this new hash.
 
-The main benefit of this optimization is better PoV (proof of validity) size for parachains, since large values are moved out of the common trie paths.
+The main benefit of this optimization is better PoV (proof of validity) size for parachains, since large values are
+moved out of the common trie paths.
 
-The new trie has been included in Polkadot client since release [v0.9.16](https://github.com/paritytech/polkadot/releases/tag/v0.9.16). Although, new new trie format is not yet enabled. This is only done once `state_version` in `RuntimeVersion` is set to `1`. Once set to `1`, the trie works in a hybrid format, meaning that no migration is needed. Instead, migration is done lazily on the fly. Any storage key that's written to will be migrated, if needed. This means that a part of all chain's state is will migrated to the new format pretty soon after setting `state_version` to `1`.
+The new trie has been included in Polkadot client since
+release [v0.9.16](https://github.com/paritytech/polkadot/releases/tag/v0.9.16). Although, new new trie format is not yet
+enabled. This is only done once `state_version` in `RuntimeVersion` is set to `1`. Once set to `1`, the trie works in a
+hybrid format, meaning that no migration is needed. Instead, migration is done lazily on the fly. Any storage key that's
+written to will be migrated, if needed. This means that a part of all chain's state is will migrated to the new format
+pretty soon after setting `state_version` to `1`.
 
-Nonetheless, it might take a long time for all chain's entire state to be migrated to the new format. The sooner this happens, the better, since the lazy migration is a small overhead. Moreover, this hybrid/lazy state mode does not support warp-sync and state import/export.
+Nonetheless, it might take a long time for all chain's entire state to be migrated to the new format. The sooner this
+happens, the better, since the lazy migration is a small overhead. Moreover, this hybrid/lazy state mode does not
+support warp-sync and state import/export.
 
-To do this faster, we have developed [`pallet-state-trie-migration`](https://github.com/paritytech/substrate/blob/master/frame/state-trie-migration/src/lib.rs). This pallet is a configurable background task that starts reading and writing all keys in the storage based on some given schedule, until they are all read, ergo migrated. This pallet can be deployed to a runtime to make sure all keys are read/written once, to ensure that all trie nodes are migrated to the new format.
+To do this faster, we have developed [
+`pallet-state-trie-migration`](https://github.com/paritytech/substrate/blob/master/frame/state-trie-migration/src/lib.rs).
+This pallet is a configurable background task that starts reading and writing all keys in the storage based on some
+given schedule, until they are all read, ergo migrated. This pallet can be deployed to a runtime to make sure all keys
+are read/written once, to ensure that all trie nodes are migrated to the new format.
 
-All substrate-based chains are advised to switch their `state_version` to `1`, and use this pallet to migrate to the new trie format as soon as they can. Switching the `state_version` will enable the hybrid, lazy migration mode, and this pallet will speed up the migration process.
+All substrate-based chains are advised to switch their `state_version` to `1`, and use this pallet to migrate to the new
+trie format as soon as they can. Switching the `state_version` will enable the hybrid, lazy migration mode, and this
+pallet will speed up the migration process.
 
 ### pallet-state-trie-migration: How to Deploy.
 
-First, please read the documentation of the this pallet. Here, we recap the steps needed to use the migration pallet. To give a brief recap, we suggest:
+First, please read the documentation of the this pallet. Here, we recap the steps needed to use the migration pallet. To
+give a brief recap, we suggest:
 
-1.  Parachains to use the signed migration, as it allows more control.
-2.  Relay/solo chains to use the automatic migration, as it is easier.
+1. Parachains to use the signed migration, as it allows more control.
+2. Relay/solo chains to use the automatic migration, as it is easier.
 
 Nonetheless, the safest possible option is to always use the signed migration.
 
 #### 1\. Adding the pallet to the runtime
 
-The following documented snippet shows the parameters that need to be decided upon in your chain in order to configure this pallet. Note that the values below are simply an example, and the exact value for each chain would vary.
+The following documented snippet shows the parameters that need to be decided upon in your chain in order to configure
+this pallet. Note that the values below are simply an example, and the exact value for each chain would vary.
 
 ```rust=
 use pallet_state_trie_migration::MigrationLimits;
@@ -53,23 +72,31 @@ impl pallet_state_trie_migration::Config for Runtime {
 }
 ```
 
-You also need to include the pallet in your `contruct_runtime!`, and `define_benchmarks!`. **Don't forget to update `type WeightInfo` once you have realistic weights**!
+You also need to include the pallet in your `contruct_runtime!`, and `define_benchmarks!`. **Don't forget to
+update `type WeightInfo` once you have realistic weights**!
 
 #### 2.1 Running the automatic migration.
 
-To run the automatic migration, you need to use the `ControlOrigin` to set 1 storage value that determines how much resources should be used per block. Once you set this, the pallet will automatically migrate enough items `on_initialize` of all the following blocks, until all keys are migrated.
+To run the automatic migration, you need to use the `ControlOrigin` to set 1 storage value that determines how much
+resources should be used per block. Once you set this, the pallet will automatically migrate enough items
+`on_initialize` of all the following blocks, until all keys are migrated.
 
-> `on_initialize` might go over the limits provided, because we can never know the real size of a key before reading it, at which point it is actually too late. Thus, it should NOT be used in a parachain.
+> `on_initialize` might go over the limits provided, because we can never know the real size of a key before reading it,
+> at which point it is actually too late. Thus, it should NOT be used in a parachain.
 
-> If you are sure you want to do the migration this way, you should set `SignedFilter` such that no account can call the manual signed migrations, just in case.
+> If you are sure you want to do the migration this way, you should set `SignedFilter` such that no account can call the
+> manual signed migrations, just in case.
 
-Let's look at `substrate-node --dev --execution Native -lruntime::state-trie-migration=debug` chain that includes this pallet. Initially, the logs don't show anything relevant.
+Let's look at `substrate-node --dev --execution Native -lruntime::state-trie-migration=debug` chain that includes this
+pallet. Initially, the logs don't show anything relevant.
 
-Here is an example of a sudo transaction that kicks of the migration with a maximum of 8 items and 4kb of data per block:
+Here is an example of a sudo transaction that kicks of the migration with a maximum of 8 items and 4kb of data per
+block:
 
 ![](https://i.imgur.com/uE6PBRu.png)
 
-> If at any point you need to stop the migration, the same transaction can be used, instead this time you have to set the value to `None`, as such:
+> If at any point you need to stop the migration, the same transaction can be used, instead this time you have to set
+> the value to `None`, as such:
 
 ![](https://i.imgur.com/RnNG3An.png)
 
@@ -102,37 +129,58 @@ runtime::state-trie-migration: [53] 🤖 migrated 9 top keys, 0 child keys, and 
 
 At this point, you should remove the pallet from the runtime, and you are done 🎉.
 
-> The `MigrationTask` struct that is being printed in `debug` mode contains a lot of interesting information. See [the Rustdocs](https://github.com/paritytech/substrate/blob/77c15d2546276a865b6e8f1c5d4b1d0ec1961e72/frame/state-trie-migration/src/lib.rs#L143) for more info.
+> The `MigrationTask` struct that is being printed in `debug` mode contains a lot of interesting information.
+> See [the Rustdocs](https://github.com/paritytech/substrate/blob/77c15d2546276a865b6e8f1c5d4b1d0ec1961e72/frame/state-trie-migration/src/lib.rs#L143)
+> for more info.
 
 #### 2.2 Running the signed migration.
 
-Next, let's look at how we can do the migration using the signed submissions. For this, we have developed a basic bot in the [`polkadot-scripts`](https://github.com/paritytech/polkadot-scripts/blob/master/src/services/state_trie_migration.ts) repo.
+Next, let's look at how we can do the migration using the signed submissions. For this, we have developed a basic bot in
+the [
+`polkadot-scripts`](https://github.com/paritytech/polkadot-scripts/blob/master/src/services/state_trie_migration.ts)
+repo.
 
-First, the signed migrations have a configuration very similar to that of automatic migration, to dictate the maximum amount of data that can be migrated in each signed transaction. This can be set using [`set_signed_max_limits`](https://github.com/paritytech/substrate/blob/77c15d2546276a865b6e8f1c5d4b1d0ec1961e72/frame/state-trie-migration/src/lib.rs#L717), which sets the storage item `SignedMigrationMaxLimits`. If not set, signed submissions are not allowed at all.
+First, the signed migrations have a configuration very similar to that of automatic migration, to dictate the maximum
+amount of data that can be migrated in each signed transaction. This can be set using [
+`set_signed_max_limits`](https://github.com/paritytech/substrate/blob/77c15d2546276a865b6e8f1c5d4b1d0ec1961e72/frame/state-trie-migration/src/lib.rs#L717),
+which sets the storage item `SignedMigrationMaxLimits`. If not set, signed submissions are not allowed at all.
 
-This bot is just an example of how the signed migration can be done, and is a mere ~100 LoC. You are welcome to alter, fork, or re-write this bot based on your chain's need.
+This bot is just an example of how the signed migration can be done, and is a mere ~100 LoC. You are welcome to alter,
+fork, or re-write this bot based on your chain's need.
 
-> For example, this bot will always wait for the previous transaction to reach *full finalization*, and then submit again. You might want to change this to speed things up.
+> For example, this bot will always wait for the previous transaction to reach *full finalization*, and then submit
+> again. You might want to change this to speed things up.
 
 The bot takes 3 arguments:
 
-1.  `count`: the count of transactions to send: this is useful if you want to manually control the bot, for a short amount of time. For example, one execution will only send 10 transactions and terminate. If not set, the bot will work indefinitely until finished.
-2.  `item-limit`: the limit on the number of items that the bot tries to migrate per transaction.
-3.  `size-limit`: the limit on the size of the itmes that the bot tries to migrate per transaction.
+1. `count`: the count of transactions to send: this is useful if you want to manually control the bot, for a short
+   amount of time. For example, one execution will only send 10 transactions and terminate. If not set, the bot will
+   work indefinitely until finished.
+2. `item-limit`: the limit on the number of items that the bot tries to migrate per transaction.
+3. `size-limit`: the limit on the size of the itmes that the bot tries to migrate per transaction.
 
-Also, the [`continue_migrate`](https://github.com/paritytech/substrate/blob/77c15d2546276a865b6e8f1c5d4b1d0ec1961e72/frame/state-trie-migration/src/lib.rs#L536) transaction, which the bot submits, expects an upper bound on thte size of data migrated, aside from `item-limit`. For this, bot will alwasy use `item-limit * 2`.
+Also, the [
+`continue_migrate`](https://github.com/paritytech/substrate/blob/77c15d2546276a865b6e8f1c5d4b1d0ec1961e72/frame/state-trie-migration/src/lib.rs#L536)
+transaction, which the bot submits, expects an upper bound on thte size of data migrated, aside from `item-limit`. For
+this, bot will alwasy use `item-limit * 2`.
 
 These parameters should be parsed as follows:
 
-> With each transaction, the bot is making a bet that migrating the next `item-limit` will not consume more `2 * size-limit` bytes of data.
+> With each transaction, the bot is making a bet that migrating the next `item-limit` will not consume more
+`2 * size-limit` bytes of data.
 
-It would be futile for the bot to actually submit transactions to find the answer to this bet, since it costs money. Therefore, the bot uses the unsafe `dryRun` RPC endpoint to make sure the above assumption is met.
+It would be futile for the bot to actually submit transactions to find the answer to this bet, since it costs money.
+Therefore, the bot uses the unsafe `dryRun` RPC endpoint to make sure the above assumption is met.
 
-If the `dryRun` fails, the bot will re-try with **halving the `item-limit`**. If `item-limit` reaches `0`, it means that the next key that needs to be migrated is larger than `2 * size-limit` and the bot needs to be re-executed with a larger `size-limit`. This could happen if for example the next key that needs to be migrated is e.g. the `:code:`.
+If the `dryRun` fails, the bot will re-try with **halving the `item-limit`**. If `item-limit` reaches `0`, it means that
+the next key that needs to be migrated is larger than `2 * size-limit` and the bot needs to be re-executed with a larger
+`size-limit`. This could happen if for example the next key that needs to be migrated is e.g. the `:code:`.
 
-> Also, note that your provded `size-limit` and `item-limit` should be less than the aforemented `SignedMigrationMaxLimits`.
+> Also, note that your provded `size-limit` and `item-limit` should be less than the aforemented
+`SignedMigrationMaxLimits`.
 
-With all of this, let's finally see an example. `substrate-node` is configured to allow any signed account so submit the sined migration, so we don't need to alter it.
+With all of this, let's finally see an example. `substrate-node` is configured to allow any signed account so submit the
+sined migration, so we don't need to alter it.
 
 First, we submit the sudo call to set `SignedMigrationMaxLimits`:
 
@@ -140,7 +188,9 @@ First, we submit the sudo call to set `SignedMigrationMaxLimits`:
 
 Then, we run the same `--dev` node as before, with `-lruntime::state-trie-migration=debug`.
 
-Then, in `polkadot-scripts` we run `yarn run start state-trie-migration -w ws://localhost:7777 --item-limit 16 --size-limit 4096`. The size and item limit that we pass here should be less than the values set for `SignedMigrationMaxLimits`.
+Then, in `polkadot-scripts` we run
+`yarn run start state-trie-migration -w ws://localhost:7777 --item-limit 16 --size-limit 4096`. The size and item limit
+that we pass here should be less than the values set for `SignedMigrationMaxLimits`.
 
 On the node, you should see similar logs as before, and in the bot something like:
 
@@ -173,9 +223,11 @@ On the node, you should see similar logs as before, and in the bot something lik
 💸 spent 0 on submission
 ```
 
-> Note that the transaction should refund the entire fee, if successful. The bot will double check this and prints the difference between its balance before and after the submission.
+> Note that the transaction should refund the entire fee, if successful. The bot will double check this and prints the
+> difference between its balance before and after the submission.
 
-As you see, sometimes be bot decided to halve the number of items that get migrated, in order to meet the size limit. Unfortunately, if you run this script against a `--dev` node, you will eventually fail with:
+As you see, sometimes be bot decided to halve the number of items that get migrated, in order to meet the size limit.
+Unfortunately, if you run this script against a `--dev` node, you will eventually fail with:
 
 ```
 🎬 current task is {"progressTop":{"lastKey":"0x3a2d6c9353500637d8f8e3e0fa0bb1c5ba7fb8745735dc3be2a2c61a72c39e78"},"progressChild":{"toStart":null},"size":2565,"topItems":83,"childItems":0}
@@ -193,18 +245,22 @@ As you see, sometimes be bot decided to halve the number of items that get migra
 Can't even migrate one storage key. Aborting
 ```
 
-This is because our bot is configured to allow at most 4KB of data, while the the next storeg item is more than that. So, even converting a single storage is too much.
+This is because our bot is configured to allow at most 4KB of data, while the the next storeg item is more than that.
+So, even converting a single storage is too much.
 
-To figure out the actual size of the next storage item, we can look into the node logs. This is because the `dryRun` RPC tried to execute the migratio of this next key, and in there we can see some detail about how many bytes it was:
+To figure out the actual size of the next storage item, we can look into the node logs. This is because the `dryRun` RPC
+tried to execute the migratio of this next key, and in there we can see some detail about how many bytes it was:
 
 ```
 🤖 running migrations on top of MigrationTask { top: Last: 3a2d6c9353500637d8f8e3e0fa0bb1c5ba7fb8745735dc3be2a2c61a72c39e78, child: To start, dyn_top_items: 0, dyn_child_items: 0, dyn_size: 0, size: 2565, top_items: 83, child_items: 0 } until MigrationLimits { size: 4096, item: 1 }
 🤖 finished with MigrationTask { top: Last: 3a636f6465, child: To start, dyn_top_items: 1, dyn_child_items: 0, dyn_size: 1189420, size: 1191985, top_items: 84, child_items: 0 }
 ```
 
-In fact, `3a636f6465` is the key for `:code:`, and based on the `dyn_size`, we see that it was `1189420` bytes, which is a reasonable size.
+In fact, `3a636f6465` is the key for `:code:`, and based on the `dyn_size`, we see that it was `1189420` bytes, which is
+a reasonable size.
 
-To go passed this key, we need to first alter `SignedMigrationMaxLimits` to allow for this amount of data to be migrated:
+To go passed this key, we need to first alter `SignedMigrationMaxLimits` to allow for this amount of data to be
+migrated:
 
 ![](https://i.imgur.com/6smjDwN.png)
 
@@ -216,7 +272,8 @@ Next, we re-run the bot with an item limit largest than this, and we command it 
 
 And we should be able to go passed the previous key now.
 
-> The main lesson here is that `SignedMigrationMaxLimits` should be such that `:code:`, or whatever is the largets storage item, can be migrated as well.
+> The main lesson here is that `SignedMigrationMaxLimits` should be such that `:code:`, or whatever is the largets
+> storage item, can be migrated as well.
 
 to be cautious, we continue running with the previous configs, namely:
 
@@ -224,10 +281,12 @@ to be cautious, we continue running with the previous configs, namely:
 yarn run start state-trie-migration -w ws://localhost:7777 --item-limit 16 --size-limit 4096
 ```
 
-And the migration should end without any further issues 🎉. The bot will automatically quite once it detects the end of the migration.
+And the migration should end without any further issues 🎉. The bot will automatically quite once it detects the end of
+the migration.
 
-Note that you can alternatively use this transactions to re-configure the signed migration to skip certain, keys, but we don't cover that here.
+Note that you can alternatively use this transactions to re-configure the signed migration to skip certain, keys, but we
+don't cover that here.
 
-At any point in the migration, you can use thie PRC endpoint to query how many furhter keys need to be upgrade. 
+At any point in the migration, you can use thie PRC endpoint to query how many furhter keys need to be upgrade.
 
-[](https://i.imgur.com/rSwfIMx.png)
+![](https://i.imgur.com/rSwfIMx.png)
