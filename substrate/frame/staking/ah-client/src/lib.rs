@@ -77,7 +77,10 @@ pub mod pallet {
 	use polkadot_primitives::Id as ParaId;
 	use polkadot_runtime_parachains::origin::{ensure_parachain, Origin};
 	use sp_runtime::Perbill;
-	use sp_staking::{offence::OnOffenceHandler, SessionIndex};
+	use sp_staking::{
+		offence::{OffenceSeverity, OnOffenceHandler},
+		SessionIndex,
+	};
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -249,18 +252,22 @@ pub mod pallet {
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
-			let offenders_and_slashes = offenders
-				.iter()
-				.cloned()
-				.zip(slash_fraction)
-				.map(|(offence, fraction)| {
-					Offence::new(
-						offence.offender.0.into(),
-						offence.reporters.into_iter().map(|r| r.into()).collect(),
-						*fraction,
-					)
-				})
-				.collect::<Vec<_>>();
+			let mut offenders_and_slashes = Vec::new();
+
+			// notify pallet-session about the offences
+			for (offence, fraction) in offenders.iter().cloned().zip(slash_fraction) {
+				<pallet_session::Pallet<T>>::report_offence(
+					offence.offender.0.clone(),
+					OffenceSeverity(*fraction),
+				);
+
+				// prepare an `Offence` instance for the XCM message
+				offenders_and_slashes.push(Offence::new(
+					offence.offender.0.into(),
+					offence.reporters.into_iter().map(|r| r.into()).collect(),
+					*fraction,
+				));
+			}
 
 			// send the offender immediately over xcm
 			let message = Xcm(vec![
