@@ -1022,6 +1022,9 @@ async fn libp2p_idle_to_libp2p_substream() {
 					SwarmEvent::ConnectionEstablished { .. } => {
 						peerstore_lhs.add_known_peer(libp2p_rhs_peer.into());
 					},
+					SwarmEvent::ConnectionClosed { .. } => {
+					    panic!("Connection should not be closed by the keep-alive mechanism");
+					}
 					SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen { set_id, negotiated_fallback, received_handshake, notifications_sink, .. }) => {
 						assert_eq!(set_id, SetId::from(0usize));
 						assert_eq!(received_handshake, vec![1, 2, 3, 4]);
