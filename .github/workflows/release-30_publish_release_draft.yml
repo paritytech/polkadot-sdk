@@ -25,7 +25,7 @@ jobs:
     if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
     runs-on: ubuntu-latest
     outputs:
-      release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
+        release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
 
     steps:
       - name: Checkout sources
@@ -54,9 +54,9 @@ jobs:
     needs: [ validate-inputs ]
     uses: "./.github/workflows/release-srtool.yml"
     with:
-      excluded_runtimes: "asset-hub-rococo bridge-hub-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first"
-      build_opts: "--features on-chain-release-build"
-      profile: production
+       excluded_runtimes: "asset-hub-rococo bridge-hub-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first"
+       build_opts: "--features on-chain-release-build"
+       profile: production
     permissions:
       id-token: write
       attestations: write
@@ -125,10 +125,10 @@ jobs:
         id: generate_write_token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
-          private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-          owner: paritytech
-          repositories: polkadot-sdk
+            app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
+            private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
+            owner: paritytech
+            repositories: polkadot-sdk
 
       - name: Create draft release
         id: create-release
@@ -167,10 +167,10 @@ jobs:
         id: generate_write_token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
-          private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-          owner: paritytech
-          repositories: polkadot-sdk
+            app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
+            private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
+            owner: paritytech
+            repositories: polkadot-sdk
 
       - name: Upload compressed ${{ matrix.chain }} v${{ env.SPEC }} wasm
         env:
@@ -213,10 +213,10 @@ jobs:
         id: generate_write_token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
-          private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-          owner: paritytech
-          repositories: polkadot-sdk
+            app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
+            private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
+            owner: paritytech
+            repositories: polkadot-sdk
 
       - name: Upload ${{ matrix.binary }} binary to release draft
         env:
