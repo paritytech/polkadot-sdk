@@ -70,7 +70,7 @@ parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choice
 parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
 parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
 parser_bench.add_argument('--env-vars', help='Environmental variables in KEY=VALUE format, only used to run the frame-omni-bencher command', nargs='*', default=[])
-parser_bench.add_argument('extra_flags', help='Extra flags for the frame-omni-bencher command')
+parser_bench.add_argument('extra_flags', help='Extra flags for the frame-omni-bencher command', nargs=argparse.REMAINDER)
 
 
 """
@@ -226,6 +226,8 @@ def main():
                         output_path = xcm_path
                 
                 env_vars = " ".join(args.env_vars + [runtime['bench_env_vars']])
+                # Notice that extra_args can override some default args, like --steps or --repeat,
+                # since Python only considers the last occurence as valid in such cases.
                 extra_flags = " ".join(args.extra_flags + [runtime['bench_flags']])
 
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
