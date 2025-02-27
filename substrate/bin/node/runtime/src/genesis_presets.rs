@@ -115,7 +115,7 @@ pub fn testnet_genesis(
 			members: collective.iter().cloned().map(|member| (member, STASH)).collect(),
 		},
 		technical_committee: TechnicalCommitteeConfig { members: collective },
-		sudo: SudoConfig { key: Some(root_key.clone()) },
+		sudo: SudoConfig { key: Some(root_key) },
 		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		society: SocietyConfig { pot: 0 },
 		assets: AssetsConfig {
