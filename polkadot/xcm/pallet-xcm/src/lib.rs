@@ -436,16 +436,16 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Execution of an XCM message was attempted.
 		Attempted { outcome: xcm::latest::Outcome },
-		/// A XCM message was sent.
+		/// An XCM message was sent.
 		Sent { origin: Location, destination: Location, message: Xcm<()>, message_id: XcmHash },
-		/// A XCM message failed to be sent.
+		/// An XCM message failed to send.
 		SentFailed {
 			origin: Location,
 			destination: Location,
 			error: SendError,
 			message_id: XcmHash,
 		},
-		/// Process XCM message failed.
+		/// An XCM message failed to process.
 		ProcessXcmError { origin: Location, error: XcmError, message_id: XcmHash },
 		/// Query response received which does not match a registered query. This may be because a
 		/// matching query was never registered, it may be because it is a duplicate response, or
