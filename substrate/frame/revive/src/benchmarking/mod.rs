@@ -2024,7 +2024,8 @@ mod benchmarks {
 		const MISALIGNMENT: u64 = 60;
 
 		// We only need one address per cache line.
-		const NUM_ADDRESSES: u64 = (MEMORY_SIZE - MISALIGNMENT) / CACHE_LINE_SIZE;
+		// -1 because we skip the first address
+		const NUM_ADDRESSES: u64 = (MEMORY_SIZE - MISALIGNMENT) / CACHE_LINE_SIZE - 1;
 
 		assert!(
 			u64::from(r) <= NUM_ADDRESSES / 2,
@@ -2046,8 +2047,9 @@ mod benchmarks {
 
 		// Create all possible addresses and shuffle them. This makes sure
 		// the accesses are random but no address is accessed more than once.
+		// we skip the first address since it is out entry point
 		let mut addresses = Vec::with_capacity(NUM_ADDRESSES as usize);
-		for i in 0..NUM_ADDRESSES {
+		for i in 1..NUM_ADDRESSES {
 			let addr = (misaligned_base + i * CACHE_LINE_SIZE).to_le_bytes();
 			addresses.push(addr);
 		}
