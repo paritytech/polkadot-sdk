@@ -131,9 +131,7 @@ async fn setup_litep2p() -> (Litep2p, NotificationHandle) {
 		true,
 	);
 
-	let keypair = litep2p::crypto::ed25519::Keypair::generate();
 	let config1 = Litep2pConfigBuilder::new()
-		.with_keypair(keypair)
 		.with_tcp(TcpConfig {
 			listen_addresses: vec!["/ip6/::1/tcp/0".parse().unwrap()],
 			..Default::default()
