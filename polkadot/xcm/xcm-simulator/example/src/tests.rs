@@ -34,9 +34,9 @@ fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 /// assert!(system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. })));
 /// ```
 macro_rules! system_contains_event {
-    ($module:ident, $variant:ident($($pattern:tt)*)) => {
-        $module::System::events().iter().any(|e| {
-            matches!(e.event, $module::RuntimeEvent::$variant($($pattern)*))
+    ($runtime:ident, $variant:ident($($pattern:tt)*)) => {
+        $runtime::System::events().iter().any(|e| {
+            matches!(e.event, $runtime::RuntimeEvent::$variant($($pattern)*))
         })
     };
 }
