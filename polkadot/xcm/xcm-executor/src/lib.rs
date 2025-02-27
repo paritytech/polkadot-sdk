@@ -445,9 +445,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Config::XcmEventEmitter::emit_sent_event(
 					self.original_origin.clone(),
 					dest,
-					message_id.clone(),
 					Xcm::default(), /* Avoid logging the full XCM message to prevent
 					                 * inconsistencies and reduce storage usage. */
+					message_id.clone(),
 				);
 				Ok(message_id)
 			},

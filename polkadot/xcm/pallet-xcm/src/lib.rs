@@ -406,8 +406,8 @@ pub mod pallet {
 		fn emit_sent_event(
 			origin: Location,
 			destination: Location,
-			message_id: XcmHash,
 			message: Xcm<()>,
+			message_id: XcmHash,
 		) {
 			Self::deposit_event(Event::Sent { origin, destination, message, message_id });
 		}
