@@ -76,7 +76,7 @@ pub fn testnet_genesis(
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::<Vec<_>>(),
+			balances: endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect(),
 			..Default::default()
 		},
 		session: SessionConfig {
@@ -96,7 +96,7 @@ pub fn testnet_genesis(
 						),
 					)
 				})
-				.collect::<Vec<_>>(),
+				.collect(),
 		},
 		staking: StakingConfig {
 			validator_count,
@@ -112,7 +112,7 @@ pub fn testnet_genesis(
 			dev_stakers: staking_playground_config.map(|c| c.dev_stakers).unwrap_or(None)
 		},
 		elections: ElectionsConfig {
-			members: collective.iter().cloned().map(|member| (member, STASH)).collect::<Vec<_>>(),
+			members: collective.iter().cloned().map(|member| (member, STASH)).collect(),
 		},
 		technical_committee: TechnicalCommitteeConfig { members: collective },
 		sudo: SudoConfig { key: Some(root_key.clone()) },
