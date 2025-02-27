@@ -64,11 +64,11 @@ pub fn testnet_genesis(
 	stakers: Vec<Staker>,
 	staking_playground_config: Option<StakingPlaygroundConfig>,
 ) -> serde_json::Value {
-	let (validator_count, min_validator_count) = match staking_playground_config {
-		Some(ref c) => (c.validator_count, c.minimum_validator_count),
+	let (validator_count, min_validator_count, dev_stakers) = match staking_playground_config {
+		Some(c) => (c.validator_count, c.minimum_validator_count, c.dev_stakers),
 		None => {
 			let authorities_count = initial_authorities.len() as u32;
-			(authorities_count, authorities_count)
+			(authorities_count, authorities_count, None)
 		},
 	};
 
@@ -109,7 +109,7 @@ pub fn testnet_genesis(
 				.expect("too many authorities"),
 			slash_reward_fraction: Perbill::from_percent(10),
 			stakers,
-			dev_stakers: staking_playground_config.map(|c| c.dev_stakers).unwrap_or(None)
+			dev_stakers
 		},
 		elections: ElectionsConfig {
 			members: collective.iter().cloned().map(|member| (member, STASH)).collect(),
