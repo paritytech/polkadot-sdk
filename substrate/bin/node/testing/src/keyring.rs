@@ -56,6 +56,22 @@ pub fn ferdie() -> AccountId {
 	Sr25519Keyring::Ferdie.into()
 }
 
+/// Convert keyrings into `SessionKeys`.
+///
+/// # Panics
+///
+/// Function will panic when invalid string is provided.
+pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
+	SessionKeys {
+		grandpa: get_public_from_string_or_panic::<ed25519::Public>(seed).into(),
+		babe: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		im_online: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		authority_discovery: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		mixnet: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		beefy: get_public_from_string_or_panic::<ecdsa::Public>(seed).into(),
+	}
+}
+
 /// Returns transaction extra.
 pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 	(

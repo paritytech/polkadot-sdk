@@ -20,9 +20,8 @@
 
 use crate::keyring::*;
 use kitchensink_runtime::{
-	constants::currency::*, genesis_config_presets::session_keys_from_seed, AccountId,
-	AssetsConfig, BalancesConfig, IndicesConfig, RuntimeGenesisConfig, SessionConfig,
-	SocietyConfig, StakerStatus, StakingConfig,
+	constants::currency::*, AccountId, AssetsConfig, BalancesConfig, IndicesConfig,
+	RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig,
 };
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{BoundedVec, Perbill};
