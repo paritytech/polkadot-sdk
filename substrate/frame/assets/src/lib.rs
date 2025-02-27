@@ -171,10 +171,7 @@ extern crate alloc;
 
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{
-		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, HasDecodeWithMemTrackingCompact, Saturating,
-		StaticLookup, Zero,
-	},
+	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, TokenError,
 };
 
@@ -251,6 +248,7 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{AccountTouch, ContainsPair},
@@ -319,7 +317,7 @@ pub mod pallet {
 		/// The units in which we record balances.
 		type Balance: Member
 			+ Parameter
-			+ HasDecodeWithMemTrackingCompact
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ AtLeast32BitUnsigned
 			+ Default
 			+ Copy

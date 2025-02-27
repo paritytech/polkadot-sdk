@@ -145,7 +145,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{
-	traits::{DispatchInfoOf, HasDecodeWithMemTrackingCompact, PostDispatchInfoOf},
+	traits::{DispatchInfoOf, PostDispatchInfoOf},
 	transaction_validity::TransactionValidityError,
 };
 use sp_weights::{RuntimeDbWeight, Weight};
@@ -291,6 +291,7 @@ pub struct DispatchEventInfo {
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
+	use codec::HasCompact;
 	use frame_support::pallet_prelude::*;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -530,7 +531,7 @@ pub mod pallet {
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter
-			+ HasDecodeWithMemTrackingCompact
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Member
 			+ MaybeSerializeDeserialize
 			+ Debug

@@ -61,11 +61,6 @@ pub use transaction_extension::{
 	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
 };
 
-/// A structure that has an associated compact type that implements `DecodeWithMemTracking`.
-pub trait HasDecodeWithMemTrackingCompact: HasCompact<Type: DecodeWithMemTracking> {}
-
-impl<T> HasDecodeWithMemTrackingCompact for T where T: HasCompact<Type: DecodeWithMemTracking> {}
-
 /// A lazy value.
 pub trait Lazy<T: ?Sized> {
 	/// Get a reference to the underlying value.
@@ -1191,7 +1186,7 @@ pub trait BlockNumber:
 	+ MaxEncodedLen
 	+ FullCodec
 	+ DecodeWithMemTracking
-	+ HasDecodeWithMemTrackingCompact
+	+ HasCompact<Type: DecodeWithMemTracking>
 {
 }
 
@@ -1211,7 +1206,7 @@ impl<
 			+ MaxEncodedLen
 			+ FullCodec
 			+ DecodeWithMemTracking
-			+ HasDecodeWithMemTrackingCompact,
+			+ HasCompact<Type: DecodeWithMemTracking>,
 	> BlockNumber for T
 {
 }

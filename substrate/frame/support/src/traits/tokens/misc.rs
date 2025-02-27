@@ -18,12 +18,12 @@
 //! Miscellaneous types.
 
 use crate::{traits::Contains, TypeInfo};
-use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use core::fmt::Debug;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
 use sp_runtime::{
-	traits::{Convert, HasDecodeWithMemTrackingCompact, MaybeSerializeDeserialize},
+	traits::{Convert, MaybeSerializeDeserialize},
 	ArithmeticError, DispatchError, TokenError,
 };
 
@@ -262,7 +262,7 @@ pub trait Balance:
 	AtLeast32BitUnsigned
 	+ FullCodec
 	+ DecodeWithMemTracking
-	+ HasDecodeWithMemTrackingCompact
+	+ HasCompact<Type: DecodeWithMemTracking>
 	+ Copy
 	+ Default
 	+ Debug
@@ -278,7 +278,7 @@ impl<
 		T: AtLeast32BitUnsigned
 			+ FullCodec
 			+ DecodeWithMemTracking
-			+ HasDecodeWithMemTrackingCompact
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Copy
 			+ Default
 			+ Debug

@@ -42,7 +42,7 @@ use rand_chacha::{
 };
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
-	traits::{HasDecodeWithMemTrackingCompact, SaturatedConversion, StaticLookup, Zero},
+	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent, Saturating,
 };
 
@@ -71,6 +71,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -121,7 +122,7 @@ pub mod pallet {
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
 			+ DecodeWithMemTracking
-			+ HasDecodeWithMemTrackingCompact
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Copy
 			+ MaybeSerializeDeserialize
 			+ core::fmt::Debug

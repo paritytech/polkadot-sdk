@@ -180,8 +180,8 @@ use scale_info::TypeInfo;
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, HasDecodeWithMemTrackingCompact,
-		MaybeSerializeDeserialize, Saturating, StaticLookup, Zero,
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
+		StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
@@ -203,6 +203,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
@@ -270,7 +271,7 @@ pub mod pallet {
 			+ Member
 			+ AtLeast32BitUnsigned
 			+ Codec
-			+ HasDecodeWithMemTrackingCompact
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Default
 			+ Copy
 			+ MaybeSerializeDeserialize
