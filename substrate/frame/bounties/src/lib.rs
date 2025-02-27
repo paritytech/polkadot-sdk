@@ -224,10 +224,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self, I>>;
 
-		/// Optional bounty duration in blocks.
+		/// The period that starts when a curator is approved, during which they must execute or
+		/// update the bounty via `extend_bounty_expiry`. If missed, the bounty expires, and the
+		/// curator may be slashed.
 		///
 		/// If `None`, bounties stay active indefinitely, removing the need for
-		/// `extend_bounty_expiry` and restricting curator slashing to OpenGov.
+		/// `extend_bounty_expiry`.
 		#[pallet::constant]
 		type BountyUpdatePeriod: Get<Option<BlockNumberFor<Self, I>>>;
 
@@ -435,6 +437,7 @@ pub mod pallet {
 					bounty.value <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
 				);
+				println!("bounty: {:?}", bounty);
 				match bounty.status {
 					BountyStatus::Funded => {},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
@@ -575,7 +578,7 @@ pub mod pallet {
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
-
+				println!("bounty: {:?}", bounty);
 				match bounty.status {
 					BountyStatus::CuratorProposed { ref curator } => {
 						ensure!(signer == *curator, Error::<T, I>::RequireCurator);
@@ -584,9 +587,10 @@ pub mod pallet {
 						T::Currency::reserve(curator, deposit)?;
 						bounty.curator_deposit = deposit;
 
-						let update_due = Self::treasury_block_number() +
+						let update_due = Self::treasury_block_number().saturating_add(
 							T::BountyUpdatePeriod::get()
-								.unwrap_or(BlockNumberFor::<T, I>::max_value());
+								.unwrap_or(BlockNumberFor::<T, I>::max_value()),
+						);
 						bounty.status =
 							BountyStatus::Active { curator: curator.clone(), update_due };
 
