@@ -586,11 +586,13 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 	for new_relay_parent in new_relay_parents.iter().cloned() {
 		let disabled_validators: HashSet<_> =
-			polkadot_node_subsystem_util::runtime::get_disabled_validators_with_fallback(
-				ctx.sender(),
+			polkadot_node_subsystem_util::request_disabled_validators(
 				new_relay_parent,
+				ctx.sender(),
 			)
 			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
 			.map_err(JfyiError::FetchDisabledValidators)?
 			.into_iter()
 			.collect();

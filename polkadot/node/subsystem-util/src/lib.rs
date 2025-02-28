@@ -53,7 +53,6 @@ use polkadot_primitives::{
 	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 pub use rand;
-use runtime::get_disabled_validators_with_fallback;
 use sp_application_crypto::AppCrypto;
 use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
@@ -488,12 +487,7 @@ impl Validator {
 
 		let validators = validators?;
 
-		// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-		// When `DisabledValidators` is released remove this and add a
-		// `request_disabled_validators` call here
-		let disabled_validators = get_disabled_validators_with_fallback(sender, parent)
-			.await
-			.map_err(|e| Error::try_from(e).expect("the conversion is infallible; qed"))?;
+		let disabled_validators = request_disabled_validators(parent, sender).await.await??;
 
 		Self::construct(&validators, &disabled_validators, signing_context, keystore)
 	}
