@@ -43,7 +43,7 @@ use libp2p::{
 	core::{InboundUpgrade, OutboundUpgrade, UpgradeInfo},
 	PeerId,
 };
-use log::{error, warn};
+use log::{debug, error, warn};
 use unsigned_varint::codec::UviBytes;
 
 use std::{
@@ -486,7 +486,7 @@ where
 					);
 				},
 				Err(error) => {
-					warn!(
+					debug!(
 						target: "sub-libp2p",
 						"Error while reading from `NotificationsOutSubstream` peer={:?} error={error:?}",
 						this.peer_id
