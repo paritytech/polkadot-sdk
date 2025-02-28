@@ -194,6 +194,7 @@ pub fn session_keys(
 /// We have this method as there is no straight forward way to convert the
 /// account keyring into these ids.
 pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
+	use sp_core::crypto::get_public_from_string_or_panic;
 	session_keys(
 		get_public_from_string_or_panic::<GrandpaId>(seed),
 		get_public_from_string_or_panic::<BabeId>(seed),
@@ -202,10 +203,4 @@ pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 		get_public_from_string_or_panic::<MixnetId>(seed),
 		get_public_from_string_or_panic::<BeefyId>(seed),
 	)
-}
-
-fn get_public_from_string_or_panic<TPublic: Public>(s: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(s, None)
-		.expect("Function expects valid argument; qed")
-		.public()
 }
