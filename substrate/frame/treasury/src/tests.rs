@@ -112,11 +112,12 @@ impl Pay for TestPay {
 	type Error = ();
 
 	fn pay(
-		who: &Self::Beneficiary,
+		_: &Self::Beneficiary,
+		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		PAID.with(|paid| *paid.borrow_mut().entry((*who, asset_kind)).or_default() += amount);
+		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
 		Ok(LAST_ID.with(|lid| {
 			let x = *lid.borrow();
 			lid.replace(x + 1);

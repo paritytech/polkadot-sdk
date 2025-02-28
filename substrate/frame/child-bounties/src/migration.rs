@@ -90,7 +90,7 @@ pub mod v1 {
 				let old_child_bounty_account =
 					Self::old_child_bounty_account_id(old_child_bounty_id);
 				let new_child_bounty_account =
-					Pallet::<T>::child_bounty_account_id(parent_bounty_id, new_child_bounty_id);
+					Pallet::<T>::native_child_bounty_account_id(parent_bounty_id, new_child_bounty_id);
 				let old_balance = T::Currency::free_balance(&old_child_bounty_account);
 				log::info!(
 					"Transferring {:?} funds from old child bounty account {:?} to new child bounty account {:?}",

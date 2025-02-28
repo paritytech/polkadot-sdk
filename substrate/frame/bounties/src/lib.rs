@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO: update docs
 //! # Bounties Module ( pallet-bounties )
 //!
 //! ## Bounty
@@ -87,78 +88,130 @@
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod migrations;
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 mod tests;
 pub mod weights;
+pub use pallet::*;
+pub use weights::WeightInfo;
 
 extern crate alloc;
-
-use alloc::vec::Vec;
-
-use frame_support::traits::{
-	Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced, ReservableCurrency,
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use frame_support::{
+	dispatch::{DispatchResult, DispatchResultWithPostInfo},
+	dispatch_context::with_context,
+	pallet_prelude::*,
+	traits::{
+		tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
+		Currency, EnsureOrigin, Get, OnUnbalanced, ReservableCurrency,
+	},
 };
-
-use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
-	DispatchResult, Permill, RuntimeDebug,
-};
-
-use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
-
-use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
 };
 use scale_info::TypeInfo;
-pub use weights::WeightInfo;
+use sp_runtime::{
+	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
+	Permill, RuntimeDebug,
+};
 
-pub use pallet::*;
-
-type BalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
-
-type PositiveImbalanceOf<T, I = ()> = pallet_treasury::PositiveImbalanceOf<T, I>;
+type DepositBalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
+type BountyBalanceOf<T, I = ()> = pallet_treasury::AssetBalanceOf<T, I>;
+type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>;
+type PaymentIdOf<T, I = ()> = <<T as pallet_treasury::Config<I>>::Paymaster as Pay>::Id;
 
 /// An index of a bounty. Just a `u32`.
 pub type BountyIndex = u32;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-
+type BountyOf<T, I> = Bounty<
+	<T as frame_system::Config>::AccountId,
+	DepositBalanceOf<T, I>,
+	BountyBalanceOf<T, I>,
+	BlockNumberFor<T, I>,
+	<T as pallet_treasury::Config<I>>::AssetKind,
+	PaymentIdOf<T, I>,
+	<T as pallet_treasury::Config<I>>::Beneficiary,
+>;
+type BountyStatusOf<T, I> = BountyStatus<
+	<T as frame_system::Config>::AccountId,
+	BlockNumberFor<T, I>,
+	PaymentIdOf<T, I>,
+	<T as pallet_treasury::Config<I>>::Beneficiary,
+>;
 type BlockNumberFor<T, I = ()> =
 	<<T as pallet_treasury::Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<AccountId, Balance, BlockNumber> {
+pub struct Bounty<
+	AccountId,
+	NativeBalance,
+	BountyBalance,
+	BlockNumber,
+	AssetKind,
+	PaymentId,
+	Beneficiary,
+> where
+	Beneficiary: Clone,
+	PaymentId: Clone,
+{
 	/// The account proposing it.
 	proposer: AccountId,
-	/// The (total) amount that should be paid if the bounty is rewarded.
-	value: Balance,
-	/// The curator fee. Included in value.
-	fee: Balance,
+	// TODO: new filed, migration required.
+	/// The kind of asset this bounty is rewarded in.
+	pub asset_kind: AssetKind,
+	/// The (total) amount of the `asset_kind` that should be paid if the bounty is rewarded.
+	value: BountyBalance,
+	/// The curator fee in the `asset_kind`. Included in value.
+	fee: BountyBalance,
 	/// The deposit of curator.
-	curator_deposit: Balance,
+	///
+	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
+	curator_deposit: NativeBalance,
 	/// The amount held on deposit (reserved) for making this proposal.
-	bond: Balance,
+	///
+	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
+	bond: NativeBalance,
 	/// The status of this bounty.
-	status: BountyStatus<AccountId, BlockNumber>,
+	status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
 
-impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone>
-	Bounty<AccountId, Balance, BlockNumber>
+impl<
+		AccountId: PartialEq + Clone + Ord,
+		NativeBalance,
+		BountyBalance,
+		BlockNumber: Clone,
+		AssetKind,
+		PaymentId: Clone,
+		Beneficiary: Clone,
+	> Bounty<AccountId, NativeBalance, BountyBalance, BlockNumber, AssetKind, PaymentId, Beneficiary>
 {
 	/// Getter for bounty status, to be used for child bounties.
-	pub fn get_status(&self) -> BountyStatus<AccountId, BlockNumber> {
+	pub fn get_status(&self) -> BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 		self.status.clone()
 	}
 }
 
+// TODO: breaking changes to the stored type, migration required.
+
 /// The status of a bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum BountyStatus<AccountId, BlockNumber> {
+pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>
+where
+	Beneficiary: Clone,
+	PaymentId: Clone,
+{
 	/// The bounty is proposed and waiting for approval.
 	Proposed,
-	/// The bounty is approved and waiting to become active at next spend period.
-	Approved,
+	/// The bounty is approved and waiting to confirm the funds allocation.
+	Approved {
+		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
+		/// the bounty account.
+		///
+		/// Once the payment is confirmed, the bounty will transition to either
+		/// [`BountyStatus::Funded`]
+		payment_status: PaymentState<PaymentId>,
+	},
 	/// The bounty is funded and waiting for curator assignment.
 	Funded,
 	/// A curator has been proposed. Waiting for acceptance from the curator.
@@ -170,6 +223,8 @@ pub enum BountyStatus<AccountId, BlockNumber> {
 	Active {
 		/// The curator of this bounty.
 		curator: AccountId,
+		/// The curator's stash account used as a fee destination.
+		curator_stash: Beneficiary,
 		/// An update from the curator is due by this block, else they are considered inactive.
 		update_due: BlockNumber,
 	},
@@ -177,16 +232,57 @@ pub enum BountyStatus<AccountId, BlockNumber> {
 	PendingPayout {
 		/// The curator of this bounty.
 		curator: AccountId,
+		/// The curator's stash account used as a fee destination.
+		curator_stash: Beneficiary,
 		/// The beneficiary of the bounty.
-		beneficiary: AccountId,
+		beneficiary: Beneficiary,
 		/// When the bounty can be claimed.
 		unlock_at: BlockNumber,
 	},
-	/// The bounty is approved with curator assigned.
+	/// The bounty is approved with a curator and waiting to confirm the funds allocation.
 	ApprovedWithCurator {
 		/// The assigned curator of this bounty.
 		curator: AccountId,
+		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
+		/// the bounty account.
+		///
+		/// Once the payment is confirmed, the bounty will transition to
+		/// [`BountyStatus::CuratorProposed`], depending on the value
+		payment_status: PaymentState<PaymentId>,
 	},
+	/// The bounty payout has been attempted.
+	///
+	/// In case of a failed payout, the payout can be retried. Once the payout is successful, the
+	/// bounty is completed and removed from the storage.
+	PayoutAttempted {
+		/// The curator of this bounty.
+		curator: AccountId,
+		/// The curator's stash account with the payout status.
+		curator_stash: (Beneficiary, PaymentState<PaymentId>),
+		/// The beneficiary's stash account with the payout status.
+		beneficiary: (Beneficiary, PaymentState<PaymentId>),
+	},
+	/// The bounty is closed, and the funds are being refunded to the original source (e.g.,
+	/// Treasury).
+	RefundAttempted {
+		/// The refund status.
+		///
+		/// Once the refund is successful, the bounty is removed from the storage.
+		payment_status: PaymentState<PaymentId>,
+	},
+}
+
+/// The state of the payment claim.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+pub enum PaymentState<Id> {
+	/// Pending claim.
+	Pending,
+	/// Payment attempted with a payment identifier.
+	Attempted { id: Id },
+	/// Payment failed.
+	Failed,
+	/// Payment succeeded.
+	Succeeded,
 }
 
 /// The child bounty manager.
@@ -213,9 +309,13 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
+		// TODO: since we break the API with this iteration it may be reasonable to migrate to
+		// `Considerations` and remove old config parameters relater to deposits. This is optional
+		// for current PR.
+
 		/// The amount held on deposit for placing a bounty proposal.
 		#[pallet::constant]
-		type BountyDepositBase: Get<BalanceOf<Self, I>>;
+		type BountyDepositBase: Get<DepositBalanceOf<Self, I>>;
 
 		/// The delay period for which a bounty beneficiary need to wait before claim the payout.
 		#[pallet::constant]
@@ -234,19 +334,22 @@ pub mod pallet {
 
 		/// Maximum amount of funds that should be placed in a deposit for making a proposal.
 		#[pallet::constant]
-		type CuratorDepositMax: Get<Option<BalanceOf<Self, I>>>;
+		type CuratorDepositMax: Get<Option<DepositBalanceOf<Self, I>>>;
 
 		/// Minimum amount of funds that should be placed in a deposit for making a proposal.
 		#[pallet::constant]
-		type CuratorDepositMin: Get<Option<BalanceOf<Self, I>>>;
+		type CuratorDepositMin: Get<Option<DepositBalanceOf<Self, I>>>;
 
 		/// Minimum value for a bounty.
 		#[pallet::constant]
-		type BountyValueMinimum: Get<BalanceOf<Self, I>>;
+		type BountyValueMinimum: Get<DepositBalanceOf<Self, I>>;
 
 		/// The amount held on deposit per byte within the tip report reason or bounty description.
 		#[pallet::constant]
-		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
+		type DataDepositPerByte: Get<DepositBalanceOf<Self, I>>;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
@@ -262,7 +365,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The child bounty manager.
-		type ChildBountyManager: ChildBountyManager<BalanceOf<Self, I>>;
+		type ChildBountyManager: ChildBountyManager<BountyBalanceOf<Self, I>>;
 
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
@@ -293,6 +396,18 @@ pub mod pallet {
 		HasActiveChildBounty,
 		/// Too many approvals are already queued.
 		TooManyQueued,
+		/// There was issue with funding the bounty
+		FundingError,
+		/// Bounty funding has not concluded yet
+		FundingInconclusive,
+		/// There was issue paying out the bounty
+		PayoutError,
+		/// No progress in payouts was made
+		PayoutInconclusive,
+		/// There was issue with refunding the bounty
+		RefundError,
+		/// No progress was made processing a refund
+		RefundInconclusive,
 	}
 
 	#[pallet::event]
@@ -301,13 +416,18 @@ pub mod pallet {
 		/// New bounty proposal.
 		BountyProposed { index: BountyIndex },
 		/// A bounty proposal was rejected; funds were slashed.
-		BountyRejected { index: BountyIndex, bond: BalanceOf<T, I> },
+		BountyRejected { index: BountyIndex, bond: DepositBalanceOf<T, I> },
 		/// A bounty proposal is funded and became active.
 		BountyBecameActive { index: BountyIndex },
 		/// A bounty is awarded to a beneficiary.
-		BountyAwarded { index: BountyIndex, beneficiary: T::AccountId },
+		BountyAwarded { index: BountyIndex, beneficiary: T::Beneficiary },
 		/// A bounty is claimed by beneficiary.
-		BountyClaimed { index: BountyIndex, payout: BalanceOf<T, I>, beneficiary: T::AccountId },
+		BountyClaimed {
+			index: BountyIndex,
+			asset_kind: T::AssetKind,
+			asset_payout: BountyBalanceOf<T, I>,
+			beneficiary: T::Beneficiary,
+		},
 		/// A bounty is cancelled.
 		BountyCanceled { index: BountyIndex },
 		/// A bounty expiry is extended.
@@ -328,54 +448,78 @@ pub mod pallet {
 
 	/// Bounties that have been made.
 	#[pallet::storage]
-	pub type Bounties<T: Config<I>, I: 'static = ()> = StorageMap<
-		_,
-		Twox64Concat,
-		BountyIndex,
-		Bounty<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T, I>>,
-	>;
+	pub type Bounties<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, BountyIndex, BountyOf<T, I>>;
 
 	/// The description of each bounty.
 	#[pallet::storage]
 	pub type BountyDescriptions<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, BoundedVec<u8, T::MaximumReasonLength>>;
 
+	// Tiago: how to remove if it is used in migrations/v4.rs?
+	// TODO: most probably wont be needed, review and remove if not needed.
 	/// Bounty indices that have been approved but not yet funded.
 	#[pallet::storage]
 	#[allow(deprecated)]
 	pub type BountyApprovals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<BountyIndex, T::MaxApprovals>, ValueQuery>;
 
+	#[derive(Default)]
+	struct SpendContext<Balance> {
+		spend_in_context: BTreeMap<Balance, Balance>,
+	}
+
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Propose a new bounty.
 		///
+		/// ## Dispatch Origin
 		/// The dispatch origin for this call must be _Signed_.
 		///
-		/// Payment: `TipReportDepositBase` will be reserved from the origin account, as well as
-		/// `DataDepositPerByte` for each byte in `reason`. It will be unreserved upon approval,
-		/// or slashed when rejected.
+		/// ## Details
+		/// - A deposit will be reserved from the origin account, as well as `DataDepositPerByte`
+		///   for each byte in `description`. It will be unreserved upon approval, or slashed when
+		///   rejected.
 		///
-		/// - `curator`: The curator account whom will manage this bounty.
-		/// - `fee`: The curator fee.
+		/// ### Parameters
+		/// - `asset_kind`: An indicator of the specific asset class to be spent.
 		/// - `value`: The total payment amount of this bounty, curator fee included.
 		/// - `description`: The description of this bounty.
+		///
+		/// ## Events
+		/// Emits [`Event::BountyProposed`] if successful.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::propose_bounty(description.len() as u32))]
 		pub fn propose_bounty(
 			origin: OriginFor<T>,
-			#[pallet::compact] value: BalanceOf<T, I>,
+			asset_kind: Box<T::AssetKind>,
+			// Tiago: I propose just using pallet_treasury::AssetBalanceOf<T, I>.
+			#[pallet::compact] value: BountyBalanceOf<T, I>,
 			description: Vec<u8>,
 		) -> DispatchResult {
 			let proposer = ensure_signed(origin)?;
-			Self::create_bounty(proposer, description, value)?;
+			Self::create_bounty(proposer, description, *asset_kind, value)?;
 			Ok(())
 		}
 
-		/// Approve a bounty proposal. At a later time, the bounty will be funded and become active
-		/// and the original deposit will be returned.
+		/// Approves a bounty proposal, transfering funds from the treasury to the bounty account.
 		///
-		/// May only be called from `T::SpendOrigin`.
+		/// ## Dispatch Origin
+		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least
+		/// the converted native amount of the bounty. The bounty value is validated
+		/// against the maximum spendable amount of the [`Config::SpendOrigin`].
+		///
+		/// ## Details
+		/// - The bounty must be in the `Proposed` state.
+		/// - The `SpendOrigin` must have sufficient permissions to approve the bounty.
+		/// - If the payment is successful, the bounty status will be updated to `Funded` and the
+		/// original deposit will be returned.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The index of the bounty to be approved.
+		///
+		/// ## Events
+		/// Emits [`Event::BountyApproved`] if successful.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -388,16 +532,45 @@ pub mod pallet {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let native_amount =
+					<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+						bounty.value,
+						bounty.asset_kind.clone(),
+					)
+					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(
-					bounty.value <= max_amount,
+					native_amount <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
 				);
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
 
-				bounty.status = BountyStatus::Approved;
+				// Tiago: is this the best way to use the SpendContext?
+				with_context::<SpendContext<DepositBalanceOf<T, I>>, _>(|v| {
+					let context = v.or_default();
+					let spend = context.spend_in_context.entry(max_amount).or_default();
 
-				BountyApprovals::<T, I>::try_append(bounty_id)
-					.map_err(|()| Error::<T, I>::TooManyQueued)?;
+					if spend.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
+						Err(pallet_treasury::Error::<T, I>::InsufficientPermission)
+					} else {
+						*spend = spend.saturating_add(native_amount);
+						Ok(())
+					}
+				})
+				.unwrap_or(Ok(()))?;
+
+				let bounty_account = Self::bounty_account_id(bounty_id);
+				let treasury_account = Self::account_id();
+				let payment_id = T::Paymaster::pay(
+					&treasury_account,
+					&bounty_account,
+					bounty.asset_kind.clone(),
+					bounty.value,
+				)
+				.map_err(|_| Error::<T, I>::FundingError)?;
+
+				bounty.status = BountyStatus::Approved {
+					payment_status: PaymentState::Attempted { id: payment_id },
+				};
 
 				Ok(())
 			})?;
@@ -408,7 +581,21 @@ pub mod pallet {
 
 		/// Propose a curator to a funded bounty.
 		///
-		/// May only be called from `T::SpendOrigin`.
+		/// ## Dispatch Origin
+		/// Must be called from `T::SpendOrigin`.
+		///
+		/// ## Details
+		/// - The bounty must be in the `Funded` state.
+		/// - The `SpendOrigin` must have sufficient permissions to propose the curator.
+		/// - The curator fee must be less than the total bounty value.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The index of the bounty to propose a curator for.
+		/// - `curator`: The account to be proposed as the curator.
+		/// - `fee`: The curator fee.
+		///
+		/// ## Events
+		/// Emits [`Event::CuratorProposed`] if successful.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -418,21 +605,28 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			curator: AccountIdLookupOf<T>,
-			#[pallet::compact] fee: BalanceOf<T, I>,
+			#[pallet::compact] fee: BountyBalanceOf<T, I>,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 
 			let curator = T::Lookup::lookup(curator)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let native_amount =
+					<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+						bounty.value,
+						bounty.asset_kind.clone(),
+					)
+					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(
-					bounty.value <= max_amount,
+					native_amount <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
 				);
-				match bounty.status {
-					BountyStatus::Funded => {},
-					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
-				};
+
+				// Tiago: maybe we should come up with a different error
+				if bounty.status != BountyStatus::Funded {
+					return Err(Error::<T, I>::UnexpectedStatus.into());
+				}
 
 				ensure!(fee < bounty.value, Error::<T, I>::InvalidFee);
 
@@ -448,18 +642,25 @@ pub mod pallet {
 
 		/// Unassign curator from a bounty.
 		///
-		/// This function can only be called by the `RejectOrigin` a signed origin.
+		/// ## Dispatch Origin
+		/// This function can only be called by the `RejectOrigin` or a signed origin.
 		///
-		/// If this function is called by the `RejectOrigin`, we assume that the curator is
-		/// malicious or inactive. As a result, we will slash the curator when possible.
-		///
-		/// If the origin is the curator, we take this as a sign they are unable to do their job and
+		/// ## Details
+		/// - If this function is called by the `RejectOrigin`, we assume that the curator is
+		///   malicious or inactive. As a result, we will slash the curator when possible.
+		/// - If the origin is the curator, we take this as a sign they are unable to do their job
+		///   and
 		/// they willingly give up. We could slash them, but for now we allow them to recover their
 		/// deposit and exit without issue. (We may want to change this if it is abused.)
-		///
-		/// Finally, the origin can be anyone if and only if the curator is "inactive". This allows
+		/// - The origin can be anyone if and only if the curator is "inactive". This allows
 		/// anyone in the community to call out that a curator is not doing their due diligence, and
 		/// we should pick a new curator. In this case the curator should also be slashed.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The index of the bounty from which to unassign the curator.
+		///
+		/// ## Events
+		/// Emits [`Event::CuratorUnassigned`] if successful.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -477,24 +678,29 @@ pub mod pallet {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 				let slash_curator =
-					|curator: &T::AccountId, curator_deposit: &mut BalanceOf<T, I>| {
+					|curator: &T::AccountId, curator_deposit: &mut DepositBalanceOf<T, I>| {
 						let imbalance = T::Currency::slash_reserved(curator, *curator_deposit).0;
 						T::OnSlash::on_unbalanced(imbalance);
 						*curator_deposit = Zero::zero();
 					};
 
 				match bounty.status {
-					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded => {
+					BountyStatus::Proposed |
+					BountyStatus::Approved { .. } |
+					BountyStatus::Funded |
+					BountyStatus::PayoutAttempted { .. } |
+					BountyStatus::RefundAttempted { .. } => {
 						// No curator to unassign at this point.
-						return Err(Error::<T, I>::UnexpectedStatus.into())
+						return Err(Error::<T, I>::UnexpectedStatus.into());
 					},
-					BountyStatus::ApprovedWithCurator { ref curator } => {
+					BountyStatus::ApprovedWithCurator { ref curator, ref payment_status } => {
 						// Bounty not yet funded, but bounty was approved with curator.
 						// `RejectOrigin` or curator himself can unassign from this bounty.
 						ensure!(maybe_sender.map_or(true, |sender| sender == *curator), BadOrigin);
 						// This state can only be while the bounty is not yet funded so we return
 						// bounty to the `Approved` state without curator
-						bounty.status = BountyStatus::Approved;
+						bounty.status =
+							BountyStatus::Approved { payment_status: payment_status.clone() };
 						return Ok(());
 					},
 					BountyStatus::CuratorProposed { ref curator } => {
@@ -502,7 +708,7 @@ pub mod pallet {
 						// Either `RejectOrigin` or the proposed curator can unassign the curator.
 						ensure!(maybe_sender.map_or(true, |sender| sender == *curator), BadOrigin);
 					},
-					BountyStatus::Active { ref curator, ref update_due } => {
+					BountyStatus::Active { ref curator, ref update_due, .. } => {
 						// The bounty is active.
 						match maybe_sender {
 							// If the `RejectOrigin` is calling this function, slash the curator.
@@ -520,7 +726,7 @@ pub mod pallet {
 									// Continue to change bounty status below...
 									} else {
 										// Curator has more time to give an update.
-										return Err(Error::<T, I>::Premature.into())
+										return Err(Error::<T, I>::Premature.into());
 									}
 								} else {
 									// Else this is the curator, willingly giving up their role.
@@ -553,9 +759,22 @@ pub mod pallet {
 		}
 
 		/// Accept the curator role for a bounty.
-		/// A deposit will be reserved from curator and refund upon successful payout.
+		/// A deposit will be reserved from the curator and refunded upon successful payout.
 		///
-		/// May only be called from the curator.
+		/// ## Dispatch Origin
+		/// Must be signed by the proposed curator.
+		///
+		/// ## Details
+		/// - The bounty must be in the `CuratorProposed` state.
+		/// - The curator must accept the role by calling this function.
+		/// - The deposit will be refunded upon successful payout of the bounty.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The index of the bounty for which the curator is accepting the role.
+		/// - `stash`: The curator's stash account that will receive the curator fee.
+		///
+		/// ## Events
+		/// Emits [`Event::CuratorAccepted`] if successful.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -564,8 +783,10 @@ pub mod pallet {
 		pub fn accept_curator(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
+			stash: BeneficiaryLookupOf<T, I>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
+			let stash = T::BeneficiaryLookup::lookup(stash)?;
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
@@ -574,14 +795,22 @@ pub mod pallet {
 					BountyStatus::CuratorProposed { ref curator } => {
 						ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
-						let deposit = Self::calculate_curator_deposit(&bounty.fee);
+						let deposit = Self::calculate_curator_deposit(
+							&bounty.fee,
+							bounty.asset_kind.clone(),
+						)?;
 						T::Currency::reserve(curator, deposit)?;
+
 						bounty.curator_deposit = deposit;
 
 						let update_due =
 							Self::treasury_block_number() + T::BountyUpdatePeriod::get();
-						bounty.status =
-							BountyStatus::Active { curator: curator.clone(), update_due };
+
+						bounty.status = BountyStatus::Active {
+							curator: curator.clone(),
+							curator_stash: stash,
+							update_due,
+						};
 
 						Self::deposit_event(Event::<T, I>::CuratorAccepted {
 							bounty_id,
@@ -596,12 +825,22 @@ pub mod pallet {
 		}
 
 		/// Award bounty to a beneficiary account. The beneficiary will be able to claim the funds
-		/// after a delay.
+		/// after `BountyDepositPayoutDelay`.
 		///
-		/// The dispatch origin for this call must be the curator of this bounty.
+		/// ## Dispatch Origin
+		/// Must be signed by the curator of this bounty.
 		///
-		/// - `bounty_id`: Bounty ID to award.
-		/// - `beneficiary`: The beneficiary account whom will receive the payout.
+		/// ## Details
+		/// - The bounty must be in the `Active` state.
+		/// - The curator must call this function to award the bounty to a beneficiary.
+		/// - The funds will be locked until the payout delay has passed.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The index of the bounty to be awarded.
+		/// - `beneficiary`: The account to be awarded the bounty.
+		///
+		/// ## Events
+		/// Emits [`Event::BountyAwarded`] if successful.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -610,10 +849,10 @@ pub mod pallet {
 		pub fn award_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
-			beneficiary: AccountIdLookupOf<T>,
+			beneficiary: BeneficiaryLookupOf<T, I>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
-			let beneficiary = T::Lookup::lookup(beneficiary)?;
+			let beneficiary = T::BeneficiaryLookup::lookup(beneficiary)?;
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
@@ -625,16 +864,18 @@ pub mod pallet {
 				);
 
 				match &bounty.status {
-					BountyStatus::Active { curator, .. } => {
+					BountyStatus::Active { curator, curator_stash, .. } => {
 						ensure!(signer == *curator, Error::<T, I>::RequireCurator);
+						bounty.status = BountyStatus::PendingPayout {
+							curator: signer,
+							beneficiary: beneficiary.clone(),
+							unlock_at: Self::treasury_block_number() +
+								T::BountyDepositPayoutDelay::get(),
+							curator_stash: curator_stash.clone(),
+						};
 					},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 				}
-				bounty.status = BountyStatus::PendingPayout {
-					curator: signer,
-					beneficiary: beneficiary.clone(),
-					unlock_at: Self::treasury_block_number() + T::BountyDepositPayoutDelay::get(),
-				};
 
 				Ok(())
 			})?;
@@ -643,11 +884,20 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Claim the payout from an awarded bounty after payout delay.
+		/// Claim the payout from an awarded bounty after the payout delay has passed.
 		///
-		/// The dispatch origin for this call must be the beneficiary of this bounty.
+		/// ## Dispatch Origin
+		/// Must be signed.
 		///
-		/// - `bounty_id`: Bounty ID to claim.
+		/// ## Details
+		/// - The bounty must be in the `PendingPayout` state.
+		/// - The funds will be transferred to the beneficiary and the curator.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The index of the bounty to be claimed.
+		///
+		/// ## Events
+		/// Emits [`Event::BountyClaimed`] if successful.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -660,41 +910,49 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?; // anyone can trigger claim
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
-				let bounty = maybe_bounty.take().ok_or(Error::<T, I>::InvalidIndex)?;
-				if let BountyStatus::PendingPayout { curator, beneficiary, unlock_at } =
-					bounty.status
+				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+
+				if let BountyStatus::PendingPayout {
+					curator,
+					beneficiary,
+					unlock_at,
+					curator_stash,
+				} = &bounty.status
 				{
-					ensure!(Self::treasury_block_number() >= unlock_at, Error::<T, I>::Premature);
+					ensure!(Self::treasury_block_number() >= *unlock_at, Error::<T, I>::Premature);
+
+					let (final_fee, payout) =
+						Self::calculate_curator_fee_and_payout(bounty_id, bounty.fee, bounty.value);
 					let bounty_account = Self::bounty_account_id(bounty_id);
-					let balance = T::Currency::free_balance(&bounty_account);
-					let fee = bounty.fee.min(balance); // just to be safe
-					let payout = balance.saturating_sub(fee);
-					let err_amount = T::Currency::unreserve(&curator, bounty.curator_deposit);
-					debug_assert!(err_amount.is_zero());
 
-					// Get total child bounties curator fees, and subtract it from the parent
-					// curator fee (the fee in present referenced bounty, `self`).
-					let children_fee = T::ChildBountyManager::children_curator_fees(bounty_id);
-					debug_assert!(children_fee <= fee);
+					let curator_payment_id = T::Paymaster::pay(
+						&bounty_account,
+						&curator_stash,
+						bounty.asset_kind.clone(),
+						final_fee,
+					)
+					.map_err(|_| Error::<T, I>::PayoutError)?;
 
-					let final_fee = fee.saturating_sub(children_fee);
-					let res =
-						T::Currency::transfer(&bounty_account, &curator, final_fee, AllowDeath); // should not fail
-					debug_assert!(res.is_ok());
-					let res =
-						T::Currency::transfer(&bounty_account, &beneficiary, payout, AllowDeath); // should not fail
-					debug_assert!(res.is_ok());
-
-					*maybe_bounty = None;
-
-					BountyDescriptions::<T, I>::remove(bounty_id);
-					T::ChildBountyManager::bounty_removed(bounty_id);
-
-					Self::deposit_event(Event::<T, I>::BountyClaimed {
-						index: bounty_id,
+					let beneficiary_payment_id = T::Paymaster::pay(
+						&bounty_account,
+						&beneficiary,
+						bounty.asset_kind.clone(),
 						payout,
-						beneficiary,
-					});
+					)
+					.map_err(|_| Error::<T, I>::PayoutError)?;
+
+					bounty.status = BountyStatus::PayoutAttempted {
+						curator: curator.clone(),
+						curator_stash: (
+							curator_stash.clone(),
+							PaymentState::Attempted { id: curator_payment_id },
+						),
+						beneficiary: (
+							beneficiary.clone(),
+							PaymentState::Attempted { id: beneficiary_payment_id },
+						),
+					};
+
 					Ok(())
 				} else {
 					Err(Error::<T, I>::UnexpectedStatus.into())
@@ -706,9 +964,21 @@ pub mod pallet {
 		/// Cancel a proposed or active bounty. All the funds will be sent to treasury and
 		/// the curator deposit will be unreserved if possible.
 		///
+		/// ## Dispatch Origin
 		/// Only `T::RejectOrigin` is able to cancel a bounty.
 		///
-		/// - `bounty_id`: Bounty ID to cancel.
+		/// ## Details
+		/// - If the bounty is in the `Proposed` state, the deposit will be slashed, and the bounty
+		///   will be removed.
+		/// - If the bounty is in the `Active` state, the curator’s deposit will be unreserved.
+		/// - If the bounty is already in the payout phase, it cannot be canceled.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The index of the bounty to cancel.
+		///
+		/// ## Events
+		/// - Emits `BountyRejected` if the bounty was in the `Proposed` state.
+		/// - Emits `RefundAttempted` if the bounty was already funded and is being refunded.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -724,7 +994,7 @@ pub mod pallet {
 			Bounties::<T, I>::try_mutate_exists(
 				bounty_id,
 				|maybe_bounty| -> DispatchResultWithPostInfo {
-					let bounty = maybe_bounty.as_ref().ok_or(Error::<T, I>::InvalidIndex)?;
+					let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 					// Ensure no active child bounties before processing the call.
 					ensure!(
@@ -750,47 +1020,53 @@ pub mod pallet {
 								Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into()
 							)
 						},
-						BountyStatus::Approved | BountyStatus::ApprovedWithCurator { .. } => {
+						BountyStatus::Approved { .. } |
+						BountyStatus::ApprovedWithCurator { .. } => {
 							// For weight reasons, we don't allow a council to cancel in this phase.
 							// We ask for them to wait until it is funded before they can cancel.
 							return Err(Error::<T, I>::UnexpectedStatus.into())
 						},
 						BountyStatus::Funded | BountyStatus::CuratorProposed { .. } => {
-							// Nothing extra to do besides the removal of the bounty below.
+							// Nothing extra to do besides the refund payment below.
 						},
 						BountyStatus::Active { curator, .. } => {
+							// Tiago: I should only unreserve once payment succeeds right?
 							// Cancelled by council, refund deposit of the working curator.
 							let err_amount =
 								T::Currency::unreserve(curator, bounty.curator_deposit);
 							debug_assert!(err_amount.is_zero());
-							// Then execute removal of the bounty below.
+							// Then execute refund payment below.
 						},
-						BountyStatus::PendingPayout { .. } => {
+						BountyStatus::PendingPayout { .. } |
+						BountyStatus::PayoutAttempted { .. } => {
 							// Bounty is already pending payout. If council wants to cancel
 							// this bounty, it should mean the curator was acting maliciously.
 							// So the council should first unassign the curator, slashing their
 							// deposit.
 							return Err(Error::<T, I>::PendingPayout.into())
 						},
+						BountyStatus::RefundAttempted { .. } => {
+							// Bounty refund is already attempted. Flow should be
+							// finished with calling `check_payment_status`
+							// or retrying payment with `process_payment`
+							// if it failed
+							return Err(Error::<T, I>::PendingPayout.into())
+						},
 					}
 
+					let treasury_account = Self::account_id();
 					let bounty_account = Self::bounty_account_id(bounty_id);
-
-					BountyDescriptions::<T, I>::remove(bounty_id);
-
-					let balance = T::Currency::free_balance(&bounty_account);
-					let res = T::Currency::transfer(
+					let payment_id = T::Paymaster::pay(
 						&bounty_account,
-						&Self::account_id(),
-						balance,
-						AllowDeath,
-					); // should not fail
-					debug_assert!(res.is_ok());
+						&treasury_account,
+						bounty.asset_kind.clone(),
+						bounty.value,
+					)
+					.map_err(|_| Error::<T, I>::RefundError)?;
+					bounty.status = BountyStatus::RefundAttempted {
+						payment_status: PaymentState::Attempted { id: payment_id },
+					};
 
-					*maybe_bounty = None;
-					T::ChildBountyManager::bounty_removed(bounty_id);
-
-					Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
 					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
 				},
 			)
@@ -798,10 +1074,21 @@ pub mod pallet {
 
 		/// Extend the expiry time of an active bounty.
 		///
-		/// The dispatch origin for this call must be the curator of this bounty.
+		/// ## Dispatch Origin
+		/// Must be signed by the curator of the bounty.
 		///
-		/// - `bounty_id`: Bounty ID to extend.
-		/// - `remark`: additional information.
+		/// ## Details
+		/// - The bounty must be in the `Active` state.
+		/// - Only the assigned curator can call this function.
+		/// - The expiry time is extended by `T::BountyUpdatePeriod`, ensuring it does not decrease.
+		/// - This function does not modify any other bounty properties.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The index of the bounty to extend.
+		/// - `remark`: Additional information about the extension (not stored).
+		///
+		/// ## Events
+		/// - Emits `BountyExtended` when the expiry time is successfully updated.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -818,7 +1105,7 @@ pub mod pallet {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 				match bounty.status {
-					BountyStatus::Active { ref curator, ref mut update_due } => {
+					BountyStatus::Active { ref curator, ref mut update_due, .. } => {
 						ensure!(*curator == signer, Error::<T, I>::RequireCurator);
 						*update_due = (Self::treasury_block_number() +
 							T::BountyUpdatePeriod::get())
@@ -834,14 +1121,28 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Approve bountry and propose a curator simultaneously.
+		/// Approve a bounty and propose a curator simultaneously.
 		/// This call is a shortcut to calling `approve_bounty` and `propose_curator` separately.
 		///
-		/// May only be called from `T::SpendOrigin`.
+		/// ## Dispatch Origin
+		/// Must be called by `T::SpendOrigin`.
 		///
-		/// - `bounty_id`: Bounty ID to approve.
-		/// - `curator`: The curator account whom will manage this bounty.
-		/// - `fee`: The curator fee.
+		/// ## Details
+		/// - This function combines the logic of `approve_bounty` and `propose_curator` into a
+		///   single call.
+		/// - The bounty must be in the `Proposed` state.
+		/// - The `fee` must be lower than the bounty value.
+		/// - The treasury must have sufficient funds to approve the bounty.
+		/// - If successful, funds are transferred from the treasury to the bounty account.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The index of the bounty to approve.
+		/// - `curator`: The account of the curator who will manage the bounty.
+		/// - `fee`: The fee that the curator will receive upon successful claim.
+		///
+		/// ## Events
+		/// - Emits `BountyApproved` when the bounty is successfully approved.
+		/// - Emits `CuratorProposed` when the curator is assigned.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -851,24 +1152,54 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			curator: AccountIdLookupOf<T>,
-			#[pallet::compact] fee: BalanceOf<T, I>,
+			#[pallet::compact] fee: BountyBalanceOf<T, I>,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			let curator = T::Lookup::lookup(curator)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				// approve bounty
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let native_amount =
+					<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+						bounty.value,
+						bounty.asset_kind.clone(),
+					)
+					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(
-					bounty.value <= max_amount,
+					native_amount <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
 				);
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
 				ensure!(fee < bounty.value, Error::<T, I>::InvalidFee);
 
-				BountyApprovals::<T, I>::try_append(bounty_id)
-					.map_err(|()| Error::<T, I>::TooManyQueued)?;
+				// Tiago: is this the best way to use the SpendContext?
+				with_context::<SpendContext<DepositBalanceOf<T, I>>, _>(|v| {
+					let context = v.or_default();
+					let spend = context.spend_in_context.entry(max_amount).or_default();
 
-				bounty.status = BountyStatus::ApprovedWithCurator { curator: curator.clone() };
+					if spend.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
+						Err(pallet_treasury::Error::<T, I>::InsufficientPermission)
+					} else {
+						*spend = spend.saturating_add(native_amount);
+						Ok(())
+					}
+				})
+				.unwrap_or(Ok(()))?;
+
+				let bounty_account = Self::bounty_account_id(bounty_id);
+				let treasury_account = Self::account_id();
+				let payment_id = T::Paymaster::pay(
+					&treasury_account,
+					&bounty_account,
+					bounty.asset_kind.clone(),
+					bounty.value,
+				)
+				.map_err(|_| Error::<T, I>::FundingError)?;
+
+				bounty.status = BountyStatus::ApprovedWithCurator {
+					curator: curator.clone(),
+					payment_status: PaymentState::Attempted { id: payment_id },
+				};
 				bounty.fee = fee;
 
 				Ok(())
@@ -878,6 +1209,353 @@ pub mod pallet {
 			Self::deposit_event(Event::<T, I>::CuratorProposed { bounty_id, curator });
 
 			Ok(())
+		}
+
+		/// Retry a payment for funding or closing a bounty.
+		///
+		/// ## Dispatch Origin
+		/// Must be signed.
+		///
+		/// ## Details
+		/// - If the bounty is in the `Approved` or `ApprovedWithCurator` state, it attempts to
+		///   process the funding payment.
+		/// - If the bounty is in the `PayoutAttempted` state, it processes the curator and
+		///   beneficiary payouts.
+		/// - If the bounty is in the `RefundAttempted` state, it attempts to return funds to the
+		///   treasury.
+		/// - If all payments fail, an error is returned.
+		/// - If payment(s) succeed, the state advances.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The bounty index.
+		///
+		/// ## Events
+		/// - No events are emitted directly. State transitions will determine further event
+		///   emissions.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(10)]
+		// TODO: change weight
+		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		pub fn process_payment(
+			origin: OriginFor<T>,
+			#[pallet::compact] bounty_id: BountyIndex,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			Bounties::<T, I>::try_mutate_exists(
+				bounty_id,
+				|maybe_bounty| -> DispatchResultWithPostInfo {
+					let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+
+					match bounty.status {
+						BountyStatus::Approved { ref mut payment_status } |
+						BountyStatus::ApprovedWithCurator { ref mut payment_status, .. } => {
+							ensure!(
+								matches!(
+									payment_status,
+									PaymentState::Failed | PaymentState::Pending
+								),
+								Error::<T, I>::UnexpectedStatus
+							);
+
+							let treasury_account = Self::account_id();
+							let bounty_account = Self::bounty_account_id(bounty_id);
+							let id = T::Paymaster::pay(
+								&treasury_account,
+								&bounty_account,
+								bounty.asset_kind.clone(),
+								bounty.value,
+							)
+							.map_err(|_| Error::<T, I>::FundingError)?;
+
+							*payment_status = PaymentState::Attempted { id };
+							// Tiago: should I be returning something like
+							// <T as Config<I>>::WeightInfo::process_payment_approved() in each arm?
+							Ok(Pays::Yes.into())
+						},
+						BountyStatus::RefundAttempted { ref mut payment_status } => {
+							ensure!(
+								matches!(
+									payment_status,
+									PaymentState::Failed | PaymentState::Pending
+								),
+								Error::<T, I>::UnexpectedStatus
+							);
+
+							let bounty_account = Self::bounty_account_id(bounty_id);
+							let treasury_account = Self::account_id();
+							let id = T::Paymaster::pay(
+								&bounty_account,
+								&treasury_account,
+								bounty.asset_kind.clone(),
+								bounty.value,
+							)
+							.map_err(|_| Error::<T, I>::RefundError)?;
+
+							*payment_status = PaymentState::Attempted { id };
+							Ok(Pays::Yes.into())
+						},
+						BountyStatus::PayoutAttempted {
+							ref mut curator_stash,
+							ref mut beneficiary,
+							..
+						} => {
+							let (final_fee, payout) = Self::calculate_curator_fee_and_payout(
+								bounty_id,
+								bounty.fee,
+								bounty.value,
+							);
+							let bounty_account = Self::bounty_account_id(bounty_id);
+
+							let statuses = [
+								T::Paymaster::pay(
+									&bounty_account,
+									&curator_stash.0,
+									bounty.asset_kind.clone(),
+									final_fee,
+								)
+								.map_err(|_| Error::<T, I>::PayoutError),
+								T::Paymaster::pay(
+									&bounty_account,
+									&beneficiary.0,
+									bounty.asset_kind.clone(),
+									payout,
+								)
+								.map_err(|_| Error::<T, I>::PayoutError),
+							];
+							// Tiago: process_payment does not change bounty.status state. Should it change?
+
+							let succeeded = statuses.iter().filter(|i| i.is_ok()).count();
+							if succeeded > 0 {
+								Ok(Pays::Yes.into())
+							} else {
+								Err(Error::<T, I>::PayoutError.into())
+							}
+						},
+						_ => Err(Error::<T, I>::UnexpectedStatus.into()),
+					}
+				},
+			)
+		}
+
+		/// Check and update the payment status of a bounty.
+		///
+		/// ## Dispatch Origin
+		/// Must be signed.
+		///
+		/// ## Details
+		/// - If the bounty is in the `Approved` or `ApprovedWithCurator` state, it checks if the
+		///   funding payment has succeeded.
+		///   - If successful, the bounty becomes `Active`, and the proposer's deposit is
+		///     unreserved.
+		/// - If the bounty is in the `PayoutAttempted` state, it checks the status of curator and
+		///   beneficiary payouts.
+		///   - If both payments succeed, the bounty is removed, and the curator's deposit is
+		///     unreserved.
+		///   - If any payment is still pending, an error is returned.
+		/// - If the bounty is in the `RefundAttempted` state, it checks if the refund was
+		///   completed.
+		///   - If successful, the bounty is removed, and a `BountyCanceled` event is emitted.
+		/// - If no progress is made in the state machine, an error is returned.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The bounty index.
+		///
+		/// ## Events
+		/// - Emits `BountyBecameActive` when the bounty transitions to `Active`.
+		/// - Emits `BountyClaimed` when the payout process completes successfully.
+		/// - Emits `BountyCanceled` if the refund is successful.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(11)]
+		// TODO: change weight
+		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		pub fn check_payment_status(
+			origin: OriginFor<T>,
+			#[pallet::compact] bounty_id: BountyIndex,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			Bounties::<T, I>::try_mutate_exists(
+				bounty_id,
+				|maybe_bounty| -> DispatchResultWithPostInfo {
+					let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+					let mut new_bounty_status = None;
+					
+					let result = match bounty.status {
+						BountyStatus::Approved { ref mut payment_status } => match payment_status {
+							PaymentState::Attempted { id } => match T::Paymaster::check_payment(*id) {
+								PaymentStatus::Success => {
+									*payment_status = PaymentState::Succeeded;
+									new_bounty_status = Some(BountyStatus::Funded);
+									let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
+									debug_assert!(err_amount.is_zero());
+									Self::deposit_event(Event::<T, I>::BountyBecameActive { index: bounty_id });
+									// Tiago: should I be returning something like
+									// <T as Config<I>>::WeightInfo::check_payment_status_approved() in each arm?
+									Ok(Pays::No.into())
+								},
+								PaymentStatus::InProgress => return Err(Error::<T, I>::FundingInconclusive.into()),
+								PaymentStatus::Unknown | PaymentStatus::Failure => {
+									// TODO: should we assume payment has failed on unknown? not
+									// sure yet
+									*payment_status = PaymentState::Failed;
+									// user can retry from this tate
+									return Ok(Pays::No.into());
+								}
+							},
+							_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+						},
+						BountyStatus::ApprovedWithCurator {
+							ref mut payment_status,
+							ref curator,
+						} => match payment_status {
+							PaymentState::Attempted { id } => match T::Paymaster::check_payment(*id) {
+								PaymentStatus::Success => {
+									*payment_status = PaymentState::Succeeded;
+									new_bounty_status = Some(BountyStatus::CuratorProposed {
+										curator: curator.clone(),
+									});
+									let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
+									debug_assert!(err_amount.is_zero());
+									Self::deposit_event(Event::<T, I>::BountyBecameActive { index: bounty_id });
+									Ok(Pays::No.into())
+								},
+								PaymentStatus::InProgress => return Err(Error::<T, I>::FundingInconclusive.into()),
+								PaymentStatus::Unknown | PaymentStatus::Failure => {
+									// TODO: should we assume payment has failed on unknown? not
+									// sure yet
+									*payment_status = PaymentState::Failed;
+									// user can retry from this tate
+									return Ok(Pays::No.into());
+								}
+							},
+							_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+						},
+						BountyStatus::PayoutAttempted {
+							ref curator,
+							ref mut curator_stash,
+							ref mut beneficiary,
+						} => {
+							let (mut payments_progressed, mut payments_succeeded) = (0, 0);
+							// advance both curator, and beneficiary payments
+							for (account, payment_state) in [
+								(&curator_stash.0, &mut curator_stash.1),
+								(&beneficiary.0, &mut beneficiary.1),
+							] {
+								match payment_state {
+									PaymentState::Attempted { id } =>
+										match T::Paymaster::check_payment(*id) {
+											PaymentStatus::Success => {
+												*payment_state = PaymentState::Succeeded;
+												payments_succeeded += 1;
+												payments_progressed += 1;
+											},
+											PaymentStatus::InProgress => {
+												// nothing new to report, return function without error
+												// so we could drive the next payment
+											}
+											PaymentStatus::Unknown | PaymentStatus::Failure => {
+												payments_progressed += 1;
+												*payment_state = PaymentState::Failed;
+											},
+										},
+									PaymentState::Succeeded => {
+										payments_succeeded += 1;
+									},
+									_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+								}
+							}
+
+							// best scenario, both payments have succeeded,
+							// emit events and advance state machine to the end
+							if payments_succeeded >= 2 {
+								// all payments succeeded, cleanup the bounty
+								let (_final_fee, payout) = Self::calculate_curator_fee_and_payout(
+									bounty_id,
+									bounty.fee,
+									bounty.value,
+								);
+
+								// Tiago: Should I remove the bounty since it was being removed in
+								// claim_bounty
+								Bounties::<T, I>::remove(bounty_id);
+								BountyDescriptions::<T, I>::remove(bounty_id);
+								T::ChildBountyManager::bounty_removed(bounty_id);
+								// Tiago: Unreserve here?
+								// Unreserve the curator deposit when payment succeeds
+								let err_amount =
+									T::Currency::unreserve(&curator, bounty.curator_deposit);
+								debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
+								Self::deposit_event(Event::<T, I>::BountyClaimed {
+									index: bounty_id,
+									asset_kind: bounty.asset_kind.clone(),
+									asset_payout: payout,
+									beneficiary: beneficiary.0.clone(),
+								});
+								*maybe_bounty = None;
+								return Ok(Pays::No.into());
+							} else if payments_progressed > 0 {
+								// some payments have progressed in the state machine
+								// return ok so these changes are saved to the state
+								Ok(Pays::Yes.into())
+							} else {
+								// no progress was made in the state machine if we're here,
+								return Err(Error::<T, I>::PayoutInconclusive.into());
+							}
+						},
+						BountyStatus::RefundAttempted { ref mut payment_status } => {
+							match payment_status {
+								PaymentState::Attempted { id } =>
+									match T::Paymaster::check_payment(*id) {
+										PaymentStatus::Success => {
+											// Tiago: Do we need this?
+											// let res = T::Currency::transfer(
+											// 	&bounty_account,
+											// 	&Self::account_id(),
+											// 	balance,
+											// 	AllowDeath,
+											// ); // should not fail
+											// debug_assert!(res.is_ok());
+
+											// refund succeeded, cleanup the bounty
+											BountyDescriptions::<T, I>::remove(bounty_id);
+											T::ChildBountyManager::bounty_removed(bounty_id);
+											*maybe_bounty = None;
+											Self::deposit_event(Event::<T, I>::BountyCanceled {
+												index: bounty_id,
+											});
+											return Ok(Pays::No.into());
+										},
+										// nothing new to report
+										PaymentStatus::InProgress => return Err(Error::<T, I>::RefundInconclusive.into()),
+										PaymentStatus::Unknown | PaymentStatus::Failure => {
+											// assume payment has failed, allow user to retry
+											*payment_status = PaymentState::Failed;
+											return Ok(Pays::Yes.into());
+										}
+									},
+									// `Pending` and `Failed` states should trigger user to call
+									// `process_payment` retry. `Succeeded` should never be
+									// reached since a successful refund would have
+									//   already removed the bounty from storage.
+									_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+								}
+						},
+						_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+					};
+
+					// set bounty status only now to satisfy ownership rules
+					if let Some(new_status) = new_bounty_status {
+						bounty.status = new_status;
+					}
+
+					result
+				},
+			)
 		}
 	}
 
@@ -939,8 +1617,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Calculate the deposit required for a curator.
-	pub fn calculate_curator_deposit(fee: &BalanceOf<T, I>) -> BalanceOf<T, I> {
-		let mut deposit = T::CuratorDepositMultiplier::get() * *fee;
+	pub fn calculate_curator_deposit(
+		fee: &BountyBalanceOf<T, I>,
+		asset_kind: T::AssetKind,
+	) -> Result<DepositBalanceOf<T, I>, pallet_treasury::Error<T, I>> {
+		let fee = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+			*fee, asset_kind,
+		)
+		.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
+
+		let mut deposit = T::CuratorDepositMultiplier::get() * fee;
 
 		if let Some(max_deposit) = T::CuratorDepositMax::get() {
 			deposit = deposit.min(max_deposit)
@@ -950,32 +1636,50 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			deposit = deposit.max(min_deposit)
 		}
 
-		deposit
+		Ok(deposit)
 	}
 
 	/// The account ID of the treasury pot.
 	///
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
 	/// value and only call this once.
-	pub fn account_id() -> T::AccountId {
+	pub fn account_id() -> T::Beneficiary {
 		T::PalletId::get().into_account_truncating()
 	}
 
 	/// The account ID of a bounty account
-	pub fn bounty_account_id(id: BountyIndex) -> T::AccountId {
+	pub fn bounty_account_id(id: BountyIndex) -> T::Beneficiary {
 		// only use two byte prefix to support 16 byte account id (used by test)
 		// "modl" ++ "py/trsry" ++ "bt" is 14 bytes, and two bytes remaining for bounty index
 		T::PalletId::get().into_sub_account_truncating(("bt", id))
 	}
 
+	/// Return the amount of money in the bounty.
+	pub fn bounty_balance(id: BountyIndex) -> DepositBalanceOf<T, I> {
+		// Tiago: Currency::free_balance accepts AccountId. Is this how I can get the balance of the
+		// bounty?
+		let native_account_id = T::PalletId::get().into_sub_account_truncating(("bt", id));
+		T::Currency::free_balance(&native_account_id)
+			// Must never be less than 0 but better be safe.
+			.saturating_sub(T::Currency::minimum_balance())
+	}
+
 	fn create_bounty(
 		proposer: T::AccountId,
 		description: Vec<u8>,
-		value: BalanceOf<T, I>,
+		asset_kind: T::AssetKind,
+		value: BountyBalanceOf<T, I>,
 	) -> DispatchResult {
 		let bounded_description: BoundedVec<_, _> =
 			description.try_into().map_err(|_| Error::<T, I>::ReasonTooBig)?;
-		ensure!(value >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
+		let native_amount =
+			<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+				value,
+				asset_kind.clone(),
+			)
+			.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
+
+		ensure!(native_amount >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
 
 		let index = BountyCount::<T, I>::get();
 
@@ -987,8 +1691,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		BountyCount::<T, I>::put(index + 1);
 
-		let bounty = Bounty {
+		let bounty = BountyOf::<T, I> {
 			proposer,
+			asset_kind,
 			value,
 			fee: 0u32.into(),
 			curator_deposit: 0u32.into(),
@@ -1003,57 +1708,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		Ok(())
 	}
-}
 
-impl<T: Config<I>, I: 'static> pallet_treasury::SpendFunds<T, I> for Pallet<T, I> {
-	fn spend_funds(
-		budget_remaining: &mut BalanceOf<T, I>,
-		imbalance: &mut PositiveImbalanceOf<T, I>,
-		total_weight: &mut Weight,
-		missed_any: &mut bool,
-	) {
-		let bounties_len = BountyApprovals::<T, I>::mutate(|v| {
-			let bounties_approval_len = v.len() as u32;
-			v.retain(|&index| {
-				Bounties::<T, I>::mutate(index, |bounty| {
-					// Should always be true, but shouldn't panic if false or we're screwed.
-					if let Some(bounty) = bounty {
-						if bounty.value <= *budget_remaining {
-							*budget_remaining -= bounty.value;
+	fn calculate_curator_fee_and_payout(
+		bounty_id: BountyIndex,
+		fee: BountyBalanceOf<T, I>,
+		value: BountyBalanceOf<T, I>,
+	) -> (BountyBalanceOf<T, I>, BountyBalanceOf<T, I>) {
+		// Tiago: The payout should be the balance of the bounty account of asset_kind.
+		// if a child bounty is added and claimed, and parent-bounty is claimed the bounty.amount is
+		// returned and not the balance of the bounty account.
+		// right? how to handle this?
+		let payout = value - fee;
 
-							// jump through the funded phase if we're already approved with curator
-							if let BountyStatus::ApprovedWithCurator { curator } = &bounty.status {
-								bounty.status =
-									BountyStatus::CuratorProposed { curator: curator.clone() };
-							} else {
-								bounty.status = BountyStatus::Funded;
-							}
+		// Get total child bounties curator fees, and subtract it from the parent
+		// curator fee (the fee in present referenced bounty, `self`).
+		let children_fee = T::ChildBountyManager::children_curator_fees(bounty_id);
+		debug_assert!(children_fee <= fee);
 
-							// return their deposit.
-							let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
-							debug_assert!(err_amount.is_zero());
-
-							// fund the bounty account
-							imbalance.subsume(T::Currency::deposit_creating(
-								&Self::bounty_account_id(index),
-								bounty.value,
-							));
-
-							Self::deposit_event(Event::<T, I>::BountyBecameActive { index });
-							false
-						} else {
-							*missed_any = true;
-							true
-						}
-					} else {
-						false
-					}
-				})
-			});
-			bounties_approval_len
-		});
-
-		*total_weight += <T as pallet::Config<I>>::WeightInfo::spend_funds(bounties_len);
+		let final_fee = fee.saturating_sub(children_fee);
+		(final_fee, payout)
 	}
 }
 
