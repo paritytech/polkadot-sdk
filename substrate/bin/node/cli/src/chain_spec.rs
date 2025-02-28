@@ -20,7 +20,7 @@
 
 use polkadot_sdk::*;
 
-use crate::chain_spec::{sc_service::Properties, sp_runtime::AccountId32};
+use crate::chain_spec::{sc_service::Properties};
 use kitchensink_runtime::{
 	genesis_config_presets::{session_keys, Staker, StakingPlaygroundConfig, STASH},
 	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
