@@ -27,6 +27,7 @@ mod exec;
 mod gas;
 mod limits;
 mod primitives;
+mod pure_precompiles;
 mod storage;
 mod transient_storage;
 mod wasm;
@@ -492,6 +493,8 @@ pub mod pallet {
 		InvalidGenericTransaction,
 		/// The refcount of a code either over or underflowed.
 		RefcountOverOrUnderflow,
+		/// Unsupported precompile address
+		UnsupportedPrecompileAddress,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.

@@ -27,7 +27,9 @@ use crate::{
 	DispatchResult,
 };
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use codec::{
+	Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, HasCompact, MaxEncodedLen,
+};
 #[doc(hidden)]
 pub use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
@@ -1009,6 +1011,7 @@ pub trait HashOutput:
 	+ Default
 	+ Encode
 	+ Decode
+	+ DecodeWithMemTracking
 	+ EncodeLike
 	+ MaxEncodedLen
 	+ TypeInfo
@@ -1029,6 +1032,7 @@ impl<T> HashOutput for T where
 		+ Default
 		+ Encode
 		+ Decode
+		+ DecodeWithMemTracking
 		+ EncodeLike
 		+ MaxEncodedLen
 		+ TypeInfo
@@ -1181,6 +1185,8 @@ pub trait BlockNumber:
 	+ TypeInfo
 	+ MaxEncodedLen
 	+ FullCodec
+	+ DecodeWithMemTracking
+	+ HasCompact<Type: DecodeWithMemTracking>
 {
 }
 
@@ -1198,7 +1204,9 @@ impl<
 			+ Default
 			+ TypeInfo
 			+ MaxEncodedLen
-			+ FullCodec,
+			+ FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>,
 	> BlockNumber for T
 {
 }
@@ -1209,7 +1217,16 @@ impl<
 ///
 /// You can also create a `new` one from those fields.
 pub trait Header:
-	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + 'static
+	Clone
+	+ Send
+	+ Sync
+	+ Codec
+	+ DecodeWithMemTracking
+	+ Eq
+	+ MaybeSerialize
+	+ Debug
+	+ TypeInfo
+	+ 'static
 {
 	/// Header number.
 	type Number: BlockNumber;
@@ -1293,6 +1310,7 @@ pub trait Block:
 	+ Send
 	+ Sync
 	+ Codec
+	+ DecodeWithMemTracking
 	+ Eq
 	+ MaybeSerialize
 	+ Debug
@@ -1620,7 +1638,7 @@ pub trait AsTransactionAuthorizedOrigin {
 /// that should be additionally associated with the transaction. It should be plain old data.
 #[deprecated = "Use `TransactionExtension` instead."]
 pub trait SignedExtension:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+	Codec + DecodeWithMemTracking + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
 	/// Unique identifier of this signed extension.
 	///
@@ -2344,6 +2362,7 @@ pub trait BlockIdTo<Block: self::Block> {
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
 	type BlockNumber: Codec
+		+ DecodeWithMemTracking
 		+ Clone
 		+ Ord
 		+ Eq
