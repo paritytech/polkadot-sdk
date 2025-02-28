@@ -17,7 +17,7 @@
 //! Mock types and XcmConfig for all executor unit tests.
 
 use alloc::collections::btree_map::BTreeMap;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cell::RefCell;
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
@@ -30,8 +30,8 @@ use xcm::prelude::*;
 
 use crate::{
 	traits::{
-		DropAssets, FeeManager, Properties, ShouldExecute, TransactAsset, WeightBounds,
-		WeightTrader,
+		DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute, TransactAsset,
+		WeightBounds, WeightTrader,
 	},
 	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
@@ -64,7 +64,9 @@ pub struct TestOrigin;
 ///
 /// Doesn't dispatch anything, has an empty implementation of [`Dispatchable`] that
 /// just returns `Ok` with an empty [`PostDispatchInfo`].
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
+)]
 pub struct TestCall;
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
@@ -267,6 +269,20 @@ impl FeeManager for TestFeeManager {
 	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
 }
 
+/// Dummy transactional processor that doesn't rollback storage changes, just
+/// aims to rollback executor state.
+pub struct TestTransactionalProcessor;
+impl ProcessTransaction for TestTransactionalProcessor {
+	const IS_TRANSACTIONAL: bool = true;
+
+	fn process<F>(f: F) -> Result<(), XcmError>
+	where
+		F: FnOnce() -> Result<(), XcmError>,
+	{
+		f()
+	}
+}
+
 /// Test XcmConfig that uses all the test implementations in this file.
 pub struct XcmConfig;
 impl Config for XcmConfig {
@@ -294,7 +310,7 @@ impl Config for XcmConfig {
 	type CallDispatcher = Self::RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
-	type TransactionalProcessor = ();
+	type TransactionalProcessor = TestTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();

@@ -26,6 +26,21 @@ fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
+/// Helper macro to check if a system event exists in the event list.
+///
+/// Example usage:
+/// ```ignore
+/// assert!(system_contains_event!(parachain, System(frame_system::Event::Remarked { .. })));
+/// assert!(system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. })));
+/// ```
+macro_rules! system_contains_event {
+    ($runtime:ident, $variant:ident($($pattern:tt)*)) => {
+        $runtime::System::events().iter().any(|e| {
+            matches!(e.event, $runtime::RuntimeEvent::$variant($($pattern)*))
+        })
+    };
+}
+
 #[test]
 fn remote_account_ids_work() {
 	child_account_account_id(1, ALICE);
@@ -53,11 +68,7 @@ fn dmp() {
 	});
 
 	ParaA::execute_with(|| {
-		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(parachain, System(frame_system::Event::Remarked { .. })));
 	});
 }
 
@@ -81,11 +92,7 @@ fn ump() {
 	});
 
 	Relay::execute_with(|| {
-		use relay_chain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(relay_chain, System(frame_system::Event::Remarked { .. })));
 	});
 }
 
@@ -109,11 +116,7 @@ fn xcmp() {
 	});
 
 	ParaB::execute_with(|| {
-		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(parachain, System(frame_system::Event::Remarked { .. })));
 	});
 }
 
@@ -136,6 +139,13 @@ fn reserve_transfer() {
 			relay_chain::Balances::free_balance(&child_account_id(1)),
 			INITIAL_BALANCE + withdraw_amount
 		);
+		// Ensure expected events were emitted
+		let attempted_emitted =
+			system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. }));
+		let sent_emitted =
+			system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Sent { .. }));
+		assert!(attempted_emitted, "Expected XcmPallet::Attempted event emitted");
+		assert!(sent_emitted, "Expected XcmPallet::Sent event emitted");
 	});
 
 	ParaA::execute_with(|| {
@@ -144,6 +154,57 @@ fn reserve_transfer() {
 			pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
 			INITIAL_BALANCE + withdraw_amount
 		);
+	});
+}
+
+#[test]
+fn reserve_transfer_with_error() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	// Reset the test network
+	MockNet::reset();
+
+	// Execute XCM Transfer and Capture Logs
+	let (log_capture, subscriber) = init_log_capture(Level::ERROR);
+	subscriber::with_default(subscriber, || {
+		let invalid_dest = Box::new(Parachain(9999).into());
+		let withdraw_amount = 123;
+
+		Relay::execute_with(|| {
+			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
+				relay_chain::RuntimeOrigin::signed(ALICE),
+				invalid_dest,
+				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
+				Box::new((Here, withdraw_amount).into()),
+				0,
+				Unlimited,
+			);
+
+			// Ensure an error occurred
+			assert!(result.is_err(), "Expected an error due to invalid destination");
+
+			// Assert captured logs
+			assert!(log_capture.contains("XCM validate_send failed"));
+
+			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
+			let xcm_attempted_emitted =
+				system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. }));
+			assert!(
+				!xcm_attempted_emitted,
+				"Expected no XcmPallet::Attempted event due to rollback, but it was emitted"
+			);
+		});
+
+		// Ensure no balance change due to the error
+		ParaA::execute_with(|| {
+			assert_eq!(
+				pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
+				INITIAL_BALANCE
+			);
+		});
 	});
 }
 
