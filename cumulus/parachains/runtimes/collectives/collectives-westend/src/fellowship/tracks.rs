@@ -18,7 +18,8 @@
 
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS, MINUTES};
 use pallet_ranked_collective::Rank;
-use sp_runtime::{str_array as s, traits::Convert, Perbill};
+use pallet_referenda::string_like_track_name as s;
+use sp_runtime::{traits::Convert, Perbill};
 use sp_std::borrow::Cow;
 
 /// Referendum `TrackId` type.

@@ -97,10 +97,11 @@ use self::branch::{BeginDecidingBranch, OneFewerDecidingBranch, ServiceBranch};
 pub use self::{
 	pallet::*,
 	types::{
-		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf,
-		Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex,
-		ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf,
-		TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
+		string_like_track_name, BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, Curve,
+		DecidingStatus, DecidingStatusOf, Deposit, InsertSorted, NegativeImbalanceOf,
+		PalletsOriginOf, ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus,
+		ReferendumStatusOf, ScheduleAddressOf, StringLike, TallyOf, Track, TrackIdOf, TrackInfo,
+		TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -225,8 +226,11 @@ pub mod pallet {
 	#[pallet::extra_constants]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		#[pallet::constant_name(Tracks)]
-		fn tracks() -> Vec<Track<TrackIdOf<T, I>, BalanceOf<T, I>, BlockNumberFor<T, I>>> {
-			T::Tracks::tracks().map(|t| t.into_owned()).collect()
+		fn tracks() -> Vec<(TrackIdOf<T, I>, TrackInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>)> {
+			T::Tracks::tracks()
+				.map(|t| t.into_owned())
+				.map(|Track { id, info }| (id, info))
+				.collect()
 		}
 	}
 
