@@ -117,7 +117,10 @@ use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
 use core::{cmp, mem};
-use frame_support::{pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound};
+use frame_support::{
+	dispatch::PostDispatchInfo, pallet_prelude::*, traits::EstimateNextSessionRotation,
+	DefaultNoBound,
+};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	ConsensusLog, HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
@@ -547,6 +550,73 @@ impl AssignCoretime for () {
 	}
 }
 
+/// Represents different types of authorization for handling code hashes.
+/// This enum defines various actions related to validation code management.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
+#[cfg_attr(test, derive(Ord, PartialOrd))]
+pub enum CodeHashAuthorization<N> {
+	/// Forces the current validation code for a parachain to be set.
+	ForceSetCurrentCode {
+		/// The ID of the parachain.
+		para_id: ParaId,
+		/// The validation code hash.
+		code_hash: ValidationCodeHash,
+	},
+
+	/// Forces a scheduled code upgrade for a parachain.
+	ForceScheduleCodeUpgrade {
+		/// The ID of the parachain.
+		para_id: ParaId,
+		/// The validation code hash.
+		code_hash: ValidationCodeHash,
+		/// The relay parent block number at which the upgrade should be applied.
+		relay_parent_number: N,
+	},
+
+	/// Adds a trusted validation code hash to the system.
+	AddTrustedValidationCode {
+		/// The validation code hash
+		code_hash: ValidationCodeHash,
+	},
+}
+
+impl<N> CodeHashAuthorization<N> {
+	/// Determines if the current authorization should be replaced by another.
+	///
+	/// # Returns
+	/// - `true` if `other` should replace `self`
+	/// - `false` otherwise
+	fn should_be_replaced_by(&self, other: &CodeHashAuthorization<N>) -> bool {
+		use CodeHashAuthorization::*;
+
+		match (self, other) {
+			(ForceSetCurrentCode { para_id: a, .. }, ForceSetCurrentCode { para_id: b, .. }) |
+			(
+				ForceScheduleCodeUpgrade { para_id: a, .. },
+				ForceScheduleCodeUpgrade { para_id: b, .. },
+			) if a == b => true,
+
+			(
+				AddTrustedValidationCode { code_hash: a },
+				AddTrustedValidationCode { code_hash: b },
+			) if a == b => true,
+
+			_ => false,
+		}
+	}
+
+	/// Compares the stored `code_hash` with the hash of the provided validation code.
+	fn code_matches(&self, code: &ValidationCode) -> bool {
+		let code_hash = match self {
+			CodeHashAuthorization::ForceSetCurrentCode { code_hash, .. } |
+			CodeHashAuthorization::ForceScheduleCodeUpgrade { code_hash, .. } |
+			CodeHashAuthorization::AddTrustedValidationCode { code_hash } => code_hash,
+		};
+
+		code_hash == &code.hash()
+	}
+}
+
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;
@@ -562,6 +632,8 @@ pub trait WeightInfo {
 	fn include_pvf_check_statement_finalize_onboarding_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_onboarding_reject() -> Weight;
 	fn include_pvf_check_statement() -> Weight;
+	fn authorize_code_hash() -> Weight;
+	fn apply_authorized_code(c: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -607,6 +679,12 @@ impl WeightInfo for TestWeightInfo {
 		// This special value is to distinguish from the finalizing variants above in tests.
 		Weight::MAX - Weight::from_parts(1, 1)
 	}
+	fn authorize_code_hash() -> Weight {
+		Weight::MAX
+	}
+	fn apply_authorized_code(_c: u32) -> Weight {
+		Weight::MAX
+	}
 }
 
 #[frame_support::pallet]
@@ -628,7 +706,7 @@ pub mod pallet {
 		+ shared::Config
 		+ frame_system::offchain::CreateInherent<Call<Self>>
 	{
-		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		#[pallet::constant]
 		type UnsignedPriority: Get<TransactionPriority>;
@@ -657,7 +735,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
+	pub enum Event<T: Config> {
 		/// Current code has been updated for a Para. `para_id`
 		CurrentCodeUpdated(ParaId),
 		/// Current head has been updated for a Para. `para_id`
@@ -677,6 +755,13 @@ pub mod pallet {
 		/// The given validation code was rejected by the PVF pre-checking vote.
 		/// `code_hash` `para_id`
 		PvfCheckRejected(ValidationCodeHash, ParaId),
+		/// New code hash has been authorized for a Para.
+		CodeAuthorized {
+			/// CodeHash authorization request.
+			authorization: CodeHashAuthorization<BlockNumberFor<T>>,
+			/// Block at which authorization expires and will be removed.
+			expire_at: BlockNumberFor<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -707,6 +792,12 @@ pub mod pallet {
 		CannotUpgradeCode,
 		/// Invalid validation code size.
 		InvalidCode,
+		/// No upgrade authorized.
+		NothingAuthorized,
+		/// The submitted code is not authorized.
+		Unauthorized,
+		/// Invalid block number.
+		InvalidBlockNumber,
 	}
 
 	/// All currently active PVF pre-checking votes.
@@ -801,6 +892,14 @@ pub mod pallet {
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
 	pub type FutureCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
+
+	/// The code hash authorizations which will expire `expire_at` `BlockNumberFor<T>`.
+	#[pallet::storage]
+	pub(super) type AuthorizedCodeHash<T: Config> = StorageValue<
+		_,
+		Vec<(CodeHashAuthorization<BlockNumberFor<T>>, BlockNumberFor<T>)>,
+		ValueQuery,
+	>;
 
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
@@ -906,10 +1005,7 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let new_code_hash = new_code.hash();
-			Self::increase_code_ref(&new_code_hash, &new_code);
-			Self::set_current_code(para, new_code_hash, frame_system::Pallet::<T>::block_number());
-			Self::deposit_event(Event::CurrentCodeUpdated(para));
+			Self::do_force_set_current_code_update(para, new_code);
 			Ok(())
 		}
 
@@ -936,15 +1032,7 @@ pub mod pallet {
 			relay_parent_number: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let config = configuration::ActiveConfig::<T>::get();
-			Self::schedule_code_upgrade(
-				para,
-				new_code,
-				relay_parent_number,
-				&config,
-				UpgradeStrategy::ApplyAtExpectedBlock,
-			);
-			Self::deposit_event(Event::CodeUpgradeScheduled(para));
+			Self::do_force_schedule_code_upgrade(para, new_code, relay_parent_number);
 			Ok(())
 		}
 
@@ -1001,40 +1089,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let code_hash = validation_code.hash();
-
-			if let Some(vote) = PvfActiveVoteMap::<T>::get(&code_hash) {
-				// Remove the existing vote.
-				PvfActiveVoteMap::<T>::remove(&code_hash);
-				PvfActiveVoteList::<T>::mutate(|l| {
-					if let Ok(i) = l.binary_search(&code_hash) {
-						l.remove(i);
-					}
-				});
-
-				let cfg = configuration::ActiveConfig::<T>::get();
-				Self::enact_pvf_accepted(
-					frame_system::Pallet::<T>::block_number(),
-					&code_hash,
-					&vote.causes,
-					vote.age,
-					&cfg,
-				);
-				return Ok(())
-			}
-
-			if CodeByHash::<T>::contains_key(&code_hash) {
-				// There is no vote, but the code exists. Nothing to do here.
-				return Ok(())
-			}
-
-			// At this point the code is unknown and there is no PVF pre-checking vote for it, so we
-			// can just add the code into the storage.
-			//
-			// NOTE That we do not use `increase_code_ref` here, because the code is not yet used
-			// by any parachain.
-			CodeByHash::<T>::insert(code_hash, &validation_code);
-
+			Self::do_add_trusted_validation_code(validation_code);
 			Ok(())
 		}
 
@@ -1160,6 +1215,91 @@ pub mod pallet {
 			MostRecentContext::<T>::insert(&para, context);
 			Ok(())
 		}
+
+		/// Sets the storage for the authorized current code hash of the parachain.
+		/// If not applied, it will be removed at the `expire_at` block.
+		///
+		/// This can be useful, for example, when triggering `Paras::force_set_current_code(para,
+		/// code)` from a different chain than the one where the `Paras` pallet is deployed.
+		///
+		/// The main purpose is to avoid transferring the entire `code` Wasm blob between chains.
+		/// Instead, we authorize `code_hash` with `root`, which can later be applied by
+		/// `Paras::apply_authorized_code(authorization, code)` by anyone.
+		///
+		/// Authorizations are stored in an **overwriting manner**,
+		/// for exampe we won't store multiple `ForceSetCurrentCode` for one parachain.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::authorize_code_hash())]
+		pub fn authorize_code_hash(
+			origin: OriginFor<T>,
+			new_authorization: CodeHashAuthorization<BlockNumberFor<T>>,
+			expire_at: BlockNumberFor<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(
+				expire_at > frame_system::Pallet::<T>::block_number(),
+				Error::<T>::InvalidBlockNumber
+			);
+
+			// insert authorized code hash and make sure to overwrite existing variant
+			// `CodeHashAuthorization` for `para_id`.
+			AuthorizedCodeHash::<T>::mutate(|authorizations| {
+				authorizations.retain(|(authorization, _)| {
+					!authorization.should_be_replaced_by(&new_authorization)
+				});
+				authorizations.push((new_authorization.clone(), expire_at));
+			});
+			Self::deposit_event(Event::CodeAuthorized {
+				authorization: new_authorization,
+				expire_at,
+			});
+
+			Ok(())
+		}
+
+		/// Applies the already authorized current code for the parachain,
+		/// triggering the same functionality as `force_set_current_code`.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::apply_authorized_code(code.0.len() as u32))]
+		pub fn apply_authorized_code(
+			_origin: OriginFor<T>,
+			authorization: CodeHashAuthorization<BlockNumberFor<T>>,
+			code: ValidationCode,
+		) -> DispatchResultWithPostInfo {
+			// no need to ensure, anybody can do this
+
+			// Ensure `new_code` is authorized
+			let authorized_code_hash = AuthorizedCodeHash::<T>::try_mutate(|authorizations| {
+				if let Some(idx) = authorizations.iter().position(|(a, _)| a == &authorization) {
+					Ok(authorizations.swap_remove(idx).0)
+				} else {
+					Err(Error::<T>::NothingAuthorized)
+				}
+			})?;
+			ensure!(authorized_code_hash.code_matches(&code), Error::<T>::Unauthorized);
+
+			// apply/dispatch
+			match authorized_code_hash {
+				CodeHashAuthorization::ForceSetCurrentCode { para_id, .. } =>
+					Self::do_force_set_current_code_update(para_id, code),
+				CodeHashAuthorization::AddTrustedValidationCode { .. } =>
+					Self::do_add_trusted_validation_code(code),
+				CodeHashAuthorization::ForceScheduleCodeUpgrade {
+					para_id,
+					relay_parent_number,
+					..
+				} => Self::do_force_schedule_code_upgrade(para_id, code, relay_parent_number),
+			}
+
+			// if ok, then allows "for free"
+			let post = PostDispatchInfo {
+				// consume the rest of the block to prevent further transactions
+				actual_weight: Some(T::BlockWeights::get().max_block),
+				// no fee for valid upgrade
+				pays_fee: Pays::No,
+			};
+			Ok(post)
+		}
 	}
 
 	#[pallet::validate_unsigned]
@@ -1277,7 +1417,8 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
 		Self::prune_old_code(now) +
 			Self::process_scheduled_upgrade_changes(now) +
-			Self::process_future_code_upgrades_at(now)
+			Self::process_future_code_upgrades_at(now) +
+			Self::prune_expired_authorizations(now)
 	}
 
 	/// Called by the initializer to finalize the paras pallet.
@@ -1489,6 +1630,16 @@ impl<T: Config> Pallet<T> {
 		// 1 read for the meta for each pruning task, 1 read for the config
 		// 2 writes: updating the meta and pruning the code
 		T::DbWeight::get().reads_writes(1 + pruning_tasks_done, 2 * pruning_tasks_done)
+	}
+
+	/// This function removes authorizations that have expired,
+	/// meaning their `expire_at` block is less than or equal to the current block (`now`).
+	fn prune_expired_authorizations(now: BlockNumberFor<T>) -> Weight {
+		AuthorizedCodeHash::<T>::mutate(|authorizations: &mut Vec<(_, BlockNumberFor<T>)>| {
+			authorizations.retain(|(_, expire_at)| expire_at > &now);
+		});
+
+		T::DbWeight::get().reads_writes(1, 1)
 	}
 
 	/// Process the future code upgrades that should be applied directly.
@@ -2168,6 +2319,67 @@ impl<T: Config> Pallet<T> {
 		};
 
 		weight + T::DbWeight::get().writes(1)
+	}
+
+	/// Force set the current code for the given parachain.
+	fn do_force_set_current_code_update(para: ParaId, new_code: ValidationCode) {
+		let new_code_hash = new_code.hash();
+		Self::increase_code_ref(&new_code_hash, &new_code);
+		Self::set_current_code(para, new_code_hash, frame_system::Pallet::<T>::block_number());
+		Self::deposit_event(Event::CurrentCodeUpdated(para));
+	}
+
+	/// Force schedule code upgrade for the given parachain.
+	fn do_force_schedule_code_upgrade(
+		para: ParaId,
+		new_code: ValidationCode,
+		relay_parent_number: BlockNumberFor<T>,
+	) {
+		let config = configuration::ActiveConfig::<T>::get();
+		Self::schedule_code_upgrade(
+			para,
+			new_code,
+			relay_parent_number,
+			&config,
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		);
+		Self::deposit_event(Event::CodeUpgradeScheduled(para));
+	}
+
+	fn do_add_trusted_validation_code(validation_code: ValidationCode) {
+		let code_hash = validation_code.hash();
+
+		if let Some(vote) = PvfActiveVoteMap::<T>::get(&code_hash) {
+			// Remove the existing vote.
+			PvfActiveVoteMap::<T>::remove(&code_hash);
+			PvfActiveVoteList::<T>::mutate(|l| {
+				if let Ok(i) = l.binary_search(&code_hash) {
+					l.remove(i);
+				}
+			});
+
+			let cfg = configuration::ActiveConfig::<T>::get();
+			Self::enact_pvf_accepted(
+				frame_system::Pallet::<T>::block_number(),
+				&code_hash,
+				&vote.causes,
+				vote.age,
+				&cfg,
+			);
+			return;
+		}
+
+		if CodeByHash::<T>::contains_key(&code_hash) {
+			// There is no vote, but the code exists. Nothing to do here.
+			return;
+		}
+
+		// At this point the code is unknown and there is no PVF pre-checking vote for it, so we
+		// can just add the code into the storage.
+		//
+		// NOTE That we do not use `increase_code_ref` here, because the code is not yet used
+		// by any parachain.
+		CodeByHash::<T>::insert(code_hash, &validation_code);
 	}
 
 	/// Returns the list of PVFs (aka validation code) that require casting a vote by a validator in
