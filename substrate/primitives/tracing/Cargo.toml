@@ -29,7 +29,7 @@ tracing-subscriber = { workspace = true, optional = true, features = [
 	"time",
 	"tracing-log",
 ] }
-regex = { workspace = true, optional = true }
+regex = { workspace = true }
 
 [features]
 default = ["std"]
@@ -41,4 +41,4 @@ std = [
 	"tracing/std",
 	"with-tracing",
 ]
-test-utils = ["std"]
+test-utils = ["regex/std", "std"]

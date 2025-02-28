@@ -35,6 +35,7 @@ use frame_support::{
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash};
+use sp_tracing::test_log_capture::init_log_capture_for_tests;
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::AllowKnownQueryResponses;
 use xcm_executor::{
@@ -1465,13 +1466,11 @@ fn record_xcm_works() {
 fn execute_initiate_transfer_and_check_sent_event() {
 	use crate::Event;
 	use sp_tracing::{
-		init_for_tests,
-		test_log_capture::init_log_capture,
+		test_log_capture::init_log_capture_for_tests,
 		tracing::{subscriber, Level},
 	};
 
-	init_for_tests();
-	let (log_capture, subscriber) = init_log_capture(Level::TRACE);
+	let (log_capture, subscriber) = init_log_capture_for_tests();
 	subscriber::with_default(subscriber, || {
 		let balances = vec![(ALICE, INITIAL_BALANCE)];
 		new_test_ext_with_balances(balances).execute_with(|| {
@@ -1494,7 +1493,6 @@ fn execute_initiate_transfer_and_check_sent_event() {
 				BaseXcmWeight::get() * 3,
 			));
 
-			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 			let expected_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,
@@ -1504,19 +1502,20 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			assert!(log_capture
 				.contains(format!("xcm::send: Sending msg msg={:?}", expected_message).as_str()));
 
+			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 			let message_id = fake_message_hash(&expected_message);
 			assert_eq!(
 				last_events(2),
 				vec![
+					RuntimeEvent::XcmPallet(Event::Sent {
+						origin,
+						destination: Parent.into(),
+						message: Xcm::default(),
+						message_id,
+					}),
 					RuntimeEvent::XcmPallet(Event::Attempted {
 						outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }
 					}),
-					// RuntimeEvent::XcmPallet(Event::Sent {
-					// 	origin,
-					// 	destination: Parent.into(),
-					// 	message: expected_message,
-					// 	message_id,
-					// }),
 				]
 			);
 		})

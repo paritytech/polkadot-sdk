@@ -440,29 +440,28 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
-		// match Config::XcmSender::deliver(ticket) {
-		// 	Ok(message_id) => {
-		// 		Config::XcmEventEmitter::emit_sent_event(
-		// 			self.original_origin.clone(),
-		// 			dest,
-		// 			None, /* Avoid logging the full XCM message to prevent inconsistencies and
-		// 			       * reduce storage usage. */
-		// 			message_id.clone(),
-		// 		);
-		// 		Ok(message_id)
-		// 	},
-		// 	Err(e) => {
-		// 		tracing::error!(target: "xcm::send", ?e, "XCM failed to deliver with error");
-		// 		Config::XcmEventEmitter::emit_send_failure_event(
-		// 			self.original_origin.clone(),
-		// 			dest,
-		// 			e.clone(),
-		// 			self.context.message_id,
-		// 		);
-		// 		Err(e.into())
-		// 	},
-		// }
-		Config::XcmSender::deliver(ticket).map_err(Into::into)
+		match Config::XcmSender::deliver(ticket) {
+			Ok(message_id) => {
+				Config::XcmEventEmitter::emit_sent_event(
+					self.original_origin.clone(),
+					dest,
+					None, /* Avoid logging the full XCM message to prevent inconsistencies and
+					       * reduce storage usage. */
+					message_id.clone(),
+				);
+				Ok(message_id)
+			},
+			Err(e) => {
+				tracing::error!(target: "xcm::send", ?e, "XCM failed to deliver with error");
+				Config::XcmEventEmitter::emit_send_failure_event(
+					self.original_origin.clone(),
+					dest,
+					e.clone(),
+					self.context.message_id,
+				);
+				Err(e.into())
+			},
+		}
 	}
 
 	/// Remove the registered error handler and return it. Do not refund its weight.
