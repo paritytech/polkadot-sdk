@@ -23,10 +23,10 @@ futures = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { features = [
 	"test-helpers",
-], workspace = true }
+], workspace = true, default-features = false }
 sc-consensus = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
-sc-service = { workspace = true }
+sc-service = { workspace = true, default-features = false }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }

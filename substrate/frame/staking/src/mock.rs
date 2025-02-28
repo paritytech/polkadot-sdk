@@ -319,6 +319,7 @@ parameter_types! {
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
 	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
+	pub static RestrictedAccounts: Vec<AccountId> = Vec::new();
 }
 
 pub struct EventListenerMock;
@@ -333,6 +334,13 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 		SlashObserver::mutate(|map| {
 			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
 		});
+	}
+}
+
+pub struct MockedRestrictList;
+impl Contains<AccountId> for MockedRestrictList {
+	fn contains(who: &AccountId) -> bool {
+		RestrictedAccounts::get().contains(who)
 	}
 }
 
@@ -367,6 +375,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
+	type Filter = MockedRestrictList;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -1067,4 +1076,14 @@ pub(crate) fn to_bounded_supports(
 	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
 > {
 	supports.try_into().unwrap()
+}
+
+pub(crate) fn restrict(who: &AccountId) {
+	if !RestrictedAccounts::get().contains(who) {
+		RestrictedAccounts::mutate(|l| l.push(*who));
+	}
+}
+
+pub(crate) fn remove_from_restrict_list(who: &AccountId) {
+	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
 }
