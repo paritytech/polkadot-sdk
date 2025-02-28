@@ -12,11 +12,11 @@ migrations:
     - reference: pallet-bounties
       description: |
         Migrating `BountyUpdatePeriod` from `BlockNumber` to `Option<BlockNumber>`.
-        To preserve the existing behavior, wrap the current value in `Some(BountyUpdatePeriod)`.
+        To retain the existing behavior, wrap the current value in `Some(BountyUpdatePeriod)`.
         if set to None, bounties will no longer expire. 
 
 crates:
 - name: pallet-bounties
-  bump: patch
+  bump: minor
 - name: pallet-child-bounties
   bump: patch
