@@ -27,7 +27,6 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use polkadot_sdk::sp_application_crypto::{Pair, Public};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
