@@ -203,13 +203,20 @@ where
 					error,
 				);
 
-				let _ = response_sender.send(Err(ValidationFailed("Session index not found".to_string())));
+				let _ = response_sender
+					.send(Err(ValidationFailed("Session index not found".to_string())));
 				return
 			};
-		
+
 			// This will return a default value for the limit if runtime API is not available.
 			// however we still error out if there is a weird runtime API error.
-			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(relay_parent, session_index, &mut sender).await else {
+			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
+				relay_parent,
+				session_index,
+				&mut sender,
+			)
+			.await
+			else {
 				let error = "cannot fetch validation code bomb limit from the runtime";
 				gum::warn!(
 					target: LOG_TARGET,
@@ -217,7 +224,9 @@ where
 					error,
 				);
 
-				let _ = response_sender.send(Err(ValidationFailed("Validation code bomb limit not available".to_string())));
+				let _ = response_sender.send(Err(ValidationFailed(
+					"Validation code bomb limit not available".to_string(),
+				)));
 				return
 			};
 
@@ -257,10 +266,16 @@ where
 				let _ = response_sender.send(PreCheckOutcome::Failed);
 				return
 			};
-		
+
 			// This will return a default value for the limit if runtime API is not available.
 			// however we still error out if there is a weird runtime API error.
-			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(relay_parent, session_index, &mut sender).await else {
+			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
+				relay_parent,
+				session_index,
+				&mut sender,
+			)
+			.await
+			else {
 				let error = "cannot fetch validation code bomb limit from the runtime";
 				gum::warn!(
 					target: LOG_TARGET,
@@ -272,9 +287,14 @@ where
 				return
 			};
 
-			let precheck_result =
-				precheck_pvf(&mut sender, validation_host, relay_parent, validation_code_hash, validation_code_bomb_limit)
-					.await;
+			let precheck_result = precheck_pvf(
+				&mut sender,
+				validation_host,
+				relay_parent,
+				validation_code_hash,
+				validation_code_bomb_limit,
+			)
+			.await;
 
 			let _ = response_sender.send(precheck_result);
 		}
@@ -585,11 +605,15 @@ where
 			continue;
 		};
 
-		let Some(session_index) = get_session_index(sender, relay_parent).await else {
-			continue;
-		};
+		let Some(session_index) = get_session_index(sender, relay_parent).await else { continue };
 
-		let validation_code_bomb_limit = match util::runtime::fetch_validation_code_bomb_limit(relay_parent, session_index, sender).await {
+		let validation_code_bomb_limit = match util::runtime::fetch_validation_code_bomb_limit(
+			relay_parent,
+			session_index,
+			sender,
+		)
+		.await
+		{
 			Ok(limit) => limit,
 			Err(err) => {
 				gum::warn!(
@@ -599,7 +623,7 @@ where
 					"cannot fetch validation code bomb limit from runtime API",
 				);
 				continue;
-			}
+			},
 		};
 
 		let pvf = PvfPrepData::from_code(
@@ -851,11 +875,10 @@ async fn validate_candidate_exhaustive(
 
 	// We only check the session index for backing.
 	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) => {
+		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) =>
 			if session_index != expected_session_index {
 				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex))
-			}
-		},
+			},
 		(_, _) => {},
 	};
 
