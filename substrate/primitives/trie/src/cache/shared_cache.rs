@@ -15,9 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::cache::LOG_TARGET;
+
 ///! Provides the [`SharedNodeCache`], the [`SharedValueCache`] and the [`SharedTrieCache`]
 ///! that combines both caches and is exported to the outside.
-use super::{CacheSize, NodeCached};
+use super::{
+	CacheSize, LocalNodeCacheConfig, LocalNodeCacheLimiter, LocalValueCacheConfig,
+	LocalValueCacheLimiter, NodeCacheMap, NodeCached, TrieHitStats, TrieHitStatsSnapshot,
+	ValueAccessSet, ValueCacheMap,
+};
+use core::hash::Hash;
 use hash_db::Hasher;
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
@@ -26,9 +33,10 @@ use std::{
 	collections::{hash_map::Entry as SetEntry, HashMap},
 	hash::{BuildHasher, Hasher as _},
 	sync::{Arc, LazyLock},
+	time::Instant,
 };
+use tracing::warn;
 use trie_db::{node::NodeOwned, CachedValue};
-
 static RANDOM_STATE: LazyLock<ahash::RandomState> = LazyLock::new(|| {
 	use rand::Rng;
 	let mut rng = rand::thread_rng();
@@ -72,7 +80,8 @@ where
 		// Once we hit the limit of max items evicted this will return `false` and prevent
 		// any further evictions, but this is fine because the outer loop which inserts
 		// items into this cache will just detect this and stop inserting new items.
-		self.items_evicted <= self.max_items_evicted && self.heap_size > self.max_heap_size
+		// self.items_evicted <= self.max_items_evicted && self.heap_size > self.max_heap_size
+		self.heap_size > self.max_heap_size
 	}
 
 	#[inline]
@@ -266,21 +275,26 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 	}
 
 	/// Update the cache with the `list` of nodes which were either newly added or accessed.
-	pub fn update(&mut self, list: impl IntoIterator<Item = (H, NodeCached<H>)>) {
+	pub fn update(
+		&mut self,
+		list: impl IntoIterator<Item = (H, NodeCached<H>)>,
+		config: &LocalNodeCacheConfig,
+	) {
 		let mut access_count = 0;
 		let mut add_count = 0;
 
 		self.lru.limiter_mut().items_evicted = 0;
 		self.lru.limiter_mut().max_items_evicted =
-			self.lru.len() * 100 / super::SHARED_NODE_CACHE_MAX_REPLACE_PERCENT;
+			self.lru.len() * 100 / config.shared_node_cache_max_replace_percent;
 
 		for (key, cached_node) in list {
 			if cached_node.is_from_shared_cache {
 				if self.lru.get(&key).is_some() {
 					access_count += 1;
 
-					if access_count >= super::SHARED_NODE_CACHE_MAX_PROMOTED_KEYS {
+					if access_count >= config.shared_node_cache_max_promoted_keys {
 						// Stop when we've promoted a large enough number of items.
+						warn!(target: super::LOG_TARGET, "Promoted {} items from the shared node cache", access_count);
 						break
 					}
 
@@ -292,6 +306,7 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 			add_count += 1;
 
 			if self.lru.limiter().items_evicted > self.lru.limiter().max_items_evicted {
+				warn!(target: super::LOG_TARGET, "Evicted {} items from the shared node cache", self.lru.limiter().items_evicted);
 				// Stop when we've evicted a big enough chunk of the shared cache.
 				break
 			}
@@ -509,6 +524,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 		&mut self,
 		added: impl IntoIterator<Item = (ValueCacheKey<H>, CachedValue<H>)>,
 		accessed: impl IntoIterator<Item = ValueCacheKeyHash>,
+		config: &LocalValueCacheConfig,
 	) {
 		let mut access_count = 0;
 		let mut add_count = 0;
@@ -531,7 +547,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 
 		self.lru.limiter_mut().items_evicted = 0;
 		self.lru.limiter_mut().max_items_evicted =
-			self.lru.len() * 100 / super::SHARED_VALUE_CACHE_MAX_REPLACE_PERCENT;
+			self.lru.len() * 100 / config.shared_value_cache_max_replace_percent;
 
 		for (key, value) in added {
 			self.lru.insert(key, value);
@@ -539,6 +555,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 
 			if self.lru.limiter().items_evicted > self.lru.limiter().max_items_evicted {
 				// Stop when we've evicted a big enough chunk of the shared cache.
+				warn!(target: super::LOG_TARGET, "Evicted {} items from the shared value cache", self.lru.limiter().items_evicted);
 				break
 			}
 		}
@@ -569,6 +586,19 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 pub(super) struct SharedTrieCacheInner<H: Hasher> {
 	node_cache: SharedNodeCache<H::Out>,
 	value_cache: SharedValueCache<H::Out>,
+	stats: TrieHitStats,
+}
+
+/// Holds the `TrieLocalCache` data that needs to be propagated back
+/// to the shared_cache by the worker thread.
+pub(super) struct LocalCacheDataToWriteBack<H: Hasher + 'static> {
+	node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
+	value_cache: Arc<Mutex<ValueCacheMap<H::Out>>>,
+	shared_value_cache_access: Arc<Mutex<ValueAccessSet>>,
+	value_cache_config: LocalValueCacheConfig,
+	node_cache_config: LocalNodeCacheConfig,
+	shared_cache: SharedTrieCache<H>,
+	stats: TrieHitStatsSnapshot,
 }
 
 impl<H: Hasher> SharedTrieCacheInner<H> {
@@ -593,6 +623,10 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 	pub(super) fn node_cache_mut(&mut self) -> &mut SharedNodeCache<H::Out> {
 		&mut self.node_cache
 	}
+
+	pub(super) fn stats(&mut self) -> &TrieHitStats {
+		&self.stats
+	}
 }
 
 /// The shared trie cache.
@@ -602,17 +636,20 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 /// bounds given via the [`CacheSize`] at startup.
 ///
 /// The instance of this object can be shared between multiple threads.
-pub struct SharedTrieCache<H: Hasher> {
+pub struct SharedTrieCache<H: Hasher + 'static> {
 	inner: Arc<RwLock<SharedTrieCacheInner<H>>>,
+	/// Channel to send the TrieLocalCache data that needs to be propagated back to the
+	/// shared_cache by the worker thread.
+	write_back_work_tx: std::sync::mpsc::Sender<LocalCacheDataToWriteBack<H>>,
 }
 
 impl<H: Hasher> Clone for SharedTrieCache<H> {
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone() }
+		Self { inner: self.inner.clone(), write_back_work_tx: self.write_back_work_tx.clone() }
 	}
 }
 
-impl<H: Hasher> SharedTrieCache<H> {
+impl<H: Hasher + 'static> SharedTrieCache<H> {
 	/// Create a new [`SharedTrieCache`].
 	pub fn new(cache_size: CacheSize) -> Self {
 		let total_budget = cache_size.0;
@@ -649,6 +686,18 @@ impl<H: Hasher> SharedTrieCache<H> {
 			value_cache_max_heap_size,
 		);
 
+		let (tx, rx) = std::sync::mpsc::channel();
+		/// Worker thread that writes back the local cache data to the shared cache.
+		std::thread::spawn(move || loop {
+			match rx.recv() {
+				Ok(work) => Self::write_back(work),
+				Err(err) => {
+					warn!("Error receiving write back work: {:?}", err);
+					break;
+				},
+			}
+		});
+
 		Self {
 			inner: Arc::new(RwLock::new(SharedTrieCacheInner {
 				node_cache: SharedNodeCache::new(
@@ -659,20 +708,60 @@ impl<H: Hasher> SharedTrieCache<H> {
 					value_cache_max_inline_size,
 					value_cache_max_heap_size,
 				),
+				stats: Default::default(),
 			})),
+			write_back_work_tx: tx,
 		}
 	}
 
 	/// Create a new [`LocalTrieCache`](super::LocalTrieCache) instance from this shared cache.
 	pub fn local_cache(&self) -> super::LocalTrieCache<H> {
+		let local_value_cache_config = LocalValueCacheConfig::default();
+		let local_node_cache_config = LocalNodeCacheConfig::default();
+
 		super::LocalTrieCache {
 			shared: self.clone(),
-			node_cache: Default::default(),
-			value_cache: Default::default(),
-			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
-				schnellru::ByLength::new(super::SHARED_VALUE_CACHE_MAX_PROMOTED_KEYS),
+			node_cache: Arc::new(Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
 				Default::default(),
-			)),
+			)))),
+			value_cache: Arc::new(Mutex::new(LruMap::with_hasher(
+				LocalValueCacheLimiter::new(Default::default()),
+				Default::default(),
+			))),
+			shared_value_cache_access: Arc::new(Mutex::new(super::ValueAccessSet::with_hasher(
+				schnellru::ByLength::new(
+					local_value_cache_config.shared_value_cache_max_promoted_keys,
+				),
+				Default::default(),
+			))),
+			value_cache_config: local_value_cache_config,
+			node_cache_config: local_node_cache_config,
+			stats: Default::default(),
+		}
+	}
+
+	/// Create a new [`LocalTrieCache`](super::LocalTrieCache) instance from this shared cache.
+	pub fn local_cache_unlimited(&self) -> super::LocalTrieCache<H> {
+		let local_value_cache_config = LocalValueCacheConfig::unlimited();
+		let local_node_cache_config = LocalNodeCacheConfig::unlimited();
+
+		super::LocalTrieCache {
+			shared: self.clone(),
+			node_cache: Arc::new(Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
+				super::LocalNodeCacheConfig::unlimited(),
+			)))),
+			value_cache: Arc::new(Mutex::new(LruMap::with_hasher(
+				LocalValueCacheLimiter::new(super::LocalValueCacheConfig::unlimited()),
+				Default::default(),
+			))),
+			shared_value_cache_access: Arc::new(Mutex::new(super::ValueAccessSet::with_hasher(
+				schnellru::ByLength::new(
+					local_value_cache_config.shared_value_cache_max_promoted_keys,
+				),
+				Default::default(),
+			))),
+			value_cache_config: local_value_cache_config,
+			node_cache_config: local_node_cache_config,
 			stats: Default::default(),
 		}
 	}
@@ -708,7 +797,11 @@ impl<H: Hasher> SharedTrieCache<H> {
 
 	/// Returns the used memory size of this cache in bytes.
 	pub fn used_memory_size(&self) -> usize {
-		let inner = self.inner.read();
+		let mut inner = self.inner.read();
+
+		tracing::info!(target: LOG_TARGET, "Node cache stats {:}", inner.stats.node_cache);
+		tracing::info!(target: LOG_TARGET, "Value cache stats {:}", inner.stats.value_cache);
+
 		let value_cache_size =
 			inner.value_cache.lru.memory_usage() + inner.value_cache.lru.limiter().heap_size;
 		let node_cache_size =
@@ -747,6 +840,63 @@ impl<H: Hasher> SharedTrieCache<H> {
 		// timeout, just in case. At worst it'll do nothing, and at best it'll avert a catastrophe
 		// and notify us that there's a problem.
 		self.inner.try_write_for(super::SHARED_CACHE_WRITE_LOCK_TIMEOUT)
+	}
+
+	/// Write back the local cache data to the shared cache.
+	pub(super) fn write_back(write_back_work: LocalCacheDataToWriteBack<H>) {
+		let start = Instant::now();
+		let mut shared_inner = match write_back_work.shared_cache.write_lock_inner() {
+			Some(inner) => inner,
+			None => {
+				tracing::warn!(
+					target: LOG_TARGET,
+					"Timeout while trying to acquire a write lock for the shared trie cache"
+				);
+				return
+			},
+		};
+
+		shared_inner.stats().add_snapshot(&write_back_work.stats);
+		shared_inner
+			.node_cache_mut()
+			.update(write_back_work.node_cache.lock().drain(), &write_back_work.node_cache_config);
+
+		shared_inner.value_cache_mut().update(
+			write_back_work.value_cache.lock().drain(),
+			write_back_work.shared_value_cache_access.lock().drain().map(|(key, ())| key),
+			&write_back_work.value_cache_config,
+		);
+		if start.elapsed().as_millis() > 100 {
+			tracing::warn!(
+				target: LOG_TARGET,
+				"Writing back the shared cache took a lot of time: {} ms hits: {:?}",
+				start.elapsed().as_millis(), write_back_work.stats
+			);
+		}
+	}
+
+	pub(super) fn queue_local_cache_data(
+		&self,
+		node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
+		value_cache: Arc<Mutex<ValueCacheMap<H::Out>>>,
+		shared_value_cache_access: Arc<Mutex<ValueAccessSet>>,
+		value_cache_config: LocalValueCacheConfig,
+		node_cache_config: LocalNodeCacheConfig,
+		stats: TrieHitStatsSnapshot,
+	) {
+		let shared_cache = self.clone();
+		let write_back_work = LocalCacheDataToWriteBack {
+			node_cache,
+			value_cache,
+			shared_value_cache_access,
+			value_cache_config,
+			node_cache_config,
+			stats,
+			shared_cache,
+		};
+		if let Err(err) = self.write_back_work_tx.send(write_back_work) {
+			warn!("Failed to send write back work {:}", err);
+		}
 	}
 }
 

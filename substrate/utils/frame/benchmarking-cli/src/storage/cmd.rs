@@ -116,6 +116,10 @@ pub struct StorageParams {
 	/// Include child trees in benchmark.
 	#[arg(long)]
 	pub include_child_trees: bool,
+
+	/// Unlimited local cache.
+	#[arg(long)]
+	pub unlimited_local_cache: bool,
 }
 
 impl StorageCmd {
@@ -229,5 +233,9 @@ impl CliConfiguration for StorageCmd {
 		} else {
 			Ok(None)
 		}
+	}
+
+	fn unlimited_local_cache(&self) -> Result<bool> {
+		Ok(self.params.unlimited_local_cache)
 	}
 }
