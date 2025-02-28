@@ -48,7 +48,24 @@ pub trait StakingApi {
 	/// corresponding session points are reported.
 	fn on_relay_chain_session_end(end_index: SessionIndex, block_authors: Vec<(AccountId32, u32)>);
 	/// Report one or more offences on the relay chain.
-	fn on_new_offences(offences: Vec<Offence>);
+	fn on_new_offences(slash_session: SessionIndex, offences: Vec<Offence>) -> Weight;
+	/// Report validator rewards.
+	fn reward_by_ids(validators_points: Vec<(AccountId32, u32)>);
+}
+
+// TODO: update the comment
+/// Means for interacting with a specialized version of the `session` trait.
+///
+/// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
+pub trait SessionInterface<AccountId> {
+	/// Get the validators from session.
+	fn validators() -> Vec<AccountId>;
+}
+
+impl<AccountId> SessionInterface<AccountId> for () {
+	fn validators() -> Vec<AccountId> {
+		Vec::new()
+	}
 }
 
 /// `pallet-staking-ah-client` pallet index on Relay chain. Used to construct remote calls.
@@ -71,9 +88,9 @@ enum SessionCalls {
 // An offence on the relay chain. Based on [`sp_staking::offence::OffenceDetails`].
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
 pub struct Offence {
-	offender: AccountId32,
-	reporters: Vec<AccountId32>,
-	slash_fraction: Perbill,
+	pub offender: AccountId32,
+	pub reporters: Vec<AccountId32>,
+	pub slash_fraction: Perbill,
 }
 
 impl Offence {
@@ -128,7 +145,7 @@ pub mod pallet {
 			]);
 
 			if let Err(err) = send_xcm::<T::SendXcm>(Location::new(1, Here), message) {
-				log::error!(target: LOG_TARGET, "Sending `NewValidators` to relay chain failed: {:?}", err);
+				log::error!(target: LOG_TARGET, "Sending `NewValidatorSet` to relay chain failed: {:?}", err);
 			}
 		}
 	}
@@ -137,7 +154,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Called to indicate the start of a new session on the relay chain.
 		#[pallet::call_index(0)]
-		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
+		// #[pallet::weight(T::WeightInfo::relay_chain_session_start())] // TODO
 		pub fn relay_chain_session_start(
 			origin: OriginFor<T>,
 			start_index: SessionIndex,
@@ -150,7 +167,7 @@ pub mod pallet {
 		/// Called to indicate the end of a session on the relay chain. Accepts the session id and
 		/// the block authors with their corresponding session points for the finished session.
 		#[pallet::call_index(1)]
-		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
+		// #[pallet::weight(T::WeightInfo::relay_chain_session_end())] // TODO
 		pub fn relay_chain_session_end(
 			origin: OriginFor<T>,
 			end_index: SessionIndex,
@@ -163,14 +180,33 @@ pub mod pallet {
 
 		/// Called to report one or more new offenses on the relay chain.
 		#[pallet::call_index(2)]
-		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
+		// #[pallet::weight(T::WeightInfo::new_relay_chain_offence())] // TODO
 		pub fn new_relay_chain_offence(
 			origin: OriginFor<T>,
+			slash_session: SessionIndex,
 			offences: Vec<Offence>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			T::StakingApi::on_new_offences(offences);
+			T::StakingApi::on_new_offences(slash_session, offences);
 			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		// #[pallet::weight(T::WeightInfo::end_session())] // TODO
+		pub fn parachain_session_points(
+			origin: OriginFor<T>,
+			session_points: Vec<(AccountId32, u32)>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			T::StakingApi::reward_by_ids(session_points);
+			Ok(())
+		}
+	}
+
+	impl<T: Config> SessionInterface<T::AccountId> for Pallet<T> {
+		fn validators() -> Vec<T::AccountId> {
+			// TODO: cache the last applied validator set and return it here
+			vec![]
 		}
 	}
 

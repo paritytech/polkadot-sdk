@@ -976,57 +976,6 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 	}
 }
 
-/// Means for interacting with a specialized version of the `session` trait.
-///
-/// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
-pub trait SessionInterface<AccountId> {
-	/// Report an offending validator.
-	fn report_offence(validator: AccountId, severity: OffenceSeverity);
-	/// Get the validators from session.
-	fn validators() -> Vec<AccountId>;
-	/// Prune historical session tries up to but not including the given index.
-	fn prune_historical_up_to(up_to: SessionIndex);
-}
-
-impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
-where
-	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-	T: pallet_session::historical::Config,
-	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
-	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
-	T::ValidatorIdOf: Convert<
-		<T as frame_system::Config>::AccountId,
-		Option<<T as frame_system::Config>::AccountId>,
-	>,
-{
-	fn report_offence(
-		validator: <T as frame_system::Config>::AccountId,
-		severity: OffenceSeverity,
-	) {
-		<pallet_session::Pallet<T>>::report_offence(validator, severity)
-	}
-
-	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
-		<pallet_session::Pallet<T>>::validators()
-	}
-
-	fn prune_historical_up_to(up_to: SessionIndex) {
-		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
-	}
-}
-
-impl<AccountId> SessionInterface<AccountId> for () {
-	fn report_offence(_validator: AccountId, _severity: OffenceSeverity) {
-		()
-	}
-	fn validators() -> Vec<AccountId> {
-		Vec::new()
-	}
-	fn prune_historical_up_to(_: SessionIndex) {
-		()
-	}
-}
-
 /// Handler for determining how much of a balance should be paid out on the current era.
 pub trait EraPayout<Balance> {
 	/// Determine the payout for this era.

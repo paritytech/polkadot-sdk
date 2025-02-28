@@ -31,10 +31,10 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
+pub use pallet::*;
 use pallet_staking_rc_client::Offence;
 use sp_core::crypto::AccountId32;
-use sp_runtime::traits::Convert;
-use sp_staking::{offence::OffenceDetails, Exposure, SessionIndex};
+use sp_staking::{offence::OffenceDetails, SessionIndex};
 use xcm::prelude::*;
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
@@ -62,6 +62,9 @@ enum StakingCalls {
 	/// Report one or more offences.
 	#[codec(index = 2)]
 	NewRelayChainOffences(SessionIndex, Vec<Offence>),
+	/// Report rewards from parachain blocks processing.
+	#[codec(index = 3)]
+	ParachainSessionPoints(Vec<(AccountId32, u32)>),
 }
 
 #[frame_support::pallet(dev_mode)]
@@ -71,31 +74,26 @@ pub mod pallet {
 	use core::result;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
-	use pallet_staking::ExposureOf;
 	use polkadot_primitives::Id as ParaId;
 	use polkadot_runtime_parachains::origin::{ensure_parachain, Origin};
 	use sp_runtime::Perbill;
-	use sp_staking::{offence::OnOffenceHandler, SessionIndex};
+	use sp_staking::{
+		offence::{OffenceSeverity, OnOffenceHandler},
+		SessionIndex,
+	};
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	/// The balance type of this pallet.
 	pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-	// `Exposure<T::AccountId, BalanceOf<T>>` will be removed. This type alias exists only to
-	// suppress clippy warnings.
-	type ElectedValidatorSet<T> = Vec<(
-		<T as frame_system::Config>::AccountId,
-		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-	)>;
-
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
-	// TODO: should contain some initial state, otherwise starting from genesis won't work
 	#[pallet::storage]
-	pub type ValidatorSet<T: Config> = StorageValue<_, Option<ElectedValidatorSet<T>>, ValueQuery>;
+	pub type ValidatorSet<T: Config> =
+		StorageValue<_, Option<Vec<<T as frame_system::Config>::AccountId>>, ValueQuery>;
 
 	/// Keeps track of the session points for each block author in the current session.
 	#[pallet::storage]
@@ -132,12 +130,15 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: Into<AccountId32>,
+	{
 		#[pallet::call_index(0)]
 		// #[pallet::weight(T::WeightInfo::new_validators())] // TODO
 		pub fn new_validator_set(
 			origin: OriginFor<T>,
-			new_validator_set: ElectedValidatorSet<T>,
+			new_validator_set: Vec<T::AccountId>,
 		) -> DispatchResult {
 			// Ignore requests not coming from the AssetHub or root.
 			Self::ensure_root_or_para(origin, <T as Config>::AssetHubId::get().into())?;
@@ -149,18 +150,30 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
-		for Pallet<T>
-	{
-		fn new_session(_: sp_staking::SessionIndex) -> Option<ElectedValidatorSet<T>> {
-			// If there is a new validator set - return it. Otherwise return `None`.
-			ValidatorSet::<T>::take()
+	impl<T: Config> historical::SessionManager<T::AccountId, ()> for Pallet<T> {
+		fn new_session(
+			_: sp_staking::SessionIndex,
+		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ())>> {
+			let maybe_new_validator_set = ValidatorSet::<T>::take()
+				.map(|validators| validators.into_iter().map(|v| (v, ())).collect());
+
+			// A new validator set is an indication for a new era. Clear
+			if maybe_new_validator_set.is_none() {
+				// TODO: historical sessions should be pruned. This used to happen after the bonding
+				// period for the session but it would be nice to avoid XCM messages for prunning
+				// and trigger it from RC directly.
+
+				// <pallet_session::historical::Pallet<T>>::prune_up_to(up_to); // TODO!!!
+			}
+
+			return maybe_new_validator_set
 		}
 
 		fn new_session_genesis(
 			_: SessionIndex,
-		) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
+		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ())>> {
 			ValidatorSet::<T>::take()
+				.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 		}
 
 		fn start_session(start_index: SessionIndex) {
@@ -232,21 +245,13 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config>
+	impl<T: Config, I: sp_runtime::traits::Convert<T::AccountId, Option<()>>>
 		OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight>
 		for Pallet<T>
 	where
 		T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-		T: pallet_session::historical::Config<
-			FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-			FullIdentificationOf = ExposureOf<T>,
-		>,
-		T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
+		T: pallet_session::historical::Config<FullIdentification = (), FullIdentificationOf = I>,
 		T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
-		T::ValidatorIdOf: Convert<
-			<T as frame_system::Config>::AccountId,
-			Option<<T as frame_system::Config>::AccountId>,
-		>,
 		T::AccountId: Into<AccountId32>,
 	{
 		fn on_offence(
@@ -257,18 +262,22 @@ pub mod pallet {
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
-			let offenders_and_slashes = offenders
-				.iter()
-				.cloned()
-				.zip(slash_fraction)
-				.map(|(offence, fraction)| {
-					Offence::new(
-						offence.offender.0.into(),
-						offence.reporters.into_iter().map(|r| r.into()).collect(),
-						*fraction,
-					)
-				})
-				.collect::<Vec<_>>();
+			let mut offenders_and_slashes = Vec::new();
+
+			// notify pallet-session about the offences
+			for (offence, fraction) in offenders.iter().cloned().zip(slash_fraction) {
+				<pallet_session::Pallet<T>>::report_offence(
+					offence.offender.0.clone(),
+					OffenceSeverity(*fraction),
+				);
+
+				// prepare an `Offence` instance for the XCM message
+				offenders_and_slashes.push(Offence::new(
+					offence.offender.0.into(),
+					offence.reporters.into_iter().map(|r| r.into()).collect(),
+					*fraction,
+				));
+			}
 
 			// send the offender immediately over xcm
 			let message = Xcm(vec![
@@ -293,7 +302,10 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: Into<AccountId32>,
+	{
 		/// Ensure the origin is one of Root or the `para` itself.
 		fn ensure_root_or_para(
 			origin: <T as frame_system::Config>::RuntimeOrigin,
@@ -309,6 +321,32 @@ pub mod pallet {
 				ensure_root(origin.clone())?;
 			}
 			Ok(())
+		}
+
+		pub fn handle_parachain_rewards(
+			validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
+		) -> Weight {
+			let parachain_points = validators_points
+				.into_iter()
+				.map(|(id, points)| (id.into(), points))
+				.collect::<Vec<_>>();
+
+			let message = Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				mk_asset_hub_call(StakingCalls::ParachainSessionPoints(parachain_points)),
+			]);
+			if let Err(err) = send_xcm::<T::SendXcm>(
+				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
+				message,
+			) {
+				log::error!(target: LOG_TARGET, "Sending `ParachainSessionPoints` to AssetHub failed: {:?}",
+			err);
+			}
+
+			Weight::zero()
 		}
 	}
 

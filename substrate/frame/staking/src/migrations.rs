@@ -264,6 +264,7 @@ pub mod v16 {
 /// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`
 pub mod v15 {
 	use super::*;
+	use pallet_staking_rc_client::SessionInterface;
 
 	// The disabling strategy used by staking pallet
 	type DefaultDisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy;

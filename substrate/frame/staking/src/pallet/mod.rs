@@ -35,6 +35,7 @@ use frame_support::{
 	BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+use pallet_staking_rc_client::SessionInterface;
 use rand::seq::SliceRandom;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
@@ -43,7 +44,7 @@ use rand_chacha::{
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{SaturatedConversion, StaticLookup, Zero},
-	ArithmeticError, Perbill, Percent,
+	AccountId32, ArithmeticError, Perbill, Percent,
 };
 
 use sp_staking::{
@@ -60,7 +61,7 @@ use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -94,7 +95,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config(with_default)]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId32> {
 		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
 		#[pallet::no_default]
 		type OldCurrency: InspectLockableCurrency<
