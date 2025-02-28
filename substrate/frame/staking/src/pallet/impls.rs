@@ -500,6 +500,10 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	// 1. hardcode it here
+	// 2. semi hardcode it type ElectionStartLookaheadSession: Get<u32>;
+	// 3. fully flexible.
+
 	/// Start a session potentially starting an era.
 	fn start_session(start_session: SessionIndex) {
 		let next_active_era = ActiveEra::<T>::get().map(|e| e.index + 1).unwrap_or(0);
@@ -667,6 +671,7 @@ impl<T: Config> Pallet<T> {
 			// note: exposures have already been processed and stored for each of the election
 			// solution page at the time of `elect_paged(page_index)`.
 			Self::register_weight(T::DbWeight::get().reads(1));
+			// TODO: here we should ensure that wea re not in the middle of importing election result.
 			ElectableStashes::<T>::take()
 				.into_inner()
 				.into_iter()
