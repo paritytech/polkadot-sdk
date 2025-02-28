@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740758162715,
+  "lastUpdate": 1740765402507,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -19439,6 +19439,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2499324268,
             "range": "± 18684191",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1bc6ca606438a65c927f14be3f36634ca0e58e8f",
+          "message": "notifications/libp2p: Terminate the outbound notification substream on `std::io::Errors` (#7724)\n\nThis PR handles a case where we called the `poll_next` on an outbound\nsubstream notification to check if the stream is closed. It is entirely\npossible that the `poll_next` would return an `io::error`, for example\nend of file.\n\nThis PR ensures that we make the distinction between unexpected incoming\ndata, and error originated from `poll_next`.\n\nWhile at it, the bulk of the PR change propagates the PeerID from the\nnetwork behavior, through the notification handler, to the notification\noutbound stream for logging purposes.\n\ncc @paritytech/networking \n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/7722\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2025-02-28T17:05:16Z",
+          "tree_id": "2f62c029b2e9a2c776165b90f05bb49fecad5a2c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bc6ca606438a65c927f14be3f36634ca0e58e8f"
+        },
+        "date": 1740765384846,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 17570739,
+            "range": "± 194954",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18142756,
+            "range": "± 222528",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 19632342,
+            "range": "± 150580",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 23752481,
+            "range": "± 186348",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 54088336,
+            "range": "± 708176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 327724939,
+            "range": "± 3443457",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2517063125,
+            "range": "± 82445486",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 15049555,
+            "range": "± 131386",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 15117840,
+            "range": "± 122206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 15607622,
+            "range": "± 99597",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 20006619,
+            "range": "± 120319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 50419285,
+            "range": "± 669015",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 295332665,
+            "range": "± 6240569",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2406081800,
+            "range": "± 18816434",
             "unit": "ns/iter"
           }
         ]
