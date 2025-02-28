@@ -28,9 +28,9 @@ use crate::crypto::{
 };
 use alloc::vec::Vec;
 use ark_ec_vrfs::{
-	ark::{
-		ec::CurveGroup,
-		serialize::{CanonicalDeserialize, CanonicalSerialize},
+	reexports::{
+		ark_ec::CurveGroup,
+		ark_serialize::{CanonicalDeserialize, CanonicalSerialize},
 	},
 	suites::bandersnatch::{self, BandersnatchSha512Ell2 as BandersnatchSuite, Secret},
 	Suite,

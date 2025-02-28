@@ -526,7 +526,8 @@ dependencies = [
 [[package]]
 name = "ark-ec-vrfs"
 version = "0.1.1"
-source = "git+https://github.com/davxy/ark-ec-vrfs?rev=d8b87b2#d8b87b2b32d8620182afaf4a623190ecae797b3a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f5f2414d02d20c44288aae80c512e410ab660ff6829a721ab0cb28f8aca2d55"
 dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",
