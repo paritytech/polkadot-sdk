@@ -1,0 +1,60 @@
+title: Add EventEmitter to XCM Executor
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces the `EventEmitter` trait to the XCM executor, allowing configurable event emission.
+crates:
+- name: pallet-xcm-bridge-hub
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: glutton-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: rococo-parachain-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: pallet-xcm-benchmarks
+  bump: minor
+- name: pallet-xcm
+  bump: minor
+- name: staging-xcm-builder
+  bump: minor
+- name: staging-xcm-executor
+  bump: minor
+- name: xcm-runtime-apis
+  bump: minor
+- name: xcm-simulator-example
+  bump: minor
+- name: pallet-contracts-mock-network
+  bump: minor
+- name: pallet-revive-mock-network
+  bump: minor
+- name: bridge-runtime-common
+  bump: minor
+- name: pallet-bridge-grandpa
+  bump: minor
+- name: pallet-bridge-messages
+  bump: minor
+- name: sp-tracing
+  bump: minor

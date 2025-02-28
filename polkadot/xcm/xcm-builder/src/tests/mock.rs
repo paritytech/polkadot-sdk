@@ -742,6 +742,7 @@ pub struct TestConfig;
 impl Config for TestConfig {
 	type RuntimeCall = TestCall;
 	type XcmSender = TestMessageSender;
+	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
 	type OriginConverter = TestOriginConverter;
 	type IsReserve = TestIsReserve;

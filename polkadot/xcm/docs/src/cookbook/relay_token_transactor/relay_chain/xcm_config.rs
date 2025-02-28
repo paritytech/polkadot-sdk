@@ -88,6 +88,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
+	type XcmEventEmitter = ();
 	type AssetTransactor = asset_transactor::AssetTransactor;
 	type OriginConverter = ();
 	// We don't need to recognize anyone as a reserve

@@ -34,7 +34,7 @@ use xcm::latest::{prelude::*, AssetTransferFilter};
 pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
+	DropAssets, Enact, EventEmitter, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
@@ -438,9 +438,30 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
-		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
+		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
-		Config::XcmSender::deliver(ticket).map_err(Into::into)
+		match Config::XcmSender::deliver(ticket) {
+			Ok(message_id) => {
+				Config::XcmEventEmitter::emit_sent_event(
+					self.original_origin.clone(),
+					dest,
+					None, /* Avoid logging the full XCM message to prevent inconsistencies and
+					       * reduce storage usage. */
+					message_id.clone(),
+				);
+				Ok(message_id)
+			},
+			Err(e) => {
+				tracing::error!(target: "xcm::send", ?e, "XCM failed to deliver with error");
+				Config::XcmEventEmitter::emit_send_failure_event(
+					self.original_origin.clone(),
+					dest,
+					e.clone(),
+					self.context.message_id,
+				);
+				Err(e.into())
+			},
+		}
 	}
 
 	/// Remove the registered error handler and return it. Do not refund its weight.
@@ -825,6 +846,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					});
 					if let Err(e) = inst_res {
 						tracing::trace!(target: "xcm::execute", "!!! ERROR: {:?}", e);
+						Config::XcmEventEmitter::emit_process_failure_event(
+							self.original_origin.clone(),
+							e.clone(),
+							self.context.message_id,
+						);
 						*r = Err(ExecutorError {
 							index: i as u32,
 							xcm_error: e,

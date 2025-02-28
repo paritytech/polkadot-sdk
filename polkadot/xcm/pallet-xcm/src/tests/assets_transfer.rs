@@ -2451,6 +2451,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		WeightLimit,
 	) -> DispatchResult,
 {
+	sp_tracing::init_for_tests();
+
 	let weight = BaseXcmWeight::get() * 3;
 	let user_account = AccountId::from(XCM_FEES_NOT_WAIVED_USER_ACCOUNT);
 	let xcm_router_fee_amount = Para3000PaymentAmount::get();
