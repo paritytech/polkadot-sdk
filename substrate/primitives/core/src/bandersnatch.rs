@@ -31,7 +31,7 @@ use ark_ec_vrfs::{
 		ark_ec::CurveGroup,
 		ark_serialize::{CanonicalDeserialize, CanonicalSerialize},
 	},
-	suites::bandersnatch::{self, BandersnatchSha512Ell2, Secret},
+	suites::bandersnatch::{self, BandersnatchSha512Ell2 as BandersnatchSuite, Secret},
 	Suite,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
@@ -41,9 +41,6 @@ use alloc::vec::Vec;
 
 /// Identifier used to match public keys against bandersnatch-vrf keys.
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
-
-/// Context used to produce a plain signature without any VRF input/output.
-pub const SIGNING_CTX: &[u8] = b"BandersnatchSigningContext";
 
 /// The byte length of secret key seed.
 pub const SEED_SERIALIZED_SIZE: usize = 32;
@@ -67,10 +64,7 @@ impl CryptoType for Public {
 	type Pair = Pair;
 }
 
-/// Bandersnatch signature.
-///
-/// The signature is created via [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as transcript
-/// `label`.
+/// Bandersnatch Schnorr signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, BandersnatchTag>;
 
 impl CryptoType for Signature {
@@ -85,6 +79,7 @@ type Seed = [u8; SEED_SERIALIZED_SIZE];
 pub struct Pair {
 	secret: Secret,
 	seed: Seed,
+	prefix: Seed,
 }
 
 impl Pair {
@@ -108,8 +103,12 @@ impl TraitPair for Pair {
 		}
 		let mut seed = [0; SEED_SERIALIZED_SIZE];
 		seed.copy_from_slice(seed_slice);
+		let h = ark_ec_vrfs::utils::hash::<<BandersnatchSuite as Suite>::Hasher>(&seed);
+		// Extract and cache the high half.
+		let mut prefix = [0; SEED_SERIALIZED_SIZE];
+		prefix.copy_from_slice(&h[32..64]);
 		let secret = Secret::from_seed(&seed);
-		Ok(Pair { secret, seed })
+		Ok(Pair { secret, seed, prefix })
 	}
 
 	/// Derive a child key from a series of given (hard) junctions.
@@ -146,14 +145,13 @@ impl TraitPair for Pair {
 
 	#[cfg(feature = "full_crypto")]
 	fn sign(&self, data: &[u8]) -> Signature {
-		let input = bandersnatch::Input::new(data).expect("Hash to curve can't fail; qed");
-
-		let k = BandersnatchSha512Ell2::nonce(&self.secret.scalar, input);
-		let gk = BandersnatchSha512Ell2::generator() * k;
-		let c = BandersnatchSha512Ell2::challenge(
-			&[&gk.into_affine(), &self.secret.public.0, &input.0],
-			&[],
-		);
+		// Deterministic nonce for plain Schnorr signature.
+		// Inspired by ed25519 <https://www.rfc-editor.org/rfc/rfc8032#section-5.1.6>
+		let h =
+			&ark_ec_vrfs::utils::hash::<<BandersnatchSuite as Suite>::Hasher>(&self.prefix)[..32];
+		let k = ark_ec_vrfs::codec::scalar_decode::<BandersnatchSuite>(h);
+		let gk = BandersnatchSuite::generator() * k;
+		let c = BandersnatchSuite::challenge(&[&gk.into_affine(), &self.secret.public.0], data);
 		let s = k + c * self.secret.scalar;
 		let mut raw_signature = [0_u8; SIGNATURE_SERIALIZED_SIZE];
 		bandersnatch::IetfProof { c, s }
@@ -170,15 +168,14 @@ impl TraitPair for Pair {
 		let Ok(public) = bandersnatch::Public::deserialize_compressed(&public.0[..]) else {
 			return false
 		};
-		let input = bandersnatch::Input::new(data.as_ref()).expect("Can't fail");
-		let gs = BandersnatchSha512Ell2::generator() * signature.s;
+		let gs = BandersnatchSuite::generator() * signature.s;
 		let yc = public.0 * signature.c;
 		let rv = gs - yc;
-		let cv = BandersnatchSha512Ell2::challenge(&[&rv.into_affine(), &public.0, &input.0], &[]);
+		let cv = BandersnatchSuite::challenge(&[&rv.into_affine(), &public.0], data.as_ref());
 		signature.c == cv
 	}
 
-	/// Return a vector filled with the seed (32 bytes).
+	/// Return a vector filled with the seed.
 	fn to_raw_vec(&self) -> Vec<u8> {
 		self.seed().to_vec()
 	}
@@ -204,16 +201,16 @@ pub mod vrf {
 
 	impl VrfInput {
 		/// Construct a new VRF input.
-		pub fn new(data: impl AsRef<[u8]>) -> Self {
-			Self(bandersnatch::Input::new(data.as_ref()).expect("Can't fail"))
+		///
+		/// Hash to Curve (H2C) using Elligator2.
+		pub fn new(data: &[u8]) -> Self {
+			Self(bandersnatch::Input::new(data).expect("H2C for Bandersnatch can't fail; qed"))
 		}
 	}
 
 	/// VRF pre-output derived from [`VrfInput`] using a [`VrfSecret`].
 	///
-	/// This object is used to produce an arbitrary number of verifiable pseudo random
-	/// bytes and is often called pre-output to emphasize that this is not the actual
-	/// output of the VRF but an object capable of generating the output.
+	/// This object is hashed to produce the actual VRF output.
 	#[derive(Clone, Debug, PartialEq, Eq)]
 	pub struct VrfPreOutput(pub(super) bandersnatch::Output);
 
@@ -384,7 +381,7 @@ pub mod ring_vrf {
 		const G2_POINT_UNCOMPRESSED_SIZE: usize = 192;
 		const OVERHEAD_SIZE: usize = 16;
 		const G2_POINTS_NUM: usize = 2;
-		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSha512Ell2>(ring_size);
+		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSuite>(ring_size);
 		let g1_points_num = 3 * domain_size as usize + 1;
 		OVERHEAD_SIZE +
 			g1_points_num * G1_POINT_UNCOMPRESSED_SIZE +
@@ -404,9 +401,10 @@ pub mod ring_vrf {
 
 	impl Encode for RingVerifierKey {
 		fn encode(&self) -> Vec<u8> {
-			const ERR_STR: &str = "serialization length is constant and checked by test; qed";
 			let mut buf = Vec::with_capacity(RING_VERIFIER_KEY_SERIALIZED_SIZE);
-			self.0.serialize_compressed(&mut buf).expect(ERR_STR);
+			self.0
+				.serialize_compressed(&mut buf)
+				.expect("serialization length is constant and checked by test; qed");
 			buf
 		}
 	}
@@ -574,7 +572,7 @@ pub mod ring_vrf {
 		/// from which the [`RingVerifier`] has been constructed.
 		pub fn ring_vrf_verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
 			let Ok(proof) =
-				bandersnatch::Proof::deserialize_compressed_unchecked(self.proof.as_slice())
+				bandersnatch::RingProof::deserialize_compressed_unchecked(self.proof.as_slice())
 			else {
 				return false
 			};
@@ -616,7 +614,7 @@ mod tests {
 
 		let ctx = RingContextImpl::from_seed(TEST_RING_SIZE, [0_u8; 32]);
 
-		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSha512Ell2>(TEST_RING_SIZE);
+		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSuite>(TEST_RING_SIZE);
 		assert_eq!(ctx.max_ring_size(), domain_size - OVERHEAD_SIZE);
 
 		assert_eq!(ctx.uncompressed_size(), ring_context_serialized_size(TEST_RING_SIZE));
