@@ -111,7 +111,6 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
-	type Filter = pallet_nomination_pools::AllPoolMembers<Self>;
 }
 
 parameter_types! {
@@ -161,11 +160,6 @@ impl pallet_nomination_pools::Config for Runtime {
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-<<<<<<< HEAD
-=======
-	type BlockNumberProvider = System;
-	type Filter = pallet_staking::AllStakers<Runtime>;
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 }
 
 frame_support::construct_runtime!(

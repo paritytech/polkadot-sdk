@@ -25,17 +25,9 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-<<<<<<< HEAD
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
-=======
-		fungible::{
-			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
-			Inspect, Mutate, Mutate as FunMutate,
-		},
-		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
+		Contains, Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession,
+		Get, InspectLockableCurrency, LockableCurrency, Nothing, OnUnbalanced, UnixTime,
+		WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -57,11 +49,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
-	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
-	UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
+	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -358,11 +350,8 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
-<<<<<<< HEAD
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
-=======
 			type Filter = Nothing;
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -799,7 +788,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					asset::stakeable_balance::<T>(stash) >= balance,
+					T::Currency::free_balance(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -871,13 +860,8 @@ pub mod pallet {
 		StakingElectionFailed,
 		/// An account has stopped participating as either a validator or nominator.
 		Chilled { stash: T::AccountId },
-		/// A Page of stakers rewards are getting paid. `next` is `None` if all pages are claimed.
-		PayoutStarted {
-			era_index: EraIndex,
-			validator_stash: T::AccountId,
-			page: Page,
-			next: Option<Page>,
-		},
+		/// The stakers' rewards are getting paid.
+		PayoutStarted { era_index: EraIndex, validator_stash: T::AccountId },
 		/// A validator has set their preferences.
 		ValidatorPrefsSet { stash: T::AccountId, prefs: ValidatorPrefs },
 		/// Voters size limit reached.
@@ -959,18 +943,9 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Operation not allowed for virtual stakers.
 		VirtualStakerNotAllowed,
-<<<<<<< HEAD
-=======
-		/// Stash could not be reaped as other pallet might depend on it.
-		CannotReapStash,
-		/// The stake of this account is already migrated to `Fungible` holds.
-		AlreadyMigrated,
-		/// Era not yet started.
-		EraNotStarted,
 		/// Account is restricted from participation in staking. This may happen if the account is
 		/// staking in another way already, such as via pool.
 		Restricted,
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 	}
 
 	#[pallet::hooks]
@@ -1062,14 +1037,13 @@ pub mod pallet {
 			}
 
 			// Reject a bond which is considered to be _dust_.
-			if value < asset::existential_deposit::<T>() {
+			if value < T::Currency::minimum_balance() {
 				return Err(Error::<T>::InsufficientBond.into())
 			}
 
-			// Would fail if account has no provider.
-			frame_system::Pallet::<T>::inc_consumers(&stash)?;
+			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
-			let stash_balance = asset::stakeable_balance::<T>(&stash);
+			let stash_balance = T::Currency::free_balance(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 			let ledger = StakingLedger::<T>::new(stash.clone(), value);
@@ -1108,7 +1082,7 @@ pub mod pallet {
 
 		/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond
 		/// period ends. If this leaves an amount actively bonded less than
-		/// [`asset::existential_deposit`], then it is increased to the full amount.
+		/// T::Currency::minimum_balance(), then it is increased to the full amount.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
 		///
@@ -1164,7 +1138,7 @@ pub mod pallet {
 				ledger.active -= value;
 
 				// Avoid there being a dust balance left in the staking system.
-				if ledger.active < asset::existential_deposit::<T>() {
+				if ledger.active < T::Currency::minimum_balance() {
 					value += ledger.active;
 					ledger.active = Zero::zero();
 				}
@@ -1696,10 +1670,7 @@ pub mod pallet {
 			let initial_unlocking = ledger.unlocking.len() as u32;
 			let (ledger, rebonded_value) = ledger.rebond(value);
 			// Last check: the new active amount of ledger must be more than ED.
-			ensure!(
-				ledger.active >= asset::existential_deposit::<T>(),
-				Error::<T>::InsufficientBond
-			);
+			ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
 			Self::deposit_event(Event::<T>::Bonded {
 				stash: ledger.stash.clone(),
@@ -1751,8 +1722,8 @@ pub mod pallet {
 			// virtual stakers should not be allowed to be reaped.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			let ed = asset::existential_deposit::<T>();
-			let origin_balance = asset::total_balance::<T>(&stash);
+			let ed = T::Currency::minimum_balance();
+			let origin_balance = T::Currency::total_balance(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
 			let reapable = origin_balance < ed ||
@@ -2119,8 +2090,8 @@ pub mod pallet {
 			// cannot restore ledger for virtual stakers.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			let current_lock = asset::staked::<T>(&stash);
-			let stash_balance = asset::stakeable_balance::<T>(&stash);
+			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+			let stash_balance = T::Currency::free_balance(&stash);
 
 			let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
 				Ok(LedgerIntegrityState::Corrupted) => {
@@ -2129,7 +2100,12 @@ pub mod pallet {
 					let new_total = if let Some(total) = maybe_total {
 						let new_total = total.min(stash_balance);
 						// enforce lock == ledger.amount.
-						asset::update_stake::<T>(&stash, new_total);
+						T::Currency::set_lock(
+							crate::STAKING_ID,
+							&stash,
+							new_total,
+							WithdrawReasons::all(),
+						);
 						new_total
 					} else {
 						current_lock
@@ -2156,13 +2132,18 @@ pub mod pallet {
 					// to enforce a new ledger.total and staking lock for this stash.
 					let new_total =
 						maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?.min(stash_balance);
-					asset::update_stake::<T>(&stash, new_total);
+					T::Currency::set_lock(
+						crate::STAKING_ID,
+						&stash,
+						new_total,
+						WithdrawReasons::all(),
+					);
 
 					Ok((stash.clone(), new_total))
 				},
 				Err(Error::<T>::BadState) => {
 					// the stash and ledger do not exist but lock is lingering.
-					asset::kill_stake::<T>(&stash);
+					T::Currency::remove_lock(crate::STAKING_ID, &stash);
 					ensure!(
 						Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
 						Error::<T>::BadState
@@ -2188,67 +2169,6 @@ pub mod pallet {
 			);
 			Ok(())
 		}
-<<<<<<< HEAD
-=======
-
-		/// Migrates permissionlessly a stash from locks to holds.
-		///
-		/// This removes the old lock on the stake and creates a hold on it atomically. If all
-		/// stake cannot be held, the best effort is made to hold as much as possible. The remaining
-		/// stake is removed from the ledger.
-		///
-		/// The fee is waived if the migration is successful.
-		#[pallet::call_index(30)]
-		#[pallet::weight(T::WeightInfo::migrate_currency())]
-		pub fn migrate_currency(
-			origin: OriginFor<T>,
-			stash: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
-			Self::do_migrate_currency(&stash)?;
-
-			// Refund the transaction fee if successful.
-			Ok(Pays::No.into())
-		}
-
-		/// Manually applies a deferred slash for a given era.
-		///
-		/// Normally, slashes are automatically applied shortly after the start of the `slash_era`.
-		/// This function exists as a **fallback mechanism** in case slashes were not applied due to
-		/// unexpected reasons. It allows anyone to manually apply an unapplied slash.
-		///
-		/// ## Parameters
-		/// - `slash_era`: The staking era in which the slash was originally scheduled.
-		/// - `slash_key`: A unique identifier for the slash, represented as a tuple:
-		///   - `stash`: The stash account of the validator being slashed.
-		///   - `slash_fraction`: The fraction of the stake that was slashed.
-		///   - `page_index`: The index of the exposure page being processed.
-		///
-		/// ## Behavior
-		/// - The function is **permissionless**—anyone can call it.
-		/// - The `slash_era` **must be the current era or a past era**. If it is in the future, the
-		///   call fails with `EraNotStarted`.
-		/// - The fee is waived if the slash is successfully applied.
-		///
-		/// ## TODO: Future Improvement
-		/// - Implement an **off-chain worker (OCW) task** to automatically apply slashes when there
-		///   is unused block space, improving efficiency.
-		#[pallet::call_index(31)]
-		#[pallet::weight(T::WeightInfo::apply_slash())]
-		pub fn apply_slash(
-			origin: OriginFor<T>,
-			slash_era: EraIndex,
-			slash_key: (T::AccountId, Perbill, u32),
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
-			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
-			ensure!(slash_era <= active_era, Error::<T>::EraNotStarted);
-			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)
-				.ok_or(Error::<T>::InvalidSlashRecord)?;
-			slashing::apply_slash::<T>(unapplied_slash, slash_era);
-
-			Ok(Pays::No.into())
-		}
 
 		/// Adjusts the staking ledger by withdrawing any excess staked amount.
 		///
@@ -2261,27 +2181,27 @@ pub mod pallet {
 		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
+			// Virtual stakers are controlled by some other pallet.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
+
 			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let actual_stake = asset::staked::<T>(&stash);
-			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
+			let stash_balance = T::Currency::free_balance(&stash);
 
-			// ensure there is something to force unstake.
-			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
+			// Ensure there is an overstake.
+			ensure!(ledger.total > stash_balance, Error::<T>::BoundNotMet);
 
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash, but we can't do much better here.
-			StakingLedger {
-				total: actual_stake,
-				active: ledger.active.saturating_sub(force_withdraw_amount),
-				..ledger
-			}
-			.update()?;
+			let force_withdraw_amount = ledger.total.defensive_saturating_sub(stash_balance);
+
+			// Update the ledger by withdrawing excess stake.
+			ledger.update_total_stake(stash_balance).update()?;
+
+			// Ensure lock is updated.
+			debug_assert_eq!(T::Currency::balance_locked(crate::STAKING_ID, &stash), stash_balance);
 
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
 
 			Ok(())
 		}
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 	}
 }
 

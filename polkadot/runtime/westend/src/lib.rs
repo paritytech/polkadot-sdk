@@ -37,7 +37,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
 		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
+		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
 		VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
@@ -755,13 +755,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
-<<<<<<< HEAD
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
-=======
-	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
-	type Filter = Nothing;
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1522,11 +1516,6 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-<<<<<<< HEAD
-=======
-	type BlockNumberProvider = System;
-	type Filter = Nothing;
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 }
 
 parameter_types! {
