@@ -1,0 +1,67 @@
+title: Fix unspecified Hash in NodeBlock
+doc:
+- audience: Node Dev
+  description: "# Description\n\nWorking with https://github.com/paritytech/polkadot-sdk/pull/7556\
+    \ I encountered an internal compiler error on polkadot-omni-node-lib: see bellow\
+    \ or [in CI](https://github.com/paritytech/polkadot-sdk/actions/runs/13521547633/job/37781894640).\n\
+    \n```\nerror: internal compiler error: compiler/rustc_traits/src/codegen.rs:45:13:\
+    \ Encountered error `SignatureMismatch(SignatureMismatchData { found_trait_ref:\
+    \ <{closure@sp_state_machine::trie_backend_essence::TrieBackendEssence<sc_service::Arc<dyn\
+    \ sp_state_machine::trie_backend_essence::Storage<<<<NodeSpec as common::spec::BaseNodeSpec>::Block\
+    \ as common::NodeBlock>::BoundedHeader as sp_runtime::traits::Header>::Hashing>>,\
+    \ <<<NodeSpec as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader\
+    \ as sp_runtime::traits::Header>::Hashing, sp_trie::cache::LocalTrieCache<<<<NodeSpec\
+    \ as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader as\
+    \ sp_runtime::traits::Header>::Hashing>, sp_trie::recorder::Recorder<<<<NodeSpec\
+    \ as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader as\
+    \ sp_runtime::traits::Header>::Hashing>>::storage::{closure#1}} as std::ops::FnOnce<(std::option::Option<&mut\
+    \ dyn trie_db::TrieRecorder<sp_core::H256>>, std::option::Option<&mut dyn trie_db::TrieCache<sp_trie::node_codec::NodeCodec<<<<NodeSpec\
+    \ as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader as\
+    \ sp_runtime::traits::Header>::Hashing>>>)>>, expected_trait_ref: <{closure@sp_state_machine::trie_backend_essence::TrieBackendEssence<sc_service::Arc<dyn\
+    \ sp_state_machine::trie_backend_essence::Storage<<<<NodeSpec as common::spec::BaseNodeSpec>::Block\
+    \ as common::NodeBlock>::BoundedHeader as sp_runtime::traits::Header>::Hashing>>,\
+    \ <<<NodeSpec as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader\
+    \ as sp_runtime::traits::Header>::Hashing, sp_trie::cache::LocalTrieCache<<<<NodeSpec\
+    \ as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader as\
+    \ sp_runtime::traits::Header>::Hashing>, sp_trie::recorder::Recorder<<<<NodeSpec\
+    \ as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader as\
+    \ sp_runtime::traits::Header>::Hashing>>::storage::{closure#1}} as std::ops::FnOnce<(std::option::Option<&mut\
+    \ dyn trie_db::TrieRecorder<<<<NodeSpec as common::spec::BaseNodeSpec>::Block\
+    \ as common::NodeBlock>::BoundedHeader as sp_runtime::traits::Header>::Hash>>,\
+    \ std::option::Option<&mut dyn trie_db::TrieCache<sp_trie::node_codec::NodeCodec<<<<NodeSpec\
+    \ as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader as\
+    \ sp_runtime::traits::Header>::Hashing>>>)>>, terr: Sorts(ExpectedFound { expected:\
+    \ Alias(Projection, AliasTy { args: [Alias(Projection, AliasTy { args: [Alias(Projection,\
+    \ AliasTy { args: [NodeSpec/#0], def_id: DefId(0:410 ~ polkadot_omni_node_lib[7cce]::common::spec::BaseNodeSpec::Block),\
+    \ .. })], def_id: DefId(0:507 ~ polkadot_omni_node_lib[7cce]::common::NodeBlock::BoundedHeader),\
+    \ .. })], def_id: DefId(229:1706 ~ sp_runtime[5da1]::traits::Header::Hash), ..\
+    \ }), found: sp_core::H256 }) })` selecting `<{closure@sp_state_machine::trie_backend_essence::TrieBackendEssence<sc_service::Arc<dyn\
+    \ sp_state_machine::trie_backend_essence::Storage<<<<NodeSpec as common::spec::BaseNodeSpec>::Block\
+    \ as common::NodeBlock>::BoundedHeader as sp_runtime::traits::Header>::Hashing>>,\
+    \ <<<NodeSpec as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader\
+    \ as sp_runtime::traits::Header>::Hashing, sp_trie::cache::LocalTrieCache<<<<NodeSpec\
+    \ as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader as\
+    \ sp_runtime::traits::Header>::Hashing>, sp_trie::recorder::Recorder<<<<NodeSpec\
+    \ as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader as\
+    \ sp_runtime::traits::Header>::Hashing>>::storage::{closure#1}} as std::ops::FnOnce<(std::option::Option<&mut\
+    \ dyn trie_db::TrieRecorder<<<<NodeSpec as common::spec::BaseNodeSpec>::Block\
+    \ as common::NodeBlock>::BoundedHeader as sp_runtime::traits::Header>::Hash>>,\
+    \ std::option::Option<&mut dyn trie_db::TrieCache<sp_trie::node_codec::NodeCodec<<<<NodeSpec\
+    \ as common::spec::BaseNodeSpec>::Block as common::NodeBlock>::BoundedHeader as\
+    \ sp_runtime::traits::Header>::Hashing>>>)>>` during codegen\n```\n\nTrying to\
+    \ parse the error I found that TrieRecorder was not supposed to work with H256:\n\
+    - Expected: `&mut dyn TrieRecorder<<<<NodeSpec as common::spec::BaseNodeSpec>::Block\
+    \ as common::NodeBlock>::BoundedHeader as Header>::Hash>>`\n- Found: `&mut dyn\
+    \ TrieRecorder<sp_core::H256>>`\n\nThe error happened because I added to `new_full_parts_with_genesis_builder`\
+    \ interaction with Trie Cache which eventually uses `TrieRecorder<H256>`. Here\
+    \ is the path:\n- In polkadot-omni-node-lib trait BaseNodeSpec defined with Block\
+    \ as `NodeBlock: BlockT<Hash = DbHash>`, where DbHash is H256.\n- BaseNodeSpec\
+    \ calls [new_full_parts_record_import::<Self::Block, \u2026 >](https://github.com/paritytech/polkadot-sdk/blob/75726c65d40d3631c441b946a26b2f0b30d40c26/cumulus/polkadot-omni-node/lib/src/common/spec.rs#L184-L189)\
+    \ and eventually it goes to [new_full_parts_with_genesis_builder](https://github.com/paritytech/polkadot-sdk/blob/08b302464a6ccaacf391516ff7b058fe07b5cca3/substrate/client/service/src/builder.rs#L195).\n\
+    - In `new_full_parts_with_genesis_builder` we accessed storage, initiating TrieRecorder\
+    \ with H256 what never happened before.\n\nI believe the compiler found a mismatch:\
+    \ NodeBlock inherits from the trait `Block<Hash = DbHash>`, but it uses BoundedHeader,\
+    \ which inherits from the trait Header with the default Hash."
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
