@@ -526,7 +526,7 @@ dependencies = [
 [[package]]
 name = "ark-ec-vrfs"
 version = "0.1.1"
-source = "git+https://github.com/davxy/ark-ec-vrfs?rev=4785f4c#4785f4c877f7910515bd46dfb7693cea1c0b0d4f"
+source = "git+https://github.com/davxy/ark-ec-vrfs?rev=d8b87b2#d8b87b2b32d8620182afaf4a623190ecae797b3a"
 dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",

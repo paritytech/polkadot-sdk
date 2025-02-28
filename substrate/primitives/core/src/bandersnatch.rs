@@ -26,18 +26,17 @@ use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
 	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 };
+use alloc::vec::Vec;
 use ark_ec_vrfs::{
-	prelude::{
-		ark_ec::CurveGroup,
-		ark_serialize::{CanonicalDeserialize, CanonicalSerialize},
+	ark::{
+		ec::CurveGroup,
+		serialize::{CanonicalDeserialize, CanonicalSerialize},
 	},
 	suites::bandersnatch::{self, BandersnatchSha512Ell2 as BandersnatchSuite, Secret},
 	Suite,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
-
-use alloc::vec::Vec;
 
 /// Identifier used to match public keys against bandersnatch-vrf keys.
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
