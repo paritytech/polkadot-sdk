@@ -154,9 +154,19 @@ pub mod pallet {
 		fn new_session(
 			_: sp_staking::SessionIndex,
 		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ())>> {
-			// If there is a new validator set - return it. Otherwise return `None`.
-			ValidatorSet::<T>::take()
-				.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
+			let maybe_new_validator_set = ValidatorSet::<T>::take()
+				.map(|validators| validators.into_iter().map(|v| (v, ())).collect());
+
+			// A new validator set is an indication for a new era. Clear
+			if maybe_new_validator_set.is_none() {
+				// TODO: historical sessions should be pruned. This used to happen after the bonding
+				// period for the session but it would be nice to avoid XCM messages for prunning
+				// and trigger it from RC directly.
+
+				// <pallet_session::historical::Pallet<T>>::prune_up_to(up_to); // TODO!!!
+			}
+
+			return maybe_new_validator_set
 		}
 
 		fn new_session_genesis(

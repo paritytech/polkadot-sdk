@@ -32,7 +32,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use pallet_staking_rc_client::{Offence, StakingApi};
+use pallet_staking_rc_client::{Offence, SessionInterface, StakingApi};
 use sp_core::crypto::AccountId32;
 use sp_runtime::{
 	traits::{Bounded, CheckedAdd, Convert, SaturatedConversion, Saturating, StaticLookup, Zero},
@@ -50,8 +50,8 @@ use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, SnapshotStatus,
-	StakingLedger, ValidatorPrefs, STAKING_ID,
+	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
+	ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -573,9 +573,10 @@ impl<T: Config> Pallet<T> {
 					slashing::clear_era_metadata::<T>(pruned_era);
 				}
 
-				if let Some(&(_, first_session)) = bonded.first() {
-					T::SessionInterface::prune_historical_up_to(first_session);
-				}
+				// TODO: should be handled in ah_client (see the comment there)
+				// if let Some(&(_, first_session)) = bonded.first() {
+				// 	T::SessionInterface::prune_historical_up_to(first_session);
+				// }
 			}
 		});
 	}
@@ -1713,8 +1714,7 @@ where
 			}
 
 			add_db_reads_writes(1, 0);
-			let Some(exposure_overview) =
-				<ErasStakersOverview<T>>::get(&offence_era, &validator)
+			let Some(exposure_overview) = <ErasStakersOverview<T>>::get(&offence_era, &validator)
 			else {
 				// defensive: this implies offence is for a discarded era, and should already be
 				// filtered out.
@@ -1733,19 +1733,19 @@ where
 				offence_era,
 			});
 
-			if offence_era == active_era.index {
-				// offence is in the current active era. Report it to session to maybe disable the
-				// validator.
-				add_db_reads_writes(2, 2);
-				T::SessionInterface::report_offence(
-					validator.clone(),
-					OffenceSeverity(slash_fraction),
-				);
-			}
+			// TODO: handled in ah_client. Verify it works correctly before removing the commented
+			// out code. if offence_era == active_era.index {
+			// 	// offence is in the current active era. Report it to session to maybe disable the
+			// 	// validator.
+			// 	add_db_reads_writes(2, 2);
+			// 	T::SessionInterface::report_offence(
+			// 		validator.clone(),
+			// 		OffenceSeverity(slash_fraction),
+			// 	);
+			// }
 			add_db_reads_writes(1, 0);
-			let prior_slash_fraction =
-				ValidatorSlashInEra::<T>::get(offence_era, &validator)
-					.map_or(Zero::zero(), |(f, _)| f);
+			let prior_slash_fraction = ValidatorSlashInEra::<T>::get(offence_era, &validator)
+				.map_or(Zero::zero(), |(f, _)| f);
 
 			add_db_reads_writes(1, 0);
 			if let Some(existing) = OffenceQueue::<T>::get(offence_era, &validator) {
@@ -1872,8 +1872,6 @@ where
 // 		Self::new_session(new_index, true).map(|v| v.into_inner())
 // 	}
 // }
-
-
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;

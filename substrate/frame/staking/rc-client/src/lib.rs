@@ -53,6 +53,21 @@ pub trait StakingApi {
 	fn reward_by_ids(validators_points: Vec<(AccountId32, u32)>);
 }
 
+// TODO: update the comment
+/// Means for interacting with a specialized version of the `session` trait.
+///
+/// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
+pub trait SessionInterface<AccountId> {
+	/// Get the validators from session.
+	fn validators() -> Vec<AccountId>;
+}
+
+impl<AccountId> SessionInterface<AccountId> for () {
+	fn validators() -> Vec<AccountId> {
+		Vec::new()
+	}
+}
+
 /// `pallet-staking-ah-client` pallet index on Relay chain. Used to construct remote calls.
 ///
 /// The codec index must correspond to the index of `pallet-staking-ah-client` in the
@@ -185,6 +200,13 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			T::StakingApi::reward_by_ids(session_points);
 			Ok(())
+		}
+	}
+
+	impl<T: Config> SessionInterface<T::AccountId> for Pallet<T> {
+		fn validators() -> Vec<T::AccountId> {
+			// TODO: cache the last applied validator set and return it here
+			vec![]
 		}
 	}
 
