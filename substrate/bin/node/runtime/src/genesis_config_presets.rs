@@ -31,6 +31,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
+use sp_core::crypto::get_public_from_string_or_panic;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
@@ -193,7 +194,6 @@ pub fn session_keys(
 /// We have this method as there is no straight forward way to convert the
 /// account keyring into these ids.
 pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
-	use sp_core::crypto::get_public_from_string_or_panic;
 	session_keys(
 		get_public_from_string_or_panic::<GrandpaId>(seed),
 		get_public_from_string_or_panic::<BabeId>(seed),
