@@ -91,11 +91,15 @@ use sp_runtime::{
 };
 
 mod benchmarking;
+pub mod migration;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+
+/// The log target of this pallet.
+pub const LOG_TARGET: &'static str = "runtime::nis";
 
 pub struct WithMaximumOf<A: TypedGet>(core::marker::PhantomData<A>);
 impl<A: TypedGet> Convert<Perquintill, A::Type> for WithMaximumOf<A>
@@ -190,21 +194,26 @@ pub mod pallet {
 		},
 		PalletId,
 	};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, *};
 	use sp_arithmetic::{PerThing, Perquintill};
 	use sp_runtime::{
-		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero},
+		traits::{
+			AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, Saturating,
+			Zero,
+		},
 		Rounding, TokenError,
 	};
 
-	type BalanceOf<T> =
+	pub(crate) type BlockNumberFor<T> =
+		<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 	type DebtOf<T> =
 		fungible::Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
-	type ReceiptRecordOf<T> =
+	pub(crate) type ReceiptRecordOf<T> =
 		ReceiptRecord<<T as frame_system::Config>::AccountId, BlockNumberFor<T>, BalanceOf<T>>;
 	type IssuanceInfoOf<T> = IssuanceInfo<BalanceOf<T>>;
-	type SummaryRecordOf<T> = SummaryRecord<BlockNumberFor<T>, BalanceOf<T>>;
+	pub(crate) type SummaryRecordOf<T> = SummaryRecord<BlockNumberFor<T>, BalanceOf<T>>;
 	type BidOf<T> = Bid<BalanceOf<T>, <T as frame_system::Config>::AccountId>;
 	type QueueTotalsTypeOf<T> = BoundedVec<(u32, BalanceOf<T>), <T as Config>::QueueCount>;
 
@@ -312,6 +321,21 @@ pub mod pallet {
 		#[pallet::constant]
 		type ThawThrottle: Get<(Perquintill, BlockNumberFor<Self>)>;
 
+		/// Abstracted source of block numbers for this pallet.
+		///
+		/// This provider decouples the pallet from direct use of the system block number, allowing:
+		/// - Integration with external block number sources.
+		/// - Custom timekeeping mechanisms (e.g. mock timelines for testing)
+		/// - Composite block numbers (e.g. parachain blocks vs relay chain blocks)
+		///
+		/// # Example: Using the local chain block numbers
+		/// ```rust,ignore
+		/// impl Config for Runtime {
+		///     type BlockNumberProvider = frame_system::Pallet<Runtime>;
+		/// }
+		/// ```
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber: Default>;
+
 		/// Setup the state for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkSetup: crate::BenchmarkSetup;
@@ -406,6 +430,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Receipts<T> =
 		StorageMap<_, Blake2_128Concat, ReceiptIndex, ReceiptRecordOf<T>, OptionQuery>;
+
+	/// Get last processed intake block.
+	#[pallet::storage]
+	pub type LastProcessedBlock<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -515,12 +543,17 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: SystemBlockNumberFor<T>) -> Weight {
+			let block_number = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter =
 				WeightCounter { used: Weight::zero(), limit: T::MaxIntakeWeight::get() };
-			if T::IntakePeriod::get().is_zero() || (n % T::IntakePeriod::get()).is_zero() {
+			let last_processed = LastProcessedBlock::<T>::get();
+			let intake_period = T::IntakePeriod::get();
+			if block_number.saturating_sub(last_processed) >= intake_period {
 				if weight_counter.check_accrue(T::WeightInfo::process_queues()) {
+					LastProcessedBlock::<T>::put(block_number);
+					weight_counter.check_accrue(T::DbWeight::get().writes(1));
 					Self::process_queues(
 						T::Target::get(),
 						T::QueueCount::get(),
@@ -693,7 +726,7 @@ pub mod pallet {
 			let (owner, mut on_hold) = receipt.owner.ok_or(Error::<T>::AlreadyCommunal)?;
 			ensure!(owner == who, Error::<T>::NotOwner);
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= receipt.expiry, Error::<T>::NotExpired);
 
 			let mut summary: SummaryRecordOf<T> = Summary::<T>::get();
@@ -800,7 +833,7 @@ pub mod pallet {
 				Receipts::<T>::get(index).ok_or(Error::<T>::UnknownReceipt)?;
 			// If found, check it is actually communal.
 			ensure!(receipt.owner.is_none(), Error::<T>::NotOwner);
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= receipt.expiry, Error::<T>::NotExpired);
 
 			let mut summary: SummaryRecordOf<T> = Summary::<T>::get();
@@ -1032,7 +1065,7 @@ pub mod pallet {
 				return
 			}
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let our_account = Self::account_id();
 			let issuance: IssuanceInfoOf<T> = Self::issuance_with(&our_account, &summary);
 			let mut remaining = target.saturating_sub(summary.proportion_owed) * issuance.effective;
