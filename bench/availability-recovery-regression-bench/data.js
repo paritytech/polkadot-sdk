@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740758771221,
+  "lastUpdate": 1740766013046,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -46147,6 +46147,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1858899956333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1bc6ca606438a65c927f14be3f36634ca0e58e8f",
+          "message": "notifications/libp2p: Terminate the outbound notification substream on `std::io::Errors` (#7724)\n\nThis PR handles a case where we called the `poll_next` on an outbound\nsubstream notification to check if the stream is closed. It is entirely\npossible that the `poll_next` would return an `io::error`, for example\nend of file.\n\nThis PR ensures that we make the distinction between unexpected incoming\ndata, and error originated from `poll_next`.\n\nWhile at it, the bulk of the PR change propagates the PeerID from the\nnetwork behavior, through the notification handler, to the notification\noutbound stream for logging purposes.\n\ncc @paritytech/networking \n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/7722\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2025-02-28T17:05:16Z",
+          "tree_id": "2f62c029b2e9a2c776165b90f05bb49fecad5a2c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bc6ca606438a65c927f14be3f36634ca0e58e8f"
+        },
+        "date": 1740765995818,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.240561040233334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19288941766666667,
             "unit": "seconds"
           }
         ]
