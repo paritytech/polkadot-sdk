@@ -437,7 +437,6 @@ pub mod pallet {
 					bounty.value <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
 				);
-				println!("bounty: {:?}", bounty);
 				match bounty.status {
 					BountyStatus::Funded => {},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
@@ -578,7 +577,7 @@ pub mod pallet {
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
-				println!("bounty: {:?}", bounty);
+
 				match bounty.status {
 					BountyStatus::CuratorProposed { ref curator } => {
 						ensure!(signer == *curator, Error::<T, I>::RequireCurator);
