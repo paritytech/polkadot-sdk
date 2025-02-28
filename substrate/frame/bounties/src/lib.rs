@@ -959,7 +959,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	pub fn calculate_update_due() -> BlockNumberFor<T, I> {
-		Self::treasury_block_number().saturating_add(T::BountyUpdatePeriod::get().unwrap_or(BlockNumberFor::<T, I>::max_value()))
+		Self::treasury_block_number().saturating_add(
+			T::BountyUpdatePeriod::get().unwrap_or(BlockNumberFor::<T, I>::max_value()),
+		)
 	}
 
 	/// The account ID of the treasury pot.
