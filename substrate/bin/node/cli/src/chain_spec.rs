@@ -20,7 +20,7 @@
 
 use polkadot_sdk::*;
 
-use crate::chain_spec::{sc_service::Properties};
+use crate::chain_spec::sc_service::Properties;
 use kitchensink_runtime::{
 	genesis_config_presets::{session_keys, Staker, StakingPlaygroundConfig, STASH},
 	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
@@ -398,7 +398,7 @@ pub(crate) mod tests {
 	use crate::service::{new_full_base, NewFullBase};
 	use kitchensink_runtime::genesis_config_presets::well_known_including_eth_accounts;
 	use sc_service_test;
-	use sp_runtime::BuildStorage;
+	use sp_runtime::{AccountId32, BuildStorage};
 
 	/// Local testnet config (single validator - Alice).
 	pub fn integration_test_config_with_single_authority() -> ChainSpec {
