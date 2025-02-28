@@ -107,10 +107,16 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(feature = "elastic-scaling-multi-block-slot")]
+#[cfg(all(
+	feature = "elastic-scaling-multi-block-slot",
+	not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms"))
+))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
 
-#[cfg(feature = "elastic-scaling-500ms")]
+#[cfg(all(
+	feature = "elastic-scaling-500ms",
+	not(any(feature = "elastic-scaling", feature = "elastic-scaling-multi-block-slot"))
+))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 
 #[cfg(feature = "elastic-scaling")]
