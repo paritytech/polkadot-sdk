@@ -79,7 +79,7 @@ use polkadot_runtime_common::{
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
-use sp_core::{ConstU32, OpaqueMetadata};
+use sp_core::{ConstBool, ConstU32, OpaqueMetadata};
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -338,12 +338,13 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = Staking;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = ();
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 pallet_staking_reward_curve::build! {
@@ -368,7 +369,7 @@ parameter_types! {
 	pub const MaxExposurePageSize: u32 = 64;
 	pub const MaxNominators: u32 = 256;
 	pub const MaxAuthorities: u32 = 100_000;
-	pub const OnChainMaxWinners: u32 = u32::MAX;
+	pub const OnChainMaxWinners: u32 = MaxAuthorities::get();
 	// Unbounded number of election targets and voters.
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
@@ -381,7 +382,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type Bounds = ElectionBoundsOnChain;
-	type MaxWinners = OnChainMaxWinners;
+	type MaxWinnersPerPage = OnChainMaxWinners;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type Sort = ConstBool<true>;
 }
 
 /// Upper limit on the number of NPOS nominations.
@@ -419,7 +422,10 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
+	type MaxValidatorSet = MaxAuthorities;
+	type MaxInvulnerables = ConstU32<20>;
+	type MaxDisabledValidators = ConstU32<100>;
+	type Filter = frame_support::traits::Nothing;
 }
 
 parameter_types! {
@@ -680,7 +686,6 @@ impl SendXcm for DummyXcmSender {
 impl coretime::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Runtime>;
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;

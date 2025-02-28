@@ -110,9 +110,22 @@ struct CodeLoadToken(u32);
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
+		// the proof size impact is accounted for in the `call_with_code_per_byte`
+		// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
+		// instructions here. Let's consider this as a safety margin.
 		T::WeightInfo::call_with_code_per_byte(self.0)
 			.saturating_sub(T::WeightInfo::call_with_code_per_byte(0))
+			.saturating_add(
+				T::WeightInfo::basic_block_compilation(1)
+					.saturating_sub(T::WeightInfo::basic_block_compilation(0))
+					.set_proof_size(0),
+			)
 	}
+}
+
+#[cfg(test)]
+pub fn code_load_weight(code_len: u32) -> Weight {
+	Token::<crate::tests::Test>::weight(&CodeLoadToken(code_len))
 }
 
 impl<T: Config> WasmBlob<T>
@@ -307,6 +320,7 @@ impl<T: Config> WasmBlob<T> {
 		config.set_cache_enabled(false);
 		#[cfg(feature = "std")]
 		if std::env::var_os("REVIVE_USE_COMPILER").is_some() {
+			log::warn!(target: LOG_TARGET, "Using PolkaVM compiler backend because env var REVIVE_USE_COMPILER is set");
 			config.set_backend(Some(polkavm::BackendKind::Compiler));
 		}
 		let engine = polkavm::Engine::new(&config).expect(

@@ -12,7 +12,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
@@ -32,7 +35,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks --quiet -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
+        run: forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks --quiet -- benchmark pallet --chain dev --pallet "*" --exclude-pallets=pallet_election_provider_multi_block,pallet_election_provider_multi_block::signed,pallet_election_provider_multi_block::unsigned,pallet_election_provider_multi_block::verifier --extrinsic "*" --steps 2 --repeat 1 --quiet
 
   # cf https://github.com/paritytech/polkadot-sdk/issues/1652
   test-syscalls:
