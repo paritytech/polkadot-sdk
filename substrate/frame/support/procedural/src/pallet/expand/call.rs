@@ -289,8 +289,14 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	};
 
 	// Implementation of the authorize function for each call
-	let authorize_fn = methods.iter().zip(args_name.iter()).zip(args_type.iter()).map(
-		|((method, arg_name), arg_type)| {
+	// `authorize_fn_pallet_impl` writes the user-defined authorize function as a function
+	// implementation for the pallet.
+	// `authorize_impl` is the call to this former function to implement `Authorize` trait.
+	let (authorize_fn_pallet_impl, authorize_impl) = methods
+		.iter()
+		.zip(args_name.iter())
+		.zip(args_type.iter())
+		.map(|((method, arg_name), arg_type)| {
 			if let Some(authorize_def) = &method.authorize {
 				let authorize_fn = &authorize_def.expr;
 				let attr_fn_getter = syn::Ident::new(
@@ -299,7 +305,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				);
 				let source = syn::Ident::new("source", span);
 
-				let typed_authorize_fn = quote::quote_spanned!(authorize_fn.span() => {
+				let authorize_fn_pallet_impl = quote::quote_spanned!(authorize_fn.span() =>
 					// Closure don't have a writable type. So we fix the authorize token stream to
 					// be any implementation of a specific function.
 					// This allows to have good type inference on the closure.
@@ -315,22 +321,24 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 							#authorize_fn
 						}
 					}
-
-					Pallet::<#type_use_gen>::#attr_fn_getter()
-				});
+				);
 
 				// `source` is from outside this block, so we can't use the authorize_fn span.
-				quote::quote!(
-					let authorize_fn = #typed_authorize_fn;
-					let res = authorize_fn(#source, #( #arg_name, )*);
+				let authorize_impl = quote::quote!(
+					{
+						let authorize_fn = Pallet::<#type_use_gen>::#attr_fn_getter();
+						let res = authorize_fn(#source, #( #arg_name, )*);
 
-					Some(res)
-				)
+						Some(res)
+					}
+				);
+
+				(authorize_fn_pallet_impl, authorize_impl)
 			} else {
-				quote::quote!(None)
+				(Default::default(), quote::quote!(None))
 			}
-		},
-	);
+		})
+		.unzip::<_, _, Vec<TokenStream2>, Vec<TokenStream2>>();
 
 	// Implementation of the authorize function weight for each call
 	let mut authorize_fn_weight = Vec::<TokenStream2>::new();
@@ -561,6 +569,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
+		#( #authorize_fn_pallet_impl )*
+
 		impl<#type_impl_gen> #frame_support::traits::Authorize for #call_ident<#type_use_gen>
 			#where_clause
 		{
@@ -576,7 +586,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					#(
 						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
-							#authorize_fn
+							#authorize_impl
 						},
 					)*
 					Self::__Ignore(_, _) => {
