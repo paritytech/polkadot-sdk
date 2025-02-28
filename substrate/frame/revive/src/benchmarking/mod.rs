@@ -2039,7 +2039,7 @@ mod benchmarks {
 
 		// Create all possible addresses and shuffle them. This makes sure
 		// the accesses are random but no address is accessed more than once.
-		// we skip the first address since it is out entry point
+		// we skip the first address since it is our entry point
 		let mut addresses = Vec::with_capacity(NUM_ADDRESSES as usize);
 		for i in 1..NUM_ADDRESSES {
 			let addr = (misaligned_base + i * CACHE_LINE_SIZE).to_le_bytes();
