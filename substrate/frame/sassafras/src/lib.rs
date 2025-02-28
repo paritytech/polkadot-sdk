@@ -90,9 +90,6 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "sassafras::runtime";
 
-// Contextual string used by the VRF to generate per-block randomness.
-const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasOnChainRandomness";
-
 // Max length for segments holding unsorted tickets.
 const SEGMENT_MAX_SIZE: u32 = 128;
 
@@ -202,6 +199,12 @@ pub mod pallet {
 	#[pallet::getter(fn randomness_accumulator)]
 	pub(crate) type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
+	/// Per slot randomness used to feed the randomness accumulator.
+	///
+	/// The value is ephemeral and is cleared on block finalization.
+	#[pallet::storage]
+	pub(crate) type SlotRandomness<T> = StorageValue<_, Randomness>;
+
 	/// The configuration for the current epoch.
 	#[pallet::storage]
 	#[pallet::getter(fn config)]
@@ -272,13 +275,7 @@ pub mod pallet {
 
 	/// Ring verifier data for the current epoch.
 	#[pallet::storage]
-	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
-
-	/// Slot claim VRF pre-output used to generate per-slot randomness.
-	///
-	/// The value is ephemeral and is cleared on block finalization.
-	#[pallet::storage]
-	pub(crate) type ClaimTemporaryData<T> = StorageValue<_, vrf::VrfPreOutput>;
+	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierKey>;
 
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
@@ -326,12 +323,8 @@ pub mod pallet {
 				Self::post_genesis_initialize(claim.slot);
 			}
 
-			let randomness_pre_output = claim
-				.vrf_signature
-				.pre_outputs
-				.get(0)
-				.expect("Valid claim must have VRF signature; qed");
-			ClaimTemporaryData::<T>::put(randomness_pre_output);
+			let randomness = claim.vrf_signature.pre_output.make_bytes();
+			SlotRandomness::<T>::put(randomness);
 
 			let trigger_weight = T::EpochChangeTrigger::trigger::<T>(block_num);
 
@@ -343,15 +336,8 @@ pub mod pallet {
 			// to the accumulator. If we've determined that this block was the first in
 			// a new epoch, the changeover logic has already occurred at this point
 			// (i.e. `enact_epoch_change` has already been called).
-			let randomness_input = vrf::slot_claim_input(
-				&Self::randomness(),
-				CurrentSlot::<T>::get(),
-				EpochIndex::<T>::get(),
-			);
-			let randomness_pre_output = ClaimTemporaryData::<T>::take()
+			let randomness = SlotRandomness::<T>::take()
 				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed");
-			let randomness = randomness_pre_output
-				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
 			Self::deposit_slot_randomness(&randomness);
 
 			// Check if we are in the epoch's second half.
@@ -399,7 +385,9 @@ pub mod pallet {
 				return Err("Tickets shall be submitted in the first epoch half".into())
 			}
 
-			let Some(verifier) = RingVerifierData::<T>::get().map(|v| v.into()) else {
+			let Some(verifier) =
+				RingVerifierData::<T>::get().map(|vk| vrf::RingContext::verifier_no_context(vk))
+			else {
 				warn!(target: LOG_TARGET, "Ring verifier key not initialized");
 				return Err("Ring verifier key not initialized".into())
 			};
@@ -424,15 +412,8 @@ pub mod pallet {
 			for ticket in tickets {
 				debug!(target: LOG_TARGET, "Checking ring proof");
 
-				let Some(ticket_id_pre_output) = ticket.signature.pre_outputs.get(0) else {
-					debug!(target: LOG_TARGET, "Missing ticket VRF pre-output from ring signature");
-					continue
-				};
-				let ticket_id_input =
-					vrf::ticket_id_input(&randomness, ticket.body.attempt_idx, epoch_idx);
-
 				// Check threshold constraint
-				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
+				let ticket_id = vrf::make_ticket_id(&ticket.signature.pre_output);
 				if ticket_id >= ticket_threshold {
 					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:032x} >= {:032x})", ticket_id, ticket_threshold);
 					continue
@@ -445,6 +426,8 @@ pub mod pallet {
 				}
 
 				// Check ring signature
+				let ticket_id_input =
+					vrf::ticket_id_input(&randomness, ticket.body.attempt_idx, epoch_idx);
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
 				if !ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					debug!(target: LOG_TARGET, "Proof verification failure for ticket ({:032x})", ticket_id);
@@ -585,9 +568,7 @@ impl<T: Config> Pallet<T> {
 		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
 
 		debug!(target: LOG_TARGET, "Building ring verifier (ring size: {})", pks.len());
-		let verifier_data = ring_ctx
-			.verifier_data(&pks)
-			.expect("Failed to build ring verifier. This is a bug");
+		let verifier_data = ring_ctx.verifier_key(&pks);
 
 		RingVerifierData::<T>::put(verifier_data);
 	}
