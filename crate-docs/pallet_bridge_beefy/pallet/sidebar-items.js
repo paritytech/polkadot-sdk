@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error"],"mod":["dispatchables","storage_types"],"struct":["GenesisConfig","Instance1","Pallet"],"trait":["Config"],"type":["CurrentAuthoritySetInfo","ImportedCommitments","ImportedCommitmentsInfo","Module","PalletOperatingMode","PalletOwner","RequestCount"]};

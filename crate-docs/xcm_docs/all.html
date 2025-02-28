@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="xcm_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../xcm_docs/index.html">xcm_docs</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../xcm_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="cookbook/relay_token_transactor/network/struct.MockNet.html">cookbook::relay_token_transactor::network::MockNet</a></li><li><a href="cookbook/relay_token_transactor/network/struct.ParaA.html">cookbook::relay_token_transactor::network::ParaA</a></li><li><a href="cookbook/relay_token_transactor/network/struct.ParachainXcmRouter.html">cookbook::relay_token_transactor::network::ParachainXcmRouter</a></li><li><a href="cookbook/relay_token_transactor/network/struct.Relay.html">cookbook::relay_token_transactor::network::Relay</a></li><li><a href="cookbook/relay_token_transactor/network/struct.RelayChainXcmRouter.html">cookbook::relay_token_transactor::network::RelayChainXcmRouter</a></li><li><a href="cookbook/relay_token_transactor/parachain/struct.PalletInfo.html">cookbook::relay_token_transactor::parachain::PalletInfo</a></li><li><a href="cookbook/relay_token_transactor/parachain/struct.Runtime.html">cookbook::relay_token_transactor::parachain::Runtime</a></li><li><a href="cookbook/relay_token_transactor/parachain/struct.RuntimeGenesisConfig.html">cookbook::relay_token_transactor::parachain::RuntimeGenesisConfig</a></li><li><a href="cookbook/relay_token_transactor/parachain/struct.RuntimeOrigin.html">cookbook::relay_token_transactor::parachain::RuntimeOrigin</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/struct.BlockHashCount.html">cookbook::relay_token_transactor::relay_chain::BlockHashCount</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/struct.MessageProcessor.html">cookbook::relay_token_transactor::relay_chain::MessageProcessor</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/struct.MessageQueueHeapSize.html">cookbook::relay_token_transactor::relay_chain::MessageQueueHeapSize</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/struct.MessageQueueMaxStale.html">cookbook::relay_token_transactor::relay_chain::MessageQueueMaxStale</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/struct.MessageQueueServiceWeight.html">cookbook::relay_token_transactor::relay_chain::MessageQueueServiceWeight</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/struct.PalletInfo.html">cookbook::relay_token_transactor::relay_chain::PalletInfo</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/struct.Runtime.html">cookbook::relay_token_transactor::relay_chain::Runtime</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/struct.RuntimeGenesisConfig.html">cookbook::relay_token_transactor::relay_chain::RuntimeGenesisConfig</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/struct.RuntimeOrigin.html">cookbook::relay_token_transactor::relay_chain::RuntimeOrigin</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="cookbook/relay_token_transactor/parachain/enum.OriginCaller.html">cookbook::relay_token_transactor::parachain::OriginCaller</a></li><li><a href="cookbook/relay_token_transactor/parachain/enum.RuntimeCall.html">cookbook::relay_token_transactor::parachain::RuntimeCall</a></li><li><a href="cookbook/relay_token_transactor/parachain/enum.RuntimeError.html">cookbook::relay_token_transactor::parachain::RuntimeError</a></li><li><a href="cookbook/relay_token_transactor/parachain/enum.RuntimeEvent.html">cookbook::relay_token_transactor::parachain::RuntimeEvent</a></li><li><a href="cookbook/relay_token_transactor/parachain/enum.RuntimeFreezeReason.html">cookbook::relay_token_transactor::parachain::RuntimeFreezeReason</a></li><li><a href="cookbook/relay_token_transactor/parachain/enum.RuntimeHoldReason.html">cookbook::relay_token_transactor::parachain::RuntimeHoldReason</a></li><li><a href="cookbook/relay_token_transactor/parachain/enum.RuntimeLockId.html">cookbook::relay_token_transactor::parachain::RuntimeLockId</a></li><li><a href="cookbook/relay_token_transactor/parachain/enum.RuntimeSlashReason.html">cookbook::relay_token_transactor::parachain::RuntimeSlashReason</a></li><li><a href="cookbook/relay_token_transactor/parachain/enum.RuntimeTask.html">cookbook::relay_token_transactor::parachain::RuntimeTask</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/enum.OriginCaller.html">cookbook::relay_token_transactor::relay_chain::OriginCaller</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/enum.RuntimeCall.html">cookbook::relay_token_transactor::relay_chain::RuntimeCall</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/enum.RuntimeError.html">cookbook::relay_token_transactor::relay_chain::RuntimeError</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/enum.RuntimeEvent.html">cookbook::relay_token_transactor::relay_chain::RuntimeEvent</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/enum.RuntimeFreezeReason.html">cookbook::relay_token_transactor::relay_chain::RuntimeFreezeReason</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/enum.RuntimeHoldReason.html">cookbook::relay_token_transactor::relay_chain::RuntimeHoldReason</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/enum.RuntimeLockId.html">cookbook::relay_token_transactor::relay_chain::RuntimeLockId</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/enum.RuntimeSlashReason.html">cookbook::relay_token_transactor::relay_chain::RuntimeSlashReason</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/enum.RuntimeTask.html">cookbook::relay_token_transactor::relay_chain::RuntimeTask</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="cookbook/relay_token_transactor/network/fn.para_ext.html">cookbook::relay_token_transactor::network::para_ext</a></li><li><a href="cookbook/relay_token_transactor/network/fn.relay_ext.html">cookbook::relay_token_transactor::network::relay_ext</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="cookbook/relay_token_transactor/parachain/type.AccountId.html">cookbook::relay_token_transactor::parachain::AccountId</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.AllPalletsWithSystem.html">cookbook::relay_token_transactor::parachain::AllPalletsWithSystem</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.AllPalletsWithoutSystem.html">cookbook::relay_token_transactor::parachain::AllPalletsWithoutSystem</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.Balance.html">cookbook::relay_token_transactor::parachain::Balance</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.Balances.html">cookbook::relay_token_transactor::parachain::Balances</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.BalancesConfig.html">cookbook::relay_token_transactor::parachain::BalancesConfig</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.Block.html">cookbook::relay_token_transactor::parachain::Block</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.MessageQueue.html">cookbook::relay_token_transactor::parachain::MessageQueue</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.System.html">cookbook::relay_token_transactor::parachain::System</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.SystemConfig.html">cookbook::relay_token_transactor::parachain::SystemConfig</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.XcmPallet.html">cookbook::relay_token_transactor::parachain::XcmPallet</a></li><li><a href="cookbook/relay_token_transactor/parachain/type.XcmPalletConfig.html">cookbook::relay_token_transactor::parachain::XcmPalletConfig</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.AccountId.html">cookbook::relay_token_transactor::relay_chain::AccountId</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.AllPalletsWithSystem.html">cookbook::relay_token_transactor::relay_chain::AllPalletsWithSystem</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.AllPalletsWithoutSystem.html">cookbook::relay_token_transactor::relay_chain::AllPalletsWithoutSystem</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.Balance.html">cookbook::relay_token_transactor::relay_chain::Balance</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.Balances.html">cookbook::relay_token_transactor::relay_chain::Balances</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.BalancesConfig.html">cookbook::relay_token_transactor::relay_chain::BalancesConfig</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.LocationToAccountId.html">cookbook::relay_token_transactor::relay_chain::LocationToAccountId</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.MessageQueue.html">cookbook::relay_token_transactor::relay_chain::MessageQueue</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.System.html">cookbook::relay_token_transactor::relay_chain::System</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.SystemConfig.html">cookbook::relay_token_transactor::relay_chain::SystemConfig</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.XcmPallet.html">cookbook::relay_token_transactor::relay_chain::XcmPallet</a></li><li><a href="cookbook/relay_token_transactor/relay_chain/type.XcmPalletConfig.html">cookbook::relay_token_transactor::relay_chain::XcmPalletConfig</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="cookbook/relay_token_transactor/network/constant.ALICE.html">cookbook::relay_token_transactor::network::ALICE</a></li><li><a href="cookbook/relay_token_transactor/network/constant.BOB.html">cookbook::relay_token_transactor::network::BOB</a></li><li><a href="cookbook/relay_token_transactor/network/constant.CENTS.html">cookbook::relay_token_transactor::network::CENTS</a></li><li><a href="cookbook/relay_token_transactor/network/constant.EXT_PARAA.html">cookbook::relay_token_transactor::network::EXT_PARAA</a></li><li><a href="cookbook/relay_token_transactor/network/constant.EXT_RELAY.html">cookbook::relay_token_transactor::network::EXT_RELAY</a></li><li><a href="cookbook/relay_token_transactor/network/constant.INITIAL_BALANCE.html">cookbook::relay_token_transactor::network::INITIAL_BALANCE</a></li><li><a href="cookbook/relay_token_transactor/network/constant.UNITS.html">cookbook::relay_token_transactor::network::UNITS</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Cost","Destination","MessageId","Result"]};

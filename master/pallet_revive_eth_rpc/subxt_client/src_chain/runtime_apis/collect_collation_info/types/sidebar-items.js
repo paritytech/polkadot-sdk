@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["collect_collation_info"],"struct":["CollectCollationInfo"]};

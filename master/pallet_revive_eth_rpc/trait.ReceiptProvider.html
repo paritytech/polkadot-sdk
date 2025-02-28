@@ -1,0 +1,349 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Provide means to store and retrieve receipts."><title>ReceiptProvider in pallet_revive_eth_rpc - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-42caa33d.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Receipt<wbr>Provider</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.archive" title="archive">archive</a></li><li><a href="#tymethod.block_transaction_hashes" title="block_transaction_hashes">block_transaction_hashes</a></li><li><a href="#tymethod.insert" title="insert">insert</a></li><li><a href="#tymethod.logs" title="logs">logs</a></li><li><a href="#tymethod.receipt_by_block_hash_and_index" title="receipt_by_block_hash_and_index">receipt_by_block_hash_and_index</a></li><li><a href="#tymethod.receipt_by_hash" title="receipt_by_hash">receipt_by_hash</a></li><li><a href="#tymethod.receipts_count_per_block" title="receipts_count_per_block">receipts_count_per_block</a></li><li><a href="#tymethod.remove" title="remove">remove</a></li><li><a href="#tymethod.signed_tx_by_hash" title="signed_tx_by_hash">signed_tx_by_hash</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-ReceiptProvider-for-(Cache,+Archive)" title="(Cache, Archive)">(Cache, Archive)</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">pallet_revive_eth_rpc</a></span><h1>Trait <span class="trait">ReceiptProvider</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#31-62">Source</a> </span></div><pre class="rust item-decl"><code>pub trait ReceiptProvider: <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {
+    // Required methods
+    fn <a href="#tymethod.insert" class="fn">insert</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
+        &amp;'life0 self,
+        block_hash: &amp;'life1 H256,
+        receipts: &amp;'life2 [(<a class="enum" href="../pallet_revive/evm/api/rpc_types_gen/enum.TransactionSigned.html" title="enum pallet_revive::evm::api::rpc_types_gen::TransactionSigned">TransactionSigned</a>, <a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>)],
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait,
+             'life2: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.archive" class="fn">archive</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
+        &amp;'life0 self,
+        block_hash: &amp;'life1 H256,
+        receipts: &amp;'life2 [(<a class="enum" href="../pallet_revive/evm/api/rpc_types_gen/enum.TransactionSigned.html" title="enum pallet_revive::evm::api::rpc_types_gen::TransactionSigned">TransactionSigned</a>, <a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>)],
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait,
+             'life2: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.logs" class="fn">logs</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        filter: <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.Filter.html" title="struct pallet_revive::evm::api::rpc_types_gen::Filter">Filter</a>&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="https://docs.rs/anyhow/1.0.85/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.Log.html" title="struct pallet_revive::evm::api::rpc_types_gen::Log">Log</a>&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove" class="fn">remove</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        &amp;'life0 self,
+        block_hash: &amp;'life1 H256,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.block_transaction_hashes" class="fn">block_transaction_hashes</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        &amp;'life0 self,
+        block_hash: &amp;'life1 H256,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap">HashMap</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.usize.html">usize</a>, H256&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.receipt_by_block_hash_and_index" class="fn">receipt_by_block_hash_and_index</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        &amp;'life0 self,
+        block_hash: &amp;'life1 H256,
+        transaction_index: <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.receipts_count_per_block" class="fn">receipts_count_per_block</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        &amp;'life0 self,
+        block_hash: &amp;'life1 H256,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.usize.html">usize</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.receipt_by_hash" class="fn">receipt_by_hash</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        &amp;'life0 self,
+        transaction_hash: &amp;'life1 H256,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.signed_tx_by_hash" class="fn">signed_tx_by_hash</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        &amp;'life0 self,
+        transaction_hash: &amp;'life1 H256,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../pallet_revive/evm/api/rpc_types_gen/enum.TransactionSigned.html" title="enum pallet_revive::evm::api::rpc_types_gen::TransactionSigned">TransactionSigned</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Provide means to store and retrieve receipts.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.insert" class="method"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#33">Source</a><h4 class="code-header">fn <a href="#tymethod.insert" class="fn">insert</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+    receipts: &amp;'life2 [(<a class="enum" href="../pallet_revive/evm/api/rpc_types_gen/enum.TransactionSigned.html" title="enum pallet_revive::evm::api::rpc_types_gen::TransactionSigned">TransactionSigned</a>, <a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>)],
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,
+    'life2: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Insert receipts into the provider.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.archive" class="method"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#36">Source</a><h4 class="code-header">fn <a href="#tymethod.archive" class="fn">archive</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+    receipts: &amp;'life2 [(<a class="enum" href="../pallet_revive/evm/api/rpc_types_gen/enum.TransactionSigned.html" title="enum pallet_revive::evm::api::rpc_types_gen::TransactionSigned">TransactionSigned</a>, <a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>)],
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,
+    'life2: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Similar to <code>insert</code>, but intended for archiving receipts from historical blocks.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.logs" class="method"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#39">Source</a><h4 class="code-header">fn <a href="#tymethod.logs" class="fn">logs</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    filter: <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.Filter.html" title="struct pallet_revive::evm::api::rpc_types_gen::Filter">Filter</a>&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="https://docs.rs/anyhow/1.0.85/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.Log.html" title="struct pallet_revive::evm::api::rpc_types_gen::Log">Log</a>&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get logs that match the given filter.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.remove" class="method"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#42">Source</a><h4 class="code-header">fn <a href="#tymethod.remove" class="fn">remove</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Deletes receipts associated with the specified block hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.block_transaction_hashes" class="method"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#45">Source</a><h4 class="code-header">fn <a href="#tymethod.block_transaction_hashes" class="fn">block_transaction_hashes</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap">HashMap</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.usize.html">usize</a>, H256&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Return all transaction hashes for the given block hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.receipt_by_block_hash_and_index" class="method"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#48-52">Source</a><h4 class="code-header">fn <a href="#tymethod.receipt_by_block_hash_and_index" class="fn">receipt_by_block_hash_and_index</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+    transaction_index: <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the receipt for the given block hash and transaction index.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.receipts_count_per_block" class="method"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#55">Source</a><h4 class="code-header">fn <a href="#tymethod.receipts_count_per_block" class="fn">receipts_count_per_block</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.usize.html">usize</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the number of receipts per block.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.receipt_by_hash" class="method"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#58">Source</a><h4 class="code-header">fn <a href="#tymethod.receipt_by_hash" class="fn">receipt_by_hash</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    transaction_hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the receipt for the given transaction hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.signed_tx_by_hash" class="method"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#61">Source</a><h4 class="code-header">fn <a href="#tymethod.signed_tx_by_hash" class="fn">signed_tx_by_hash</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    transaction_hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../pallet_revive/evm/api/rpc_types_gen/enum.TransactionSigned.html" title="enum pallet_revive::evm::api::rpc_types_gen::TransactionSigned">TransactionSigned</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the signed transaction for the given transaction hash.</p>
+</div></details></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-ReceiptProvider-for-(Cache,+Archive)" class="impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#65-123">Source</a><a href="#impl-ReceiptProvider-for-(Cache,+Archive)" class="anchor">§</a><h3 class="code-header">impl&lt;Cache: <a class="trait" href="trait.ReceiptProvider.html" title="trait pallet_revive_eth_rpc::ReceiptProvider">ReceiptProvider</a>, Archive: <a class="trait" href="trait.ReceiptProvider.html" title="trait pallet_revive_eth_rpc::ReceiptProvider">ReceiptProvider</a>&gt; <a class="trait" href="trait.ReceiptProvider.html" title="trait pallet_revive_eth_rpc::ReceiptProvider">ReceiptProvider</a> for <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.tuple.html">(Cache, Archive)</a></h3></section></summary><div class="impl-items"><section id="method.insert" class="method trait-impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#66-68">Source</a><a href="#method.insert" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.insert" class="fn">insert</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+    receipts: &amp;'life2 [(<a class="enum" href="../pallet_revive/evm/api/rpc_types_gen/enum.TransactionSigned.html" title="enum pallet_revive::evm::api::rpc_types_gen::TransactionSigned">TransactionSigned</a>, <a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>)],
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,
+    'life2: 'async_trait,</div></h4></section><section id="method.archive" class="method trait-impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#70-72">Source</a><a href="#method.archive" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.archive" class="fn">archive</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+    receipts: &amp;'life2 [(<a class="enum" href="../pallet_revive/evm/api/rpc_types_gen/enum.TransactionSigned.html" title="enum pallet_revive::evm::api::rpc_types_gen::TransactionSigned">TransactionSigned</a>, <a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>)],
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,
+    'life2: 'async_trait,</div></h4></section><section id="method.remove" class="method trait-impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#74-76">Source</a><a href="#method.remove" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove" class="fn">remove</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section><section id="method.receipt_by_block_hash_and_index" class="method trait-impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#78-90">Source</a><a href="#method.receipt_by_block_hash_and_index" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.receipt_by_block_hash_and_index" class="fn">receipt_by_block_hash_and_index</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+    transaction_index: <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section><section id="method.receipts_count_per_block" class="method trait-impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#92-97">Source</a><a href="#method.receipts_count_per_block" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.receipts_count_per_block" class="fn">receipts_count_per_block</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.usize.html">usize</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section><section id="method.block_transaction_hashes" class="method trait-impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#99-104">Source</a><a href="#method.block_transaction_hashes" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.block_transaction_hashes" class="fn">block_transaction_hashes</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    block_hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap">HashMap</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.usize.html">usize</a>, H256&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section><section id="method.receipt_by_hash" class="method trait-impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#106-111">Source</a><a href="#method.receipt_by_hash" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.receipt_by_hash" class="fn">receipt_by_hash</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.ReceiptInfo.html" title="struct pallet_revive::evm::api::rpc_types_gen::ReceiptInfo">ReceiptInfo</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section><section id="method.signed_tx_by_hash" class="method trait-impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#113-118">Source</a><a href="#method.signed_tx_by_hash" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.signed_tx_by_hash" class="fn">signed_tx_by_hash</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    hash: &amp;'life1 H256,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../pallet_revive/evm/api/rpc_types_gen/enum.TransactionSigned.html" title="enum pallet_revive::evm::api::rpc_types_gen::TransactionSigned">TransactionSigned</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section><section id="method.logs" class="method trait-impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider.rs.html#120-122">Source</a><a href="#method.logs" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.logs" class="fn">logs</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    filter: <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.Filter.html" title="struct pallet_revive::evm::api::rpc_types_gen::Filter">Filter</a>&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.84.1/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="https://docs.rs/anyhow/1.0.85/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../pallet_revive/evm/api/rpc_types_gen/struct.Log.html" title="struct pallet_revive::evm::api::rpc_types_gen::Log">Log</a>&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-ReceiptProvider-for-CacheReceiptProvider" class="impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider/cache.rs.html#37-87">Source</a><a href="#impl-ReceiptProvider-for-CacheReceiptProvider" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ReceiptProvider.html" title="trait pallet_revive_eth_rpc::ReceiptProvider">ReceiptProvider</a> for <a class="struct" href="struct.CacheReceiptProvider.html" title="struct pallet_revive_eth_rpc::CacheReceiptProvider">CacheReceiptProvider</a></h3></section><section id="impl-ReceiptProvider-for-DBReceiptProvider" class="impl"><a class="src rightside" href="../src/pallet_revive_eth_rpc/receipt_provider/db.rs.html#76-398">Source</a><a href="#impl-ReceiptProvider-for-DBReceiptProvider" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ReceiptProvider.html" title="trait pallet_revive_eth_rpc::ReceiptProvider">ReceiptProvider</a> for <a class="struct" href="struct.DBReceiptProvider.html" title="struct pallet_revive_eth_rpc::DBReceiptProvider">DBReceiptProvider</a></h3></section></div><script src="../trait.impl/pallet_revive_eth_rpc/receipt_provider/trait.ReceiptProvider.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

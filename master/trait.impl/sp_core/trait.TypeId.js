@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["bp_messages",[["impl TypeId for <a class=\"struct\" href=\"bp_messages/struct.HashedLaneId.html\" title=\"struct bp_messages::HashedLaneId\">HashedLaneId</a>"],["impl TypeId for <a class=\"struct\" href=\"bp_messages/struct.LegacyLaneId.html\" title=\"struct bp_messages::LegacyLaneId\">LegacyLaneId</a>"]]],["bp_relayers",[["impl&lt;LaneId: Decode + Encode&gt; TypeId for <a class=\"struct\" href=\"bp_relayers/struct.RewardsAccountParams.html\" title=\"struct bp_relayers::RewardsAccountParams\">RewardsAccountParams</a>&lt;LaneId&gt;"]]],["frame_support",[["impl <a class=\"trait\" href=\"sp_core/trait.TypeId.html\" title=\"trait sp_core::TypeId\">TypeId</a> for <a class=\"struct\" href=\"frame_support/struct.PalletId.html\" title=\"struct frame_support::PalletId\">PalletId</a>"]]],["pallet_bridge_relayers",[["impl&lt;LaneId&gt; TypeId for <a class=\"struct\" href=\"pallet_bridge_relayers/migration/v0/struct.RewardsAccountParams.html\" title=\"struct pallet_bridge_relayers::migration::v0::RewardsAccountParams\">RewardsAccountParams</a>&lt;LaneId&gt;"]]],["polkadot_parachain_primitives",[["impl TypeId for <a class=\"struct\" href=\"polkadot_parachain_primitives/primitives/struct.Id.html\" title=\"struct polkadot_parachain_primitives::primitives::Id\">Id</a>"],["impl TypeId for <a class=\"struct\" href=\"polkadot_parachain_primitives/primitives/struct.Sibling.html\" title=\"struct polkadot_parachain_primitives::primitives::Sibling\">Sibling</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[309,233,248,277,401]}

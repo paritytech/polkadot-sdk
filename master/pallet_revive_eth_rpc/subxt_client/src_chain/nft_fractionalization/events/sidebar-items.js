@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["nft_fractionalized","nft_unified"],"struct":["NftFractionalized","NftUnified"]};

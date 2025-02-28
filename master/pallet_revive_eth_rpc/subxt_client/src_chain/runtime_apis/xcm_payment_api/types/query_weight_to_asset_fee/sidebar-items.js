@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["output"],"type":["Asset","Weight"]};

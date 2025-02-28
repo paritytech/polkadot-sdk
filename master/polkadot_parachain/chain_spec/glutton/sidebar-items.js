@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["chain_id","chain_type_name","glutton_westend_config"]};

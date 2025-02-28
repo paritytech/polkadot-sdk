@@ -1,0 +1,156 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `macros` mod in crate `emulated_integration_tests_common`."><title>emulated_integration_tests_common::macros - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-42caa33d.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="emulated_integration_tests_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../emulated_integration_tests_common/index.html">emulated_<wbr>integration_<wbr>tests_<wbr>common</a><span class="version">3.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module macros</a></h2><h3><a href="#reexports">Module Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate emulated_<wbr>integration_<wbr>tests_<wbr>common</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">emulated_integration_tests_common</a></span><h1>Module <span>macros</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/emulated_integration_tests_common/macros.rs.html#16-747">Source</a> </span></div><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.paste"><code>pub use <a class="mod" href="https://docs.rs/paste/1.0.15/paste/index.html" title="mod paste">paste</a>;</code></div></li><li><div class="item-name" id="reexport.pallet_assets"><code>pub use pallet_assets;</code></div></li><li><div class="item-name" id="reexport.pallet_balances"><code>pub use pallet_balances;</code></div></li><li><div class="item-name" id="reexport.pallet_message_queue"><code>pub use pallet_message_queue;</code></div></li><li><div class="item-name" id="reexport.pallet_xcm"><code>pub use pallet_xcm;</code></div></li><li><div class="item-name" id="reexport.AccountId32"><code>pub use xcm::prelude::<a class="enum" href="../impls/enum.Junction.html" title="enum emulated_integration_tests_common::impls::Junction">AccountId32</a>;</code></div></li><li><div class="item-name" id="reexport.All"><code>pub use xcm::prelude::All;</code></div></li><li><div class="item-name" id="reexport.BuyExecution"><code>pub use xcm::prelude::BuyExecution;</code></div></li><li><div class="item-name" id="reexport.DepositAsset"><code>pub use xcm::prelude::DepositAsset;</code></div></li><li><div class="item-name" id="reexport.ExpectTransactStatus"><code>pub use xcm::prelude::ExpectTransactStatus;</code></div></li><li><div class="item-name" id="reexport.Fungible"><code>pub use xcm::prelude::Fungible;</code></div></li><li><div class="item-name" id="reexport.Here"><code>pub use xcm::prelude::<a class="enum" href="../impls/enum.Junctions.html" title="enum emulated_integration_tests_common::impls::Junctions">Here</a>;</code></div></li><li><div class="item-name" id="reexport.RefundSurplus"><code>pub use xcm::prelude::RefundSurplus;</code></div></li><li><div class="item-name" id="reexport.Transact"><code>pub use xcm::prelude::Transact;</code></div></li><li><div class="item-name" id="reexport.Unlimited"><code>pub use xcm::prelude::<a class="enum" href="enum.WeightLimit.html" title="enum emulated_integration_tests_common::macros::WeightLimit">Unlimited</a>;</code></div></li><li><div class="item-name" id="reexport.WithdrawAsset"><code>pub use xcm::prelude::WithdrawAsset;</code></div></li><li><div class="item-name" id="reexport.asset_test_utils"><code>pub use <a class="mod" href="../../asset_test_utils/index.html" title="mod asset_test_utils">asset_test_utils</a>;</code></div></li><li><div class="item-name" id="reexport.cumulus_pallet_xcmp_queue"><code>pub use cumulus_pallet_xcmp_queue;</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Asset.html" title="struct emulated_integration_tests_common::macros::Asset">Asset</a></div><div class="desc docblock-short">Either an amount of a single fungible asset, or a single well-identified non-fungible asset.</div></li><li><div class="item-name"><a class="struct" href="struct.AssetId.html" title="struct emulated_integration_tests_common::macros::AssetId">AssetId</a></div><div class="desc docblock-short">Location to identify an asset.</div></li><li><div class="item-name"><a class="struct" href="struct.Dmp.html" title="struct emulated_integration_tests_common::macros::Dmp">Dmp</a></div><div class="desc docblock-short">The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</div></li><li><div class="item-name"><a class="struct" href="struct.Location.html" title="struct emulated_integration_tests_common::macros::Location">Location</a></div><div class="desc docblock-short">A relative path between state-bearing consensus systems.</div></li><li><div class="item-name"><a class="struct" href="struct.Weight.html" title="struct emulated_integration_tests_common::macros::Weight">Weight</a></div></li><li><div class="item-name"><a class="struct" href="struct.Xcm.html" title="struct emulated_integration_tests_common::macros::Xcm">Xcm</a></div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.MaybeErrorCode.html" title="enum emulated_integration_tests_common::macros::MaybeErrorCode">Maybe<wbr>Error<wbr>Code</a></div></li><li><div class="item-name"><a class="enum" href="enum.OriginKind.html" title="enum emulated_integration_tests_common::macros::OriginKind">Origin<wbr>Kind</a></div><div class="desc docblock-short">Basically just the XCM (more general) version of <code>ParachainDispatchOrigin</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.VersionedAssets.html" title="enum emulated_integration_tests_common::macros::VersionedAssets">Versioned<wbr>Assets</a></div><div class="desc docblock-short">A single <code>MultiAssets</code> value, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.VersionedXcm.html" title="enum emulated_integration_tests_common::macros::VersionedXcm">Versioned<wbr>Xcm</a></div><div class="desc docblock-short">A single XCM message, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.WeightLimit.html" title="enum emulated_integration_tests_common::macros::WeightLimit">Weight<wbr>Limit</a></div><div class="desc docblock-short">An optional weight limit.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Chain.html" title="trait emulated_integration_tests_common::macros::Chain">Chain</a></div></li><li><div class="item-name"><a class="trait" href="trait.WeightToFee.html" title="trait emulated_integration_tests_common::macros::WeightToFee">Weight<wbr>ToFee</a></div><div class="desc docblock-short">A trait that describes the weight to fee calculation.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AccountId.html" title="type emulated_integration_tests_common::macros::AccountId">Account<wbr>Id</a></div><div class="desc docblock-short">Some way of identifying an account on the chain. We intentionally make it equivalent
+to the public key of our transaction signing scheme.</div></li><li><div class="item-name"><a class="type" href="type.V3Location.html" title="type emulated_integration_tests_common::macros::V3Location">V3Location</a></div><div class="desc docblock-short">Type alias for a better transition to V4.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

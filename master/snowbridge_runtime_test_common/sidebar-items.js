@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["ethereum_extrinsic","ethereum_outbound_queue_processes_messages_before_message_queue_works","ethereum_to_polkadot_message_extrinsics_work","initial_fund","send_transfer_token_message","send_transfer_token_message_failure","send_transfer_token_message_success","send_unpaid_transfer_token_message"]};

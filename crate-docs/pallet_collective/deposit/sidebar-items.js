@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Constant","Delayed","Geometric","Linear","Round","Stepped","WithCeil"]};

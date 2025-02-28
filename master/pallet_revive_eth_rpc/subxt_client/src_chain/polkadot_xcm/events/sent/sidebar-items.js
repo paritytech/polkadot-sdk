@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Destination","Message","MessageId","Origin"]};

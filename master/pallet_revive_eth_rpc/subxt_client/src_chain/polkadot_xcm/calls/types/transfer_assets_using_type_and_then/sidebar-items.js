@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Assets","AssetsTransferType","CustomXcmOnDest","Dest","FeesTransferType","RemoteFeesId","WeightLimit"]};

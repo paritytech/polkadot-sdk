@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sc_service_test", 0, "Service integration test utils.\nReturns the argument unchanged.\nGet a mutable reference to the inner from the outer.\nGet a reference to the inner from the outer.\nCalls <code>U::from(self)</code>.")

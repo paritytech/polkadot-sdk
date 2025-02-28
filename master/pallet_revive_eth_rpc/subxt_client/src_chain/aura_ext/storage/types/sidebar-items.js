@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["authorities","relay_slot_info"]};

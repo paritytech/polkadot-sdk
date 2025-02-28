@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["attribute","collection_attribute","collection_owner","custom_attribute","owner","system_attribute"],"struct":["Attribute","CollectionAttribute","CollectionOwner","CustomAttribute","Owner","SystemAttribute"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"fn":["__type_value_for_default_for_state"],"mod":["dispatchables","storage_types"],"struct":["DefaultForState","GenesisConfig","Pallet"],"trait":["Config"],"type":["Authorities","CurrentSetId","Module","NextForced","PendingChange","SetIdSession","Stalled","State"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PRESET_1","PRESET_2","PRESET_3","PRESET_4","PRESET_INVALID"],"fn":["get_builtin_preset","preset_4"]};

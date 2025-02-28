@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOCAL_EXT_CORETIMEWESTEND"],"mod":["genesis"],"static":["GLOBAL_EXT_CORETIMEWESTEND"],"struct":["CoretimeWestend"],"trait":["CoretimeWestendParaPallet"]};

@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"developer_hub":[["impl <a class=\"trait\" href=\"sp_runtime/traits/trait.SignedExtension.html\" title=\"trait sp_runtime::traits::SignedExtension\">SignedExtension</a> for <a class=\"struct\" href=\"developer_hub/reference_docs/signed_extensions/signed_extensions_example/struct.AddToSignaturePayload.html\" title=\"struct developer_hub::reference_docs::signed_extensions::signed_extensions_example::AddToSignaturePayload\">AddToSignaturePayload</a>"],["impl <a class=\"trait\" href=\"sp_runtime/traits/trait.SignedExtension.html\" title=\"trait sp_runtime::traits::SignedExtension\">SignedExtension</a> for <a class=\"struct\" href=\"developer_hub/reference_docs/signed_extensions/signed_extensions_example/struct.AddToPayload.html\" title=\"struct developer_hub::reference_docs::signed_extensions::signed_extensions_example::AddToPayload\">AddToPayload</a>"]],
+"frame":[],
+"sp_runtime":[]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

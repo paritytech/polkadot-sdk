@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error"],"fn":["check_can_fully_enable","enable_for_worker"],"type":["Result"]};

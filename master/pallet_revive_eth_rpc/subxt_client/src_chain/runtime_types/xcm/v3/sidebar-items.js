@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Instruction","MaybeErrorCode","OriginKind","Response","WeightLimit"],"mod":["junction","junctions","multiasset","traits"],"struct":["PalletInfo","QueryResponseInfo","Xcm"]};

@@ -1,0 +1,57 @@
+:root {
+	--polkadot-pink: #E6007A;
+	--polkadot-green: #56F39A;
+	--polkadot-lime: #D3FF33;
+	--polkadot-cyan: #00B2FF;
+	--polkadot-purple: #552BBF;
+}
+
+/* Light theme */
+html[data-theme="light"] {
+    --quote-background: #f9f9f9;
+    --quote-border: #ccc;
+    --quote-text: #333;
+}
+
+/* Dark theme */
+html[data-theme="dark"] {
+    --quote-background: #333;
+    --quote-border: #555;
+    --quote-text: #f9f9f9;
+}
+
+/* Ayu theme */
+html[data-theme="ayu"] {
+    --quote-background: #272822;
+    --quote-border: #383830;
+    --quote-text: #f8f8f2;
+}
+
+body.sdk-docs {
+	nav.sidebar>div.sidebar-crate>a>img {
+		width: 190px;
+		height: 52px;
+	}
+
+	nav.sidebar {
+		flex: 0 0 250px;
+	}
+}
+
+html[data-theme="light"] .sidebar-crate > .logo-container > img {
+  content: url("https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_Black.png");
+}
+
+/* Custom styles for blockquotes */
+blockquote {
+    background-color: var(--quote-background);
+    border-left: 5px solid var(--quote-border);
+    color: var(--quote-text);
+    margin: 1em 0;
+    padding: 1em 1.5em;
+    /* font-style: italic; */
+}
+
+blockquote p {
+    margin: 0;
+}

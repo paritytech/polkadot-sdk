@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["coretime_rococo_runtime",[["impl <a class=\"trait\" href=\"pallet_broker/pallet/trait.Config.html\" title=\"trait pallet_broker::pallet::Config\">Config</a> for <a class=\"struct\" href=\"coretime_rococo_runtime/struct.Runtime.html\" title=\"struct coretime_rococo_runtime::Runtime\">Runtime</a>"]]],["coretime_westend_runtime",[["impl <a class=\"trait\" href=\"pallet_broker/pallet/trait.Config.html\" title=\"trait pallet_broker::pallet::Config\">Config</a> for <a class=\"struct\" href=\"coretime_westend_runtime/struct.Runtime.html\" title=\"struct coretime_westend_runtime::Runtime\">Runtime</a>"]]],["kitchensink_runtime",[["impl <a class=\"trait\" href=\"pallet_broker/pallet/trait.Config.html\" title=\"trait pallet_broker::pallet::Config\">Config</a> for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[301,305,290]}

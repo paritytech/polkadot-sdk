@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Run aura-based block building and collation task."><title>run in cumulus_client_consensus_aura::collators::slot_based - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="cumulus_client_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../cumulus_client_consensus_aura/index.html">cumulus_client_consensus_aura</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In cumulus_client_consensus_aura::collators::slot_based</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../cumulus_client_consensus_aura/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../../index.html">cumulus_client_consensus_aura</a>::<wbr><a href="../index.html">collators</a>::<wbr><a href="index.html">slot_based</a>::<wbr><a class="fn" href="#">run</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/cumulus_client_consensus_aura/collators/slot_based/mod.rs.html#101-162">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub fn run&lt;Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS&gt;(
+    params: <a class="struct" href="struct.Params.html" title="struct cumulus_client_consensus_aura::collators::slot_based::Params">Params</a>&lt;BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS&gt;
+) -&gt; (impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;, impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;)<div class="where">where
+    Block: <a class="trait" href="../../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
+    Client: <a class="trait" href="../../../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;Block&gt; + <a class="trait" href="../../../sc_client_api/client/trait.BlockOf.html" title="trait sc_client_api::client::BlockOf">BlockOf</a> + <a class="trait" href="../../../sc_client_api/backend/trait.AuxStore.html" title="trait sc_client_api::backend::AuxStore">AuxStore</a> + <a class="trait" href="../../../sp_blockchain/backend/trait.HeaderBackend.html" title="trait sp_blockchain::backend::HeaderBackend">HeaderBackend</a>&lt;Block&gt; + <a class="trait" href="../../../sc_client_api/client/trait.BlockBackend.html" title="trait sc_client_api::client::BlockBackend">BlockBackend</a>&lt;Block&gt; + <a class="trait" href="../../../sc_client_api/trait.UsageProvider.html" title="trait sc_client_api::UsageProvider">UsageProvider</a>&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
+    Client::<a class="associatedtype" href="../../../sp_api/trait.ProvideRuntimeApi.html#associatedtype.Api" title="type sp_api::ProvideRuntimeApi::Api">Api</a>: <a class="trait" href="../../../sp_consensus_aura/trait.AuraApi.html" title="trait sp_consensus_aura::AuraApi">AuraApi</a>&lt;Block, P::<a class="associatedtype" href="../../../sp_core/crypto/trait.Pair.html#associatedtype.Public" title="type sp_core::crypto::Pair::Public">Public</a>&gt; + <a class="trait" href="../../../cumulus_primitives_core/trait.CollectCollationInfo.html" title="trait cumulus_primitives_core::CollectCollationInfo">CollectCollationInfo</a>&lt;Block&gt; + <a class="trait" href="../../../cumulus_primitives_aura/trait.AuraUnincludedSegmentApi.html" title="trait cumulus_primitives_aura::AuraUnincludedSegmentApi">AuraUnincludedSegmentApi</a>&lt;Block&gt;,
+    Backend: <a class="trait" href="../../../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend">Backend</a>&lt;Block&gt; + 'static,
+    RClient: <a class="trait" href="../../../cumulus_relay_chain_interface/trait.RelayChainInterface.html" title="trait cumulus_relay_chain_interface::RelayChainInterface">RelayChainInterface</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + 'static,
+    CIDP: <a class="trait" href="../../../sp_inherents/client_side/trait.CreateInherentDataProviders.html" title="trait sp_inherents::client_side::CreateInherentDataProviders">CreateInherentDataProviders</a>&lt;Block, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt; + 'static,
+    CIDP::<a class="associatedtype" href="../../../sp_inherents/client_side/trait.CreateInherentDataProviders.html#associatedtype.InherentDataProviders" title="type sp_inherents::client_side::CreateInherentDataProviders::InherentDataProviders">InherentDataProviders</a>: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,
+    BI: <a class="trait" href="../../../sc_consensus/block_import/trait.BlockImport.html" title="trait sc_consensus::block_import::BlockImport">BlockImport</a>&lt;Block&gt; + <a class="trait" href="../../../cumulus_client_consensus_common/trait.ParachainBlockImportMarker.html" title="trait cumulus_client_consensus_common::ParachainBlockImportMarker">ParachainBlockImportMarker</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
+    Proposer: <a class="trait" href="../../../cumulus_client_consensus_proposer/trait.ProposerInterface.html" title="trait cumulus_client_consensus_proposer::ProposerInterface">ProposerInterface</a>&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
+    CS: CollatorServiceInterface&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + 'static,
+    CHP: <a class="trait" href="../../../cumulus_client_consensus_common/trait.ValidationCodeHashProvider.html" title="trait cumulus_client_consensus_common::ValidationCodeHashProvider">ValidationCodeHashProvider</a>&lt;Block::<a class="associatedtype" href="../../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+    P: <a class="trait" href="../../../sp_core/crypto/trait.Pair.html" title="trait sp_core::crypto::Pair">Pair</a> + 'static,
+    P::<a class="associatedtype" href="../../../sp_core/crypto/trait.Pair.html#associatedtype.Public" title="type sp_core::crypto::Pair::Public">Public</a>: <a class="trait" href="../../../sp_application_crypto/traits/trait.AppPublic.html" title="trait sp_application_crypto::traits::AppPublic">AppPublic</a> + <a class="trait" href="../../../sp_runtime/traits/trait.Member.html" title="trait sp_runtime::traits::Member">Member</a> + Codec,
+    P::<a class="associatedtype" href="../../../sp_core/crypto/trait.Pair.html#associatedtype.Signature" title="type sp_core::crypto::Pair::Signature">Signature</a>: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;&gt; + <a class="trait" href="../../../sp_runtime/traits/trait.Member.html" title="trait sp_runtime::traits::Member">Member</a> + Codec,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run aura-based block building and collation task.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

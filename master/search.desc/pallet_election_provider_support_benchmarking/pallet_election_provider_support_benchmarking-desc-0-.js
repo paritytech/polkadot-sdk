@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_election_provider_support_benchmarking", 0, "Election provider support pallet benchmarking.\nElection provider support pallet benchmarking. This is …\nReturns the argument unchanged.\nGet a mutable reference to the inner from the outer.\nGet a reference to the inner from the outer.\nCalls <code>U::from(self)</code>.")

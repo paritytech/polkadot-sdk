@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["can_build_upon"],"struct":["CanBuildUpon"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["assert_bridge_messages_pallet_types","assert_chain_types","assert_complete_bridge_types","generate_bridge_reject_obsolete_headers_and_messages"],"mod":["extensions","integrity","messages_api","messages_benchmarking","parachains_benchmarking"]};
