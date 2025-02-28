@@ -24,9 +24,7 @@ use snowbridge_pallet_inbound_queue_fixtures::{
 	send_token::make_send_token_message, send_token_to_penpal::make_send_token_to_penpal_message,
 };
 use snowbridge_pallet_system;
-use snowbridge_router_primitives::inbound::{
-	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
-};
+use snowbridge_router_primitives::inbound::{Command, Destination, MessageV1, VersionedMessage};
 use sp_core::H256;
 use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
@@ -320,7 +318,8 @@ fn send_weth_from_ethereum_to_penpal() {
 
 	// Fund ethereum sovereign on AssetHub
 	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+		ExternalConsensusLocationsConverterFor::<AccountId>::convert_location(&origin_location)
+			.unwrap();
 	AssetHubRococo::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	// Create asset on the Penpal parachain.
@@ -527,7 +526,8 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 	let assethub_location = BridgeHubRococo::sibling_location_of(AssetHubRococo::para_id());
 	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(assethub_location);
 	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+		ExternalConsensusLocationsConverterFor::<AccountId>::convert_location(&origin_location)
+			.unwrap();
 
 	AssetHubRococo::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubRococo::force_default_xcm_version(Some(XCM_VERSION));

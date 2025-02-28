@@ -24,9 +24,7 @@ use hex_literal::hex;
 use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
 use snowbridge_core::{inbound::InboundQueueFixture, AssetMetadata, TokenIdOf};
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
-use snowbridge_router_primitives::inbound::{
-	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
-};
+use snowbridge_router_primitives::inbound::{Command, Destination, MessageV1, VersionedMessage};
 use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
@@ -162,7 +160,8 @@ fn send_weth_token_from_ethereum_to_asset_hub() {
 	let ethereum_network: NetworkId = EthereumNetwork::get().into();
 	let origin_location = Location::new(2, ethereum_network);
 	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+		ExternalConsensusLocationsConverterFor::<AccountId>::convert_location(&origin_location)
+			.unwrap();
 
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
 
@@ -281,7 +280,8 @@ fn send_weth_from_ethereum_to_penpal() {
 
 	// Fund ethereum sovereign on AssetHub
 	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+		ExternalConsensusLocationsConverterFor::<AccountId>::convert_location(&origin_location)
+			.unwrap();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	// Create asset on the Penpal parachain.
@@ -388,7 +388,8 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
 	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+		ExternalConsensusLocationsConverterFor::<AccountId>::convert_location(&origin_location)
+			.unwrap();
 
 	AssetHubWestend::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubWestend::force_default_xcm_version(Some(XCM_VERSION));
@@ -935,7 +936,7 @@ fn transfer_relay_token() {
 	let expected_token_id = TokenIdOf::convert_location(&expected_asset_id).unwrap();
 
 	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
+		ExternalConsensusLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
 			2,
 			[GlobalConsensus(EthereumNetwork::get())],
 		))
@@ -1083,7 +1084,7 @@ fn transfer_ah_token() {
 	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
 
 	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&ethereum_destination)
+		ExternalConsensusLocationsConverterFor::<[u8; 32]>::convert_location(&ethereum_destination)
 			.unwrap()
 			.into();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);

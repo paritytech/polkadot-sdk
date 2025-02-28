@@ -42,7 +42,6 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
 use testnet_parachains_constants::rococo::snowbridge::{
 	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
@@ -52,16 +51,15 @@ use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
-	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungibleAdapter, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
-	IsConcrete, LocalMint, MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking,
-	NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
-	SovereignPaidRemoteExporter, SovereignSignedViaLocation, StartsWith,
-	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
+	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
+	LocalMint, MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignPaidRemoteExporter,
+	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -105,13 +103,8 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign locations alias into accounts according to a hash of their standard description.
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
-	GlobalLocationToAccount<UniversalLocation, AccountId>,
-);
-
-pub type GlobalLocationToAccount<UniversalLocation, AccountId> = (
-    GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
-	EthereumLocationsConverterFor<AccountId>,
-    ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
+	// Different global consensus locations sovereign accounts.
+	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
 );
 
 /// Means for transacting the native currency on this chain.
