@@ -487,6 +487,7 @@ impl OverheadCmd {
 
 		let backend = new_db_backend(DatabaseSettings {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
+			force_in_memory_trie_cache: self.force_in_memory_trie_cache()?,
 			state_pruning: None,
 			blocks_pruning: BlocksPruning::KeepAll,
 			source: database_source,
@@ -676,6 +677,10 @@ impl CliConfiguration for OverheadCmd {
 		} else {
 			Ok(None)
 		}
+	}
+
+	fn force_in_memory_trie_cache(&self) -> Result<bool> {
+		Ok(self.import_params().map(|x| x.force_in_memory_trie_cache).unwrap_or_default())
 	}
 }
 
