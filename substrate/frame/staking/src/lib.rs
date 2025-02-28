@@ -350,7 +350,7 @@ use frame_support::{
 	defensive, defensive_assert,
 	traits::{
 		tokens::fungible::{Credit, Debt},
-		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		ConstU32, Contains, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
@@ -1332,6 +1332,24 @@ impl<T: Config> EraInfo<T> {
 		<ErasTotalStake<T>>::mutate(era, |total_stake| {
 			*total_stake += stake;
 		});
+	}
+}
+
+/// A utility struct that provides a way to check if a given account is a staker.
+///
+/// This struct implements the `Contains` trait, allowing it to determine whether
+/// a particular account is currently staking by checking if the account exists in
+/// the staking ledger.
+pub struct AllStakers<T: Config>(core::marker::PhantomData<T>);
+
+impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
+	/// Checks if the given account ID corresponds to a staker.
+	///
+	/// # Returns
+	/// - `true` if the account has an entry in the staking ledger (indicating it is staking).
+	/// - `false` otherwise.
+	fn contains(account: &T::AccountId) -> bool {
+		Ledger::<T>::contains_key(account)
 	}
 }
 

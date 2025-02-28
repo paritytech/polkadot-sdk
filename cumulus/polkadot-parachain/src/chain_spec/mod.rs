@@ -21,7 +21,7 @@ use polkadot_omni_node_lib::{
 		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 	},
 };
-use sc_chain_spec::ChainSpec;
+use sc_chain_spec::{ChainSpec, ChainType};
 
 pub mod asset_hubs;
 pub mod bridge_hubs;
@@ -151,14 +151,18 @@ impl LoadSpec for ChainSpecLoader {
 			// -- Glutton Westend
 			id if id.starts_with("glutton-westend-dev") => {
 				let (_, _, para_id) = extract_parachain_id(&id, &["glutton-westend-dev-"]);
-				Box::new(glutton::glutton_westend_development_config(
+				Box::new(glutton::glutton_westend_config(
 					para_id.expect("Must specify parachain id"),
+					ChainType::Development,
+					"westend-dev",
 				))
 			},
 			id if id.starts_with("glutton-westend-local") => {
 				let (_, _, para_id) = extract_parachain_id(&id, &["glutton-westend-local-"]);
-				Box::new(glutton::glutton_westend_local_config(
+				Box::new(glutton::glutton_westend_config(
 					para_id.expect("Must specify parachain id"),
+					ChainType::Local,
+					"westend-local",
 				))
 			},
 			// the chain spec as used for generating the upgrade genesis values
@@ -166,6 +170,8 @@ impl LoadSpec for ChainSpecLoader {
 				let (_, _, para_id) = extract_parachain_id(&id, &["glutton-westend-genesis-"]);
 				Box::new(glutton::glutton_westend_config(
 					para_id.expect("Must specify parachain id"),
+					ChainType::Live,
+					"westend",
 				))
 			},
 

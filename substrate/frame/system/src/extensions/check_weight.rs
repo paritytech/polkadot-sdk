@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
@@ -38,7 +38,7 @@ use sp_weights::Weight;
 ///
 /// This extension does not influence any fields of `TransactionValidity` in case the
 /// transaction is valid.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckWeight<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
