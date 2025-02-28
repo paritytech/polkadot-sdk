@@ -259,14 +259,6 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	}
 }
 
-// Disabling threshold for `UpToLimitDisablingStrategy`
-pub struct MockedRestrictList;
-impl Contains<AccountId> for MockedRestrictList {
-	fn contains(who: &AccountId) -> bool {
-		RestrictedAccounts::get().contains(who)
-	}
-}
-
 // Disabling threshold for `UpToLimitDisablingStrategy` and
 // `UpToLimitWithReEnablingDisablingStrategy``
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
@@ -295,6 +287,10 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
+
+	fn filter(who: &AccountId) -> bool {
+		RestrictedAccounts::get().contains(who)
+	}
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

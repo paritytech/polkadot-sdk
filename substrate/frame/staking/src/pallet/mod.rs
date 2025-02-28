@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
@@ -296,13 +296,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type DisablingStrategy: DisablingStrategy<Self>;
 
-		#[pallet::no_default_bounds]
-		/// Filter some accounts from participating in staking.
-		///
-		/// This is useful for example to blacklist an account that is participating in staking in
-		/// another way (such as pools).
-		type Filter: Contains<Self::AccountId>;
-
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -313,6 +306,11 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		fn filter(_who: &Self::AccountId) -> bool {
+			// no account should be filtered in the default implementation.
+			false
+		}
 	}
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -1025,7 +1023,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+			ensure!(!T::filter(&stash), Error::<T>::BoundNotMet);
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
@@ -1077,7 +1075,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+			ensure!(!T::filter(&stash), Error::<T>::BoundNotMet);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -1665,7 +1663,7 @@ pub mod pallet {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
 
-			ensure!(!T::Filter::contains(&ledger.stash), Error::<T>::Restricted);
+			ensure!(!T::filter(&ledger.stash), Error::<T>::BoundNotMet);
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
@@ -2175,21 +2173,22 @@ pub mod pallet {
 		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
+			// Virtual stakers are controlled by some other pallet.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
+
 			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let actual_stake = asset::staked::<T>(&stash);
-			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
+			let stash_balance = T::Currency::free_balance(&stash);
 
-			// ensure there is something to force unstake.
-			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
+			// Ensure there is an overstake.
+			ensure!(ledger.total > stash_balance, Error::<T>::BoundNotMet);
 
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash, but we can't do much better here.
-			StakingLedger {
-				total: actual_stake,
-				active: ledger.active.saturating_sub(force_withdraw_amount),
-				..ledger
-			}
-			.update()?;
+			let force_withdraw_amount = ledger.total.defensive_saturating_sub(stash_balance);
+
+			// Update the ledger by withdrawing excess stake.
+			ledger.update_total_stake(stash_balance).update()?;
+
+			// Ensure lock is updated.
+			debug_assert_eq!(T::Currency::balance_locked(crate::STAKING_ID, &stash), stash_balance);
 
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
 
