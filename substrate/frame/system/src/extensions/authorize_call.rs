@@ -30,6 +30,11 @@ use sp_runtime::{
 	transaction_validity::TransactionValidityError,
 };
 
+/// A transaction extension that authorizes some calls (i.e. dispatchable functions) to be
+/// included in the block.
+///
+/// This transaction extension use the runtime implementation of the trait
+/// [`Authorize`](frame_support::traits::Authorize) to set the validity of the transaction.
 #[derive(
 	Encode, Decode, CloneNoBound, EqNoBound, PartialEqNoBound, TypeInfo, RuntimeDebugNoBound,
 )]

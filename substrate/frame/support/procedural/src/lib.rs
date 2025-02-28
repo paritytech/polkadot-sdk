@@ -1350,7 +1350,8 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 		.into()
 }
 
-/// Allows to authorize some general transactions with specific call.
+/// Allows to authorize some general transactions with specific dispatchable functions
+/// (dispatchable functions a.k.a. calls).
 ///
 /// This attribute allows to specify a special validation logic for a specific call.
 /// A general transaction with this specific call can then be validated by the given function,
