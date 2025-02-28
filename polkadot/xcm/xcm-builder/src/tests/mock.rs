@@ -27,7 +27,7 @@ pub use crate::{
 	FixedRateOfFungible, FixedWeightBounds, TakeWeightCredit,
 };
 pub use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
-pub use codec::{Decode, Encode};
+pub use codec::{Decode, DecodeWithMemTracking, Encode};
 pub use core::{
 	cell::{Cell, RefCell},
 	fmt::Debug,
@@ -62,7 +62,9 @@ pub enum TestOrigin {
 ///
 /// Each item contains the amount of weight that it *wants* to consume as the first item, and the
 /// actual amount (if different from the former) in the second option.
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
+)]
 pub enum TestCall {
 	OnlyRoot(Weight, Option<Weight>),
 	OnlyParachain(Weight, Option<Weight>, Option<u32>),

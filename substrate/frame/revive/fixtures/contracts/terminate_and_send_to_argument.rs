@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
+use common::input;
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -28,6 +28,6 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let eve = [5u8; 20];
-	api::terminate(&eve);
+	input!(beneficiary: &[u8; 20],);
+	api::terminate(&beneficiary);
 }
