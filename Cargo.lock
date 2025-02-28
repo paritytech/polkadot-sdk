@@ -13560,11 +13560,8 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
- "parity-scale-codec",
  "polkadot-sdk 0.1.0",
- "sc-tracing",
  "serde",
- "serde_json",
  "substrate-prometheus-endpoint",
 ]
 
@@ -20403,6 +20400,7 @@ dependencies = [
 name = "sc-tracing-proc-macro"
 version = "11.0.0"
 dependencies = [
+ "frame-support-procedural-tools 10.0.0",
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.93",
  "quote 1.0.38",

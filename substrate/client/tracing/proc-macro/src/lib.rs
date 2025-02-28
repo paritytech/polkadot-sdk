@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{Error, Expr, Ident, ItemFn};
+use syn::{Error, Expr, ItemFn};
 
 /// Add a log prefix to the function.
 ///
@@ -109,18 +109,17 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 	if arg.is_empty() {
 		return Error::new(
 			Span::call_site(),
-			"missing argument: name of the node. Example: sc_cli::prefix_logs_with(<expr>)",
+			"missing argument: prefix. Example: sc_cli::prefix_logs_with(<expr>)",
 		)
 		.to_compile_error()
-		.into()
+		.into();
 	}
 
 	let name = syn::parse_macro_input!(arg as Expr);
 
-	let crate_name = match crate_name("sc-tracing") {
-		Ok(FoundCrate::Itself) => Ident::new("sc_tracing", Span::call_site()),
-		Ok(FoundCrate::Name(crate_name)) => Ident::new(&crate_name, Span::call_site()),
-		Err(e) => return Error::new(Span::call_site(), e).to_compile_error().into(),
+	let crate_name = match generate_access_from_frame_or_crate("sc-tracing") {
+		Ok(ident) => ident,
+		Err(err) => return err.to_compile_error().into(),
 	};
 
 	let ItemFn { attrs, vis, sig, block } = item_fn;

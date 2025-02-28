@@ -12,14 +12,12 @@ build = "build.rs"
 
 [dependencies]
 clap = { features = ["derive"], workspace = true }
-codec = { workspace = true, default-features = true }
 color-print = { workspace = true }
 docify = { workspace = true }
 futures = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
 
 polkadot-sdk = { workspace = true, features = ["node"] }
 
@@ -27,7 +25,6 @@ parachain-template-runtime = { workspace = true }
 
 # Substrate
 prometheus-endpoint = { workspace = true, default-features = true }
-sc-tracing = { workspace = true, default-features = true }
 
 [build-dependencies]
 polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
