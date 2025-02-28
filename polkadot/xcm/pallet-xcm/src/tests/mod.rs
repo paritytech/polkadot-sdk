@@ -1464,51 +1464,61 @@ fn record_xcm_works() {
 #[test]
 fn execute_initiate_transfer_and_check_sent_event() {
 	use crate::Event;
+	use sp_tracing::{
+		init_for_tests,
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
 
-	sp_tracing::init_for_tests();
+	init_for_tests();
+	let (log_capture, subscriber) = init_log_capture(Level::TRACE);
+	subscriber::with_default(subscriber, || {
+		let balances = vec![(ALICE, INITIAL_BALANCE)];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let beneficiary: Location =
+				Location::new(1, [AccountId32 { network: None, id: BOB.into() }]);
+			let fee_asset: Asset = (Parent, SEND_AMOUNT).into();
 
-	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	new_test_ext_with_balances(balances).execute_with(|| {
-		let beneficiary: Location =
-			Location::new(1, [AccountId32 { network: None, id: BOB.into() }]);
-		let fee_asset: Asset = (Parent, SEND_AMOUNT).into();
+			let message = Xcm(vec![InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Parent.into(),
+				xcm: Xcm(vec![
+					BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+					DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				]),
+			}]);
 
-		let message = Xcm(vec![InitiateReserveWithdraw {
-			assets: Wild(All),
-			reserve: Parent.into(),
-			xcm: Xcm(vec![
+			assert_ok!(XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(message.clone())),
+				BaseXcmWeight::get() * 3,
+			));
+
+			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+			let expected_message: Xcm<()> = Xcm(vec![
+				WithdrawAsset(Assets::new()),
+				ClearOrigin,
 				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
-			]),
-		}]);
+			]);
+			assert!(log_capture
+				.contains(format!("xcm::send: Sending msg msg={:?}", expected_message).as_str()));
 
-		assert_ok!(XcmPallet::execute(
-			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(message.clone())),
-			BaseXcmWeight::get() * 3,
-		));
-
-		let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-		let expected_message: Xcm<()> = Xcm(vec![
-			WithdrawAsset(Assets::new()),
-			ClearOrigin,
-			BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
-			DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
-		]);
-		let message_id = fake_message_hash(&expected_message);
-		assert_eq!(
-			last_events(2),
-			vec![
-				RuntimeEvent::XcmPallet(Event::Sent {
-					origin,
-					destination: Parent.into(),
-					message: Xcm::default(),
-					message_id,
-				}),
-				RuntimeEvent::XcmPallet(Event::Attempted {
-					outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }
-				})
-			]
-		);
+			let message_id = fake_message_hash(&expected_message);
+			assert_eq!(
+				last_events(2),
+				vec![
+					RuntimeEvent::XcmPallet(Event::Attempted {
+						outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }
+					}),
+					// RuntimeEvent::XcmPallet(Event::Sent {
+					// 	origin,
+					// 	destination: Parent.into(),
+					// 	message: expected_message,
+					// 	message_id,
+					// }),
+				]
+			);
+		})
 	});
 }

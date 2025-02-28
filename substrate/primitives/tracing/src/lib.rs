@@ -263,10 +263,7 @@ pub mod test_log_capture {
 		sync::{Arc, Mutex},
 	};
 	use tracing::level_filters::LevelFilter;
-	use tracing_subscriber::fmt::{
-		format::{DefaultFields, Format},
-		MakeWriter, Subscriber,
-	};
+	use tracing_subscriber::{fmt, fmt::MakeWriter, prelude::*, Registry};
 
 	/// A reusable log capturing struct for unit tests.
 	/// Captures logs written during test execution for assertions.
@@ -327,7 +324,9 @@ pub mod test_log_capture {
 		/// assert_eq!(log_capture.get_logs().trim(), "Log entry");
 		/// ```
 		pub fn get_logs(&self) -> String {
-			String::from_utf8(self.buffer.lock().unwrap().clone()).unwrap()
+			let raw_logs = String::from_utf8(self.buffer.lock().unwrap().clone()).unwrap();
+			let ansi_escape = regex::Regex::new(r"\x1B\[[0-9;]*[mK]").unwrap(); // Regex to match ANSI codes
+			ansi_escape.replace_all(&raw_logs, "").to_string() // Remove ANSI codes
 		}
 
 		/// Returns a clone of the internal buffer for use in `MakeWriter`.
@@ -391,17 +390,26 @@ pub mod test_log_capture {
 	/// ```
 	pub fn init_log_capture(
 		max_level: impl Into<LevelFilter>,
-	) -> (LogCapture, Subscriber<DefaultFields, Format, LevelFilter, LogCapture>) {
+	) -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
 		// Create a new log capture instance
 		let log_capture = LogCapture::new();
 
-		// Configure a tracing subscriber to use the log capture as the writer
-		let subscriber = tracing_subscriber::fmt()
-			.with_max_level(max_level) // Set the max log level
+		// Create a layer for capturing logs into LogCapture
+		let capture_layer = fmt::layer()
 			.with_writer(log_capture.writer()) // Use LogCapture as the writer
-			.finish();
+			.with_filter(max_level.into()); // Set the max log level
 
-		(log_capture, subscriber)
+		// Create a layer for printing logs to test output
+		let test_layer = fmt::layer()
+			.with_test_writer() // Use test writer for test output
+			.with_filter(LevelFilter::TRACE); // Capture all logs in tests
+
+		// Create a combined subscriber with both layers
+		let combined_subscriber = Registry::default()
+			.with(test_layer) // Print logs in test output
+			.with(capture_layer); // Capture logs for assertions
+
+		(log_capture, combined_subscriber)
 	}
 
 	/// Macro for capturing logs during test execution.
