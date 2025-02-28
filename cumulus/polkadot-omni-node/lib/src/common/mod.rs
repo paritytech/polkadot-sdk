@@ -45,7 +45,7 @@ pub trait NodeBlock:
 {
 	type BoundedFromStrErr: Debug;
 	type BoundedNumber: FromStr<Err = Self::BoundedFromStrErr> + BlockNumber;
-	type BoundedHeader: HeaderT<Number = Self::BoundedNumber> + Unpin;
+	type BoundedHeader: HeaderT<Number = Self::BoundedNumber, Hash = DbHash> + Unpin;
 }
 
 impl<T> NodeBlock for T
