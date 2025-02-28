@@ -262,6 +262,14 @@ fn call_foobar(err: bool, start_weight: Weight, end_weight: Option<Weight>) -> R
 	RuntimeCall::Example(ExampleCall::foobar { err, start_weight, end_weight })
 }
 
+fn utility_events() -> Vec<Event> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Utility(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
 #[test]
 fn as_derivative_works() {
 	new_test_ext().execute_with(|| {
@@ -914,4 +922,170 @@ fn with_weight_works() {
 			frame_support::dispatch::DispatchClass::Operational
 		);
 	})
+}
+
+#[test]
+fn dispatch_as_works() {
+	new_test_ext().execute_with(|| {
+		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
+		assert_eq!(Balances::free_balance(666), 100);
+		assert_eq!(Balances::free_balance(777), 0);
+		assert_ok!(Utility::dispatch_as(
+			RuntimeOrigin::root(),
+			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(666))),
+			Box::new(call_transfer(777, 100))
+		));
+		assert_eq!(Balances::free_balance(666), 0);
+		assert_eq!(Balances::free_balance(777), 100);
+
+		System::reset_events();
+		assert_ok!(Utility::dispatch_as(
+			RuntimeOrigin::root(),
+			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(777))),
+			Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))
+		));
+		assert_eq!(
+			utility_events(),
+			vec![Event::DispatchedAs { result: Err(DispatchError::BadOrigin) }]
+		);
+	})
+}
+
+#[test]
+fn if_else_with_root_works() {
+	new_test_ext().execute_with(|| {
+		let k = b"a".to_vec();
+		let call = RuntimeCall::System(frame_system::Call::set_storage {
+			items: vec![(k.clone(), k.clone())],
+		});
+		assert!(!TestBaseCallFilter::contains(&call));
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::root(),
+			RuntimeCall::Balances(BalancesCall::force_transfer { source: 1, dest: 2, value: 11 })
+				.into(),
+			call.into(),
+		));
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_eq!(storage::unhashed::get_raw(&k), Some(k));
+		System::assert_last_event(
+			utility::Event::IfElseFallbackCalled {
+				main_error: TokenError::FundsUnavailable.into(),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn if_else_with_signed_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			call_transfer(2, 11).into(),
+			call_transfer(2, 5).into()
+		));
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::free_balance(2), 15);
+
+		System::assert_last_event(
+			utility::Event::IfElseFallbackCalled {
+				main_error: TokenError::FundsUnavailable.into(),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn if_else_successful_main_call() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			call_transfer(2, 9).into(),
+			call_transfer(2, 1).into()
+		));
+		assert_eq!(Balances::free_balance(1), 1);
+		assert_eq!(Balances::free_balance(2), 19);
+
+		System::assert_last_event(utility::Event::IfElseMainSuccess.into());
+	})
+}
+
+#[test]
+fn dispatch_as_fallible_works() {
+	new_test_ext().execute_with(|| {
+		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
+		assert_eq!(Balances::free_balance(666), 100);
+		assert_eq!(Balances::free_balance(777), 0);
+		assert_ok!(Utility::dispatch_as_fallible(
+			RuntimeOrigin::root(),
+			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(666))),
+			Box::new(call_transfer(777, 100))
+		));
+		assert_eq!(Balances::free_balance(666), 0);
+		assert_eq!(Balances::free_balance(777), 100);
+
+		assert_noop!(
+			Utility::dispatch_as_fallible(
+				RuntimeOrigin::root(),
+				Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(777))),
+				Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))
+			),
+			DispatchError::BadOrigin,
+		);
+	})
+}
+
+#[test]
+fn if_else_failing_fallback_call() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_err_ignore_postinfo!(
+			Utility::if_else(
+				RuntimeOrigin::signed(1),
+				call_transfer(2, 11).into(),
+				call_transfer(2, 11).into()
+			),
+			TokenError::FundsUnavailable
+		);
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+	})
+}
+
+#[test]
+fn if_else_with_nested_if_else_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+
+		let main_call = call_transfer(2, 11).into();
+		let fallback_call = call_transfer(2, 5).into();
+
+		let nested_if_else_call =
+			RuntimeCall::Utility(UtilityCall::if_else { main: main_call, fallback: fallback_call })
+				.into();
+
+		// Nested `if_else` call.
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			nested_if_else_call,
+			call_transfer(2, 7).into()
+		));
+
+		// inner if_else fallback is executed.
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::free_balance(2), 15);
+
+		// Ensure the correct event was triggered for the main call(nested if_else).
+		System::assert_last_event(utility::Event::IfElseMainSuccess.into());
+	});
 }

@@ -29,7 +29,7 @@ use crate::{
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
-use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Error, Input};
 use core::fmt;
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
@@ -72,7 +72,7 @@ impl<Address: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> SignaturePaylo
 
 /// A "header" for extrinsics leading up to the call itself. Determines the type of extrinsic and
 /// holds any necessary specialized data.
-#[derive(Eq, PartialEq, Clone)]
+#[derive(DecodeWithMemTracking, Eq, PartialEq, Clone)]
 pub enum Preamble<Address, Signature, Extension> {
 	/// An extrinsic without a signature or any extension. This means it's either an inherent or
 	/// an old-school "Unsigned" (we don't use that terminology any more since it's confusable with
@@ -219,7 +219,13 @@ where
 /// This can be checked using [`Checkable`], yielding a [`CheckedExtrinsic`], which is the
 /// counterpart of this type after its signature (and other non-negotiable validity checks) have
 /// passed.
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, Debug)]
+#[codec(decode_with_mem_tracking_bound(
+	Address: DecodeWithMemTracking,
+	Call: DecodeWithMemTracking,
+	Signature: DecodeWithMemTracking,
+	Extension: DecodeWithMemTracking)
+)]
 pub struct UncheckedExtrinsic<Address, Call, Signature, Extension> {
 	/// Information regarding the type of extrinsic this is (inherent or transaction) as well as
 	/// associated extension (`Extension`) data if it's a transaction and a possible signature.
@@ -738,7 +744,18 @@ mod tests {
 	const TEST_ACCOUNT: TestAccountId = 0;
 
 	// NOTE: this is demonstration. One can simply use `()` for testing.
-	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
+	#[derive(
+		Debug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Clone,
+		Eq,
+		PartialEq,
+		Ord,
+		PartialOrd,
+		TypeInfo,
+	)]
 	struct DummyExtension;
 	impl TransactionExtension<TestCall> for DummyExtension {
 		const IDENTIFIER: &'static str = "DummyExtension";

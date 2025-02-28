@@ -17,7 +17,7 @@
 //! Mock types and XcmConfig for all executor unit tests.
 
 use alloc::collections::btree_map::BTreeMap;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cell::RefCell;
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
@@ -29,8 +29,11 @@ use sp_runtime::traits::Dispatchable;
 use xcm::prelude::*;
 
 use crate::{
-	traits::{DropAssets, Properties, ShouldExecute, TransactAsset, WeightBounds, WeightTrader},
-	AssetsInHolding, Config, XcmExecutor,
+	traits::{
+		DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute, TransactAsset,
+		WeightBounds, WeightTrader,
+	},
+	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
 
 /// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
@@ -61,7 +64,9 @@ pub struct TestOrigin;
 ///
 /// Doesn't dispatch anything, has an empty implementation of [`Dispatchable`] that
 /// just returns `Ok` with an empty [`PostDispatchInfo`].
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
+)]
 pub struct TestCall;
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
@@ -244,6 +249,40 @@ pub fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
 
+/// A mock contract address that doesn't need to pay for fees.
+pub const WAIVED_CONTRACT_ADDRESS: [u8; 20] = [128; 20];
+
+/// Test fee manager that will waive the fee for some origins.
+///
+/// Doesn't do anything with the fee, which effectively burns it.
+pub struct TestFeeManager;
+impl FeeManager for TestFeeManager {
+	fn is_waived(origin: Option<&Location>, _: FeeReason) -> bool {
+		let Some(origin) = origin else { return false };
+		// Match the root origin and a particular smart contract account.
+		matches!(
+			origin.unpack(),
+			(0, []) | (0, [AccountKey20 { network: None, key: WAIVED_CONTRACT_ADDRESS }])
+		)
+	}
+
+	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+}
+
+/// Dummy transactional processor that doesn't rollback storage changes, just
+/// aims to rollback executor state.
+pub struct TestTransactionalProcessor;
+impl ProcessTransaction for TestTransactionalProcessor {
+	const IS_TRANSACTIONAL: bool = true;
+
+	fn process<F>(f: F) -> Result<(), XcmError>
+	where
+		F: FnOnce() -> Result<(), XcmError>,
+	{
+		f()
+	}
+}
+
 /// Test XcmConfig that uses all the test implementations in this file.
 pub struct XcmConfig;
 impl Config for XcmConfig {
@@ -265,13 +304,13 @@ impl Config for XcmConfig {
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = ();
+	type FeeManager = TestFeeManager;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = Self::RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
-	type TransactionalProcessor = ();
+	type TransactionalProcessor = TestTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();

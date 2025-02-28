@@ -1,0 +1,66 @@
+[package]
+name = "pallet-staking-ah-client"
+description = "Pallet handling the communication with staking-rc-client. It's role is to glue the staking pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way."
+license = "Apache-2.0"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+codec = { workspace = true, features = ["derive"] }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+log = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-session = { features = ["historical"], workspace = true }
+pallet-staking = { workspace = true }
+pallet-staking-rc-client = { workspace = true }
+polkadot-primitives = { workspace = true }
+polkadot-runtime-parachains = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
+xcm = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-authorship/std",
+	"pallet-session/std",
+	"pallet-staking-rc-client/std",
+	"pallet-staking/std",
+	"polkadot-primitives/std",
+	"polkadot-runtime-parachains/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-staking/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-staking-rc-client/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking-rc-client/try-runtime",
+	"pallet-staking/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"sp-runtime/try-runtime",
+]
