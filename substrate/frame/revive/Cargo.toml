@@ -23,7 +23,6 @@ derive_more = { workspace = true }
 environmental = { workspace = true }
 ethabi = { workspace = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
-hex = { workspace = true }
 hex-literal = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
@@ -87,7 +86,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"hex/std",
 	"log/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
