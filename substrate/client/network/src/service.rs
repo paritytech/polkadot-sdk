@@ -1908,7 +1908,7 @@ pub(crate) fn ensure_addresses_consistent_with_transport<'a>(
 
 	if matches!(transport, TransportConfig::MemoryOnly) {
 		let addresses: Vec<_> = addresses
-			.filter(|x| x.iter().any(|y| !matches!(y, Protocol::Memory(_))))
+			.filter(|x| x.iter().any(|y| !matches!(y, Protocol::Memory(_) | Protocol::P2p(_))))
 			.cloned()
 			.collect();
 

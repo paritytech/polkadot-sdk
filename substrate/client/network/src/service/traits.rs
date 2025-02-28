@@ -90,6 +90,10 @@ pub trait NotificationConfig: Debug {
 
 	/// Get protocol name.
 	fn protocol_name(&self) -> &ProtocolName;
+
+	// TODO: Add only for benchmarks
+	#[allow(missing_docs)]
+	fn allow_non_reserved(&mut self, in_peers: u32, out_peers: u32);
 }
 
 /// Trait defining the required functionality from a request-response protocol configuration.

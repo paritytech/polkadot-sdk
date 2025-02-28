@@ -21,27 +21,29 @@ use crate::{
 	mock::{
 		av_store::{MockAvailabilityStore, NetworkAvailabilityState},
 		chain_api::{ChainApiState, MockChainApi},
-		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
 		runtime_api::{default_node_features, MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
+	network_utils,
 	usage::BenchmarkUsage,
+	NODE_UNDER_TEST,
 };
+use codec::{Decode, Encode};
 use colored::Colorize;
 use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
-
-use codec::Encode;
 use polkadot_availability_bitfield_distribution::BitfieldDistribution;
 use polkadot_availability_distribution::{
 	AvailabilityDistributionSubsystem, IncomingRequestReceivers,
 };
 use polkadot_availability_recovery::{AvailabilityRecoverySubsystem, RecoveryStrategyKind};
+use polkadot_network_bridge::WireMessage;
 use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
+	peer_set::PeerSet,
 	request_response::{v1, v2, IncomingRequest},
-	OurView,
+	v3, OurView,
 };
 use polkadot_node_subsystem::{
 	messages::{AllMessages, AvailabilityRecoveryMessage},
@@ -49,14 +51,30 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::messages::{AvailabilityStoreMessage, NetworkBridgeEvent};
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
-use polkadot_primitives::{Block, CoreIndex, GroupIndex, Hash};
-use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
-use std::{ops::Sub, sync::Arc, time::Instant};
-use strum::Display;
-
+use polkadot_primitives::{CoreIndex, GroupIndex};
+use polkadot_service::overseer::{
+	NetworkBridgeMetrics, NetworkBridgeRxSubsystem, NetworkBridgeTxSubsystem,
+};
+use sc_network::{
+	config::{MultiaddrWithPeerId, NodeKeyConfig, ProtocolId, Role},
+	request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig},
+	service::traits::{NetworkService, NotificationEvent, ValidationResult},
+	NetworkBackend, NotificationMetrics,
+};
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
+use sp_core::{Bytes, H256};
+use sp_runtime::traits::Block as BlockT;
+use std::{
+	collections::HashMap,
+	ops::Sub,
+	sync::Arc,
+	time::{Duration, Instant},
+};
+use strum::Display;
 pub use test_state::TestState;
+
+use self::network_utils::DummyAuthotiryDiscoveryService;
 
 mod av_store_helpers;
 mod test_state;
@@ -94,7 +112,10 @@ fn build_overseer_for_availability_read(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
 	av_store: MockAvailabilityStore,
-	(network_bridge_tx, network_bridge_rx): (MockNetworkBridgeTx, MockNetworkBridgeRx),
+	(network_bridge_tx, network_bridge_rx): (
+		NetworkBridgeTxSubsystem<Arc<dyn NetworkService>, DummyAuthotiryDiscoveryService>,
+		NetworkBridgeRxSubsystem<Arc<dyn NetworkService>, DummyAuthotiryDiscoveryService>,
+	),
 	availability_recovery: AvailabilityRecoverySubsystem,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
@@ -119,7 +140,10 @@ fn build_overseer_for_availability_read(
 fn build_overseer_for_availability_write(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
-	(network_bridge_tx, network_bridge_rx): (MockNetworkBridgeTx, MockNetworkBridgeRx),
+	(network_bridge_tx, network_bridge_rx): (
+		NetworkBridgeTxSubsystem<Arc<dyn NetworkService>, DummyAuthotiryDiscoveryService>,
+		NetworkBridgeRxSubsystem<Arc<dyn NetworkService>, DummyAuthotiryDiscoveryService>,
+	),
 	availability_distribution: AvailabilityDistributionSubsystem,
 	chain_api: MockChainApi,
 	availability_store: AvailabilityStoreSubsystem,
@@ -146,13 +170,16 @@ fn build_overseer_for_availability_write(
 	(overseer, OverseerHandle::new(raw_handle))
 }
 
-pub fn prepare_test(
+pub fn prepare_test<B, N>(
 	state: &TestState,
 	mode: TestDataAvailability,
 	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, Vec<ProtocolConfig>) {
+) -> (TestEnvironment, Vec<ProtocolConfig>)
+where
+	B: BlockT<Hash = H256> + 'static,
+	N: NetworkBackend<B, B::Hash>,
+{
 	let dependencies = TestEnvironmentDependencies::default();
-
 	let availability_state = NetworkAvailabilityState {
 		candidate_hashes: state.candidate_hashes.clone(),
 		candidate_hash_to_core_index: state.candidate_hash_to_core_index.clone(),
@@ -161,51 +188,281 @@ pub fn prepare_test(
 		chunk_indices: state.chunk_indices.clone(),
 		req_protocol_names: state.req_protocol_names.clone(),
 	};
-
-	let mut req_cfgs = Vec::new();
-
-	let (collation_req_receiver, collation_req_cfg) = IncomingRequest::get_config_receiver::<
-		Block,
-		sc_network::NetworkWorker<Block, Hash>,
-	>(&state.req_protocol_names);
-	req_cfgs.push(collation_req_cfg);
-
-	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::<
-		Block,
-		sc_network::NetworkWorker<Block, Hash>,
-	>(&state.req_protocol_names);
-	req_cfgs.push(pov_req_cfg);
-
-	let (chunk_req_v1_receiver, chunk_req_v1_cfg) =
-		IncomingRequest::<v1::ChunkFetchingRequest>::get_config_receiver::<
-			Block,
-			sc_network::NetworkWorker<Block, Hash>,
-		>(&state.req_protocol_names);
-
-	// We won't use v1 chunk fetching requests, but we need to keep the inbound queue alive.
-	// Otherwise, av-distribution subsystem will terminate.
-	std::mem::forget(chunk_req_v1_cfg);
-
-	let (chunk_req_v2_receiver, chunk_req_v2_cfg) =
-		IncomingRequest::<v2::ChunkFetchingRequest>::get_config_receiver::<
-			Block,
-			sc_network::NetworkWorker<Block, Hash>,
-		>(&state.req_protocol_names);
-
-	let (network, network_interface, network_receiver) = new_network(
+	let (network, _network_interface, _network_receiver) = new_network(
 		&state.config,
 		&dependencies,
 		&state.test_authorities,
 		vec![Arc::new(availability_state.clone())],
 	);
+	let (overseer, overseer_handle, req_cfgs, peer_id, listen_address) =
+		build_overseer::<B, N>(state, &dependencies, mode);
 
-	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
-		network.clone(),
-		network_interface.subsystem_sender(),
-		state.test_authorities.clone(),
+	(0..state.config.n_validators)
+		.filter(|i| *i != NODE_UNDER_TEST as usize)
+		.for_each(|i| {
+			build_peer::<B, N>(state, &dependencies, i as u16, peer_id, listen_address.clone())
+		});
+
+	(
+		TestEnvironment::new(
+			dependencies,
+			state.config.clone(),
+			network,
+			overseer,
+			overseer_handle,
+			state.test_authorities.clone(),
+			with_prometheus_endpoint,
+		),
+		req_cfgs,
+	)
+}
+
+fn build_peer<B, N>(
+	state: &TestState,
+	dependencies: &TestEnvironmentDependencies,
+	index: u16,
+	node_peer_id: sc_network::PeerId,
+	node_multiaddr: sc_network::Multiaddr,
+) where
+	B: BlockT<Hash = H256> + 'static,
+	N: NetworkBackend<B, B::Hash>,
+{
+	let _guard = dependencies.runtime.handle().enter();
+
+	let node_key: NodeKeyConfig = state.test_authorities.node_key_configs[index as usize].clone();
+	let listen_addr = state.test_authorities.authority_id_to_addr
+		[&state.test_authorities.validator_authority_id[index as usize]]
+		.clone();
+	let role = Role::Authority;
+	let protocol_id = ProtocolId::from("sup");
+	let notification_metrics = NotificationMetrics::new(None);
+
+	let mut network_config =
+		network_utils::build_network_config::<B, N>(node_key, listen_addr, None);
+
+	let (mut collation_req_receiver, collation_req_cfg) =
+		IncomingRequest::<v1::AvailableDataFetchingRequest>::get_config_receiver::<B, N>(
+			&state.req_protocol_names,
+		);
+	network_config.add_request_response_protocol(collation_req_cfg);
+
+	let (mut pov_req_receiver, pov_req_cfg) =
+		IncomingRequest::<v1::PoVFetchingRequest>::get_config_receiver::<B, N>(
+			&state.req_protocol_names,
+		);
+	network_config.add_request_response_protocol(pov_req_cfg);
+
+	let (mut chunk_req_v1_receiver, chunk_req_v1_cfg) =
+		IncomingRequest::<v1::ChunkFetchingRequest>::get_config_receiver::<B, N>(
+			&state.req_protocol_names,
+		);
+	network_config.add_request_response_protocol(chunk_req_v1_cfg);
+
+	let (mut chunk_req_v2_receiver, chunk_req_v2_cfg) =
+		IncomingRequest::<v2::ChunkFetchingRequest>::get_config_receiver::<B, N>(
+			&state.req_protocol_names,
+		);
+	network_config.add_request_response_protocol(chunk_req_v2_cfg);
+
+	let (_peer_set_protocol_names, mut peer_set_services) =
+		network_utils::build_peer_set_services::<B, N>(&mut network_config, &notification_metrics);
+	let mut validation_service = peer_set_services
+		.remove(&PeerSet::Validation)
+		.expect("validation protocol was enabled so `NotificationService` must exist; qed");
+	let mut collation_service = peer_set_services
+		.remove(&PeerSet::Collation)
+		.expect("collation protocol was enabled so `NotificationService` must exist; qed");
+	assert!(peer_set_services.is_empty());
+
+	let (worker, network_service, mut block_announce_service) =
+		network_utils::build_network_worker::<B, N>(
+			dependencies,
+			network_config,
+			role,
+			protocol_id,
+			notification_metrics,
+			None,
+			"test-environment",
+		);
+
+	let spawn_handle = dependencies.task_manager.spawn_handle();
+	let peer_worker_name = Box::leak(format!("Peer {} worker", index).into_boxed_str());
+	spawn_handle.spawn(peer_worker_name, "test-environment", worker.run());
+	let peer_notifications_name =
+		Box::leak(format!("Peer {} notifications", index).into_boxed_str());
+	spawn_handle.spawn(peer_notifications_name, "test-environment", {
+		async move {
+			loop {
+				tokio::select! {
+					event = block_announce_service.next_event() => {
+						if let Some(NotificationEvent::ValidateInboundSubstream { result_tx, .. }) = event {
+							result_tx.send(ValidationResult::Accept).unwrap();
+						}
+					},
+					event = validation_service.next_event() => {},
+					event = collation_service.next_event() => {
+						gum::error!(target: LOG_TARGET, "Peer {} received collation {:?}", index, event);
+					},
+				}
+			}
+		}
+	});
+	let peer_requests_name = Box::leak(format!("Peer {} requests", index).into_boxed_str());
+	spawn_handle.spawn(peer_requests_name, "test-environment", {
+		let state = state.clone();
+		async move {
+			loop {
+				tokio::select! {
+					req = collation_req_receiver.recv(Vec::new) => {
+						let req = req.unwrap();
+						let payload = req.payload;
+						gum::debug!(target: LOG_TARGET, "Peer {} received AvailableDataFetchingRequest", index);
+
+						let candidate_hash = payload.candidate_hash;
+						let candidate_index = state.candidate_hash_to_core_index
+							.get(&candidate_hash)
+							.expect("candidate was generated previously; qed");
+						gum::debug!(target: LOG_TARGET, ?candidate_hash, ?candidate_index, "Candidate mapped to index");
+
+						let available_data = state.available_data.get(candidate_index.0 as usize).unwrap().clone();
+						req
+							.pending_response
+							.send_response(v1::AvailableDataFetchingResponse::from(Some(available_data)))
+							.expect("Response is always sent successfully");
+
+					},
+					// req = pov_req_receiver.recv(Vec::new) => {
+					// 	let req = req.unwrap();
+					// 	let payload = req.payload;
+					// 	gum::debug!(target: LOG_TARGET, "Peer {} received PoVFetchingRequest", index);
+					// },
+					// req = chunk_req_v1_receiver.recv(Vec::new) => {
+					// 	let req = req.unwrap();
+					// 	let payload = req.payload;
+					// 	gum::debug!(target: LOG_TARGET, "Peer {} received ChunkFetchingRequest", index);
+					// },
+					// req = chunk_req_v2_receiver.recv(Vec::new) => {
+					// 	let req = req.unwrap();
+					// 	let payload = req.payload;
+					// 	gum::debug!(target: LOG_TARGET, "Peer {} received ChunkFetchingRequest", index);
+					// },
+
+				}
+			}
+		}
+	});
+
+	network_service
+		.add_reserved_peer(MultiaddrWithPeerId { peer_id: node_peer_id, multiaddr: node_multiaddr })
+		.unwrap();
+
+	let ready = tokio::spawn({
+		let network_service = Arc::clone(&network_service);
+		async move {
+			while network_service.listen_addresses().is_empty() {
+				tokio::time::sleep(Duration::from_millis(10)).await;
+			}
+		}
+	});
+	let _ = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(ready));
+
+	let local_peer_id = network_service.local_peer_id();
+	let listen_addresses = network_service.listen_addresses();
+	gum::info!(target: LOG_TARGET, ?local_peer_id, ?listen_addresses, "Peer {} ready", index);
+}
+
+fn build_overseer<B, N>(
+	state: &TestState,
+	dependencies: &TestEnvironmentDependencies,
+	mode: TestDataAvailability,
+) -> (
+	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
+	OverseerHandle,
+	Vec<ProtocolConfig>,
+	sc_network::PeerId,
+	sc_network::Multiaddr,
+)
+where
+	B: BlockT<Hash = H256> + 'static,
+	N: NetworkBackend<B, B::Hash>,
+{
+	let _guard = dependencies.runtime.handle().enter();
+	let node_key: NodeKeyConfig =
+		state.test_authorities.node_key_configs[NODE_UNDER_TEST as usize].clone();
+	let listen_addr = state.test_authorities.authority_id_to_addr
+		[&state.test_authorities.validator_authority_id[NODE_UNDER_TEST as usize]]
+		.clone();
+	let role = Role::Authority;
+	let protocol_id = ProtocolId::from("sup");
+	let notification_metrics = NotificationMetrics::new(Some(&dependencies.registry));
+
+	let mut network_config = network_utils::build_network_config::<B, N>(
+		node_key,
+		listen_addr,
+		Some(dependencies.registry.clone()),
 	);
-	let network_bridge_rx =
-		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_v2_cfg), false);
+
+	let (collation_req_receiver, collation_req_cfg) =
+		IncomingRequest::get_config_receiver::<B, N>(&state.req_protocol_names);
+	network_config.add_request_response_protocol(collation_req_cfg);
+
+	let (pov_req_receiver, pov_req_cfg) =
+		IncomingRequest::get_config_receiver::<B, N>(&state.req_protocol_names);
+	network_config.add_request_response_protocol(pov_req_cfg);
+
+	let (chunk_req_v1_receiver, chunk_req_v1_cfg) =
+		IncomingRequest::<v1::ChunkFetchingRequest>::get_config_receiver::<B, N>(
+			&state.req_protocol_names,
+		);
+	network_config.add_request_response_protocol(chunk_req_v1_cfg);
+
+	let (chunk_req_v2_receiver, chunk_req_v2_cfg) =
+		IncomingRequest::<v2::ChunkFetchingRequest>::get_config_receiver::<B, N>(
+			&state.req_protocol_names,
+		);
+	network_config.add_request_response_protocol(chunk_req_v2_cfg);
+
+	let (peer_set_protocol_names, peer_set_services) =
+		network_utils::build_peer_set_services::<B, N>(&mut network_config, &notification_metrics);
+
+	let (worker, network_service, mut block_announce_service) =
+		network_utils::build_network_worker::<B, N>(
+			dependencies,
+			network_config,
+			role,
+			protocol_id,
+			notification_metrics,
+			Some(dependencies.registry.clone()),
+			"networking",
+		);
+
+	let network_bridge_metrics =
+		NetworkBridgeMetrics::register(Some(&dependencies.registry)).unwrap();
+
+	let authority_discovery_service = network_utils::DummyAuthotiryDiscoveryService::new(
+		state.test_authorities.peer_id_to_authority.clone(),
+		state.test_authorities.authority_id_to_addr.clone(),
+	);
+	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
+	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
+		Arc::clone(&network_service),
+		authority_discovery_service.clone(),
+		network_bridge_metrics.clone(),
+		state.req_protocol_names.clone(),
+		peer_set_protocol_names.clone(),
+		Arc::clone(&notification_sinks),
+	);
+	let dummy_sync_oracle = Box::new(network_utils::DummySyncOracle);
+	let network_bridge_rx = NetworkBridgeRxSubsystem::new(
+		Arc::clone(&network_service),
+		authority_discovery_service,
+		dummy_sync_oracle,
+		network_bridge_metrics,
+		peer_set_protocol_names,
+		peer_set_services,
+		Arc::clone(&notification_sinks),
+		false,
+	);
 
 	let runtime_api = MockRuntimeApi::new(
 		state.config.clone(),
@@ -287,17 +544,41 @@ pub fn prepare_test(
 		},
 	};
 
+	let spawn_handle = dependencies.task_manager.spawn_handle();
+	spawn_handle.spawn("network-worker", "networking", worker.run());
+	let syncing_name = Box::leak(format!("Peer {} syncing", NODE_UNDER_TEST).into_boxed_str());
+	// Part of SyncingEngline which is not included to networking tasks
+	spawn_handle.spawn(syncing_name, "test-environment", {
+		let mut notification_service = block_announce_service.clone().unwrap();
+		async move {
+			while let Some(event) = notification_service.next_event().await {
+				if let NotificationEvent::ValidateInboundSubstream { result_tx, .. } = event {
+					result_tx.send(ValidationResult::Accept).unwrap()
+				}
+			}
+		}
+	});
+
+	let ready = tokio::spawn({
+		let network_service = Arc::clone(&network_service);
+		async move {
+			while network_service.listen_addresses().is_empty() {
+				tokio::time::sleep(Duration::from_millis(10)).await;
+			}
+		}
+	});
+	let _ = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(ready));
+
+	let local_peer_id = network_service.local_peer_id();
+	let listen_addresses = network_service.listen_addresses();
+	gum::info!(target: LOG_TARGET, ?local_peer_id, ?listen_addresses, "Peer {} ready", NODE_UNDER_TEST);
+
 	(
-		TestEnvironment::new(
-			dependencies,
-			state.config.clone(),
-			network,
-			overseer,
-			overseer_handle,
-			state.test_authorities.clone(),
-			with_prometheus_endpoint,
-		),
-		req_cfgs,
+		overseer,
+		overseer_handle,
+		vec![],
+		local_peer_id,
+		listen_addresses.first().expect("listen addresses must not be empty").clone(),
 	)
 }
 
@@ -313,6 +594,8 @@ pub async fn benchmark_availability_read(
 	let mut batch = FuturesUnordered::new();
 	let mut availability_bytes = 0u128;
 	let mut candidates = state.candidates.clone();
+
+	tokio::time::sleep(Duration::from_secs(5)).await;
 	let test_start = Instant::now();
 	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
