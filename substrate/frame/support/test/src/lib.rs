@@ -36,7 +36,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// The configuration trait.
-	#[pallet::config]
+	#[pallet::config(is_frame_system)]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: 'static + Eq + Clone {
 		/// The block number type.
