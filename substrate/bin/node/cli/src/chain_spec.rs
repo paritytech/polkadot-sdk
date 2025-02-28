@@ -35,7 +35,6 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::UncheckedInto;
-use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
 
 pub use kitchensink_runtime::RuntimeGenesisConfig;
@@ -213,7 +212,7 @@ fn configure_accounts_for_staging_testnet() -> (
 fn staging_testnet_config_genesis() -> serde_json::Value {
 	let (initial_authorities, root_key, endowed_accounts) =
 		configure_accounts_for_staging_testnet();
-	testnet_genesis(initial_authorities, vec![], root_key, Some(endowed_accounts))
+	testnet_genesis(initial_authorities, vec![], root_key, endowed_accounts)
 }
 
 /// Staging testnet config.
@@ -246,7 +245,7 @@ fn configure_accounts(
 		BeefyId,
 	)>,
 	initial_nominators: Vec<AccountId>,
-	endowed_accounts: Option<Vec<AccountId>>,
+	endowed_accounts: Vec<AccountId>,
 	stash: Balance,
 ) -> (
 	Vec<(
@@ -262,8 +261,7 @@ fn configure_accounts(
 	Vec<AccountId>,
 	Vec<Staker>,
 ) {
-	let mut endowed_accounts: Vec<AccountId> =
-		endowed_accounts.unwrap_or_else(default_endowed_accounts);
+	let mut endowed_accounts = endowed_accounts;
 	// endow all authorities and nominators.
 	initial_authorities
 		.iter()
@@ -311,7 +309,7 @@ pub fn testnet_genesis(
 	)>,
 	initial_nominators: Vec<AccountId>,
 	root_key: AccountId,
-	endowed_accounts: Option<Vec<AccountId>>,
+	endowed_accounts: Vec<AccountId>,
 ) -> serde_json::Value {
 	let (initial_authorities, endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
@@ -373,23 +371,6 @@ fn props() -> Properties {
 	properties
 }
 
-fn eth_account(from: subxt_signer::eth::Keypair) -> AccountId32 {
-	let mut account_id = AccountId32::new([0xEE; 32]);
-	<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
-		.copy_from_slice(&from.public_key().to_account_id().as_ref());
-	account_id
-}
-
-fn default_endowed_accounts() -> Vec<AccountId> {
-	Sr25519Keyring::well_known()
-		.map(|k| k.to_account_id())
-		.chain([
-			eth_account(subxt_signer::eth::dev::alith()),
-			eth_account(subxt_signer::eth::dev::baltathar()),
-		])
-		.collect()
-}
-
 /// Development config (single validator Alice).
 pub fn development_config() -> ChainSpec {
 	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
@@ -415,6 +396,7 @@ pub fn local_testnet_config() -> ChainSpec {
 pub(crate) mod tests {
 	use super::*;
 	use crate::service::{new_full_base, NewFullBase};
+	use kitchensink_runtime::genesis_config_presets::well_known_including_eth_accounts;
 	use sc_service_test;
 	use sp_runtime::BuildStorage;
 
@@ -436,6 +418,13 @@ pub(crate) mod tests {
 			.with_chain_type(ChainType::Local)
 			.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 			.build()
+	}
+
+	fn eth_account(from: subxt_signer::eth::Keypair) -> AccountId32 {
+		let mut account_id = AccountId32::new([0xEE; 32]);
+		<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
+			.copy_from_slice(&from.public_key().to_account_id().as_ref());
+		account_id
 	}
 
 	#[test]
@@ -469,5 +458,16 @@ pub(crate) mod tests {
 	#[test]
 	fn test_staging_test_net_chain_spec() {
 		staging_testnet_config().build_storage().unwrap();
+	}
+
+	#[test]
+	fn ensure_eth_accounts_are_in_endowed() {
+		let alith = eth_account(subxt_signer::eth::dev::alith());
+		let baltathar = eth_account(subxt_signer::eth::dev::baltathar());
+
+		let endowed = well_known_including_eth_accounts();
+
+		assert!(endowed.contains(&alith), "Alith must be in endowed for integration tests");
+		assert!(endowed.contains(&baltathar), "Baltathar must be in endowed for integration tests");
 	}
 }

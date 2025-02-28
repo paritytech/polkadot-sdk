@@ -115,8 +115,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let alice = Sr25519Keyring::Alice;
 	let bob = Sr25519Keyring::Bob;
 
-	// alice to ferdie
-	let endowed = Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect::<Vec<_>>();
+	let endowed = well_known_including_eth_accounts();
 
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchen_sink_genesis(
@@ -202,4 +201,23 @@ pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 		get_public_from_string_or_panic::<MixnetId>(seed),
 		get_public_from_string_or_panic::<BeefyId>(seed),
 	)
+}
+
+/// Alice to Ferdie + Alith and Baltathar.
+///
+/// Some integration tests require these ETH accounts.
+pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
+	Sr25519Keyring::well_known()
+		.map(|k| k.to_account_id())
+		.chain([
+			// subxt_signer::eth::dev::alith()
+			array_bytes::hex_n_into_unchecked(
+				"f24ff3a9cf04c71dbc94d0b566f7a27b94566caceeeeeeeeeeeeeeeeeeeeeeee",
+			),
+			// subxt_signer::eth::dev::baltathar()
+			array_bytes::hex_n_into_unchecked(
+				"3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0eeeeeeeeeeeeeeeeeeeeeeee",
+			),
+		])
+		.collect::<Vec<_>>()
 }
