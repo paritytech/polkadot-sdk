@@ -18,7 +18,9 @@
 use crate::Config;
 use frame_support::{
 	dispatch::DispatchInfo,
-	pallet_prelude::{Decode, DispatchResult, Encode, TransactionSource, TypeInfo, Weight},
+	pallet_prelude::{
+		Decode, DecodeWithMemTracking, DispatchResult, Encode, TransactionSource, TypeInfo, Weight,
+	},
 	traits::Authorize,
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
