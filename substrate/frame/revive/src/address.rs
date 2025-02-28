@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::{fungible::MutateHold, tokens::Precision};
 use sp_core::{Get, H160};
-use sp_io::hashing::{blake2_256, keccak_256};
+use sp_io::hashing::keccak_256;
 use sp_runtime::{AccountId32, DispatchResult, Saturating};
 
 /// Map between the native chain account id `T` and an Ethereum [`H160`].
@@ -107,7 +107,7 @@ where
 		} else {
 			// this is an (ed|sr)25510 derived address
 			// avoid truncating the public key by hashing it first
-			let account_hash = blake2_256(account_bytes);
+			let account_hash = keccak_256(account_bytes);
 			H160::from_slice(&account_hash[12..])
 		}
 	}

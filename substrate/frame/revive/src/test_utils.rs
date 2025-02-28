@@ -71,7 +71,7 @@ pub const DJANGO_FALLBACK: AccountId32 = DJANGO;
 /// Eve is a non ee account and hence needs a stateful mapping and its
 /// address is derived by hashing to avoid truncating public keys.
 pub const EVE: AccountId32 = AccountId32::new([5u8; 32]);
-pub const EVE_ADDR: H160 = H160(hex!("b19c2193f10928aa39d6f938be2c341fedd66d30"));
+pub const EVE_ADDR: H160 = H160(hex!("e21eecd6e51cbcda5b0c5207ae87e605839e70ef"));
 pub const EVE_FALLBACK: AccountId32 = ee_extend(EVE_ADDR.0);
 
 pub const GAS_LIMIT: Weight = Weight::from_parts(100_000_000_000, 3 * 1024 * 1024);
