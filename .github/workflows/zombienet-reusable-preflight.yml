@@ -179,7 +179,7 @@ jobs:
         id: set_images_version
         shell: bash
         run: |
-          export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
+          export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha || github.sha }}
           if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
           echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
 
@@ -220,7 +220,7 @@ jobs:
   wait_build_images:
     needs: [ci-env]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     outputs:
       BUILD_RUN_ID: ${{ steps.wait_build.outputs.BUILD_RUN_ID }}
     steps:
@@ -232,7 +232,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh --version
-          export SHA=${{ github.event.pull_request.head.sha }}
+          export SHA=${{ github.event.pull_request.head.sha || github.sha }}
           if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
           while true; do
             STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
