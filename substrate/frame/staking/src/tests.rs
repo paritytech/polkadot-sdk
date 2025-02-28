@@ -24,8 +24,9 @@ use frame_election_provider_support::{
 	ElectionProvider, SortedListProvider, Support,
 };
 use frame_support::{
-	hypothetically, assert_noop, assert_ok, assert_storage_noop,
+	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
+	hypothetically,
 	pallet_prelude::*,
 	traits::{Currency, Get, ReservableCurrency},
 };

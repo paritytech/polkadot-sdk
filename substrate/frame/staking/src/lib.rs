@@ -312,7 +312,8 @@ use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
-		ConstU32, Contains, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		ConstU32, Contains, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get,
+		LockIdentifier,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
