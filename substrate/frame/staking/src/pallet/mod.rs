@@ -71,6 +71,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -120,6 +121,8 @@ pub mod pallet {
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Copy
 			+ MaybeSerializeDeserialize
 			+ core::fmt::Debug
