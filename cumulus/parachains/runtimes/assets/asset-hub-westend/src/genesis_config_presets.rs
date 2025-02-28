@@ -34,6 +34,7 @@ fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
+	dev_stakers: Option<(u32, u32)>,
 	id: ParaId,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
@@ -58,6 +59,15 @@ fn asset_hub_westend_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+		staking: StakingConfig {
+			// we wish to elect 500 validators, maximum is set to 1000 in the runtime configs.
+			validator_count: 500,
+			// smallest validator set we accept, 50 for now?
+			minimum_validator_count: 50,
+			// initial stakers
+			dev_stakers,
+			..Default::default()
+		}
 	})
 }
 
@@ -69,6 +79,7 @@ mod preset_names {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
+	let dev_stakers = Some((1_000, 25_000));
 	let patch = match id.as_ref() {
 		PRESET_GENESIS => asset_hub_westend_genesis(
 			// initial collators.
@@ -96,6 +107,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			Vec::new(),
 			ASSET_HUB_WESTEND_ED * 4096,
+			None,
 			1000.into(),
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_westend_genesis(
@@ -106,6 +118,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			WND * 1_000_000,
+			dev_stakers,
 			1000.into(),
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
@@ -118,6 +131,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				Sr25519Keyring::BobStash.to_account_id(),
 			],
 			WND * 1_000_000,
+			dev_stakers,
 			1000.into(),
 		),
 		_ => return None,

@@ -18,7 +18,7 @@
 //! Testnet for Asset Hub Polkadot.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -28,6 +28,12 @@ mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
 
+// Configurations for next functionality.
+mod bag_thresholds;
+pub mod governance;
+mod staking;
+use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
+
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
@@ -36,7 +42,7 @@ use assets_common::{
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -49,7 +55,7 @@ use frame_support::{
 		fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
-		ConstantStoragePrice, Equals, InstanceFilter, Nothing, TransformOrigin,
+		ConstantStoragePrice, Equals, InstanceFilter, Nothing, TransformOrigin, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -59,7 +65,8 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_nfts::{DestroyWitness, PalletFeatures};
+use pallet_nfts::PalletFeatures;
+use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_xcm::EnsureXcm;
 use parachains_common::{
@@ -72,7 +79,8 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, U256};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, Saturating, TransactionExtension, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, TransactionExtension,
+		Verify,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
@@ -101,7 +109,6 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
-	Version as XcmVersion,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -132,7 +139,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_017_007,
+	spec_version: 1_019_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -144,6 +151,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
+
+type RelayChainBlockNumberProvider = RelaychainDataProvider<Runtime>;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -227,7 +236,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<50>;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
 }
 
@@ -473,6 +482,23 @@ impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v5::Location>
 }
 
 parameter_types! {
+	pub const MinVestedTransfer: Balance = 100 * CENTS;
+	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
+		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+}
+
+impl pallet_vesting::Config for Runtime {
+	const MAX_VESTING_SCHEDULES: u32 = 100;
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberToBalance = ConvertInto;
+	type Currency = Balances;
+	type MinVestedTransfer = MinVestedTransfer;
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+}
+
+parameter_types! {
 	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/astrd");
 	pub const RewardsPoolCreationHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::AssetRewards(pallet_asset_rewards::HoldReason::PoolCreation);
@@ -583,7 +609,8 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
-	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	// TODO add migration.
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -667,8 +694,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } |
-						RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -770,7 +796,8 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
-	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	// TODO add migration.
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
 parameter_types! {
@@ -1033,7 +1060,7 @@ impl pallet_nfts::Config for Runtime {
 	type WeightInfo = weights::pallet_nfts::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
-	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	type BlockNumberProvider = System;
 }
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
@@ -1180,6 +1207,32 @@ construct_runtime!(
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
+		// Staking.
+		Staking: pallet_staking = 80,
+		NominationPools: pallet_nomination_pools = 81,
+		FastUnstake: pallet_fast_unstake = 82,
+		VoterList: pallet_bags_list::<Instance1> = 83,
+		DelegatedStaking: pallet_delegated_staking = 84,
+
+		// Election apparatus.
+		MultiBlock: pallet_election_provider_multi_block = 85,
+		MultiBlockVerifier: pallet_election_provider_multi_block::verifier = 86,
+		MultiBlockUnsigned: pallet_election_provider_multi_block::unsigned = 87,
+		MultiBlockSigned: pallet_election_provider_multi_block::signed = 88,
+
+		// Governance.
+		Preimage: pallet_preimage = 90,
+		Scheduler: pallet_scheduler = 91,
+		ConvictionVoting: pallet_conviction_voting = 92,
+		Referenda: pallet_referenda = 93,
+		Origins: pallet_custom_origins = 94,
+		Whitelist: pallet_whitelist = 95,
+		Treasury: pallet_treasury = 96,
+		AssetRate: pallet_asset_rate = 97,
+
+		// Balances.
+		Vesting: pallet_vesting = 100,
+
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
@@ -1240,135 +1293,9 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
-	// v9420
-	pallet_nfts::migration::v1::MigrateToV1<Runtime>,
-	// unreleased
-	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
-	// unreleased
-	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-	// unreleased
-	InitStorageVersions,
-	// unreleased
-	DeleteUndecodableStorage,
-	// unreleased
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
-	// unreleased
-	pallet_assets::migration::next_asset_id::SetNextAssetId<
-		ConstU32<50_000_000>,
-		Runtime,
-		TrustBackedAssetsInstance,
-	>,
-	pallet_session::migrations::v1::MigrateV0ToV1<
-		Runtime,
-		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
-	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 );
-
-/// Asset Hub Westend has some undecodable storage, delete it.
-/// See <https://github.com/paritytech/polkadot-sdk/issues/2241> for more info.
-///
-/// First we remove the bad Hold, then the bad NFT collection.
-pub struct DeleteUndecodableStorage;
-
-impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
-	fn on_runtime_upgrade() -> Weight {
-		use sp_core::crypto::Ss58Codec;
-
-		let mut writes = 0;
-
-		// Remove Holds for account with undecodable hold
-		// Westend doesn't have any HoldReasons implemented yet, so it's safe to just blanket remove
-		// any for this account.
-		match AccountId::from_ss58check("5GCCJthVSwNXRpbeg44gysJUx9vzjdGdfWhioeM7gCg6VyXf") {
-			Ok(a) => {
-				log::info!("Removing holds for account with bad hold");
-				pallet_balances::Holds::<Runtime, ()>::remove(a);
-				writes.saturating_inc();
-			},
-			Err(_) => {
-				log::error!("CleanupUndecodableStorage: Somehow failed to convert valid SS58 address into an AccountId!");
-			},
-		};
-
-		// Destroy undecodable NFT item 1
-		writes.saturating_inc();
-		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 1, |_| Ok(())) {
-			Ok(_) => {
-				log::info!("Destroyed undecodable NFT item 1");
-			},
-			Err(e) => {
-				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
-				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
-			},
-		}
-
-		// Destroy undecodable NFT item 2
-		writes.saturating_inc();
-		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 2, |_| Ok(())) {
-			Ok(_) => {
-				log::info!("Destroyed undecodable NFT item 2");
-			},
-			Err(e) => {
-				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
-				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
-			},
-		}
-
-		// Finally, we can destroy the collection
-		writes.saturating_inc();
-		match pallet_nfts::Pallet::<Runtime, ()>::do_destroy_collection(
-			3,
-			DestroyWitness { attributes: 0, item_metadatas: 1, item_configs: 0 },
-			None,
-		) {
-			Ok(_) => {
-				log::info!("Destroyed undecodable NFT collection");
-			},
-			Err(e) => {
-				log::error!("Failed to destroy undecodable NFT collection: {:?}", e);
-			},
-		};
-
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
-	}
-}
-
-/// Migration to initialize storage versions for pallets added after genesis.
-///
-/// Ideally this would be done automatically (see
-/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
-/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
-/// doing it manually.
-pub struct InitStorageVersions;
-
-impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
-	fn on_runtime_upgrade() -> Weight {
-		use frame_support::traits::{GetStorageVersion, StorageVersion};
-
-		let mut writes = 0;
-
-		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
-			PolkadotXcm::in_code_storage_version().put::<PolkadotXcm>();
-			writes.saturating_inc();
-		}
-
-		if ForeignAssets::on_chain_storage_version() == StorageVersion::new(0) {
-			ForeignAssets::in_code_storage_version().put::<ForeignAssets>();
-			writes.saturating_inc();
-		}
-
-		if PoolAssets::on_chain_storage_version() == StorageVersion::new(0) {
-			PoolAssets::in_code_storage_version().put::<PoolAssets>();
-			writes.saturating_inc();
-		}
-
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(3, writes)
-	}
-}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -1455,13 +1382,22 @@ mod benches {
 	frame_benchmarking::define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
 		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
+		[pallet_asset_conversion_ops, AssetConversionMigration]
+		[pallet_asset_rate, AssetRate]
 		[pallet_assets, Local]
 		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_asset_rewards, AssetRewards]
 		[pallet_asset_conversion_tx_payment, AssetTxPayment]
+		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
+		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_election_provider_multi_block, MultiBlock]
+		[pallet_election_provider_multi_block_verifier, MultiBlockVerifier]
+		[pallet_election_provider_multi_block_unsigned, MultiBlockUnsigned]
+		[pallet_election_provider_multi_block_signed, MultiBlockSigned]
+		[pallet_fast_unstake, FastUnstake]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multisig, Multisig]
@@ -1476,8 +1412,12 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_treasury, Treasury]
+		[pallet_vesting, Vesting]
+		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
+		[pallet_revive, Revive]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
@@ -1727,8 +1667,8 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
@@ -1845,6 +1785,67 @@ impl_runtime_apis! {
 			// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
 			// have a backtrace here.
 			Executive::try_execute_block(block, state_root_check, signature_check, select).unwrap()
+		}
+	}
+
+
+	impl pallet_nomination_pools_runtime_api::NominationPoolsApi<
+		Block,
+		AccountId,
+		Balance,
+	> for Runtime {
+		fn pending_rewards(member: AccountId) -> Balance {
+			NominationPools::api_pending_rewards(member).unwrap_or_default()
+		}
+
+		fn points_to_balance(pool_id: PoolId, points: Balance) -> Balance {
+			NominationPools::api_points_to_balance(pool_id, points)
+		}
+
+		fn balance_to_points(pool_id: PoolId, new_funds: Balance) -> Balance {
+			NominationPools::api_balance_to_points(pool_id, new_funds)
+		}
+
+		fn pool_pending_slash(pool_id: PoolId) -> Balance {
+			NominationPools::api_pool_pending_slash(pool_id)
+		}
+
+		fn member_pending_slash(member: AccountId) -> Balance {
+			NominationPools::api_member_pending_slash(member)
+		}
+
+		fn pool_needs_delegate_migration(pool_id: PoolId) -> bool {
+			NominationPools::api_pool_needs_delegate_migration(pool_id)
+		}
+
+		fn member_needs_delegate_migration(member: AccountId) -> bool {
+			NominationPools::api_member_needs_delegate_migration(member)
+		}
+
+		fn member_total_balance(member: AccountId) -> Balance {
+			NominationPools::api_member_total_balance(member)
+		}
+
+		fn pool_balance(pool_id: PoolId) -> Balance {
+			NominationPools::api_pool_balance(pool_id)
+		}
+
+		fn pool_accounts(pool_id: PoolId) -> (AccountId, AccountId) {
+			NominationPools::api_pool_accounts(pool_id)
+		}
+	}
+
+	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
+		fn nominations_quota(balance: Balance) -> u32 {
+			Staking::api_nominations_quota(balance)
+		}
+
+		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
+			Staking::api_eras_stakers_page_count(era, account)
+		}
+
+		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
+			Staking::api_pending_rewards(era, account)
 		}
 	}
 
