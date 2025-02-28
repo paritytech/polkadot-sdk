@@ -70,6 +70,7 @@ members = [
 	"bridges/snowbridge/primitives/verification",
 	"bridges/snowbridge/runtime/runtime-common",
 	"bridges/snowbridge/runtime/test-common",
+	"bridges/snowbridge/test-utils",
 	"cumulus/bin/pov-validator",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
@@ -1275,6 +1276,7 @@ snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common"
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false }
 snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false }
 snowbridge-system-runtime-api-v2 = { path = "bridges/snowbridge/pallets/system-v2/runtime-api", default-features = false }
+snowbridge-test-utils = { path = "bridges/snowbridge/test-utils" }
 snowbridge-verification-primitives = { path = "bridges/snowbridge/primitives/verification", default-features = false }
 soketto = { version = "0.8.0" }
 solochain-template-runtime = { path = "templates/solochain/runtime" }

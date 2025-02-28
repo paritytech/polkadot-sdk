@@ -24,7 +24,10 @@ pub use weights::*;
 pub mod backend_weights;
 pub use backend_weights::*;
 
-use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{EnsureOriginWithArg, OriginTrait},
+};
 use frame_system::pallet_prelude::*;
 use snowbridge_core::{operating_mode::ExportPausedQuery, AssetMetadata, BasicOperatingMode};
 use sp_std::prelude::*;
@@ -33,9 +36,6 @@ use xcm::{
 	prelude::*,
 };
 use xcm_executor::traits::{FeeManager, FeeReason, TransactAsset};
-
-#[cfg(feature = "runtime-benchmarks")]
-use frame_support::traits::OriginTrait;
 
 pub use pallet::*;
 

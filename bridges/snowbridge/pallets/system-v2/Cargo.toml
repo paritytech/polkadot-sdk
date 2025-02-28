@@ -41,6 +41,7 @@ hex-literal = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true, default-features = true }
+snowbridge-test-utils = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 
 [features]
@@ -73,6 +74,7 @@ runtime-benchmarks = [
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",

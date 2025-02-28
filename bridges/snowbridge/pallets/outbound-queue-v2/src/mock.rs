@@ -9,7 +9,9 @@ use frame_support::{
 	BoundedVec,
 };
 
+use codec::{Encode, MaxEncodedLen};
 use hex_literal::hex;
+use scale_info::TypeInfo;
 use snowbridge_core::{
 	gwei, meth,
 	pricing::{PricingParameters, Rewards},
@@ -94,9 +96,27 @@ parameter_types! {
 	};
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
+	pub DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
 }
 
 pub const DOT: u128 = 10_000_000_000;
+
+/// Showcasing that we can handle multiple different rewards with the same pallet.
+#[derive(Clone, Copy, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+pub enum BridgeReward {
+	/// Rewards for Snowbridge.
+	Snowbridge,
+}
+
+impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward, u128> for () {
+	fn register_reward(
+		_relayer: &<mock::Test as frame_system::Config>::AccountId,
+		_reward: BridgeReward,
+		_reward_balance: u128,
+	) {
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -112,6 +132,8 @@ impl crate::Config for Test {
 	type RewardPayment = ();
 	type ConvertAssetId = ();
 	type EthereumNetwork = EthereumNetwork;
+	type RewardKind = BridgeReward;
+	type DefaultRewardKind = DefaultMyRewardKind;
 }
 
 fn setup() {

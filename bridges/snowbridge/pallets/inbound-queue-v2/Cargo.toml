@@ -48,6 +48,7 @@ frame-benchmarking = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 snowbridge-pallet-ethereum-client = { workspace = true, default-features = true }
+snowbridge-test-utils = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 
 [features]
@@ -87,6 +88,7 @@ runtime-benchmarks = [
 	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-fixtures-v2/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

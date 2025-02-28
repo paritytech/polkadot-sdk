@@ -37,6 +37,7 @@ xcm-executor = { workspace = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+snowbridge-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
@@ -64,6 +65,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",

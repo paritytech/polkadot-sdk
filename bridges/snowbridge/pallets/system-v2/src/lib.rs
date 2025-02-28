@@ -32,24 +32,23 @@ pub mod api;
 pub mod weights;
 pub use weights::*;
 
-use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{EnsureOrigin, OriginTrait},
+};
 use frame_system::pallet_prelude::*;
 use snowbridge_core::{AgentIdOf as LocationHashOf, AssetMetadata, TokenId, TokenIdOf};
 use snowbridge_outbound_queue_primitives::{
 	v2::{Command, Initializer, Message, SendMessage},
 	OperatingMode, SendError,
 };
+use snowbridge_pallet_system::{ForeignToNativeId, NativeToForeignId};
 use sp_core::{H160, H256};
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
-
-use snowbridge_pallet_system::{ForeignToNativeId, NativeToForeignId};
-
-#[cfg(feature = "runtime-benchmarks")]
-use frame_support::traits::OriginTrait;
 
 pub use pallet::*;
 
@@ -245,7 +244,7 @@ pub mod pallet {
 		}
 
 		/// Reanchor the `location` in context of ethereum
-		fn reanchor(location: &Location) -> Result<Location, Error<T>> {
+		pub fn reanchor(location: &Location) -> Result<Location, Error<T>> {
 			location
 				.clone()
 				.reanchored(&T::EthereumLocation::get(), &T::UniversalLocation::get())

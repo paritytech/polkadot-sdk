@@ -3,9 +3,11 @@
 use super::*;
 
 use crate::{mock::*, Error};
+use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use hex_literal::hex;
 use snowbridge_inbound_queue_primitives::{EventProof, Proof};
+use snowbridge_test_utils::mock_xcm::{set_charge_fees_override, set_sender_override};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
 
@@ -187,10 +189,23 @@ fn test_set_operating_mode_root_only() {
 
 #[test]
 fn test_xcm_send_failure() {
-	crate::test::mock_xcm_send_failure::new_tester().execute_with(|| {
+	crate::test::new_tester().execute_with(|| {
+		set_sender_override(
+			|dest: &mut Option<Location>, xcm: &mut Option<Xcm<()>>| {
+				if let Some(location) = dest {
+					match location.unpack() {
+						(_, [Parachain(1001)]) => return Err(SendError::NotApplicable),
+						_ => Ok((xcm.clone().unwrap(), Assets::default())),
+					}
+				} else {
+					Ok((xcm.clone().unwrap(), Assets::default()))
+				}
+			},
+			|_| Err(SendError::DestinationUnsupported),
+		);
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = mock::mock_xcm_send_failure::RuntimeOrigin::signed(relayer.clone());
+		let origin = mock::RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
 		let event = EventProof {
@@ -202,10 +217,7 @@ fn test_xcm_send_failure() {
 		};
 
 		assert_err!(
-			crate::test::mock_xcm_send_failure::InboundQueue::submit(
-				origin.clone(),
-				Box::new(event.clone())
-			),
+			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::SendFailure
 		);
 	});
@@ -213,10 +225,17 @@ fn test_xcm_send_failure() {
 
 #[test]
 fn test_xcm_send_validate_failure() {
-	crate::test::mock_xcm_validate_failure::new_tester().execute_with(|| {
+	crate::test::new_tester().execute_with(|| {
+		set_sender_override(
+			|_, _| return Err(SendError::NotApplicable),
+			|xcm| {
+				let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+				Ok(hash)
+			},
+		);
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = mock::mock_xcm_validate_failure::RuntimeOrigin::signed(relayer.clone());
+		let origin = mock::RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
 		let event = EventProof {
@@ -228,10 +247,7 @@ fn test_xcm_send_validate_failure() {
 		};
 
 		assert_err!(
-			crate::test::mock_xcm_validate_failure::InboundQueue::submit(
-				origin.clone(),
-				Box::new(event.clone())
-			),
+			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::Unreachable
 		);
 	});
@@ -239,10 +255,12 @@ fn test_xcm_send_validate_failure() {
 
 #[test]
 fn test_xcm_charge_fees_failure() {
-	crate::test::mock_charge_fees_failure::new_tester().execute_with(|| {
+	crate::test::new_tester().execute_with(|| {
+		set_charge_fees_override(|_, _| Err(XcmError::FeesNotMet));
+
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = mock::mock_charge_fees_failure::RuntimeOrigin::signed(relayer.clone());
+		let origin = mock::RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
 		let event = EventProof {
@@ -254,11 +272,25 @@ fn test_xcm_charge_fees_failure() {
 		};
 
 		assert_err!(
-			crate::test::mock_charge_fees_failure::InboundQueue::submit(
-				origin.clone(),
-				Box::new(event.clone())
-			),
+			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::FeesNotMet
 		);
+	});
+}
+
+#[test]
+fn test_register_token() {
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = RuntimeOrigin::signed(relayer);
+		let event = EventProof {
+			event_log: mock_event_log_v2(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+
+		assert_ok!(InboundQueue::submit(origin, Box::new(event)));
 	});
 }

@@ -12,18 +12,14 @@ use frame_system::EnsureRootWithSuccess;
 use snowbridge_core::{
 	gwei, meth, sibling_sovereign_account, AllowSiblingsOnly, ParaId, PricingParameters, Rewards,
 };
-use snowbridge_outbound_queue_primitives::{
-	v1::{Fee, Message as MessageV1, SendMessage as SendMessageV1},
-	v2::{Message, SendMessage},
-	SendMessageFeeProvider,
-};
+
+pub use snowbridge_test_utils::{mock_origin::pallet_xcm_origin, mock_outbound_queue::*};
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	AccountId32, BuildStorage, FixedU128,
 };
 use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 
-use crate::mock::pallet_xcm_origin::EnsureXcm;
 #[cfg(feature = "runtime-benchmarks")]
 use crate::BenchmarkHelper;
 
@@ -31,61 +27,6 @@ type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;
 
 pub type AccountId = AccountId32;
-
-// A stripped-down version of pallet-xcm that only inserts an XCM origin into the runtime
-#[allow(dead_code)]
-#[frame_support::pallet]
-mod pallet_xcm_origin {
-	use codec::DecodeWithMemTracking;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{Contains, OriginTrait},
-	};
-	use xcm::latest::prelude::*;
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
-
-	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeOrigin: From<Origin> + From<<Self as frame_system::Config>::RuntimeOrigin>;
-	}
-
-	// Insert this custom Origin into the aggregate RuntimeOrigin
-	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	pub struct Origin(pub Location);
-
-	impl From<Location> for Origin {
-		fn from(location: Location) -> Origin {
-			Origin(location)
-		}
-	}
-
-	/// `EnsureOrigin` implementation succeeding with a `Location` value to recognize and
-	/// filter the contained location
-	pub struct EnsureXcm<F>(PhantomData<F>);
-	impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O> for EnsureXcm<F>
-	where
-		O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
-	{
-		type Success = Location;
-
-		fn try_origin(outer: O) -> Result<Self::Success, O> {
-			outer.try_with_caller(|caller| {
-				caller.try_into().and_then(|o| match o {
-					Origin(location) if F::contains(&location) => Ok(location),
-					o => Err(o.into()),
-				})
-			})
-		}
-
-		#[cfg(feature = "runtime-benchmarks")]
-		fn try_successful_origin() -> Result<O, ()> {
-			Ok(O::from(Origin(Location::new(1, [Parachain(2000)]))))
-		}
-	}
-}
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -125,57 +66,6 @@ impl pallet_balances::Config for Test {
 
 impl pallet_xcm_origin::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-}
-
-pub struct MockOkOutboundQueue;
-impl SendMessage for MockOkOutboundQueue {
-	type Ticket = ();
-
-	type Balance = u128;
-
-	fn validate(
-		_: &Message,
-	) -> Result<(Self::Ticket, Self::Balance), snowbridge_outbound_queue_primitives::SendError> {
-		Ok(((), 1_u128))
-	}
-
-	fn deliver(_: Self::Ticket) -> Result<H256, snowbridge_outbound_queue_primitives::SendError> {
-		Ok(H256::zero())
-	}
-}
-
-impl SendMessageFeeProvider for MockOkOutboundQueue {
-	type Balance = u128;
-
-	fn local_fee() -> Self::Balance {
-		1
-	}
-}
-
-pub struct MockOkOutboundQueueV1;
-impl SendMessageV1 for MockOkOutboundQueueV1 {
-	type Ticket = ();
-
-	fn validate(
-		_: &MessageV1,
-	) -> Result<
-		(Self::Ticket, Fee<<Self as SendMessageFeeProvider>::Balance>),
-		snowbridge_outbound_queue_primitives::SendError,
-	> {
-		Ok(((), Fee::from((0, 0))))
-	}
-
-	fn deliver(_: Self::Ticket) -> Result<H256, snowbridge_outbound_queue_primitives::SendError> {
-		Ok(H256::zero())
-	}
-}
-
-impl SendMessageFeeProvider for MockOkOutboundQueueV1 {
-	type Balance = u128;
-
-	fn local_fee() -> Self::Balance {
-		1
-	}
 }
 
 parameter_types! {
@@ -221,7 +111,7 @@ impl Contains<Location> for AllowFromAssetHub {
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = MockOkOutboundQueue;
-	type FrontendOrigin = EnsureXcm<AllowFromAssetHub>;
+	type FrontendOrigin = pallet_xcm_origin::EnsureXcm<AllowFromAssetHub>;
 	type GovernanceOrigin = EnsureRootWithSuccess<AccountId, RootLocation>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
@@ -249,7 +139,7 @@ impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
 impl snowbridge_pallet_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = MockOkOutboundQueueV1;
-	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
+	type SiblingOrigin = pallet_xcm_origin::EnsureXcm<AllowSiblingsOnly>;
 	type AgentIdOf = snowbridge_core::AgentIdOf;
 	type Token = Balances;
 	type TreasuryAccount = TreasuryAccount;

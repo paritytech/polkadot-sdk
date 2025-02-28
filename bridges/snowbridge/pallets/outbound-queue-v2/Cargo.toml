@@ -31,8 +31,8 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
-bridge-hub-common = { workspace = true }
 bp-relayers = { workspace = true }
+bridge-hub-common = { workspace = true }
 
 snowbridge-core = { workspace = true }
 snowbridge-merkle-tree = { workspace = true }
