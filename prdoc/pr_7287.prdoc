@@ -1,0 +1,27 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Deprecate HandleLifetime Trait and its Implementations in Favor of Direct frame-system Methods
+
+doc:
+  - audience: Runtime devs
+    description: |
+        This PR adds deprecation notice for the `HandleLifetime` trait and its implementations (`Consumer`, `Provider`, and `SelfSufficient`) in the Polkadot SDK FRAME crate. 
+        These traits are replaced by direct methods provided by frame-system::Pallet<T> to simplify and streamline the handling of `Consumer`, `Provider`, and `SelfSufficient` references.
+
+        Key Changes:
+            For Consumer (from HandleLifetime):
+                Use frame_system::inc_consumers(t) for the Created method.
+                Use frame_system::dec_consumers(t) for the Killed method.
+            For Provider (from HandleLifetime):
+                Use frame_system::inc_providers(t) for the Created method.
+                Use frame_system::dec_providers(t) for the Killed method.
+            For SelfSufficient (from HandleLifetime):
+                Use frame_system::inc_sufficients(t) for the Created method.
+                Use frame_system::dec_sufficients(t) for the Killed method.
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: frame-system
+    bump: major

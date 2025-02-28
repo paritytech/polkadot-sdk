@@ -718,6 +718,7 @@ pub trait OnKilledAccount<AccountId> {
 }
 
 /// A simple, generic one-parameter event notifier/handler.
+#[deprecated(note = "HandleLifetime will be removed by July 2025.")]
 pub trait HandleLifetime<T> {
 	/// An account was created.
 	fn created(_t: &T) -> Result<(), DispatchError> {
