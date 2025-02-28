@@ -15,6 +15,7 @@
 // limitations under the License.
 
 use crate::{
+	cli::AuthoringPolicy,
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::BuildParachainRpcExtensions,
@@ -217,7 +218,7 @@ where
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	AuraId: AuraIdT + Sync,
 {
-	if extra_args.use_slot_based_consensus {
+	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {
 		Box::new(AuraNode::<
 			Block,
 			RuntimeApi,
@@ -315,7 +316,7 @@ where
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
 		keystore: KeystorePtr,
-		_relay_chain_slot_duration: Duration,
+		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
 		_overseer_handle: OverseerHandle,
@@ -347,6 +348,7 @@ where
 			para_client: client.clone(),
 			para_backend: backend.clone(),
 			relay_client: relay_chain_interface,
+			relay_chain_slot_duration,
 			code_hash_provider: move |block_hash| {
 				client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 			},
@@ -357,7 +359,7 @@ where
 			collator_service,
 			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
-			slot_drift: Duration::from_secs(1),
+			slot_offset: Duration::from_secs(1),
 			block_import_handle,
 			spawner: task_manager.spawn_handle(),
 			export_pov: node_extra_args.export_pov,

@@ -220,7 +220,7 @@ jobs:
   wait_build_images:
     needs: [ci-env]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     outputs:
       BUILD_RUN_ID: ${{ steps.wait_build.outputs.BUILD_RUN_ID }}
     steps:
