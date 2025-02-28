@@ -17,13 +17,13 @@
 
 //! Functions that deal contract addresses.
 
-use crate::{ensure, AddressSuffix, Config, Error, HoldReason};
+use crate::{ensure, Config, Error, HoldReason, OriginalAccount};
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::{fungible::MutateHold, tokens::Precision};
 use sp_core::{Get, H160};
 use sp_io::hashing::keccak_256;
-use sp_runtime::{AccountId32, DispatchResult, SaturatedConversion, Saturating};
+use sp_runtime::{AccountId32, DispatchResult, Saturating};
 
 /// Map between the native chain account id `T` and an Ethereum [`H160`].
 ///
@@ -40,7 +40,7 @@ use sp_runtime::{AccountId32, DispatchResult, SaturatedConversion, Saturating};
 ///
 /// We require the mapping to be reversible. Since we are potentially dealing with types of
 /// different sizes one direction of the mapping is necessarily lossy. This requires the mapping to
-/// make use of the [`AddressSuffix`] storage item to reverse the mapping.
+/// make use of the [`OriginalAccount`] storage item to reverse the mapping.
 pub trait AddressMapper<T: Config>: private::Sealed {
 	/// Convert an account id to an ethereum adress.
 	fn to_address(account_id: &T::AccountId) -> H160;
@@ -50,7 +50,7 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 
 	/// Same as [`Self::to_account_id`] but always returns the fallback account.
 	///
-	/// This skips the query into [`AddressSuffix`] and always returns the stateless
+	/// This skips the query into [`OriginalAccount`] and always returns the stateless
 	/// fallback account. This is useful when we know for a fact that the `address`
 	/// in question is originally a `H160`. This is usually only the case when we
 	/// generated a new contract address.
@@ -83,11 +83,10 @@ mod private {
 
 /// The mapper to be used if the account id is `AccountId32`.
 ///
-/// It converts between addresses by either truncating the last 12 bytes or
-/// suffixing them. The suffix is queried from [`AddressSuffix`] and will fall
-/// back to all `0xEE` if no suffix was registered. This means contracts and
-/// plain wallets controlled by an `secp256k1` always have a `0xEE` suffixed
-/// account.
+/// It converts between addresses by either hash then truncate the last 12 bytes or
+/// suffixing them. To recover the original account id of a hashed and truncated account id we use
+/// [`OriginalAccount`] and will fall back to all `0xEE` if account was found. This means contracts
+/// and plain wallets controlled by an `secp256k1` always have a `0xEE` suffixed account.
 pub struct AccountId32Mapper<T>(PhantomData<T>);
 
 /// The mapper to be used if the account id is `H160`.
@@ -100,18 +99,21 @@ where
 	T: Config<AccountId = AccountId32>,
 {
 	fn to_address(account_id: &AccountId32) -> H160 {
-		H160::from_slice(&<AccountId32 as AsRef<[u8; 32]>>::as_ref(&account_id)[..20])
+		let account_bytes: &[u8; 32] = account_id.as_ref();
+		if Self::is_eth_derived(account_id) {
+			// this was originally an eth address
+			// we just strip the 0xEE suffix to get the original address
+			H160::from_slice(&account_bytes[..20])
+		} else {
+			// this is an (ed|sr)25510 derived address
+			// avoid truncating the public key by hashing it first
+			let account_hash = keccak_256(account_bytes);
+			H160::from_slice(&account_hash[12..])
+		}
 	}
 
 	fn to_account_id(address: &H160) -> AccountId32 {
-		if let Some(suffix) = <AddressSuffix<T>>::get(address) {
-			let mut account_id = Self::to_fallback_account_id(address);
-			let account_bytes: &mut [u8; 32] = account_id.as_mut();
-			account_bytes[20..].copy_from_slice(suffix.as_slice());
-			account_id
-		} else {
-			Self::to_fallback_account_id(address)
-		}
+		<OriginalAccount<T>>::get(address).unwrap_or_else(|| Self::to_fallback_account_id(address))
 	}
 
 	fn to_fallback_account_id(address: &H160) -> AccountId32 {
@@ -124,24 +126,19 @@ where
 	fn map(account_id: &T::AccountId) -> DispatchResult {
 		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
 
-		let account_bytes: &[u8; 32] = account_id.as_ref();
-
-		// each mapping entry stores one AccountId32 distributed between key and value
+		// each mapping entry stores the address (20 bytes) and the account id (32 bytes)
 		let deposit = T::DepositPerByte::get()
-			.saturating_mul(account_bytes.len().saturated_into())
+			.saturating_mul(52u32.into())
 			.saturating_add(T::DepositPerItem::get());
-
-		let suffix: [u8; 12] = account_bytes[20..]
-			.try_into()
-			.expect("Skipping 20 byte of a an 32 byte array will fit into 12 bytes; qed");
 		T::Currency::hold(&HoldReason::AddressMapping.into(), account_id, deposit)?;
-		<AddressSuffix<T>>::insert(Self::to_address(account_id), suffix);
+
+		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
 		Ok(())
 	}
 
 	fn unmap(account_id: &T::AccountId) -> DispatchResult {
 		// will do nothing if address is not mapped so no check required
-		<AddressSuffix<T>>::remove(Self::to_address(account_id));
+		<OriginalAccount<T>>::remove(Self::to_address(account_id));
 		T::Currency::release_all(
 			&HoldReason::AddressMapping.into(),
 			account_id,
@@ -151,9 +148,24 @@ where
 	}
 
 	fn is_mapped(account_id: &T::AccountId) -> bool {
+		Self::is_eth_derived(account_id) ||
+			<OriginalAccount<T>>::contains_key(Self::to_address(account_id))
+	}
+}
+
+impl<T> AccountId32Mapper<T>
+where
+	T: Config<AccountId = AccountId32>,
+{
+	/// Returns true if the passed account id is controlled by an eth key.
+	///
+	/// This is a stateless check that just compares the last 12 bytes. Please note that it is
+	/// theoretically possible to create an ed25519 keypair that passed this filter. However,
+	/// this can't be used for an attack. It also won't happen by accident since everbody is using
+	/// sr25519 where this is not a valid public key.
+	fn is_eth_derived(account_id: &T::AccountId) -> bool {
 		let account_bytes: &[u8; 32] = account_id.as_ref();
-		&account_bytes[20..] == &[0xEE; 12] ||
-			<AddressSuffix<T>>::contains_key(Self::to_address(account_id))
+		&account_bytes[20..] == &[0xEE; 12]
 	}
 }
 
