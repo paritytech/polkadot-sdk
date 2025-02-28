@@ -1,0 +1,70 @@
+[package]
+name = "pallet-remote-proxy"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-proxy = { workspace = true }
+sp-core = { workspace = true }
+sp-trie = { workspace = true }
+sp-runtime = { workspace = true }
+
+[dev-dependencies]
+pallet-balances = { workspace = true }
+pallet-utility = { workspace = true }
+sp-io = { workspace = true }
+sp-state-machine = { workspace = true }
+
+[features]
+default = ["std"]
+
+std = [
+	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-primitives-core/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"pallet-proxy/std",
+	"pallet-utility/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-state-machine/std",
+	"sp-trie/std",
+]
+
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-runtime/try-runtime",
+]
+
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
