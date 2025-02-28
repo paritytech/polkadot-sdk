@@ -59,6 +59,8 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 /// Migrates `UnappliedSlashes` to a new storage structure to support paged slashing.
 /// This ensures that slashing can be processed in batches, preventing large storage operations in a
 /// single block.
+/// 
+/// Exposes staking disabled validators so they can be migrated from staking to session pallet.
 pub mod v17 {
 	use super::*;
 
@@ -81,7 +83,7 @@ pub mod v17 {
 
 	#[frame_support::storage_alias]
 	pub type DisabledValidators<T: Config> =
-		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<100>>, ValueQuery>;
+		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<300>>, ValueQuery>;
 
 	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {

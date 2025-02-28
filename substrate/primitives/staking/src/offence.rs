@@ -264,6 +264,12 @@ impl<Reporter, Evidence> OffenceReportSystem<Reporter, Evidence> for () {
 )]
 pub struct OffenceSeverity(pub Perbill);
 
+impl Default for OffenceSeverity {
+	fn default() -> Self {
+		Self(Perbill::from_percent(100))
+	}
+}
+
 impl PartialOrd for OffenceSeverity {
 	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
 		self.0.partial_cmp(&other.0)
