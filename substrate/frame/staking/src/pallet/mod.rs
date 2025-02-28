@@ -307,8 +307,13 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
+		/// Determines whether a given account should be filtered out from staking operations.
+		///
+		/// This function provides a way to exclude certain accounts from bonding to staking. An
+		/// already bonded account is allowed to withdraw.
+		///
+		/// The default implementation does not filter out any accounts.
 		fn filter(_who: &Self::AccountId) -> bool {
-			// no account should be filtered in the default implementation.
 			false
 		}
 	}
