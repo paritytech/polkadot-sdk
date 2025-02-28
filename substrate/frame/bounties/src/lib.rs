@@ -958,6 +958,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		deposit
 	}
 
+	/// Calculate the block number by which the curator should provide an update to a bounty.
 	pub fn calculate_update_due() -> BlockNumberFor<T, I> {
 		Self::treasury_block_number().saturating_add(
 			T::BountyUpdatePeriod::get().unwrap_or(BlockNumberFor::<T, I>::max_value()),
