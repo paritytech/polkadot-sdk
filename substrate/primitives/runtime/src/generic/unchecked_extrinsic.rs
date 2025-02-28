@@ -425,13 +425,13 @@ where
 		// with SCALE's generic `Vec<u8>` type. Basically this just means accepting that there
 		// will be a prefix of vector length.
 		let expected_length: Compact<u32> = Decode::decode(input)?;
-		let before_length = input.remaining_len()?;
+		let maybe_before_length = input.remaining_len()?;
 
 		let preamble = Decode::decode(input)?;
 		let function = Decode::decode(input)?;
 
-		if let Some((before_length, after_length)) =
-			input.remaining_len()?.and_then(|a| before_length.map(|b| (b, a)))
+		if let (Some(before_length), Some(after_length)) =
+			(maybe_before_length, input.remaining_len()?)
 		{
 			let length = before_length.saturating_sub(after_length);
 
