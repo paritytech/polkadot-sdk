@@ -96,10 +96,10 @@ use fungible::{
 	MutateHold as FunMutateHold,
 };
 use nonfungible::{Inspect as NftInspect, Transfer as NftTransfer};
+use tokens::{Balance, Restriction::*};
 use Fortitude::*;
 use Precision::*;
 use Preservation::*;
-use Restriction::*;
 
 pub struct WithMaximumOf<A: TypedGet>(core::marker::PhantomData<A>);
 impl<A: TypedGet> Convert<Perquintill, A::Type> for WithMaximumOf<A>

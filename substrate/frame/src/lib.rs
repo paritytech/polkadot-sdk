@@ -546,7 +546,16 @@ pub mod arithmetic {
 
 /// All token related types and traits.
 pub mod token {
-	pub use frame_support::traits::{tokens::*, OnUnbalanced};
+	pub use frame_support::traits::{
+		tokens,
+		tokens::{
+			currency, fungible, fungibles, imbalance, nonfungible, nonfungible_v2, nonfungibles,
+			nonfungibles_v2, pay, AssetId, BalanceStatus, DepositConsequence, ExistenceRequirement,
+			Fortitude, Pay, Precision, Preservation, Provenance, WithdrawConsequence,
+			WithdrawReasons,
+		},
+		OnUnbalanced,
+	};
 }
 
 /// All derive macros used in frame.
