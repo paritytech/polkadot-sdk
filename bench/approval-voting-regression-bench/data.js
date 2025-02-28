@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740758821754,
+  "lastUpdate": 1740766062313,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -74401,6 +74401,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.4546320831018607,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1bc6ca606438a65c927f14be3f36634ca0e58e8f",
+          "message": "notifications/libp2p: Terminate the outbound notification substream on `std::io::Errors` (#7724)\n\nThis PR handles a case where we called the `poll_next` on an outbound\nsubstream notification to check if the stream is closed. It is entirely\npossible that the `poll_next` would return an `io::error`, for example\nend of file.\n\nThis PR ensures that we make the distinction between unexpected incoming\ndata, and error originated from `poll_next`.\n\nWhile at it, the bulk of the PR change propagates the PeerID from the\nnetwork behavior, through the notification handler, to the notification\noutbound stream for logging purposes.\n\ncc @paritytech/networking \n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/7722\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2025-02-28T17:05:16Z",
+          "tree_id": "2f62c029b2e9a2c776165b90f05bb49fecad5a2c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bc6ca606438a65c927f14be3f36634ca0e58e8f"
+        },
+        "date": 1740766044977,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63627.759999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52946.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3832989827120903,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.426271864840001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002106438,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001994528,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.3741061750799988,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002106438,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001994528,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 11.855467326380008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005510526159999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.3650202075500006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 1.8597756533700014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.46812205513000943,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.3566608442499986,
             "unit": "seconds"
           }
         ]
