@@ -26,7 +26,7 @@ pub mod weights;
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod mock;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "fuzzing"))]
 pub mod mock_electra;
 
 #[cfg(test)]
