@@ -295,6 +295,8 @@ fn custom_querier_works() {
 /// Asserts that the expected message is sent and the event is emitted
 #[test]
 fn send_works() {
+	sp_tracing::init_for_tests();
+
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
@@ -339,6 +341,8 @@ fn send_works() {
 /// Asserts that `send` fails with `Error::SendFailure`
 #[test]
 fn send_fails_when_xcm_router_blocks() {
+	sp_tracing::init_for_tests();
+
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
@@ -1459,18 +1463,22 @@ fn record_xcm_works() {
 
 #[test]
 fn execute_initiate_transfer_and_check_sent_event() {
+	use crate::Event;
+
+	sp_tracing::init_for_tests();
+
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let dest: Location =
-			Location::new(1, [Junction::AccountId32 { network: None, id: BOB.into() }]);
-		let assets: Asset = (Parent, SEND_AMOUNT).into();
+		let beneficiary: Location =
+			Location::new(1, [AccountId32 { network: None, id: BOB.into() }]);
+		let fee_asset: Asset = (Parent, SEND_AMOUNT).into();
 
 		let message = Xcm(vec![InitiateReserveWithdraw {
 			assets: Wild(All),
 			reserve: Parent.into(),
 			xcm: Xcm(vec![
-				BuyExecution { fees: assets.clone(), weight_limit: Unlimited },
-				DepositAsset { assets: All.into(), beneficiary: dest.clone() },
+				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
 			]),
 		}]);
 
@@ -1480,26 +1488,25 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			BaseXcmWeight::get() * 3,
 		));
 
-		let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-		let expected_message = Xcm(vec![
+		let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+		let expected_message: Xcm<()> = Xcm(vec![
 			WithdrawAsset(Assets::new()),
 			ClearOrigin,
-			BuyExecution { fees: assets.clone(), weight_limit: Unlimited },
-			DepositAsset { assets: All.into(), beneficiary: dest.clone() },
+			BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+			DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
 		]);
-		let id = fake_message_hash(&expected_message);
-
+		let message_id = fake_message_hash(&expected_message);
 		assert_eq!(
 			last_events(2),
 			vec![
-				RuntimeEvent::XcmPallet(crate::Event::Sent {
-					origin: sender,
+				RuntimeEvent::XcmPallet(Event::Sent {
+					origin,
 					destination: Parent.into(),
-					message: expected_message,
-					message_id: id,
+					message: Xcm::default(),
+					message_id,
 				}),
-				RuntimeEvent::XcmPallet(crate::Event::Attempted {
-					outcome: Outcome::Complete { used: Weight::from_parts(1000, 1000) }
+				RuntimeEvent::XcmPallet(Event::Attempted {
+					outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }
 				})
 			]
 		);
