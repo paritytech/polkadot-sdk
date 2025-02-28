@@ -1,8 +1,6 @@
 <!-- markdownlint-disable-file MD013 -->
 # Substrate State Trie Migration Guide
 
-See docs.rs: [pallet_state_trie_migration](https://docs.rs/pallet-state-trie-migration/latest/pallet_state_trie_migration/)
-
 ## Context
 
 The [trie](https://github.com/paritytech/trie) is an abstraction that sits between the Runtime (and its [Overlays](https://paritytech.github.io/substrate/master/sp_state_machine/struct.OverlayedChanges.html)) and the actual database, providing an important abstraction to the blockchain, namely storage proofs and state roots.
@@ -15,11 +13,13 @@ The new trie has been included in the Polkadot client since release [v0.9.16](ht
 
 Nonetheless, it might take a long time for the entire chain's state to be migrated to the new format. The sooner this happens, the better, since the lazy migration is a small overhead. Moreover, this hybrid/lazy state mode does not support warp-sync and state import/export.
 
-To do this faster, we have developed [`pallet-state-trie-migration`](https://github.com/paritytech/substrate/blob/master/frame/state-trie-migration/src/lib.rs). This pallet is a configurable background task that starts reading and writing all keys in the storage based on some given schedule until they are all read, ergo migrated. This pallet can be deployed to a runtime to make sure all keys are read/written once, to ensure that all trie nodes are migrated to the new format.
+To do this faster, we have developed this `pallet-state-trie-migration`. This pallet is a configurable background task that starts reading and writing all keys in the storage based on some given schedule until they are all read, ergo migrated. This pallet can be deployed to a runtime to make sure all keys are read/written once, to ensure that all trie nodes are migrated to the new format.
 
 All Substrate-based chains are advised to switch their `state_version` to `1`, and use this pallet to migrate to the new trie format as soon as they can. Switching the `state_version` will enable the hybrid, lazy migration mode, and this pallet will speed up the migration process.
 
 ## pallet-state-trie-migration: How to Deploy
+
+See docs.rs: [pallet_state_trie_migration](https://docs.rs/pallet-state-trie-migration/latest/pallet_state_trie_migration/)
 
 First, please read the documentation of this pallet. Here, we recap the steps needed to use the migration pallet. To give a brief recap, we suggest:
 
@@ -108,7 +108,7 @@ At this point, you should remove the pallet from the runtime, and you are done ð
 
 > The `MigrationTask` struct that is being printed in `debug` mode contains a lot of interesting information.
 >
-See [the Rustdocs](https://github.com/paritytech/substrate/blob/77c15d2546276a865b6e8f1c5d4b1d0ec1961e72/frame/state-trie-migration/src/lib.rs#L143)
+See [the Rustdocs](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/state-trie-migration/src/lib.rs#L142)
 > for more info.
 
 ### 2.2 Running the signed migration
@@ -139,7 +139,7 @@ If the `dryRun` fails, the bot will re-try with **halving the `item-limit`**. If
 
 > Also, note that your provided `size-limit` and `item-limit` should be less than the aforementioned `SignedMigrationMaxLimits`.
 
-With all of this, let's finally see an example. `substrate-node` is configured to allow any signed account to submit the signed migration, so we don't need to alter it.
+With all of this, let's finally see an example. Lets assume your `node` is configured to allow any signed account to submit the signed migration like [here](https://github.com/polkadot-fellows/runtimes/pull/604) for example.
 
 First, we submit the sudo call to set `SignedMigrationMaxLimits`:
 
