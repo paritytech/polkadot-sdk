@@ -532,7 +532,7 @@ impl<T: Config> Pallet<T> {
 			return false;
 		};
 		let call = Call::register { registration, signature };
-		let xt = T::create_inherent(call.into());
+		let xt = <T as CreateBare<Call<T>>>::create_bare(call.into());
 		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => true,
 			Err(()) => {

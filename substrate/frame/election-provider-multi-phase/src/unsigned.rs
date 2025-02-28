@@ -32,7 +32,7 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction},
+	offchain::{CreateBare, CreateInherent, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
 };
 use scale_info::TypeInfo;
@@ -292,7 +292,7 @@ impl<T: Config + CreateInherent<Call<T>>> Pallet<T> {
 	fn submit_call(call: Call<T>) -> Result<(), MinerError> {
 		log!(debug, "miner submitting a solution as an unsigned transaction");
 
-		let xt = T::create_inherent(call.into());
+		let xt = <T as CreateBare<Call<T>>>::create_bare(call.into());
 		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map_err(|_| MinerError::PoolSubmissionFailed)
 	}

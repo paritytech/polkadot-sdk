@@ -284,7 +284,7 @@ where
 		use frame_system::offchain::SubmitTransaction;
 
 		let call: Call<T> = evidence.into();
-		let xt = T::create_inherent(call.into());
+		let xt = <T as frame_system::offchain::CreateBare<Call<T>>>::create_bare(call.into());
 		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),

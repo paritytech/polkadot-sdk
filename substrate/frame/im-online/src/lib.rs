@@ -95,7 +95,7 @@ use frame_support::{
 	BoundedSlice, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction},
+	offchain::{CreateBare, CreateInherent, SubmitTransaction},
 	pallet_prelude::*,
 };
 pub use pallet::*;
@@ -642,7 +642,7 @@ impl<T: Config> Pallet<T> {
 				call,
 			);
 
-			let xt = T::create_inherent(call.into());
+			let xt = <T as CreateBare<Call<T>>>::create_bare(call.into());
 			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 				.map_err(|_| OffchainErr::SubmitTransaction)?;
 
