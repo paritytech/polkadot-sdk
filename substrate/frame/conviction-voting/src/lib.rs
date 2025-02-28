@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//  http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -396,6 +396,17 @@ pub mod pallet {
 			Self::try_remove_vote(&target, index, Some(class), scope)?;
 			Ok(())
 		}
+		// /// Remove zero-balance records for the caller.
+		// #[pallet::call_index(6)]
+		// #[pallet::weight(T::WeightInfo::remove_zero_balance_records())]
+		// pub fn remove_zero_balance_records(origin: OriginFor<T>) -> DispatchResult {
+		//  let who = ensure_signed(origin)?;
+		//  // Remove zero-balance records from VotingFor
+		//  VotingFor::<T, I>::remove(&who);
+		//  // Remove zero-balance records from ClassLocksFor
+		//  ClassLocksFor::<T, I>::remove(&who);
+		//  Ok(())
+		// }
 	}
 }
 
@@ -410,6 +421,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			vote.balance() <= T::Currency::total_balance(who),
 			Error::<T, I>::InsufficientFunds
 		);
+
+		// Ensure that the vote has a non-zero balance
+		ensure!(!vote.balance().is_zero(), Error::<T, I>::InsufficientFunds);
+
 		T::Polls::try_access_poll(poll_index, |poll_status| {
 			let (tally, class) = poll_status.ensure_ongoing().ok_or(Error::<T, I>::NotOngoing)?;
 			VotingFor::<T, I>::try_mutate(who, &class, |voting| {
@@ -572,6 +587,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(who != target, Error::<T, I>::Nonsense);
 		T::Polls::classes().binary_search(&class).map_err(|_| Error::<T, I>::BadClass)?;
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
+
+		// Ensure the delegation has a non-zero balance
+		ensure!(!balance.is_zero(), Error::<T, I>::InsufficientFunds);
 		let votes =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				let old = core::mem::replace(
@@ -645,6 +663,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
+		if amount.is_zero() {
+			return;
+		}
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
 				Some(i) => locks[i].1 = locks[i].1.max(amount),
@@ -653,8 +674,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					debug_assert!(
 						ok,
 						"Vec bounded by number of classes; \
-						all items in Vec associated with a unique class; \
-						qed"
+                        all items in Vec associated with a unique class; \
+                        qed"
 					);
 				},
 			}
@@ -681,8 +702,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				debug_assert!(
 					ok,
 					"Vec bounded by number of classes; \
-					all items in Vec associated with a unique class; \
-					qed"
+                    all items in Vec associated with a unique class; \
+                    qed"
 				);
 			}
 			locks.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
