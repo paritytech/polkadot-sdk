@@ -26,7 +26,7 @@ use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
 	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 };
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use ark_ec_vrfs::{
 	reexports::{
 		ark_ec::CurveGroup,
@@ -188,7 +188,7 @@ impl CryptoType for Pair {
 pub mod vrf {
 	use super::*;
 	use crate::crypto::VrfCrypto;
-	use ark_ec_vrfs::ietf::{Prover, Verifier};
+	use ark_ec_vrfs::ietf::{Prover as _, Verifier as _};
 
 	/// [`VrfSignature`] serialized size.
 	pub const VRF_SIGNATURE_SERIALIZED_SIZE: usize =
@@ -278,7 +278,7 @@ pub mod vrf {
 	impl VrfSignData {
 		/// Construct a new data to be signed.
 		pub fn new(vrf_input_data: &[u8], aux_data: &[u8]) -> Self {
-			Self { vrf_input: VrfInput::new(vrf_input_data), aux_data: aux_data.to_owned() }
+			Self { vrf_input: VrfInput::new(vrf_input_data), aux_data: aux_data.to_vec() }
 		}
 	}
 
@@ -368,7 +368,7 @@ pub mod vrf {
 /// Bandersnatch Ring-VRF types and operations.
 pub mod ring_vrf {
 	use super::{vrf::*, *};
-	use ark_ec_vrfs::ring::{Prover, Verifier};
+	use ark_ec_vrfs::ring::{Prover as _, Verifier as _};
 	use bandersnatch::{RingContext as RingContextImpl, RingVerifierKey as RingVerifierKeyImpl};
 	pub use bandersnatch::{RingProver, RingVerifier};
 
