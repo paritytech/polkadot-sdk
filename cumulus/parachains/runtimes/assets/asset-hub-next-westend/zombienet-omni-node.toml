@@ -5,12 +5,12 @@ chain = "rococo-local"
 [[relaychain.nodes]]
 name = "alice"
 validator = true
-ws_port = 9944
+rpc_port = 9944
 
 [[relaychain.nodes]]
 name = "bob"
 validator = true
-ws_port = 9955
+rpc_port = 9955
 
 [[parachains]]
 id = 1100
@@ -18,5 +18,5 @@ chain_spec_path = "./chain_spec.json"
 
 [parachains.collator]
 name = "charlie"
-ws_port = 9966
+rpc_port = 9966
 args = [ "-lruntime::system=debug,runtime::multiblock-election=debug,runtime::staking=debug"]
