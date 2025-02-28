@@ -29,7 +29,9 @@ use crate::{
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
-use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Error, Input};
+use codec::{
+	Compact, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, EncodeLike, Error, Input,
+};
 use core::fmt;
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
@@ -58,6 +60,9 @@ pub const LEGACY_EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 4;
 /// This version needs to be bumped if there are breaking changes to the extension used in the
 /// [UncheckedExtrinsic] implementation.
 const EXTENSION_VERSION: ExtensionVersion = 0;
+
+/// Maximum heap size for an extrinsic (in bytes).
+const MAX_EXTRINSIC_HEAP_SIZE: usize = 10 * 1024 * 1024; // 10 MiB
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
 pub type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
@@ -415,10 +420,10 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 impl<Address, Call, Signature, Extension> Decode
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
-	Address: Decode,
-	Signature: Decode,
-	Call: Decode,
-	Extension: Decode,
+	Address: DecodeWithMemTracking,
+	Signature: DecodeWithMemTracking,
+	Call: DecodeWithMemTracking,
+	Extension: DecodeWithMemTracking,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		// This is a little more complicated than usual since the binary format must be compatible
@@ -427,8 +432,8 @@ where
 		let expected_length: Compact<u32> = Decode::decode(input)?;
 		let maybe_before_length = input.remaining_len()?;
 
-		let preamble = Decode::decode(input)?;
-		let function = Decode::decode(input)?;
+		let (preamble, function) =
+			DecodeWithMemLimit::decode_with_mem_limit(input, MAX_EXTRINSIC_HEAP_SIZE)?;
 
 		if let (Some(before_length), Some(after_length)) =
 			(maybe_before_length, input.remaining_len()?)
@@ -491,8 +496,13 @@ impl<Address: Encode, Signature: Encode, Call: Encode, Extension: Encode> serde:
 }
 
 #[cfg(feature = "serde")]
-impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extension: Decode> serde::Deserialize<'a>
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<
+		'a,
+		Address: DecodeWithMemTracking,
+		Signature: DecodeWithMemTracking,
+		Call: DecodeWithMemTracking,
+		Extension: DecodeWithMemTracking,
+	> serde::Deserialize<'a> for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where
