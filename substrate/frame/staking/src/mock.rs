@@ -295,7 +295,6 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
-	type Filter = MockedRestrictList;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
