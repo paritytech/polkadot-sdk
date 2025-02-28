@@ -237,6 +237,10 @@ sp_api::impl_runtime_apis! {
 		) -> Option<()> {
 			unimplemented!()
 		}
+
+		fn validation_code_bomb_limit() -> u32 {
+			unimplemented!()
+		}
 	}
 
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
