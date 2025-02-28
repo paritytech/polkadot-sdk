@@ -36,7 +36,14 @@ use sp_runtime::{
 /// This transaction extension use the runtime implementation of the trait
 /// [`Authorize`](frame_support::traits::Authorize) to set the validity of the transaction.
 #[derive(
-	Encode, Decode, CloneNoBound, EqNoBound, PartialEqNoBound, TypeInfo, RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	DecodeWithMemTracking,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct AuthorizeCall<T>(core::marker::PhantomData<T>);
