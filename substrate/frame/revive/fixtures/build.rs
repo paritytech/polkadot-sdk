@@ -62,19 +62,23 @@ impl Entry {
 	}
 }
 
-/// Collect all contract entries from the given source directory.
-fn collect_entries(contracts_dir: &Path) -> Vec<Entry> {
+/// Collects all contract entries from the given source directory.
+///
+/// Returns a list of all rust contracts that need to be compiled to PVM
+/// and a list of all contracts already in PVM bytecode.
+fn collect_entries(contracts_dir: &Path) -> (Vec<Entry>, Vec<String>) {
 	fs::read_dir(contracts_dir)
 		.expect("src dir exists; qed")
-		.filter_map(|file| {
+		.fold((Vec::new(), Vec::new()), |(mut rust_entries, mut pvm_entries), file| {
 			let path = file.expect("file exists; qed").path();
-			if path.extension().map_or(true, |ext| ext != "rs") {
-				return None
+			let extension = path.extension().unwrap_or_default();
+			if extension == "rs" {
+				rust_entries.push(Entry::new(path));
+			} else if extension == "polkavm" {
+				pvm_entries.push(path.to_str().expect("path is valid unicode; qed").to_string());
 			}
-
-			Some(Entry::new(path))
+			(rust_entries, pvm_entries)
 		})
-		.collect::<Vec<_>>()
 }
 
 /// Create a `Cargo.toml` to compile the given contract entries.
@@ -164,6 +168,15 @@ fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 	Ok(())
 }
 
+fn move_files(entries: Vec<String>, output_directory: &Path) -> Result<()> {
+	for entry in entries {
+		let file_path = Path::new(&entry);
+		let output_path = output_directory.join(file_path.file_name().expect("entry is path; qed"));
+		fs::rename(Path::new(&entry), &output_path).with_context(|| format!("Failed to move {entry:?} to {output_path:?}"))?;
+	}
+	Ok(())
+}
+
 /// Write the compiled contracts to the given output directory.
 fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result<()> {
 	for entry in entries {
@@ -250,14 +263,15 @@ pub fn main() -> Result<()> {
 		println!("cargo::rerun-if-changed={}", uapi_dir.display());
 	}
 
-	let entries = collect_entries(&contracts_dir);
-	if entries.is_empty() {
+	let (rust_entries, pvm_entries) = collect_entries(&contracts_dir);
+	if rust_entries.is_empty() && pvm_entries.is_empty() {
 		return Ok(())
 	}
 
-	create_cargo_toml(&fixtures_dir, entries.iter(), &build_dir)?;
+	create_cargo_toml(&fixtures_dir, rust_entries.iter(), &build_dir)?;
 	invoke_build(&build_dir)?;
-	write_output(&build_dir, &out_dir, entries)?;
+	write_output(&build_dir, &out_dir, rust_entries)?;
+	move_files(pvm_entries, &out_dir)?;
 
 	Ok(())
 }

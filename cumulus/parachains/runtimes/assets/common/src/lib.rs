@@ -29,13 +29,15 @@ use crate::matching::{LocalLocationPattern, ParentLocation};
 use alloc::vec::Vec;
 use codec::{Decode, EncodeLike};
 use core::{cmp::PartialEq, marker::PhantomData};
-use frame_support::traits::{Equals, EverythingBut};
+use frame_support::traits::{Contains, Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
-use sp_runtime::traits::TryConvertInto;
+use sp_core::H160;
+use sp_runtime::traits::{MaybeEquivalence, TryConvertInto};
 use xcm::prelude::*;
 use xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
 };
+use xcm_executor::traits::JustTry;
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L = Location> =
@@ -121,6 +123,35 @@ pub type ForeignAssetsConvertedConcreteId<
 	)>,
 	LocationToAssetIdConverter,
 	BalanceConverter,
+>;
+
+pub struct IsAccountKey20;
+impl Contains<Location> for IsAccountKey20 {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [AccountKey20 { .. }]))
+	}
+}
+
+pub struct AccountKey20ToH160;
+impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
+	fn convert(location: &Location) -> Option<H160> {
+		match location.unpack() {
+			(0, [AccountKey20 { key, .. }]) => Some((*key).into()),
+			_ => None
+		}
+	}
+
+	fn convert_back(key: &H160) -> Option<Location> {
+		Some(Location::new(0, [AccountKey20 { key: (*key).into(), network: None }]))
+	}
+}
+
+pub type ERC20Matcher = MatchedConvertedConcreteId<
+	H160,
+	u128, // TODO: Do we do u128 for ERC20s?
+	IsAccountKey20,
+	AccountKey20ToH160,
+	JustTry
 >;
 
 pub type AssetIdForPoolAssets = u32;

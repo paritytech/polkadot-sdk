@@ -16,9 +16,9 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
-	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	ToRococoXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
-	XcmpQueue,
+	ParachainSystem, PolkadotXcm, PoolAssets, Revive, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, ToRococoXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques,
+	WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -214,6 +214,22 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
+/// Transactor for ERC20 tokens.
+pub type ERC20Transactor = FungiblesAdapter<
+	// Use this fungibles implementation:
+	Revive,
+	// Match ERC20 tokens.
+	assets_common::ERC20Matcher,
+	// Convert an XCM Location into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// We don't need to check teleports here.
+	NoChecking,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
 /// Means for transacting assets on this chain.
 pub type AssetTransactors = (
 	FungibleTransactor,
@@ -221,6 +237,7 @@ pub type AssetTransactors = (
 	ForeignFungiblesTransactor,
 	PoolFungiblesTransactor,
 	UniquesTransactor,
+	ERC20Transactor,
 );
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
