@@ -31,6 +31,7 @@ mod pure_precompiles;
 mod storage;
 mod transient_storage;
 mod wasm;
+mod impl_fungibles;
 
 #[cfg(test)]
 mod tests;
