@@ -35,7 +35,6 @@ use frame_support::{
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash};
-use sp_tracing::test_log_capture::init_log_capture_for_tests;
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::AllowKnownQueryResponses;
 use xcm_executor::{
