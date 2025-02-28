@@ -30,7 +30,7 @@ use sp_runtime::{
 ///
 /// Note that while a transaction with invalid `genesis_hash` will fail to be decoded,
 /// the extension does not affect any other fields of `TransactionValidity` directly.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DecodeWithMemTracking)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckGenesis<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 

@@ -34,7 +34,7 @@ use sp_runtime::{
 /// # Transaction Validity
 ///
 /// The extension affects `longevity` of the transaction according to the [`Era`] definition.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DecodeWithMemTracking)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckMortality<T: Config + Send + Sync>(pub Era, core::marker::PhantomData<T>);
 

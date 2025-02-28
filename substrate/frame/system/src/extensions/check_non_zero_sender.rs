@@ -27,7 +27,7 @@ use sp_runtime::{
 };
 
 /// Check to ensure that the sender is not the zero address.
-#[derive(Encode, Decode, DefaultNoBound, Clone, Eq, PartialEq, TypeInfo, DecodeWithMemTracking)]
+#[derive(Encode, Decode, DecodeWithMemTracking, DefaultNoBound, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckNonZeroSender<T>(PhantomData<T>);
 

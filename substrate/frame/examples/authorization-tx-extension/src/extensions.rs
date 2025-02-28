@@ -38,7 +38,7 @@ use sp_runtime::{
 use crate::pallet_coownership::{Config, Origin};
 
 /// Helper struct to organize the data needed for signature verification of both parties involved.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, DecodeWithMemTracking)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct AuthCredentials<Signer, Signature> {
 	first: (Signer, Signature),
 	second: (Signer, Signature),
@@ -49,7 +49,7 @@ pub struct AuthCredentials<Signer, Signature> {
 /// data that follows this extension in the `TransactionExtension` pipeline, their implications and
 /// the call. Essentially re-sign the transaction from this point onwards in the pipeline by using
 /// the `inherited_implication`, as shown below.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, DecodeWithMemTracking)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct AuthorizeCoownership<T, Signer, Signature> {
 	inner: Option<AuthCredentials<Signer, Signature>>,

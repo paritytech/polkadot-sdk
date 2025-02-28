@@ -38,7 +38,7 @@ use sp_weights::Weight;
 ///
 /// This extension does not influence any fields of `TransactionValidity` in case the
 /// transaction is valid.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo, DecodeWithMemTracking)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckWeight<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 

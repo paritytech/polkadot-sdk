@@ -37,7 +37,7 @@ use sp_runtime::{
 /// fail on applying them as they are not allowed/disabled/whatever. This would be some huge dos
 /// vector to any kind of chain. This extension solves the dos vector by preventing any kind of
 /// transaction entering the pool as long as it is not signed by the sudo account.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, DecodeWithMemTracking)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckOnlySudoAccount<T: Config + Send + Sync>(PhantomData<T>);
 

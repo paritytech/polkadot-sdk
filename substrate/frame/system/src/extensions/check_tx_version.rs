@@ -29,7 +29,7 @@ use sp_runtime::{
 ///
 /// The transaction with incorrect `transaction_version` are considered invalid. The validity
 /// is not affected in any other way.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DecodeWithMemTracking)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckTxVersion<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 

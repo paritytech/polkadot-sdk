@@ -38,7 +38,7 @@ use sp_weights::Weight;
 /// functionality that traditionally signed transactions had with the implicit signature checking
 /// implemented in [`Checkable`](sp_runtime::traits::Checkable). It is meant to be placed ahead of
 /// any other extensions that do authorization work in the [`TransactionExtension`] pipeline.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DecodeWithMemTracking)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub enum VerifySignature<T>
 where
