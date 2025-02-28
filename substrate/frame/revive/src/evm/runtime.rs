@@ -185,8 +185,8 @@ impl<Address: Encode, Signature: Encode, E: EthExtra> serde::Serialize
 	}
 }
 
-impl<'a, Address: Decode, Signature: Decode, E: EthExtra> serde::Deserialize<'a>
-	for UncheckedExtrinsic<Address, Signature, E>
+impl<'a, Address: DecodeWithMemTracking, Signature: DecodeWithMemTracking, E: EthExtra>
+	serde::Deserialize<'a> for UncheckedExtrinsic<Address, Signature, E>
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where
