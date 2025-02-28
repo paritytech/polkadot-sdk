@@ -292,6 +292,7 @@ pub struct DispatchEventInfo {
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
+	use codec::HasCompact;
 	use frame_support::pallet_prelude::*;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -533,6 +534,7 @@ pub mod pallet {
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Member
 			+ MaybeSerializeDeserialize
 			+ Debug
