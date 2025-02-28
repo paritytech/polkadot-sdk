@@ -503,6 +503,10 @@ pub use pallet_membership;
 #[cfg(feature = "pallet-message-queue")]
 pub use pallet_message_queue;
 
+/// FRAME pallet enabling meta transactions.
+#[cfg(feature = "pallet-meta-tx")]
+pub use pallet_meta_tx;
+
 /// FRAME pallet to execute multi-block migrations.
 #[cfg(feature = "pallet-migrations")]
 pub use pallet_migrations;
