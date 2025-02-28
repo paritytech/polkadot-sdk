@@ -61,24 +61,19 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
-use frame_support::{
-	dispatch::DispatchResult,
-	ensure,
-	storage::bounded_vec::BoundedVec,
-	traits::{
-		Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, VestedTransfer,
-		VestingSchedule, WithdrawReasons,
-	},
-	weights::Weight,
-};
+use frame_support::{defensive, dispatch::DispatchResult, ensure, storage::bounded_vec::BoundedVec, traits::{
+	fungible::hold::DoneSlash, Currency, ExistenceRequirement, Get, LockIdentifier,
+	LockableCurrency, OriginTrait, VestedTransfer, VestingSchedule, WithdrawReasons,
+}, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
+use frame_support::traits::Defensive;
 use sp_runtime::{
 	traits::{
 		AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, MaybeSerializeDeserialize,
 		One, Saturating, StaticLookup, Zero,
 	},
-	DispatchError, RuntimeDebug,
+	DispatchError, FixedPointNumber, FixedPointOperand, RuntimeDebug,
 };
 
 pub use pallet::*;
@@ -829,5 +824,48 @@ where
 				_ => TransactionOutcome::Rollback(result),
 			}
 		})
+	}
+}
+
+/// Allows the Vesting Pallet to reduce the locked amount of a user if a
+/// slash was made to their balance. This is because locked amounts can actually be slashed through
+/// the `fungible` API
+pub struct BalanceSlasher<T, FixedPointNum>(PhantomData<(T, FixedPointNum)>);
+
+
+impl<T: Config, Reason, FixedPointNum> DoneSlash<Reason, T::AccountId, BalanceOf<T>>
+	for BalanceSlasher<T, FixedPointNum>
+where
+	FixedPointNum: FixedPointNumber
+		// i.e. `saturating_from_rational`
+		+ From<(BalanceOf<T>, BalanceOf<T>)>,
+	BalanceOf<T>: FixedPointOperand,
+{
+	fn done_slash(_reason: &Reason, who: &T::AccountId, amount: BalanceOf<T>) {
+		if let Some(vesting_schedules) = <Vesting<T>>::get(who) {
+			let mut new_vesting_schedules =
+				BoundedVec::with_bounded_capacity(vesting_schedules.len());
+			let now = T::BlockNumberProvider::current_block_number();
+			// We remove the slashed amount from each schedule, recalculate the values and insert it
+			// back.
+			for schedule in vesting_schedules {
+				let total_locked =
+					schedule.locked_at::<T::BlockNumberToBalance>(now).saturating_sub(amount);
+				let start_block = T::BlockNumberToBalance::convert(now);
+				let end_block = schedule.ending_block_as_balance::<T::BlockNumberToBalance>();
+				let duration = end_block.saturating_sub(start_block);
+				let per_block = FixedPointNum::from((total_locked, duration))
+					.saturating_mul_int(BalanceOf::<T>::one());
+				let new_schedule = VestingInfo::new(total_locked, per_block, now);
+				if new_schedule.is_valid() {
+					// The push should always succeed because we are iterating over a bounded
+					// vector.
+					let _ = new_vesting_schedules.try_push(new_schedule).defensive();
+				}
+			}
+			<Vesting<T>>::set(who, Some(new_vesting_schedules));
+
+			let _ = <Pallet<T>>::vest(T::RuntimeOrigin::signed(who.clone())).defensive();
+		}
 	}
 }
