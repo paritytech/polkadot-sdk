@@ -31,8 +31,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::crypto::get_public_from_string_or_panic;
-use sp_core::sr25519;
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
@@ -198,7 +197,8 @@ pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
 /// Helper function to generate stash, controller and session key from seed.
 pub fn authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, SessionKeys) {
 	(
-		get_public_from_string_or_panic::<sr25519::Public>(&alloc::format!("{}//stash", seed)).into(),
+		get_public_from_string_or_panic::<sr25519::Public>(&alloc::format!("{}//stash", seed))
+			.into(),
 		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
 		session_keys_from_seed(seed),
 	)
