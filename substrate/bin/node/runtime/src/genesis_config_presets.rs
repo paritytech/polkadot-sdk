@@ -32,6 +32,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::get_public_from_string_or_panic;
+use sp_core::sr25519;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
@@ -112,35 +113,31 @@ pub fn kitchen_sink_genesis(
 }
 // /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-	let alice = Sr25519Keyring::Alice;
-	let bob = Sr25519Keyring::Bob;
+	let (alice_stash, alice, alice_session_keys) =
+		authority_keys_from_seed(&Sr25519Keyring::Alice.to_seed());
+	let (bob_stash, _bob, bob_session_keys) =
+		authority_keys_from_seed(&Sr25519Keyring::Bob.to_seed());
 
-	let endowed = well_known_including_eth_accounts();
+	let mut endowed = well_known_including_eth_accounts();
+	endowed.push(alice_stash.clone());
+	endowed.push(bob_stash.clone());
 
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchen_sink_genesis(
-			vec![(
-				alice.to_account_id(),
-				alice.to_account_id(),
-				session_keys_from_seed(&alice.to_seed()),
-			)],
-			alice.to_account_id(),
+			vec![(alice_stash.clone(), alice_stash.clone(), alice_session_keys)],
+			alice.clone(),
 			endowed,
-			vec![validator(alice.to_account_id())],
+			vec![validator(alice_stash.clone())],
 			None,
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchen_sink_genesis(
 			vec![
-				(
-					alice.to_account_id(),
-					alice.to_account_id(),
-					session_keys_from_seed(&alice.to_seed()),
-				),
-				(bob.to_account_id(), bob.to_account_id(), session_keys_from_seed(&bob.to_seed())),
+				(alice_stash.clone(), alice_stash.clone(), alice_session_keys),
+				(bob_stash.clone(), bob_stash.clone(), bob_session_keys),
 			],
-			alice.to_account_id(),
-			endowed.clone(),
-			vec![validator(alice.to_account_id()), validator(bob.to_account_id())],
+			alice,
+			endowed,
+			vec![validator(alice_stash), validator(bob_stash)],
 			None,
 		),
 		_ => return None,
@@ -179,6 +176,34 @@ fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
 		.collect()
 }
 
+/// Alice to Ferdie + Alith and Baltathar.
+///
+/// Some integration tests require these ETH accounts.
+pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
+	Sr25519Keyring::well_known()
+		.map(|k| k.to_account_id())
+		.chain([
+			// subxt_signer::eth::dev::alith()
+			array_bytes::hex_n_into_unchecked(
+				"f24ff3a9cf04c71dbc94d0b566f7a27b94566caceeeeeeeeeeeeeeeeeeeeeeee",
+			),
+			// subxt_signer::eth::dev::baltathar()
+			array_bytes::hex_n_into_unchecked(
+				"3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0eeeeeeeeeeeeeeeeeeeeeeee",
+			),
+		])
+		.collect::<Vec<_>>()
+}
+
+/// Helper function to generate stash, controller and session key from seed.
+pub fn authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, SessionKeys) {
+	(
+		get_public_from_string_or_panic::<sr25519::Public>(&alloc::format!("{}//stash", seed)).into(),
+		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		session_keys_from_seed(seed),
+	)
+}
+
 pub fn session_keys(
 	grandpa: GrandpaId,
 	babe: BabeId,
@@ -201,23 +226,4 @@ pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 		get_public_from_string_or_panic::<MixnetId>(seed),
 		get_public_from_string_or_panic::<BeefyId>(seed),
 	)
-}
-
-/// Alice to Ferdie + Alith and Baltathar.
-///
-/// Some integration tests require these ETH accounts.
-pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
-	Sr25519Keyring::well_known()
-		.map(|k| k.to_account_id())
-		.chain([
-			// subxt_signer::eth::dev::alith()
-			array_bytes::hex_n_into_unchecked(
-				"f24ff3a9cf04c71dbc94d0b566f7a27b94566caceeeeeeeeeeeeeeeeeeeeeeee",
-			),
-			// subxt_signer::eth::dev::baltathar()
-			array_bytes::hex_n_into_unchecked(
-				"3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0eeeeeeeeeeeeeeeeeeeeeeee",
-			),
-		])
-		.collect::<Vec<_>>()
 }
