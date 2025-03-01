@@ -301,12 +301,12 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 
 	/// New instance of a bare (ne unsigned) extrinsic.
 	pub fn new_bare(function: Call) -> Self {
-		Self { preamble: Preamble::Bare(EXTRINSIC_FORMAT_VERSION), function }
+		Self::from_parts(function, Preamble::Bare(EXTRINSIC_FORMAT_VERSION))
 	}
 
 	/// New instance of a bare (ne unsigned) extrinsic on extrinsic format version 4.
 	pub fn new_bare_legacy(function: Call) -> Self {
-		Self { preamble: Preamble::Bare(LEGACY_EXTRINSIC_FORMAT_VERSION), function }
+		Self::from_parts(function, Preamble::Bare(LEGACY_EXTRINSIC_FORMAT_VERSION))
 	}
 
 	/// New instance of an old-school signed transaction on extrinsic format version 4.
@@ -316,24 +316,24 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 		signature: Signature,
 		tx_ext: Extension,
 	) -> Self {
-		Self { preamble: Preamble::Signed(signed, signature, tx_ext), function }
+		Self::from_parts(function, Preamble::Signed(signed, signature, tx_ext))
 	}
 
 	/// New instance of an new-school unsigned transaction.
 	pub fn new_transaction(function: Call, tx_ext: Extension) -> Self {
-		Self { preamble: Preamble::General(EXTENSION_VERSION, tx_ext), function }
+		Self::from_parts(function, Preamble::General(EXTENSION_VERSION, tx_ext))
 	}
 }
 
 impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> ExtrinsicLike
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	fn is_bare(&self) -> bool {
-		matches!(self.preamble, Preamble::Bare(_))
-	}
-
 	fn is_signed(&self) -> Option<bool> {
 		Some(matches!(self.preamble, Preamble::Signed(..)))
+	}
+
+	fn is_bare(&self) -> bool {
+		matches!(self.preamble, Preamble::Bare(_))
 	}
 }
 
