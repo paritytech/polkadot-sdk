@@ -117,9 +117,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let (alice_stash, alice, alice_session_keys) = authority_keys_from_seed("Alice");
 	let (bob_stash, _bob, bob_session_keys) = authority_keys_from_seed(&"Bob");
 
-	let mut endowed = well_known_including_eth_accounts();
-	endowed.push(alice_stash.clone());
-	endowed.push(bob_stash.clone());
+	let endowed = well_known_including_eth_accounts();
 
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchen_sink_genesis(
