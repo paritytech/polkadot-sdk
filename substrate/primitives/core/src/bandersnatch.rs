@@ -78,6 +78,8 @@ type Seed = [u8; SEED_SERIALIZED_SIZE];
 pub struct Pair {
 	secret: Secret,
 	seed: Seed,
+	// This is only read back in the sign operaton
+	#[allow(dead_code)]
 	prefix: Seed,
 }
 
@@ -146,8 +148,8 @@ impl TraitPair for Pair {
 	fn sign(&self, data: &[u8]) -> Signature {
 		// Deterministic nonce for plain Schnorr signature.
 		// Inspired by ed25519 <https://www.rfc-editor.org/rfc/rfc8032#section-5.1.6>
-		let h =
-			&ark_ec_vrfs::utils::hash::<<BandersnatchSuite as Suite>::Hasher>(&self.prefix)[..32];
+		let h_in = [&self.prefix[..32], data].concat();
+		let h = &ark_ec_vrfs::utils::hash::<<BandersnatchSuite as Suite>::Hasher>(&h_in)[..32];
 		let k = ark_ec_vrfs::codec::scalar_decode::<BandersnatchSuite>(h);
 		let gk = BandersnatchSuite::generator() * k;
 		let c = BandersnatchSuite::challenge(&[&gk.into_affine(), &self.secret.public.0], data);
@@ -188,7 +190,6 @@ impl CryptoType for Pair {
 pub mod vrf {
 	use super::*;
 	use crate::crypto::VrfCrypto;
-	use ark_ec_vrfs::ietf::{Prover as _, Verifier as _};
 
 	/// [`VrfSignature`] serialized size.
 	pub const VRF_SIGNATURE_SERIALIZED_SIZE: usize =
@@ -306,6 +307,7 @@ pub mod vrf {
 	#[cfg(feature = "full_crypto")]
 	impl VrfSecret for Pair {
 		fn vrf_sign(&self, data: &VrfSignData) -> VrfSignature {
+			use ark_ec_vrfs::ietf::Prover;
 			let pre_output_impl = self.secret.output(data.vrf_input.0);
 			let pre_output = VrfPreOutput(pre_output_impl);
 			let proof_impl = self.secret.prove(data.vrf_input.0, pre_output.0, &data.aux_data);
@@ -331,6 +333,7 @@ pub mod vrf {
 
 	impl VrfPublic for Public {
 		fn vrf_verify(&self, data: &VrfSignData, signature: &VrfSignature) -> bool {
+			use ark_ec_vrfs::ietf::Verifier;
 			let Ok(public) =
 				bandersnatch::Public::deserialize_compressed_unchecked(self.as_slice())
 			else {
@@ -368,7 +371,6 @@ pub mod vrf {
 /// Bandersnatch Ring-VRF types and operations.
 pub mod ring_vrf {
 	use super::{vrf::*, *};
-	use ark_ec_vrfs::ring::{Prover as _, Verifier as _};
 	use bandersnatch::{RingContext as RingContextImpl, RingVerifierKey as RingVerifierKeyImpl};
 	pub use bandersnatch::{RingProver, RingVerifier};
 
@@ -552,6 +554,7 @@ pub mod ring_vrf {
 		/// signing [`Pair`] is part of the ring from which the [`RingProver`] has
 		/// been constructed. If not, the produced signature is just useless.
 		pub fn ring_vrf_sign(&self, data: &VrfSignData, prover: &RingProver) -> RingVrfSignature {
+			use ark_ec_vrfs::ring::Prover;
 			let pre_output_impl = self.secret.output(data.vrf_input.0);
 			let pre_output = VrfPreOutput(pre_output_impl);
 			let proof_impl =
@@ -570,6 +573,7 @@ pub mod ring_vrf {
 		/// The signature is verifiable if it has been produced by a member of the ring
 		/// from which the [`RingVerifier`] has been constructed.
 		pub fn ring_vrf_verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
+			use ark_ec_vrfs::ring::Verifier;
 			let Ok(proof) =
 				bandersnatch::RingProof::deserialize_compressed_unchecked(self.proof.as_slice())
 			else {
