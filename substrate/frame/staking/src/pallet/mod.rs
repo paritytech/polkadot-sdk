@@ -95,7 +95,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config(with_default)]
-	pub trait Config: frame_system::Config<AccountId = AccountId32> {
+	pub trait Config: frame_system::Config<AccountId = AccountId32> { // TODO: remove this.
 		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
 		#[pallet::no_default]
 		type OldCurrency: InspectLockableCurrency<

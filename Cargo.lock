@@ -11034,8 +11034,10 @@ dependencies = [
  "pallet-staking-rc-client",
  "pallet-timestamp",
  "parity-scale-codec",
+ "polkadot-runtime-parachains",
  "polkadot-sdk-frame",
  "scale-info",
+ "sp-tracing 16.0.0",
  "staging-xcm",
 ]
 
@@ -15642,7 +15644,6 @@ dependencies = [
  "pallet-message-queue",
  "pallet-mmr",
  "pallet-session",
- "pallet-staking",
  "pallet-timestamp",
  "parity-scale-codec",
  "polkadot-core-primitives",

@@ -194,6 +194,8 @@ pub mod pallet {
 		}
 
 		fn end_session(session_index: u32) {
+			log::debug!(target: LOG_TARGET, "Ending session {}", session_index);
+
 			let authors = BlockAuthors::<T>::iter().collect::<Vec<_>>();
 			// The maximum number of block authors is `num_cores * max_validators_per_core` (both
 			// are parameters from [`SchedulerParams`]).

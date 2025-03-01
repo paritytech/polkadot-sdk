@@ -35,6 +35,22 @@ use xcm::prelude::*;
 
 const LOG_TARGET: &str = "runtime::staking::rc-client";
 
+/// An interface for our communication with AssetHub.
+///
+/// This trait should only encapsulate our _outgoing_ communication with AH. Any incoming
+/// communication comes it directly via our calls.
+///
+/// In a real runtime, this is implemented via XCM calls, much like how the coretime pallet works. In a test runtime, it can be wired to direct function call.
+pub trait AssetHubInterface {
+	/// A new session has started in the relay chain, report it to AH.
+	///
+	/// Start of session `x` always implies the end of session `x-1`, and planning of session `x+1`.
+	fn on_relay_chain_session_start(start_index: SessionIndex);
+
+	/// A new offence has happened on the relay chain, report it to AH.
+	fn on_new_offences(session: SessionIndex, offences: Vec<Offence>);
+}
+
 // Provides to the pallet a validator set produced by an election or other similar mechanism.
 pub trait ElectionResultHandler<ValidatorId> {
 	fn handle_election_result(result: Vec<ValidatorId>);
