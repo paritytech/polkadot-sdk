@@ -24,34 +24,45 @@ use std::{
 	path::PathBuf,
 };
 
-use crate::error::{Error, Result};
+use crate::error::{Result};
+use crate::SharedParams;
 
-/// Export the embedded chain-spec to a JSON file.
+/// Export a chain-spec to a JSON file in plain or in raw storage format.
 ///
-/// This command loads the embedded chain-spec (for example, when you pass
-/// `--chain /full/path/to/asset-hub-rococo`) and exports it to a JSON file. If `--output`
-/// is not provided, the JSON is printed to stdout.
+/// Nodes that expose this command usually have embedded runtimes WASM blobs with
+/// genesis config presets which can be referenced via `--chain <id>` . The logic for
+/// loading the chain spec into memory based on an `id` is specific to each
+/// node and is a prerequisite to enable this command.
+///
+/// Same functionality can be achieved currently via
+/// [`crate::commands::build_spec_cmd::BuildSpec`]  but we recommend
+/// `export-chain-spec` in its stead. `build-spec` is known
+///  to be a legacy mix of exporting chain specs to JSON files or
+///  converting them to raw, which will be better
+///  represented under `export-chain-spec`.
 #[derive(Debug, Clone, Parser)]
 pub struct ExportChainSpecCmd {
 	/// The chain spec identifier to export.
-	#[arg(long, default_value = "local")]
-	pub chain: String,
+    #[allow(missing_docs)]
+    #[clap(flatten)]
+    pub shared_params: SharedParams,
 
-	/// Output file path. If omitted, prints to stdout.
+    /// `chain-spec` JSON file path. If omitted, prints to stdout.
 	#[arg(long)]
 	pub output: Option<PathBuf>,
 
 	/// Export in raw genesis storage format.
 	#[arg(long)]
 	pub raw: bool,
+
 }
 
 impl ExportChainSpecCmd {
-	pub fn run(&self, spec: Box<dyn ChainSpec>) -> Result<()> {
-		let json = chain_ops::build_spec(&*spec, self.raw).map_err(|e| format!("{}", e))?;
+	pub fn run(&self, spec: &Box<dyn ChainSpec>) -> Result<()> {
+		let json = chain_ops::build_spec(spec.as_ref(), self.raw)?;
 		if let Some(ref path) = self.output {
-			fs::write(path, json).map_err(|e| format!("{}", e))?;
-			eprintln!("Exported chain spec to {}", path.display());
+			fs::write(path, json)?;
+			println!("Exported chain spec to {}", path.display());
 		} else {
 			io::stdout().write_all(json.as_bytes()).map_err(|e| format!("{}", e))?;
 		}
