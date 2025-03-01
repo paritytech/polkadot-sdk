@@ -1375,20 +1375,31 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	// These are system accounts and don’t normally hold funds, so migration isn’t strictly
+	// necessary. However, this is a good opportunity to clean up the extra consumer/providers that
+	// were previously used.
 	fn do_migrate_virtual_staker(stash: &T::AccountId) -> DispatchResult {
-		// Funds for virtual stakers not managed/held by this pallet. We only need to clear
-		// the extra consumer we used to have with OldCurrency.
-		frame_system::Pallet::<T>::dec_consumers(&stash);
+		let consumer_count = frame_system::Pallet::<T>::consumers(stash);
+		// fail early if no consumers.
+		ensure!(consumer_count > 0, Error::<T>::AlreadyMigrated);
 
-		// The delegation system that manages the virtual staker needed to increment provider
-		// previously because of the consumer needed by this pallet. In reality, this stash
-		// is just a key for managing the ledger and the account does not need to hold any
-		// balance or exist. We decrement this provider.
+		// provider/consumer ref count has been a mess (inconsistent), and some of these accounts
+		// accumulated upto 2 consumers. But if it's more than 2, we simply fail to not allow
+		// this migration to be called multiple times.
+		ensure!(consumer_count <= 2, Error::<T>::BadState);
+
+		// get rid of the consumers
+		for _ in 0..consumer_count {
+			frame_system::Pallet::<T>::dec_consumers(&stash);
+		}
+
+		// get the current count of providers
 		let actual_providers = frame_system::Pallet::<T>::providers(stash);
 
 		let expected_providers =
-			// provider is expected to be 1 but someone can always transfer some free funds to
-			// these accounts, increasing the provider.
+			// We expect these accounts to have only one provider, and hold no balance. However, if
+			// someone mischievously sends some funds to these accounts, they may have an additional
+			// provider, which we can safely ignore.
 			if asset::free_to_stake::<T>(&stash) >= asset::existential_deposit::<T>() {
 				2
 			} else {
@@ -1401,12 +1412,7 @@ impl<T: Config> Pallet<T> {
 		// if actual provider is less than expected, it is already migrated.
 		ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
 
-		// Impl note: Consumer and provider reference count is a mess. Some pool accounts/ virtual
-		// stakers have an extra consumer which will cause following op to fail. We discard the
-		// error if so as we don't want to block migration of these accounts.
-		// Going forward we should not have any provider or consumer for staking accounts, and look
-		// to clean up provider and consumer reference count in another way.
-		let _ = frame_system::Pallet::<T>::dec_providers(&stash);
+		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
 
 		Ok(())
 	}
