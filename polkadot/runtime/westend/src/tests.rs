@@ -113,6 +113,7 @@ mod remote_tests {
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
+	use frame_support::traits::{TryState, TryStateSelect::All};
 	use std::env::var;
 
 	#[tokio::test]
@@ -244,7 +245,7 @@ mod remote_tests {
 		});
 
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
 		});
 	}
 
@@ -319,7 +320,7 @@ mod remote_tests {
 		});
 
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
 		});
 	}
 }

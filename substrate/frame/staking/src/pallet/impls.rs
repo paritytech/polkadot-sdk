@@ -2407,7 +2407,7 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
-	pub fn do_try_state(now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+	pub(crate) fn do_try_state(now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		ensure!(
 			T::VoterList::iter()
 				.all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
