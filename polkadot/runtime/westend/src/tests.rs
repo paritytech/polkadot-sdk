@@ -242,6 +242,10 @@ mod remote_tests {
 				unexpected_errors
 			);
 		});
+
+		ext.execute_with(|| {
+			Staking::do_try_state(System::block_number()).unwrap();
+		});
 	}
 
 	#[tokio::test]
@@ -312,6 +316,10 @@ mod remote_tests {
 				err,
 				force_withdraw_acc
 			);
+		});
+
+		ext.execute_with(|| {
+			Staking::do_try_state(System::block_number()).unwrap();
 		});
 	}
 }

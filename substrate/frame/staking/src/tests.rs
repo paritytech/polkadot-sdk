@@ -49,7 +49,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	SessionIndex, Stake, StakingInterface,
+	SessionIndex, StakingInterface,
 };
 use substrate_test_utils::assert_eq_uvec;
 
@@ -5099,72 +5099,6 @@ fn restricted_accounts_can_only_withdraw() {
 	})
 }
 
-#[test]
-fn permissionless_withdraw_overstake() {
-	ExtBuilder::default().build_and_execute(|| {
-		// Given Alice, Bob and Charlie with some stake.
-		let alice = 301;
-		let bob = 302;
-		let charlie = 303;
-		let _ = Balances::make_free_balance_be(&alice, 500);
-		let _ = Balances::make_free_balance_be(&bob, 500);
-		let _ = Balances::make_free_balance_be(&charlie, 500);
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 100, RewardDestination::Staked));
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(bob), 100, RewardDestination::Staked));
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(charlie), 100, RewardDestination::Staked));
-
-		// WHEN: charlie is partially unbonding.
-		assert_ok!(Staking::unbond(RuntimeOrigin::signed(charlie), 90));
-		let charlie_ledger = StakingLedger::<Test>::get(StakingAccount::Stash(charlie)).unwrap();
-
-		// AND: alice and charlie ledger having higher value than actual stake.
-		Ledger::<Test>::insert(alice, StakingLedger::<Test>::new(alice, 200));
-		Ledger::<Test>::insert(
-			charlie,
-			StakingLedger { stash: charlie, total: 200, active: 200 - 90, ..charlie_ledger },
-		);
-
-		// THEN overstake can be permissionlessly withdrawn.
-		System::reset_events();
-
-		// Alice stake is corrected.
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&alice).unwrap(),
-			Stake { total: 200, active: 200 }
-		);
-		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), alice));
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&alice).unwrap(),
-			Stake { total: 100, active: 100 }
-		);
-
-		// Charlie who is partially withdrawing also gets their stake corrected.
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&charlie).unwrap(),
-			Stake { total: 200, active: 110 }
-		);
-		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), charlie));
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&charlie).unwrap(),
-			Stake { total: 200 - 100, active: 110 - 100 }
-		);
-
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![
-				Event::Withdrawn { stash: alice, amount: 200 - 100 },
-				Event::Withdrawn { stash: charlie, amount: 200 - 100 }
-			]
-		);
-
-		// but Bob ledger is fine and that cannot be withdrawn.
-		assert_noop!(
-			Staking::withdraw_overstake(RuntimeOrigin::signed(1), bob),
-			Error::<Test>::BoundNotMet
-		);
-	});
-}
-
 mod election_data_provider {
 	use super::*;
 	use frame_election_provider_support::ElectionDataProvider;
@@ -9050,6 +8984,92 @@ mod hold_migration {
 				<Staking as StakingInterface>::stake(&alice),
 				Ok(Stake { total: expected_hold, active: expected_hold })
 			);
+			assert_eq!(asset::staked::<Test>(&alice), expected_hold);
+			// ensure events are emitted.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::CurrencyMigrated {
+					stash: alice,
+					force_withdraw: expected_force_withdraw
+				}]
+			);
+
+			// ensure cannot migrate again.
+			assert_noop!(
+				Staking::migrate_currency(RuntimeOrigin::signed(1), alice),
+				Error::<Test>::AlreadyMigrated
+			);
+
+			// unbond works after migration.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
+		});
+	}
+
+	#[test]
+	fn overstaked_and_partially_unbonding() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// GIVEN alice who is a nominator with T::OldCurrency.
+			let alice = 300;
+			// 1000 + ED
+			let _ = Balances::make_free_balance_be(&alice, 1001);
+			let stake = 600;
+			let reserved_by_another_pallet = 400;
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(alice),
+				stake,
+				RewardDestination::Staked
+			));
+
+			// AND Alice is partially unbonding.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 300));
+
+			// AND Alice has some funds reserved with another pallet.
+			assert_ok!(Balances::reserve(&alice, reserved_by_another_pallet));
+
+			// convert stake to T::OldCurrency.
+			testing_utils::migrate_to_old_currency::<Test>(alice);
+			assert_eq!(asset::staked::<Test>(&alice), 0);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), stake);
+
+			// ledger has correct amount staked.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: stake, active: stake - 300 })
+			);
+
+			// Alice becomes overstaked by withdrawing some staked balance.
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(alice),
+				10,
+				reserved_by_another_pallet
+			));
+
+			let expected_force_withdraw = reserved_by_another_pallet;
+
+			// ledger mutation would fail in this case before migration because of failing hold.
+			assert_noop!(
+				Staking::unbond(RuntimeOrigin::signed(alice), 100),
+				Error::<Test>::NotEnoughFunds
+			);
+
+			// clear events
+			System::reset_events();
+
+			// WHEN alice currency is migrated.
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+
+			// THEN
+			let expected_hold = stake - expected_force_withdraw;
+			// ensure no lock
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+			// ensure stake and hold are same.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				// expected stake is 0 since force withdrawn (400) is taken out completely of
+				// active stake.
+				Ok(Stake { total: expected_hold, active: 0 })
+			);
+
 			assert_eq!(asset::staked::<Test>(&alice), expected_hold);
 			// ensure events are emitted.
 			assert_eq!(
