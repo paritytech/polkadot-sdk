@@ -1401,8 +1401,12 @@ impl<T: Config> Pallet<T> {
 		// if actual provider is less than expected, it is already migrated.
 		ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
 
-		// dec provider
-		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
+		// Impl note: Consumer and provider reference count is a mess. Some pool accounts/ virtual
+		// stakers have an extra consumer which will cause following op to fail. We discard the
+		// error if so as we don't want to block migration of these accounts.
+		// Going forward we should not have any provider or consumer for staking accounts, and look
+		// to clean up provider and consumer reference count in another way.
+		let _ = frame_system::Pallet::<T>::dec_providers(&stash);
 
 		Ok(())
 	}
