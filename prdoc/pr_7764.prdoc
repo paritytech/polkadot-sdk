@@ -13,4 +13,3 @@ doc:
 crates:
 - name: polkadot-sdk-frame
   bump: patch
-
