@@ -175,9 +175,7 @@ fn pool_lifecycle_e2e() {
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
-			vec![
-				PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 6 },
-			]
+			vec![PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 6 },]
 		);
 
 		// waiting another bonding duration:
