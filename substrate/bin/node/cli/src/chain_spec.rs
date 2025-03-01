@@ -315,7 +315,7 @@ pub fn testnet_genesis(
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
 	let staking_playground_config = if cfg!(feature = "staking-playground") {
-		Some(get_staking_play_ground_config())
+		Some(get_staking_playground_config())
 	} else {
 		None
 	};
@@ -347,7 +347,7 @@ pub fn testnet_genesis(
 	)
 }
 
-fn get_staking_play_ground_config() -> StakingPlaygroundConfig {
+fn get_staking_playground_config() -> StakingPlaygroundConfig {
 	let random_validators =
 		std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
 	let random_nominators = std::option_env!("NOMINATORS")
