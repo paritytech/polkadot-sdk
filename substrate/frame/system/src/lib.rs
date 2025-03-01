@@ -172,7 +172,8 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, weight_reclaim::WeightReclaim, WeightInfo as ExtensionsWeightInfo,
+	check_weight::CheckWeight, weight_reclaim::WeightReclaim,
+	weights::SubstrateWeight as SubstrateExtensionsWeight, WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
@@ -291,6 +292,7 @@ pub struct DispatchEventInfo {
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
+	use codec::HasCompact;
 	use frame_support::pallet_prelude::*;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -530,6 +532,7 @@ pub mod pallet {
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Member
 			+ MaybeSerializeDeserialize
 			+ Debug
