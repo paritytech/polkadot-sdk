@@ -169,8 +169,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 		},
 		Some(Subcommand::ExportChainSpec(cmd)) => {
 			// Directly load the embedded chain spec using the CLI’s load_spec method.
-			let spec = cli.load_spec(&cmd.chain)
-				.map_err(|err| format!("{}", err))?;
+			let spec = cli.load_spec(&cmd.chain).map_err(|err| format!("{}", err))?;
 			cmd.run(spec)
 		},
 

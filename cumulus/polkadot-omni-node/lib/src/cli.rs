@@ -26,7 +26,10 @@ use crate::{
 use chain_spec_builder::ChainSpecBuilder;
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
-use sc_cli::{CliConfiguration, DefaultConfigurationValues, ExportChainSpecCmd, ImportParams, KeystoreParams, NetworkParams, RpcEndpoint, SharedParams, SubstrateCli};
+use sc_cli::{
+	CliConfiguration, DefaultConfigurationValues, ExportChainSpecCmd, ImportParams, KeystoreParams,
+	NetworkParams, RpcEndpoint, SharedParams, SubstrateCli,
+};
 use sc_service::{config::PrometheusConfig, BasePath};
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
