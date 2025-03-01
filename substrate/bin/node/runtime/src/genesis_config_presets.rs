@@ -87,7 +87,7 @@ pub fn kitchen_sink_genesis(
 				.map(|x| x.0.clone())
 				.collect::<Vec<_>>()
 				.try_into()
-				.expect("too many authorities"),
+				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			slash_reward_fraction: Perbill::from_percent(10),
 			stakers,
 			dev_stakers
@@ -173,7 +173,7 @@ fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
 		.collect()
 }
 
-/// Alice to Ferdie + Alith and Baltathar.
+/// The Keyring's wellknown accounts + Alith and Baltathar.
 ///
 /// Some integration tests require these ETH accounts.
 pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
@@ -193,6 +193,8 @@ pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
 }
 
 /// Helper function to generate stash, controller and session key from seed.
+///
+/// Note: `//` is prepended internally.
 pub fn authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, SessionKeys) {
 	(
 		get_public_from_string_or_panic::<sr25519::Public>(&alloc::format!("{}//stash", seed))
@@ -215,6 +217,8 @@ pub fn session_keys(
 
 /// We have this method as there is no straight forward way to convert the
 /// account keyring into these ids.
+///
+/// Note: `//` is prepended internally.
 pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	session_keys(
 		get_public_from_string_or_panic::<GrandpaId>(seed),
