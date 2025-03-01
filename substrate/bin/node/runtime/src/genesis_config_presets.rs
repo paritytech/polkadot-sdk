@@ -112,10 +112,8 @@ pub fn kitchen_sink_genesis(
 }
 // /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-	let (alice_stash, alice, alice_session_keys) =
-		authority_keys_from_seed(&Sr25519Keyring::Alice.to_seed());
-	let (bob_stash, _bob, bob_session_keys) =
-		authority_keys_from_seed(&Sr25519Keyring::Bob.to_seed());
+	let (alice_stash, alice, alice_session_keys) = authority_keys_from_seed("Alice");
+	let (bob_stash, _bob, bob_session_keys) = authority_keys_from_seed(&"Bob");
 
 	let mut endowed = well_known_including_eth_accounts();
 	endowed.push(alice_stash.clone());
