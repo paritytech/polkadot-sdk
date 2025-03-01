@@ -24,8 +24,7 @@ use std::{
 	path::PathBuf,
 };
 
-use crate::error::{Result};
-use crate::SharedParams;
+use crate::{error::Result, SharedParams};
 
 /// Export a chain-spec to a JSON file in plain or in raw storage format.
 ///
@@ -43,18 +42,17 @@ use crate::SharedParams;
 #[derive(Debug, Clone, Parser)]
 pub struct ExportChainSpecCmd {
 	/// The chain spec identifier to export.
-    #[allow(missing_docs)]
-    #[clap(flatten)]
-    pub shared_params: SharedParams,
+	#[allow(missing_docs)]
+	#[clap(flatten)]
+	pub shared_params: SharedParams,
 
-    /// `chain-spec` JSON file path. If omitted, prints to stdout.
+	/// `chain-spec` JSON file path. If omitted, prints to stdout.
 	#[arg(long)]
 	pub output: Option<PathBuf>,
 
 	/// Export in raw genesis storage format.
 	#[arg(long)]
 	pub raw: bool,
-
 }
 
 impl ExportChainSpecCmd {
