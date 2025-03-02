@@ -84,6 +84,7 @@ runtime = [
 	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
+	"serde/std",
 ]
 std = [
 	"codec/std",

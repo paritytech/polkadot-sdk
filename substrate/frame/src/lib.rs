@@ -548,8 +548,8 @@ pub mod derive {
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use scale_info::TypeInfo;
+	pub use serde::{Deserialize, Serialize};
 	pub use sp_runtime::RuntimeDebug;
-	pub use serde::{Serialize, Deserialize};
 }
 
 pub mod hashing {
