@@ -96,6 +96,7 @@ std = [
 	"frame-try-runtime?/std",
 	"log/std",
 	"scale-info/std",
+	"serde/std",
 	"sp-api?/std",
 	"sp-arithmetic/std",
 	"sp-block-builder?/std",
@@ -112,7 +113,6 @@ std = [
 	"sp-storage/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",
-	"serde/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
