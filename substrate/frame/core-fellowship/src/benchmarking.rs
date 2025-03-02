@@ -21,6 +21,7 @@
 
 use super::*;
 use crate::Pallet as CoreFellowship;
+use sp_runtime::SaturatedConversion;
 
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
@@ -149,20 +150,23 @@ mod benchmarks {
 	fn bump_demote() -> Result<(), BenchmarkError> {
 		set_benchmark_params::<T, I>()?;
 
-		let member = make_member::<T, I>(T::MaxRank::get().try_into().unwrap())?;
+		let max_rank: RankOf<T, I> = T::MaxRank::get().try_into().unwrap();
+		let initial_rank = max_rank.saturated_into::<u16>();
+
+		let member = make_member::<T, I>(max_rank)?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
+
 		assert!(Member::<T, I>::contains_key(&member));
-		assert_eq!(T::Members::rank_of(&member), Some(T::MaxRank::get().try_into().unwrap()));
+		assert_eq!(T::Members::rank_of(&member), Some(initial_rank));
 
 		#[extrinsic_call]
 		CoreFellowship::<T, I>::bump(RawOrigin::Signed(member.clone()), member.clone());
 
 		assert!(Member::<T, I>::contains_key(&member));
-		let _new_rank = T::MaxRank::get() as usize;
-		assert_eq!(T::Members::rank_of(&member), Some(_new_rank.saturating_sub(1) as u16));
+		assert_eq!(T::Members::rank_of(&member), Some(initial_rank.saturating_sub(1)));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -196,24 +200,25 @@ mod benchmarks {
 		// Ensure that the `min_promotion_period` wont get in our way.
 		let mut params = Params::<T, I>::get();
 		let max_rank = T::MaxRank::get().try_into().unwrap();
+
+		// Get minimum promotion period.
 		params.min_promotion_period = BoundedVec::try_from(vec![Zero::zero(); max_rank]).unwrap();
 		Params::<T, I>::put(&params);
 
 		// Start at rank 0 to allow at least one promotion.
-		let current_rank = 0; 
+		let current_rank = 0;
 		let member = make_member::<T, I>(current_rank)?;
-	
+
 		// Set `to_rank` dynamically based on `max_rank`.
-		let max_rank = T::MaxRank::get();
 		let to_rank = (current_rank + 1).min(max_rank.try_into().unwrap()); // Ensure `to_rank` <= `max_rank`.
-	
+
 		// Set block number to avoid auto-demotion.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
-	
+
 		#[extrinsic_call]
 		_(RawOrigin::Root, member.clone(), to_rank);
-	
+
 		// Assert the new rank matches `to_rank` (not a hardcoded value).
 		assert_eq!(T::Members::rank_of(&member), Some(to_rank));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
@@ -223,19 +228,20 @@ mod benchmarks {
 	/// Benchmark the `promote_fast` extrinsic to promote someone up to `r`.
 	#[benchmark]
 	fn promote_fast(r: Linear<1, { T::MaxRank::get() as u32 }>) -> Result<(), BenchmarkError> {
-		let max_rank = T::MaxRank::get() as u32;
-		let r = r.min(max_rank);
-		let r = r.try_into().expect("r is too large");
-		
+		// Get target rank for promotion.
+		let max_rank = T::MaxRank::get();
+		let target_rank = r.min(max_rank).try_into().unwrap();
+
+		// Begin with Candidate.
 		let member = make_member::<T, I>(0)?;
 		log::info!("Benchmark promote_fast: r={} MaxRank={}", r, T::MaxRank::get());
 
 		ensure_evidence::<T, I>(&member)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, member.clone(), r);
+		_(RawOrigin::Root, member.clone(), target_rank);
 
-		assert_eq!(T::Members::rank_of(&member), Some(r));
+		assert_eq!(T::Members::rank_of(&member), Some(target_rank));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
