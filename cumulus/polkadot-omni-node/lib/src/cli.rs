@@ -100,22 +100,15 @@ pub enum Subcommand {
 	Revert(sc_cli::RevertCmd),
 
 	/// Subcommand for generating and managing chain specifications.
-	/// The `chain-spec-builder` command provides a more **interactive and flexible**
-	/// approach to chainspec creation. It allows for direct modification, validation,
-	/// and advanced configuration.
-	/// ## When to Use:
-	/// - When you need **fine-grained control** over the chain specification.
-	/// - If you want to **validate and modify** chainspecs before using them.
-	/// - Ideal for **parachains** or advanced network configurations.
-	/// - You need to **customize, validate, or interactively configure** the chain spec.
-	///
-	/// # Summary: Choosing Between `build-spec` and `chain-spec-builder`
-	///
-	/// | Command               | When to Use |
-	/// |-----------------------|-------------|
-	/// | `build-spec`         | If you need a quick, standard chain specification with minimal customization. |
-	/// | `chain-spec-builder` | If you need to interactively define, validate, or modify a chain spec with additional parameters. |
-	///
+	/// `chain-spec-builder` subcommand corresponds to the existing `chain-spec-builder` tool
+	/// (https://crates.io/crates/staging-chain-spec-builder), which can be used already standalone.
+	/// It provides the same functionality as the tool but bundled with `polkadot-omni-node` to enable
+	/// easier access to chain-spec generation, patching, converting to raw or validation, from a single
+	/// binary, which can be used as a parachain node too.
+        /// 
+	/// For a detailed usage guide please check out the standalone tool's crates.io or docs.rs pages:
+	/// - https://crates.io/crates/staging-chain-spec-builder
+	/// - https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/
 	/// ---
 	ChainSpecBuilder(ChainSpecBuilder),
 
