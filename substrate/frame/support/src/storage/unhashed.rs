@@ -21,19 +21,24 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 
 /// Return the value of the item in storage under `key`, or `None` if there is no explicit entry.
-pub fn get<T: Decode + Sized>(key: &[u8]) -> Option<T> {
-	sp_io::storage::get(key).and_then(|val| {
-		Decode::decode(&mut &val[..]).map(Some).unwrap_or_else(|e| {
-			// TODO #3700: error should be handleable.
-			log::error!(
-				target: "runtime::storage",
-				"Corrupted state at `{}`: {:?}",
-				array_bytes::bytes2hex("0x", key),
-				e,
-			);
-			None
-		})
-	})
+pub fn get<T: Decode + Sized>(key: &[u8]) -> Result<Option<T>, DecodeError> {
+	if let Some(val) = sp_io::storage::get(key) {
+		// Error handling
+		match Decode::decode(&mut &val[..]) {
+			Ok(decoded) => Ok(Some(decoded)),
+			Err(e) => {
+				log::error!(
+					target: "runtime::storage",
+					"Corrupted state at `{}`: {:?}",
+					array_bytes::bytes2hex("0x", key),
+					e,
+				);
+			},
+			Err(e)
+		};
+	} else {
+		Ok(None)
+	}
 }
 
 /// Return the value of the item in storage under `key`, or the type's default if there is no
