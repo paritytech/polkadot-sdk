@@ -1,0 +1,16 @@
+title: "Bandersnatch hot fix version"
+
+doc:
+  - audience: [Runtime Dev, Node Dev]
+    description: |
+      Essentially, this locks `bandersnatch_vrfs` to a specific branch of a repository I control.
+      This is a temporary workaround to avoid issues like
+      https://github.com/paritytech/polkadot-sdk/issues/7653 until
+      https://github.com/paritytech/polkadot-sdk/pull/7669 is ready.
+
+
+crates:
+  - name: sp-core
+    bump: patch
+  - name: pallet-sassafras
+    bump: patch
