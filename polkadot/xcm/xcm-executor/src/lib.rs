@@ -99,6 +99,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	/// Stores the current message's weight.
 	message_weight: Weight,
 	asset_claimer: Option<Location>,
+	already_paid_fees: bool,
 	_config: PhantomData<Config>,
 }
 
@@ -205,6 +206,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 	pub fn set_message_weight(&mut self, weight: Weight) {
 		self.message_weight = weight;
+	}
+	pub fn already_paid_fees(&self) -> bool {
+		self.already_paid_fees
 	}
 }
 
@@ -362,6 +366,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			asset_used_in_buy_execution: None,
 			message_weight: Weight::zero(),
 			asset_claimer: None,
+			already_paid_fees: false,
 			_config: PhantomData,
 		}
 	}
@@ -1361,14 +1366,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				result
 			},
 			PayFees { asset } => {
-				// Message was not weighed, there is nothing to pay.
-				if self.message_weight == Weight::zero() {
-					tracing::warn!(
-						target: "xcm::executor::PayFees",
-						"Message was not weighed or weight was 0. Nothing will be charged.",
-					);
+				// If we've already paid for fees, do nothing.
+				if self.already_paid_fees {
 					return Ok(());
 				}
+				// Make sure `PayFees` won't be processed again.
+				self.already_paid_fees = true;
 				// Record old holding in case we need to rollback.
 				let old_holding = self.holding.clone();
 				// The max we're willing to pay for fees is decided by the `asset` operand.
@@ -1377,19 +1380,21 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					asset_for_fees = ?asset,
 					message_weight = ?self.message_weight,
 				);
-				let max_fee =
-					self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				// Pay for execution fees.
 				let result = Config::TransactionalProcessor::process(|| {
+					let max_fee =
+						self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
 					let unspent =
 						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
-					// Move unspent to the `fees` register.
+					// Move unspent to the `fees` register, it can later be moved to holding
+					// by calling `RefundSurplus`.
 					self.fees.subsume_assets(unspent);
 					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					// Rollback.
+					// Rollback on error.
 					self.holding = old_holding;
+					self.already_paid_fees = false;
 				}
 				result
 			},

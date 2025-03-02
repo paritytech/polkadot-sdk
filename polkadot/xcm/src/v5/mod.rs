@@ -1055,10 +1055,11 @@ pub enum Instruction<Call> {
 	/// Errors: If the given origin is `Some` and not equal to the current Origin register.
 	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
 
-	/// Pay Fees.
+	/// Takes an asset, uses it to pay for execution and puts the rest in the fees register.
 	///
 	/// Successor to `BuyExecution`.
-	/// Defined in fellowship RFC 105.
+	/// Defined in [Fellowship RFC 105](https://github.com/polkadot-fellows/RFCs/pull/105).
+	/// Subsequent `PayFees` after the first one are noops.
 	#[builder(pays_fees)]
 	PayFees { asset: Asset },
 
