@@ -84,7 +84,6 @@ runtime = [
 	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
-	"serde/std",
 ]
 std = [
 	"codec/std",
@@ -113,6 +112,7 @@ std = [
 	"sp-storage/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",
+	"serde/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
