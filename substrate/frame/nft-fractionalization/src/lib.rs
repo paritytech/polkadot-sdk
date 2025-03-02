@@ -337,6 +337,13 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
+		/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
+		pub fn nft_to_asset(
+			key: (T::NftCollectionId, T::NftId),
+		) -> Option<Details<AssetIdOf<T>, AssetBalanceOf<T>, DepositOf<T>, T::AccountId>> {
+			NftToAsset::<T>::get(key)
+		}
+
 		/// Prevent further transferring of NFT.
 		fn do_lock_nft(nft_collection_id: T::NftCollectionId, nft_id: T::NftId) -> DispatchResult {
 			T::Nfts::disable_transfer(&nft_collection_id, &nft_id)
