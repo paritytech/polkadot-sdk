@@ -22,8 +22,8 @@
 
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
-	fork_aware_txpool::stream_map_util::next_event,
-	graph::{self, BlockHash, ExtrinsicHash, TransactionStatusEvent},
+	fork_aware_txpool::{stream_map_util::next_event, view::TransactionStatusEvent},
+	graph::{self, BlockHash, ExtrinsicHash},
 	LOG_TARGET,
 };
 use futures::{Future, FutureExt, Stream, StreamExt};
@@ -132,6 +132,8 @@ where
 				TransactionStatus::Usurped(*by),
 			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::LimitsEnforced) =>
 				TransactionStatus::Dropped,
+			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Invalid) =>
+				TransactionStatus::Invalid,
 		}
 	}
 }
@@ -311,33 +313,9 @@ where
 		&mut self,
 		request: TransactionStatusUpdate<ChainApi>,
 	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
-		match request {
-			TransactionStatusUpdate::TransactionInvalidated(..) =>
-				if self.handle_invalidate_transaction() {
-					log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", self.tx_hash);
-					return Some(TransactionStatus::Invalid)
-				},
-			TransactionStatusUpdate::TransactionFinalized(_, block, index) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", self.tx_hash);
-				self.terminate = true;
-				return Some(TransactionStatus::Finalized((block, index)))
-			},
-			TransactionStatusUpdate::TransactionBroadcasted(_, peers) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", self.tx_hash);
-				return Some(TransactionStatus::Broadcast(peers))
-			},
-			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::LimitsEnforced) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", self.tx_hash);
-				self.terminate = true;
-				return Some(TransactionStatus::Dropped)
-			},
-			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Usurped(by)) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Usurped({:?})", self.tx_hash, by);
-				self.terminate = true;
-				return Some(TransactionStatus::Usurped(by))
-			},
-		};
-		None
+		let status = Into::<TransactionStatus<_, _>>::into(&request);
+		status.is_final().then(|| self.terminate = true);
+		return Some(status);
 	}
 
 	/// Handles various transaction status updates from individual views and manages internal states
@@ -398,34 +376,6 @@ where
 			TransactionStatus::Usurped(_) |
 			TransactionStatus::Dropped |
 			TransactionStatus::Invalid => None,
-		}
-	}
-
-	/// Handles transaction invalidation sent via side channel.
-	///
-	/// Function may set the context termination flag, which will close the stream.
-	///
-	/// Returns true if the event should be sent out, and false if the invalidation request should
-	/// be skipped.
-	fn handle_invalidate_transaction(&mut self) -> bool {
-		let keys = self.known_views.clone();
-		trace!(
-			target: LOG_TARGET,
-			tx_hash = ?self.tx_hash,
-			views = ?self.known_views.iter().collect::<Vec<_>>(),
-			"got invalidate_transaction"
-		);
-		if self.views_keeping_tx_valid.is_disjoint(&keys) {
-			self.terminate = true;
-			true
-		} else {
-			//todo [#5477]
-			// - handle corner case:  this may happen when tx is invalid for mempool, but somehow
-			//   some view still sees it as ready/future. In that case we don't send the invalid
-			//   event, as transaction can still be included. Probably we should set some flag here
-			//   and allow for invalid sent from the view.
-			// - add debug / metrics,
-			false
 		}
 	}
 
@@ -493,32 +443,31 @@ where
 				Some((view_hash, (tx_hash, status))) =  next_event(&mut aggregated_streams_map) => {
 					events_metrics_collector.report_status(tx_hash, status.clone());
 					if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
-						log::trace!(
+						trace!(
 							target: LOG_TARGET,
-							"[{:?}] aggregated_stream_map event: view:{} status:{:?}",
-							tx_hash,
-							view_hash,
-							status
+							?tx_hash,
+							?view_hash,
+							?status,
+							"aggregated_stream_map event",
 						);
-						if let Err(e) = ctrl
+						if let Err(error) = ctrl
 							.get_mut()
 							.unbounded_send(ExternalWatcherCommand::ViewTransactionStatus(view_hash, status))
 						{
-							trace!(target: LOG_TARGET, "[{:?}] send status failed: {:?}", tx_hash, e);
+							trace!(target: LOG_TARGET, ?tx_hash, ?error, "send status failed");
 							ctrl.remove();
 						}
 					}
 				},
 				cmd = command_receiver.next() => {
-					log::trace!(target: LOG_TARGET, "cmd {:?}", cmd);
 					match cmd {
 						Some(ControllerCommand::AddViewStream(h,stream)) => {
 							aggregated_streams_map.insert(h,stream);
 							// //todo: aysnc and join all?
 							external_watchers_tx_hash_map.write().retain(|tx_hash, ctrl| {
 								ctrl.unbounded_send(ExternalWatcherCommand::AddView(h))
-									.inspect_err(|e| {
-										trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
+									.inspect_err(|error| {
+										trace!(target: LOG_TARGET, ?tx_hash, ?error, "add_view: send message failed");
 									})
 									.is_ok()
 							})
@@ -528,8 +477,8 @@ where
 							//todo: aysnc and join all?
 							external_watchers_tx_hash_map.write().retain(|tx_hash, ctrl| {
 								ctrl.unbounded_send(ExternalWatcherCommand::RemoveView(h))
-									.inspect_err(|e| {
-										trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
+									.inspect_err(|error| {
+										trace!(target: LOG_TARGET, ?tx_hash, ?error, "remove_view: send message failed");
 									})
 									.is_ok()
 							})
@@ -539,11 +488,11 @@ where
 							let tx_hash = request.hash();
 							events_metrics_collector.report_status(tx_hash, (&request).into());
 							if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
-								if let Err(e) = ctrl
+								if let Err(error) = ctrl
 									.get_mut()
 									.unbounded_send(ExternalWatcherCommand::PoolTransactionStatus(request))
 								{
-									trace!(target: LOG_TARGET, "[{:?}] send message failed: {:?}", tx_hash, e);
+									trace!(target: LOG_TARGET, ?tx_hash, ?error, "send message failed");
 									ctrl.remove();
 								}
 							}
@@ -621,7 +570,7 @@ where
 		Some(
 			futures::stream::unfold(external_ctx, |mut ctx| async move {
 				if ctx.terminate {
-					log::trace!(target: LOG_TARGET, "[{:?}] terminate", ctx.tx_hash);
+					trace!(target: LOG_TARGET, tx_hash = ?ctx.tx_hash, "terminate");
 					return None
 				}
 				loop {

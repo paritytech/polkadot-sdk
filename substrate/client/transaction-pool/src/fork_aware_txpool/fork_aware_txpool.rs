@@ -54,7 +54,7 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
 	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionPriority,
-	TransactionSource, TransactionStatusStreamFor, TxHash,
+	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -293,14 +293,16 @@ where
 							tx_hash = ?new_tx_hash,
 							"error: dropped_monitor_task: no entry in mempool for new transaction"
 						);
-					}
+					};
 				},
-				DroppedReason::LimitsEnforced => {},
+				DroppedReason::LimitsEnforced | DroppedReason::Invalid => {
+					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
+				},
 			};
 
-			mempool.remove_transaction(&tx_hash);
-			view_store.listener.transaction_dropped(dropped);
+			mempool.remove_transactions(&[tx_hash]);
 			import_notification_sink.clean_notified_items(&[tx_hash]);
+			view_store.listener.transaction_dropped(dropped);
 		}
 	}
 
@@ -476,7 +478,7 @@ where
 		};
 
 		if let Ok((Some(best_tree_route), Some(best_view))) = best_result {
-			let tmp_view: View<ChainApi> =
+			let (tmp_view, _, _): (View<ChainApi>, _, _) =
 				View::new_from_other(&best_view, &HashAndNumber { hash: at, number: block_number });
 
 			let mut all_extrinsics = vec![];
@@ -763,26 +765,24 @@ where
 		//
 		// Finally, it collects the hashes of updated transactions or submission errors (either
 		// from the mempool or view_store) into a returned vector.
+		const RESULTS_ASSUMPTION : &str =
+			"The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
 		Ok(mempool_results
-				.into_iter()
-				.map(|result| {
-					result
-						.map_err(Into::into)
-						.and_then(|insertion| {
-							submission_results
-								.next()
-								.expect("The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.")
-								.inspect_err(|_|{
-									mempool.remove_transaction(&insertion.hash);
-								})
+			.into_iter()
+			.map(|result| {
+				result.map_err(Into::into).and_then(|insertion| {
+					submission_results.next().expect(RESULTS_ASSUMPTION).inspect_err(|_| {
+						mempool.remove_transactions(&[insertion.hash]);
 					})
-
 				})
-				.map(|r| r.map(|r| {
+			})
+			.map(|r| {
+				r.map(|r| {
 					mempool.update_transaction_priority(&r);
 					r.hash()
-				}))
-				.collect::<Vec<_>>())
+				})
+			})
+			.collect::<Vec<_>>())
 	}
 
 	/// Submits a single transaction and returns a future resolving to the submission results.
@@ -839,7 +839,7 @@ where
 			.submit_and_watch(at, insertion.source, xt)
 			.await
 			.inspect_err(|_| {
-				self.mempool.remove_transaction(&insertion.hash);
+				self.mempool.remove_transactions(&[insertion.hash]);
 			})
 			.map(|mut outcome| {
 				self.mempool.update_transaction_priority(&outcome);
@@ -847,18 +847,34 @@ where
 			})
 	}
 
-	/// Intended to remove transactions identified by the given hashes, and any dependent
-	/// transactions, from the pool. In current implementation this function only outputs the error.
-	/// Seems that API change is needed here to make this call reasonable.
-	// todo [#5491]: api change? we need block hash here (assuming we need it at all - could be
-	// useful for verification for debugging purposes).
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		if !hashes.is_empty() {
-			log_xt_trace!(target:LOG_TARGET, hashes, "fatp::remove_invalid");
-			self.metrics
-				.report(|metrics| metrics.removed_invalid_txs.inc_by(hashes.len() as _));
-		}
-		Default::default()
+	/// Reports invalid transactions to the transaction pool.
+	///
+	/// This function takes an array of tuples, each consisting of a transaction hash and the
+	/// corresponding error that occurred during transaction execution at given block.
+	///
+	/// The transaction pool implementation will determine which transactions should be
+	/// removed from the pool. Transactions that depend on invalid transactions will also
+	/// be removed.
+	fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		debug!(target: LOG_TARGET, len = ?invalid_tx_errors.len(), "fatp::report_invalid");
+		log_xt_trace!(data: tuple, target:LOG_TARGET, invalid_tx_errors.iter(), "fatp::report_invalid {:?}");
+		self.metrics
+			.report(|metrics| metrics.reported_invalid_txs.inc_by(invalid_tx_errors.len() as _));
+
+		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
+
+		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
+		self.mempool.remove_transactions(&removed_hashes);
+		self.import_notification_sink.clean_notified_items(&removed_hashes);
+
+		self.metrics
+			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _));
+
+		removed
 	}
 
 	// todo [#5491]: api change?
@@ -987,7 +1003,7 @@ where
 		self.view_store
 			.submit_local(xt)
 			.inspect_err(|_| {
-				self.mempool.remove_transaction(&insertion.hash);
+				self.mempool.remove_transactions(&[insertion.hash]);
 			})
 			.map(|outcome| {
 				self.mempool.update_transaction_priority(&outcome);
@@ -1069,26 +1085,28 @@ where
 			?tree_route,
 			"build_new_view"
 		);
-		let mut view = if let Some(origin_view) = origin_view {
-			let mut view = View::new_from_other(&origin_view, at);
-			if !tree_route.retracted().is_empty() {
-				view.pool.clear_recently_pruned();
-			}
-			view
-		} else {
-			debug!(
-				target: LOG_TARGET,
-				?at,
-				"creating non-cloned view"
-			);
-			View::new(
-				self.api.clone(),
-				at.clone(),
-				self.options.clone(),
-				self.metrics.clone(),
-				self.is_validator.clone(),
-			)
-		};
+		let (mut view, view_dropped_stream, view_aggregated_stream) =
+			if let Some(origin_view) = origin_view {
+				let (mut view, view_dropped_stream, view_aggragated_stream) =
+					View::new_from_other(&origin_view, at);
+				if !tree_route.retracted().is_empty() {
+					view.pool.clear_recently_pruned();
+				}
+				(view, view_dropped_stream, view_aggragated_stream)
+			} else {
+				debug!(
+					target: LOG_TARGET,
+					?at,
+					"creating non-cloned view"
+				);
+				View::new(
+					self.api.clone(),
+					at.clone(),
+					self.options.clone(),
+					self.metrics.clone(),
+					self.is_validator.clone(),
+				)
+			};
 
 		let start = Instant::now();
 		// 1. Capture all import notification from the very beginning, so first register all
@@ -1098,15 +1116,13 @@ where
 			view.pool.validated_pool().import_notification_stream().boxed(),
 		);
 
-		self.view_store.dropped_stream_controller.add_view(
-			view.at.hash,
-			view.pool.validated_pool().create_dropped_by_limits_stream().boxed(),
-		);
+		self.view_store
+			.dropped_stream_controller
+			.add_view(view.at.hash, view_dropped_stream.boxed());
 
-		self.view_store.listener.add_view_aggregated_stream(
-			view.at.hash,
-			view.pool.validated_pool().create_aggregated_stream().boxed(),
-		);
+		self.view_store
+			.listener
+			.add_view_aggregated_stream(view.at.hash, view_aggregated_stream.boxed());
 		// sync the transactions statuses and referencing views in all the listeners with newly
 		// cloned view.
 		view.pool.validated_pool().retrigger_notifications();
@@ -1245,7 +1261,7 @@ where
 			for result in results {
 				if let Err(tx_hash) = result {
 					self.view_store.listener.transactions_invalidated(&[tx_hash]);
-					self.mempool.remove_transaction(&tx_hash);
+					self.mempool.remove_transactions(&[tx_hash]);
 				}
 			}
 		}
@@ -1382,6 +1398,7 @@ where
 			self.revalidation_queue
 				.revalidate_mempool(
 					self.mempool.clone(),
+					self.view_store.clone(),
 					HashAndNumber { hash: finalized_hash, number: finalized_number },
 				)
 				.await;
@@ -1487,7 +1504,12 @@ where
 			self.mempool.try_insert_with_replacement(xt, priority, source, watched)?;
 
 		for worst_hash in &insertion_info.removed {
-			log::trace!(target: LOG_TARGET, "removed: {worst_hash:?} replaced by {tx_hash:?}");
+			trace!(
+				target: LOG_TARGET,
+				tx_hash = ?worst_hash,
+				new_tx_hash = ?tx_hash,
+				"removed: replaced by"
+			);
 			self.view_store
 				.listener
 				.transaction_dropped(DroppedTransaction::new_enforced_by_limts(*worst_hash));
