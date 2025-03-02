@@ -36,7 +36,8 @@ pub fn get<T: Decode + Sized>(key: &[u8]) -> Result<Option<T>, DecodeError> {
 			},
 			Err(e)
 		};
-	} else {
+	}
+	else {
 		Ok(None)
 	}
 }
@@ -165,7 +166,7 @@ pub fn clear_prefix(
 pub fn contains_prefixed_key(prefix: &[u8]) -> bool {
 	match sp_io::storage::next_key(prefix) {
 		Some(key) => key.starts_with(prefix),
-		None => false,
+		None => false
 	}
 }
 
