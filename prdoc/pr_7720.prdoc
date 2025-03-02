@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: ...
+
+doc:
+  - audience: Runtime Dev
+    description: |      
+      Enables reliable benchmarking for constrained configurations like `MaxRank=1` while
+      maintaining compatibility with larger rank ranges.
+
+crates:
+  - name: pallet-core-fellowship
+    bump: minor
